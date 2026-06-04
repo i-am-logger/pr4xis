@@ -31,7 +31,9 @@ use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace,
     XmlNode,
 };
-use super::source_syntax::{EmptyForm, EntityReferenceForm, IntraTagWhitespace, SyntaxDecisions};
+use super::source_syntax::{
+    EmptyForm, EntityReferenceForm, IntraTagWhitespace, StartTagToken, SyntaxDecisions,
+};
 use alloc::collections::BTreeMap;
 
 /// Top-level entry point: emit a [`XmlDocument`] as W3C XML 1.0
@@ -107,9 +109,10 @@ fn write_element_exact(
     let intra_ws = node_decisions.and_then(|d| d.intra_tag_whitespace.as_ref());
     let attr_entity_refs = node_decisions.map(|d| &d.attr_entity_refs);
 
+    let start_tag_order = node_decisions.and_then(|d| d.start_tag_order.as_deref());
     out.push('<');
     write_name(out, &el.name);
-    write_start_tag_attributes(out, el, intra_ws, attr_entity_refs);
+    write_start_tag_attributes(out, el, intra_ws, attr_entity_refs, start_tag_order);
     if el.children.is_empty() {
         // The empty-element form is a recorded decision; default to the
         // canonical self-closing form when none is recorded.
@@ -141,50 +144,65 @@ fn write_element_exact(
 }
 
 /// Re-emit the `(S Attribute)* S?` portion of the start-tag (§3.1 \[40\]/\[44\])
-/// — namespaces then attributes — honouring the captured intra-tag white-space
-/// layout and per-attribute §4.6 entity-reference forms. With no decision it
-/// falls back to the canonical single-space separation (each `write_*_decl` /
-/// `write_attribute` opens with its own space), so canonical tags are
+/// — honouring the captured intra-tag white-space layout and per-attribute §4.6
+/// entity-reference forms. By default it emits namespaces then attributes; when
+/// `start_tag_order` is present (an INTERLEAVED start-tag — the USC `<uscDoc>`
+/// root) it emits the tokens in that EXACT source order instead, and the per-slot
+/// white-space / entity-ref runs key by that order. With no decision it falls
+/// back to the canonical single-space separation, so canonical tags are
 /// byte-identical to [`write_element`].
 fn write_start_tag_attributes(
     out: &mut String,
     el: &XmlElement,
     intra_ws: Option<&IntraTagWhitespace>,
     attr_entity_refs: Option<&BTreeMap<usize, EntityReferenceForm>>,
+    start_tag_order: Option<&[StartTagToken]>,
 ) {
-    // The attribute-like emit sequence the reader keyed its per-slot captures
-    // by: every `xmlns`/`xmlns:prefix` declaration then every regular attribute
-    // (mirroring `write_element`'s order). `namespaces` falls back to the single
-    // `namespace` slot when empty, exactly as the canonical writer does.
+    // The attribute-like emit sequence the reader keyed its per-slot captures by.
+    // When `start_tag_order` carries the exact source-order token sequence (an
+    // interleaved start-tag), use it verbatim; otherwise the canonical
+    // ns-then-attr order — every `xmlns`/`xmlns:prefix` declaration then every
+    // regular attribute (mirroring `write_element`'s order). `namespaces` falls
+    // back to the single `namespace` slot when empty, exactly as the canonical
+    // writer does.
     enum Slot<'a> {
         Ns(&'a XmlNamespace),
         Attr(&'a XmlAttribute),
     }
     let mut slots: Vec<Slot<'_>> = Vec::new();
-    if el.namespaces.is_empty() {
-        if let Some(ns) = &el.namespace {
-            slots.push(Slot::Ns(ns));
+    if let Some(order) = start_tag_order {
+        for token in order {
+            match token {
+                StartTagToken::Namespace(ns) => slots.push(Slot::Ns(ns)),
+                StartTagToken::Attribute(attr) => slots.push(Slot::Attr(attr)),
+            }
         }
     } else {
-        for ns in &el.namespaces {
-            slots.push(Slot::Ns(ns));
+        if el.namespaces.is_empty() {
+            if let Some(ns) = &el.namespace {
+                slots.push(Slot::Ns(ns));
+            }
+        } else {
+            for ns in &el.namespaces {
+                slots.push(Slot::Ns(ns));
+            }
         }
-    }
-    for attr in &el.attributes {
-        slots.push(Slot::Attr(attr));
+        for attr in &el.attributes {
+            slots.push(Slot::Attr(attr));
+        }
     }
 
     // The captured intra-tag white-space, when present, carries one
     // `before_attr` / `around_eq` entry per emitted slot. A mismatched length
-    // would mean the reader and writer disagree on the attribute-like sequence —
-    // the documented xmlns/attribute co-location limitation. Guard it; the
-    // OEWN-2025 corpus never trips it.
+    // would mean the reader and writer disagree on the attribute-like sequence;
+    // the `start_tag_order` complement keeps them aligned even when the source
+    // interleaves `xmlns` declarations with regular attributes. Guard it.
     if let Some(iw) = intra_ws {
         debug_assert_eq!(
             iw.before_attr.len(),
             slots.len(),
             "intra-tag white-space slot count must match the emitted attribute-like \
-             sequence (xmlns/attribute co-location is out of scope for this slice)"
+             sequence (start_tag_order keeps interleaved tags aligned)"
         );
         debug_assert_eq!(iw.around_eq.len(), slots.len());
     }

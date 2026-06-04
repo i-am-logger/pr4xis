@@ -80,6 +80,23 @@ pub struct UsCodeTitle {
     /// tables, mostly "TableOfDisposition" entries cross-referencing
     /// former statute sections.
     pub tables: Vec<UsCodeTable>,
+    /// Slice U4 (the document-wrapper backbone): the EXACT ordered child
+    /// sequence of the `<uscDoc>` root element as a semantic mixed-content tree
+    /// (W3C XML 1.0 §3.2.2) — `<meta>` then `<main>` (→ `<title>` → its `<num>` /
+    /// `<heading>` / title-level notes / `<toc>` / the `<chapter>` hierarchy
+    /// containers → `<section>`s). Every node is a named [`UsCodeContentNode`]
+    /// ([`UsCodeContentNode::Generic`] keyed by qualified name for the elements
+    /// the typed projections above do not model as their own kind — `<meta>`,
+    /// `<main>`, `<title>`, `<chapter>`, `<toc>`, …; `<ref>` / `<date>` / inline
+    /// ornaments / `<p>` as their typed variants), with `#PCDATA` captured
+    /// VERBATIM — NOT an opaque Infoset blob. This is the backbone-faithful source
+    /// of truth from which [`write_uslm`](super::super::lens::writer::write_uslm)
+    /// regenerates the whole `<uscDoc>` document; the flat `sections` /
+    /// `hierarchy` / `meta` / `tocs` / … projections are its derived views.
+    ///
+    /// `None` for a bare-`<section>` slice document (no `<uscDoc>` wrapper), which
+    /// `write_uslm` regenerates from the single-section path instead.
+    pub uscdoc_mixed: Option<UsCodeMixed>,
 }
 
 impl UsCodeTitle {

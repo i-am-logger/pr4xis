@@ -34,6 +34,7 @@ use super::super::corpus::*;
 use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
 use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
+use crate::social::software::markup::xml::parser::grammar as xml_grammar;
 use crate::social::software::markup::xml::reader as xml_reader;
 
 /// The XSD ontology instance projected from the bundled USLM-1.0.18
@@ -170,6 +171,10 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
                 meta: None,
                 tocs: Vec::new(),
                 tables: Vec::new(),
+                // A bare `<section>` slice has no `<uscDoc>` wrapper — `write_uslm`
+                // regenerates it from the single-section path, not the wrapper
+                // backbone.
+                uscdoc_mixed: None,
             });
         }
         return Err(UslmReadError::NoUsCodeRoot);
@@ -200,6 +205,28 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
     let mut tables = Vec::new();
     collect_tables_in(title_elem, &mut tables);
 
+    // Slice U4: the document-wrapper backbone. When the document root IS the
+    // `<uscDoc>` wrapper, capture its EXACT ordered child sequence as a semantic
+    // mixed-content tree (W3C XML 1.0 §3.2.2) so `write_uslm` can regenerate the
+    // whole `<meta>` / `<main>` / `<title>` / hierarchy / sections document
+    // node-for-node. A `<title>`-rooted slice (no `<uscDoc>`) leaves this `None`;
+    // the writer regenerates that shape from `sections` instead.
+    //
+    // The backbone is read from the FAITHFUL W3C XML 1.0 grammar parser
+    // (`parse_document`), NOT from `read_xml`: `read_xml` drops a §2.4 \[14\]
+    // `CharData` run that is whitespace-only per Unicode (a `<p>` whose only
+    // content is U+00A0 NO-BREAK SPACE in the title TOC tables), but the
+    // byte-exact `capture_uslm_complement` path diffs against the faithful DOM, so
+    // the backbone must preserve every genuine `#PCDATA` leaf verbatim. The two
+    // parsers agree on the element backbone; only `read_xml`'s whitespace-only
+    // trimming differs, which the faithful parse avoids.
+    let uscdoc_mixed = match xml_grammar::parse_document(xml_text.as_bytes()) {
+        Ok(faithful) if faithful.root.name.local == "uscDoc" => {
+            Some(read_mixed_content(&faithful.root))
+        }
+        _ => None,
+    };
+
     Ok(UsCodeTitle {
         identifier,
         number,
@@ -213,6 +240,7 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
         meta,
         tocs,
         tables,
+        uscdoc_mixed,
     })
 }
 
@@ -1286,13 +1314,14 @@ fn read_mixed_element(e: &XmlElement) -> UsCodeContentNode {
     } else if e.name.local == "p" && xsd_declares("p") {
         UsCodeContentNode::Para { attrs, children }
     } else {
-        // A USLM-namespace element the slice does not yet model as its own
-        // node kind. Carry it as a `Generic` node keyed by its EXACT local
-        // name so its children stay in position, no text is lost, and the
-        // writer reproduces the right element. (Promoting more of USLM's
-        // ~50-element vocabulary to typed kinds is the next slice.)
+        // An element the slice does not yet model as its own node kind. Carry it
+        // as a `Generic` node keyed by its EXACT QUALIFIED name (prefix kept, so
+        // a `<dc:title>` / `<dcterms:created>` in the `<meta>` block regenerates
+        // with its prefix, not a bare `<title>`) so its children stay in position,
+        // no text is lost, and the writer reproduces the right element. (Promoting
+        // more of USLM's ~50-element vocabulary to typed kinds is the next slice.)
         UsCodeContentNode::Generic {
-            name: e.name.local.clone(),
+            name: e.name.qualified(),
             attrs,
             children,
         }

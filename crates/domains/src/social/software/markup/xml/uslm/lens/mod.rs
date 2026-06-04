@@ -443,6 +443,10 @@ fn build_uslm_title(
             meta: None,
             tocs: Vec::new(),
             tables: Vec::new(),
+            // The XSD-grounded `XmlLens` path does not target byte-exact wrapper
+            // regeneration (that is the `read_uslm_title` /
+            // `capture_uslm_complement` path's job); no `<uscDoc>` backbone here.
+            uscdoc_mixed: None,
         });
     }
 
@@ -507,6 +511,9 @@ fn build_uslm_title(
         meta,
         tocs,
         tables,
+        // The XSD-grounded `XmlLens` path does not target byte-exact wrapper
+        // regeneration; that is the `read_uslm_title` path's job.
+        uscdoc_mixed: None,
     })
 }
 

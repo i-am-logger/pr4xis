@@ -148,9 +148,31 @@ impl std::error::Error for UslmWriteError {}
 /// structure the writer does not regenerate — the honest-partial boundary that
 /// keeps the backbone diff fail-closed instead of dropping content.
 pub fn write_uslm(title: &UsCodeTitle) -> Result<XmlDocument, UslmWriteError> {
-    // The slice covers the section-slice document shape: exactly one section,
-    // emitted as the root. (A full `<uscDoc>`/`<title>` wrapper is a later
-    // slice — its meta/main backbone is not yet regenerated.)
+    // SLICE U4 — the full `<uscDoc>` document wrapper. When the reader captured
+    // the `<uscDoc>` root's backbone (`uscdoc_mixed`), regenerate the WHOLE
+    // document from it: the `<meta>` block, `<main>` → `<title>` → its `<num>` /
+    // `<heading>` / title-level notes / `<toc>` / the `<chapter>` hierarchy
+    // containers grouping the multi-section list. Every node regenerates from the
+    // semantic mixed tree node-for-node — the same machinery the §-level mixed
+    // content uses (`mixed_element` / `content_node`), so the document is
+    // backbone-faithful end-to-end. The root start-tag's interleaved
+    // `xmlns`/attribute sequence and the inter-element white-space are restored by
+    // the generic complement (`AttributeOverrides` + `start_tag_order` +
+    // `ContentWhitespace`), so the regenerated `<uscDoc>` carries no attributes
+    // here.
+    if let Some(uscdoc) = &title.uscdoc_mixed {
+        let root = element("uscDoc", Vec::new(), mixed_children(uscdoc));
+        return Ok(XmlDocument {
+            version: "1.0".to_string(),
+            encoding: Some("UTF-8".to_string()),
+            doctype: None,
+            root,
+        });
+    }
+
+    // The bare-`<section>` slice document shape (no `<uscDoc>` wrapper): exactly
+    // one section, emitted as the root, regenerated from its typed model (slices
+    // U1–U3).
     let [section] = title.sections.as_slice() else {
         return Err(UslmWriteError::UncoveredFamily {
             family: "title".to_string(),
@@ -547,6 +569,11 @@ fn content_node(node: &UsCodeContentNode) -> XmlNode {
 /// Build a mixed-content child element: its source attributes (in order) plus
 /// its own regenerated mixed children. The attribute byte sequence is restored
 /// by the complement, so the typed `(name, value)` pairs need only be present.
+///
+/// `name` is a QUALIFIED name — a `Generic` node carrying a prefixed element
+/// (`<dc:title>`, `<dcterms:created>` in the `<meta>` block) keeps its prefix, so
+/// the name is split into [`XmlName::with_prefix`] to match the source DOM's
+/// `(prefix, local)` exactly (the positional backbone diff compares full names).
 fn content_element(
     name: &str,
     attrs: &[super::super::corpus::UsCodeContentAttr],
@@ -554,7 +581,7 @@ fn content_element(
 ) -> XmlElement {
     let attributes = attrs.iter().map(|a| attr(&a.name, &a.value)).collect();
     let kids = children.iter().map(content_node).collect();
-    element(name, attributes, kids)
+    qualified_element(name, attributes, kids)
 }
 
 /// The USLM/XHTML tag name for an inline ornament kind — the inverse of
@@ -575,12 +602,36 @@ fn inline_tag(kind: InlineKind) -> &'static str {
 
 // ── small XML-ontology constructors (mirrors lmf/writer.rs) ──────────────────
 
-/// Build a namespace-free [`XmlElement`]. The typed USC model carries no
-/// namespace declarations of its own — the root's `xmlns` set is restored by
-/// the generic [`DocumentResidue`] complement.
+/// Build a namespace-free [`XmlElement`] from an UNPREFIXED local name. The
+/// typed USC model carries no namespace declarations of its own — the root's
+/// `xmlns` set is restored by the generic [`DocumentResidue`] complement.
 fn element(name: &str, attributes: Vec<XmlAttribute>, children: Vec<XmlNode>) -> XmlElement {
     XmlElement {
         name: XmlName::new(name),
+        namespace: None,
+        namespaces: Vec::new(),
+        attributes,
+        children,
+    }
+}
+
+/// Build an [`XmlElement`] from a QUALIFIED name — a prefixed name (`dc:title`,
+/// `dcterms:created`, `xsi:foo`) splits into [`XmlName::with_prefix`] so the
+/// regenerated element's `(prefix, local)` matches the source DOM exactly (the
+/// positional backbone diff compares full names, not just the local part); an
+/// unprefixed name uses [`XmlName::new`] verbatim. Mirrors [`attr`]'s name
+/// handling.
+fn qualified_element(
+    name: &str,
+    attributes: Vec<XmlAttribute>,
+    children: Vec<XmlNode>,
+) -> XmlElement {
+    let xml_name = match name.split_once(':') {
+        Some((prefix, local)) => XmlName::with_prefix(prefix, local),
+        None => XmlName::new(name),
+    };
+    XmlElement {
+        name: xml_name,
         namespace: None,
         namespaces: Vec::new(),
         attributes,
@@ -1546,6 +1597,266 @@ mod tests {
         assert!(
             matches!(err, UslmWriteError::UncoveredFamily { ref family, .. } if family == "continuation"),
             "got {err:?}"
+        );
+    }
+
+    // ── SLICE U4: the full `<uscDoc>` document wrapper ───────────────────────
+
+    /// The real on-disk Title 1 USLM file, with its §2.11 \[2.11\] end-of-line
+    /// normalisation applied (`\r\n` → `\n`). `None` when the corpus file is
+    /// absent (graceful skip).
+    ///
+    /// The on-disk file carries two `#xD#xA` (CRLF) line endings — both in the
+    /// PROLOG, at the `?>` boundaries of the XML declaration and the
+    /// `<?xml-stylesheet?>` PI. The W3C XML 1.0 §2.11 end-of-line handling the
+    /// parser applies BEFORE the grammar descent normalises every `#xD#xA`/`#xD`
+    /// to `#xA`, so the reconstructed bytes carry `#xA` there; recovering the
+    /// original CRLF is a SEPARATE generic §2.11 concrete-syntax residue the byte
+    /// kernel does not yet model (NOT a USLM family). This LF-normalised view is
+    /// the genuine Title 1 document content modulo that 2-byte prolog EOL species,
+    /// so it is the honest real subset the whole-`<uscDoc>` byte-exact gate runs
+    /// over.
+    fn real_title1_lf_normalized() -> Option<String> {
+        let path = workspace_root()
+            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
+        let raw = std::fs::read_to_string(&path).ok()?;
+        Some(raw.replace("\r\n", "\n").replace('\r', "\n"))
+    }
+
+    /// HARD BYTE-EXACT GATE (slice U4): the WHOLE real Title 1 `<uscDoc>`
+    /// document — `<?xml-stylesheet?>` prolog PI, the interleaved-attribute
+    /// `<uscDoc>` root, the `<meta>` block, `<main>` → `<title>` (its `<num>` /
+    /// `<heading>` / title-level `<note>`s / `<toc>` / the three `<chapter>`
+    /// hierarchy containers grouping every `<section>`) — reconstructs
+    /// BYTE-FOR-BYTE from `capture_uslm_complement` then `reconstruct_uslm_source`,
+    /// over the §2.11-LF-normalised on-disk file (see
+    /// [`real_title1_lf_normalized`] for the prolog-CRLF carve-out). This is the
+    /// U4 proof that `write_uslm` regenerates the full document wrapper backbone
+    /// from the typed [`UsCodeTitle`] + the generic complement — the
+    /// `<?xml-stylesheet?>` PI via the prolog-`Misc*` capture, the interleaved
+    /// `<uscDoc>` start-tag via `start_tag_order`, and every `<meta>` / `<main>` /
+    /// `<title>` / `<chapter>` / `<section>` element via the semantic mixed-content
+    /// backbone.
+    ///
+    /// On failure it reports the EXACT first byte-diff (a bounded 80-byte window)
+    /// so an uncaptured concrete-syntax species or uncovered family names itself.
+    #[test]
+    fn real_title1_full_uscdoc_reconstruct_is_byte_exact() {
+        let Some(frag) = real_title1_lf_normalized() else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        // Sanity: this really is the full `<uscDoc>` document (the wrapper this
+        // slice targets), not a section slice — else a corpus change silently
+        // weakened the gate.
+        assert!(
+            frag.contains("<?xml-stylesheet")
+                && frag.contains("<uscDoc ")
+                && frag.contains("<meta>")
+                && frag.contains("<main>")
+                && frag.contains("<chapter"),
+            "the U4 gate must run over the full <uscDoc> document wrapper"
+        );
+        assert_byte_exact_gate(&frag);
+    }
+
+    /// The wrapper regenerates the `<uscDoc>` / `<meta>` / `<main>` / `<title>`
+    /// SKELETON from the captured backbone — proving the document-wrapper shape
+    /// (not just a single section) is reconstructed. Asserts the regenerated tree
+    /// has the `<uscDoc>` root whose first two element children are `<meta>` then
+    /// `<main>`, and that `<main>` carries a `<title>` whose first two element
+    /// children are `<num>` then `<heading>`.
+    #[test]
+    fn full_uscdoc_wrapper_skeleton_regenerates() {
+        let Some(frag) = real_title1_lf_normalized() else {
+            return;
+        };
+        let title = read_uslm_title(&frag).expect("read full uscDoc");
+        let doc = write_uslm(&title).expect("the full <uscDoc> wrapper is covered in slice U4");
+        assert_eq!(doc.root.name.local, "uscDoc", "root is <uscDoc>");
+        let root_kids: Vec<&str> = element_child_names(&doc.root);
+        assert_eq!(
+            root_kids,
+            ["meta", "main"],
+            "the <uscDoc> root regenerates <meta> then <main>"
+        );
+        let main = find_child(&doc.root, "main").expect("<main> regenerated");
+        let title_el = find_child(main, "title").expect("<title> regenerated under <main>");
+        let title_kids = element_child_names(title_el);
+        assert_eq!(
+            &title_kids[..2],
+            ["num", "heading"],
+            "the <title> regenerates <num> then <heading> first"
+        );
+    }
+
+    /// META-TEST (slice U4 has TEETH at the WRAPPER level): capture the full real
+    /// `<uscDoc>` document, then CORRUPT a deep #PCDATA Text leaf in the captured
+    /// backbone (the FIRST text leaf anywhere in `uscdoc_mixed`) and assert the
+    /// byte-exact reconstruction NO LONGER equals the source. The U4 analogue of
+    /// the §/subdivision/note corruption meta-tests: proves the wrapper writer
+    /// reproduces the EXACT text of a deep document leaf, not merely a backbone
+    /// the positional diff could reconcile.
+    #[test]
+    fn corrupted_uscdoc_backbone_breaks_byte_exact_gate() {
+        let Some(frag) = real_title1_lf_normalized() else {
+            return;
+        };
+        let (mut title, complement) =
+            capture_uslm_complement(&frag).expect("capture the full <uscDoc> document");
+
+        // Control: the uncorrupted capture reconstructs byte-exact.
+        let clean = reconstruct_uslm_source(&title, &complement).expect("clean reconstruct");
+        assert_eq!(
+            clean,
+            frag.as_bytes(),
+            "the uncorrupted full-<uscDoc> capture must reconstruct byte-exact (control)"
+        );
+
+        // Corrupt the first #PCDATA Text leaf in the document backbone. The
+        // element BACKBONE stays identical, so the complement's pre-order walk
+        // still succeeds, but a faithful writer must now emit different bytes.
+        let uscdoc = title
+            .uscdoc_mixed
+            .as_mut()
+            .expect("the full document carries a captured <uscDoc> backbone");
+        let corrupted = corrupt_first_text_in(&mut uscdoc.nodes);
+        assert!(
+            corrupted,
+            "the <uscDoc> backbone must carry a #PCDATA Text leaf to corrupt"
+        );
+
+        let out = reconstruct_uslm_source(&title, &complement)
+            .expect("reconstruct still runs on a corrupted-but-backbone-valid model");
+        assert_ne!(
+            out,
+            frag.as_bytes(),
+            "a corrupted document-backbone #PCDATA value MUST diverge the byte-exact \
+             reconstruction — the U4 wrapper gate has teeth"
+        );
+    }
+
+    /// The `<?xml-stylesheet?>` prolog PI is GENUINELY captured into the prolog
+    /// `Misc*` residue (a vacuous round-trip that dropped it would be a lie), and
+    /// the interleaved `<uscDoc>` start-tag is GENUINELY captured as a
+    /// non-canonical `start_tag_order` (proving the co-location handling fires).
+    /// Asserts the generic byte-kernel additions are exercised by the real
+    /// document, not merely present.
+    #[test]
+    fn full_uscdoc_prolog_pi_and_root_colocation_are_captured() {
+        let Some(frag) = real_title1_lf_normalized() else {
+            return;
+        };
+        let (_title, complement) =
+            capture_uslm_complement(&frag).expect("capture the full <uscDoc> document");
+        // (1) The prolog `Misc*` residue carries the `<?xml-stylesheet?>` PI in
+        // position (the generic prolog-PI byte-kernel addition).
+        assert!(
+            complement
+                .syntax_decisions
+                .prolog()
+                .after_xml_decl
+                .contains("<?xml-stylesheet"),
+            "the <?xml-stylesheet?> prolog PI must be captured in the prolog Misc* residue"
+        );
+        // (2) The `<uscDoc>` root (pre-order element index 0) records a
+        // non-canonical `start_tag_order` — an `xmlns` decl follows the
+        // `xsi:schemaLocation`/`xml:lang`/`identifier` attributes, so the
+        // co-location complement fired.
+        let root_decisions = complement
+            .syntax_decisions
+            .get(0)
+            .expect("the interleaved <uscDoc> root records concrete-syntax decisions");
+        assert!(
+            root_decisions.start_tag_order.is_some(),
+            "the <uscDoc> root's interleaved xmlns/attribute order must be captured \
+             as a non-canonical start_tag_order"
+        );
+    }
+
+    /// The element-child local names of `el`, in document order (white-space
+    /// `Text` siblings elided) — a small test helper for the wrapper skeleton
+    /// assertions.
+    fn element_child_names(el: &XmlElement) -> Vec<&str> {
+        el.children
+            .iter()
+            .filter_map(|n| match n {
+                XmlNode::Element(e) => Some(e.name.local.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The first element child of `el` whose local name is `name`, if any.
+    fn find_child<'a>(el: &'a XmlElement, name: &str) -> Option<&'a XmlElement> {
+        el.children.iter().find_map(|n| match n {
+            XmlNode::Element(e) if e.name.local == name => Some(e),
+            _ => None,
+        })
+    }
+
+    /// HONEST RED CARVE-OUT (slice U4): the LITERAL on-disk Title 1 file (NOT
+    /// LF-normalised) does NOT reconstruct byte-exact — and the ONLY divergence is
+    /// the §2.11 \[2.11\] end-of-line form in the PROLOG: the file's two `#xD#xA`
+    /// (CRLF) line endings (at the XML-declaration and `<?xml-stylesheet?>` PI
+    /// `?>` boundaries) re-emit as `#xA` because the parser applies W3C XML 1.0
+    /// §2.11 end-of-line normalisation before the grammar descent and the byte
+    /// kernel does not yet model the original CRLF. This pins the carve-out — the
+    /// FIRST divergence is at the prolog CRLF, and the reconstruction is exactly
+    /// 2 bytes shorter (the two stripped `#xD`) — so the gap can never silently
+    /// grow into a dropped USLM family without this test going red.
+    ///
+    /// This is a GENERIC byte-kernel follow-up (a §2.11 prolog-EOL residue),
+    /// NOT a USLM family: the whole-document USLM backbone IS byte-exact
+    /// ([`real_title1_full_uscdoc_reconstruct_is_byte_exact`] proves it over the
+    /// LF-normalised real file).
+    #[test]
+    fn literal_title1_diverges_only_at_prolog_crlf() {
+        let path = workspace_root()
+            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
+        let Ok(raw) = std::fs::read(&path) else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        let src = match String::from_utf8(raw) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        // The on-disk file genuinely carries CRLF in the prolog (else this gate is
+        // vacuous — a corpus re-export to pure LF would make the literal file
+        // already byte-exact, which the LF gate covers).
+        assert!(
+            src.contains("?>\r\n"),
+            "the on-disk Title 1 file must carry the prolog CRLF this carve-out documents"
+        );
+        let (title, complement) =
+            capture_uslm_complement(&src).expect("capture the literal on-disk file");
+        let out = reconstruct_uslm_source(&title, &complement).expect("reconstruct");
+        let sb = src.as_bytes();
+        // Exactly the two stripped prolog `#xD` bytes shorter — proving no USLM
+        // content was lost, only the §2.11-normalised CRLF.
+        assert_eq!(
+            out.len(),
+            sb.len() - 2,
+            "the reconstruction must be exactly the two prolog CRLF `#xD` bytes shorter \
+             (no dropped USLM content)"
+        );
+        // The FIRST byte-diff is the prolog CRLF — `out` has `#xA` where the source
+        // had `#xD` (the `\r` of the first `?>\r\n`).
+        let first = out
+            .iter()
+            .zip(sb.iter())
+            .position(|(a, b)| a != b)
+            .expect("the literal file differs (CRLF carve-out)");
+        assert_eq!(
+            (out[first], sb[first]),
+            (b'\n', b'\r'),
+            "the first divergence must be the prolog CRLF (#xA emitted for source #xD)"
+        );
+        // And it is in the PROLOG (before the root `<uscDoc>` start-tag), so the
+        // carve-out cannot mask a divergence inside the document body.
+        let root_start = src.find("<uscDoc").expect("root present");
+        assert!(
+            first < root_start,
+            "the only divergence must be in the prolog, before the <uscDoc> root"
         );
     }
 }

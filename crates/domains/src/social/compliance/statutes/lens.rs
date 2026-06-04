@@ -374,6 +374,7 @@ pub fn sample_uslm_title() -> UsCodeTitle {
         meta: None,
         tocs: Vec::new(),
         tables: Vec::new(),
+        uscdoc_mixed: None,
     }
 }
 

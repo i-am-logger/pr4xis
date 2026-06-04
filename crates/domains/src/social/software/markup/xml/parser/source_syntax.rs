@@ -55,50 +55,60 @@ use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlNamespace, XmlNode,
 };
 
-/// The document-level prolog/epilog white-space the Information Set does NOT
-/// carry — the §2.8 production \[27\] `Misc` `S` runs the Infoset discards
-/// because they sit OUTSIDE the document element (Cowan & Tobin 2004 §2.1 keeps
-/// document-level *children* only for the root element, not the surrounding
-/// white-space). Captured so byte-exact reconstruction can re-emit them.
+/// The document-level prolog/epilog `Misc*` run the Information Set does NOT
+/// carry — the §2.8 production \[27\] `Misc ::= Comment | PI | S` runs the
+/// Infoset discards because they sit OUTSIDE the document element (Cowan & Tobin
+/// 2004 §2.1 keeps document-level *children* only for the root element, not the
+/// surrounding `Misc*`). Captured so byte-exact reconstruction can re-emit them.
 ///
-/// Each field holds the EXACT consumed substring (after the parser's §2.11
-/// end-of-line normalization `\r\n`/`\r` → `\n`, which is the only transform
-/// applied before the grammar descent). Empty means "no white-space here":
+/// Each field holds the EXACT consumed `Misc*` substring VERBATIM — including any
+/// §2.6 \[16\] processing instruction or §2.5 \[15\] comment, not only §2.3 \[3\]
+/// `S` white-space — after the parser's §2.11 end-of-line normalization
+/// `\r\n`/`\r` → `\n` (the only transform applied before the grammar descent).
+/// Empty means "no `Misc*` here":
 ///
-/// - `after_xml_decl` — `S` consumed AFTER the XML declaration `<?xml …?>` and
-///   BEFORE the DOCTYPE (or, when there is no DOCTYPE, before the root element).
-/// - `after_doctype` — `S` consumed AFTER the DOCTYPE `<!DOCTYPE …>` and BEFORE
-///   the root element. Always empty when the document has no DOCTYPE.
-/// - `after_root` — `S` consumed AFTER the root element's end-tag (the §2.1
+/// - `after_xml_decl` — `Misc*` consumed AFTER the XML declaration `<?xml …?>`
+///   and BEFORE the DOCTYPE (or, when there is no DOCTYPE, before the root
+///   element). This is where every USC USLM title's `<?xml-stylesheet …?>`
+///   processing instruction (§2.6 \[16\] `PI`) lives — captured here in position.
+/// - `after_doctype` — `Misc*` consumed AFTER the DOCTYPE `<!DOCTYPE …>` and
+///   BEFORE the root element. Always empty when the document has no DOCTYPE.
+/// - `after_root` — `Misc*` consumed AFTER the root element's end-tag (the §2.1
 ///   production \[1\] `document ::= prolog element Misc*` trailing `Misc*`).
 ///
-/// # Limitation (prolog/epilog Comment / PI)
+/// # Additivity (no regression for prolog-PI-free documents)
 ///
-/// A `Misc` item may also be a Comment or PI (§2.8 \[27\]
-/// `Misc ::= Comment | PI | S`). Those are DROPPED from the Infoset at the
-/// document level by the existing `parse_misc_star` handling, so they are not
-/// byte-exactly reconstructable regardless. These fields therefore capture ONLY
-/// the white-space run found at each position when it is pure `S`; if a Comment
-/// or PI interrupts the run the capture covers the white-space up to that item,
-/// and the dropped item makes a full byte-exact round-trip impossible (a
-/// separate, later concrete-syntax slice). The realistic WN-LMF case is pure
-/// white-space between the XML declaration, the DOCTYPE, and the root element.
+/// For a pure-`S` `Misc*` — the WN-LMF case: XMLDecl, `S`, DOCTYPE, `S`, root,
+/// `S` — the verbatim run IS its leading white-space, so a document carrying no
+/// prolog/epilog PI or comment is byte-identical to the previous white-space-only
+/// capture. The PI/comment bytes are added ONLY when the source actually carries
+/// them (USC), so WordNet is unaffected.
+///
+/// # Limitation (§2.11 end-of-line form)
+///
+/// The captured run carries `#xA` line endings because §2.11 normalization runs
+/// before the grammar descent. A source that wrote `#xD#xA` (CRLF) in the prolog
+/// — as the on-disk USC title does at its two `?>` boundaries — re-emits as `#xA`
+/// here; recovering the original CRLF is a separate §2.11 concrete-syntax residue
+/// the byte kernel does not yet model.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct PrologDecisions {
-    /// `S` after the XML declaration, before the DOCTYPE-or-root.
+    /// `Misc*` after the XML declaration, before the DOCTYPE-or-root (the
+    /// `<?xml-stylesheet …?>` PI position for USC titles).
     pub after_xml_decl: String,
-    /// `S` after the DOCTYPE, before the root element (empty when no DOCTYPE).
+    /// `Misc*` after the DOCTYPE, before the root element (empty when no
+    /// DOCTYPE).
     pub after_doctype: String,
-    /// `S` after the root element's end-tag (the epilog `Misc*`).
+    /// `Misc*` after the root element's end-tag (the epilog `Misc*`).
     pub after_root: String,
 }
 
 impl PrologDecisions {
-    /// `true` when no prolog/epilog white-space was captured — the canonical
+    /// `true` when no prolog/epilog `Misc*` was captured — the canonical
     /// case, for which the byte-exact serializer emits nothing extra.
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -123,6 +133,35 @@ pub enum EmptyForm {
     Explicit,
 }
 
+/// One token of a start-tag's `(S Attribute)*` sequence in EXACT source order —
+/// either a namespace declaration (`xmlns` / `xmlns:prefix`, Bray, Hollander,
+/// Layman & Tobin 2009 §3) or a regular §3.1 \[41\] `Attribute`. Carries the
+/// full token so the byte-exact serializer can re-emit the start-tag tokens in
+/// the order the source wrote them, even when an `xmlns` declaration is
+/// INTERLEAVED with non-`xmlns` attributes (the USC `<uscDoc>` root, which writes
+/// `xsi:schemaLocation` / `xml:lang` / `identifier` BEFORE its `xmlns` decls).
+///
+/// XML attribute order is NOT an Information-Set item (Cowan & Tobin 2004 §2.3
+/// defines the attributes as an unordered SET), so this is concrete-syntax
+/// residue — captured in the [`SyntaxDecisions`] complement, never on the Infoset
+/// [`XmlElement`] (which keeps the `namespaces` / `attributes` SETS, unordered
+/// relative to each other). It is recorded ONLY when the source order is
+/// non-canonical — i.e. an `xmlns` declaration does not strictly precede every
+/// regular attribute — so a canonically-ordered tag (every element WordNet
+/// writes, and most USC elements) records nothing and is byte-identical to the
+/// previous ns-then-attr emit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum StartTagToken {
+    /// An `xmlns` / `xmlns:prefix` namespace declaration (§3).
+    Namespace(XmlNamespace),
+    /// A regular §3.1 \[41\] `Attribute`.
+    Attribute(XmlAttribute),
+}
+
 /// The §2.3 \[3\] `S` (white-space) runs INSIDE a start-tag (`STag` / the
 /// `EmptyElemTag` prefix) the Information Set discards — W3C XML 1.0 Fifth
 /// Edition §3.1 productions \[40\] `STag ::= '<' Name (S Attribute)* S? '>'` and
@@ -140,15 +179,18 @@ pub enum EmptyForm {
 /// `=`. Every field empty (the canonical single-space-separated single-line
 /// tag) emits nothing extra, so canonical tags are unaffected.
 ///
-/// # Limitation (xmlns/attribute co-location)
+/// # xmlns/attribute co-location
 ///
-/// The serializer emits all `namespaces` (the `xmlns` decls) BEFORE all regular
-/// `attributes`, whereas the source may interleave them. When a start-tag mixes
-/// the two, the emit order diverges from source order and the per-slot runs land
-/// on the wrong items. The OEWN-2025 corpus never co-locates an `xmlns`
-/// declaration with non-`xmlns` attributes on one element, so this is out of
-/// scope for this slice (a `debug_assert` in the serializer guards the count;
-/// the reordering case is a documented follow-up).
+/// By default the serializer emits all `namespaces` (the `xmlns` decls) BEFORE
+/// all regular `attributes`, and the per-slot runs key by that ns-then-attr emit
+/// order. When the source INTERLEAVES the two — the USC `<uscDoc>` root writes
+/// `xsi:schemaLocation` / `xml:lang` / `identifier` BEFORE its `xmlns` decls —
+/// the element's [`NodeDecisions::start_tag_order`] carries the exact ordered
+/// [`StartTagToken`] sequence, and the byte-exact serializer keys the per-slot
+/// `before_attr` / `around_eq` runs by THAT order instead. So the runs always
+/// land on the right items. A canonically-ordered tag records no
+/// `start_tag_order` (the OEWN-2025 corpus never co-locates), and the ns-then-attr
+/// default is used unchanged — the interleave handling is purely additive.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
@@ -315,6 +357,15 @@ pub struct NodeDecisions {
     /// children (0-based child position). Absent key = that text node held no
     /// resolved reference.
     pub text_entity_refs: BTreeMap<usize, EntityReferenceForm>,
+    /// The EXACT ordered start-tag token sequence ([`StartTagToken`]) — recorded
+    /// ONLY when the source INTERLEAVES an `xmlns` declaration with non-`xmlns`
+    /// attributes (the USC `<uscDoc>` root). When present, the byte-exact
+    /// serializer emits these tokens in this order, and keys the per-slot
+    /// intra-tag white-space / attribute-value entity-reference runs by it, rather
+    /// than by the default `namespaces`-then-`attributes` emit order. `None` for a
+    /// canonically-ordered start-tag (every WordNet element, most USC elements),
+    /// so the default emit is unchanged — the field is purely additive.
+    pub start_tag_order: Option<Vec<StartTagToken>>,
 }
 
 /// A document's concrete-syntax decisions, keyed by 0-based PRE-ORDER element

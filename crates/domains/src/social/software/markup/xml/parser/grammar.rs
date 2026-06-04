@@ -32,7 +32,7 @@ use super::super::ontology::{
 };
 use super::source_syntax::{
     CaptureCtx, EmptyForm, EntityName, EntityReferenceForm, IntraTagWhitespace, NodeDecisions,
-    PrologDecisions, SyntaxDecisions,
+    PrologDecisions, StartTagToken, SyntaxDecisions,
 };
 
 /// Failure modes when parsing XML 1.0 bytes.
@@ -262,15 +262,16 @@ fn parse_document_inner(
     };
     let root = parse_element(&mut cursor, &entity_map, strict_entity_declared, capture)?;
     // §2.1 \[1\] `document ::= prolog element Misc*` — the trailing epilog
-    // `Misc*`. Capture the leading `S` run for byte-exact reconstruction. The
-    // explicit `skip_whitespace` is redundant after `parse_misc_star` (which
-    // already consumes leading `S`) but kept for the EOF assertion's clarity.
+    // `Misc*`. Capture the FULL verbatim run (§2.6 \[16\] PI / §2.5 \[15\] Comment
+    // / §2.3 \[3\] S) for byte-exact reconstruction; for a pure-`S` epilog this is
+    // the leading white-space, so documents with no epilog PI/Comment are
+    // unaffected. The explicit `skip_whitespace` is redundant after
+    // `parse_misc_star` (which already consumes leading `S`) but kept for the EOF
+    // assertion's clarity.
     let after_root_start = cursor.pos;
     parse_misc_star(&mut cursor)?;
     cursor.skip_whitespace();
-    let after_root = cursor
-        .leading_whitespace_since(after_root_start)
-        .to_string();
+    let after_root = cursor.misc_run_since(after_root_start).to_string();
     if !cursor.is_eof() {
         return Err(cursor.syntax_error("end of document", "trailing content"));
     }
@@ -473,19 +474,23 @@ impl<'a> Cursor<'a> {
         run
     }
 
-    /// The §2.3 \[3\] `S` (white-space) run the source span `[start, self.pos)`
-    /// opens with — the leading white-space the byte-exact serialized reverse
-    /// lens must re-emit at a prolog/epilog `Misc` position. For a pure-`S` span
-    /// (the realistic WN-LMF case) this is the whole span; if a Comment or PI
-    /// interrupted the run the slice stops at that item (which the Infoset has
-    /// already dropped — see [`PrologDecisions`](super::source_syntax::PrologDecisions)).
-    fn leading_whitespace_since(&self, start: usize) -> &'a str {
-        let span = &self.input[start..self.pos];
-        let n = span
-            .bytes()
-            .take_while(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
-            .count();
-        &span[..n]
+    /// The ENTIRE source span `[start, self.pos)` verbatim — the full §2.8 \[27\]
+    /// `Misc*` run (`Misc ::= Comment | PI | S`) the prolog/epilog consumed,
+    /// INCLUDING any Comment or processing-instruction the Information Set drops
+    /// at the document level (Cowan & Tobin 2004 §2.1 keeps document-level
+    /// *children* only for the root element). Used by the byte-exact serialized
+    /// reverse lens to re-emit a prolog/epilog `Misc*` that is NOT pure white-space
+    /// — e.g. the `<?xml-stylesheet ...?>` PI every USC USLM title carries (§2.6
+    /// \[16\] `PI`).
+    ///
+    /// For a pure-`S` `Misc*` (the WN-LMF case — XMLDecl, `S`, DOCTYPE, `S`, root)
+    /// this is byte-identical to the leading white-space, so a document with no
+    /// prolog/epilog PI or Comment is unaffected: the span IS its leading
+    /// white-space. The slice is taken from the §2.11-normalized input, so it
+    /// carries `#xA` line endings (the original `#xD#xA` form is a separate §2.11
+    /// concrete-syntax residue the byte kernel does not yet model).
+    fn misc_run_since(&self, start: usize) -> &'a str {
+        &self.input[start..self.pos]
     }
 
     fn require_whitespace(&mut self, context: &str) -> Result<(), XmlParseError> {
@@ -566,16 +571,20 @@ fn parse_prolog(c: &mut Cursor<'_>) -> Result<(PrologParts, PrologWhitespace), X
         ("1.0".into(), None, None)
     };
     // §2.8 \[27\] Misc* after the XMLDecl, before the (optional) DOCTYPE or the
-    // root. Capture the leading `S` run for byte-exact prolog reconstruction.
+    // root. Capture the FULL verbatim `Misc*` run (§2.6 \[16\] PI / §2.5 \[15\]
+    // Comment / §2.3 \[3\] S) for byte-exact prolog reconstruction — the
+    // `<?xml-stylesheet ...?>` PI every USC USLM title carries lives here. For a
+    // pure-`S` run (WN-LMF) this equals the leading white-space, so the prolog
+    // capture is unchanged for documents with no prolog PI/Comment.
     let after_decl_start = c.pos;
     parse_misc_star(c)?;
-    let after_xml_decl = c.leading_whitespace_since(after_decl_start).to_string();
+    let after_xml_decl = c.misc_run_since(after_decl_start).to_string();
     let doctype = if c.starts_with("<!DOCTYPE") {
         let dt = parse_doctype(c)?;
         // §2.8 \[27\] Misc* after the DOCTYPE, before the root.
         let after_doctype_start = c.pos;
         parse_misc_star(c)?;
-        let after_doctype = c.leading_whitespace_since(after_doctype_start).to_string();
+        let after_doctype = c.misc_run_since(after_doctype_start).to_string();
         (Some(dt), after_doctype)
     } else {
         // No DOCTYPE — `after_doctype` is vacuously empty.
@@ -1781,6 +1790,13 @@ fn parse_element(
     let mut intra_ws = capturing.then(IntraTagWhitespace::default);
     let mut attr_refs: BTreeMap<usize, EntityReferenceForm> = BTreeMap::new();
     let mut attr_slot: usize = 0;
+    // The EXACT ordered start-tag token sequence (every `xmlns` decl AND every
+    // regular attribute, in source order) — recorded for the byte-exact
+    // serialized reverse lens so an INTERLEAVED start-tag (the USC `<uscDoc>`
+    // root: attributes before its `xmlns` decls) re-emits in source order. Only
+    // built when capturing; only retained when non-canonical (see
+    // `record_start_tag_decisions`).
+    let mut start_tag_tokens: Vec<StartTagToken> = Vec::new();
 
     loop {
         // §3.1 [40] `STag ::= '<' Name (S Attribute)* S? '>'` (and [44]
@@ -1804,8 +1820,16 @@ fn parse_element(
             };
             // A self-closing childless element keeps the canonical empty-element
             // form (no `empty_form` decision), but it may still carry non-canonical
-            // intra-tag white-space and attribute entity-ref forms — record those.
-            record_start_tag_decisions(capture, my_index, &intra_ws, &attr_refs, None);
+            // intra-tag white-space, attribute entity-ref forms, and an interleaved
+            // start-tag token order — record those.
+            record_start_tag_decisions(
+                capture,
+                my_index,
+                &intra_ws,
+                &attr_refs,
+                &start_tag_tokens,
+                None,
+            );
             return Ok(element);
         }
         if c.starts_with(">") {
@@ -1847,7 +1871,11 @@ fn parse_element(
             } else {
                 None
             };
-            namespaces.push(XmlNamespace { prefix, uri: value });
+            let ns = XmlNamespace { prefix, uri: value };
+            if capturing {
+                start_tag_tokens.push(StartTagToken::Namespace(ns.clone()));
+            }
+            namespaces.push(ns);
         } else {
             // W3C XML 1.0 §3.1 well-formedness constraint Unique Att
             // Spec — the same attribute name (qualified) MUST NOT
@@ -1858,10 +1886,14 @@ fn parse_element(
                     name: attr_name.qualified(),
                 });
             }
-            attributes.push(XmlAttribute {
+            let attr = XmlAttribute {
                 name: attr_name,
                 value,
-            });
+            };
+            if capturing {
+                start_tag_tokens.push(StartTagToken::Attribute(attr.clone()));
+            }
+            attributes.push(attr);
         }
     }
 
@@ -1895,6 +1927,7 @@ fn parse_element(
         my_index,
         &intra_ws,
         &attr_refs,
+        &start_tag_tokens,
         Some((empty_form, text_entity_refs)),
     );
 
@@ -1919,11 +1952,19 @@ fn parse_element(
 /// `content` is `None` for the self-closing early-return (no `empty_form`, no
 /// char-data refs yet), `Some((empty_form, text_entity_refs))` for the explicit
 /// `STag content ETag` exit.
+///
+/// `start_tag_tokens` is the start-tag's `(S Attribute)*` sequence in EXACT
+/// source order; it is recorded into [`NodeDecisions::start_tag_order`] ONLY when
+/// the order is NON-CANONICAL — i.e. an `xmlns` declaration does not strictly
+/// precede every regular attribute ([`start_tag_order_is_canonical`]). A
+/// canonically-ordered tag records nothing, so the byte-exact serializer's
+/// default ns-then-attr emit is unchanged (WordNet, most USC elements).
 fn record_start_tag_decisions(
     capture: &mut Option<CaptureCtx>,
     my_index: Option<usize>,
     intra_ws: &Option<IntraTagWhitespace>,
     attr_refs: &BTreeMap<usize, EntityReferenceForm>,
+    start_tag_tokens: &[StartTagToken],
     content: Option<(Option<EmptyForm>, BTreeMap<usize, EntityReferenceForm>)>,
 ) {
     let (Some(ctx), Some(idx)) = (capture.as_mut(), my_index) else {
@@ -1933,15 +1974,43 @@ fn record_start_tag_decisions(
     // Only the non-canonical intra-tag layout is worth recording; a canonical
     // single-space single-line tag matches the writer's default and is dropped.
     let intra_tag_whitespace = intra_ws.as_ref().filter(|iw| !iw.is_canonical()).cloned();
+    // Only an INTERLEAVED start-tag (an `xmlns` decl after a regular attribute)
+    // needs its exact order recorded; a canonical ns-then-attr order matches the
+    // serializer's default and is dropped.
+    let start_tag_order =
+        (!start_tag_order_is_canonical(start_tag_tokens)).then(|| start_tag_tokens.to_vec());
     let decisions = NodeDecisions {
         empty_form,
         intra_tag_whitespace,
         attr_entity_refs: attr_refs.clone(),
         text_entity_refs,
+        start_tag_order,
     };
     if decisions != NodeDecisions::default() {
         ctx.decisions.set(idx, decisions);
     }
+}
+
+/// Whether a start-tag's token sequence is in the CANONICAL ns-then-attr order
+/// the byte-exact serializer emits by default — every [`StartTagToken::Namespace`]
+/// precedes every [`StartTagToken::Attribute`]. When `true`, no
+/// [`NodeDecisions::start_tag_order`] is recorded (the default emit reproduces
+/// it). When `false` — an `xmlns` decl follows a regular attribute, as on the USC
+/// `<uscDoc>` root — the exact order must be carried so the serializer can
+/// interleave them faithfully.
+fn start_tag_order_is_canonical(tokens: &[StartTagToken]) -> bool {
+    let mut seen_attribute = false;
+    for token in tokens {
+        match token {
+            StartTagToken::Attribute(_) => seen_attribute = true,
+            StartTagToken::Namespace(_) => {
+                if seen_attribute {
+                    return false;
+                }
+            }
+        }
+    }
+    true
 }
 
 /// W3C XML 1.0 §2.3 production \[5\] `Name`:
