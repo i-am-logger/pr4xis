@@ -72,12 +72,12 @@ pub use kinds::{
 };
 pub use namespaces::{DUBLIN_CORE_NAMESPACE_URI, USLM_NAMESPACE_URI, XHTML_NAMESPACE_URI};
 pub use runtime_types::{
-    HierarchyNode, UsCodeAmendmentMarkup, UsCodeContainer, UsCodeContinuation, UsCodeDate,
-    UsCodeDefBlock, UsCodeHeader, UsCodeInlineRun, UsCodeMarker, UsCodeMeta, UsCodeMetaProperty,
-    UsCodeName, UsCodeNote, UsCodeNotesBlock, UsCodeProviso, UsCodeQuotedContent, UsCodeRef,
-    UsCodeSection, UsCodeSectionRef, UsCodeSignature, UsCodeSourceCredit, UsCodeSubdivision,
-    UsCodeTable, UsCodeTableCell, UsCodeTableRow, UsCodeTerm, UsCodeTitle, UsCodeToc,
-    UsCodeTocItem, UslmReadError,
+    HierarchyNode, UsCodeAmendmentMarkup, UsCodeContainer, UsCodeContentAttr, UsCodeContentNode,
+    UsCodeContinuation, UsCodeDate, UsCodeDefBlock, UsCodeHeader, UsCodeInlineRun, UsCodeMarker,
+    UsCodeMeta, UsCodeMetaProperty, UsCodeMixed, UsCodeName, UsCodeNote, UsCodeNotesBlock,
+    UsCodeProviso, UsCodeQuotedContent, UsCodeRef, UsCodeSection, UsCodeSectionRef,
+    UsCodeSignature, UsCodeSourceCredit, UsCodeSubdivision, UsCodeTable, UsCodeTableCell,
+    UsCodeTableRow, UsCodeTerm, UsCodeTitle, UsCodeToc, UsCodeTocItem, UslmReadError,
 };
 pub use section_aux::{UscComposesEdge, UscSectionAux, UscSubdivision};
 

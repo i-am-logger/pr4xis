@@ -238,11 +238,21 @@ impl UsCodeNote {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UsCodeSourceCredit {
     pub identifier: Option<String>,
+    /// Whitespace-collapsed plain-text projection of `mixed` (DERIVED).
     pub text: String,
+    /// Cross-references — DERIVED from `mixed` (every `<ref href>` in
+    /// document order).
     pub refs: Vec<UsCodeRef>,
     /// `<date>` elements inside the credit (act dates, amendment
-    /// dates). Captured as typed ISO 8601 values.
+    /// dates). Captured as typed ISO 8601 values. DERIVED from `mixed`.
     pub dates: Vec<UsCodeDate>,
+    /// The `<sourceCredit>` semantic mixed-content tree (slice U1) —
+    /// the EXACT ordered sequence of literal punctuation (`"("`,
+    /// `", "`, `"; "`, `".)"`) interleaved with `<ref>` / `<date>`
+    /// children (W3C XML 1.0 §3.2.2). The backbone-faithful source of
+    /// truth; `text` / `refs` / `dates` are its lossy projections, and
+    /// the writer regenerates `<sourceCredit>`'s child sequence from it.
+    pub mixed: UsCodeMixed,
 }
 
 /// USLM `<continuation>` — text continuation across a
@@ -567,6 +577,220 @@ pub struct UsCodeInlineRun {
     pub href: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Semantic mixed-content tree (slice U1 — the graph-faithful backbone model).
+//
+// USLM text-bearing elements have TRUE MIXED CONTENT per W3C XML 1.0 Fifth
+// Edition §3.2.2 (Mixed Content): a `<sourceCredit>` / `<p>` / `<heading>`
+// interleaves literal `#PCDATA` runs (the punctuation `"("`, `", "`, `".)"`
+// that joins citations) with inline child elements (`<ref>`, `<date>`,
+// `<inline>`). The ORDER of that interleaving is load-bearing — it is the
+// statutory sentence, not a set — so a flat `Vec<UsCodeInlineRun>` (which
+// collapses whitespace, drops empty-text runs, and gathers `<ref>`s out of
+// position into a side list) cannot regenerate the element backbone.
+//
+// [`UsCodeContentNode`] is the backbone-faithful replacement: a semantic
+// ordered tree whose [`UsCodeContentNode::Text`] holds GENUINE `#PCDATA` runs
+// VERBATIM (no whitespace collapse) and whose element variants
+// (`Ref` / `Date` / `Inline` / `Para`) carry typed attributes plus their own
+// ordered children. It is NOT a DOM-in-disguise: there is no opaque
+// exact-bytes child vector — only semantic nodes, with exact-bytes strings
+// reserved strictly for `#PCDATA`. The byte residue the W3C Information Set
+// (Cowan & Tobin 2004) does not carry — attribute order, inter-element
+// white-space layout, entity form — lives in the GENERIC SourceSyntax
+// complement, never per node.
+//
+// The flat `*_runs` / plain-text / `refs` projections are KEPT and DERIVED
+// from this tree (see [`UsCodeContentNode::collect_inline_runs`],
+// [`UsCodeContentNode::plain_text`], [`UsCodeContentNode::collect_refs`]) so
+// every Stratum-B (`from_uslm_titles_owned`) and downstream consumer keeps
+// compiling and passing — the tree is the new source of truth, the flat views
+// are its lossy shadows.
+//
+// Citation: W3C XML 1.0 Fifth Edition §3.2.2 (Mixed Content); LRC USLM XML
+// User Guide § "Inline Elements"; U.S. House Office of the Law Revision
+// Counsel, USLM-1.0.18.xsd `<xsd:element name="ref"/>` / `"date"` / `"inline"`.
+// ---------------------------------------------------------------------------
+
+/// One node of a USLM mixed-content sequence (W3C XML 1.0 §3.2.2). Either a
+/// genuine `#PCDATA` text run captured VERBATIM, or a typed inline child
+/// element carrying its own ordered children.
+///
+/// This is a SEMANTIC tree, not an Infoset blob: `Text` is the only
+/// exact-bytes leaf and it holds *character data only*; every element kind is
+/// a named, typed variant. White-space layout, attribute order, and the
+/// `<!DOCTYPE>` / namespaces are byte residue carried by the generic
+/// SourceSyntax complement, not here.
+#[derive(Debug, Clone, PartialEq)]
+pub enum UsCodeContentNode {
+    /// A genuine `#PCDATA` run (W3C XML 1.0 §2.4 \[14\] `CharData`), captured
+    /// VERBATIM — no whitespace collapse, no trim — so the writer reproduces
+    /// the exact text leaf the source carried (the `"("`, `", "`, `".)"`
+    /// punctuation between citations is part of this).
+    Text(String),
+    /// A `<ref href="…">…</ref>` cross-reference (USLM citation-graph edge).
+    /// `attrs` are the source attributes in order (only `href` is
+    /// semantically projected to [`UsCodeRef`]); `children` is the ref's own
+    /// mixed content (its visible text, possibly itself inline-marked).
+    Ref {
+        attrs: Vec<UsCodeContentAttr>,
+        children: Vec<UsCodeContentNode>,
+    },
+    /// A `<date date="YYYY-MM-DD">…</date>` typed-value element.
+    Date {
+        attrs: Vec<UsCodeContentAttr>,
+        children: Vec<UsCodeContentNode>,
+    },
+    /// A USLM/XHTML inline ornament (`<inline>` / `<i>` / `<b>` / `<sup>` /
+    /// `<sub>` / `<span>` / `<a>`) — [`InlineKind`] names which. `children`
+    /// is its mixed content.
+    Inline {
+        kind: InlineKind,
+        attrs: Vec<UsCodeContentAttr>,
+        children: Vec<UsCodeContentNode>,
+    },
+    /// A block-level `<p>` paragraph inside a `<content>` / `<chapeau>`.
+    /// `children` is its mixed content.
+    Para {
+        attrs: Vec<UsCodeContentAttr>,
+        children: Vec<UsCodeContentNode>,
+    },
+    /// Any other element the slice does not yet model as its own typed kind —
+    /// carried with its exact local NAME so the backbone writer reproduces it
+    /// faithfully (and no text is lost). This is a SEMANTIC named node, NOT an
+    /// opaque exact-bytes blob: its `children` are themselves
+    /// [`UsCodeContentNode`]s. Widening the typed vocabulary (promoting more
+    /// of USLM's ~50-element inline set out of `Generic`) is the next slice.
+    Generic {
+        /// The element's local name (e.g. an unmodeled inline ornament).
+        name: String,
+        attrs: Vec<UsCodeContentAttr>,
+        children: Vec<UsCodeContentNode>,
+    },
+}
+
+/// One source attribute on a [`UsCodeContentNode`] element, captured in source
+/// order as a `(qualified-name, value)` pair. The qualified name keeps any
+/// prefix (`xml:lang`) so the writer reproduces it; the generic
+/// `AttributeOverrides` complement carries the EXACT byte sequence, so this
+/// only needs to be present, not byte-perfect, for the backbone diff.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UsCodeContentAttr {
+    /// Qualified attribute name (e.g. `href`, `date`, `class`, `xml:lang`).
+    pub name: String,
+    /// Attribute value, verbatim.
+    pub value: String,
+}
+
+impl UsCodeContentNode {
+    /// The element's first attribute whose qualified name is `key`, if any.
+    #[must_use]
+    pub fn attr(&self, key: &str) -> Option<&str> {
+        let attrs = match self {
+            Self::Text(_) => return None,
+            Self::Ref { attrs, .. }
+            | Self::Date { attrs, .. }
+            | Self::Inline { attrs, .. }
+            | Self::Para { attrs, .. }
+            | Self::Generic { attrs, .. } => attrs,
+        };
+        attrs
+            .iter()
+            .find(|a| a.name == key)
+            .map(|a| a.value.as_str())
+    }
+
+    /// The element's children (empty for a [`Self::Text`] leaf).
+    #[must_use]
+    pub fn children(&self) -> &[UsCodeContentNode] {
+        match self {
+            Self::Text(_) => &[],
+            Self::Ref { children, .. }
+            | Self::Date { children, .. }
+            | Self::Inline { children, .. }
+            | Self::Para { children, .. }
+            | Self::Generic { children, .. } => children,
+        }
+    }
+
+    /// Append every descendant `#PCDATA` run to `buf` (pre-order) — the
+    /// un-normalized concatenation. The DERIVED plain-text / `*_runs`
+    /// projections normalize on top of this.
+    pub fn push_raw_text(&self, buf: &mut String) {
+        match self {
+            Self::Text(t) => buf.push_str(t),
+            other => {
+                for child in other.children() {
+                    child.push_raw_text(buf);
+                }
+            }
+        }
+    }
+}
+
+/// A USLM mixed-content sequence — the ordered child list of one text-bearing
+/// element (`<heading>` / `<content>` / `<chapeau>` / `<sourceCredit>` / `<p>`
+/// / `<ref>` …). The semantic source of truth from which the flat `*_runs` /
+/// plain-text / `refs` views are derived.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UsCodeMixed {
+    /// The element's children in EXACT source order (W3C XML 1.0 §3.2.2).
+    pub nodes: Vec<UsCodeContentNode>,
+}
+
+impl UsCodeMixed {
+    /// Empty sequence (the element had no children).
+    #[must_use]
+    pub fn new() -> Self {
+        Self { nodes: Vec::new() }
+    }
+
+    /// `true` when the sequence carries no nodes.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
+    /// The un-normalized concatenation of every descendant `#PCDATA` run.
+    #[must_use]
+    pub fn raw_text(&self) -> String {
+        let mut buf = String::new();
+        for node in &self.nodes {
+            node.push_raw_text(&mut buf);
+        }
+        buf
+    }
+
+    /// Whitespace-collapsed, trimmed plain text — the DERIVED projection that
+    /// the legacy `heading` / `content` / `chapeau` `String` fields hold
+    /// (W3C XML 1.0 §2.10 White Space Handling).
+    #[must_use]
+    pub fn plain_text(&self) -> String {
+        collapse_ws(&self.raw_text())
+    }
+}
+
+/// Collapse internal whitespace runs to single spaces and trim — the W3C XML
+/// 1.0 §2.10 insignificant-white-space normalization the flat plain-text views
+/// apply on top of the verbatim mixed-content tree.
+fn collapse_ws(s: &str) -> String {
+    let trimmed = s.trim();
+    let mut out = String::with_capacity(trimmed.len());
+    let mut prev_space = false;
+    for ch in trimmed.chars() {
+        if ch.is_whitespace() {
+            if !prev_space {
+                out.push(' ');
+            }
+            prev_space = true;
+        } else {
+            out.push(ch);
+            prev_space = false;
+        }
+    }
+    out
+}
+
 /// Amendment markup — `<ins>` and `<del>` per LRC USLM User Guide
 /// § "Amendment Markup". These elements are populated in USLM
 /// sources representing amendments-in-progress (e.g. an enrolled
@@ -665,6 +889,13 @@ pub struct UsCodeSection {
     pub identifier: String,
     /// The `<num>` value, e.g. `"1514A"`.
     pub num: String,
+    /// The `<num>` element's VISIBLE text leaf, e.g. `"§ 2."` —
+    /// the `#PCDATA` the `value` attribute does NOT carry (`num` is
+    /// `"2"`, this is `"§ 2."`). Empty when the source `<num>` is
+    /// childless. Captured for slice U1 so the backbone writer
+    /// reproduces the `<num>` text node (W3C XML 1.0 §3.2.2); the
+    /// reader populates it from the mixed-content walk.
+    pub num_text: String,
     /// Cross-reference footnote the LRC embeds inside `<num>` to
     /// disambiguate a duplicated section number — e.g. "Another
     /// section 3598 is set out after this section." `None` for the
@@ -683,19 +914,33 @@ pub struct UsCodeSection {
     /// from a genuine parse error without a hand-coded exceptions list.
     pub num_footnote: Option<String>,
     /// `<heading>` plain text, e.g. "Civil action to protect…".
-    /// Flat-text projection of `heading_runs`.
+    /// Flat-text projection of `heading_mixed` (DERIVED).
     pub heading: String,
     /// Typed inline-markup runs from `<heading>` — preserves
-    /// small-caps, italic, and other ornaments.
+    /// small-caps, italic, and other ornaments. DERIVED from
+    /// `heading_mixed`.
     pub heading_runs: Vec<UsCodeInlineRun>,
+    /// `<heading>` semantic mixed-content tree (slice U1) — the EXACT
+    /// ordered `#PCDATA` ↔ inline-element sequence (W3C XML 1.0
+    /// §3.2.2). The backbone-faithful source of truth; `heading` and
+    /// `heading_runs` are its lossy projections.
+    pub heading_mixed: UsCodeMixed,
     /// `<chapeau>` if the § opens with introductory text before
-    /// nested subdivisions. Flat-text projection of `chapeau_runs`.
+    /// nested subdivisions. Flat-text projection of `chapeau_mixed`.
     pub chapeau: Option<String>,
     pub chapeau_runs: Vec<UsCodeInlineRun>,
+    /// `<chapeau>` semantic mixed-content tree (slice U1). `None` when
+    /// the § has no `<chapeau>`.
+    pub chapeau_mixed: Option<UsCodeMixed>,
     /// `<content>` if the § is a flat (no-subdivision) section.
-    /// Flat-text projection of `content_runs`.
+    /// Flat-text projection of `content_mixed`.
     pub content: Option<String>,
     pub content_runs: Vec<UsCodeInlineRun>,
+    /// `<content>` semantic mixed-content tree (slice U1) — carries
+    /// any block-level `<p>` children plus interleaved text VERBATIM,
+    /// so the backbone writer reproduces `<content><p>…</p></content>`
+    /// exactly. `None` when the § has no `<content>`.
+    pub content_mixed: Option<UsCodeMixed>,
     /// Nested subdivisions — (a)/(b)/(c)… subsections, each of
     /// which may recurse into paragraphs, subparagraphs, etc.
     pub children: Vec<UsCodeSubdivision>,

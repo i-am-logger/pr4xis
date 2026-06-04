@@ -41,7 +41,7 @@ use super::from_uslm::from_uslm_section;
 use super::statute::{Statute, StatuteConstructError};
 use crate::formal::meta::lens_composition::{Compose, Lens, WellBehavedLensAdapter, get_put_holds};
 use crate::social::software::markup::xml::uslm::{
-    UsCodeSection, UsCodeTitle, UslmTreeViewLens, UslmXmlLens,
+    UsCodeMixed, UsCodeSection, UsCodeTitle, UslmTreeViewLens, UslmXmlLens,
 };
 
 // =============================================================================
@@ -336,13 +336,17 @@ pub fn sample_uslm_section() -> UsCodeSection {
     UsCodeSection {
         identifier: "/us/usc/t18/s1514A".to_string(),
         num: "1514A".to_string(),
+        num_text: String::new(),
         num_footnote: None,
         heading: "Civil action to protect against retaliation".to_string(),
         heading_runs: Vec::new(),
+        heading_mixed: UsCodeMixed::new(),
         chapeau: None,
         chapeau_runs: Vec::new(),
+        chapeau_mixed: None,
         content: None,
         content_runs: Vec::new(),
+        content_mixed: None,
         children: Vec::new(),
         refs: Vec::new(),
         notes_blocks: Vec::new(),

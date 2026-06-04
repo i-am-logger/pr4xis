@@ -155,6 +155,7 @@ use super::corpus::{HierarchyNode, USLM_NAMESPACE_URI, UsCodeSection, UsCodeTitl
 
 pub mod leaf_readers;
 pub mod structural_audit;
+pub mod writer;
 
 use leaf_readers::{
     attr, derive_title_identifier, find_first_descendant, first_child_text, is_section_leaf,
@@ -163,6 +164,7 @@ use leaf_readers::{
 };
 
 pub use leaf_readers::{read_section, read_uslm_title};
+pub use writer::{UslmWriteError, write_uslm};
 
 /// The lens's *target* — the typed-view value plus its complement
 /// (the source bytes), per Bancilhon & Spyratos 1981 constant-
