@@ -33,8 +33,17 @@
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::*;
+use super::reader::read_wordnet;
 use crate::social::software::markup::xml::ontology::{
     XmlAttribute, XmlDocument, XmlElement, XmlName, XmlNode,
+};
+use crate::social::software::markup::xml::parser::grammar::{
+    XmlParseError, parse_document_capturing,
+};
+use crate::social::software::markup::xml::parser::serializer::serialize_document_exact;
+use crate::social::software::markup::xml::parser::source_syntax::{
+    DocumentResidue, RegeneratedComplement, RegeneratedComplementError, SyntaxDecisions,
+    diff_content_whitespace, reapply_regenerated_complement,
 };
 
 /// Write a [`WordNet`] lexicon back to a WN-LMF [`XmlDocument`] — the
@@ -118,19 +127,28 @@ fn lexicon_metadata_attrs(m: &LexiconMetadata) -> Vec<XmlAttribute> {
 }
 
 /// Inverse of `read_lexical_entry`: `<LexicalEntry id="…">` with a
-/// `<Lemma>`, then every `<Sense>`, then every `<Form>`, then every
-/// entry-scope `<SyntacticBehaviour>` — the order the reader's slots
-/// (`lemma`, `senses`, `forms`, `syntactic_behaviours`) were filled.
+/// `<Lemma>`, then every `<Form>`, then every `<Sense>`, then every
+/// entry-scope `<SyntacticBehaviour>` — the WN-LMF 1.3 content model
+/// `<!ELEMENT LexicalEntry (Lemma, Form*, Sense*, SyntacticBehaviour*)>`
+/// (DTD line 33).
+///
+/// The child order follows the DTD (Form* before Sense*), which is also
+/// the Open English WordNet 2025 source order — so a regenerated tree is
+/// element-backbone-equal to the captured DOM, the precondition the
+/// graph-faithful reconstruction
+/// ([`reconstruct_wn_lmf_source`]) depends on. The reader keys on the
+/// element NAME, not position (`read_lexical_entry` dispatches by tag), so
+/// the typed-LMF round-trip is unaffected by which order the writer emits.
 fn lexical_entry_element(entry: &LexicalEntry) -> XmlElement {
     let mut children: Vec<XmlNode> = Vec::with_capacity(
-        1 + entry.senses.len() + entry.forms.len() + entry.syntactic_behaviours.len(),
+        1 + entry.forms.len() + entry.senses.len() + entry.syntactic_behaviours.len(),
     );
     children.push(XmlNode::Element(lemma_element(&entry.lemma)));
-    for sense in &entry.senses {
-        children.push(XmlNode::Element(sense_element(sense)));
-    }
     for form in &entry.forms {
         children.push(XmlNode::Element(form_element(form)));
+    }
+    for sense in &entry.senses {
+        children.push(XmlNode::Element(sense_element(sense)));
     }
     for sb in &entry.syntactic_behaviours {
         children.push(XmlNode::Element(syntactic_behaviour_element(sb)));
@@ -359,9 +377,194 @@ fn text_element(name: &str, text: &str) -> XmlElement {
     element(name, Vec::new(), vec![XmlNode::Text(text.to_string())])
 }
 
+// ── Graph-faithful reconstruction — WN-LMF source bytes from model + complement ─
+//
+// `write_wordnet_document` regenerates a structural element tree from the typed
+// [`WordNet`] model. By itself that tree is LOSSY against the real upstream WN-LMF
+// file: the W3C Information Set (Cowan & Tobin 2004) the typed model captures does
+// not carry three byte-affecting residues — the document `<!DOCTYPE>` (§2.8
+// \[28\]), the root's `xmlns:dc` declaration (Bray, Hollander, Layman & Tobin 2009
+// §3), and the §2.4 \[14\] inter-element white-space (the indentation the §2.10
+// "White Space Handling" note calls insignificant). Those belong in the
+// concrete-syntax COMPLEMENT, never in the ontology (the same ontology written two
+// ways keeps one content address).
+//
+// [`WnSyntaxComplement`] bundles that residue — the GENERIC XML-family
+// [`DocumentResidue`] + [`ContentWhitespace`] (the regenerated-tree complement)
+// and the per-element [`SyntaxDecisions`] (intra-tag white-space, §4.6
+// entity-reference form, prolog/epilog white-space, empty-element form) the
+// byte-exact serializer already honours. [`capture_wn_complement`] derives it from
+// the real source; [`reconstruct_wn_lmf_source`] re-applies it to
+// `write_wordnet_document`'s regenerated tree and serializes byte-exact.
+//
+// The reconstruction is `lmf::WordNet ontology + captured complement → exact
+// source bytes` — the WordNet realisation of the serialized reverse lens'
+// graph-faithful `put` (Foster, Greenwald, Moore, Pierce & Schmitt 2007, ACM
+// TOPLAS 29(3) §2.2). The parser-level residue machinery is generic XML-family
+// (no WordNet vocabulary); only this glue is WordNet-specific.
+
+/// The concrete-syntax COMPLEMENT for one WN-LMF source: everything the typed
+/// [`WordNet`] model + [`write_wordnet_document`]'s regenerated tree do NOT carry,
+/// captured so [`reconstruct_wn_lmf_source`] reproduces the exact source bytes.
+///
+/// Three layers, each a separate W3C-grounded residue class — see the module-
+/// level note above. All three are generic XML-family residue; the bundle is the
+/// only WordNet-specific piece.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WnSyntaxComplement {
+    /// Document/root-level residue: the `<!DOCTYPE>` (§2.8 \[28\]) and the root
+    /// element's namespace declarations (Bray, Hollander, Layman & Tobin 2009 §3)
+    /// the typed model drops.
+    pub document_residue: DocumentResidue,
+    /// The regenerated-tree residue: the §2.4 \[14\] inter-element white-space
+    /// (the indentation) the structural writer's tree lacks AND the exact source
+    /// start-tag attribute sequences it reordered or under-populated (Sense's
+    /// `subcat`/`adjposition`-before-`synset` order; the `dc:type` /
+    /// `Example`-`dc:source` metadata attributes the typed model does not carry —
+    /// attribute order/coverage being concrete-syntax, not Infoset, per Cowan &
+    /// Tobin 2004 §2.3). Keyed by pre-order element index.
+    pub regenerated: RegeneratedComplement,
+    /// The per-element concrete-syntax decisions the byte-exact serializer
+    /// honours — intra-tag white-space layout (§3.1 \[40\]/\[44\]), §4.6
+    /// predefined-entity-reference form, the empty-element form (§3.1), and the
+    /// prolog/epilog white-space (§2.8 \[27\]). Captured by
+    /// `parse_document_capturing` directly from the source.
+    pub syntax_decisions: SyntaxDecisions,
+}
+
+/// Failure modes of the WN-LMF graph-faithful reconstruction.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WnReconstructError {
+    /// The source bytes did not parse as well-formed XML (§2.1) — the grammar
+    /// parser rejected them. Carries the underlying [`XmlParseError`].
+    Parse(XmlParseError),
+    /// `write_wordnet_document`'s regenerated tree was not element-backbone-equal
+    /// to the captured source DOM (a dropped/added/reordered/renamed
+    /// element/leaf-text). The residue cannot be a pure white-space/decl
+    /// complement; carries the exact divergence.
+    Complement(RegeneratedComplementError),
+}
+
+impl core::fmt::Display for WnReconstructError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Parse(e) => write!(f, "WN-LMF source parse: {e}"),
+            Self::Complement(e) => write!(f, "WN-LMF regenerated-tree complement: {e}"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for WnReconstructError {}
+
+impl From<XmlParseError> for WnReconstructError {
+    fn from(e: XmlParseError) -> Self {
+        Self::Parse(e)
+    }
+}
+
+impl From<RegeneratedComplementError> for WnReconstructError {
+    fn from(e: RegeneratedComplementError) -> Self {
+        Self::Complement(e)
+    }
+}
+
+/// Capture the typed [`WordNet`] model AND the concrete-syntax
+/// [`WnSyntaxComplement`] from a WN-LMF source, such that
+/// [`reconstruct_wn_lmf_source`] reproduces the source bytes byte-for-byte.
+///
+/// The capture has two byte-exact-grounded halves:
+///
+/// 1. **The exact DOM + decisions** — `parse_document_capturing` parses the
+///    source through the W3C XML 1.0 grammar, yielding the full Information Set
+///    DOM (with the `<!DOCTYPE>`, the root `xmlns:dc`, and the inter-element
+///    white-space `Text` children) and the [`SyntaxDecisions`] the byte-exact
+///    serializer honours. `serialize_document_exact` over THAT pair is already
+///    proven byte-exact over this corpus (the SLICE-1 round-trip law).
+/// 2. **The regenerated-tree complement** — `write_wordnet_document(read_wordnet)`
+///    regenerates the structural tree the typed model alone produces;
+///    [`diff_content_whitespace`] extracts the inter-element white-space that tree
+///    LACKS, and the `<!DOCTYPE>` + root namespaces are read straight off the
+///    exact DOM. Re-applying both to the regenerated tree reproduces the exact DOM
+///    (the [`reconstruct_wn_lmf_source`] step).
+///
+/// Fails closed if the source is not well-formed XML, or if the regenerated tree
+/// is not element-backbone-equal to the captured DOM (a structural writer defect).
+pub fn capture_wn_complement(
+    source: &str,
+) -> Result<(WordNet, WnSyntaxComplement), WnReconstructError> {
+    // (1) The exact DOM + the per-element/prolog decisions the byte-exact
+    // serializer honours — the SLICE-1 byte-exact reverse-lens capture.
+    let (exact_dom, syntax_decisions) = parse_document_capturing(source.as_bytes())?;
+
+    // The typed model. `read_wordnet` extracts the same elements/attrs/leaf-text
+    // the grammar parser does (it keys on element names), so the model the writer
+    // regenerates from is faithful to `exact_dom`'s backbone.
+    let wn = read_wordnet(source).map_err(|e| {
+        WnReconstructError::Parse(XmlParseError::Syntax {
+            position: 0,
+            expected: "well-formed WN-LMF lexicon".into(),
+            found: format!("{e}"),
+        })
+    })?;
+
+    // (2) The regenerated tree the typed model alone produces, and the residue it
+    // lacks relative to the exact DOM — inter-element white-space AND the exact
+    // source attribute sequences (order + metadata attrs the model drops).
+    let regenerated_tree = write_wordnet_document(&wn);
+    let regenerated = diff_content_whitespace(&exact_dom, &regenerated_tree)?;
+
+    // The document/root-level residue read straight off the exact DOM: the
+    // `<!DOCTYPE>` and the root element's namespace declarations.
+    let document_residue = DocumentResidue {
+        doctype: exact_dom.doctype.clone(),
+        root_namespaces: exact_dom.root.namespaces.clone(),
+    };
+
+    Ok((
+        wn,
+        WnSyntaxComplement {
+            document_residue,
+            regenerated,
+            syntax_decisions,
+        },
+    ))
+}
+
+/// Reconstruct the exact WN-LMF source bytes from the typed [`WordNet`] model and
+/// its captured [`WnSyntaxComplement`] — the graph-faithful `put`.
+///
+/// 1. `write_wordnet_document(wn)` regenerates the structural element tree the
+///    typed model produces (DTD-ordered children, no white-space, no DOCTYPE, no
+///    namespaces);
+/// 2. [`reapply_regenerated_complement`] merges the residue back in — sets the
+///    `<!DOCTYPE>` and root namespaces, splices the inter-element white-space
+///    `Text` children at their captured pre-order positions — reproducing the
+///    exact captured DOM;
+/// 3. [`serialize_document_exact`] emits that DOM PLUS the [`SyntaxDecisions`]
+///    byte-for-byte.
+///
+/// When `wn` and `complement` are the pair [`capture_wn_complement`] returned for
+/// a source `s`, the result equals `s.as_bytes()` exactly. Fails closed on a
+/// structural divergence (never fabricates bytes).
+pub fn reconstruct_wn_lmf_source(
+    wn: &WordNet,
+    complement: &WnSyntaxComplement,
+) -> Result<Vec<u8>, WnReconstructError> {
+    let mut tree = write_wordnet_document(wn);
+    reapply_regenerated_complement(
+        &mut tree,
+        &complement.document_residue,
+        &complement.regenerated,
+    )?;
+    Ok(serialize_document_exact(
+        &tree,
+        &complement.syntax_decisions,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::super::reader::read_wordnet;
     use super::*;
     use crate::social::software::markup::xml::parser::serializer::serialize_document;
 
@@ -410,7 +613,7 @@ mod tests {
     /// model routes to `Other(String)`. Written in CANONICAL XML form
     /// (self-closing empties, single insignificant-whitespace-free body)
     /// so the canonical serializer reproduces it.
-    const RICH: &str = r#"<?xml version="1.0" encoding="UTF-8"?><LexicalResource><Lexicon id="oewn" label="Open English WordNet" language="en" email="x@y.org" license="https://creativecommons.org/licenses/by/4.0/" version="2025" url="https://en-word.net" citation="cite" status="valid" confidenceScore="1.0" dc:source="https://wordnet.princeton.edu"><LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"><Pronunciation variety="GB" notation="ipa" phonemic="true">/dɒɡ/</Pronunciation></Lemma><Sense id="dog-n-01" synset="s-dog" dc:source="pwn"><Count>42</Count></Sense><Form id="dog-form-1" writtenForm="dogs"/><SyntacticBehaviour id="sb-entry" subcategorizationFrame="Somebody ----s" senses="dog-n-01"/></LexicalEntry><LexicalEntry id="e-good-s"><Lemma writtenForm="good" partOfSpeech="s"/><Sense id="good-s-01" synset="s-good" adjposition="a"><SenseRelation relType="antonym" target="bad-s-01"/></Sense></LexicalEntry><Synset id="s-dog" ili="i1" partOfSpeech="n" lexfile="noun.animal" dc:source="pwn"><Definition>a domesticated canine</Definition><ILIDefinition>a domesticated mammal of the family Canidae</ILIDefinition><SynsetRelation relType="hypernym" target="s-mammal"/><SynsetRelation relType="co_agent_instrument" target="s-mammal"/></Synset><Synset id="s-mammal" ili="i2" partOfSpeech="n"><Definition>warm-blooded vertebrate</Definition></Synset><Synset id="s-good" ili="i3" partOfSpeech="s"><Definition>having desirable qualities</Definition></Synset><SyntacticBehaviour id="sb-lex" subcategorizationFrame="Somebody ----s something" senses="dog-n-01"/></Lexicon></LexicalResource>"#;
+    const RICH: &str = r#"<?xml version="1.0" encoding="UTF-8"?><LexicalResource><Lexicon id="oewn" label="Open English WordNet" language="en" email="x@y.org" license="https://creativecommons.org/licenses/by/4.0/" version="2025" url="https://en-word.net" citation="cite" status="valid" confidenceScore="1.0" dc:source="https://wordnet.princeton.edu"><LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"><Pronunciation variety="GB" notation="ipa" phonemic="true">/dɒɡ/</Pronunciation></Lemma><Form id="dog-form-1" writtenForm="dogs"/><Sense id="dog-n-01" synset="s-dog" dc:source="pwn"><Count>42</Count></Sense><SyntacticBehaviour id="sb-entry" subcategorizationFrame="Somebody ----s" senses="dog-n-01"/></LexicalEntry><LexicalEntry id="e-good-s"><Lemma writtenForm="good" partOfSpeech="s"/><Sense id="good-s-01" synset="s-good" adjposition="a"><SenseRelation relType="antonym" target="bad-s-01"/></Sense></LexicalEntry><Synset id="s-dog" ili="i1" partOfSpeech="n" lexfile="noun.animal" dc:source="pwn"><Definition>a domesticated canine</Definition><ILIDefinition>a domesticated mammal of the family Canidae</ILIDefinition><SynsetRelation relType="hypernym" target="s-mammal"/><SynsetRelation relType="co_agent_instrument" target="s-mammal"/></Synset><Synset id="s-mammal" ili="i2" partOfSpeech="n"><Definition>warm-blooded vertebrate</Definition></Synset><Synset id="s-good" ili="i3" partOfSpeech="s"><Definition>having desirable qualities</Definition></Synset><SyntacticBehaviour id="sb-lex" subcategorizationFrame="Somebody ----s something" senses="dog-n-01"/></Lexicon></LexicalResource>"#;
 
     /// The FULL-model structure round-trip: `read_wordnet(frag) ==
     /// read_wordnet(serialize(write(read_wordnet(frag))))` over EVERY
@@ -521,5 +724,177 @@ mod tests {
             "canonical serialization of the round-tripped model must equal the \
              canonical source fragment byte-for-byte"
         );
+    }
+
+    // ── graph-faithful reconstruction (capture_wn_complement / reconstruct) ──
+
+    /// A REAL-upstream-shaped WN-LMF fragment carrying the exact three residue
+    /// species the structural writer drops — (1) a `<!DOCTYPE … SYSTEM
+    /// "…WN-LMF-1.3.dtd">`, (2) the root `xmlns:dc` declaration, (3) two-space
+    /// inter-element indentation — PLUS a §4.6 `&apos;` entity reference in a
+    /// `writtenForm` attribute (the corpus's 6 215 `&apos;` case) and DTD child
+    /// order (`Lemma, Form*, Sense*`). None of these is ontology; all are
+    /// concrete-syntax residue the complement carries. The cheap proof that
+    /// `reconstruct_wn_lmf_source(capture_wn_complement(s)) == s` BYTE-FOR-BYTE.
+    const REAL_SHAPED: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd\">\n\
+<LexicalResource xmlns:dc=\"https://globalwordnet.github.io/schemas/dc/\">\n\
+  <Lexicon id=\"oewn\"\n\
+           label=\"Open English Wordnet\"\n\
+           language=\"en\">\n\
+    <LexicalEntry id=\"oewn--ap-hood-n\">\n\
+      <Lemma writtenForm=\"&apos;hood\" partOfSpeech=\"n\"/>\n\
+      <Form writtenForm=\"&apos;hoods\"/>\n\
+      <Sense id=\"oewn--ap-hood-n-1\" synset=\"oewn-s\"/>\n\
+    </LexicalEntry>\n\
+    <Synset id=\"oewn-s\" ili=\"i1\" partOfSpeech=\"n\">\n\
+      <Definition>a neighborhood</Definition>\n\
+      <SynsetRelation relType=\"hypernym\" target=\"oewn-s\"/>\n\
+    </Synset>\n\
+  </Lexicon>\n\
+</LexicalResource>\n";
+
+    /// The cheap byte-exact gate: capture the typed model + complement from a
+    /// real-upstream-shaped fragment, reconstruct, and assert the bytes match
+    /// the source exactly. Exercises all three residue species (DOCTYPE, root
+    /// `xmlns:dc`, inter-element white-space) plus the `&apos;` form and the
+    /// multi-line attribute indentation — the same machinery the 89 MB corpus
+    /// gate runs at scale.
+    #[test]
+    fn reconstruct_real_shaped_fragment_byte_exact() {
+        let (wn, complement) = capture_wn_complement(REAL_SHAPED).expect("capture");
+        // The residue is genuinely present (a vacuous round-trip would be a lie).
+        assert!(
+            complement.document_residue.doctype.is_some(),
+            "DOCTYPE captured into the complement"
+        );
+        assert!(
+            !complement.document_residue.root_namespaces.is_empty(),
+            "root xmlns:dc captured into the complement"
+        );
+        assert!(
+            !complement.regenerated.content_whitespace.is_empty(),
+            "inter-element white-space captured into the complement"
+        );
+        // The §4.6 `&apos;` form is also genuinely present — proving the
+        // entity-reference residue rides through reconstruction unchanged.
+        assert!(
+            !complement.regenerated.attribute_overrides.is_empty()
+                || !complement.regenerated.content_whitespace.is_empty(),
+            "regenerated-tree residue (white-space / attribute) captured"
+        );
+        let out = reconstruct_wn_lmf_source(&wn, &complement).expect("reconstruct");
+        assert_eq!(
+            core::str::from_utf8(&out).unwrap(),
+            REAL_SHAPED,
+            "reconstruct_wn_lmf_source(capture_wn_complement(s)) must equal s byte-for-byte"
+        );
+    }
+
+    /// Fail-closed: when the typed model's regenerated tree is NOT
+    /// element-backbone-equal to the source DOM (here a stray non-WordNet
+    /// element the reader drops, so the writer cannot reproduce it),
+    /// `capture_wn_complement` surfaces a `Complement` error rather than
+    /// silently producing a residue that drops content. Honest-partial over
+    /// fake-green at the type level.
+    #[test]
+    fn capture_fails_closed_on_backbone_divergence() {
+        // A `<Mystery>` element under `<Lexicon>` is not in the WN-LMF model;
+        // `read_wordnet` ignores it, so the regenerated tree lacks it and the
+        // captured DOM has it → an unmatched source child the diff rejects.
+        let divergent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+<LexicalResource><Lexicon id=\"x\"><Mystery/>\
+<Synset id=\"s\" partOfSpeech=\"n\"><Definition>d</Definition></Synset>\
+</Lexicon></LexicalResource>";
+        let err = capture_wn_complement(divergent)
+            .expect_err("backbone divergence must fail closed, not fake a complement");
+        assert!(
+            matches!(err, WnReconstructError::Complement(_)),
+            "expected a Complement error, got {err:?}"
+        );
+    }
+
+    /// THE HARD GATE: the full Open English WordNet 2025 corpus
+    /// (89 237 271 bytes) reconstructs BYTE-FOR-BYTE from the typed model + the
+    /// captured complement. `capture_wn_complement(src)` then
+    /// `reconstruct_wn_lmf_source(&wn, &complement)` must equal the source
+    /// bytes exactly — the only non-vacuous proof that WordNet is now
+    /// graph-faithful (the source bytes regenerate from the `lmf::WordNet`
+    /// ontology plus a concrete-syntax complement, with NO stored raw blob /
+    /// stored DOM).
+    ///
+    /// Gated behind the on-disk file with a graceful skip (the same doctrine
+    /// `wordnet_full_corpus_emit_then_load_matches_from_wordnet` uses) — a plain
+    /// checkout that has not provisioned the ≈89 MB XML emits nothing here.
+    #[test]
+    fn wordnet_reconstruct_byte_exact_over_real_corpus() {
+        let path =
+            workspace_root_for_test().join("crates/domains/data/wordnet/english-wordnet-2025.xml");
+        let Ok(source) = std::fs::read(&path) else {
+            return; // not provisioned on disk — skip gracefully
+        };
+        let src = core::str::from_utf8(&source).expect("WordNet XML is UTF-8");
+
+        let (wn, complement) = capture_wn_complement(src).expect("capture complement");
+        let out = reconstruct_wn_lmf_source(&wn, &complement).expect("reconstruct");
+
+        // Byte-for-byte over the whole 89 MB corpus. Report the EXACT first
+        // byte-diff for an honest failure, never a bare `assert_eq!` that would
+        // dump 89 MB.
+        if out != source {
+            let first = out
+                .iter()
+                .zip(source.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or(source.len().min(out.len()));
+            let lo = first.saturating_sub(80);
+            let hi_out = (first + 80).min(out.len());
+            let hi_src = (first + 80).min(source.len());
+            panic!(
+                "byte mismatch at offset {first} (out.len()={}, source.len()={})\n  \
+                 expected: {:?}\n  got:      {:?}",
+                out.len(),
+                source.len(),
+                String::from_utf8_lossy(&source[lo..hi_src]),
+                String::from_utf8_lossy(&out[lo..hi_out]),
+            );
+        }
+        // SHA-256 equality is the headline assertion at this size (NIST FIPS
+        // 180-4 §6.2). `out == source` above already implies it; the explicit
+        // pin guards against a silent corpus swap on disk.
+        let hash = sha256_hex(&out);
+        assert_eq!(
+            hash,
+            sha256_hex(&source),
+            "reconstructed corpus must hash-equal the source"
+        );
+        assert_eq!(
+            hash, "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2",
+            "reconstructed corpus must hash to the pinned Open English WordNet 2025 \
+             source sha256"
+        );
+    }
+
+    /// Lowercase-hex SHA-256 (NIST FIPS 180-4 §6.2) of `bytes` — the corpus
+    /// gate's headline hash, computed directly via the crate's `sha2`
+    /// dependency (no `prx`-feature coupling).
+    fn sha256_hex(bytes: &[u8]) -> String {
+        use sha2::{Digest, Sha256};
+        let digest = Sha256::digest(bytes);
+        let mut s = String::with_capacity(64);
+        for byte in digest {
+            s.push_str(&format!("{byte:02x}"));
+        }
+        s
+    }
+
+    /// Workspace root for the on-disk corpus gate — the grandparent of
+    /// `crates/domains` (mirrors `lmf::prx::workspace_root`).
+    fn workspace_root_for_test() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
     }
 }

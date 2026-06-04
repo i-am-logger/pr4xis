@@ -3207,4 +3207,43 @@ mod reverse_lens_roundtrip_tests {
         );
         assert_byte_exact_roundtrip(input);
     }
+
+    /// The generic content-residue diff fails CLOSED on dropped `#PCDATA`: a
+    /// non-white-space source `Text` run with no regenerated counterpart is real
+    /// character data a structural writer dropped, NOT inter-element white-space
+    /// residue (XML 1.0 §2.3 [3] `S` is `#x20 | #x9 | #xD | #xA` only). It must
+    /// surface as [`RegeneratedComplementError::UnmatchedContentText`], never be
+    /// silently re-inserted as concrete-syntax residue — so real content can never
+    /// masquerade as white-space when this generic carrier serves a future
+    /// `write_uslm` / `write_owl_exact`.
+    #[test]
+    fn diff_fails_closed_on_dropped_content_text() {
+        use super::super::source_syntax::{RegeneratedComplementError, diff_content_whitespace};
+        let (source, _) =
+            parse_document_capturing(b"<r><a>real content</a></r>").expect("source parses");
+        let (regenerated, _) =
+            parse_document_capturing(b"<r><a></a></r>").expect("regenerated parses");
+        let err = diff_content_whitespace(&source, &regenerated)
+            .expect_err("dropped #PCDATA must fail closed, not become white-space residue");
+        assert!(
+            matches!(err, RegeneratedComplementError::UnmatchedContentText { .. }),
+            "expected UnmatchedContentText, got {err:?}"
+        );
+    }
+
+    /// The positive control: genuine inter-element white-space the regenerated
+    /// tree lacks is ADMITTED as residue (not rejected), so the white-space-only
+    /// guard distinguishes §2.3 [3] `S` from character data rather than rejecting
+    /// all unmatched text.
+    #[test]
+    fn diff_admits_inter_element_white_space() {
+        use super::super::source_syntax::diff_content_whitespace;
+        let (source, _) = parse_document_capturing(b"<r>\n  <a/>\n</r>").expect("source parses");
+        let (regenerated, _) =
+            parse_document_capturing(b"<r><a/></r>").expect("regenerated parses");
+        assert!(
+            diff_content_whitespace(&source, &regenerated).is_ok(),
+            "inter-element white-space must be captured as residue, not fail closed"
+        );
+    }
 }

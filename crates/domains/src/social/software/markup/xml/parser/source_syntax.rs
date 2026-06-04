@@ -36,6 +36,10 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use super::super::ontology::{
+    XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlNamespace, XmlNode,
+};
+
 /// The document-level prolog/epilog white-space the Information Set does NOT
 /// carry — the §2.8 production \[27\] `Misc` `S` runs the Infoset discards
 /// because they sit OUTSIDE the document element (Cowan & Tobin 2004 §2.1 keeps
@@ -347,4 +351,535 @@ impl CaptureCtx {
     pub fn record_prolog(&mut self, prolog: PrologDecisions) {
         self.decisions.set_prolog(prolog);
     }
+}
+
+// ── The regenerated-DOM complement — residue a STRUCTURAL writer's tree lacks ──
+//
+// `serialize_document_exact` reproduces the source bytes from the EXACT Infoset
+// DOM (the one `parse_document_capturing` builds) plus the [`SyntaxDecisions`]
+// above. A structural writer (e.g. WordNet's `write_wordnet_document`) instead
+// regenerates a FRESH element tree from a typed model. That regenerated tree is
+// equal to the captured DOM on the element backbone — same elements, in the same
+// pre-order, with the same names/attributes/leaf-text — but it LACKS three
+// classes of byte-affecting residue the Information Set never required the typed
+// model to carry:
+//
+//   1. the document `<!DOCTYPE …>` (§2.8 \[28\] `doctypedecl`);
+//   2. the root element's namespace declarations (Bray, Hollander, Layman &
+//      Tobin 2009 §3 — `xmlns` / `xmlns:prefix`);
+//   3. the §2.4 \[14\] `CharData` runs of pure white-space that sit BETWEEN
+//      element children (the indentation the §2.10 "White Space Handling"
+//      note calls insignificant) — present in the captured DOM as
+//      [`XmlNode::Text`] children, absent from a structural writer's tree.
+//
+// [`DocumentResidue`] carries (1) + (2); [`ContentWhitespace`] carries (3). Both
+// are GENERIC XML-family residue (no format vocabulary), keyed — like the
+// per-element [`SyntaxDecisions`] — by the robust pre-order ELEMENT index, which
+// a structural writer reproduces identically because inter-element white-space
+// occupies no element slot. [`reapply_regenerated_complement`] merges the residue
+// back into a regenerated tree so [`serialize_document_exact`] can close the
+// byte-exact loop.
+
+/// The document/root-level residue a structural writer's regenerated
+/// [`XmlDocument`] does not carry: the `<!DOCTYPE>` (§2.8 \[28\]) and the root
+/// element's namespace declarations (Bray, Hollander, Layman & Tobin 2009 §3).
+///
+/// Both are Information-Set items the typed model is free to drop — a typed
+/// lexicon/vocabulary models the document's CONTENT, not its DTD binding or its
+/// namespace prefixes — so a regenerated tree emits neither. Captured once
+/// (document-level) and re-applied by [`reapply_regenerated_complement`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DocumentResidue {
+    /// The `<!DOCTYPE …>` declaration the source carried (§2.8 \[28\]
+    /// `doctypedecl`). `None` when the source had no DOCTYPE.
+    pub doctype: Option<XmlDoctype>,
+    /// The root element's namespace declarations in document order (Bray,
+    /// Hollander, Layman & Tobin 2009 §3). Empty when the root declares none.
+    pub root_namespaces: Vec<XmlNamespace>,
+}
+
+impl DocumentResidue {
+    /// `true` when there is no document/root residue — a regenerated tree
+    /// already matches the source at the document and root level.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.doctype.is_none() && self.root_namespaces.is_empty()
+    }
+}
+
+/// One slot in an element's reconstructed child sequence — the plan that splices
+/// a structural writer's regenerated children back together with the source's
+/// inter-element white-space.
+///
+/// `Keep` consumes the next child from the regenerated element in order (an
+/// element child, or the single leaf `#PCDATA` text node the typed model DID
+/// carry); `InsertText` injects a §2.4 \[14\] `CharData` run the regenerated
+/// tree lacked (the inter-element white-space). Replaying the slots yields the
+/// captured DOM's exact child sequence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChildSlot {
+    /// Take the next child from the regenerated element, unchanged.
+    Keep,
+    /// Insert this literal text run (the source's inter-element white-space)
+    /// the regenerated tree did not produce.
+    InsertText(String),
+}
+
+/// The inter-element white-space (§2.4 \[14\] `CharData` runs between element
+/// children) a structural writer's regenerated tree lacks, keyed by the parent
+/// element's pre-order index. Each value is the [`ChildSlot`] template that
+/// re-threads the regenerated element's own children with the source's text
+/// runs.
+///
+/// Only elements whose source child sequence DIFFERS from the regenerated one
+/// (i.e. carried inter-element white-space) get an entry; a leaf element whose
+/// children the typed model reproduced exactly is absent (its reconstruction is
+/// the identity). This is the §2.10 insignificant-white-space residue, captured
+/// verbatim so reconstruction is byte-exact without a per-depth indentation
+/// model.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ContentWhitespace {
+    by_index: BTreeMap<usize, Vec<ChildSlot>>,
+}
+
+impl ContentWhitespace {
+    /// `true` when no element carried inter-element white-space.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.by_index.is_empty()
+    }
+
+    /// The number of elements that carried inter-element white-space.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.by_index.len()
+    }
+}
+
+/// The exact source start-tag attribute sequence (namespace declarations then
+/// regular attributes, IN SOURCE ORDER) for elements whose attributes a
+/// structural writer's regenerated tree did NOT reproduce identically — keyed by
+/// the parent element's pre-order index.
+///
+/// XML attribute *order* is NOT an Information-Set item — Cowan & Tobin 2004 §2.3
+/// defines an element's attributes as an unordered SET — so a structural writer is
+/// free to (and does) emit them in a different order, or to omit a §2.3 \[41\]
+/// `Attribute` whose value the typed model does not carry (a `dc:type` role tag,
+/// an `Example`'s `dc:source` provenance). Both are concrete-syntax residue: the
+/// SERIALIZATION of the attribute set, not the set's meaning. Captured verbatim —
+/// the exact `(namespaces, attributes)` the source wrote — so reconstruction
+/// re-emits the source's bytes without the typed model having to carry every
+/// metadata attribute (the ontology stays clean).
+///
+/// The captured sequence is the same attribute-like SOURCE ORDER the per-element
+/// [`SyntaxDecisions`] keyed its intra-tag-white-space and §4.6 entity-reference
+/// slots by, so overwriting the regenerated element's attributes with this exact
+/// sequence keeps those decisions slot-aligned with the byte-exact serializer.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AttributeOverrides {
+    by_index: BTreeMap<usize, ElementAttributes>,
+}
+
+/// One element's exact source attribute sequence — its namespace declarations and
+/// regular attributes in source order, the pair the byte-exact serializer emits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElementAttributes {
+    /// The element's `xmlns` / `xmlns:prefix` declarations in source order (Bray,
+    /// Hollander, Layman & Tobin 2009 §3).
+    pub namespaces: Vec<XmlNamespace>,
+    /// The element's §2.3 \[41\] `Attribute`s in source order.
+    pub attributes: Vec<XmlAttribute>,
+}
+
+impl AttributeOverrides {
+    /// `true` when every element's attributes were reproduced identically by the
+    /// structural writer (no override needed).
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.by_index.is_empty()
+    }
+
+    /// The number of elements whose attribute sequence had to be overridden.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.by_index.len()
+    }
+}
+
+/// The whole regenerated-tree complement: the inter-element white-space and the
+/// exact source attribute sequences a structural writer's tree does not reproduce.
+/// Returned by [`diff_content_whitespace`] and consumed by
+/// [`reapply_regenerated_complement`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RegeneratedComplement {
+    /// The §2.4 \[14\] inter-element white-space the regenerated tree lacks.
+    pub content_whitespace: ContentWhitespace,
+    /// The exact source attribute sequences the regenerated tree reordered or
+    /// under-populated.
+    pub attribute_overrides: AttributeOverrides,
+}
+
+/// Failure when diffing a structural writer's regenerated tree against the
+/// captured source DOM, or when re-applying the residue. A mismatch means the
+/// regenerated tree is NOT element-backbone-equal to the source — the structural
+/// writer dropped, reordered, or altered an element/attribute/leaf-text the
+/// source carried — so the residue cannot be a pure white-space/decl complement.
+/// Surfaced (never papered over) so the byte-exact gate fails LOUD at the exact
+/// divergence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RegeneratedComplementError {
+    /// At pre-order element `index`, the regenerated element's name differs from
+    /// the source's — the backbones diverge here.
+    ElementMismatch {
+        /// Pre-order element index where the divergence was found.
+        index: usize,
+        /// The source element's qualified name.
+        source: String,
+        /// The regenerated element's qualified name.
+        regenerated: String,
+    },
+    /// At pre-order element `index`, a [`ChildSlot::Keep`] had no regenerated
+    /// child to consume (the regenerated element has FEWER element/leaf-text
+    /// children than the source's non-white-space children).
+    KeepUnderflow {
+        /// Pre-order element index where the underflow occurred.
+        index: usize,
+    },
+    /// After replaying an element's [`ChildSlot`] template, the regenerated
+    /// element had children left over (MORE than the source's non-white-space
+    /// children) — the structural writer emitted content the source lacked.
+    KeepOverflow {
+        /// Pre-order element index where the overflow occurred.
+        index: usize,
+        /// How many regenerated children were left unconsumed.
+        remaining: usize,
+    },
+    /// The captured [`ContentWhitespace`] references a pre-order index the
+    /// regenerated walk never reached — the trees have different element counts.
+    DanglingIndex {
+        /// The pre-order index present in the residue but absent from the tree.
+        index: usize,
+    },
+    /// At pre-order element `index`, a NON-white-space source `Text` run had no
+    /// regenerated counterpart — the structural writer dropped genuine character
+    /// data. Re-inserting it as white-space residue would let real `#PCDATA`
+    /// masquerade as concrete-syntax white-space (XML 1.0 §2.3 \[3\] `S` is only
+    /// `#x20 | #x9 | #xD | #xA`, distinct from character data), so the diff fails
+    /// closed instead.
+    UnmatchedContentText {
+        /// Pre-order element index where the dropped character data was found.
+        index: usize,
+    },
+}
+
+impl core::fmt::Display for RegeneratedComplementError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ElementMismatch {
+                index,
+                source,
+                regenerated,
+            } => write!(
+                f,
+                "regenerated tree diverges from source at pre-order element {index}: \
+                 source <{source}> vs regenerated <{regenerated}>"
+            ),
+            Self::KeepUnderflow { index } => write!(
+                f,
+                "regenerated element at pre-order index {index} has fewer children than \
+                 the source (a structural writer dropped content)"
+            ),
+            Self::KeepOverflow { index, remaining } => write!(
+                f,
+                "regenerated element at pre-order index {index} has {remaining} extra \
+                 child(ren) the source lacked (a structural writer added content)"
+            ),
+            Self::DanglingIndex { index } => write!(
+                f,
+                "content-white-space residue references pre-order element {index} that \
+                 the regenerated tree never reached (different element counts)"
+            ),
+            Self::UnmatchedContentText { index } => write!(
+                f,
+                "non-white-space source text at pre-order element {index} had no \
+                 regenerated counterpart (a structural writer dropped #PCDATA content)"
+            ),
+        }
+    }
+}
+
+/// Diff a structural writer's regenerated tree against the captured source DOM,
+/// extracting the [`RegeneratedComplement`] residue: the inter-element
+/// white-space the regenerated tree lacks AND the exact source attribute sequence
+/// for every element the writer reordered or under-populated. Walks BOTH trees in
+/// lockstep pre-order; at each element it (a) records an attribute override when
+/// the source and regenerated attribute sequences are not byte-identical, then
+/// (b) threads the source element's children against the regenerated element's
+/// children, emitting a [`ChildSlot::Keep`] where the two agree on a
+/// non-white-space child and a [`ChildSlot::InsertText`] for each source-only
+/// `Text` run.
+///
+/// A non-white-space divergence (different element name, a dropped/added/altered
+/// ELEMENT or leaf-text child) is a [`RegeneratedComplementError`] — the element
+/// backbones are not equal, so the residue is not a pure white-space/attribute
+/// complement. (Attribute order/coverage divergence is NOT an error; it is
+/// captured as an override, since attributes are an unordered Infoset set.) The
+/// caller fails closed.
+///
+/// Generic over the XML family: no format vocabulary. The whole-document leg —
+/// the DOCTYPE and root namespaces — is the caller's [`DocumentResidue`]; this
+/// function diffs the element-content white-space and the start-tag attributes.
+pub fn diff_content_whitespace(
+    source: &XmlDocument,
+    regenerated: &XmlDocument,
+) -> Result<RegeneratedComplement, RegeneratedComplementError> {
+    let mut content = ContentWhitespace::default();
+    let mut attrs = AttributeOverrides::default();
+    let mut counter = 0usize;
+    diff_element(
+        &source.root,
+        &regenerated.root,
+        &mut counter,
+        &mut content.by_index,
+        &mut attrs.by_index,
+    )?;
+    Ok(RegeneratedComplement {
+        content_whitespace: content,
+        attribute_overrides: attrs,
+    })
+}
+
+/// Recursive worker for [`diff_content_whitespace`]: diff one element pair,
+/// claiming the element's pre-order index AT ENTRY (mirroring `parse_element` and
+/// the byte-exact serializer), then descend into matched element children.
+fn diff_element(
+    source: &XmlElement,
+    regenerated: &XmlElement,
+    counter: &mut usize,
+    ws_by_index: &mut BTreeMap<usize, Vec<ChildSlot>>,
+    attr_by_index: &mut BTreeMap<usize, ElementAttributes>,
+) -> Result<(), RegeneratedComplementError> {
+    let my_index = *counter;
+    *counter += 1;
+
+    if source.name != regenerated.name {
+        return Err(RegeneratedComplementError::ElementMismatch {
+            index: my_index,
+            source: source.name.qualified(),
+            regenerated: regenerated.name.qualified(),
+        });
+    }
+
+    // Attribute residue: when the source's attribute sequence (namespaces then
+    // attributes, in source order) is not byte-identical to the regenerated one,
+    // record the EXACT source sequence as an override. Attribute order/coverage is
+    // not an Infoset item (Cowan & Tobin 2004 §2.3), so a structural writer's
+    // re-ordering or omission of a metadata attribute is concrete-syntax residue,
+    // not a backbone divergence — it is captured, never an error.
+    if source.namespaces != regenerated.namespaces || source.attributes != regenerated.attributes {
+        attr_by_index.insert(
+            my_index,
+            ElementAttributes {
+                namespaces: source.namespaces.clone(),
+                attributes: source.attributes.clone(),
+            },
+        );
+    }
+
+    // Thread the source element's children against the regenerated element's
+    // children. A source `Text` node with no regenerated counterpart is
+    // inter-element white-space → `InsertText`; every other source child must
+    // line up positionally with a regenerated child → `Keep`. White-space-only
+    // `Text` is the residue; a non-white-space source `Text` (a leaf `#PCDATA`
+    // value the typed model carried) is matched as a `Keep` against the
+    // regenerated leaf text.
+    let mut slots: Vec<ChildSlot> = Vec::new();
+    let mut reg_iter = regenerated.children.iter().peekable();
+    let mut carried_ws = false;
+
+    for src_child in &source.children {
+        match src_child {
+            XmlNode::Text(t) if is_regenerated_text_residue(reg_iter.peek()) => {
+                // No regenerated child lines up here (or the next regenerated
+                // child is an element, not this text) — this source text run is
+                // residue the structural writer dropped. It is inter-element
+                // white-space residue ONLY when it is white-space-only (XML 1.0
+                // §2.3 [3] S = #x20 | #x9 | #xD | #xA); a non-white-space run here
+                // is genuine #PCDATA the typed writer dropped, so fail closed
+                // rather than re-insert real content as concrete-syntax residue.
+                if !t.chars().all(|c| matches!(c, ' ' | '\t' | '\r' | '\n')) {
+                    return Err(RegeneratedComplementError::UnmatchedContentText {
+                        index: my_index,
+                    });
+                }
+                slots.push(ChildSlot::InsertText(t.clone()));
+                carried_ws = true;
+            }
+            _ => {
+                // Consume the matching regenerated child. Element children
+                // recurse; leaf text / other nodes are kept as-is (their bytes
+                // come from the regenerated tree, which the typed model produced).
+                let Some(reg_child) = reg_iter.next() else {
+                    return Err(RegeneratedComplementError::KeepUnderflow { index: my_index });
+                };
+                if let (XmlNode::Element(se), XmlNode::Element(re)) = (src_child, reg_child) {
+                    diff_element(se, re, counter, ws_by_index, attr_by_index)?;
+                }
+                slots.push(ChildSlot::Keep);
+            }
+        }
+    }
+
+    // Any regenerated children left unconsumed = the writer emitted more than the
+    // source carried.
+    let remaining = reg_iter.count();
+    if remaining > 0 {
+        return Err(RegeneratedComplementError::KeepOverflow {
+            index: my_index,
+            remaining,
+        });
+    }
+
+    // Record the template only when it actually re-introduces white-space; an
+    // all-`Keep` template is the identity reconstruction and is dropped.
+    if carried_ws {
+        ws_by_index.insert(my_index, slots);
+    }
+    Ok(())
+}
+
+/// Whether the next regenerated child (if any) means the current source `Text`
+/// node is white-space residue: the regenerated tree has NO text node here — its
+/// next pending child is an element (or it is exhausted). A regenerated `Text`
+/// node lined up at this position is a leaf `#PCDATA` value the typed model
+/// carried, so the source `Text` is NOT residue and falls through to `Keep`.
+fn is_regenerated_text_residue(next_regenerated: Option<&&XmlNode>) -> bool {
+    !matches!(next_regenerated, Some(XmlNode::Text(_)))
+}
+
+/// Re-apply the [`DocumentResidue`] and [`RegeneratedComplement`] to a structural
+/// writer's regenerated [`XmlDocument`], reconstructing the captured source DOM
+/// so [`serialize_document_exact`](super::serializer::serialize_document_exact)
+/// can close the byte-exact loop:
+///
+/// 1. set the document `<!DOCTYPE>` and root namespace declarations
+///    ([`DocumentResidue`]);
+/// 2. for every element with an override, replace its start-tag attribute
+///    sequence with the exact source one ([`AttributeOverrides`]);
+/// 3. splice the inter-element white-space `Text` children back into every
+///    element at its captured pre-order index ([`ContentWhitespace`]).
+///
+/// Fails closed on any structural divergence ([`RegeneratedComplementError`]) —
+/// it never fabricates or drops content to force a fit.
+pub fn reapply_regenerated_complement(
+    regenerated: &mut XmlDocument,
+    document_residue: &DocumentResidue,
+    complement: &RegeneratedComplement,
+) -> Result<(), RegeneratedComplementError> {
+    // (1) document/root-level residue.
+    regenerated.doctype = document_residue.doctype.clone();
+    regenerated.root.namespaces = document_residue.root_namespaces.clone();
+    // Keep the legacy single-slot `namespace` representative consistent with the
+    // restored declarations (it mirrors the first declaration, as the parser and
+    // canonical writer do).
+    regenerated.root.namespace = document_residue.root_namespaces.first().cloned();
+
+    // (2)+(3) per-element attribute overrides + inter-element white-space, in one
+    // pre-order walk that claims indices exactly as the diff and serializer do.
+    let ws = &complement.content_whitespace.by_index;
+    let attrs = &complement.attribute_overrides.by_index;
+    let mut counter = 0usize;
+    let mut ws_applied = 0usize;
+    let mut attr_applied = 0usize;
+    apply_element(
+        &mut regenerated.root,
+        &mut counter,
+        ws,
+        attrs,
+        &mut ws_applied,
+        &mut attr_applied,
+    )?;
+    // A residue index the walk never reached means the trees disagree on element
+    // count. `counter` holds the total reached; the first residue index `>=
+    // counter` (ascending `BTreeMap` keys) is the dangling one.
+    if ws_applied != ws.len()
+        && let Some((&index, _)) = ws.range(counter..).next()
+    {
+        return Err(RegeneratedComplementError::DanglingIndex { index });
+    }
+    if attr_applied != attrs.len()
+        && let Some((&index, _)) = attrs.range(counter..).next()
+    {
+        return Err(RegeneratedComplementError::DanglingIndex { index });
+    }
+    Ok(())
+}
+
+/// Recursive worker for [`reapply_regenerated_complement`]: at one element apply
+/// its attribute override (if any) and splice its inter-element white-space (if
+/// any), claiming its pre-order index AT ENTRY (mirroring the diff and the
+/// serializer), then descend into element children.
+fn apply_element(
+    element: &mut XmlElement,
+    counter: &mut usize,
+    ws_by_index: &BTreeMap<usize, Vec<ChildSlot>>,
+    attr_by_index: &BTreeMap<usize, ElementAttributes>,
+    ws_applied: &mut usize,
+    attr_applied: &mut usize,
+) -> Result<(), RegeneratedComplementError> {
+    let my_index = *counter;
+    *counter += 1;
+
+    // Attribute override: replace the regenerated element's start-tag attribute
+    // sequence with the exact source one. The byte-exact serializer emits
+    // `namespaces` then `attributes` in vec order, so this restores both the
+    // source ORDER and any metadata attribute the typed model did not carry.
+    if let Some(over) = attr_by_index.get(&my_index) {
+        *attr_applied += 1;
+        element.namespaces = over.namespaces.clone();
+        element.namespace = over.namespaces.first().cloned();
+        element.attributes = over.attributes.clone();
+    }
+
+    if let Some(slots) = ws_by_index.get(&my_index) {
+        *ws_applied += 1;
+        let original = core::mem::take(&mut element.children);
+        let mut kept = original.into_iter();
+        let mut rebuilt: Vec<XmlNode> = Vec::with_capacity(slots.len());
+        for slot in slots {
+            match slot {
+                ChildSlot::Keep => {
+                    let Some(child) = kept.next() else {
+                        return Err(RegeneratedComplementError::KeepUnderflow { index: my_index });
+                    };
+                    rebuilt.push(child);
+                }
+                ChildSlot::InsertText(t) => rebuilt.push(XmlNode::Text(t.clone())),
+            }
+        }
+        let remaining = kept.count();
+        if remaining > 0 {
+            return Err(RegeneratedComplementError::KeepOverflow {
+                index: my_index,
+                remaining,
+            });
+        }
+        element.children = rebuilt;
+    }
+
+    // Descend into element children in document order — claiming pre-order
+    // indices for them exactly as the diff did.
+    for child in &mut element.children {
+        if let XmlNode::Element(el) = child {
+            apply_element(
+                el,
+                counter,
+                ws_by_index,
+                attr_by_index,
+                ws_applied,
+                attr_applied,
+            )?;
+        }
+    }
+    Ok(())
 }
