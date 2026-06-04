@@ -212,7 +212,10 @@ pub fn lmf_pos_to_pos_tag(lmf: LmfPos) -> Option<PosTag> {
     Some(match lmf {
         LmfPos::Noun => PosTag::Noun,
         LmfPos::Verb => PosTag::Verb,
-        LmfPos::Adjective => PosTag::Adjective,
+        // OLiA (Chiarcos & Sukhareva 2015) has one Adjective leaf — the
+        // WN satellite/head distinction is a WordNet-cluster role, not an
+        // OLiA category — so both adjective tags project to it.
+        LmfPos::Adjective | LmfPos::SatelliteAdjective => PosTag::Adjective,
         LmfPos::Adverb => PosTag::Adverb,
         LmfPos::Determiner => PosTag::Determiner,
         LmfPos::Pronoun => PosTag::Pronoun,

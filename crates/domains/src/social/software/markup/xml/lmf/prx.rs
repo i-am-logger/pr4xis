@@ -500,7 +500,7 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
             let Some(target) = resolve(&rel.target) else {
                 continue;
             };
-            match rel.rel_type {
+            match &rel.rel_type {
                 // Taxonomy (is-a): child = this, parent = target.
                 SynsetRelationType::Hypernym | SynsetRelationType::InstanceHypernym => {
                     taxonomy.push((this, target));

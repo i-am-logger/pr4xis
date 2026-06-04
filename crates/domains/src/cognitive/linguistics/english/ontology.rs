@@ -565,7 +565,7 @@ impl English {
                     continue;
                 };
                 use lmf::SynsetRelationType as SR;
-                let bucket = match rel.rel_type {
+                let bucket = match &rel.rel_type {
                     SR::Similar => &mut relations.similar_synset,
                     SR::Also => &mut relations.also_synset,
                     SR::Causes => &mut relations.causes,
@@ -606,7 +606,7 @@ impl English {
                         continue;
                     };
                     use lmf::SenseRelationType as SnR;
-                    let bucket = match rel.rel_type {
+                    let bucket = match &rel.rel_type {
                         SnR::Derivation => &mut relations.derivation,
                         SnR::Pertainym => &mut relations.pertainym,
                         SnR::Similar => &mut relations.similar_sense,

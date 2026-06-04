@@ -628,7 +628,10 @@ proptest! {
                 orig.relations.iter().zip(parsed.relations.iter())
             {
                 let expected = SynsetRelationType::parse(orig_rel);
-                prop_assert_eq!(parsed_rel.rel_type, expected);
+                // `rel_type` is no longer `Copy` (it carries the source
+                // string in `Other(String)`), so clone for the by-value
+                // assertion.
+                prop_assert_eq!(parsed_rel.rel_type.clone(), expected);
             }
         }
     }

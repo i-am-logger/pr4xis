@@ -247,7 +247,13 @@ pub fn lmf_pos_to_lexical_entries(
                     .collect()
             }
         }
-        lmf::LmfPos::Adjective => vec![LexicalEntry::Adjective(Adjective { text: word.into() })],
+        // A satellite adjective (WN-LMF `s`) is, grammatically, an
+        // adjective — it differs from a head adjective only in its
+        // cluster role (Fellbaum 1998 §1.5), which the pregroup grammar
+        // does not distinguish. So it maps to the same lexical entry.
+        lmf::LmfPos::Adjective | lmf::LmfPos::SatelliteAdjective => {
+            vec![LexicalEntry::Adjective(Adjective { text: word.into() })]
+        }
         lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb { text: word.into() })],
         lmf::LmfPos::Determiner | lmf::LmfPos::Numeral => {
             vec![LexicalEntry::Determiner(Determiner {
@@ -692,13 +698,12 @@ pub fn from_codegen(
 ) -> super::english::English {
     use super::english::{Concept, ConceptId, SenseId};
 
-    let pos_from_str = |s: &str| match s {
-        "n" => lmf::LmfPos::Noun,
-        "v" => lmf::LmfPos::Verb,
-        "a" | "s" => lmf::LmfPos::Adjective,
-        "r" => lmf::LmfPos::Adverb,
-        _ => lmf::LmfPos::Other,
-    };
+    // Delegate to the canonical WN-LMF tag parser so the codegen→Language
+    // path agrees with the from_wordnet path on every tag — including the
+    // satellite adjective `s`, which now round-trips as its own
+    // [`LmfPos::SatelliteAdjective`] variant rather than collapsing to
+    // `Adjective` (the byte-loss this slice closes).
+    let pos_from_str = lmf::LmfPos::parse;
 
     // Phase 1: Concepts from static arrays
     let mut concepts = Vec::with_capacity(data.entity_count);
