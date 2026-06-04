@@ -84,13 +84,16 @@ use super::super::ontology::{
 /// capture. The PI/comment bytes are added ONLY when the source actually carries
 /// them (USC), so WordNet is unaffected.
 ///
-/// # Limitation (§2.11 end-of-line form)
+/// # §2.11 end-of-line form
 ///
 /// The captured run carries `#xA` line endings because §2.11 normalization runs
-/// before the grammar descent. A source that wrote `#xD#xA` (CRLF) in the prolog
-/// — as the on-disk USC title does at its two `?>` boundaries — re-emits as `#xA`
-/// here; recovering the original CRLF is a separate §2.11 concrete-syntax residue
-/// the byte kernel does not yet model.
+/// before the grammar descent. A source that wrote `#xD#xA` (CRLF) — as the
+/// on-disk USC title does at its two prolog `?>` boundaries — appears here as
+/// `#xA`. The original CR is recovered by the SEPARATE generic
+/// [`EndOfLineForm`] residue (keyed by normalized-stream offset, document-wide),
+/// re-expanded over the FINISHED serialized bytes, so a CRLF anywhere — prolog
+/// `Misc*`, an attribute value, char-data — round-trips. That residue is empty
+/// for a pure-`#xA` source (WordNet), so this run is unaffected for LF-only input.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
@@ -116,6 +119,93 @@ impl PrologDecisions {
             && self.after_doctype.is_empty()
             && self.after_root.is_empty()
     }
+}
+
+/// The W3C XML 1.0 Fifth Edition §2.11 \[2.11\] "End-of-Line Handling" FORM the
+/// XML processor erases on input — the line-ending bytes the §2.11 normalization
+/// collapsed to a single `#xA` before the grammar descent ever ran.
+///
+/// §2.11 mandates: *"the XML processor MUST behave as if it normalized all line
+/// breaks … on input, before parsing, by translating both the two-character
+/// sequence #xD #xA and any #xD that is not followed by #xA to a single #xA
+/// character."* So `#xD#xA` (CRLF) and a lone `#xD` (CR) both vanish into `#xA`,
+/// and every downstream production — and therefore every other concrete-syntax
+/// residue ([`PrologDecisions`], [`IntraTagWhitespace`], the leaf `Text` runs) —
+/// sees only `#xA`. This residue records, per collapsed line break, the original
+/// FORM so the byte-exact serializer can put the `#xD` back.
+///
+/// # Keying: the LF ORDINAL (robust against re-escaping)
+///
+/// Recorded as `(lf_ordinal, EolKind)` pairs in ascending ordinal order.
+/// `lf_ordinal` is the 0-based index of the produced `#xA` among ALL `#xA` bytes
+/// in the §2.11-normalized stream (counting the line breaks the form did NOT
+/// touch — a source literal `#xA` — too). The byte-exact serializer emits every
+/// `#xA` LITERALLY and in order (char-data does not escape `#xA`; the prolog/epilog
+/// `Misc*` and inter-element `S` runs are verbatim), so the k-th `#xA` byte in the
+/// serialized output is the SAME line break as the k-th `#xA` in the normalized
+/// stream — even though their BYTE OFFSETS differ (a §4.6 `&`/`<`/`>` escape, or
+/// a `&amp;`-vs-`&` re-expansion, shifts byte offsets but never adds or removes an
+/// `#xA`). Keying by ordinal rather than byte offset is therefore robust against
+/// every other escaping decision, and FULLY GENERIC: a CRLF in the document body
+/// re-expands identically to one in the prolog.
+///
+/// # Out of scope: an `#xA` INSIDE an attribute value
+///
+/// The one place the serializer does NOT emit `#xA` literally is an attribute
+/// value — §3.3.3 attribute-value normalization escapes a literal `#xA` to
+/// `&#xA;` (Boyer & Marcy 2008 C14N 1.1 §3.5). A line break written inside an
+/// attribute value is thus a SEPARATE §3.3.3 residue this byte kernel does not
+/// model — independent of the CRLF form, since even a pure-`#xA` literal newline
+/// in an attribute already fails to round-trip. Such a break would shift the LF
+/// ordinal, so it is out of this slice's scope; the real corpora (USC prolog
+/// CRLFs, WordNet pure-LF) never write one.
+///
+/// # Additivity (a pure-`#xA` source records NOTHING)
+///
+/// A source with no `#xD` at all collapses no line break, so `eols` is empty and
+/// [`Self::is_empty`] holds. The serializer's re-expansion pass is then a no-op
+/// and the output is byte-identical to the pre-§2.11-form serializer — so a
+/// pure-LF corpus (the Open English WordNet 2025 89 MB source, every
+/// `reverse_lens` fixture) is wholly unaffected.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct EndOfLineForm {
+    /// `(lf_ordinal, kind)` for every §2.11-collapsed line break, in ascending
+    /// `lf_ordinal` order — the 0-based index of the produced `#xA` among all
+    /// `#xA` bytes in the normalized stream, and whether the source wrote `#xD#xA`
+    /// (CRLF) or a lone `#xD` (CR). Empty for a pure-`#xA` source.
+    pub eols: Vec<(usize, EolKind)>,
+}
+
+impl EndOfLineForm {
+    /// `true` when the source collapsed no line break — a pure-`#xA` document,
+    /// for which the byte-exact serializer's re-expansion is a no-op.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.eols.is_empty()
+    }
+}
+
+/// Which §2.11 \[2.11\] source form collapsed to the recorded `#xA` — a typed
+/// enum (not a bare flag) so the byte-exact re-expansion dispatches on the closed
+/// §2.11 set and an out-of-set form is unrepresentable. The third §2.11 case,
+/// a literal `#xA` already, records no [`EndOfLineForm`] entry at all (there is
+/// nothing to put back).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum EolKind {
+    /// The source wrote the two-character sequence `#xD#xA` (CRLF) — the
+    /// re-expansion inserts a `#xD` before the `#xA`.
+    Crlf,
+    /// The source wrote a lone `#xD` (CR not followed by `#xA`) — the
+    /// re-expansion replaces the `#xA` with `#xD`.
+    Cr,
 }
 
 /// The empty-element form decision (W3C XML 1.0 §3.1): `<a/>` (empty-element
@@ -388,6 +478,11 @@ pub struct SyntaxDecisions {
     /// residue outside the document element, separate from the per-element
     /// `by_index` decisions. Default (all-empty) for a canonical document.
     prolog: PrologDecisions,
+    /// Document-wide §2.11 \[2.11\] end-of-line form (which collapsed `#xA`s came
+    /// from a source `#xD#xA`/`#xD`) — keyed by normalized-stream offset, NOT by
+    /// element, because a line break is concrete-syntax that falls in any
+    /// production. Default (empty) for a pure-`#xA` document.
+    eol_form: EndOfLineForm,
 }
 
 impl SyntaxDecisions {
@@ -419,6 +514,19 @@ impl SyntaxDecisions {
     pub fn prolog(&self) -> &PrologDecisions {
         &self.prolog
     }
+
+    /// Record the document-wide §2.11 \[2.11\] end-of-line form (the collapsed
+    /// `#xD#xA`/`#xD` source line breaks the byte-exact serializer re-expands).
+    pub fn set_eol_form(&mut self, eol_form: EndOfLineForm) {
+        self.eol_form = eol_form;
+    }
+
+    /// The document-wide §2.11 \[2.11\] end-of-line form (empty for a pure-`#xA`
+    /// source).
+    #[must_use]
+    pub fn eol_form(&self) -> &EndOfLineForm {
+        &self.eol_form
+    }
 }
 
 /// The reader-side capture state for the serialized reverse lens: a pre-order
@@ -444,6 +552,12 @@ impl CaptureCtx {
     /// `S`) the reader consumed outside the document element.
     pub fn record_prolog(&mut self, prolog: PrologDecisions) {
         self.decisions.set_prolog(prolog);
+    }
+
+    /// Record the document-wide §2.11 \[2.11\] end-of-line form the §2.11
+    /// normalization erased before the grammar descent.
+    pub fn record_eol_form(&mut self, eol_form: EndOfLineForm) {
+        self.decisions.set_eol_form(eol_form);
     }
 }
 

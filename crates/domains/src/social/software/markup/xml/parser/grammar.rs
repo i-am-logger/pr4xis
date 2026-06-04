@@ -31,8 +31,8 @@ use super::super::ontology::{
     XmlGeneralEntity, XmlName, XmlNamespace, XmlNode,
 };
 use super::source_syntax::{
-    CaptureCtx, EmptyForm, EntityName, EntityReferenceForm, IntraTagWhitespace, NodeDecisions,
-    PrologDecisions, StartTagToken, SyntaxDecisions,
+    CaptureCtx, EmptyForm, EndOfLineForm, EntityName, EntityReferenceForm, EolKind,
+    IntraTagWhitespace, NodeDecisions, PrologDecisions, StartTagToken, SyntaxDecisions,
 };
 
 /// Failure modes when parsing XML 1.0 bytes.
@@ -209,7 +209,11 @@ fn parse_document_inner(
     capture: &mut Option<CaptureCtx>,
 ) -> Result<XmlDocument, XmlParseError> {
     let (raw, detected_encoding) = decode_input(input)?;
-    let normalized = normalize_line_endings(&raw);
+    // §2.11 \[2.11\] End-of-Line Handling — collapse `#xD#xA`/`#xD` to `#xA`
+    // BEFORE the grammar descent, AND capture the erased EOL form (keyed by LF
+    // ordinal, robust against re-escaping) so the byte-exact serializer can put
+    // the `#xD` back. Empty for a pure-`#xA` source — the additive case.
+    let (normalized, eol_form) = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
 
     let ((version, encoding, standalone, doctype), (after_xml_decl, after_doctype)) =
@@ -288,6 +292,14 @@ fn parse_document_inner(
         };
         if !prolog.is_empty() {
             ctx.record_prolog(prolog);
+        }
+        // §2.11 \[2.11\] End-of-Line form — the `#xD#xA`/`#xD` source line
+        // breaks the §2.11 normalization above collapsed to `#xA`, keyed by LF
+        // ordinal so the byte-exact serializer re-expands them over the finished
+        // output. Empty (recorded as nothing) for a pure-`#xA` source, so a
+        // CRLF-free document is unaffected.
+        if !eol_form.is_empty() {
+            ctx.record_eol_form(eol_form);
         }
     }
 
@@ -389,25 +401,57 @@ fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError>
 /// behave as if it normalized all line breaks in external parsed
 /// entities (including the document entity) on input … to the single
 /// character #xA".
-fn normalize_line_endings(raw: &str) -> String {
+///
+/// Returns the normalized string AND the §2.11 \[2.11\] end-of-line FORM the
+/// normalization erased — for each collapsed line break, the LF ORDINAL of the
+/// produced `#xA` (its 0-based index among ALL `#xA` bytes in the normalized
+/// output, counting untouched literal `#xA`s too) and whether the source wrote
+/// `#xD#xA` (CRLF) or a lone `#xD` (CR). That ordinal is the
+/// re-escaping-robust key the byte-exact serializer re-expands by (see
+/// [`EndOfLineForm`]); a pure-`#xA` source collapses nothing, so the form is empty
+/// (the additive fast path).
+fn normalize_line_endings(raw: &str) -> (String, EndOfLineForm) {
     if !raw.contains('\r') {
-        // Fast path — no CR present, nothing to normalize.
-        return raw.to_string();
+        // Fast path — no `#xD` present, nothing to normalize and no §2.11 form
+        // to record (the form is empty, so serialization is a byte-identical
+        // no-op for pure-`#xA` input).
+        return (raw.to_string(), EndOfLineForm::default());
     }
     let mut out = String::with_capacity(raw.len());
+    let mut eols: Vec<(usize, EolKind)> = Vec::new();
+    // The 0-based index of the NEXT `#xA` to be written, among all `#xA` bytes in
+    // the normalized output — incremented for EVERY `#xA` (collapsed break OR
+    // source-literal `#xA`), so it stays in lockstep with the serializer's `#xA`
+    // count. A collapsed break records its kind at this ordinal; a literal `#xA`
+    // records nothing (there is nothing to put back) but still advances it.
+    let mut lf_ordinal = 0usize;
     let mut chars = raw.chars().peekable();
     while let Some(ch) = chars.next() {
-        if ch == '\r' {
-            // CRLF → LF (consume the following LF); lone CR → LF.
-            if chars.peek() == Some(&'\n') {
-                chars.next();
+        match ch {
+            '\r' => {
+                // CRLF → LF (consume the following LF); lone CR → LF. Record the
+                // erased form at this `#xA`'s ordinal.
+                let kind = if chars.peek() == Some(&'\n') {
+                    chars.next();
+                    EolKind::Crlf
+                } else {
+                    EolKind::Cr
+                };
+                eols.push((lf_ordinal, kind));
+                out.push('\n');
+                lf_ordinal += 1;
             }
-            out.push('\n');
-        } else {
-            out.push(ch);
+            '\n' => {
+                // A source literal `#xA` — passed through unchanged, records no
+                // form, but advances the ordinal so collapsed breaks AFTER it key
+                // correctly.
+                out.push('\n');
+                lf_ordinal += 1;
+            }
+            other => out.push(other),
         }
     }
-    out
+    (out, EndOfLineForm { eols })
 }
 
 /// Byte cursor with one-rune lookahead. Tracks position for error
@@ -3313,6 +3357,105 @@ mod reverse_lens_roundtrip_tests {
         assert!(
             diff_content_whitespace(&source, &regenerated).is_ok(),
             "inter-element white-space must be captured as residue, not fail closed"
+        );
+    }
+
+    // ── §2.11 [2.11] End-of-Line form (slice U5) ────────────────────────────
+
+    /// FOCUSED META-TEST (slice U5): a small CRLF-bearing document round-trips
+    /// byte-for-byte. The `#xD#xA` line breaks span the productions a real source
+    /// (the on-disk USC title, a CRLF-formatted corpus) emits VERBATIM — the prolog
+    /// `Misc*` `S` (between the XML decl and the root), the inter-element `S`
+    /// indentation, and char-data — proving the §2.11 \[2.11\] EOL form is FULLY
+    /// GENERIC, not a prolog-only special case. The char-data run also carries a
+    /// `&amp;` so the test pins the ROBUSTNESS of the LF-ordinal key: the `&`-escape
+    /// shifts byte offsets, but the CRLF after it still re-expands correctly.
+    /// (A `#xD#xA` INSIDE an attribute value is a distinct §3.3.3
+    /// attribute-value-normalization residue — the serializer escapes a literal
+    /// `#xA` there to `&#xA;` regardless — so it is out of this slice's scope.)
+    #[test]
+    fn roundtrip_crlf_document_byte_exact() {
+        // CRLF after the XML decl (prolog `Misc*` `S`), CRLF in the inter-element
+        // indentation, and CRLF in char-data AFTER a `&amp;` (so an escape shifts
+        // byte offsets before the break — the LF-ordinal key must still find it).
+        let input =
+            b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<r>\r\n  <c>a &amp; b\r\nc</c>\r\n</r>";
+        assert_byte_exact_roundtrip(input);
+
+        // The captured form lists four `Crlf` entries (additive proof that the
+        // round-trip is not vacuous): every line break was a CRLF.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let eol = decisions.eol_form();
+        assert_eq!(eol.eols.len(), 4, "four CRLF line breaks captured");
+        assert!(
+            eol.eols
+                .iter()
+                .all(|(_, k)| matches!(k, super::super::source_syntax::EolKind::Crlf)),
+            "every recorded break is a CRLF (#xD#xA)"
+        );
+    }
+
+    /// A lone `#xD` (CR not followed by `#xA`) is the third §2.11 \[2.11\] form —
+    /// the spec collapses it to `#xA` too. It round-trips byte-for-byte (the `#xA`
+    /// is rewritten back to a bare `#xD`, NOT a CRLF), proving the writer
+    /// dispatches on the captured [`EolKind`] rather than always inserting CRLF.
+    #[test]
+    fn roundtrip_lone_cr_document_byte_exact() {
+        // A bare `#xD` between the decl and the root (an old-Mac-style line break).
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r<r>x\ry</r>";
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let eol = decisions.eol_form();
+        assert_eq!(eol.eols.len(), 2, "two lone-CR line breaks captured");
+        assert!(
+            eol.eols
+                .iter()
+                .all(|(_, k)| matches!(k, super::super::source_syntax::EolKind::Cr)),
+            "every recorded break is a lone CR (#xD)"
+        );
+    }
+
+    /// A mixed `#xD#xA` / lone `#xD` / literal `#xA` document round-trips
+    /// byte-for-byte — the three §2.11 \[2.11\] forms side by side, each put back
+    /// to its exact source bytes.
+    #[test]
+    fn roundtrip_mixed_eol_forms_byte_exact() {
+        // `\r\n` (CRLF), then `\n` (already LF — records nothing), then `\r`
+        // (lone CR), in three char-data lines.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><r>a\r\nb\nc\rd</r>";
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let eol = decisions.eol_form();
+        // Two recorded forms (the literal `#xA` records nothing): one CRLF, one CR.
+        assert_eq!(
+            eol.eols.len(),
+            2,
+            "CRLF + lone CR recorded; literal LF is not"
+        );
+        use super::super::source_syntax::EolKind;
+        assert_eq!(eol.eols[0].1, EolKind::Crlf);
+        assert_eq!(eol.eols[1].1, EolKind::Cr);
+    }
+
+    /// ADDITIVE PROOF (slice U5): a pure-`#xA` document records NO §2.11 EOL form
+    /// at all (the residue is empty), so `serialize_document_exact` is
+    /// byte-identical to the pre-EOL-form serializer for LF-only input. This is
+    /// the no-regression guarantee for the pure-LF WordNet 89 MB corpus and every
+    /// existing `reverse_lens` fixture: the EOL kernel addition is INERT when the
+    /// source carries no `#xD`.
+    #[test]
+    fn pure_lf_document_records_no_eol_form() {
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<r>\n  <a/>\n</r>\n";
+        // Round-trips (it always did — covered by the other fixtures) AND records
+        // nothing new.
+        assert_byte_exact_roundtrip(input);
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        assert!(
+            decisions.eol_form().is_empty(),
+            "a pure-#xA source must record an EMPTY §2.11 EOL form (additive: the \
+             re-expansion is a no-op, so LF-only corpora are unaffected)"
         );
     }
 }

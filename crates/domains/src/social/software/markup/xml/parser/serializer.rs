@@ -32,7 +32,8 @@ use super::super::ontology::{
     XmlNode,
 };
 use super::source_syntax::{
-    EmptyForm, EntityReferenceForm, IntraTagWhitespace, StartTagToken, SyntaxDecisions,
+    EmptyForm, EndOfLineForm, EntityReferenceForm, EolKind, IntraTagWhitespace, StartTagToken,
+    SyntaxDecisions,
 };
 use alloc::collections::BTreeMap;
 
@@ -66,10 +67,13 @@ pub fn serialize_document(doc: &XmlDocument) -> Vec<u8> {
 
 /// Byte-exact serialization — exact source bytes from the Information Set DOM
 /// PLUS the recorded [`SyntaxDecisions`], with no stored raw source. Like
-/// [`serialize_document`] but honours the decisions; today the empty-element
-/// form, so a childless element recorded `Explicit` round-trips as `<a></a>`
-/// rather than the canonical `<a/>`. Where no decision is recorded it falls back
-/// to the canonical serializer's choice.
+/// [`serialize_document`] but honours the decisions: the empty-element form (so a
+/// childless element recorded `Explicit` round-trips as `<a></a>` rather than the
+/// canonical `<a/>`), the intra-tag white-space, the §4.6 entity-reference form,
+/// the prolog/epilog `Misc*`, and — as a FINAL pass over the finished bytes — the
+/// §2.11 \[2.11\] end-of-line form (re-expanding each normalized `#xA` back to the
+/// source `#xD#xA`/`#xD`). Where no decision is recorded it falls back to the
+/// canonical serializer's choice; an empty EOL form leaves the bytes untouched.
 pub fn serialize_document_exact(doc: &XmlDocument, decisions: &SyntaxDecisions) -> Vec<u8> {
     let prolog = decisions.prolog();
     let mut out = String::new();
@@ -91,7 +95,82 @@ pub fn serialize_document_exact(doc: &XmlDocument, decisions: &SyntaxDecisions) 
     // §2.1 [1] `document ::= prolog element Misc*` — the trailing epilog Misc*
     // white-space after the root element's end-tag.
     out.push_str(&prolog.after_root);
-    out.into_bytes()
+    // §2.11 [2.11] End-of-Line Handling, INVERTED: the bytes so far carry the
+    // §2.11-normalized `#xA` everywhere (the form the reader descended); put the
+    // source `#xD#xA`/`#xD` back at each recorded LF ordinal. Empty form ⇒ no-op,
+    // so a pure-`#xA` source is byte-identical to the pre-EOL-form serializer.
+    expand_end_of_line_form(out.into_bytes(), decisions.eol_form())
+}
+
+/// Invert the §2.11 \[2.11\] End-of-Line normalization the reader applied: at the
+/// `#xA` byte with each recorded LF ORDINAL, re-expand back to the source form
+/// (`#xD#xA` for [`EolKind::Crlf`], `#xD` for [`EolKind::Cr`]).
+///
+/// Operates on the FINISHED `normalized` byte stream — the one
+/// [`serialize_document_exact`] just built. The serializer emits every `#xA`
+/// LITERALLY and in order (char-data does not escape `#xA`; the prolog/epilog
+/// `Misc*` and inter-element `S` runs are verbatim), so the k-th `#xA` byte here
+/// is the SAME line break the reader recorded at LF ordinal `k` — even though a
+/// §4.6 `&`/`<`/`>` escape shifted byte offsets in between. Keying by ordinal (not
+/// byte offset) is therefore robust against every other escaping decision, fully
+/// generic (prolog, char-data, inter-element `S` all re-expand identically), and
+/// additive: an empty form returns `normalized` unchanged, so a pure-`#xA` source
+/// (WordNet) is untouched.
+///
+/// Walks the output byte-by-byte, counting `#xA`s; at a `#xA` whose ordinal is in
+/// the recorded set, emits the source form instead. The recorded ordinals are
+/// ascending (the reader pushed them in document order), so a single advancing
+/// cursor over them suffices. The result length is `normalized.len()` plus the
+/// count of `Crlf` breaks (one `#xD` re-inserted each; a `Cr` rewrites the `#xA`
+/// in place, adding nothing).
+fn expand_end_of_line_form(normalized: Vec<u8>, eol_form: &EndOfLineForm) -> Vec<u8> {
+    if eol_form.is_empty() {
+        // Additive fast path: nothing to re-expand, return the bytes by move.
+        return normalized;
+    }
+    let recorded = eol_form.eols.as_slice();
+    // One `#xD` re-inserted per `Crlf`; a `Cr` replaces `#xA` in place.
+    let crlf_count = recorded
+        .iter()
+        .filter(|(_, kind)| matches!(kind, EolKind::Crlf))
+        .count();
+    let mut out = Vec::with_capacity(normalized.len() + crlf_count);
+    let mut lf_ordinal = 0usize;
+    let mut next = 0usize;
+    for &byte in &normalized {
+        if byte == b'\n' {
+            if next < recorded.len() && recorded[next].0 == lf_ordinal {
+                // This `#xA` is a §2.11-collapsed break — emit the source form.
+                match recorded[next].1 {
+                    // `#xD#xA` (CRLF): re-insert the `#xD`, then keep the `#xA`.
+                    EolKind::Crlf => {
+                        out.push(b'\r');
+                        out.push(b'\n');
+                    }
+                    // lone `#xD` (CR): the source had no `#xA` here, only `#xD`.
+                    EolKind::Cr => out.push(b'\r'),
+                }
+                next += 1;
+            } else {
+                // A source-literal `#xA` (no form to put back) — keep it.
+                out.push(b'\n');
+            }
+            lf_ordinal += 1;
+        } else {
+            out.push(byte);
+        }
+    }
+    // Every recorded ordinal must have landed on an `#xA` in the output — a
+    // reader/writer LF-count disagreement (e.g. a recorded break inside an
+    // attribute value, the out-of-scope §3.3.3 case) would leave entries
+    // unconsumed. Guarded without panicking on the release path.
+    debug_assert_eq!(
+        next,
+        recorded.len(),
+        "every recorded §2.11 EOL ordinal must index an `#xA` in the serialized output \
+         (an `#xA` inside an attribute value is the out-of-scope §3.3.3 residue)"
+    );
+    out
 }
 
 fn write_element_exact(

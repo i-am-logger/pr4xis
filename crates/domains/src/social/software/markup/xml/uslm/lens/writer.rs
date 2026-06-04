@@ -1602,47 +1602,63 @@ mod tests {
 
     // ── SLICE U4: the full `<uscDoc>` document wrapper ───────────────────────
 
-    /// The real on-disk Title 1 USLM file, with its §2.11 \[2.11\] end-of-line
+    /// The on-disk Title 1 USLM corpus path.
+    fn real_title1_path() -> std::path::PathBuf {
+        workspace_root()
+            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml")
+    }
+
+    /// The LITERAL on-disk Title 1 USLM file — the raw bytes EXACTLY as published,
+    /// CRLFs included (the file carries two `#xD#xA` line endings in the prolog,
+    /// at the `?>` boundaries of the XML declaration and the `<?xml-stylesheet?>`
+    /// PI). `None` when the corpus file is absent (graceful skip) or not UTF-8.
+    ///
+    /// Slice U5 captures the W3C XML 1.0 §2.11 \[2.11\] end-of-line FORM, so the
+    /// literal file — CRLFs and all — now reconstructs byte-for-byte; this is the
+    /// honest whole-document the byte-exact gate runs over.
+    fn real_title1_literal() -> Option<String> {
+        String::from_utf8(std::fs::read(real_title1_path()).ok()?).ok()
+    }
+
+    /// The real on-disk Title 1 USLM file with its §2.11 \[2.11\] end-of-line
     /// normalisation applied (`\r\n` → `\n`). `None` when the corpus file is
     /// absent (graceful skip).
     ///
-    /// The on-disk file carries two `#xD#xA` (CRLF) line endings — both in the
-    /// PROLOG, at the `?>` boundaries of the XML declaration and the
-    /// `<?xml-stylesheet?>` PI. The W3C XML 1.0 §2.11 end-of-line handling the
-    /// parser applies BEFORE the grammar descent normalises every `#xD#xA`/`#xD`
-    /// to `#xA`, so the reconstructed bytes carry `#xA` there; recovering the
-    /// original CRLF is a SEPARATE generic §2.11 concrete-syntax residue the byte
-    /// kernel does not yet model (NOT a USLM family). This LF-normalised view is
-    /// the genuine Title 1 document content modulo that 2-byte prolog EOL species,
-    /// so it is the honest real subset the whole-`<uscDoc>` byte-exact gate runs
-    /// over.
+    /// Used by the wrapper-skeleton and backbone-corruption tests that assert on
+    /// the parsed STRUCTURE rather than the literal bytes — the §2.11 EOL form is
+    /// orthogonal to those, so the LF-normalised view keeps them stable. The
+    /// LITERAL byte-exact gate uses [`real_title1_literal`].
     fn real_title1_lf_normalized() -> Option<String> {
-        let path = workspace_root()
-            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
-        let raw = std::fs::read_to_string(&path).ok()?;
-        Some(raw.replace("\r\n", "\n").replace('\r', "\n"))
+        Some(
+            real_title1_literal()?
+                .replace("\r\n", "\n")
+                .replace('\r', "\n"),
+        )
     }
 
-    /// HARD BYTE-EXACT GATE (slice U4): the WHOLE real Title 1 `<uscDoc>`
+    /// HARD BYTE-EXACT GATE (slices U4 + U5): the WHOLE real Title 1 `<uscDoc>`
     /// document — `<?xml-stylesheet?>` prolog PI, the interleaved-attribute
     /// `<uscDoc>` root, the `<meta>` block, `<main>` → `<title>` (its `<num>` /
     /// `<heading>` / title-level `<note>`s / `<toc>` / the three `<chapter>`
     /// hierarchy containers grouping every `<section>`) — reconstructs
     /// BYTE-FOR-BYTE from `capture_uslm_complement` then `reconstruct_uslm_source`,
-    /// over the §2.11-LF-normalised on-disk file (see
-    /// [`real_title1_lf_normalized`] for the prolog-CRLF carve-out). This is the
-    /// U4 proof that `write_uslm` regenerates the full document wrapper backbone
-    /// from the typed [`UsCodeTitle`] + the generic complement — the
+    /// over the LITERAL on-disk file — CRLFs INCLUDED (the two prolog `#xD#xA`
+    /// line endings).
+    ///
+    /// U4 proved the document-wrapper BACKBONE over the §2.11-LF-normalised file;
+    /// U5 closes the last 2-byte gap by capturing the W3C XML 1.0 §2.11 \[2.11\]
+    /// end-of-line FORM, so the gate now runs over the raw published bytes with NO
+    /// carve-out. It exercises every U5 path that matters together: the
     /// `<?xml-stylesheet?>` PI via the prolog-`Misc*` capture, the interleaved
-    /// `<uscDoc>` start-tag via `start_tag_order`, and every `<meta>` / `<main>` /
+    /// `<uscDoc>` start-tag via `start_tag_order`, every `<meta>` / `<main>` /
     /// `<title>` / `<chapter>` / `<section>` element via the semantic mixed-content
-    /// backbone.
+    /// backbone, AND the prolog CRLFs via the generic [`EndOfLineForm`] residue.
     ///
     /// On failure it reports the EXACT first byte-diff (a bounded 80-byte window)
     /// so an uncaptured concrete-syntax species or uncovered family names itself.
     #[test]
     fn real_title1_full_uscdoc_reconstruct_is_byte_exact() {
-        let Some(frag) = real_title1_lf_normalized() else {
+        let Some(frag) = real_title1_literal() else {
             return; // corpus not provisioned — skip gracefully
         };
         // Sanity: this really is the full `<uscDoc>` document (the wrapper this
@@ -1654,7 +1670,15 @@ mod tests {
                 && frag.contains("<meta>")
                 && frag.contains("<main>")
                 && frag.contains("<chapter"),
-            "the U4 gate must run over the full <uscDoc> document wrapper"
+            "the U4+U5 gate must run over the full <uscDoc> document wrapper"
+        );
+        // …and that it genuinely carries the prolog CRLF the U5 EOL form must put
+        // back — else a corpus re-export to pure LF would silently make the gate
+        // vacuous over the §2.11 form (the byte kernel's whole point this slice).
+        assert!(
+            frag.contains("?>\r\n"),
+            "the U5 literal gate must run over a file that genuinely carries CRLF \
+             (the §2.11 end-of-line form this slice captures)"
         );
         assert_byte_exact_gate(&frag);
     }
@@ -1794,69 +1818,62 @@ mod tests {
         })
     }
 
-    /// HONEST RED CARVE-OUT (slice U4): the LITERAL on-disk Title 1 file (NOT
-    /// LF-normalised) does NOT reconstruct byte-exact — and the ONLY divergence is
-    /// the §2.11 \[2.11\] end-of-line form in the PROLOG: the file's two `#xD#xA`
-    /// (CRLF) line endings (at the XML-declaration and `<?xml-stylesheet?>` PI
-    /// `?>` boundaries) re-emit as `#xA` because the parser applies W3C XML 1.0
-    /// §2.11 end-of-line normalisation before the grammar descent and the byte
-    /// kernel does not yet model the original CRLF. This pins the carve-out — the
-    /// FIRST divergence is at the prolog CRLF, and the reconstruction is exactly
-    /// 2 bytes shorter (the two stripped `#xD`) — so the gap can never silently
-    /// grow into a dropped USLM family without this test going red.
+    /// THE CARVE-OUT IS NOW ZERO (slice U5): the LITERAL on-disk Title 1 file —
+    /// CRLFs included — reconstructs byte-for-byte with NO divergence, because the
+    /// W3C XML 1.0 §2.11 \[2.11\] end-of-line FORM is now captured. Where U4 had a
+    /// 2-byte prolog-CRLF carve-out, U5 closes it: the reconstruction equals the
+    /// raw bytes exactly (`out.len() == src.len()`, no first-diff), AND the two
+    /// prolog `#xD#xA` line endings are genuinely re-expanded from the
+    /// [`EndOfLineForm`] residue (not a fluke of an LF-only file).
     ///
-    /// This is a GENERIC byte-kernel follow-up (a §2.11 prolog-EOL residue),
-    /// NOT a USLM family: the whole-document USLM backbone IS byte-exact
-    /// ([`real_title1_full_uscdoc_reconstruct_is_byte_exact`] proves it over the
-    /// LF-normalised real file).
+    /// This is the U5 proof at the residue level (the whole-document gate
+    /// [`real_title1_full_uscdoc_reconstruct_is_byte_exact`] proves the bytes; this
+    /// proves the §2.11 form is the thing that closed the gap — it has teeth).
     #[test]
-    fn literal_title1_diverges_only_at_prolog_crlf() {
-        let path = workspace_root()
-            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
-        let Ok(raw) = std::fs::read(&path) else {
+    fn literal_title1_crlf_round_trips_via_eol_form() {
+        let Some(src) = real_title1_literal() else {
             return; // corpus not provisioned — skip gracefully
-        };
-        let src = match String::from_utf8(raw) {
-            Ok(s) => s,
-            Err(_) => return,
         };
         // The on-disk file genuinely carries CRLF in the prolog (else this gate is
         // vacuous — a corpus re-export to pure LF would make the literal file
-        // already byte-exact, which the LF gate covers).
+        // already byte-exact without any §2.11 form to capture).
         assert!(
             src.contains("?>\r\n"),
-            "the on-disk Title 1 file must carry the prolog CRLF this carve-out documents"
+            "the on-disk Title 1 file must carry the prolog CRLF this slice round-trips"
         );
         let (title, complement) =
             capture_uslm_complement(&src).expect("capture the literal on-disk file");
+
+        // The §2.11 EOL form genuinely captured the prolog CRLFs — a vacuous
+        // round-trip that dropped them would be a lie. Title 1 carries exactly two
+        // `#xD#xA` (prolog), no lone `#xD`, so the form lists two `Crlf` entries.
+        let eol = complement.syntax_decisions.eol_form();
+        assert!(
+            !eol.is_empty(),
+            "the literal file's prolog CRLFs must be captured in the §2.11 EOL form"
+        );
+        assert!(
+            eol.eols.iter().all(|(_, k)| matches!(
+                k,
+                crate::social::software::markup::xml::parser::source_syntax::EolKind::Crlf
+            )),
+            "Title 1's only line breaks are CRLF (the prolog `?>\\r\\n`), no lone CR"
+        );
+
         let out = reconstruct_uslm_source(&title, &complement).expect("reconstruct");
         let sb = src.as_bytes();
-        // Exactly the two stripped prolog `#xD` bytes shorter — proving no USLM
-        // content was lost, only the §2.11-normalised CRLF.
+        // ZERO gap: the reconstruction is byte-for-byte the literal file, CRLFs and
+        // all — no length delta, no first divergence.
         assert_eq!(
             out.len(),
-            sb.len() - 2,
-            "the reconstruction must be exactly the two prolog CRLF `#xD` bytes shorter \
-             (no dropped USLM content)"
+            sb.len(),
+            "the literal reconstruction must be exactly the source length (CRLFs put back)"
         );
-        // The FIRST byte-diff is the prolog CRLF — `out` has `#xA` where the source
-        // had `#xD` (the `\r` of the first `?>\r\n`).
-        let first = out
-            .iter()
-            .zip(sb.iter())
-            .position(|(a, b)| a != b)
-            .expect("the literal file differs (CRLF carve-out)");
         assert_eq!(
-            (out[first], sb[first]),
-            (b'\n', b'\r'),
-            "the first divergence must be the prolog CRLF (#xA emitted for source #xD)"
-        );
-        // And it is in the PROLOG (before the root `<uscDoc>` start-tag), so the
-        // carve-out cannot mask a divergence inside the document body.
-        let root_start = src.find("<uscDoc").expect("root present");
-        assert!(
-            first < root_start,
-            "the only divergence must be in the prolog, before the <uscDoc> root"
+            out,
+            sb.to_vec(),
+            "the literal on-disk Title 1 file must reconstruct byte-for-byte (U5: the \
+             §2.11 end-of-line carve-out is now zero)"
         );
     }
 }
