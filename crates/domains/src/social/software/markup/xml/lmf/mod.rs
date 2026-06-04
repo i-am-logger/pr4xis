@@ -1,4 +1,10 @@
 pub mod dtd;
+// The WN-LMF byte-exact graph-faithful lens + its harness registration (flips
+// `english_wordnet` off the universal floor in the completeness meter). Native
+// only — `register_lens!`'s `linkme` distributed slice is unsupported on wasm32,
+// and the round-trip harness it feeds is a native CI/audit tool.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod lens;
 pub mod ontology;
 #[cfg(feature = "prx")]
 pub mod prx;

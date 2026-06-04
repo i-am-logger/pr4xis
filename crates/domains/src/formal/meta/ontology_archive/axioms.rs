@@ -229,6 +229,13 @@ fn witness_wordnet_envelope(name: &str, source: &[u8]) -> WordNetPrxEnvelope {
             references: Vec::new(),
         },
         mode: RoundTripFidelity::RawBytesComplementFloor,
+        // This witness exercises the SHARED archive axioms over the WordNet
+        // envelope SHAPE at the universal FLOOR (stored raw complement), the
+        // tier OWL + USC still ride — so `graph` is `None` and `raw` carries the
+        // content-addressed source. SLICE 3b's emit path uses the graph-faithful
+        // tier (`graph` populated, `raw = None`); both are valid envelope
+        // configurations and the shared axioms hold over either.
+        graph: None,
         raw: Some(RawSource {
             content_address: hash,
             blob: source.to_vec(),

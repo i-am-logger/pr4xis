@@ -31,6 +31,21 @@
 //!   carries; the empty-element form is NOT one of them, hence this complement.
 //! - **Foster et al. (2007)** ACM TOPLAS 29(3) — the well-behaved lens whose
 //!   byte-exact `put` takes the DOM and this complement as its two inputs.
+//!
+//! # rkyv-serializability under `prx`
+//!
+//! The graph-faithful WordNet `.prx` envelope carries the captured
+//! [`WnSyntaxComplement`](super::super::lmf::writer::WnSyntaxComplement) — which
+//! bundles [`DocumentResidue`] + [`RegeneratedComplement`] + [`SyntaxDecisions`]
+//! — as the byte-exact reconstruction's second input. So every residue type in
+//! this module must be rkyv-serializable under the `prx` feature where the
+//! archive consumes it. The derive is CFG-GATED
+//! (`#[cfg_attr(feature = "prx", derive(rkyv::Archive, …))]`) because rkyv is an
+//! OPTIONAL dependency (`prx = ["dep:rkyv", …]`): present in the `prx`/`fetch`
+//! build, absent from the default + wasm32 builds that do not link rkyv. The
+//! `BTreeMap`-backed types (`SyntaxDecisions`, `ContentWhitespace`,
+//! `AttributeOverrides`) serialize their private `by_index` map through rkyv's
+//! `alloc` `BTreeMap` support directly — no Owned mirror is needed.
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -69,6 +84,10 @@ use super::super::ontology::{
 /// separate, later concrete-syntax slice). The realistic WN-LMF case is pure
 /// white-space between the XML declaration, the DOCTYPE, and the root element.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct PrologDecisions {
     /// `S` after the XML declaration, before the DOCTYPE-or-root.
     pub after_xml_decl: String,
@@ -93,6 +112,10 @@ impl PrologDecisions {
 /// tag) versus `<a></a>` (start- plus end-tag) — the same Information Set,
 /// distinct bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum EmptyForm {
     /// `<a/>`.
     SelfClosing,
@@ -127,6 +150,10 @@ pub enum EmptyForm {
 /// scope for this slice (a `debug_assert` in the serializer guards the count;
 /// the reordering case is a documented follow-up).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct IntraTagWhitespace {
     /// The §3.1 \[40\]/\[44\] `S` run BEFORE each `(S Attribute)` group, one
     /// entry per attribute-like item in source order (the leading `S` of the
@@ -182,6 +209,10 @@ impl IntraTagWhitespace {
 /// and adjacent multibyte chars — curly quotes U+2018/U+2019 in real
 /// definitions — shift byte offsets but not char indices).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct EntityReferenceForm {
     /// `(char_index, entity_name)` pairs in ascending `char_index` order — the
     /// resolved-string position and the §4.6 predefined entity name (`amp`,
@@ -194,6 +225,10 @@ pub struct EntityReferenceForm {
 /// bare `String`) so the escaper dispatches on the closed §4.6 set rather than
 /// re-parsing a name, and an out-of-set value is unrepresentable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum EntityName {
     /// `&amp;` → `&`.
     Amp,
@@ -259,6 +294,10 @@ impl EntityName {
 ///   values and char-data, recorded so the escaper re-emits the reference
 ///   instead of the resolved literal character.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct NodeDecisions {
     /// The empty-element form — only meaningful for a childless element.
     pub empty_form: Option<EmptyForm>,
@@ -288,6 +327,10 @@ pub struct NodeDecisions {
 /// its content-address (so the same ontology serialized two ways keeps one
 /// root). It is the byte-exact `put`'s second input, beside the DOM.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct SyntaxDecisions {
     by_index: BTreeMap<usize, NodeDecisions>,
     /// Document-level prolog/epilog white-space (§2.8 \[27\] `Misc` `S`) — the
@@ -389,6 +432,10 @@ impl CaptureCtx {
 /// namespace prefixes — so a regenerated tree emits neither. Captured once
 /// (document-level) and re-applied by [`reapply_regenerated_complement`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct DocumentResidue {
     /// The `<!DOCTYPE …>` declaration the source carried (§2.8 \[28\]
     /// `doctypedecl`). `None` when the source had no DOCTYPE.
@@ -417,6 +464,10 @@ impl DocumentResidue {
 /// tree lacked (the inter-element white-space). Replaying the slots yields the
 /// captured DOM's exact child sequence.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum ChildSlot {
     /// Take the next child from the regenerated element, unchanged.
     Keep,
@@ -438,6 +489,10 @@ pub enum ChildSlot {
 /// verbatim so reconstruction is byte-exact without a per-depth indentation
 /// model.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct ContentWhitespace {
     by_index: BTreeMap<usize, Vec<ChildSlot>>,
 }
@@ -476,6 +531,10 @@ impl ContentWhitespace {
 /// slots by, so overwriting the regenerated element's attributes with this exact
 /// sequence keeps those decisions slot-aligned with the byte-exact serializer.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct AttributeOverrides {
     by_index: BTreeMap<usize, ElementAttributes>,
 }
@@ -483,6 +542,10 @@ pub struct AttributeOverrides {
 /// One element's exact source attribute sequence — its namespace declarations and
 /// regular attributes in source order, the pair the byte-exact serializer emits.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct ElementAttributes {
     /// The element's `xmlns` / `xmlns:prefix` declarations in source order (Bray,
     /// Hollander, Layman & Tobin 2009 §3).
@@ -511,6 +574,10 @@ impl AttributeOverrides {
 /// Returned by [`diff_content_whitespace`] and consumed by
 /// [`reapply_regenerated_complement`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct RegeneratedComplement {
     /// The §2.4 \[14\] inter-element white-space the regenerated tree lacks.
     pub content_whitespace: ContentWhitespace,

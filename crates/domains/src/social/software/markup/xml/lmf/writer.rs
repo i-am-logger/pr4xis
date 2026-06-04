@@ -410,7 +410,18 @@ fn text_element(name: &str, text: &str) -> XmlElement {
 /// Three layers, each a separate W3C-grounded residue class — see the module-
 /// level note above. All three are generic XML-family residue; the bundle is the
 /// only WordNet-specific piece.
+///
+/// rkyv-serializable under `prx` (CFG-GATED, as rkyv is an optional dependency):
+/// the graph-faithful WordNet `.prx` envelope carries this complement beside the
+/// typed [`WordNet`] ontology, so the byte-exact `put`
+/// ([`reconstruct_wn_lmf_source`]) can run from the archive alone. All three
+/// fields are generic XML-family residue that already carry the same gated
+/// derive — the bundle is the only WordNet-specific piece.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct WnSyntaxComplement {
     /// Document/root-level residue: the `<!DOCTYPE>` (§2.8 \[28\]) and the root
     /// element's namespace declarations (Bray, Hollander, Layman & Tobin 2009 §3)

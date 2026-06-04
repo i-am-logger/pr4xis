@@ -16,12 +16,16 @@
 //! checked byte-for-byte (`out == in`).
 //!
 //! It is the SOURCE round-trip, NOT the FORMAT round-trip (`prx_runtime_emit.rs`
-//! checks the latter). It passes today via the universal FLOOR
-//! ([`RoundTripFidelity::RawBytesComplementFloor`]): the `.prx.gz` stores the
-//! exact source as a content-addressed constant complement and the decompile
-//! op returns it only after the `sha256` honesty gate. The test additionally
-//! asserts the achieved tier IS `RawBytesComplementFloor` — the honest STAGE-1
-//! statement that this is floor-via-stored-complement, not yet graph-faithful.
+//! checks the latter). WordNet is praxis's FIRST graph-faithful source (SLICE
+//! 3b): its `.prx.gz` regenerates the source from the typed ontology plus a
+//! content-addressed concrete-syntax complement (NO stored raw blob), achieving
+//! [`RoundTripFidelity::ByteExactGraphFaithful`]. OWL and USC still ride the
+//! universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`]): the
+//! `.prx.gz` stores the exact source as a content-addressed constant complement
+//! and the decompile op returns it only after the `sha256` honesty gate. The
+//! test asserts the achieved tier PER KIND — graph-faithful for WordNet,
+//! floor-via-stored-complement for OWL/USC — so a tier regression in either
+//! direction fails loudly.
 //!
 //! # Graceful skip + non-vacuity
 //!
@@ -85,6 +89,19 @@ fn compile_for_kind(
     r.unwrap_or_else(|e| panic!("compile {kind:?} {name}@{version}: {e}"))
 }
 
+/// The tier a source DECLARES in the completeness meter (its registered lens's
+/// `WellBehavedLens::FIDELITY`) — the single source of truth for the expected
+/// emit tier. A source with no lens declares the universal floor. Keyed by
+/// `"{name}@{version}"`.
+fn meter_declared_tier(name: &str, version: &str) -> RoundTripFidelity {
+    let key = format!("{name}@{version}");
+    completeness_meter()
+        .iter()
+        .find(|r| r.source == key)
+        .map(|r| r.declared)
+        .unwrap_or(RoundTripFidelity::RawBytesComplementFloor)
+}
+
 #[test]
 fn all_sources_source_round_trip_byte_exact() {
     let root = workspace_root();
@@ -129,16 +146,25 @@ fn all_sources_source_round_trip_byte_exact() {
             entry.name, entry.version
         );
 
-        // Honest STAGE-1 statement: the achieved tier is the stored-complement
-        // FLOOR, not graph-faithful. (When STAGE 2 lands a graph-faithful
-        // writer for a kind, this assertion is what flips — deliberately, with
-        // the writer.)
+        // The achieved tier, per SOURCE (not just per kind). `english_wordnet`
+        // is praxis's FIRST graph-faithful `.prx` source since SLICE 3b: its
+        // bytes regenerate from the typed ontology + a concrete-syntax
+        // complement (NO stored raw blob), so it carries
+        // `ByteExactGraphFaithful`. OWL and USC still ride the stored-complement
+        // FLOOR (their writers — `write_owl` + RDFC #258, `write_uslm` — remain
+        // the open gap). A WN-LMF source the structural writer cannot yet
+        // regenerate byte-exactly (`us_legal_lexicon`, whose child order the
+        // DTD-ordered writer reorders) honestly degrades to the floor.
+        //
+        // The single source of truth for the EXPECTED tier is the completeness
+        // meter's DECLARED tier (the lens registration), so the emit tier and the
+        // meter cannot drift: english_wordnet declares graph-faithful (a lens is
+        // registered), every other source declares the floor.
+        let expected_tier = meter_declared_tier(&entry.name, &entry.version);
         assert_eq!(
-            fidelity,
-            RoundTripFidelity::RawBytesComplementFloor,
-            "{}@{}: expected the stored-complement FLOOR tier in STAGE 1",
-            entry.name,
-            entry.version
+            fidelity, expected_tier,
+            "{}@{}: emitted round-trip tier disagrees with the completeness meter's declared tier",
+            entry.name, entry.version
         );
 
         match kind {
@@ -211,25 +237,45 @@ fn completeness_meter_declared_tier_matches_achieved() {
          (declared != achieved): {liars:?}"
     );
 
-    // The meter must be HONEST about STAGE 1: every source that achieves a tier
-    // today achieves the stored-complement FLOOR, and carries a named gap to
-    // graph-faithfulness. (No graph-faithful writer exists yet, so no row may
-    // claim `ByteExactGraphFaithful`.)
+    // The meter must be HONEST per source. WordNet is praxis's FIRST
+    // graph-faithful `.prx` source (SLICE 3b): it MAY claim
+    // `ByteExactGraphFaithful` and carries NO gap. OWL and USC are still on the
+    // stored-complement FLOOR — they may NOT claim graph-faithfulness, and a
+    // floor row must name its per-source writer gap.
     for r in &meter {
-        if let Some(RoundTripFidelity::ByteExactGraphFaithful) = r.achieved {
-            panic!(
-                "{}: a source claims ByteExactGraphFaithful, but STAGE 1 ships no \
-                 graph-faithful writer — this would be an over-claim",
-                r.source
-            );
-        }
-        // A provisioned floor source must name its gap (the per-source writer).
-        if r.is_floor_via_stored_complement() {
-            assert!(
-                r.graph_faithful_gap.is_some(),
-                "{}: a floor source must name its gap to graph-faithfulness",
-                r.source
-            );
+        match r.declared {
+            RoundTripFidelity::ByteExactGraphFaithful => {
+                // Only WordNet has a graph-faithful writer today.
+                assert_eq!(
+                    r.kind,
+                    DecompileKind::WordNet,
+                    "{}: only WordNet is graph-faithful in this slice; {:?} over-claims",
+                    r.source,
+                    r.kind
+                );
+                assert!(
+                    r.graph_faithful_gap.is_none(),
+                    "{}: a graph-faithful source carries NO gap",
+                    r.source
+                );
+            }
+            RoundTripFidelity::RawBytesComplementFloor => {
+                // A floor source must NOT have achieved graph-faithfulness and
+                // must name its gap (the per-source byte-exact writer).
+                assert_ne!(
+                    r.achieved,
+                    Some(RoundTripFidelity::ByteExactGraphFaithful),
+                    "{}: a floor source achieved graph-faithfulness without declaring it",
+                    r.source
+                );
+                if r.is_floor_via_stored_complement() {
+                    assert!(
+                        r.graph_faithful_gap.is_some(),
+                        "{}: a floor source must name its gap to graph-faithfulness",
+                        r.source
+                    );
+                }
+            }
         }
     }
 

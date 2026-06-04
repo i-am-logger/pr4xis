@@ -1497,6 +1497,59 @@ mod tests {
         }
     }
 
+    /// CI guard: the `[archive_signatures]` pins are a per-toolchain BUILD
+    /// OUTPUT (the STEP-0 doctrine in `praxis.lock`), so they are valid only for
+    /// the EXACT rkyv crate version + features they were computed against. A
+    /// silent `rkyv` dependency bump would change the rkyv on-disk layout,
+    /// invalidating EVERY archive pin (and every `.prx.gz` artifact) without any
+    /// source change — a drift the anchor tests would surface only as a
+    /// confusing MerkleRoot mismatch. This guard catches the bump at its root:
+    /// it reads the workspace `Cargo.lock`, finds the resolved `rkyv` version,
+    /// and asserts it equals the pinned one. On a deliberate bump, update
+    /// `EXPECTED_RKYV_VERSION` here AND re-pin every `[archive_signatures]` /
+    /// `[byte_exact_signatures]` value (the anchor tests will then re-pass).
+    #[test]
+    fn rkyv_archive_format_version_guard() {
+        // The rkyv version the current `[archive_signatures]` / determinism KATs
+        // were pinned against. Bump deliberately, alongside a full re-pin.
+        const EXPECTED_RKYV_VERSION: &str = "0.8.16";
+
+        // Workspace root — grandparent of `crates/domains/` (CARGO_MANIFEST_DIR).
+        let lock_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(|root| root.join("Cargo.lock"))
+            .expect("workspace root");
+        let text = std::fs::read_to_string(&lock_path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", lock_path.display()));
+
+        // Find the `[[package]] name = "rkyv"` stanza and read its `version`.
+        // A simple line scan (no toml dep needed): locate the `name = "rkyv"`
+        // line, then the next `version = "…"` line within the same stanza.
+        let mut resolved: Option<String> = None;
+        let mut in_rkyv = false;
+        for line in text.lines() {
+            let t = line.trim();
+            if t == "[[package]]" {
+                in_rkyv = false;
+            } else if t == r#"name = "rkyv""# {
+                in_rkyv = true;
+            } else if in_rkyv && let Some(rest) = t.strip_prefix("version = \"") {
+                resolved = rest.strip_suffix('"').map(|s| s.to_string());
+                break;
+            }
+        }
+        let resolved = resolved.expect("Cargo.lock must contain a resolved `rkyv` package version");
+        assert_eq!(
+            resolved, EXPECTED_RKYV_VERSION,
+            "the resolved rkyv version ({resolved}) differs from the pinned \
+             {EXPECTED_RKYV_VERSION}; the `.prx` archive layout may have changed. \
+             Re-compute every [archive_signatures]/[byte_exact_signatures] pin \
+             (dump_archive_addresses / dump_wordnet_archive_addresses) and bump \
+             EXPECTED_RKYV_VERSION."
+        );
+    }
+
     // ── distribution emitter: emit_all_prx_gz over the live registry ─
 
     /// `emit_all_prx_gz` walks the live registry, emits a `.prx.gz` for

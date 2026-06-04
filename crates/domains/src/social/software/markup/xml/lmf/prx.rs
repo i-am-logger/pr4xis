@@ -68,14 +68,23 @@
 //! produced by [`language::from_codegen`] — the SAME functor the
 //! WASM/codegen consumer runs. `emit → load` must reproduce, on
 //! `concept_count` / `word_count` / `lookup`, the corpus
-//! [`English::from_wordnet`] yields from the same source. Byte-exact source
-//! fidelity (`hash(out) == hash(in)`, the #186 invariant) is discharged
-//! ENTIRELY by [`RawSource::blob`] — the whole unzipped WN-LMF XML,
-//! content-addressed to the `praxis.lock` `[hashes]` pin — exactly as the
-//! OWL and USC leaves do. WN-LMF has no byte-exact writer + canonicalization
-//! (the analogue of the OWL `write_owl` + RDFC #258 gap), so English is
-//! permanently [`RoundTripFidelity::RawBytesComplementFloor`] today;
-//! `ByteExactGraphFaithful` stays unemitted, not stubbed.
+//! [`English::from_wordnet`] yields from the same source.
+//!
+//! Byte-exact source fidelity (`hash(out) == hash(in)`, the #186 invariant) is
+//! GRAPH-FAITHFUL since SLICE 3b: WN-LMF is praxis's FIRST source whose `.prx`
+//! regenerates the exact source bytes from the typed [`WordNet`] ontology plus a
+//! content-addressed concrete-syntax complement ([`WnGraphFaithful`] — the
+//! §2.8 `<!DOCTYPE>`, the root namespaces, the §2.4 inter-element white-space,
+//! the §3.1 intra-tag layout, the §4.6 entity-reference form, the source
+//! attribute sequences), with NO stored raw blob. The capture/reconstruct pair
+//! ([`capture_wn_complement`] / [`reconstruct_wn_lmf_source`], parser
+//! `source_syntax` residue + the WN-LMF structural writer) is proven a byte-exact
+//! inverse over the real 89 MB corpus (SLICE 3a). English therefore emits
+//! [`RoundTripFidelity::ByteExactGraphFaithful`]; the
+//! [`RoundTripFidelity::RawBytesComplementFloor`] raw-blob leaf
+//! [`RawSource::blob`] is the tier OWL and USC still ride (their byte-exact
+//! writers — OWL `write_owl` + RDFC #258, USC `write_uslm` — remain the open
+//! gap), kept here for the floor reconstruction path.
 //!
 //! ## Citations
 //!
@@ -109,7 +118,9 @@ use alloc::vec::Vec;
 
 use pr4xis::codegen_data::CodegenData;
 
+use super::ontology::WordNet;
 use super::reader::read_wordnet;
+use super::writer::{WnSyntaxComplement, capture_wn_complement, reconstruct_wn_lmf_source};
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::language;
 use crate::formal::meta::artifact_identity::ontology::{
@@ -196,6 +207,43 @@ pub struct WnPrxMetadata {
 pub const WN_LMF_NAMESPACE_URI: &str = "https://globalwordnet.github.io/schemas/";
 
 // =============================================================================
+// WnGraphFaithful — the typed ontology + concrete-syntax complement, the
+// graph-faithful reconstruction payload (no stored raw blob).
+// =============================================================================
+
+/// The graph-faithful reconstruction payload: the typed WN-LMF
+/// [`WordNet`] ontology PLUS the concrete-syntax [`WnSyntaxComplement`] the
+/// byte-exact `put` ([`reconstruct_wn_lmf_source`]) re-applies. Present in a
+/// [`WordNetPrxEnvelope`] iff `mode == ByteExactGraphFaithful`.
+///
+/// This is the WordNet realisation of #186's graph-faithful tier: the source
+/// bytes are regenerated from the ONTOLOGY GRAPH (`wn`) plus a
+/// content-addressed SYNTAX residue (`complement`) — the §2.8 `<!DOCTYPE>`, the
+/// root namespaces, the §2.4 inter-element white-space, the §3.1 intra-tag
+/// layout, the §4.6 entity-reference form, the source attribute sequences — and
+/// NO stored raw blob (the `RawBytesComplementFloor` constant-complement). The
+/// complement is concrete-syntax, NOT ontology: the same `wn` serialized two
+/// ways keeps one content address; only the per-source `complement` differs. The
+/// capture/reconstruct pair ([`capture_wn_complement`] /
+/// [`reconstruct_wn_lmf_source`]) is proven a byte-exact inverse over the real
+/// 89 MB Open English WordNet 2025 corpus (the SLICE-3a round-trip law).
+///
+/// rkyv-serializable through the `prx`-gated derives on [`WordNet`] and
+/// [`WnSyntaxComplement`] (and the XML/residue types they reference).
+#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct WnGraphFaithful {
+    /// The typed WN-LMF lexicon ontology — the GRAPH the source is regenerated
+    /// from. Captured by [`capture_wn_complement`] (the same `read_wordnet`
+    /// model `data` projects from), serialized here directly.
+    pub wn: WordNet,
+    /// The concrete-syntax COMPLEMENT — the byte-affecting residue the typed
+    /// ontology does not carry (DOCTYPE, namespaces, white-space layout,
+    /// entity-reference form, source attribute sequences). Re-applied by
+    /// [`reconstruct_wn_lmf_source`] to reproduce the source bytes exactly.
+    pub complement: WnSyntaxComplement,
+}
+
+// =============================================================================
 // WordNetPrxEnvelope — owned data + metadata, the thing that gets rkyv'd + gzip'd.
 // =============================================================================
 
@@ -210,19 +258,44 @@ pub const WN_LMF_NAMESPACE_URI: &str = "https://globalwordnet.github.io/schemas/
 /// subdivision tree, unlike the USC `UsCodePrxEnvelope`). The one
 /// substantive difference from the OWL emitter is that [`Self::data`]'s
 /// `word_index` is populated and sorted (see `wn_builder_to_owned`).
+///
+/// # The two reconstruction tiers — one envelope, exactly one payload
+///
+/// `mode` selects which source-reconstruction payload the envelope carries, and
+/// the two are mutually exclusive:
+///
+/// - [`RoundTripFidelity::ByteExactGraphFaithful`] — `graph` is `Some`, `raw`
+///   is `None`: the source regenerates from the typed [`WordNet`] ontology plus
+///   the concrete-syntax [`WnSyntaxComplement`] ([`WnGraphFaithful`]), NO stored
+///   raw blob. This is English's tier since SLICE 3b — praxis's FIRST
+///   graph-faithful `.prx` source.
+/// - [`RoundTripFidelity::RawBytesComplementFloor`] — `raw` is `Some`, `graph`
+///   is `None`: the source bytes are stored as a content-addressed constant
+///   complement (the universal floor OWL + USC still ride).
+///
+/// In both tiers [`Self::data`] (the reasoning view) is carried unchanged — the
+/// runtime materializes [`English`] from it identically regardless of the
+/// reconstruction tier.
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct WordNetPrxEnvelope {
     /// OMV/PROV-O-grounded self-description, incl. the source content hash
     /// the load gate validates.
     pub metadata: WnPrxMetadata,
     /// The archived synset corpus — the owned mirror of the
-    /// `CodegenData<English>` interchange, with `word_index` populated.
+    /// `CodegenData<English>` interchange, with `word_index` populated. The
+    /// runtime reasoning view, carried unchanged in both reconstruction tiers.
     pub data: OwnedCodegenData,
-    /// The source lens's [`RoundTripFidelity`] — `RawBytesComplementFloor`
-    /// for English today (no byte-exact WN-LMF writer + canonicalization yet).
+    /// The source lens's [`RoundTripFidelity`] — `ByteExactGraphFaithful` for
+    /// English since SLICE 3b (the typed ontology + concrete-syntax complement
+    /// regenerate the source from the graph alone).
     pub mode: RoundTripFidelity,
+    /// The graph-faithful reconstruction payload (typed ontology + concrete-
+    /// syntax complement) — `Some` iff `mode == ByteExactGraphFaithful`, `None`
+    /// otherwise (the floor stores `raw` instead). No raw blob is kept in this
+    /// tier; the source is regenerated from the graph.
+    pub graph: Option<WnGraphFaithful>,
     /// The content-addressed source bytes (the constant-complement) — `Some`
-    /// iff `mode == RawBytesComplementFloor`.
+    /// iff `mode == RawBytesComplementFloor`. `None` in the graph-faithful tier.
     pub raw: Option<RawSource>,
 }
 
@@ -284,14 +357,22 @@ fn wn_verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Resu
 /// `.prx → xml` leg of the #186 byte-hash invariant. Mirrors the OWL
 /// `reconstruct_source` over the WordNet envelope.
 ///
-/// For [`RoundTripFidelity::RawBytesComplementFloor`] (English today):
-/// return the stored `raw.blob` after enforcing the in-envelope honesty
-/// doctrine (`sha256(blob) == raw.content_address == metadata.source_sha256`).
-/// A tampered blob is rejected. [`RoundTripFidelity::ByteExactGraphFaithful`]
-/// would regenerate from `data` via a byte-exact `write_wordnet` + WN-LMF
-/// canonicalization — the WordNet analogue of the OWL `write_owl` + RDFC gap
-/// (#258), unimplemented, so no envelope is emitted in that mode today.
+/// For [`RoundTripFidelity::RawBytesComplementFloor`]: return the stored
+/// `raw.blob` after enforcing the in-envelope honesty doctrine
+/// (`sha256(blob) == raw.content_address == metadata.source_sha256`). A
+/// tampered blob is rejected.
+///
+/// For [`RoundTripFidelity::ByteExactGraphFaithful`] (English since SLICE 3b):
+/// regenerate the source from the typed [`WordNet`] ontology PLUS the
+/// concrete-syntax [`WnSyntaxComplement`] carried in `graph` via
+/// [`reconstruct_wn_lmf_source`] (the graph-faithful `put`, NO stored raw blob),
+/// then enforce the SAME sha256 honesty gate the floor arm uses — the
+/// regenerated bytes MUST hash to `metadata.source_sha256` (the
+/// `praxis.lock` `[byte_exact_signatures]` / `[hashes]` pin). A regeneration
+/// that does not reproduce the pinned source is rejected ([`PrxError::HashMismatch`]),
+/// fail-closed, never fabricating or returning unverified bytes.
 pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, PrxError> {
+    let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     match envelope.mode {
         RoundTripFidelity::RawBytesComplementFloor => {
             let raw = envelope
@@ -302,7 +383,6 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
                         .to_string(),
                 })?;
             let computed = source_content_hash(&raw.blob);
-            let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
             if computed != raw.content_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (raw content address)"),
@@ -319,11 +399,40 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
             }
             Ok(raw.blob.clone())
         }
-        RoundTripFidelity::ByteExactGraphFaithful => Err(PrxError::SourceNotReconstructible {
-            reason: "byte-exact WN-LMF graph→source regeneration (write_wordnet + WN-LMF \
-                     canonicalization) is not yet implemented"
-                .to_string(),
-        }),
+        RoundTripFidelity::ByteExactGraphFaithful => {
+            // The graph-faithful payload (typed ontology + concrete-syntax
+            // complement) must be present — its absence is a malformed envelope,
+            // not a fabrication opportunity.
+            let graph =
+                envelope
+                    .graph
+                    .as_ref()
+                    .ok_or_else(|| PrxError::SourceNotReconstructible {
+                        reason: "ByteExactGraphFaithful envelope is missing its graph payload \
+                                 (typed ontology + concrete-syntax complement)"
+                            .to_string(),
+                    })?;
+            // Regenerate from the GRAPH alone (no stored raw blob): the typed
+            // WordNet ontology + the captured concrete-syntax complement. This
+            // is the byte-exact `put` proven inverse over the real corpus.
+            let bytes = reconstruct_wn_lmf_source(&graph.wn, &graph.complement).map_err(|e| {
+                PrxError::SourceNotReconstructible {
+                    reason: format!("graph-faithful WN-LMF reconstruction failed: {e}"),
+                }
+            })?;
+            // The SAME honesty gate the floor arm enforces: the regenerated
+            // bytes must hash to the pinned source content address. A
+            // regeneration that drifts from the pinned source fails closed.
+            let computed = source_content_hash(&bytes);
+            if computed != envelope.metadata.source_sha256 {
+                return Err(PrxError::HashMismatch {
+                    key: format!("{key} (graph-faithful reconstruction vs metadata)"),
+                    expected: envelope.metadata.source_sha256.clone(),
+                    found: computed,
+                });
+            }
+            Ok(bytes)
+        }
     }
 }
 
@@ -334,13 +443,15 @@ fn wn_verify_source_leg(
     source_pin: &str,
     key: &str,
 ) -> Result<(), PrxError> {
-    match envelope.mode {
-        RoundTripFidelity::RawBytesComplementFloor => {
-            let source_bytes = wn_reconstruct_source(envelope)?;
-            wn_verify_content_address(&source_bytes, source_pin, key)
-        }
-        RoundTripFidelity::ByteExactGraphFaithful => Ok(()),
-    }
+    // Both tiers reconstruct the source and bind it to the trusted source pin —
+    // the floor from its stored raw complement, the graph-faithful tier from the
+    // ontology + concrete-syntax complement. `wn_reconstruct_source` already
+    // enforces the in-envelope honesty gate (regenerated == metadata hash);
+    // binding to `source_pin` additionally anchors it to the EXTERNAL
+    // `praxis.lock` pin (`[hashes]` == `[byte_exact_signatures]` for English,
+    // since `put(get(b)) == b` makes the round-trip hash the raw-source hash).
+    let source_bytes = wn_reconstruct_source(envelope)?;
+    wn_verify_content_address(&source_bytes, source_pin, key)
 }
 
 /// Admit a decoded WordNet envelope only after BOTH gate legs verify, then
@@ -574,27 +685,56 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 }
 
 /// Build a [`WordNetPrxEnvelope`] from WN-LMF source bytes plus its registry
-/// `(name, version, url)`. Parses via [`read_wordnet`],
-/// projects with `wn_builder_to_owned`, attaches the OMV/PROV-O metadata,
-/// and carries the exact source bytes as the `RawBytesComplementFloor` raw
-/// leaf (content-addressed to the UNZIPPED bytes the reader consumed —
-/// matching OWL and USC).
+/// `(name, version, url)`, preferring the GRAPH-FAITHFUL tier — English's tier
+/// since SLICE 3b — and gracefully degrading to the universal floor only for a
+/// source whose concrete syntax the structural writer cannot yet reproduce.
+///
+/// 1. Parse the typed [`WordNet`] ontology once ([`read_wordnet`]) and project
+///    the [`OwnedCodegenData`] reasoning view (`word_index` populated + sorted).
+///    This is carried unchanged in BOTH tiers.
+/// 2. ATTEMPT the graph-faithful `get`: [`capture_wn_complement`] re-parses the
+///    source and captures the concrete-syntax [`WnSyntaxComplement`] (DOCTYPE,
+///    namespaces, white-space layout, entity-reference form, source attribute
+///    sequences) the byte-exact `put` re-applies.
+///    - **Captured** → emit `mode = ByteExactGraphFaithful`, the `graph` payload
+///      (ontology + complement), `raw = None` (NO stored raw blob; the source
+///      regenerates from the graph). This is English's tier.
+///    - **Backbone divergence** ([`WnReconstructError::Complement`]) → the
+///      structural writer cannot yet regenerate THIS source's element backbone
+///      (e.g. a WN-LMF lexicon whose `<LexicalEntry>`/`<Synset>` child order the
+///      DTD-ordered writer reorders). Degrade HONESTLY to the universal floor:
+///      emit `mode = RawBytesComplementFloor`, `graph = None`, `raw =` the
+///      content-addressed source blob — the same constant-complement OWL + USC
+///      ride. NEVER a silent lie: the floor tier is explicit in `mode`, and the
+///      completeness meter only declares a source graph-faithful when a lens is
+///      registered for it.
+///    - **Malformed source** ([`WnReconstructError::Parse`]) → a hard error;
+///      a non-well-formed WN-LMF file is a defect, not a floor candidate.
+///
+/// The OMV/PROV-O metadata's `source_sha256` is the content address of the exact
+/// source bytes (the `[hashes]` / `[byte_exact_signatures]` pin), against which
+/// [`wn_reconstruct_source`] gates the regenerated bytes fail-closed in BOTH
+/// tiers.
 pub fn build_wordnet_envelope(
     source: &[u8],
     name: &str,
     version: &str,
     url: &str,
 ) -> Result<WordNetPrxEnvelope, PrxError> {
+    use super::writer::WnReconstructError;
+
     let text = core::str::from_utf8(source)
         .map_err(|e| PrxError::Read(format!("source is not UTF-8: {e}")))?;
-    let wn = read_wordnet(text).map_err(|e| PrxError::Read(format!("{e}")))?;
 
+    // Parse the typed ontology once — the reasoning view is projected from it in
+    // both tiers, so the materialized `English` is identical either way.
+    let wn = read_wordnet(text).map_err(|e| PrxError::Read(format!("{e}")))?;
     let number_of_synsets = wn.synsets.len() as u64;
     // A sense is one (lemma, synset) pairing recorded under a LexicalEntry
     // (ISO 24613 LMF; Fellbaum 1998).
     let number_of_senses = wn.entries.iter().map(|e| e.senses.len()).sum::<usize>() as u64;
-
     let data = wn_builder_to_owned(&wn);
+
     let source_sha256 = source_content_hash(source);
     let metadata = WnPrxMetadata {
         name: name.to_string(),
@@ -605,15 +745,37 @@ pub fn build_wordnet_envelope(
         number_of_synsets,
         number_of_senses,
     };
-    Ok(WordNetPrxEnvelope {
-        metadata,
-        data,
-        mode: RoundTripFidelity::RawBytesComplementFloor,
-        raw: Some(RawSource {
-            content_address: source_sha256,
-            blob: source.to_vec(),
+
+    // Attempt the graph-faithful capture. Prefer it; degrade to the floor only on
+    // a structural-writer backbone divergence.
+    match capture_wn_complement(text) {
+        Ok((wn_captured, complement)) => Ok(WordNetPrxEnvelope {
+            metadata,
+            data,
+            mode: RoundTripFidelity::ByteExactGraphFaithful,
+            graph: Some(WnGraphFaithful {
+                wn: wn_captured,
+                complement,
+            }),
+            raw: None,
         }),
-    })
+        // The structural writer cannot reproduce this source's backbone — ride
+        // the universal floor (the content-addressed raw blob), honestly tiered.
+        Err(WnReconstructError::Complement(_)) => Ok(WordNetPrxEnvelope {
+            metadata,
+            data,
+            mode: RoundTripFidelity::RawBytesComplementFloor,
+            graph: None,
+            raw: Some(RawSource {
+                content_address: source_sha256,
+                blob: source.to_vec(),
+            }),
+        }),
+        // A malformed WN-LMF source is a defect, not a floor candidate.
+        Err(e @ WnReconstructError::Parse(_)) => {
+            Err(PrxError::Read(format!("graph-faithful capture: {e}")))
+        }
+    }
 }
 
 /// Emit a WordNet `.prx.gz` artifact from WN-LMF source bytes:
@@ -722,23 +884,66 @@ mod tests {
     /// `hypernym` chain. `read_wordnet` accepts it; emit projects it through
     /// `wn_builder_to_owned`. Mirrors `English::sample`'s inline fixture so
     /// the corpus-equality test has a known reference.
-    const SAMPLE_WN_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
-<LexicalResource>
-  <Lexicon id="test-en" label="Test English" language="en" email="" license="" version="1.0" url="">
-    <LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"/><Sense id="dog-n-01" synset="s-dog"/><Form writtenForm="dogs"/></LexicalEntry>
-    <LexicalEntry id="e-cat-n"><Lemma writtenForm="cat" partOfSpeech="n"/><Sense id="cat-n-01" synset="s-cat"/></LexicalEntry>
-    <LexicalEntry id="e-mammal-n"><Lemma writtenForm="mammal" partOfSpeech="n"/><Sense id="mammal-n-01" synset="s-mammal"/></LexicalEntry>
-    <LexicalEntry id="e-animal-n"><Lemma writtenForm="animal" partOfSpeech="n"/><Sense id="animal-n-01" synset="s-animal"/></LexicalEntry>
-    <LexicalEntry id="e-run-v"><Lemma writtenForm="run" partOfSpeech="v"/><Sense id="run-v-01" synset="s-run"/></LexicalEntry>
-    <LexicalEntry id="e-big-a"><Lemma writtenForm="big" partOfSpeech="a"/><Sense id="big-a-01" synset="s-big"/></LexicalEntry>
-    <Synset id="s-dog" ili="i1" partOfSpeech="n"><Definition>a domesticated canine</Definition><SynsetRelation relType="hypernym" target="s-mammal"/></Synset>
-    <Synset id="s-cat" ili="i2" partOfSpeech="n"><Definition>a small feline</Definition><SynsetRelation relType="hypernym" target="s-mammal"/></Synset>
-    <Synset id="s-mammal" ili="i3" partOfSpeech="n"><Definition>warm-blooded vertebrate</Definition><SynsetRelation relType="hypernym" target="s-animal"/></Synset>
-    <Synset id="s-animal" ili="i4" partOfSpeech="n"><Definition>a living organism</Definition></Synset>
-    <Synset id="s-run" ili="i5" partOfSpeech="v"><Definition>move fast on foot</Definition></Synset>
-    <Synset id="s-big" ili="i7" partOfSpeech="a"><Definition>of considerable size</Definition></Synset>
-  </Lexicon>
-</LexicalResource>"#;
+    ///
+    /// Written in REAL Open English WordNet 2025 SHAPE so it is byte-exactly
+    /// CAPTURABLE by [`capture_wn_complement`] (SLICE 3b's graph-faithful emit):
+    /// a `<!DOCTYPE>`, the root `xmlns:dc` declaration, two-space inter-element
+    /// indentation, and DTD-ordered children (`Lemma, Form*, Sense*` per
+    /// `<LexicalEntry>`; `Definition, …, SynsetRelation*` per `<Synset>`). The
+    /// structural writer regenerates this exact backbone, so the complement is a
+    /// pure white-space/decl residue and `reconstruct == source` byte-for-byte.
+    const SAMPLE_WN_LMF: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd\">\n\
+<LexicalResource xmlns:dc=\"https://globalwordnet.github.io/schemas/dc/\">\n\
+  <Lexicon id=\"test-en\" label=\"Test English\" language=\"en\" email=\"\" license=\"\" version=\"1.0\" url=\"\">\n\
+    <LexicalEntry id=\"e-dog-n\">\n\
+      <Lemma writtenForm=\"dog\" partOfSpeech=\"n\"/>\n\
+      <Form writtenForm=\"dogs\"/>\n\
+      <Sense id=\"dog-n-01\" synset=\"s-dog\"/>\n\
+    </LexicalEntry>\n\
+    <LexicalEntry id=\"e-cat-n\">\n\
+      <Lemma writtenForm=\"cat\" partOfSpeech=\"n\"/>\n\
+      <Sense id=\"cat-n-01\" synset=\"s-cat\"/>\n\
+    </LexicalEntry>\n\
+    <LexicalEntry id=\"e-mammal-n\">\n\
+      <Lemma writtenForm=\"mammal\" partOfSpeech=\"n\"/>\n\
+      <Sense id=\"mammal-n-01\" synset=\"s-mammal\"/>\n\
+    </LexicalEntry>\n\
+    <LexicalEntry id=\"e-animal-n\">\n\
+      <Lemma writtenForm=\"animal\" partOfSpeech=\"n\"/>\n\
+      <Sense id=\"animal-n-01\" synset=\"s-animal\"/>\n\
+    </LexicalEntry>\n\
+    <LexicalEntry id=\"e-run-v\">\n\
+      <Lemma writtenForm=\"run\" partOfSpeech=\"v\"/>\n\
+      <Sense id=\"run-v-01\" synset=\"s-run\"/>\n\
+    </LexicalEntry>\n\
+    <LexicalEntry id=\"e-big-a\">\n\
+      <Lemma writtenForm=\"big\" partOfSpeech=\"a\"/>\n\
+      <Sense id=\"big-a-01\" synset=\"s-big\"/>\n\
+    </LexicalEntry>\n\
+    <Synset id=\"s-dog\" ili=\"i1\" partOfSpeech=\"n\">\n\
+      <Definition>a domesticated canine</Definition>\n\
+      <SynsetRelation relType=\"hypernym\" target=\"s-mammal\"/>\n\
+    </Synset>\n\
+    <Synset id=\"s-cat\" ili=\"i2\" partOfSpeech=\"n\">\n\
+      <Definition>a small feline</Definition>\n\
+      <SynsetRelation relType=\"hypernym\" target=\"s-mammal\"/>\n\
+    </Synset>\n\
+    <Synset id=\"s-mammal\" ili=\"i3\" partOfSpeech=\"n\">\n\
+      <Definition>warm-blooded vertebrate</Definition>\n\
+      <SynsetRelation relType=\"hypernym\" target=\"s-animal\"/>\n\
+    </Synset>\n\
+    <Synset id=\"s-animal\" ili=\"i4\" partOfSpeech=\"n\">\n\
+      <Definition>a living organism</Definition>\n\
+    </Synset>\n\
+    <Synset id=\"s-run\" ili=\"i5\" partOfSpeech=\"v\">\n\
+      <Definition>move fast on foot</Definition>\n\
+    </Synset>\n\
+    <Synset id=\"s-big\" ili=\"i7\" partOfSpeech=\"a\">\n\
+      <Definition>of considerable size</Definition>\n\
+    </Synset>\n\
+  </Lexicon>\n\
+</LexicalResource>\n";
 
     const FX_NAME: &str = "english_wordnet";
     const FX_VERSION: &str = "2025";
@@ -855,19 +1060,32 @@ mod tests {
         assert!(loaded.is_a(dog, animal), "dog is_a animal (transitive)");
     }
 
-    // ── raw leaf: .prx → source byte-exact (BytesPlusView floor, #186) ─
+    // ── graph-faithful leaf: .prx → source byte-exact from the graph (#186) ─
 
+    /// The graph-faithful emit carries the typed ontology + concrete-syntax
+    /// complement (NO raw blob), and `wn_reconstruct_source` regenerates the
+    /// EXACT source bytes from the GRAPH alone — praxis's first byte-exact
+    /// graph-faithful `.prx` source.
     #[test]
-    fn wordnet_raw_leaf_reconstructs_source_byte_exact() {
+    fn wordnet_graph_faithful_reconstructs_source_byte_exact() {
         let envelope =
             build_wordnet_envelope(SAMPLE_WN_LMF.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
                 .expect("build envelope");
-        assert_eq!(envelope.mode, RoundTripFidelity::RawBytesComplementFloor);
+        // The tier is graph-faithful: graph payload present, NO raw blob.
+        assert_eq!(envelope.mode, RoundTripFidelity::ByteExactGraphFaithful);
+        assert!(
+            envelope.graph.is_some(),
+            "graph-faithful envelope carries the ontology + complement payload"
+        );
+        assert!(
+            envelope.raw.is_none(),
+            "graph-faithful envelope stores NO raw blob"
+        );
         let src = wn_reconstruct_source(&envelope).expect("reconstruct");
         assert_eq!(
             src,
             SAMPLE_WN_LMF.as_bytes(),
-            "wn_reconstruct_source must return the exact source bytes"
+            "wn_reconstruct_source must regenerate the exact source bytes from the graph"
         );
         assert_eq!(
             source_content_hash(&src),
@@ -876,43 +1094,51 @@ mod tests {
         );
     }
 
-    /// Fail-closed: a floor envelope with no raw complement cannot
-    /// reconstruct its source — `wn_reconstruct_source` refuses `raw = None`
+    /// Fail-closed: a graph-faithful envelope with no graph payload cannot
+    /// reconstruct its source — `wn_reconstruct_source` refuses `graph = None`
     /// rather than fabricating bytes.
     #[test]
-    fn wordnet_reconstruct_refuses_missing_raw_leaf() {
+    fn wordnet_reconstruct_refuses_missing_graph_payload() {
         let mut envelope =
             build_wordnet_envelope(SAMPLE_WN_LMF.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
                 .expect("build envelope");
-        envelope.raw = None;
+        envelope.graph = None;
         let err = wn_reconstruct_source(&envelope)
-            .expect_err("floor envelope without raw leaf must be rejected");
+            .expect_err("graph-faithful envelope without its payload must be rejected");
         assert!(
             matches!(err, PrxError::SourceNotReconstructible { .. }),
             "got {err:?}"
         );
     }
 
-    /// Fail-closed: a tampered raw blob (no longer hashing to its content
-    /// address) is rejected rather than returning wrong bytes.
+    /// Fail-closed: a tampered complement (one whose reconstruction no longer
+    /// hashes to the pinned source content address) is rejected by the in-
+    /// envelope honesty gate rather than returning wrong bytes. Here we corrupt
+    /// the metadata pin so the (correct) regenerated bytes fail the gate — the
+    /// same fail-closed behaviour the floor arm's tampered-blob test asserts.
     #[test]
-    fn wordnet_raw_leaf_rejects_tampered_blob() {
+    fn wordnet_graph_faithful_rejects_pin_drift() {
         let mut envelope =
             build_wordnet_envelope(SAMPLE_WN_LMF.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
                 .expect("build envelope");
-        envelope.raw.as_mut().expect("raw leaf").blob.push(b'!');
-        let err = wn_reconstruct_source(&envelope).expect_err("tampered blob must fail closed");
+        // Drift the pinned source hash: the graph still reconstructs the true
+        // source, but it no longer matches the (now-wrong) metadata pin, so the
+        // honesty gate must refuse it rather than return unverified bytes.
+        envelope.metadata.source_sha256 = "0".repeat(64);
+        let err = wn_reconstruct_source(&envelope)
+            .expect_err("pin drift must fail closed (HashMismatch)");
         assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
     }
 
     // ── load gate: teeth on a poisoned word_index ─────────────────────
 
     /// The MerkleRoot leg's reason to exist: an envelope carrying a genuine
-    /// source label + honest raw leaf but ONE poisoned `word_index` entry is
-    /// rejected. The source leg alone would pass (raw is honest); the
-    /// MerkleRoot leg binds the whole installed node — including the word
-    /// index — so poisoning it changes the content address and the gate
-    /// refuses it. Mirrors OWL's `load_rejects_poisoned_data_under_honest_label`.
+    /// source label + honest graph payload but ONE poisoned `word_index` entry
+    /// is rejected. The source leg alone would pass (the graph still
+    /// reconstructs the true source); the MerkleRoot leg binds the whole
+    /// installed node — including the word index — so poisoning it changes the
+    /// content address and the gate refuses it. Mirrors OWL's
+    /// `load_rejects_poisoned_data_under_honest_label`.
     #[test]
     fn wordnet_load_rejects_poisoned_word_index_under_honest_label() {
         let honest = build_wordnet_envelope(SAMPLE_WN_LMF.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
@@ -920,7 +1146,7 @@ mod tests {
         let honest_archive_pin = source_content_hash(&wordnet_envelope_to_bytes(&honest).unwrap());
         let source_pin = honest.metadata.source_sha256.clone();
 
-        // Same genuine source label + raw leaf, only one word_index entry poisoned.
+        // Same genuine source label + graph payload, only one word_index entry poisoned.
         let mut poisoned = honest;
         assert!(!poisoned.data.word_index.is_empty());
         poisoned.data.word_index[0].0 = "POISON".to_string();
@@ -962,6 +1188,91 @@ mod tests {
         let err = load_wordnet_prx_gz_from_lock(&prx_gz)
             .expect_err("unpinned WordNet source must be rejected");
         assert!(matches!(err, PrxError::NoArchivePin { .. }), "got {err:?}");
+    }
+
+    // ── archive anchor: every emitted WordNet .prx matches its lock pin ─
+
+    /// Every emitted WordNet `.prx` archive's MerkleRoot content address equals
+    /// its `praxis.lock` `[archive_signatures]` pin — the invariant the
+    /// lock-driven load gate enforces for every loadable lexicon. If this breaks
+    /// because the rkyv layout changed (e.g. the SLICE-3b graph-faithful
+    /// payload), re-pin the computed values (see `dump_wordnet_archive_addresses`).
+    ///
+    /// `[archive_signatures]` is a SHARED keyspace (OWL + USC + WordNet pin
+    /// alongside each other), so this anchor test owns ONLY the `Language`
+    /// partition — exactly as the OWL anchor owns `OntologyVocabulary` and the
+    /// USC anchor owns `UsCodeTitle`. Gated on the bundled XML with a graceful
+    /// skip: a checkout that hasn't provisioned a lexicon emits nothing for it.
+    #[test]
+    fn wordnet_archive_anchors_match_lock() {
+        use crate::applied::data_provisioning::registry::{
+            data_sources, lock_archive_signature, lock_archive_signatures,
+        };
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+        let dir =
+            std::env::temp_dir().join(format!("prx_wn_archive_anchor_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let arts = emit_all_wordnet_prx_gz(&dir).expect("emit all WordNet archives");
+
+        // Every emitted archive's MerkleRoot equals its [archive_signatures] pin.
+        for a in &arts {
+            let pinned = lock_archive_signature(&a.name, &a.version).unwrap_or_else(|| {
+                panic!(
+                    "praxis.lock [archive_signatures] must pin {}@{}",
+                    a.name, a.version
+                )
+            });
+            assert_eq!(
+                a.archive_address, pinned,
+                "{}@{} .prx MerkleRoot must equal the [archive_signatures] pin",
+                a.name, a.version
+            );
+        }
+
+        // Load-bearing in both directions over the `Language` partition: every
+        // emitted lexicon is pinned (above) AND every pinned, on-disk lexicon was
+        // emitted — so a stale pin for a vanished lexicon, or a missing pin, is
+        // caught. Only count Language sources whose XML is actually on disk (the
+        // graceful-skip set `emit_all_wordnet_prx_gz` walks).
+        let root = workspace_root();
+        let lang_keys: std::collections::BTreeSet<String> = data_sources()
+            .iter()
+            .filter(|e| e.kind == SourceTaxonomyConcept::Language)
+            .filter(|e| root.join(e.local_path()).exists())
+            .map(|e| format!("{}@{}", e.name, e.version))
+            .collect();
+        let emitted: std::collections::BTreeSet<String> = arts
+            .iter()
+            .map(|a| format!("{}@{}", a.name, a.version))
+            .collect();
+        assert_eq!(
+            emitted, lang_keys,
+            "emitted WordNet archives must match the on-disk Language sources exactly"
+        );
+        // Every emitted Language archive carries a pin (the anchor above already
+        // asserts equality; this confirms the pin EXISTS in the shared keyspace).
+        for key in &emitted {
+            assert!(
+                lock_archive_signatures().contains_key(key),
+                "{key} must have an [archive_signatures] pin"
+            );
+        }
+    }
+
+    /// One-shot helper: print the MerkleRoot of every emitted WordNet archive so
+    /// `[archive_signatures]` can be (re-)pinned after a layout change. Run with
+    /// `cargo test … dump_wordnet_archive_addresses -- --nocapture --ignored`.
+    #[test]
+    #[ignore = "prints archive addresses for pinning; not an assertion"]
+    fn dump_wordnet_archive_addresses() {
+        let dir = std::env::temp_dir().join("prx_wn_archive_dump");
+        for a in emit_all_wordnet_prx_gz(&dir).expect("emit all WordNet") {
+            println!(
+                "ARCHIVE \"{}@{}\" = \"{}\"",
+                a.name, a.version, a.archive_address
+            );
+        }
     }
 
     // ── metadata grounding: OMV/PROV-O fields populated correctly ─────
@@ -1048,6 +1359,115 @@ mod tests {
             lref.len(),
             larch.len(),
             "lookup('dog') sense count must survive the archive"
+        );
+    }
+
+    // ── THE HARD GATE: graph-faithful .prx round-trip over the real corpus ──
+
+    /// THE SLICE-3b GATE. The full Open English WordNet 2025 corpus (89 237 271
+    /// bytes) emits as a `ByteExactGraphFaithful` envelope, serializes to rkyv
+    /// bytes, loads back THROUGH the bytecheck-validated rkyv decode
+    /// ([`wordnet_envelope_from_bytes`]), reconstructs via
+    /// [`wn_reconstruct_source`] (the graph-faithful arm — typed ontology +
+    /// concrete-syntax complement, NO stored raw blob), and the regenerated
+    /// bytes equal the source BYTE-FOR-BYTE. This is the only non-vacuous proof
+    /// that WordNet's `.prx` is graph-faithful at corpus scale: the source bytes
+    /// survive the FULL serialize → bytecheck → reconstruct path, not just the
+    /// in-memory capture/reconstruct of SLICE 3a.
+    ///
+    /// AND the completeness meter reports `english_wordnet` graph-faithful (its
+    /// declared tier is `ByteExactGraphFaithful` via the registered
+    /// `WordNetLmfLens`, and it carries NO `write_wordnet` gap). Gated behind the
+    /// on-disk corpus with a graceful skip — a plain checkout that hasn't
+    /// provisioned the ≈89 MB XML skips, the same doctrine the emitters use.
+    #[test]
+    fn wordnet_graph_faithful_prx_round_trip_over_real_corpus() {
+        use crate::formal::meta::well_behaved_lens::{
+            CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
+        };
+
+        let path = workspace_root().join("crates/domains/data/wordnet/english-wordnet-2025.xml");
+        let Ok(source) = std::fs::read(&path) else {
+            return; // not provisioned on disk — skip gracefully
+        };
+
+        // Emit the graph-faithful envelope: typed ontology + concrete-syntax
+        // complement, NO raw blob.
+        let envelope = build_wordnet_envelope(&source, FX_NAME, FX_VERSION, FX_URL)
+            .expect("build graph-faithful envelope over the real corpus");
+        assert_eq!(
+            envelope.mode,
+            Tier::ByteExactGraphFaithful,
+            "the real corpus emits the graph-faithful tier"
+        );
+        assert!(envelope.graph.is_some(), "graph payload present");
+        assert!(envelope.raw.is_none(), "NO stored raw blob in this tier");
+
+        // Serialize → rkyv bytes → bytecheck-validated decode (the full path,
+        // not just the in-memory capture/reconstruct of SLICE 3a).
+        let rkyv_bytes = wordnet_envelope_to_bytes(&envelope).expect("serialize envelope to rkyv");
+        let decoded =
+            wordnet_envelope_from_bytes(&rkyv_bytes).expect("bytecheck-validated rkyv decode");
+
+        // Reconstruct from the DECODED envelope's graph + complement.
+        let out = wn_reconstruct_source(&decoded).expect("graph-faithful reconstruct");
+
+        // BYTE-FOR-BYTE over the whole 89 MB corpus. Report the EXACT first
+        // byte-diff for an honest failure, never a bare assert_eq! that dumps 89 MB.
+        if out != source {
+            let first = out
+                .iter()
+                .zip(source.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or(out.len().min(source.len()));
+            let lo = first.saturating_sub(40);
+            let hi_out = (first + 40).min(out.len());
+            let hi_src = (first + 40).min(source.len());
+            panic!(
+                "graph-faithful .prx round-trip is NOT byte-exact: out.len()={}, \
+                 source.len()={}, first diff at byte {first}\n  out[..]: {:?}\n  src[..]: {:?}",
+                out.len(),
+                source.len(),
+                String::from_utf8_lossy(&out[lo..hi_out]),
+                String::from_utf8_lossy(&source[lo..hi_src]),
+            );
+        }
+        assert_eq!(
+            source_content_hash(&out),
+            decoded.metadata.source_sha256,
+            "the regenerated bytes must hash to the pinned source content address"
+        );
+
+        // The completeness meter reports english_wordnet graph-faithful: declared
+        // tier == ByteExactGraphFaithful and NO write_wordnet gap remains.
+        let meter = completeness_meter();
+        let wn_row: &CompletenessReport = meter
+            .iter()
+            .find(|r| r.source == "english_wordnet@2025")
+            .expect("english_wordnet must have a completeness row");
+        assert_eq!(
+            wn_row.kind,
+            DecompileKind::WordNet,
+            "english_wordnet routes through the WordNet decompile leaf"
+        );
+        assert_eq!(
+            wn_row.declared,
+            Tier::ByteExactGraphFaithful,
+            "english_wordnet DECLARES graph-faithful (via the registered WordNetLmfLens)"
+        );
+        assert!(
+            wn_row.graph_faithful_gap.is_none(),
+            "english_wordnet carries NO write_wordnet gap — it IS graph-faithful, \
+             got gap {:?}",
+            wn_row.graph_faithful_gap
+        );
+        // When the corpus is provisioned the harness MEASURES the achieved tier
+        // by running the byte-exact law; it must agree with the declaration (the
+        // anti-lie cross-check), never silently fall to the floor.
+        assert_eq!(
+            wn_row.achieved,
+            Some(Tier::ByteExactGraphFaithful),
+            "with the corpus on disk the harness must MEASURE graph-faithful (achieved == declared)"
         );
     }
 }

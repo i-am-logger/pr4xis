@@ -11,6 +11,23 @@ use pr4xis::category::Concept;
 //
 // Reference: Global Wordnet Association, WN-LMF 1.3
 // https://globalwordnet.github.io/schemas/
+//
+// # rkyv-serializability under `prx`
+//
+// The graph-faithful `.prx` envelope
+// ([`WordNetPrxEnvelope`](super::prx::WordNetPrxEnvelope)) carries this typed
+// `WordNet` model — the ontology — directly, so it must be rkyv-serializable
+// under the `prx` feature (the same feature that links rkyv and compiles the
+// envelope). Every plain-data type here therefore carries a CFG-GATED rkyv
+// derive (`#[cfg_attr(feature = "prx", derive(rkyv::Archive, …))]`): present in
+// the `prx`/`fetch` build where the archive consumes it, ABSENT from the
+// default + wasm32 builds where rkyv is not linked (rkyv is an OPTIONAL dep,
+// `prx = ["dep:rkyv", …]`). An unconditional derive would fail those builds; a
+// gated one keeps them clean while making the model the archive's ontology
+// payload — the same `cfg_attr(feature = "prx")` discipline
+// [`RoundTripFidelity`](crate::formal::meta::well_behaved_lens::RoundTripFidelity)
+// already uses. No Owned mirror is needed: these are flat data structs the
+// derive handles directly.
 
 /// A synset — a set of words sharing the same meaning (a concept).
 /// This is the fundamental unit of WordNet: not a word, but a MEANING.
@@ -18,7 +35,11 @@ use pr4xis::category::Concept;
 /// Content model `<!ELEMENT Synset (Definition*, ILIDefinition?,
 /// SynsetRelation*, Example*)>` (DTD line 98); attributes per
 /// `<!ATTLIST Synset>` (DTD lines 99-122).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Synset {
     pub id: String,
     pub ili: Option<String>,
@@ -45,7 +66,11 @@ pub struct Synset {
 ///
 /// Content model `<!ELEMENT LexicalEntry (Lemma, Form*, Sense*,
 /// SyntacticBehaviour*)>` (DTD line 33).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct LexicalEntry {
     pub id: String,
     pub lemma: Lemma,
@@ -65,7 +90,11 @@ pub struct LexicalEntry {
 /// Content model `<!ELEMENT Lemma (Pronunciation*, Tag*)>` (DTD line
 /// 53); attributes `writtenForm`, `script`, `partOfSpeech` (DTD lines
 /// 54-57).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Lemma {
     pub written_form: String,
     pub pos: LmfPos,
@@ -85,7 +114,11 @@ pub struct Lemma {
 /// notation CDATA #IMPLIED phonemic (true|false) "true" audio CDATA
 /// #IMPLIED>` (DTD lines 63-69). The text is the transcription itself
 /// (e.g. an IPA string).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Pronunciation {
     /// The `#PCDATA` transcription text (e.g. `/dɒɡ/`).
     pub text: String,
@@ -108,7 +141,11 @@ pub struct Pronunciation {
 ///
 /// Content model `<!ELEMENT Sense (SenseRelation*, Example*, Count*)>`
 /// (DTD line 74); attributes per `<!ATTLIST Sense>` (DTD lines 75-97).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Sense {
     pub id: String,
     pub synset: String,
@@ -133,7 +170,11 @@ pub struct Sense {
 /// `#PCDATA` text; the dc:* / status / note attrs (DTD lines 234-252)
 /// are carried as a flat string→string map preserving their declared
 /// names.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Count {
     /// The `#PCDATA` count value (a non-negative integer as text).
     pub value: String,
@@ -145,7 +186,11 @@ pub struct Count {
 /// SyntacticBehaviour id ID #IMPLIED subcategorizationFrame CDATA
 /// #REQUIRED senses IDREFS #IMPLIED>` (DTD lines 228-232). Present ×39
 /// in Open English WordNet 2025; previously dropped.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct SyntacticBehaviour {
     /// `id ID #IMPLIED` — the frame's optional identifier.
     pub id: Option<String>,
@@ -161,7 +206,11 @@ pub struct SyntacticBehaviour {
 ///
 /// Content model `<!ELEMENT Form (Pronunciation*, Tag*)>` (DTD line
 /// 58); attributes `id`, `writtenForm`, `script` (DTD lines 59-62).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Form {
     pub written_form: String,
     /// `<!ATTLIST Form id ID #IMPLIED>` (DTD line 60).
@@ -178,14 +227,22 @@ pub struct Form {
 /// - meronym → MereologyDef (whole has-a part)
 /// - antonym → OppositionDef
 /// - causes → CausalDef
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct SynsetRelation {
     pub rel_type: SynsetRelationType,
     pub target: String,
 }
 
 /// Sense-level relation (between word senses).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct SenseRelation {
     pub rel_type: SenseRelationType,
     pub target: String,
@@ -197,6 +254,10 @@ pub struct SenseRelation {
 /// — synset relations in WordNet 2025 fall into these categories.
 /// See <https://globalwordnet.github.io/schemas/>.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum SynsetRelationType {
     Hypernym,
     InstanceHypernym,
@@ -336,6 +397,10 @@ impl SynsetRelationType {
 /// Fellbaum (1998) Ch. 1 + Ch. 5, Fellbaum-Osherson-Clark (2009)
 /// for `derivation` morphosemantic links.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum SenseRelationType {
     Antonym,
     Similar,
@@ -406,6 +471,10 @@ impl SenseRelationType {
 /// - Universal Dependencies: DET, PRON, ADP, CCONJ, SCONJ, PART, AUX, INTJ
 /// - OLiA: Determiner, Pronoun, Copula, Auxiliary, Preposition, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum LmfPos {
     // Open class (WordNet)
     Noun,
@@ -560,7 +629,11 @@ impl VerbTransitivity {
 /// (a missing required attr reads as `None` rather than failing the
 /// whole parse). Only the corpus-confirmed attrs are surfaced as named
 /// fields; the full Dublin Core set lands in `dc`.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct LexiconMetadata {
     /// `id ID #REQUIRED` (DTD line 7).
     pub id: Option<String>,
@@ -594,7 +667,17 @@ pub struct LexiconMetadata {
 }
 
 /// A complete WordNet lexicon loaded from LMF.
-#[derive(Debug, Clone)]
+///
+/// `PartialEq + Eq` so the graph-faithful `.prx` envelope
+/// ([`WordNetPrxEnvelope`](super::prx::WordNetPrxEnvelope)) — which carries this
+/// ontology directly — can derive the structural equality the rkyv round-trip
+/// tests assert (`assert_eq!(envelope, decoded)`); every field type is itself
+/// `Eq` (String/Vec/Option over the `Eq` LMF structs).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct WordNet {
     /// `<Lexicon>` metadata attributes (DTD lines 6-32). `None` only if
     /// no `<Lexicon>` element carried any attributes; otherwise the
