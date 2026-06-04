@@ -68,16 +68,26 @@ pub fn serialize_document(doc: &XmlDocument) -> Vec<u8> {
 /// rather than the canonical `<a/>`. Where no decision is recorded it falls back
 /// to the canonical serializer's choice.
 pub fn serialize_document_exact(doc: &XmlDocument, decisions: &SyntaxDecisions) -> Vec<u8> {
+    let prolog = decisions.prolog();
     let mut out = String::new();
     write_xml_decl(&mut out, &doc.version, doc.encoding.as_deref());
+    // §2.8 [27] Misc* white-space after the XMLDecl, before the DOCTYPE-or-root
+    // (empty for a canonical prolog — `SyntaxDecisions::default()` carries no
+    // prolog white-space, so existing callers are unaffected).
+    out.push_str(&prolog.after_xml_decl);
     if let Some(doctype) = &doc.doctype {
         write_doctype(&mut out, doctype);
+        // §2.8 [27] Misc* white-space after the DOCTYPE, before the root.
+        out.push_str(&prolog.after_doctype);
     }
     // Pre-order element counter — incremented at every element's ENTRY in
     // `write_element_exact`, mirroring the reader's capture counter so the two
     // walks agree index-for-index (root = 0).
     let mut index: usize = 0;
     write_element_exact(&mut out, &doc.root, &mut index, decisions);
+    // §2.1 [1] `document ::= prolog element Misc*` — the trailing epilog Misc*
+    // white-space after the root element's end-tag.
+    out.push_str(&prolog.after_root);
     out.into_bytes()
 }
 

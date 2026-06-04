@@ -29,7 +29,9 @@ use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlEntityKind, XmlExternalId,
     XmlGeneralEntity, XmlName, XmlNamespace, XmlNode,
 };
-use super::source_syntax::{CaptureCtx, EmptyForm, NodeDecisions, SyntaxDecisions};
+use super::source_syntax::{
+    CaptureCtx, EmptyForm, NodeDecisions, PrologDecisions, SyntaxDecisions,
+};
 
 /// Failure modes when parsing XML 1.0 bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,7 +210,8 @@ fn parse_document_inner(
     let normalized = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
 
-    let (version, encoding, standalone, doctype) = parse_prolog(&mut cursor)?;
+    let ((version, encoding, standalone, doctype), (after_xml_decl, after_doctype)) =
+        parse_prolog(&mut cursor)?;
     // W3C XML 1.0 §F + §4.3.3 "Character Encoding in Entities" —
     // if an XMLDecl carries an encoding declaration, that label
     // MUST be consistent with the encoding actually used. UTF-16
@@ -256,10 +259,33 @@ fn parse_document_inner(
         (Some(dt), _) => dt.external_id.is_none() && !dt.internal_subset_had_pe_references,
     };
     let root = parse_element(&mut cursor, &entity_map, strict_entity_declared, capture)?;
+    // §2.1 \[1\] `document ::= prolog element Misc*` — the trailing epilog
+    // `Misc*`. Capture the leading `S` run for byte-exact reconstruction. The
+    // explicit `skip_whitespace` is redundant after `parse_misc_star` (which
+    // already consumes leading `S`) but kept for the EOF assertion's clarity.
+    let after_root_start = cursor.pos;
     parse_misc_star(&mut cursor)?;
     cursor.skip_whitespace();
+    let after_root = cursor
+        .leading_whitespace_since(after_root_start)
+        .to_string();
     if !cursor.is_eof() {
         return Err(cursor.syntax_error("end of document", "trailing content"));
+    }
+
+    // Reader half of the serialized reverse lens: record the prolog/epilog
+    // white-space (§2.8 \[27\] `Misc` `S`) the Infoset DOM does not carry, so
+    // the byte-exact serializer can re-emit it. No-op for the canonical
+    // (whitespace-free) prolog, and skipped entirely when not capturing.
+    if let Some(ctx) = capture.as_mut() {
+        let prolog = PrologDecisions {
+            after_xml_decl,
+            after_doctype,
+            after_root,
+        };
+        if !prolog.is_empty() {
+            ctx.record_prolog(prolog);
+        }
     }
 
     Ok(XmlDocument {
@@ -428,6 +454,21 @@ impl<'a> Cursor<'a> {
         self.pos += n;
     }
 
+    /// The §2.3 \[3\] `S` (white-space) run the source span `[start, self.pos)`
+    /// opens with — the leading white-space the byte-exact serialized reverse
+    /// lens must re-emit at a prolog/epilog `Misc` position. For a pure-`S` span
+    /// (the realistic WN-LMF case) this is the whole span; if a Comment or PI
+    /// interrupted the run the slice stops at that item (which the Infoset has
+    /// already dropped — see [`PrologDecisions`](super::source_syntax::PrologDecisions)).
+    fn leading_whitespace_since(&self, start: usize) -> &'a str {
+        let span = &self.input[start..self.pos];
+        let n = span
+            .bytes()
+            .take_while(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+            .count();
+        &span[..n]
+    }
+
     fn require_whitespace(&mut self, context: &str) -> Result<(), XmlParseError> {
         let before = self.pos;
         self.skip_whitespace();
@@ -457,19 +498,29 @@ impl<'a> Cursor<'a> {
     }
 }
 
-/// `(version, encoding, standalone, doctype)` parsed from the §2.8
-/// prolog. `version` is required; the rest are optional per the
-/// `XMLDecl?` / `doctypedecl?` productions.
+/// The Infoset-carried prolog projection — `(version, encoding, standalone,
+/// doctype)` parsed from the §2.8 prolog. `version` is required; the rest are
+/// optional per the `XMLDecl?` / `doctypedecl?` productions.
 type PrologParts = (String, Option<String>, Option<bool>, Option<XmlDoctype>);
+
+/// The §2.8 \[27\] `Misc` `S` white-space the prolog consumed OUTSIDE the
+/// Infoset — `(after_xml_decl, after_doctype)`. `after_xml_decl` is the `S`
+/// before the DOCTYPE-or-root; `after_doctype` the `S` before the root (empty
+/// when there is no DOCTYPE). The serialized reverse lens re-emits these for a
+/// byte-exact prolog.
+type PrologWhitespace = (String, String);
 
 /// W3C XML 1.0 §2.8 production \[22\] `prolog`:
 /// `prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?`.
 ///
-/// Returns `(version, encoding, standalone, doctype)`. The doctype, if
-/// present, is projected to a typed [`XmlDoctype`] carrying the
-/// root-element name, any `ExternalID`, and the inline general entity
-/// declarations parsed from the internal subset (§4.2 GEDecl).
-fn parse_prolog(c: &mut Cursor<'_>) -> Result<PrologParts, XmlParseError> {
+/// Returns `((version, encoding, standalone, doctype), (after_xml_decl,
+/// after_doctype))`. The doctype, if present, is projected to a typed
+/// [`XmlDoctype`] carrying the root-element name, any `ExternalID`, and the
+/// inline general entity declarations parsed from the internal subset (§4.2
+/// GEDecl). The second tuple is the §2.8 \[27\] `Misc` white-space (captured for
+/// the byte-exact serialized reverse lens — see
+/// [`PrologDecisions`](super::source_syntax::PrologDecisions)).
+fn parse_prolog(c: &mut Cursor<'_>) -> Result<(PrologParts, PrologWhitespace), XmlParseError> {
     // §2.8 — "The XML declaration MUST be the first thing in the
     // document." Whitespace, comments, or PIs before `<?xml ...?>`
     // are well-formedness errors. xmlconf xmltest/not-wf/sa/147
@@ -495,15 +546,27 @@ fn parse_prolog(c: &mut Cursor<'_>) -> Result<PrologParts, XmlParseError> {
         }
         ("1.0".into(), None, None)
     };
+    // §2.8 \[27\] Misc* after the XMLDecl, before the (optional) DOCTYPE or the
+    // root. Capture the leading `S` run for byte-exact prolog reconstruction.
+    let after_decl_start = c.pos;
     parse_misc_star(c)?;
+    let after_xml_decl = c.leading_whitespace_since(after_decl_start).to_string();
     let doctype = if c.starts_with("<!DOCTYPE") {
         let dt = parse_doctype(c)?;
+        // §2.8 \[27\] Misc* after the DOCTYPE, before the root.
+        let after_doctype_start = c.pos;
         parse_misc_star(c)?;
-        Some(dt)
+        let after_doctype = c.leading_whitespace_since(after_doctype_start).to_string();
+        (Some(dt), after_doctype)
     } else {
-        None
+        // No DOCTYPE — `after_doctype` is vacuously empty.
+        (None, String::new())
     };
-    Ok((version, encoding, standalone, doctype))
+    let (doctype, after_doctype) = doctype;
+    Ok((
+        (version, encoding, standalone, doctype),
+        (after_xml_decl, after_doctype),
+    ))
 }
 
 /// W3C XML 1.0 §2.8 production \[23\] `XMLDecl` and the productions
@@ -2607,6 +2670,59 @@ mod reverse_lens_roundtrip_tests {
         // forms side by side. Uses the exact XML decl the serializer emits.
         let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><a></a><b/><c>text</c></root>"#;
         assert_byte_exact_roundtrip(input);
+    }
+
+    #[test]
+    fn roundtrip_indented_document_with_attributes() {
+        // Whitespace BETWEEN elements (indentation) is kept VERBATIM by
+        // `flush_text` as Text nodes and emitted unchanged, and attributes keep
+        // their source order — so an indented document round-trips byte-for-byte
+        // with only the empty-element form (`<a …></a>`) needing a decision.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><root>\n  <a x=\"1\" y=\"2\"></a>\n  <b/>\n  <c>text</c>\n</root>";
+        assert_byte_exact_roundtrip(input);
+    }
+
+    #[test]
+    fn roundtrip_wn_lmf_fragment() {
+        // A representative WN-LMF 1.3 document: XML decl + DOCTYPE (SYSTEM id) +
+        // an indented Lexicon with attributes, self-closing childless elements
+        // (`Lemma`, `Sense`), and text content (`Definition`). Every childless
+        // element is written self-closing (the canonical form), so the document
+        // needs NO per-element concrete-syntax decision. Its one residual is the
+        // §2.8 [27] `Misc` `S` in the prolog — the `\n` between the XML decl and
+        // the DOCTYPE, and the `\n` between the DOCTYPE and the root — which the
+        // reader now captures into `PrologDecisions` and the writer re-emits, so
+        // it round-trips byte-for-byte. This measures the real residual for
+        // WordNet-shaped input.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd\">\n<LexicalResource>\n  <Lexicon id=\"ewn\" label=\"English WordNet\">\n    <LexicalEntry id=\"w1\">\n      <Lemma writtenForm=\"dog\" partOfSpeech=\"n\"/>\n      <Sense id=\"s1\" synset=\"syn-1\"/>\n    </LexicalEntry>\n    <Synset id=\"syn-1\" partOfSpeech=\"n\">\n      <Definition>a domesticated carnivore</Definition>\n    </Synset>\n  </Lexicon>\n</LexicalResource>";
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the captured prolog white-space: a `\n` after the XML decl (before
+        // the DOCTYPE) and a `\n` after the DOCTYPE (before the root). No epilog.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let prolog = decisions.prolog();
+        assert_eq!(prolog.after_xml_decl, "\n");
+        assert_eq!(prolog.after_doctype, "\n");
+        assert_eq!(prolog.after_root, "");
+    }
+
+    #[test]
+    fn roundtrip_epilog_whitespace_after_root() {
+        // §2.1 [1] `document ::= prolog element Misc*` — the trailing `Misc*`.
+        // White-space AFTER the root element's end-tag is the epilog residual;
+        // the reader captures it into `PrologDecisions::after_root` and the
+        // writer re-emits it, so a document with a trailing newline (and a
+        // prolog newline) round-trips byte-for-byte.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n  <a/>\n</root>\n";
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the capture: the `\n` after the XML decl (no DOCTYPE here, so
+        // `after_doctype` is vacuously empty) and the trailing `\n` epilog.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let prolog = decisions.prolog();
+        assert_eq!(prolog.after_xml_decl, "\n");
+        assert_eq!(prolog.after_doctype, "");
+        assert_eq!(prolog.after_root, "\n");
     }
 
     #[test]

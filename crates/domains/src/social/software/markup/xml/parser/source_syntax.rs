@@ -33,6 +33,56 @@
 //!   byte-exact `put` takes the DOM and this complement as its two inputs.
 
 use alloc::collections::BTreeMap;
+use alloc::string::String;
+
+/// The document-level prolog/epilog white-space the Information Set does NOT
+/// carry — the §2.8 production \[27\] `Misc` `S` runs the Infoset discards
+/// because they sit OUTSIDE the document element (Cowan & Tobin 2004 §2.1 keeps
+/// document-level *children* only for the root element, not the surrounding
+/// white-space). Captured so byte-exact reconstruction can re-emit them.
+///
+/// Each field holds the EXACT consumed substring (after the parser's §2.11
+/// end-of-line normalization `\r\n`/`\r` → `\n`, which is the only transform
+/// applied before the grammar descent). Empty means "no white-space here":
+///
+/// - `after_xml_decl` — `S` consumed AFTER the XML declaration `<?xml …?>` and
+///   BEFORE the DOCTYPE (or, when there is no DOCTYPE, before the root element).
+/// - `after_doctype` — `S` consumed AFTER the DOCTYPE `<!DOCTYPE …>` and BEFORE
+///   the root element. Always empty when the document has no DOCTYPE.
+/// - `after_root` — `S` consumed AFTER the root element's end-tag (the §2.1
+///   production \[1\] `document ::= prolog element Misc*` trailing `Misc*`).
+///
+/// # Limitation (prolog/epilog Comment / PI)
+///
+/// A `Misc` item may also be a Comment or PI (§2.8 \[27\]
+/// `Misc ::= Comment | PI | S`). Those are DROPPED from the Infoset at the
+/// document level by the existing `parse_misc_star` handling, so they are not
+/// byte-exactly reconstructable regardless. These fields therefore capture ONLY
+/// the white-space run found at each position when it is pure `S`; if a Comment
+/// or PI interrupts the run the capture covers the white-space up to that item,
+/// and the dropped item makes a full byte-exact round-trip impossible (a
+/// separate, later concrete-syntax slice). The realistic WN-LMF case is pure
+/// white-space between the XML declaration, the DOCTYPE, and the root element.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PrologDecisions {
+    /// `S` after the XML declaration, before the DOCTYPE-or-root.
+    pub after_xml_decl: String,
+    /// `S` after the DOCTYPE, before the root element (empty when no DOCTYPE).
+    pub after_doctype: String,
+    /// `S` after the root element's end-tag (the epilog `Misc*`).
+    pub after_root: String,
+}
+
+impl PrologDecisions {
+    /// `true` when no prolog/epilog white-space was captured — the canonical
+    /// case, for which the byte-exact serializer emits nothing extra.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.after_xml_decl.is_empty()
+            && self.after_doctype.is_empty()
+            && self.after_root.is_empty()
+    }
+}
 
 /// The empty-element form decision (W3C XML 1.0 §3.1): `<a/>` (empty-element
 /// tag) versus `<a></a>` (start- plus end-tag) — the same Information Set,
@@ -67,6 +117,10 @@ pub struct NodeDecisions {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SyntaxDecisions {
     by_index: BTreeMap<usize, NodeDecisions>,
+    /// Document-level prolog/epilog white-space (§2.8 \[27\] `Misc` `S`) — the
+    /// residue outside the document element, separate from the per-element
+    /// `by_index` decisions. Default (all-empty) for a canonical document.
+    prolog: PrologDecisions,
 }
 
 impl SyntaxDecisions {
@@ -87,6 +141,17 @@ impl SyntaxDecisions {
     pub fn get(&self, index: usize) -> Option<&NodeDecisions> {
         self.by_index.get(&index)
     }
+
+    /// Record the document-level prolog/epilog white-space.
+    pub fn set_prolog(&mut self, prolog: PrologDecisions) {
+        self.prolog = prolog;
+    }
+
+    /// The document-level prolog/epilog white-space (§2.8 \[27\] `Misc` `S`).
+    #[must_use]
+    pub fn prolog(&self) -> &PrologDecisions {
+        &self.prolog
+    }
 }
 
 /// The reader-side capture state for the serialized reverse lens: a pre-order
@@ -105,4 +170,12 @@ pub struct CaptureCtx {
     pub counter: usize,
     /// The decisions captured so far.
     pub decisions: SyntaxDecisions,
+}
+
+impl CaptureCtx {
+    /// Record the document-level prolog/epilog white-space (§2.8 \[27\] `Misc`
+    /// `S`) the reader consumed outside the document element.
+    pub fn record_prolog(&mut self, prolog: PrologDecisions) {
+        self.decisions.set_prolog(prolog);
+    }
 }
