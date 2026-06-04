@@ -1064,12 +1064,32 @@ fn read_subdivision(
     let xsd = loaded_uslm_xsd();
     let identifier = attr(elem, "identifier").unwrap_or_default();
     let num = first_child_attr(elem, "num", "value").unwrap_or_default();
-    let heading = first_child_text(elem, "heading");
-    let heading_runs = first_child_inline_runs(elem, "heading");
-    let chapeau = first_child_text(elem, "chapeau");
-    let chapeau_runs = first_child_inline_runs(elem, "chapeau");
-    let content = first_child_text(elem, "content");
-    let content_runs = first_child_inline_runs(elem, "content");
+    let num_text = first_child_num_text(elem);
+    // Slice U2: build the subdivision's semantic mixed-content trees FIRST
+    // (exactly as `read_section` does for the §), then derive the legacy flat
+    // `*` / `*_runs` views from them so the backbone tree is the single source
+    // of truth (W3C XML 1.0 §3.2.2). The `heading` / `chapeau` / `content`
+    // children are themselves true mixed content (a `<heading>` carries
+    // `<inline class="small-caps">…</inline>` ornaments; a `<chapeau>` carries
+    // an interleaved `<date>`).
+    let heading_mixed = first_child_mixed(elem, "heading");
+    let heading = heading_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let heading_runs = heading_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
+    let chapeau_mixed = first_child_mixed(elem, "chapeau");
+    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let chapeau_runs = chapeau_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
+    let content_mixed = first_child_mixed(elem, "content");
+    let content = content_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let content_runs = content_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
 
     let mut children = Vec::new();
     let mut refs = Vec::new();
@@ -1104,13 +1124,17 @@ fn read_subdivision(
     Ok(UsCodeSubdivision {
         identifier,
         num,
+        num_text,
         kind,
         heading,
         heading_runs,
+        heading_mixed,
         chapeau,
         chapeau_runs,
+        chapeau_mixed,
         content,
         content_runs,
+        content_mixed,
         children,
         refs,
         def_blocks,
@@ -1155,20 +1179,6 @@ fn read_marker(elem: &XmlElement) -> UsCodeMarker {
         name: attr(elem, "name").unwrap_or_default(),
         class: attr(elem, "class"),
     }
-}
-
-/// First direct child of `elem` with the given local name,
-/// converted to a Vec of typed inline runs. Returns empty Vec if
-/// the child doesn't exist.
-fn first_child_inline_runs(elem: &XmlElement, name: &str) -> Vec<UsCodeInlineRun> {
-    for child in &elem.children {
-        if let XmlNode::Element(e) = child
-            && e.name.local == name
-        {
-            return read_inline_runs(e);
-        }
-    }
-    Vec::new()
 }
 
 // ---------------------------------------------------------------------------
@@ -1406,71 +1416,6 @@ fn first_child_num_text(elem: &XmlElement) -> String {
         }
     }
     String::new()
-}
-
-/// Walk a text-bearing element's children and emit a typed
-/// inline-run sequence per W3C XHTML inline-element semantics +
-/// USLM Schema § "Inline Elements".
-///
-/// Plain-text nodes become `InlineKind::PlainText` runs;
-/// recognized inline tags (`<i>`, `<b>`, `<sup>`, `<sub>`,
-/// `<span>`, `<a>`, `<inline>`) become their typed kind. Unknown
-/// inline-like elements fall through to recursive flattening so
-/// no text content is lost — the type information is lost only
-/// for the unrecognized wrapper.
-fn read_inline_runs(elem: &XmlElement) -> Vec<UsCodeInlineRun> {
-    let mut out = Vec::new();
-    for child in &elem.children {
-        match child {
-            XmlNode::Text(s) | XmlNode::CData(s) => {
-                let trimmed = collapse_whitespace(s);
-                if !trimmed.is_empty() {
-                    out.push(UsCodeInlineRun {
-                        kind: InlineKind::PlainText,
-                        text: trimmed,
-                        class: None,
-                        href: None,
-                    });
-                }
-            }
-            XmlNode::Element(e) => {
-                if let Some(kind) = InlineKind::parse(&e.name.local) {
-                    let text = element_text(e);
-                    if text.is_empty() {
-                        continue;
-                    }
-                    let class = attr(e, "class");
-                    let href = attr(e, "href");
-                    out.push(UsCodeInlineRun {
-                        kind,
-                        text,
-                        class,
-                        href,
-                    });
-                } else if matches!(e.name.local.as_str(), "ref" | "num") {
-                    // <ref> and <num> contribute their visible
-                    // text but aren't inline-style ornaments —
-                    // emit as plain text to keep the visible
-                    // sequence intact.
-                    let text = element_text(e);
-                    if !text.is_empty() {
-                        out.push(UsCodeInlineRun {
-                            kind: InlineKind::PlainText,
-                            text,
-                            class: None,
-                            href: attr(e, "href"),
-                        });
-                    }
-                } else if !matches!(e.name.local.as_str(), "note" | "footnote") {
-                    // Unknown wrapper element — recurse and
-                    // flatten its content so no text is lost.
-                    out.extend(read_inline_runs(e));
-                }
-            }
-            _ => {}
-        }
-    }
-    out
 }
 
 /// Collapse internal whitespace runs to single spaces and trim.

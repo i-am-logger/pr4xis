@@ -989,19 +989,41 @@ pub struct UsCodeSubdivision {
     pub identifier: String,
     /// The `<num>` value, e.g. `"a"`, `"1"`, `"A"`, `"i"`.
     pub num: String,
+    /// The `<num>` element's VISIBLE text leaf, e.g. `"(a)"` / `"“(1)"`
+    /// — the `#PCDATA` the `value` attribute does NOT carry (`num` is
+    /// `"a"`, this is `"(a)"`). Empty when the source `<num>` is
+    /// childless. Captured for slice U2 so the backbone writer
+    /// reproduces the subdivision `<num>` text node (W3C XML 1.0
+    /// §3.2.2), exactly as [`UsCodeSection::num_text`] does for the §.
+    pub num_text: String,
     /// Which USLM hierarchy level this subdivision sits at.
     pub kind: SubdivisionKind,
-    /// `<heading>` text if any. Flat-text projection of `heading_runs`.
+    /// `<heading>` text if any. Flat-text projection of `heading_mixed`
+    /// (DERIVED). `None` when the subdivision carries no `<heading>`.
     pub heading: Option<String>,
+    /// Typed inline-markup runs from `<heading>` — DERIVED from
+    /// `heading_mixed`.
     pub heading_runs: Vec<UsCodeInlineRun>,
+    /// `<heading>` semantic mixed-content tree (slice U2) — the EXACT
+    /// ordered `#PCDATA` ↔ inline-element sequence (W3C XML 1.0
+    /// §3.2.2). The backbone-faithful source of truth; `heading` and
+    /// `heading_runs` are its lossy projections. `None` when the
+    /// subdivision has no `<heading>`.
+    pub heading_mixed: Option<UsCodeMixed>,
     /// `<chapeau>` if this subdivision introduces children.
-    /// Flat-text projection of `chapeau_runs`.
+    /// Flat-text projection of `chapeau_mixed` (DERIVED).
     pub chapeau: Option<String>,
     pub chapeau_runs: Vec<UsCodeInlineRun>,
+    /// `<chapeau>` semantic mixed-content tree (slice U2). `None` when
+    /// the subdivision has no `<chapeau>`.
+    pub chapeau_mixed: Option<UsCodeMixed>,
     /// `<content>` if this subdivision is a leaf. Flat-text
-    /// projection of `content_runs`.
+    /// projection of `content_mixed` (DERIVED).
     pub content: Option<String>,
     pub content_runs: Vec<UsCodeInlineRun>,
+    /// `<content>` semantic mixed-content tree (slice U2). `None` when
+    /// the subdivision is a branch (carries children, not content).
+    pub content_mixed: Option<UsCodeMixed>,
     /// Nested children — for a subsection these are paragraphs;
     /// for a paragraph, subparagraphs; etc.
     pub children: Vec<UsCodeSubdivision>,

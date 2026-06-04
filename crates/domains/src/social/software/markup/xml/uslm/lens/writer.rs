@@ -1,4 +1,4 @@
-//! USLM structural writer (slice U1) — the XML-tree-level inverse of
+//! USLM structural writer (slices U1 + U2) — the XML-tree-level inverse of
 //! [`read_uslm_title`], the USC analogue of the
 //! WN-LMF [`write_wordnet_document`](crate::social::software::markup::xml::lmf::writer::write_wordnet_document).
 //!
@@ -24,29 +24,41 @@
 //! (which Text vs element, in exact source order) — otherwise the backbone
 //! diff fails closed.
 //!
-//! # Coverage (slice U1)
+//! # Coverage (slices U1 + U2)
 //!
-//! This slice covers the FLAT-section content model the LRC USC titles use
-//! for prose sections: a `<section>` of `<num>` + `<heading>` + `<content>`
-//! (with a block `<p>`) + `<sourceCredit>` — the last being TRUE MIXED
-//! CONTENT (`<ref>` / `<date>` interleaved with literal punctuation). The
-//! covered text-bearing families (`<num>`, `<heading>`, `<content>` / `<p>`,
-//! `<sourceCredit>` with `<ref>` / `<date>`) regenerate from the
-//! [`UsCodeMixed`] semantic trees the reader captured. The remaining USLM
-//! vocabulary (subdivisions, notes, tables, the rest of the ~50-element set)
-//! is the next slice; a section that exercises an uncovered family surfaces as
-//! a backbone divergence in the gate, never a silent drop.
+//! **U1** covers the FLAT-section content model: a `<section>` of `<num>` +
+//! `<heading>` + `<content>` (with a block `<p>`) + `<sourceCredit>` — the
+//! last being TRUE MIXED CONTENT (`<ref>` / `<date>` interleaved with literal
+//! punctuation).
+//!
+//! **U2** adds the USLM SUBDIVISION backbone most USC sections actually carry:
+//! the `<subsection>` / `<paragraph>` / `<subparagraph>` / `<clause>` /
+//! `<subclause>` / `<item>` / `<subitem>` recursion. Each subdivision
+//! regenerates its own `<num>` + optional `<heading>` / `<chapeau>` + EITHER a
+//! leaf `<content>` OR nested child subdivisions, all from the
+//! [`UsCodeMixed`] semantic trees the reader now captures on
+//! [`UsCodeSubdivision`] (the §-level chapeau is covered too). The element
+//! name comes from [`SubdivisionKind::tag`] — the inverse of the reader's
+//! XSD-grounded `from_xsd_element` dispatch — never a call-site literal.
+//!
+//! The remaining USLM vocabulary (notes, tables, def / marker / amendment
+//! markup, the full `<uscDoc>` wrapper) is the next slice; a section or
+//! subdivision that exercises an uncovered family surfaces as a
+//! [`UslmWriteError::UncoveredFamily`] (named by family) rather than a silent
+//! drop — fail-closed at the exact boundary.
 //!
 //! # Child order
 //!
 //! [`diff_element`](crate::social::software::markup::xml::parser::source_syntax)
 //! matches children strictly POSITIONALLY (no reorder species), so this writer
-//! emits the section's children in EXACT source order. For the covered flat
-//! sections that order is the canonical USLM content order
-//! `num, heading, content, sourceCredit` (LRC USLM XML User Guide § "Section
-//! Structure") — reconstructed from the typed model directly, with NO
-//! `ChildOrder` residue added to the generic complement. The gate over the
-//! real Title 1 sections proves that order is faithful for the covered family.
+//! emits each element's children in EXACT source order. That order is the
+//! canonical USLM level order `num, heading?, chapeau?, (content | child
+//! levels)`, with `<sourceCredit>` last at the § level (LRC USLM XML User Guide
+//! §V "Level Structure") — reconstructed from the typed model directly, with NO
+//! `ChildOrder` residue added to the generic complement. The gates over the
+//! real Title 1 §§ 8 and 201 (the latter exercising the
+//! `<subsection>` → `<paragraph>` recursion) prove that order is faithful for
+//! the covered families.
 //!
 //! # Citations
 //!
@@ -62,7 +74,8 @@
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use super::super::corpus::{
-    InlineKind, UsCodeContentNode, UsCodeMixed, UsCodeSection, UsCodeSourceCredit, UsCodeTitle,
+    InlineKind, SubdivisionKind, UsCodeContentNode, UsCodeMixed, UsCodeSection, UsCodeSourceCredit,
+    UsCodeSubdivision, UsCodeTitle,
 };
 use super::read_uslm_title;
 use crate::social::software::markup::xml::ontology::{
@@ -82,9 +95,10 @@ use crate::social::software::markup::xml::parser::source_syntax::{
 /// fails LOUD at the exact uncovered element rather than fabricating bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UslmWriteError {
-    /// The typed title carried a structure slice U1 does not regenerate yet
-    /// (a subdivision tree, a notes block, a table, …). Carries the family
-    /// name so the gate names the next slice.
+    /// The typed title carried a structure the writer does not regenerate yet
+    /// (a notes block, a table, a `<def>` / `<marker>` / amendment markup, the
+    /// `<uscDoc>` wrapper, …). Carries the family name so the gate names the
+    /// next slice. (Slices U1 + U2 cover the §/subdivision text backbone.)
     UncoveredFamily {
         /// The uncovered USLM element family (e.g. `"subsection"`, `"notes"`).
         family: String,
@@ -98,8 +112,8 @@ impl core::fmt::Display for UslmWriteError {
         match self {
             Self::UncoveredFamily { family, section } => write!(
                 f,
-                "write_uslm slice U1 does not yet regenerate the <{family}> family \
-                 (section {section}); that is the next slice"
+                "write_uslm does not yet regenerate the <{family}> family \
+                 (at {section}); that is the next slice"
             ),
         }
     }
@@ -110,17 +124,17 @@ impl std::error::Error for UslmWriteError {}
 /// Write a [`UsCodeTitle`] back to a USLM [`XmlDocument`] — the XML-tree-level
 /// inverse of [`read_uslm_title`].
 ///
-/// Slice U1 targets the SECTION-SLICE shape `read_uslm_title` produces for a
-/// bare `<section>` document (root = the section): the title's single
-/// `sections` entry is regenerated as the document root. The canonical
-/// `version="1.0" encoding="UTF-8"` prolog mirrors the reader's XML
-/// declaration handling.
+/// Targets the SECTION-SLICE shape `read_uslm_title` produces for a bare
+/// `<section>` document (root = the section): the title's single `sections`
+/// entry is regenerated as the document root, recursing through its
+/// subdivisions (slice U2). The canonical `version="1.0" encoding="UTF-8"`
+/// prolog mirrors the reader's XML declaration handling.
 ///
 /// Returns [`UslmWriteError::UncoveredFamily`] when the section carries a
-/// structure slice U1 does not regenerate — the honest-partial boundary that
+/// structure the writer does not regenerate — the honest-partial boundary that
 /// keeps the backbone diff fail-closed instead of dropping content.
 pub fn write_uslm(title: &UsCodeTitle) -> Result<XmlDocument, UslmWriteError> {
-    // Slice U1 covers the section-slice document shape: exactly one section,
+    // The slice covers the section-slice document shape: exactly one section,
     // emitted as the root. (A full `<uscDoc>`/`<title>` wrapper is a later
     // slice — its meta/main backbone is not yet regenerated.)
     let [section] = title.sections.as_slice() else {
@@ -140,10 +154,12 @@ pub fn write_uslm(title: &UsCodeTitle) -> Result<XmlDocument, UslmWriteError> {
 
 /// Regenerate a `<section>` element backbone from a [`UsCodeSection`].
 ///
-/// Emits the canonical USLM flat-section child order
-/// (`num, heading, content, sourceCredit`) the covered Title 1 prose sections
-/// carry. A section with any structure slice U1 does not regenerate
-/// (subdivisions, notes, continuations, def/marker/amendment markup) returns
+/// Emits the canonical USLM level child order
+/// `num, heading, chapeau?, (content | subdivisions...), sourceCredit*` — a
+/// flat prose § carries `content`; a branch § carries `<subsection>` children
+/// (slice U2), recursing via [`subdivision_element`]. A section with a
+/// structure the writer does not regenerate (notes, continuations,
+/// def/marker/amendment markup, the `<uscDoc>` wrapper) returns
 /// [`UslmWriteError::UncoveredFamily`] so the gate fails closed at that family.
 fn section_element(section: &UsCodeSection) -> Result<XmlElement, UslmWriteError> {
     reject_uncovered(section)?;
@@ -163,10 +179,30 @@ fn section_element(section: &UsCodeSection) -> Result<XmlElement, UslmWriteError
         &section.heading_mixed,
     )));
 
+    // <chapeau>…</chapeau> — a §-level branch's introductory phrase before its
+    // subsections; emitted only when the source carried one (most flat sections
+    // do not). Same canonical position (after heading, before children) as the
+    // subdivision-level chapeau.
+    if let Some(chapeau) = &section.chapeau_mixed {
+        children.push(XmlNode::Element(mixed_element("chapeau", chapeau)));
+    }
+
     // <content>…</content> — regenerated from its mixed tree (carries the
-    // block <p> in position). Emitted only when the source carried one.
+    // block <p> in position). Emitted only when the source carried one. A USLM
+    // level is EITHER a leaf (carries `<content>`) OR a branch (carries
+    // `<subsection>` children); the LRC pl-119-90 sections never carry both, so
+    // these two emit in their canonical source positions without interleaving.
     if let Some(content) = &section.content_mixed {
         children.push(XmlNode::Element(mixed_element("content", content)));
+    }
+
+    // <subsection>… — the SUBDIVISION BACKBONE (slice U2). Each child
+    // subdivision regenerates recursively in source order (num, heading?,
+    // chapeau?, then its own children or content), emitted between the §'s
+    // leaf content and its <sourceCredit> per the canonical USLM level order
+    // (LRC USLM XML User Guide §V).
+    for child in &section.children {
+        children.push(XmlNode::Element(subdivision_element(child)?));
     }
 
     // <sourceCredit>…</sourceCredit> — TRUE MIXED CONTENT regenerated from its
@@ -178,17 +214,116 @@ fn section_element(section: &UsCodeSection) -> Result<XmlElement, UslmWriteError
     Ok(element("section", section_attrs(section), children))
 }
 
-/// Fail closed when the section carries a structure family slice U1 does not
-/// regenerate yet. Each is reported by family name so the gate names exactly
-/// what the next slice must cover, rather than the writer silently emitting a
-/// shorter backbone (which the positional diff would then reject downstream
-/// with a less specific message).
+/// Regenerate one subdivision element (`<subsection>` / `<paragraph>` /
+/// `<subparagraph>` / `<clause>` / `<subclause>` / `<item>` / `<subitem>`)
+/// from a [`UsCodeSubdivision`] — the slice-U2 recursion.
+///
+/// Emits the canonical USLM subdivision child order — `num`, then the optional
+/// `heading` / `chapeau` mixed trees, then EITHER the nested child
+/// subdivisions (a branch) OR the leaf `<content>` (LRC USLM XML User Guide §V
+/// "Level Structure"). The element NAME is the subdivision kind's canonical
+/// USLM tag ([`SubdivisionKind::tag`], the inverse of the XSD-grounded
+/// `SubdivisionKind::from_xsd_element` the reader dispatched on). A subdivision
+/// carrying a family slice U2 does not regenerate (def / marker / amendment
+/// markup) fails closed via [`reject_uncovered_subdivision`].
+fn subdivision_element(sub: &UsCodeSubdivision) -> Result<XmlElement, UslmWriteError> {
+    reject_uncovered_subdivision(sub)?;
+
+    let mut children: Vec<XmlNode> = Vec::new();
+
+    // <num value="…">text</num> — the `value` attribute plus the visible text
+    // leaf (e.g. `"(a)"`, `"“(1)"`) the reader captured verbatim.
+    children.push(XmlNode::Element(num_element(&sub.num, &sub.num_text)));
+
+    // <heading>…</heading> — only when the source carried one (most paragraphs
+    // and deeper levels do not). Regenerated from its semantic mixed tree (a
+    // subdivision heading carries `<inline class="small-caps">…</inline>`).
+    if let Some(heading) = &sub.heading_mixed {
+        children.push(XmlNode::Element(mixed_element("heading", heading)));
+    }
+
+    // <chapeau>…</chapeau> — the introductory phrase a branch subdivision uses
+    // before its enumerated children; emitted only when present.
+    if let Some(chapeau) = &sub.chapeau_mixed {
+        children.push(XmlNode::Element(mixed_element("chapeau", chapeau)));
+    }
+
+    // EITHER the leaf <content> OR the nested child subdivisions — a USLM level
+    // is a leaf or a branch, never both (LRC USLM XML User Guide §V).
+    if let Some(content) = &sub.content_mixed {
+        children.push(XmlNode::Element(mixed_element("content", content)));
+    }
+    for nested in &sub.children {
+        children.push(XmlNode::Element(subdivision_element(nested)?));
+    }
+
+    Ok(element(
+        subdivision_tag(sub.kind),
+        subdivision_attrs(sub),
+        children,
+    ))
+}
+
+/// The canonical USLM tag name for a subdivision kind — the inverse of the
+/// reader's XSD-grounded `SubdivisionKind::from_xsd_element`. Reads the name
+/// off the typed enum's [`SubdivisionKind::tag`] (the same vocabulary the
+/// loaded USLM XSD declares as `substitutionGroup="level"` members), never a
+/// hand-coded literal at the call site.
+fn subdivision_tag(kind: SubdivisionKind) -> &'static str {
+    kind.tag()
+}
+
+/// The subdivision's start-tag attributes the typed model carries — only
+/// `identifier`, and only when present (the synthetic-section subdivisions
+/// inside notes carry no `identifier`). As with the section, the EXACT source
+/// attribute sequence (`style` / `class` / `id` / `identifier` order and the
+/// metadata attrs the typed model drops) is restored by the generic
+/// `AttributeOverrides` complement, so only PRESENCE matters here.
+fn subdivision_attrs(sub: &UsCodeSubdivision) -> Vec<XmlAttribute> {
+    if sub.identifier.is_empty() {
+        Vec::new()
+    } else {
+        vec![attr("identifier", &sub.identifier)]
+    }
+}
+
+/// Fail closed when a subdivision carries a family slice U2 does not regenerate
+/// yet — mirroring [`reject_uncovered`] at the §-level. Slice U2 covers the
+/// subdivision backbone (`num` / `heading` / `chapeau` / `content` + nested
+/// child subdivisions); `<def>` / `<marker>` / `<ins>` / `<del>` inside a
+/// subdivision are the next slice and surface by family name so the gate fails
+/// LOUD rather than emitting a short backbone.
+fn reject_uncovered_subdivision(sub: &UsCodeSubdivision) -> Result<(), UslmWriteError> {
+    let uncovered = if !sub.def_blocks.is_empty() {
+        Some("def")
+    } else if !sub.markers.is_empty() {
+        Some("marker")
+    } else if !sub.amendments.is_empty() {
+        Some("ins")
+    } else {
+        None
+    };
+    match uncovered {
+        Some(family) => Err(UslmWriteError::UncoveredFamily {
+            family: family.to_string(),
+            section: sub.identifier.clone(),
+        }),
+        None => Ok(()),
+    }
+}
+
+/// Fail closed when the section carries a §-level structure family the writer
+/// does not regenerate yet. Each is reported by family name so the gate names
+/// exactly what the next slice must cover, rather than the writer silently
+/// emitting a shorter backbone (which the positional diff would then reject
+/// downstream with a less specific message).
 fn reject_uncovered(section: &UsCodeSection) -> Result<(), UslmWriteError> {
-    let uncovered = if !section.children.is_empty() {
-        Some("subsection")
-    } else if section.chapeau_mixed.is_some() {
-        Some("chapeau")
-    } else if !section.notes_blocks.is_empty() {
+    // Slice U2 covers the subdivision backbone (`section.children`), so a
+    // §-level chapeau (a §-level branch's introductory phrase) is now covered
+    // too — both regenerate from their semantic mixed trees. The still-
+    // uncovered §-level families (notes / continuations / def / marker / ins)
+    // remain fail-closed below.
+    let uncovered = if !section.notes_blocks.is_empty() {
         Some("notes")
     } else if !section.bare_notes.is_empty() {
         Some("note")
@@ -427,9 +562,10 @@ pub enum UslmReconstructError {
     /// rendered message.
     Read(String),
     /// [`write_uslm`] could not regenerate the section backbone — the fragment
-    /// carries a structure family slice U1 does not yet cover (a subsection
-    /// tree, a notes block, …). Carries the [`UslmWriteError`] naming the next
-    /// slice; this is the honest-partial boundary, never a silent short tree.
+    /// carries a structure family the writer does not yet cover (a notes block,
+    /// a `<def>` / `<marker>`, the `<uscDoc>` wrapper, …). Carries the
+    /// [`UslmWriteError`] naming the next slice; this is the honest-partial
+    /// boundary, never a silent short tree.
     Write(UslmWriteError),
     /// `write_uslm`'s regenerated tree was not element-backbone-equal to the
     /// captured source DOM (a dropped/added/reordered/renamed element or
@@ -866,20 +1002,174 @@ mod tests {
         );
     }
 
-    /// An uncovered family fails CLOSED (honest-partial): a section carrying
-    /// a subsection subtree (the next slice) returns
-    /// [`UslmWriteError::UncoveredFamily`] rather than emitting a short
-    /// backbone the diff would silently mismatch.
+    /// HARD BYTE-EXACT GATE (slice U2): the real Title 1 § 8 — three
+    /// `<subsection>`s, each a `<num>` + `<content>` leaf, plus the §'s true
+    /// mixed-content `<sourceCredit>` — reconstructs BYTE-FOR-BYTE from the
+    /// typed [`UsCodeTitle`] + captured [`UslmSyntaxComplement`]. This proves
+    /// the SUBDIVISION backbone (the `<subsection>` recursion U2 adds) is
+    /// faithful on a real published section: every subsection `<num>` /
+    /// `<content>` regenerates in exact source order.
     #[test]
-    fn uncovered_subsection_fails_closed() {
+    fn real_title1_s8_reconstruct_is_byte_exact() {
+        let Some(frag) = real_title1_section("/us/usc/t1/s8") else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        assert_byte_exact_gate(&frag);
+    }
+
+    /// Slice the EXACT § 201 `<section>…</section>` substring (a synthetic
+    /// note-§ that carries NO `identifier` attribute on `<section>`, so the
+    /// URN-keyed [`real_title1_section`] can't find it) by anchoring on its
+    /// unique `“SEC. 201.` num text, then wrap it in [`XML_DECL`]. `None` when
+    /// the corpus file is absent (graceful skip).
+    ///
+    /// § 201 is the byte-exact gate for the FULL subdivision recursion U2
+    /// targets — a `<subsection>` carrying `<num>` + `<heading>` (with an
+    /// `<inline class="small-caps">` ornament) + `<chapeau>` (with an
+    /// interleaved `<date>`) + nested `<paragraph>` children, alongside a leaf
+    /// `<subsection>` of `<num>` + `<heading>` + `<content>`. The
+    /// subsection→paragraph nesting + the heading/chapeau mixed trees on a
+    /// SUBDIVISION are exactly what this slice adds.
+    fn real_title1_section_201() -> Option<String> {
+        let path = workspace_root()
+            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
+        let xml = std::fs::read_to_string(&path).ok()?;
+        let num_pos = xml.find("\u{201c}SEC. 201.")?;
+        let start = xml[..num_pos].rfind("<section")?;
+        let end_tag = "</section>";
+        let end_rel = xml[start..].find(end_tag)? + end_tag.len();
+        let section = &xml[start..start + end_rel];
+        Some(alloc::format!("{XML_DECL}{section}"))
+    }
+
+    /// The § 201 byte-exact gate proper — see `real_title1_s201_*` doc above.
+    #[test]
+    fn real_title1_s201_subdivision_recursion_is_byte_exact() {
+        let Some(frag) = real_title1_section_201() else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        // Sanity: the fragment really is the subsection→paragraph recursion
+        // this slice targets (else a corpus change silently weakened the gate).
+        assert!(
+            frag.contains("<subsection") && frag.contains("<paragraph"),
+            "the § 201 slice must carry the subsection→paragraph recursion"
+        );
+        assert_byte_exact_gate(&frag);
+    }
+
+    /// META-TEST (slice U2 has TEETH at the SUBDIVISION level): capture the real
+    /// § 201 fragment, then corrupt a #PCDATA Text leaf INSIDE a nested
+    /// `<paragraph>`'s `<content>` (deep in the subdivision recursion) and
+    /// assert the byte-exact reconstruction NO LONGER equals the source. This
+    /// is the U2 analogue of `corrupted_mixed_breaks_byte_exact_gate`: it
+    /// proves the new subdivision writer reproduces the EXACT text of a deep
+    /// leaf, not merely a backbone the positional diff could reconcile.
+    #[test]
+    fn corrupted_subdivision_content_breaks_byte_exact_gate() {
+        let Some(frag) = real_title1_section_201() else {
+            return;
+        };
+        let (mut title, complement) =
+            capture_uslm_complement(&frag).expect("capture the real § 201 fragment");
+
+        // Control: the uncorrupted capture reconstructs byte-exact.
+        let clean = reconstruct_uslm_source(&title, &complement).expect("clean reconstruct");
+        assert_eq!(
+            clean,
+            frag.as_bytes(),
+            "the uncorrupted § 201 capture must reconstruct byte-exact (control)"
+        );
+
+        // Corrupt the FIRST nested paragraph's content #PCDATA — a leaf two
+        // levels deep in the subdivision tree (section → subsection(a) →
+        // paragraph(1) → content). The element BACKBONE stays identical, so
+        // `reapply_regenerated_complement`'s pre-order walk still succeeds, but
+        // a faithful writer must now emit different bytes for that text run.
+        let subsection_a = &mut title.sections[0].children[0];
+        let paragraph_1 = subsection_a
+            .children
+            .first_mut()
+            .expect("§ 201(a) must carry at least one nested <paragraph>");
+        let content = paragraph_1
+            .content_mixed
+            .as_mut()
+            .expect("the nested <paragraph> must carry a <content> leaf");
+        let corrupted_a_text = content
+            .nodes
+            .iter_mut()
+            .find_map(|n| match n {
+                UsCodeContentNode::Text(t) => {
+                    *t = alloc::format!("{t}-CORRUPTED");
+                    Some(())
+                }
+                _ => None,
+            })
+            .is_some();
+        assert!(
+            corrupted_a_text,
+            "the nested <paragraph>'s <content> must carry a #PCDATA Text leaf"
+        );
+
+        let corrupted = reconstruct_uslm_source(&title, &complement)
+            .expect("reconstruct still runs on a corrupted-but-backbone-valid model");
+        assert_ne!(
+            corrupted,
+            frag.as_bytes(),
+            "a corrupted DEEP-subdivision #PCDATA value MUST diverge the \
+             byte-exact reconstruction — the U2 subdivision gate has teeth"
+        );
+    }
+
+    /// READER + WRITER CHECK (slice U2): a section carrying a real `<subsection>`
+    /// subtree no longer fails closed — it regenerates. This is the U1→U2
+    /// transition: the family that was `UncoveredFamily { "subsection" }` in
+    /// slice U1 now writes without error.
+    #[test]
+    fn covered_subsection_regenerates() {
         const WITH_SUBSECTION: &str = "<section identifier=\"/us/usc/t1/s7\">\
 <num value=\"7\">§ 7.</num><heading>Marriage</heading>\
 <subsection identifier=\"/us/usc/t1/s7/a\"><num value=\"a\">(a)</num>\
 <content>For the purposes of any Federal law.</content></subsection></section>";
         let title = read_uslm_title(WITH_SUBSECTION).expect("read");
-        let err = write_uslm(&title).expect_err("subsection is uncovered in slice U1");
+        let doc = write_uslm(&title).expect("subsection is covered in slice U2");
+        // The regenerated root is the <section>; its third child (after num,
+        // heading) is the <subsection>, whose own children are num + content.
+        let subsection = doc.root.children.iter().find_map(|n| match n {
+            XmlNode::Element(e) if e.name.local == "subsection" => Some(e),
+            _ => None,
+        });
+        let subsection = subsection.expect("regenerated tree carries the <subsection>");
+        let inner: Vec<&str> = subsection
+            .children
+            .iter()
+            .filter_map(|n| match n {
+                XmlNode::Element(e) => Some(e.name.local.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            inner,
+            ["num", "content"],
+            "subsection backbone = num, content"
+        );
+    }
+
+    /// An uncovered family STILL fails CLOSED (honest-partial): a section
+    /// carrying a `<notes>` block (a family neither U1 nor U2 regenerates)
+    /// returns [`UslmWriteError::UncoveredFamily`] rather than emitting a short
+    /// backbone the diff would silently mismatch.
+    #[test]
+    fn uncovered_notes_fails_closed() {
+        const WITH_NOTES: &str = "<section identifier=\"/us/usc/t1/s7\">\
+<num value=\"7\">§ 7.</num><heading>Marriage</heading>\
+<subsection identifier=\"/us/usc/t1/s7/a\"><num value=\"a\">(a)</num>\
+<content>For the purposes of any Federal law.</content></subsection>\
+<notes type=\"uscNote\"><note topic=\"amendments\"><p>Some editorial note.</p></note></notes>\
+</section>";
+        let title = read_uslm_title(WITH_NOTES).expect("read");
+        let err = write_uslm(&title).expect_err("notes is uncovered in slices U1+U2");
         assert!(
-            matches!(err, UslmWriteError::UncoveredFamily { ref family, .. } if family == "subsection"),
+            matches!(err, UslmWriteError::UncoveredFamily { ref family, .. } if family == "notes"),
             "got {err:?}"
         );
     }
