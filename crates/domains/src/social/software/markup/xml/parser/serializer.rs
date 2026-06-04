@@ -31,7 +31,8 @@ use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace,
     XmlNode,
 };
-use super::source_syntax::{EmptyForm, SyntaxDecisions};
+use super::source_syntax::{EmptyForm, EntityReferenceForm, IntraTagWhitespace, SyntaxDecisions};
+use alloc::collections::BTreeMap;
 
 /// Top-level entry point: emit a [`XmlDocument`] as W3C XML 1.0
 /// §2.1 `document` bytes.
@@ -102,25 +103,18 @@ fn write_element_exact(
     // entry too.
     let my_index = *index;
     *index += 1;
+    let node_decisions = decisions.get(my_index);
+    let intra_ws = node_decisions.and_then(|d| d.intra_tag_whitespace.as_ref());
+    let attr_entity_refs = node_decisions.map(|d| &d.attr_entity_refs);
+
     out.push('<');
     write_name(out, &el.name);
-    if el.namespaces.is_empty() {
-        if let Some(ns) = &el.namespace {
-            write_namespace_decl(out, ns);
-        }
-    } else {
-        for ns in &el.namespaces {
-            write_namespace_decl(out, ns);
-        }
-    }
-    for attr in &el.attributes {
-        write_attribute(out, attr);
-    }
+    write_start_tag_attributes(out, el, intra_ws, attr_entity_refs);
     if el.children.is_empty() {
         // The empty-element form is a recorded decision; default to the
         // canonical self-closing form when none is recorded.
         let explicit = matches!(
-            decisions.get(my_index).and_then(|d| d.empty_form),
+            node_decisions.and_then(|d| d.empty_form),
             Some(EmptyForm::Explicit)
         );
         if explicit {
@@ -132,12 +126,115 @@ fn write_element_exact(
         }
     } else {
         out.push('>');
-        for child in &el.children {
-            write_node_exact(out, child, index, decisions);
+        // Track the child ordinal so a `Text` child's §4.6 entity-reference
+        // form (keyed by that ordinal in `NodeDecisions::text_entity_refs`)
+        // re-emits at the right child — the same ordinal the reader assigned at
+        // `flush_text_capturing`.
+        for (child_ordinal, child) in el.children.iter().enumerate() {
+            let text_refs = node_decisions.and_then(|d| d.text_entity_refs.get(&child_ordinal));
+            write_node_exact(out, child, index, decisions, text_refs);
         }
         out.push_str("</");
         write_name(out, &el.name);
         out.push('>');
+    }
+}
+
+/// Re-emit the `(S Attribute)* S?` portion of the start-tag (§3.1 \[40\]/\[44\])
+/// — namespaces then attributes — honouring the captured intra-tag white-space
+/// layout and per-attribute §4.6 entity-reference forms. With no decision it
+/// falls back to the canonical single-space separation (each `write_*_decl` /
+/// `write_attribute` opens with its own space), so canonical tags are
+/// byte-identical to [`write_element`].
+fn write_start_tag_attributes(
+    out: &mut String,
+    el: &XmlElement,
+    intra_ws: Option<&IntraTagWhitespace>,
+    attr_entity_refs: Option<&BTreeMap<usize, EntityReferenceForm>>,
+) {
+    // The attribute-like emit sequence the reader keyed its per-slot captures
+    // by: every `xmlns`/`xmlns:prefix` declaration then every regular attribute
+    // (mirroring `write_element`'s order). `namespaces` falls back to the single
+    // `namespace` slot when empty, exactly as the canonical writer does.
+    enum Slot<'a> {
+        Ns(&'a XmlNamespace),
+        Attr(&'a XmlAttribute),
+    }
+    let mut slots: Vec<Slot<'_>> = Vec::new();
+    if el.namespaces.is_empty() {
+        if let Some(ns) = &el.namespace {
+            slots.push(Slot::Ns(ns));
+        }
+    } else {
+        for ns in &el.namespaces {
+            slots.push(Slot::Ns(ns));
+        }
+    }
+    for attr in &el.attributes {
+        slots.push(Slot::Attr(attr));
+    }
+
+    // The captured intra-tag white-space, when present, carries one
+    // `before_attr` / `around_eq` entry per emitted slot. A mismatched length
+    // would mean the reader and writer disagree on the attribute-like sequence —
+    // the documented xmlns/attribute co-location limitation. Guard it; the
+    // OEWN-2025 corpus never trips it.
+    if let Some(iw) = intra_ws {
+        debug_assert_eq!(
+            iw.before_attr.len(),
+            slots.len(),
+            "intra-tag white-space slot count must match the emitted attribute-like \
+             sequence (xmlns/attribute co-location is out of scope for this slice)"
+        );
+        debug_assert_eq!(iw.around_eq.len(), slots.len());
+    }
+
+    for (slot_index, slot) in slots.iter().enumerate() {
+        // §3.1 [40]/[44] leading `S` of this `(S Attribute)` group: the captured
+        // run, or the canonical single space when no layout was recorded.
+        match intra_ws.and_then(|iw| iw.before_attr.get(slot_index)) {
+            Some(run) => out.push_str(run),
+            None => out.push(' '),
+        }
+        let (name_to_eq, eq_to_value) = intra_ws
+            .and_then(|iw| iw.around_eq.get(slot_index))
+            .map_or(("", ""), |(a, b)| (a.as_str(), b.as_str()));
+        let value_refs = attr_entity_refs.and_then(|m| m.get(&slot_index));
+        match slot {
+            Slot::Ns(ns) => {
+                // Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin 2009)
+                // §3 — `xmlns` / `xmlns:prefix`. The §3.1 [25] `Eq` white-space
+                // straddles the `=` exactly as for a regular attribute.
+                match &ns.prefix {
+                    Some(prefix) => {
+                        out.push_str("xmlns:");
+                        out.push_str(prefix);
+                    }
+                    None => out.push_str("xmlns"),
+                }
+                out.push_str(name_to_eq);
+                out.push('=');
+                out.push_str(eq_to_value);
+                out.push('"');
+                write_escaped_attr_value_exact(out, &ns.uri, value_refs);
+                out.push('"');
+            }
+            Slot::Attr(attr) => {
+                write_name(out, &attr.name);
+                out.push_str(name_to_eq);
+                out.push('=');
+                out.push_str(eq_to_value);
+                out.push('"');
+                write_escaped_attr_value_exact(out, &attr.value, value_refs);
+                out.push('"');
+            }
+        }
+    }
+
+    // §3.1 [40]/[44] trailing `S?` before the `>` or `/>` close. Empty for the
+    // canonical tag; the captured run for a multi-line one.
+    if let Some(iw) = intra_ws {
+        out.push_str(&iw.before_close);
     }
 }
 
@@ -146,13 +243,18 @@ fn write_node_exact(
     node: &XmlNode,
     index: &mut usize,
     decisions: &SyntaxDecisions,
+    text_refs: Option<&EntityReferenceForm>,
 ) {
     match node {
         XmlNode::Element(el) => write_element_exact(out, el, index, decisions),
-        // Non-element nodes render as in the canonical serializer; their own
-        // byte-exact residue (comment white-space, entity style) lands in
-        // follow-up decisions. They occupy no pre-order ELEMENT slot, so the
-        // counter is untouched.
+        // Char data honours the captured §4.6 predefined-entity-reference form
+        // (which resolved chars were written `&apos;`/`&quot;`/… in the source);
+        // with none recorded it falls back to the canonical escaper.
+        XmlNode::Text(t) => write_escaped_char_data_exact(out, t, text_refs),
+        // Other non-element nodes render as in the canonical serializer; their
+        // own byte-exact residue (comment white-space, CDATA) lands in follow-up
+        // decisions. They occupy no pre-order ELEMENT slot, so the counter is
+        // untouched.
         other => write_node(out, other),
     }
 }
@@ -328,13 +430,69 @@ fn write_node(out: &mut String, node: &XmlNode) {
 /// stable.
 fn write_escaped_char_data(out: &mut String, s: &str) {
     for ch in s.chars() {
-        match ch {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            _ => out.push(ch),
+        write_escaped_char_data_char(out, ch);
+    }
+}
+
+/// One char of `CharData` in the canonical (C14N 1.1 §3.5) escaping.
+fn write_escaped_char_data_char(out: &mut String, ch: char) {
+    match ch {
+        '&' => out.push_str("&amp;"),
+        '<' => out.push_str("&lt;"),
+        '>' => out.push_str("&gt;"),
+        _ => out.push(ch),
+    }
+}
+
+/// Byte-exact `CharData` escaper — honours the captured §4.6
+/// predefined-entity-reference FORM the same way
+/// [`write_escaped_attr_value_exact`] does for attribute values: at each char
+/// index the reader recorded a reference for, re-emit the source `&name;` form
+/// (so a `&quot;` adjacent to a curly quote round-trips). With no refs it is
+/// byte-identical to [`write_escaped_char_data`].
+fn write_escaped_char_data_exact(out: &mut String, s: &str, refs: Option<&EntityReferenceForm>) {
+    write_with_entity_refs(out, s, refs, write_escaped_char_data_char);
+}
+
+/// Walk `s` by CHAR INDEX, re-emitting the captured §4.6 predefined-entity
+/// reference at each recorded index and falling back to `canonical_char` (the
+/// position-free canonical escaper) everywhere else. Shared by the attribute and
+/// char-data byte-exact escapers; the only difference between them is the
+/// canonical fallback. The recorded `refs` are in ascending char-index order
+/// (the reader pushes them in resolution order), so a single advancing cursor
+/// over them suffices.
+fn write_with_entity_refs(
+    out: &mut String,
+    s: &str,
+    refs: Option<&EntityReferenceForm>,
+    canonical_char: fn(&mut String, char),
+) {
+    let recorded = refs.map(|r| r.refs.as_slice()).unwrap_or(&[]);
+    let mut next = 0usize;
+    for (char_index, ch) in s.chars().enumerate() {
+        if next < recorded.len() && recorded[next].0 == char_index {
+            // The source wrote this char as a §4.6 predefined entity reference —
+            // re-emit that exact reference text. `resolved_char` is the inverse
+            // of the recorded char, asserted to agree as a capture-integrity
+            // check (the reader keyed the ref by the char it resolved to).
+            let entity = recorded[next].1;
+            debug_assert_eq!(
+                entity.resolved_char(),
+                ch,
+                "recorded §4.6 entity reference does not resolve to the char at its \
+                 captured index — reader/writer char-index disagreement"
+            );
+            out.push_str(entity.reference());
+            next += 1;
+        } else {
+            canonical_char(out, ch);
         }
     }
+    debug_assert_eq!(
+        next,
+        recorded.len(),
+        "every recorded §4.6 entity reference must land on a char index within the value"
+    );
 }
 
 /// W3C XML 1.0 §3.3.3 — attribute-value normalization defines
@@ -343,16 +501,34 @@ fn write_escaped_char_data(out: &mut String, s: &str) {
 /// so the put output round-trips through canonicalization stably.
 fn write_escaped_attr_value(out: &mut String, s: &str) {
     for ch in s.chars() {
-        match ch {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '"' => out.push_str("&quot;"),
-            '\r' => out.push_str("&#xD;"),
-            '\n' => out.push_str("&#xA;"),
-            '\t' => out.push_str("&#x9;"),
-            _ => out.push(ch),
-        }
+        write_escaped_attr_char(out, ch);
     }
+}
+
+/// One char of an `AttValue` in the canonical (C14N 1.1 §3.5) escaping.
+fn write_escaped_attr_char(out: &mut String, ch: char) {
+    match ch {
+        '&' => out.push_str("&amp;"),
+        '<' => out.push_str("&lt;"),
+        '"' => out.push_str("&quot;"),
+        '\r' => out.push_str("&#xD;"),
+        '\n' => out.push_str("&#xA;"),
+        '\t' => out.push_str("&#x9;"),
+        _ => out.push(ch),
+    }
+}
+
+/// Byte-exact `AttValue` escaper — honours the captured §4.6
+/// predefined-entity-reference FORM (W3C XML 1.0 §4.6): at each char index the
+/// reader recorded a reference for, re-emit the SOURCE form (`&apos;`, `&quot;`,
+/// …) instead of the canonical escape, so a source `&apos;hood` round-trips
+/// (the parser resolved it to a bare `'`, which the canonical escaper would
+/// emit unescaped). Indices are char positions into the resolved value (the
+/// reader counted chars, not bytes — refs sit next to multibyte chars). Every
+/// other char uses the canonical escaper, so with no refs this is byte-identical
+/// to [`write_escaped_attr_value`].
+fn write_escaped_attr_value_exact(out: &mut String, s: &str, refs: Option<&EntityReferenceForm>) {
+    write_with_entity_refs(out, s, refs, write_escaped_attr_char);
 }
 
 #[cfg(test)]
@@ -394,6 +570,7 @@ mod exact_tests {
             0,
             NodeDecisions {
                 empty_form: Some(EmptyForm::Explicit),
+                ..NodeDecisions::default()
             },
         );
         assert_eq!(
@@ -417,6 +594,7 @@ mod exact_tests {
             1,
             NodeDecisions {
                 empty_form: Some(EmptyForm::Explicit),
+                ..NodeDecisions::default()
             },
         );
         assert_eq!(

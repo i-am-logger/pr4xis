@@ -34,6 +34,7 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 /// The document-level prolog/epilog white-space the Information Set does NOT
 /// carry — the §2.8 production \[27\] `Misc` `S` runs the Infoset discards
@@ -95,14 +96,182 @@ pub enum EmptyForm {
     Explicit,
 }
 
+/// The §2.3 \[3\] `S` (white-space) runs INSIDE a start-tag (`STag` / the
+/// `EmptyElemTag` prefix) the Information Set discards — W3C XML 1.0 Fifth
+/// Edition §3.1 productions \[40\] `STag ::= '<' Name (S Attribute)* S? '>'` and
+/// \[44\] `EmptyElemTag ::= '<' Name (S Attribute)* S? '/>'`. The Infoset
+/// carries the attribute *set* and the element name, but not the white-space
+/// LAYOUT between them — the real Open English WordNet 2025 corpus indents each
+/// attribute onto its own line, so the runs are non-trivial and must be
+/// captured to round-trip byte-for-byte.
+///
+/// The runs are recorded in attribute-like SOURCE ORDER — one entry per
+/// `(S Attribute)` group (every `xmlns`/`xmlns:prefix` declaration AND every
+/// regular attribute), matching the order the byte-exact serializer re-emits
+/// them. Production \[41\] `Attribute ::= Name Eq AttValue` with \[25\]
+/// `Eq ::= S? '=' S?` contributes the two optional `S?` runs straddling the
+/// `=`. Every field empty (the canonical single-space-separated single-line
+/// tag) emits nothing extra, so canonical tags are unaffected.
+///
+/// # Limitation (xmlns/attribute co-location)
+///
+/// The serializer emits all `namespaces` (the `xmlns` decls) BEFORE all regular
+/// `attributes`, whereas the source may interleave them. When a start-tag mixes
+/// the two, the emit order diverges from source order and the per-slot runs land
+/// on the wrong items. The OEWN-2025 corpus never co-locates an `xmlns`
+/// declaration with non-`xmlns` attributes on one element, so this is out of
+/// scope for this slice (a `debug_assert` in the serializer guards the count;
+/// the reordering case is a documented follow-up).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct IntraTagWhitespace {
+    /// The §3.1 \[40\]/\[44\] `S` run BEFORE each `(S Attribute)` group, one
+    /// entry per attribute-like item in source order (the leading `S` of the
+    /// `(S Attribute)*` repetition; never empty in well-formed input since a `S`
+    /// is mandatory between the name/previous-attribute and the next attribute).
+    pub before_attr: Vec<String>,
+    /// The §3.1 \[25\] `Eq ::= S? '=' S?` white-space straddling each
+    /// attribute's `=` — `(name->eq, eq->value)` — one entry per attribute-like
+    /// item, in the same source order as [`Self::before_attr`]. Empty strings
+    /// for the canonical `name="value"` (no space around `=`).
+    pub around_eq: Vec<(String, String)>,
+    /// The §3.1 \[40\]/\[44\] trailing `S?` BEFORE the closing `>` or `/>`.
+    /// Empty for a tag whose last token abuts the close.
+    pub before_close: String,
+}
+
+impl IntraTagWhitespace {
+    /// `true` when the captured layout is exactly the CANONICAL one the
+    /// byte-exact serializer emits with NO decision recorded: a single `#x20`
+    /// before each attribute (the leading `S` of `(S Attribute)`), no `S` around
+    /// any `=` (`Eq ::= S? '=' S?` with both `S?` empty), and no trailing `S?`
+    /// before the close. A canonical single-line tag therefore records no
+    /// `IntraTagWhitespace` decision (the writer's default reproduces it); only a
+    /// departure — the real corpus's multi-line attribute indentation — is
+    /// recorded.
+    #[must_use]
+    pub fn is_canonical(&self) -> bool {
+        self.before_attr.iter().all(|s| s == " ")
+            && self
+                .around_eq
+                .iter()
+                .all(|(a, b)| a.is_empty() && b.is_empty())
+            && self.before_close.is_empty()
+    }
+}
+
+/// Which character of a RESOLVED string was written in the source as a §4.6
+/// predefined entity reference (`&amp; &lt; &gt; &apos; &quot;`) rather than as
+/// the literal character — W3C XML 1.0 Fifth Edition §4.6 "Predefined Entities".
+///
+/// The parser RESOLVES every predefined reference to its single literal
+/// character (§4.4.5 "Included in Literal" for attribute values, §4.4.2
+/// "Included" for content), so the Infoset DOM holds the bare char and the
+/// canonical serializer re-escapes only the C14N-required minimum (`& < >` in
+/// char-data; `& < "` in attribute values). A source `&apos;` becomes a literal
+/// `'` in the DOM and would re-emit as a bare `'` — a byte mismatch. This
+/// records the entity NAME so the byte-exact escaper re-emits the reference at
+/// the exact resolved-string CHAR INDEX it occupied.
+///
+/// Keyed by char index into the RESOLVED string because the serializer iterates
+/// the value with `str::chars()`; a source byte offset would be wrong against
+/// the resolved char stream (references collapse 4-6 source bytes to one char,
+/// and adjacent multibyte chars — curly quotes U+2018/U+2019 in real
+/// definitions — shift byte offsets but not char indices).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct EntityReferenceForm {
+    /// `(char_index, entity_name)` pairs in ascending `char_index` order — the
+    /// resolved-string position and the §4.6 predefined entity name (`amp`,
+    /// `lt`, `gt`, `apos`, `quot`) the source wrote there. Multiple entries per
+    /// string are allowed (e.g. `Dhu&apos;l-Qa&apos;dah` records two `apos`).
+    pub refs: Vec<(usize, EntityName)>,
+}
+
+/// One of the five W3C XML 1.0 §4.6 predefined entity names. A typed enum (not a
+/// bare `String`) so the escaper dispatches on the closed §4.6 set rather than
+/// re-parsing a name, and an out-of-set value is unrepresentable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityName {
+    /// `&amp;` → `&`.
+    Amp,
+    /// `&lt;` → `<`.
+    Lt,
+    /// `&gt;` → `>`.
+    Gt,
+    /// `&apos;` → `'`.
+    Apos,
+    /// `&quot;` → `"`.
+    Quot,
+}
+
+impl EntityName {
+    /// The literal character this §4.6 predefined entity resolves to.
+    #[must_use]
+    pub fn resolved_char(self) -> char {
+        match self {
+            Self::Amp => '&',
+            Self::Lt => '<',
+            Self::Gt => '>',
+            Self::Apos => '\'',
+            Self::Quot => '"',
+        }
+    }
+
+    /// The reference text `&name;` the source wrote for this entity.
+    #[must_use]
+    pub fn reference(self) -> &'static str {
+        match self {
+            Self::Amp => "&amp;",
+            Self::Lt => "&lt;",
+            Self::Gt => "&gt;",
+            Self::Apos => "&apos;",
+            Self::Quot => "&quot;",
+        }
+    }
+
+    /// The §4.6 predefined entity whose resolved character is `ch`, if any. The
+    /// inverse of [`Self::resolved_char`]; `None` for a char no predefined
+    /// entity resolves to.
+    #[must_use]
+    pub fn for_resolved_char(ch: char) -> Option<Self> {
+        match ch {
+            '&' => Some(Self::Amp),
+            '<' => Some(Self::Lt),
+            '>' => Some(Self::Gt),
+            '\'' => Some(Self::Apos),
+            '"' => Some(Self::Quot),
+            _ => None,
+        }
+    }
+}
+
 /// The concrete-syntax decisions for ONE node — the SourceSyntax residue the
 /// Information Set DOM does not carry, needed to reproduce its exact bytes.
-/// Today only the empty-element form; further decisions (entity-reference form,
-/// attribute-value escaping, white-space) extend this struct.
+///
+/// Three kinds of residue, each a separate concrete-syntax decision:
+/// - the empty-element form (§3.1 `<a/>` vs `<a></a>`);
+/// - the intra-tag white-space layout (§3.1 \[40\]/\[44\] `S` runs inside the
+///   start-tag — the multi-line attribute indentation of the real corpus);
+/// - the predefined-entity-reference form (§4.6) the source used in attribute
+///   values and char-data, recorded so the escaper re-emits the reference
+///   instead of the resolved literal character.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct NodeDecisions {
     /// The empty-element form — only meaningful for a childless element.
     pub empty_form: Option<EmptyForm>,
+    /// The §3.1 \[40\]/\[44\] start-tag white-space layout (multi-line attribute
+    /// indentation). `None` for a canonical single-line tag.
+    pub intra_tag_whitespace: Option<IntraTagWhitespace>,
+    /// The §4.6 predefined-entity-reference form used in this element's
+    /// attribute VALUES, keyed by attribute index (the position in the element's
+    /// emitted attribute-like sequence — `namespaces` then `attributes`, the
+    /// serializer's write order). Absent key = that value held no resolved
+    /// reference.
+    pub attr_entity_refs: BTreeMap<usize, EntityReferenceForm>,
+    /// The §4.6 predefined-entity-reference form used in this element's CHAR
+    /// DATA, keyed by the ordinal of the `Text` child among the element's
+    /// children (0-based child position). Absent key = that text node held no
+    /// resolved reference.
+    pub text_entity_refs: BTreeMap<usize, EntityReferenceForm>,
 }
 
 /// A document's concrete-syntax decisions, keyed by 0-based PRE-ORDER element
