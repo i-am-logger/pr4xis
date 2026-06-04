@@ -142,6 +142,51 @@ impl SynsetRelationType {
         }
     }
 
+    /// The WN-LMF `relType` string for this relation — the exact
+    /// inverse of [`parse`](Self::parse) for every named variant
+    /// (`parse(x.as_str()) == x`).
+    ///
+    /// The `Other(_)` arm is a known L1 limitation: `parse` collapses
+    /// every un-modelled `relType` to `Other(0)`, discarding the
+    /// original string, so it cannot be reconstructed. We emit the
+    /// stable placeholder `"other"` — itself an un-modelled value, so
+    /// `parse("other") == Other(0)` and the typed value still
+    /// round-trips, but the source string is lost. Recovering it is a
+    /// complement/L3 concern (the WN-LMF `relType` long tail is not in
+    /// the typed model).
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Hypernym => "hypernym",
+            Self::InstanceHypernym => "instance_hypernym",
+            Self::Hyponym => "hyponym",
+            Self::InstanceHyponym => "instance_hyponym",
+            Self::HoloMember => "holo_member",
+            Self::HoloPart => "holo_part",
+            Self::HoloSubstance => "holo_substance",
+            Self::MeroMember => "mero_member",
+            Self::MeroPart => "mero_part",
+            Self::MeroSubstance => "mero_substance",
+            Self::Causes => "causes",
+            Self::IsCausedBy => "is_caused_by",
+            Self::Entails => "entails",
+            Self::IsEntailedBy => "is_entailed_by",
+            Self::Similar => "similar",
+            Self::Also => "also",
+            Self::Attribute => "attribute",
+            Self::DomainTopic => "domain_topic",
+            Self::HasDomainTopic => "has_domain_topic",
+            Self::DomainRegion => "domain_region",
+            Self::HasDomainRegion => "has_domain_region",
+            Self::Exemplifies => "exemplifies",
+            Self::IsExemplifiedBy => "is_exemplified_by",
+            Self::Participle => "participle",
+            // L1 limitation: the original un-modelled relType string is
+            // lost on `parse`; emit a stable placeholder that itself
+            // parses back to `Other(0)`.
+            Self::Other(_) => "other",
+        }
+    }
+
     /// Is this a taxonomy (is-a) relation?
     pub fn is_taxonomy(&self) -> bool {
         matches!(self, Self::Hypernym | Self::InstanceHypernym)
@@ -196,6 +241,29 @@ impl SenseRelationType {
             "is_exemplified_by" => Self::IsExemplifiedBy,
             "participle" => Self::Participle,
             _ => Self::Other(0),
+        }
+    }
+
+    /// The WN-LMF `relType` string for this sense relation — the exact
+    /// inverse of [`parse`](Self::parse) for every named variant
+    /// (`parse(x.as_str()) == x`).
+    ///
+    /// As with [`SynsetRelationType::as_str`], the `Other(_)` arm is a
+    /// known L1 limitation: the original un-modelled string was
+    /// discarded by `parse`, so we emit the stable placeholder
+    /// `"other"` (which itself parses back to `Other(0)`). The typed
+    /// value round-trips; the source string does not.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Antonym => "antonym",
+            Self::Similar => "similar",
+            Self::Pertainym => "pertainym",
+            Self::Derivation => "derivation",
+            Self::Also => "also",
+            Self::Exemplifies => "exemplifies",
+            Self::IsExemplifiedBy => "is_exemplified_by",
+            Self::Participle => "participle",
+            Self::Other(_) => "other",
         }
     }
 
@@ -658,6 +726,46 @@ mod tests {
             assert!(
                 !matches!(parsed, SenseRelationType::Other(_)),
                 "documented sense relType `{s}` parsed to Other"
+            );
+        }
+    }
+
+    /// `as_str` is the exact inverse of `parse` for every NON-`Other`
+    /// `SynsetRelationType` variant: `parse(x.as_str()) == x`. This is
+    /// the law the WN-LMF structural writer relies on to emit the same
+    /// `relType` string the reader consumed. The `Other(_)` arm is
+    /// excluded — `parse` discarded the original string (an L1
+    /// limitation documented on `as_str`).
+    #[test]
+    fn synset_relation_type_as_str_inverts_parse() {
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let variant = SynsetRelationType::parse(s);
+            assert!(
+                !matches!(variant, SynsetRelationType::Other(_)),
+                "fixture `{s}` should be a named variant"
+            );
+            assert_eq!(
+                SynsetRelationType::parse(variant.as_str()),
+                variant,
+                "parse(as_str()) must be identity for {variant:?}"
+            );
+        }
+    }
+
+    /// Symmetric inverse law for every NON-`Other` `SenseRelationType`
+    /// variant: `parse(x.as_str()) == x`.
+    #[test]
+    fn sense_relation_type_as_str_inverts_parse() {
+        for s in KNOWN_SENSE_REL_TYPES {
+            let variant = SenseRelationType::parse(s);
+            assert!(
+                !matches!(variant, SenseRelationType::Other(_)),
+                "fixture `{s}` should be a named variant"
+            );
+            assert_eq!(
+                SenseRelationType::parse(variant.as_str()),
+                variant,
+                "parse(as_str()) must be identity for {variant:?}"
             );
         }
     }
