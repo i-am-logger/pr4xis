@@ -41,9 +41,23 @@
 //! name comes from [`SubdivisionKind::tag`] — the inverse of the reader's
 //! XSD-grounded `from_xsd_element` dispatch — never a call-site literal.
 //!
-//! The remaining USLM vocabulary (notes, tables, def / marker / amendment
-//! markup, the full `<uscDoc>` wrapper) is the next slice; a section or
-//! subdivision that exercises an uncovered family surfaces as a
+//! **U3** adds the USLM NOTES backbone almost every published § carries: the
+//! `<notes>` container and its `<note>` children (the editorial / statutory /
+//! cross-reference note blocks that follow `<sourceCredit>`). A `<note>` body
+//! is TRUE MIXED CONTENT — an ordered sequence of block children (`<heading>`,
+//! `<p>`, and in other titles `<num>` / `<table>` / `<signature>` /
+//! `<quotedContent>`) each itself mixed content (a `<heading>` carries `<b>`; a
+//! `<p>` interleaves literal text with `<ref>` / `<date>` / `<i>`). The whole
+//! note body regenerates from the [`UsCodeNote::body_mixed`] semantic tree the
+//! reader now captures — node-for-node, in source order — exactly as the
+//! `<sourceCredit>` / `<content>` mixed trees do (U1 / U2). The notes follow
+//! `<sourceCredit>` at the § level (LRC USLM XML User Guide §V).
+//!
+//! The remaining USLM vocabulary (tables as a typed family, def / marker /
+//! amendment markup, the `<continuation>` flush-text family — absent from
+//! Title 1, so left fail-closed rather than written un-proven — and the full
+//! `<uscDoc>` wrapper) is the next slice; a section or subdivision that
+//! exercises an uncovered family surfaces as a
 //! [`UslmWriteError::UncoveredFamily`] (named by family) rather than a silent
 //! drop — fail-closed at the exact boundary.
 //!
@@ -74,8 +88,8 @@
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use super::super::corpus::{
-    InlineKind, SubdivisionKind, UsCodeContentNode, UsCodeMixed, UsCodeSection, UsCodeSourceCredit,
-    UsCodeSubdivision, UsCodeTitle,
+    InlineKind, SubdivisionKind, UsCodeContentNode, UsCodeMixed, UsCodeNote, UsCodeNotesBlock,
+    UsCodeSection, UsCodeSourceCredit, UsCodeSubdivision, UsCodeTitle,
 };
 use super::read_uslm_title;
 use crate::social::software::markup::xml::ontology::{
@@ -155,11 +169,12 @@ pub fn write_uslm(title: &UsCodeTitle) -> Result<XmlDocument, UslmWriteError> {
 /// Regenerate a `<section>` element backbone from a [`UsCodeSection`].
 ///
 /// Emits the canonical USLM level child order
-/// `num, heading, chapeau?, (content | subdivisions...), sourceCredit*` — a
-/// flat prose § carries `content`; a branch § carries `<subsection>` children
-/// (slice U2), recursing via [`subdivision_element`]. A section with a
-/// structure the writer does not regenerate (notes, continuations,
-/// def/marker/amendment markup, the `<uscDoc>` wrapper) returns
+/// `num, heading, chapeau?, (content | subdivisions...), sourceCredit*,
+/// notes*` — a flat prose § carries `content`; a branch § carries
+/// `<subsection>` children (slice U2), recursing via [`subdivision_element`];
+/// the `<notes>` blocks (slice U3) follow `<sourceCredit>`. A section with a
+/// structure the writer does not regenerate (a `<continuation>` flush, a
+/// `<def>` / `<marker>` / amendment markup, the `<uscDoc>` wrapper) returns
 /// [`UslmWriteError::UncoveredFamily`] so the gate fails closed at that family.
 fn section_element(section: &UsCodeSection) -> Result<XmlElement, UslmWriteError> {
     reject_uncovered(section)?;
@@ -209,6 +224,22 @@ fn section_element(section: &UsCodeSection) -> Result<XmlElement, UslmWriteError
     // exact ordered tree (literal punctuation interleaved with <ref>/<date>).
     for credit in &section.source_credits {
         children.push(XmlNode::Element(source_credit_element(credit)));
+    }
+
+    // <notes>… — the NOTES BACKBONE (slice U3). The editorial / statutory /
+    // cross-reference note blocks follow <sourceCredit> at the § level (LRC
+    // USLM XML User Guide §V). Each <notes> container regenerates its <note>
+    // children from their semantic body trees, node-for-node.
+    for block in &section.notes_blocks {
+        children.push(XmlNode::Element(notes_block_element(block, section)?));
+    }
+
+    // Bare <note> children (a <note> directly under <section>, not inside a
+    // <notes> wrapper — USLM allows both forms; absent from LRC Title 1 §§ but
+    // covered here so a section carrying one regenerates rather than failing
+    // closed). Same per-note backbone as inside a <notes> container.
+    for note in &section.bare_notes {
+        children.push(XmlNode::Element(note_element(note)));
     }
 
     Ok(element("section", section_attrs(section), children))
@@ -318,16 +349,14 @@ fn reject_uncovered_subdivision(sub: &UsCodeSubdivision) -> Result<(), UslmWrite
 /// emitting a shorter backbone (which the positional diff would then reject
 /// downstream with a less specific message).
 fn reject_uncovered(section: &UsCodeSection) -> Result<(), UslmWriteError> {
-    // Slice U2 covers the subdivision backbone (`section.children`), so a
-    // §-level chapeau (a §-level branch's introductory phrase) is now covered
-    // too — both regenerate from their semantic mixed trees. The still-
-    // uncovered §-level families (notes / continuations / def / marker / ins)
-    // remain fail-closed below.
-    let uncovered = if !section.notes_blocks.is_empty() {
-        Some("notes")
-    } else if !section.bare_notes.is_empty() {
-        Some("note")
-    } else if !section.continuations.is_empty() {
+    // Slice U2 covers the subdivision backbone (`section.children`) + the
+    // §-level chapeau; slice U3 covers the `<notes>` / `<note>` backbone
+    // (`section.notes_blocks` / `section.bare_notes`) — both regenerate from
+    // their semantic mixed trees. The still-uncovered §-level families
+    // (`<continuation>` flush text — absent from Title 1, so written un-proven
+    // would be dishonest — plus `<def>` / `<marker>` / `<ins>`) remain
+    // fail-closed below.
+    let uncovered = if !section.continuations.is_empty() {
         Some("continuation")
     } else if !section.def_blocks.is_empty() {
         Some("def")
@@ -375,6 +404,102 @@ fn source_credit_element(credit: &UsCodeSourceCredit) -> XmlElement {
         None => Vec::new(),
     };
     element("sourceCredit", attrs, mixed_children(&credit.mixed))
+}
+
+/// Regenerate a `<notes>` container element (slice U3) — its optional direct
+/// `<heading>` (built from `heading_mixed`, in position before the notes) plus
+/// its `<note>` children in source order. The typed model carries the
+/// `type`/`id` attributes (`block_type`/`identifier`); the EXACT source
+/// attribute sequence — including the `style` attr the model drops — is
+/// restored by the generic `AttributeOverrides` complement, so only presence
+/// matters here.
+///
+/// Fails closed when the block carries a direct `<heading>` String projection
+/// but NO captured `heading_mixed` tree (a shape the reader could not lift to a
+/// backbone-faithful tree) — the honest-partial boundary that keeps the byte
+/// diff fail-closed rather than emitting a heading-less container.
+fn notes_block_element(
+    block: &UsCodeNotesBlock,
+    section: &UsCodeSection,
+) -> Result<XmlElement, UslmWriteError> {
+    let mut children: Vec<XmlNode> = Vec::new();
+
+    // The block's OWN direct <heading> (rare — absent from LRC Title 1, whose
+    // headings are per-<note>). When the legacy String projection is present
+    // the backbone-faithful mixed tree MUST be too, else the writer would emit
+    // a heading-less container that the positional diff could not reconcile.
+    match (&block.heading, &block.heading_mixed) {
+        (_, Some(heading)) => children.push(XmlNode::Element(mixed_element("heading", heading))),
+        (Some(_), None) => {
+            return Err(UslmWriteError::UncoveredFamily {
+                family: "notes-heading".to_string(),
+                section: section.identifier.clone(),
+            });
+        }
+        (None, None) => {}
+    }
+
+    for note in &block.notes {
+        children.push(XmlNode::Element(note_element(note)));
+    }
+
+    Ok(element("notes", notes_block_attrs(block), children))
+}
+
+/// Regenerate one `<note>` element (slice U3) from a [`UsCodeNote`]. Its body
+/// is the EXACT ordered child sequence of [`UsCodeNote::body_mixed`] — the
+/// `<heading>` / `<p>` / … block children regenerated node-for-node from the
+/// semantic mixed tree (a `<heading>` lands as a `Generic` node carrying its
+/// `<b>` ornament; a `<p>` as a `Para` carrying its interleaved `<ref>` /
+/// `<date>`). The typed model carries `topic`/`role`/`type`/`id`; the exact
+/// source attribute sequence (including the `style` attr the model drops, and
+/// the order) is restored by the generic complement.
+///
+/// Total over the note family: the mixed-content machinery carries every
+/// note-body element (`heading`, `p`, and in other titles `num` / `table` /
+/// `signature` / `quotedContent`) as a typed-or-`Generic` node, so a note never
+/// needs a per-note `UncoveredFamily` — any divergence surfaces as a byte-exact
+/// gate failure at the exact node, not a silent short body.
+fn note_element(note: &UsCodeNote) -> XmlElement {
+    element("note", note_attrs(note), mixed_children(&note.body_mixed))
+}
+
+/// The `<notes>` container's start-tag attributes the typed model carries —
+/// `type` (`block_type`) and `id` (`identifier`), each only when present. The
+/// EXACT source attribute sequence (the `style`/`type`/`id` order plus the
+/// metadata attrs the model drops) is restored by the generic
+/// `AttributeOverrides` complement, so only presence matters here.
+fn notes_block_attrs(block: &UsCodeNotesBlock) -> Vec<XmlAttribute> {
+    let mut attrs = Vec::new();
+    if let Some(t) = &block.block_type {
+        attrs.push(attr("type", t));
+    }
+    if let Some(id) = &block.identifier {
+        attrs.push(attr("id", id));
+    }
+    attrs
+}
+
+/// The `<note>`'s start-tag attributes the typed model carries —
+/// `topic` / `role` / `type` (`note_type`) / `id` (`identifier`), each only
+/// when present. As with every USLM element, the EXACT source attribute
+/// sequence (order + the `style` / `class` attrs the model drops) is restored
+/// by the generic complement, so only presence matters here.
+fn note_attrs(note: &UsCodeNote) -> Vec<XmlAttribute> {
+    let mut attrs = Vec::new();
+    if let Some(t) = &note.topic {
+        attrs.push(attr("topic", t));
+    }
+    if let Some(r) = &note.role {
+        attrs.push(attr("role", r));
+    }
+    if let Some(t) = &note.note_type {
+        attrs.push(attr("type", t));
+    }
+    if let Some(id) = &note.identifier {
+        attrs.push(attr("id", id));
+    }
+    attrs
 }
 
 /// An element named `name` whose children are the regenerated mixed-content
@@ -1154,22 +1279,272 @@ mod tests {
         );
     }
 
-    /// An uncovered family STILL fails CLOSED (honest-partial): a section
-    /// carrying a `<notes>` block (a family neither U1 nor U2 regenerates)
-    /// returns [`UslmWriteError::UncoveredFamily`] rather than emitting a short
-    /// backbone the diff would silently mismatch.
+    /// HARD BYTE-EXACT GATE (slice U3): the real Title 1 § 210 — a flat-prose §
+    /// (`<num>` + `<heading>` + `<content>` + `<sourceCredit>`) FOLLOWED BY a
+    /// `<notes type="uscNote">` container whose two `<note>` children carry
+    /// mixed-content bodies (a crossHeading note of `<heading><b>…</b></heading>`
+    /// only, and a cross-reference note of `<heading>` + a `<p>` interleaving
+    /// literal text with a `<ref>`) — reconstructs BYTE-FOR-BYTE from the typed
+    /// [`UsCodeTitle`] + captured [`UslmSyntaxComplement`]. This proves the
+    /// NOTES backbone (the `<notes>`/`<note>` family U3 adds) is faithful on a
+    /// real published section: each note body regenerates node-for-node in
+    /// source order from [`UsCodeNote::body_mixed`].
     #[test]
-    fn uncovered_notes_fails_closed() {
+    fn real_title1_s210_with_notes_reconstruct_is_byte_exact() {
+        let Some(frag) = real_title1_section("/us/usc/t1/s210") else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        // Sanity: the fragment really is the notes family this slice targets
+        // (else a corpus change silently weakened the gate).
+        assert!(
+            frag.contains("<notes") && frag.contains("<note "),
+            "the § 210 slice must carry the <notes>/<note> backbone"
+        );
+        assert_byte_exact_gate(&frag);
+    }
+
+    /// Second real notes-bearing section so the U3 byte-exact gate is not
+    /// single-instance: the real Title 1 § 105, whose `<notes>` carries FOUR
+    /// `<note>`s across two crossHeading banners (`Editorial Notes`, `Statutory
+    /// Notes and Related Subsidiaries`) and two substantive notes
+    /// (`Amendments`, `Effective Date of 1974 Amendment`) — the latter a `<p>`
+    /// interleaving several `<ref>` and `<date>` children. Reconstructs
+    /// BYTE-FOR-BYTE, proving the per-note ordered backbone over a multi-note
+    /// block.
+    #[test]
+    fn real_title1_s105_with_notes_reconstruct_is_byte_exact() {
+        let Some(frag) = real_title1_section("/us/usc/t1/s105") else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        assert!(
+            frag.contains("<notes") && frag.contains("topic=\"amendments\""),
+            "the § 105 slice must carry the multi-note <notes> backbone"
+        );
+        assert_byte_exact_gate(&frag);
+    }
+
+    /// META-TEST (slice U3 has TEETH at the NOTE level): capture the real § 210
+    /// fragment, then CORRUPT a #PCDATA Text leaf INSIDE a `<note>`'s body
+    /// (here the cross-reference note's `<p>`) and assert the byte-exact
+    /// reconstruction NO LONGER equals the source. This is the U3 analogue of
+    /// `corrupted_mixed_breaks_byte_exact_gate` / the U2 subdivision meta-test:
+    /// it proves the new notes writer reproduces the EXACT text of a note-body
+    /// leaf, not merely a backbone the positional diff could reconcile.
+    #[test]
+    fn corrupted_note_content_breaks_byte_exact_gate() {
+        let Some(frag) = real_title1_section("/us/usc/t1/s210") else {
+            return;
+        };
+        let (mut title, complement) =
+            capture_uslm_complement(&frag).expect("capture the real § 210 fragment");
+
+        // Control: the uncorrupted capture reconstructs byte-exact.
+        let clean = reconstruct_uslm_source(&title, &complement).expect("clean reconstruct");
+        assert_eq!(
+            clean,
+            frag.as_bytes(),
+            "the uncorrupted § 210 capture must reconstruct byte-exact (control)"
+        );
+
+        // Corrupt a #PCDATA Text leaf somewhere in the notes block's note
+        // bodies (the cross-reference note's `<p>` carries literal prose around
+        // its `<ref>`). The element BACKBONE stays identical, so
+        // `reapply_regenerated_complement`'s pre-order walk still succeeds, but
+        // a faithful writer must now emit different bytes for that text run.
+        let block = title.sections[0]
+            .notes_blocks
+            .first_mut()
+            .expect("§ 210 must carry a <notes> block");
+        let mut corrupted_a_text = false;
+        for note in &mut block.notes {
+            if corrupt_first_text_in(&mut note.body_mixed.nodes) {
+                corrupted_a_text = true;
+                break;
+            }
+        }
+        assert!(
+            corrupted_a_text,
+            "the § 210 notes block must carry a #PCDATA Text leaf in a note body"
+        );
+
+        let corrupted = reconstruct_uslm_source(&title, &complement)
+            .expect("reconstruct still runs on a corrupted-but-backbone-valid model");
+        assert_ne!(
+            corrupted,
+            frag.as_bytes(),
+            "a corrupted note-body #PCDATA value MUST diverge the byte-exact \
+             reconstruction — the U3 notes gate has teeth"
+        );
+    }
+
+    /// Corrupt the FIRST descendant `#PCDATA` [`UsCodeContentNode::Text`] leaf
+    /// in a mixed-content node list (pre-order), rewriting it to a different
+    /// value. Returns whether a leaf was found and mutated. Used by the U3
+    /// note-body corruption meta-test; the note body's text leaves sit one or
+    /// two levels deep (inside the `<heading>` / `<p>` block children), so the
+    /// walk recurses through element nodes.
+    fn corrupt_first_text_in(nodes: &mut [UsCodeContentNode]) -> bool {
+        for node in nodes {
+            match node {
+                UsCodeContentNode::Text(t) => {
+                    *t = alloc::format!("{t}-CORRUPTED");
+                    return true;
+                }
+                UsCodeContentNode::Ref { children, .. }
+                | UsCodeContentNode::Date { children, .. }
+                | UsCodeContentNode::Inline { children, .. }
+                | UsCodeContentNode::Para { children, .. }
+                | UsCodeContentNode::Generic { children, .. } => {
+                    if corrupt_first_text_in(children) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// READER-MODEL CHECK (slice U3, NOT a `write_uslm` faithfulness proof). The
+    /// `<note>` body is GENUINELY captured as an ordered mixed-content tree in
+    /// the typed view `read_uslm_title` produces — a vacuous read (empty body)
+    /// would be a lie. The real § 210 cross-reference note's body is the ordered
+    /// sequence `<heading>` then `<p>`, with the `<p>` interleaving literal prose
+    /// and a `<ref>`. Asserts the READER's model; the byte-exact gates above are
+    /// the writer-faithfulness proof. The DERIVED flat views still hold.
+    #[test]
+    fn reader_model_note_body_is_genuinely_mixed_content() {
+        let Some(frag) = real_title1_section("/us/usc/t1/s210") else {
+            return;
+        };
+        let title = read_uslm_title(&frag).expect("read");
+        let block = title.sections[0]
+            .notes_blocks
+            .first()
+            .expect("§ 210 carries a <notes> block");
+        // The cross-reference note (topic="crossReferences") carries a heading
+        // + a paragraph; its body_mixed holds those two block nodes in order.
+        let xref = block
+            .notes
+            .iter()
+            .find(|n| n.topic.as_deref() == Some("crossReferences"))
+            .expect("§ 210 notes include the crossReferences note");
+        let block_kids: Vec<&str> = xref
+            .body_mixed
+            .nodes
+            .iter()
+            .filter_map(|n| match n {
+                UsCodeContentNode::Generic { name, .. } => Some(name.as_str()),
+                UsCodeContentNode::Para { .. } => Some("p"),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            block_kids,
+            ["heading", "p"],
+            "the crossReferences note body = <heading> then <p>, in order"
+        );
+        // The <p> is a Para whose mixed children interleave literal text with a
+        // <ref> citation edge (the backbone the writer reproduces).
+        let para = xref
+            .body_mixed
+            .nodes
+            .iter()
+            .find_map(|n| match n {
+                UsCodeContentNode::Para { children, .. } => Some(children),
+                _ => None,
+            })
+            .expect("the crossReferences note carries a <p> body");
+        assert!(
+            para.iter()
+                .any(|n| matches!(n, UsCodeContentNode::Ref { .. })),
+            "the note <p> interleaves a <ref> citation in position"
+        );
+        assert!(
+            para.iter()
+                .any(|n| matches!(n, UsCodeContentNode::Text(t) if !t.trim().is_empty())),
+            "the note <p> interleaves literal #PCDATA around the <ref>"
+        );
+        // The DERIVED flat projections still hold (downstream stays working).
+        assert!(
+            xref.heading.as_deref() == Some("Cross References"),
+            "flat note heading still derived: {:?}",
+            xref.heading
+        );
+        assert!(
+            !xref.refs.is_empty(),
+            "flat note refs still derived from the body"
+        );
+    }
+
+    /// READER + WRITER CHECK (slice U3): a section carrying a `<notes>` block no
+    /// longer fails closed — it regenerates. This is the U2→U3 transition: the
+    /// family that was `UncoveredFamily { "notes" }` in slices U1 + U2 now
+    /// writes without error, emitting the `<notes>`/`<note>` backbone in source
+    /// order after `<sourceCredit>`.
+    #[test]
+    fn covered_notes_regenerates() {
         const WITH_NOTES: &str = "<section identifier=\"/us/usc/t1/s7\">\
 <num value=\"7\">§ 7.</num><heading>Marriage</heading>\
 <subsection identifier=\"/us/usc/t1/s7/a\"><num value=\"a\">(a)</num>\
 <content>For the purposes of any Federal law.</content></subsection>\
-<notes type=\"uscNote\"><note topic=\"amendments\"><p>Some editorial note.</p></note></notes>\
+<notes type=\"uscNote\"><note topic=\"amendments\"><heading>Amendments</heading>\
+<p>Some editorial note.</p></note></notes>\
 </section>";
         let title = read_uslm_title(WITH_NOTES).expect("read");
-        let err = write_uslm(&title).expect_err("notes is uncovered in slices U1+U2");
+        let doc = write_uslm(&title).expect("notes is covered in slice U3");
+        // The regenerated root carries the <notes> container after the
+        // <subsection>; its single <note> child regenerates heading + p.
+        let notes = doc
+            .root
+            .children
+            .iter()
+            .find_map(|n| match n {
+                XmlNode::Element(e) if e.name.local == "notes" => Some(e),
+                _ => None,
+            })
+            .expect("regenerated tree carries the <notes> container");
+        let note = notes
+            .children
+            .iter()
+            .find_map(|n| match n {
+                XmlNode::Element(e) if e.name.local == "note" => Some(e),
+                _ => None,
+            })
+            .expect("the <notes> container carries a <note>");
+        let inner: Vec<&str> = note
+            .children
+            .iter()
+            .filter_map(|n| match n {
+                XmlNode::Element(e) => Some(e.name.local.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            inner,
+            ["heading", "p"],
+            "note backbone = heading, p (in source order)"
+        );
+    }
+
+    /// An uncovered family STILL fails CLOSED (honest-partial): a section
+    /// carrying a `<continuation>` flush — a family slices U1–U3 do NOT
+    /// regenerate (and which is ABSENT from LRC Title 1, so writing it
+    /// un-proven would be dishonest) — returns
+    /// [`UslmWriteError::UncoveredFamily`] rather than emitting a short backbone
+    /// the diff would silently mismatch. Proves the fail-closed boundary still
+    /// has teeth now that notes are covered.
+    #[test]
+    fn uncovered_continuation_fails_closed() {
+        const WITH_CONTINUATION: &str = "<section identifier=\"/us/usc/t1/s7\">\
+<num value=\"7\">§ 7.</num><heading>Marriage</heading>\
+<subsection identifier=\"/us/usc/t1/s7/a\"><num value=\"a\">(a)</num>\
+<content>For the purposes of any Federal law.</content></subsection>\
+<continuation>and shall remain in force.</continuation>\
+</section>";
+        let title = read_uslm_title(WITH_CONTINUATION).expect("read");
+        let err = write_uslm(&title).expect_err("continuation is uncovered in slices U1–U3");
         assert!(
-            matches!(err, UslmWriteError::UncoveredFamily { ref family, .. } if family == "notes"),
+            matches!(err, UslmWriteError::UncoveredFamily { ref family, .. } if family == "continuation"),
             "got {err:?}"
         );
     }

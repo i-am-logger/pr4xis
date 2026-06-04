@@ -627,11 +627,19 @@ fn read_notes_block(elem: &XmlElement) -> UsCodeNotesBlock {
             notes.push(read_note(e));
         }
     }
+    // Slice U3: the `<notes>` block's OWN direct `<heading>` (when present —
+    // absent throughout LRC Title 1, whose headings are per-`<note>`) is built
+    // as a semantic mixed tree FIRST, then projected to the legacy `heading`
+    // `String` so the backbone writer can regenerate the block heading in
+    // position. `first_child_mixed` keys on the local name `"heading"`, so a
+    // per-note heading (a descendant of a `<note>` child) is NOT captured here.
+    let heading_mixed = first_child_mixed(elem, "heading");
     UsCodeNotesBlock {
         block_type,
         identifier,
         heading,
         notes,
+        heading_mixed,
     }
 }
 
@@ -640,6 +648,14 @@ fn read_note(elem: &XmlElement) -> UsCodeNote {
     let role = attr(elem, "role");
     let note_type = attr(elem, "type");
     let identifier = attr(elem, "id");
+    // Slice U3: build the `<note>` body as a semantic mixed-content tree FIRST
+    // (the EXACT ordered child sequence — `<heading>` / `<p>` / … — each itself
+    // mixed content, W3C XML 1.0 §3.2.2), then derive the legacy flat `heading`
+    // / `body` / `refs` / `dates` projections so the backbone writer regenerates
+    // the note's child sequence node-for-node. Mirrors `read_source_credit`'s
+    // de-flattened build-then-derive pattern (slice U1) and the
+    // `read_section` / `read_subdivision` mixed-tree builds (U1 / U2).
+    let body_mixed = read_mixed_content(elem);
     let heading = first_child_text(elem, "heading");
     // Body text: flatten everything except the heading.
     let mut body = String::new();
@@ -672,6 +688,7 @@ fn read_note(elem: &XmlElement) -> UsCodeNote {
         refs,
         quoted_contents,
         dates,
+        body_mixed,
     }
 }
 

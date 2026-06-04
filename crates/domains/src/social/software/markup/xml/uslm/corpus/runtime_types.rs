@@ -179,6 +179,14 @@ pub struct UsCodeNotesBlock {
     pub identifier: Option<String>,
     pub heading: Option<String>,
     pub notes: Vec<UsCodeNote>,
+    /// The `<notes>` block's OWN direct `<heading>` semantic mixed tree
+    /// (slice U3) — present only when the block carries a heading element
+    /// directly under `<notes>` (before its `<note>` children), as opposed
+    /// to the per-`<note>` headings the LRC Title 1 corpus uses. `None`
+    /// when the block has no direct heading (the dominant in-corpus form).
+    /// The backbone-faithful source of truth for the block heading; the
+    /// `heading` `String` projection is derived from it.
+    pub heading_mixed: Option<UsCodeMixed>,
 }
 
 /// A single USLM `<note>` element.
@@ -218,6 +226,19 @@ pub struct UsCodeNote {
     /// `<date>` elements anywhere in the note body. Captured as
     /// typed values per ISO 8601.
     pub dates: Vec<UsCodeDate>,
+    /// The `<note>` element's EXACT ordered child sequence (slice U3) — the
+    /// note body as TRUE MIXED CONTENT (W3C XML 1.0 §3.2.2). A `<note>`
+    /// interleaves block-level children (`<heading>`, `<p>`, and — in other
+    /// titles — `<num>` / `<table>` / `<signature>` / `<quotedContent>`)
+    /// each of which is itself mixed content (a `<heading>` carries `<b>`; a
+    /// `<p>` interleaves literal text with `<ref>` / `<date>` / `<i>`). The
+    /// ordered tree is the backbone-faithful source of truth from which the
+    /// `heading` / `body` / `refs` / `dates` projections are derived, and the
+    /// writer regenerates the `<note>`'s child sequence from it node-for-node
+    /// (the `<heading>` lands as a [`UsCodeContentNode::Generic`] keyed by its
+    /// name, a `<p>` as a [`UsCodeContentNode::Para`], etc. — semantic named
+    /// nodes, never an opaque exact-bytes blob).
+    pub body_mixed: UsCodeMixed,
 }
 
 impl UsCodeNote {
