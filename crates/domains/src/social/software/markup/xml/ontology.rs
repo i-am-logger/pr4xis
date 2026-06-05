@@ -492,6 +492,20 @@ pub struct XmlDoctype {
     /// references" — keys off this flag together with the external
     /// subset's presence and the `standalone` attribute.
     pub internal_subset_had_pe_references: bool,
+    /// The VERBATIM bytes of the WHOLE declaration `<!DOCTYPE … >`
+    /// (§2.8 \[28\] `doctypedecl`), after §2.11 end-of-line
+    /// normalization — concrete-syntax PROLOG residue captured so the
+    /// byte-exact serializer reproduces the declaration exactly (the
+    /// inter-token white-space, the `<!ENTITY>` internal-subset
+    /// layout, and any internal-subset comments the structured
+    /// projection erases). This is the prolog analogue of re-emitting
+    /// the `<?xml?>` declaration bytes — NOT a stored element-tree
+    /// DOM. `None` when the document has no DOCTYPE OR when a synthetic
+    /// doctype was built without capture (the structured
+    /// `write_doctype` re-projection path); `Some` only on the
+    /// capturing read path, so the field is purely additive — a flat
+    /// SPAR vocab / WordNet / USC document is unaffected.
+    pub verbatim: Option<String>,
 }
 
 /// One general-entity declaration from §4.2 \[71\] GEDecl. The

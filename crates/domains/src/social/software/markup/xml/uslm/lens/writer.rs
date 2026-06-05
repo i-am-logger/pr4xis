@@ -830,6 +830,12 @@ pub fn capture_uslm_complement(
     let document_residue = DocumentResidue {
         doctype: exact_dom.doctype.clone(),
         root_namespaces: exact_dom.root.namespaces.clone(),
+        // The XML declaration's version + encoding form, captured so the
+        // byte-exact writer reproduces the source declaration rather than the
+        // structural writer's default. Additive (USLM declares the same form the
+        // structural writer emits, so a re-pin is unnecessary).
+        xml_version: Some(exact_dom.version.clone()),
+        xml_encoding: Some(exact_dom.encoding.clone()),
     };
 
     Ok((

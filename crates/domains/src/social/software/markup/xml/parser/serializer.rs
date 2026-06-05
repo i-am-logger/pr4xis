@@ -361,6 +361,15 @@ fn write_node_exact(
 /// element name, optional `ExternalID`, and inline general entity
 /// declarations (`<!ENTITY name "value">`) the parser projected.
 fn write_doctype(out: &mut String, doctype: &XmlDoctype) {
+    // Byte-exact PROLOG residue: when the read path captured the whole
+    // declaration verbatim (the `<!ENTITY>` internal-subset layout/white-space/
+    // comments the structured projection erases), reproduce it exactly — the
+    // analogue of re-emitting the `<?xml?>` declaration bytes. NOT a stored
+    // element-tree DOM; the element backbone still regenerates from the graph.
+    if let Some(verbatim) = &doctype.verbatim {
+        out.push_str(verbatim);
+        return;
+    }
     out.push_str("<!DOCTYPE ");
     out.push_str(&doctype.root_name);
     if let Some(id) = &doctype.external_id {
@@ -383,6 +392,9 @@ fn write_doctype(out: &mut String, doctype: &XmlDoctype) {
         }
     }
     if !doctype.general_entities.is_empty() {
+        // The byte-exact `verbatim` path returned early above; this structured
+        // re-projection (canonical compact layout) is only for a synthetic
+        // doctype built without capture.
         out.push_str(" [");
         for entity in &doctype.general_entities {
             out.push_str("<!ENTITY ");
@@ -565,13 +577,31 @@ fn write_with_entity_refs(
     canonical_char: fn(&mut String, char),
 ) {
     let recorded = refs.map(|r| r.refs.as_slice()).unwrap_or(&[]);
-    let mut next = 0usize;
+    let ext = refs.map(|r| r.ext_refs.as_slice()).unwrap_or(&[]);
+    // Fast path: no reference forms at all — the canonical escaper verbatim. This
+    // is the no-op additive case for every WordNet/cito/biro/c4o/doco value.
+    if recorded.is_empty() && ext.is_empty() {
+        for ch in s.chars() {
+            canonical_char(out, ch);
+        }
+        return;
+    }
+    let mut next = 0usize; // cursor into the §4.6 predefined `recorded`
+    let mut next_ext = 0usize; // cursor into the §4.1 numeric/general `ext`
+    // §4.1 general-entity expansions span multiple resolved chars; when one is
+    // re-emitted as `&name;`, skip the remaining `expansion_chars - 1` chars it
+    // covers. `skip` counts those pending skips.
+    let mut skip = 0usize;
     for (char_index, ch) in s.chars().enumerate() {
+        if skip > 0 {
+            // Inside a general-entity expansion already re-emitted as `&name;`.
+            skip -= 1;
+            continue;
+        }
         if next < recorded.len() && recorded[next].0 == char_index {
-            // The source wrote this char as a §4.6 predefined entity reference —
-            // re-emit that exact reference text. `resolved_char` is the inverse
-            // of the recorded char, asserted to agree as a capture-integrity
-            // check (the reader keyed the ref by the char it resolved to).
+            // §4.6 predefined entity reference — re-emit the exact reference text.
+            // `resolved_char` is the inverse of the recorded char, asserted to
+            // agree as a capture-integrity check.
             let entity = recorded[next].1;
             debug_assert_eq!(
                 entity.resolved_char(),
@@ -581,6 +611,35 @@ fn write_with_entity_refs(
             );
             out.push_str(entity.reference());
             next += 1;
+        } else if next_ext < ext.len() && ext[next_ext].char_index == char_index {
+            // §4.1 numeric (`&#39;`) or general-entity (`&rdfs;`) reference.
+            match &ext[next_ext].kind {
+                super::source_syntax::ExtendedRefKind::Numeric {
+                    hex,
+                    upper_hex,
+                    digits,
+                } => {
+                    if *hex {
+                        out.push_str(if *upper_hex { "&#X" } else { "&#x" });
+                    } else {
+                        out.push_str("&#");
+                    }
+                    out.push_str(digits);
+                    out.push(';');
+                }
+                super::source_syntax::ExtendedRefKind::General {
+                    name,
+                    expansion_chars,
+                } => {
+                    out.push('&');
+                    out.push_str(name);
+                    out.push(';');
+                    // This char plus the next `expansion_chars - 1` are the
+                    // entity's expansion — skip them (already emitted as `&name;`).
+                    skip = expansion_chars.saturating_sub(1);
+                }
+            }
+            next_ext += 1;
         } else {
             canonical_char(out, ch);
         }
@@ -589,6 +648,11 @@ fn write_with_entity_refs(
         next,
         recorded.len(),
         "every recorded §4.6 entity reference must land on a char index within the value"
+    );
+    debug_assert_eq!(
+        next_ext,
+        ext.len(),
+        "every recorded §4.1 numeric/general reference must land on a char index within the value"
     );
 }
 

@@ -351,6 +351,85 @@ pub struct EntityReferenceForm {
     /// `lt`, `gt`, `apos`, `quot`) the source wrote there. Multiple entries per
     /// string are allowed (e.g. `Dhu&apos;l-Qa&apos;dah` records two `apos`).
     pub refs: Vec<(usize, EntityName)>,
+    /// The §4.1 \[66\] numeric character references and §4.1 \[68\] general
+    /// (DTD-declared) entity references the source wrote, keyed by the SAME
+    /// resolved-string char index as [`Self::refs`], in ascending order — a
+    /// `&#39;`/`&#x27;` numeric form (one resolved char, like a predefined
+    /// reference but with a numeric body) or a `&rdfs;` general-entity reference
+    /// (the parser EXPANDS it, so the form records the entity name AND the
+    /// expansion's resolved-char length so the byte-exact escaper re-emits the
+    /// `&name;` reference and skips its expansion). Empty for a source with no
+    /// numeric/general references (every WordNet/cito value), so this field is
+    /// purely additive — see [`ExtendedRef`]. Separate from [`Self::refs`] so the
+    /// closed §4.6 predefined set keeps its compact typed enum and the open
+    /// numeric/general forms ride beside it without widening every predefined
+    /// slot.
+    pub ext_refs: Vec<ExtendedRef>,
+}
+
+/// A §4.1 numeric character reference (\[66\] `CharRef`) or general-entity
+/// reference (\[68\] `EntityRef` to a DTD-declared entity) the source wrote,
+/// keyed by its resolved-string char index — the residue beyond the closed §4.6
+/// predefined set [`EntityName`] covers. A typed enum (not a bare string) so the
+/// byte-exact escaper dispatches on the closed set of FORMS and an out-of-set
+/// form is unrepresentable.
+///
+/// Like [`EntityReferenceForm::refs`] this is keyed by char index into the
+/// RESOLVED value; a [`Numeric`](ExtendedRefKind::Numeric) reference resolves to
+/// exactly one char (advance one), while a [`General`](ExtendedRefKind::General)
+/// reference's expansion spans `expansion_chars` resolved chars (the escaper
+/// emits the `&name;` reference then skips that whole run).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct ExtendedRef {
+    /// The resolved-string char index where the reference's expansion begins —
+    /// the same coordinate space as [`EntityReferenceForm::refs`].
+    pub char_index: usize,
+    /// Which §4.1 reference form the source wrote.
+    pub kind: ExtendedRefKind,
+}
+
+/// The §4.1 reference form an [`ExtendedRef`] records — numeric character
+/// reference (decimal/hex) or DTD-declared general-entity reference.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum ExtendedRefKind {
+    /// A §4.1 \[66\] numeric character reference resolving to ONE char. Carries
+    /// the §4.1 \[66\] FORM — decimal `&#39;` (`hex: false`) versus hex
+    /// `&#x27;`/`&#X27;` (`hex: true`) and the hex letters' case — and the exact
+    /// digit string (`"39"`, `"27"`, `"2019"`) so the escaper re-emits the
+    /// source spelling verbatim (a leading-zero `&#039;` or upper-hex `&#X2019;`
+    /// round-trips).
+    Numeric {
+        /// `true` for the `&#x…;` hex form, `false` for the `&#…;` decimal form.
+        hex: bool,
+        /// For the hex form, whether the `x` and any `a`–`f` digits were
+        /// UPPER-case (`&#X1F;`); ignored for the decimal form.
+        upper_hex: bool,
+        /// The exact digit string between `&#`(`x`) and `;` — preserves leading
+        /// zeros and digit case so the byte-exact re-emit is verbatim.
+        digits: String,
+    },
+    /// A §4.1 \[68\] reference to a DTD-declared general entity (`&rdfs;`,
+    /// `&owl;`, …) the parser EXPANDED. Carries the entity NAME (so the escaper
+    /// re-emits `&name;`) and the expansion's resolved-char LENGTH (so the
+    /// escaper skips the expanded chars it replaced). Reproduces the
+    /// internal-subset `<!ENTITY>` reference form WITHOUT storing the DOM — the
+    /// expansion is recomputed from the captured DOCTYPE entities, the form just
+    /// names which reference produced it.
+    General {
+        /// The referenced entity name (`rdfs`, `owl`, `xsd`, `rdf`, …).
+        name: String,
+        /// The number of resolved chars the entity's replacement text occupies
+        /// in the value, so the escaper skips exactly the expanded run.
+        expansion_chars: usize,
+    },
 }
 
 /// One of the five W3C XML 1.0 §4.6 predefined entity names. A typed enum (not a
@@ -608,6 +687,21 @@ pub struct DocumentResidue {
     /// The root element's namespace declarations in document order (Bray,
     /// Hollander, Layman & Tobin 2009 §3). Empty when the root declares none.
     pub root_namespaces: Vec<XmlNamespace>,
+    /// The §2.8 \[24\] `VersionInfo` the source's XML declaration carried — the
+    /// version string a structural writer must reproduce rather than hardcode
+    /// (cito declares `1.0`; so does prov_o). `None` falls back to the writer's
+    /// default. Additive: a structural writer that set the matching version sees
+    /// no change.
+    pub xml_version: Option<String>,
+    /// Whether the source's XML declaration carried an `encoding` pseudo-attr,
+    /// and its value (§4.3.3 \[80\] `EncodingDecl`). A typed three-state choice:
+    /// `None` — "the document/structural-writer encoding is authoritative" (the
+    /// pre-residue default); `Some(None)` — the source's `<?xml?>` had NO
+    /// `encoding` (prov_o: `<?xml version="1.0"?>`), so the writer must emit none;
+    /// `Some(Some(enc))` — the source declared `encoding="enc"` (cito:
+    /// `encoding="UTF-8"`). Captured so the byte-exact writer reproduces the
+    /// declaration exactly rather than hardcoding `UTF-8`.
+    pub xml_encoding: Option<Option<String>>,
 }
 
 impl DocumentResidue {
@@ -615,7 +709,10 @@ impl DocumentResidue {
     /// already matches the source at the document and root level.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.doctype.is_none() && self.root_namespaces.is_empty()
+        self.doctype.is_none()
+            && self.root_namespaces.is_empty()
+            && self.xml_version.is_none()
+            && self.xml_encoding.is_none()
     }
 }
 
@@ -639,6 +736,26 @@ pub enum ChildSlot {
     /// Insert this literal text run (the source's inter-element white-space)
     /// the regenerated tree did not produce.
     InsertText(String),
+    /// Insert a §2.5 \[15\] `Comment` the regenerated tree lacked — an
+    /// interspersed XML comment between element children (the section-divider
+    /// comments prov_o writes between its node blocks). A structural writer emits
+    /// only the element backbone, so a comment is concrete-syntax residue spliced
+    /// back at its captured child position exactly like the inter-element
+    /// white-space. Carries the comment BODY (between `<!--` and `-->`); the
+    /// serializer re-wraps it. No-op when absent (cito/biro/c4o/doco/WordNet carry
+    /// no interspersed comments).
+    InsertComment(String),
+    /// Insert a §2.6 \[16\] `PI` (processing instruction) the regenerated tree
+    /// lacked — interspersed among element children. Like [`Self::InsertComment`]
+    /// but for a `<?target data?>` instruction; carries the target and optional
+    /// data. No-op when absent.
+    InsertProcessingInstruction {
+        /// The PI target (the `Name` after `<?`).
+        target: String,
+        /// The PI data (everything after the target's white-space, before `?>`),
+        /// or `None` for a target-only PI.
+        data: Option<String>,
+    },
 }
 
 /// The inter-element white-space (§2.4 \[14\] `CharData` runs between element
@@ -955,6 +1072,22 @@ fn diff_element(
                 slots.push(ChildSlot::InsertText(t.clone()));
                 carried_ws = true;
             }
+            // A §2.5 [15] Comment or §2.6 [16] PI the structural writer (which
+            // emits only the element backbone) did not reproduce — interspersed
+            // concrete-syntax residue, spliced back at this child position exactly
+            // like inter-element white-space. The regenerated tree has no
+            // counterpart, so it is NOT consumed from `reg_iter`.
+            XmlNode::Comment(body) => {
+                slots.push(ChildSlot::InsertComment(body.clone()));
+                carried_ws = true;
+            }
+            XmlNode::ProcessingInstruction { target, data } => {
+                slots.push(ChildSlot::InsertProcessingInstruction {
+                    target: target.clone(),
+                    data: data.clone(),
+                });
+                carried_ws = true;
+            }
             _ => {
                 // Consume the matching regenerated child. Element children
                 // recurse; leaf text / other nodes are kept as-is (their bytes
@@ -1018,6 +1151,12 @@ pub fn reapply_regenerated_complement(
 ) -> Result<(), RegeneratedComplementError> {
     // (1) document/root-level residue.
     regenerated.doctype = document_residue.doctype.clone();
+    if let Some(version) = &document_residue.xml_version {
+        regenerated.version = version.clone();
+    }
+    if let Some(encoding) = &document_residue.xml_encoding {
+        regenerated.encoding = encoding.clone();
+    }
     regenerated.root.namespaces = document_residue.root_namespaces.clone();
     // Keep the legacy single-slot `namespace` representative consistent with the
     // restored declarations (it mirrors the first declaration, as the parser and
@@ -1095,6 +1234,15 @@ fn apply_element(
                     rebuilt.push(child);
                 }
                 ChildSlot::InsertText(t) => rebuilt.push(XmlNode::Text(t.clone())),
+                ChildSlot::InsertComment(body) => {
+                    rebuilt.push(XmlNode::Comment(body.clone()));
+                }
+                ChildSlot::InsertProcessingInstruction { target, data } => {
+                    rebuilt.push(XmlNode::ProcessingInstruction {
+                        target: target.clone(),
+                        data: data.clone(),
+                    });
+                }
             }
         }
         let remaining = kept.count();

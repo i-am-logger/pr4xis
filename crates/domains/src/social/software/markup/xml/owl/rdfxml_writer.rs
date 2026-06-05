@@ -338,6 +338,12 @@ fn project_node_block_list(
         match child {
             XmlNode::Element(node_el) => node_blocks.push(project_node_block(node_el)?),
             XmlNode::Text(t) if is_whitespace(t) => {}
+            // A §2.5 [15] Comment or §2.6 [16] PI interspersed among node blocks
+            // (the section-divider comments prov_o writes) is concrete-syntax
+            // residue the generic byte kernel re-splices (the `ChildSlot::Insert*`
+            // template), NOT structure — skip it here so the backbone projection
+            // stays pure elements, exactly as inter-element white-space is skipped.
+            XmlNode::Comment(_) | XmlNode::ProcessingInstruction { .. } => {}
             _ => {
                 return Err(RdfXmlStructureError::NonFlat {
                     element: container.qualified(),
@@ -360,6 +366,9 @@ fn project_node_block(node_el: &XmlElement) -> Result<RdfNodeBlock, RdfXmlStruct
                 properties.push(project_property_element(prop_el)?);
             }
             XmlNode::Text(t) if is_whitespace(t) => {}
+            // Interspersed comment/PI inside a node element — generic residue the
+            // byte kernel re-splices, skipped here like inter-element white-space.
+            XmlNode::Comment(_) | XmlNode::ProcessingInstruction { .. } => {}
             _ => {
                 return Err(RdfXmlStructureError::NonFlat {
                     element: node_el.name.qualified(),
@@ -406,6 +415,11 @@ fn project_property_element(
             match child {
                 XmlNode::Element(child_el) => nested.push(project_node_block(child_el)?),
                 XmlNode::Text(t) if is_whitespace(t) => {}
+                // An interspersed comment/PI in the nested member list (olia's
+                // commented-out `<!--dcr:datcat …/-->` members) — generic residue
+                // the byte kernel re-splices via the `ChildSlot::Insert*` template,
+                // skipped here like inter-element white-space (NOT mixed content).
+                XmlNode::Comment(_) | XmlNode::ProcessingInstruction { .. } => {}
                 _ => {
                     return Err(RdfXmlStructureError::MixedContent {
                         element: prop_el.name.qualified(),
@@ -669,6 +683,13 @@ pub fn capture_owl_complement(
     let document_residue = DocumentResidue {
         doctype: exact_dom.doctype.clone(),
         root_namespaces: exact_dom.root.namespaces.clone(),
+        // The XML declaration's version + encoding form (prov_o declares
+        // `<?xml version="1.0"?>` with NO encoding; cito declares
+        // `encoding="UTF-8"`) — captured so the byte-exact writer reproduces the
+        // declaration instead of `write_owl_document`'s hardcoded
+        // `encoding="UTF-8"`.
+        xml_version: Some(exact_dom.version.clone()),
+        xml_encoding: Some(exact_dom.encoding.clone()),
     };
 
     Ok((
@@ -860,14 +881,16 @@ mod tests {
         );
     }
 
-    /// Fail-closed: a COMMENT interspersed among node blocks (a shape the
-    /// structural writer, which emits only the element backbone, cannot
-    /// reproduce) is honestly rejected rather than silently dropped — the
-    /// byte-exact tier is earned per-source; such a source rides the raw-bytes
-    /// floor. (This is the honest boundary that keeps prov_o — DTD entities +
-    /// numeric char refs + interspersed comments — on the floor.)
+    /// A COMMENT interspersed among node blocks (the section-divider comments
+    /// prov_o/olia write) is now captured as STRUCTURED concrete-syntax residue
+    /// (the `ChildSlot::InsertComment` template) and reconstructed BYTE-FOR-BYTE —
+    /// the structural writer still emits only the element backbone, the byte
+    /// kernel re-splices the comment. NOT a stored DOM: the comment rides the
+    /// generic content-white-space residue, exactly like inter-element
+    /// indentation. (This is the L3 residue that, together with the DOCTYPE +
+    /// numeric/general reference forms, flips prov_o/olia off the floor.)
     #[test]
-    fn capture_rejects_interspersed_comment() {
+    fn capture_reconstructs_interspersed_comment_byte_exact() {
         let with_comment = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
 <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" \
 xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
@@ -875,11 +898,13 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
 <rdf:Description rdf:about=\"http://example.org/s\">\
 <rdf:type rdf:resource=\"http://www.w3.org/2002/07/owl#Class\"/>\
 </rdf:Description></rdf:RDF>";
-        let err = capture_owl_complement(with_comment)
-            .expect_err("an interspersed comment must fail closed, not be silently dropped");
-        assert!(
-            matches!(err, OwlReconstructError::Structure(_)),
-            "expected a Structure (non-flat) error for the comment, got {err:?}"
+        let (_ont, complement) =
+            capture_owl_complement(with_comment).expect("interspersed comment is captured residue");
+        let out = reconstruct_owl_rdfxml_source(&complement).expect("reconstruct with comment");
+        assert_eq!(
+            core::str::from_utf8(&out).unwrap(),
+            with_comment,
+            "an interspersed comment must reconstruct byte-for-byte (captured residue, not dropped)"
         );
     }
 
@@ -1088,13 +1113,12 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     // against the pinned `[hashes]` content address, and a corruption meta-test
     // proving the gate has teeth.
     //
-    // prov_o and olia are NOT here: prov_o is the striped form but is blocked,
-    // BELOW the writer layer, by §4.1 numeric character references (`&#39;`, 43×),
-    // internal-subset DTD `&owl;`/`&xsd;`/`&rdfs;`/`&rdf;` entity references (the
-    // OLiA-class Infoset shortcut) and 88 interspersed comments — all out of scope
-    // for this slice; olia rides the floor for the same DTD-entity reason. Their
-    // `capture_owl_complement` honestly errors, so `build_envelope` degrades them
-    // to the raw-bytes floor (it never registers them graph-faithful).
+    // prov_o and olia (the STRIPED form) have their OWN gates below — the L3 byte
+    // kernel captures the concrete syntax that once blocked them (the verbatim
+    // internal-subset DOCTYPE, the §4.1 numeric `&#39;` and general-entity
+    // `&rdfs;` reference forms, the interspersed §2.5 comments) as STRUCTURED
+    // residue, so `capture_owl_complement` now succeeds and reconstructs each
+    // byte-for-byte; `build_envelope` emits the graph-faithful envelope.
     // =========================================================================
 
     /// Reconstruct one bundled flat OWL vocab byte-for-byte and assert it hashes
@@ -1308,40 +1332,157 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
         assert_vocab_corruption_diverges("doco-1.3.owl");
     }
 
-    /// HONEST FLOOR: prov_o and olia capture must NOT succeed (they ride the
-    /// raw-bytes floor), so `build_envelope` never registers them graph-faithful.
-    /// prov_o is blocked BELOW the writer by §4.1 numeric character references
-    /// (`&#39;`), internal-subset DTD `&owl;`/`&xsd;`/`&rdfs;`/`&rdf;` entity
-    /// references (the OLiA-class Infoset shortcut) and 88 interspersed comments;
-    /// olia by the same internal-subset DTD entities. This pins the boundary: the
-    /// recursive node-block writer did NOT silently start claiming them — a future
-    /// flip must come with its own real gate + pins. In the test (debug) build the
-    /// numeric-char-ref deferral is a `debug_assert!` panic, so we catch the
-    /// unwind (a panic counts as "did not silently succeed") with the panic hook
-    /// muted to keep the output clean.
-    #[test]
-    fn prov_o_and_olia_stay_floor_capture_errors() {
-        for file in ["prov_o-2013-04-30.owl", "olia-2026-04-09.owl"] {
-            let path = format!("{}/data/ontologies/{}", env!("CARGO_MANIFEST_DIR"), file);
-            let Ok(source) = std::fs::read(&path) else {
-                // olia is large + may be externally provisioned; skip if absent.
-                continue;
-            };
-            let prior_hook = std::panic::take_hook();
-            std::panic::set_hook(Box::new(|_| {}));
-            let captured_ok = std::panic::catch_unwind(|| {
-                core::str::from_utf8(&source)
-                    .ok()
-                    .map(|s| capture_owl_complement(s).is_ok())
-                    .unwrap_or(false)
-            })
-            .unwrap_or(false);
-            std::panic::set_hook(prior_hook);
-            assert!(
-                !captured_ok,
-                "{file} must NOT capture byte-exact in this slice (it rides the floor); \
-                 if this now succeeds, flip it properly with its own gate + pins"
+    // =========================================================================
+    // The STRIPED OWL vocab family — prov_o / olia (the L3 byte kernel slice).
+    //
+    // These two are the STRIPED RDF/XML form blocked, in the prior slice, BELOW
+    // the writer layer by parser-level concrete syntax: an internal-subset DOCTYPE
+    // (`<!DOCTYPE rdf:RDF [ <!ENTITY …> ]>`), §4.1 numeric character references
+    // (`&#39;`), §4.1 general-entity references (`&rdfs;seeAlso`), and interspersed
+    // §2.5 comments. The L3 byte kernel adds each as STRUCTURED concrete-syntax
+    // residue (the DOCTYPE verbatim PROLOG residue; the numeric/general
+    // `ExtendedRef` form beside the §4.6 predefined `EntityReferenceForm`; the
+    // `ChildSlot::InsertComment` residue), so the recursive node-block writer now
+    // reconstructs BOTH byte-for-byte — NO stored DOM, NO raw blob. Each gets the
+    // same HARD GATE as the flat family: a real-source byte-exact reconstruct
+    // against the pinned `[hashes]` content address, and a corruption meta-test.
+    // =========================================================================
+
+    /// Shared body for the striped-vocab HARD GATE: capture the real source,
+    /// assert the verbatim internal-subset DOCTYPE is genuinely captured (the
+    /// headline new residue — a vacuous round-trip would lie), reconstruct, and
+    /// hash to the pinned `[hashes]` content address.
+    fn assert_striped_vocab_byte_exact(file: &str, expect_hash: &str) {
+        let path = format!("{}/data/ontologies/{}", env!("CARGO_MANIFEST_DIR"), file);
+        let Ok(source) = std::fs::read(&path) else {
+            eprintln!("{file} absent — skipping (large, externally provisioned)");
+            return;
+        };
+        let src = core::str::from_utf8(&source).expect("striped vocab is UTF-8");
+        let (_ont, complement) =
+            capture_owl_complement(src).unwrap_or_else(|e| panic!("capture {file}: {e}"));
+
+        // Non-vacuity of the NEW L3 residue species: the verbatim internal-subset
+        // DOCTYPE with its `<!ENTITY>` declarations is captured.
+        assert!(
+            complement
+                .document_residue
+                .doctype
+                .as_ref()
+                .and_then(|d| d.verbatim.as_deref())
+                .is_some_and(|v| v.contains("<!ENTITY")),
+            "{file}: the verbatim <!DOCTYPE …[ <!ENTITY …> ]> internal subset is captured"
+        );
+        assert!(
+            !complement.regenerated.content_whitespace.is_empty(),
+            "{file}: inter-element/comment residue captured"
+        );
+
+        let out = reconstruct_owl_rdfxml_source(&complement)
+            .unwrap_or_else(|e| panic!("reconstruct {file}: {e}"));
+        if out != source {
+            let first = out
+                .iter()
+                .zip(source.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or(source.len().min(out.len()));
+            let lo = first.saturating_sub(80);
+            panic!(
+                "{file}: byte mismatch at offset {first} (out.len()={}, source.len()={})\n  \
+                 expected: {:?}\n  got:      {:?}",
+                out.len(),
+                source.len(),
+                String::from_utf8_lossy(&source[lo..(first + 80).min(source.len())]),
+                String::from_utf8_lossy(&out[lo..(first + 80).min(out.len())]),
             );
         }
+        assert_eq!(
+            sha256_hex(&out),
+            expect_hash,
+            "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source sha256"
+        );
+    }
+
+    /// prov_o byte-exact over the real bundled source — the L3 PROOF.
+    #[test]
+    fn prov_o_reconstruct_byte_exact_over_real_source() {
+        assert_striped_vocab_byte_exact(
+            "prov_o-2013-04-30.owl",
+            "02a4d7409ee3e1f697a04e4980d8d208a847cc7fa5180ca0d187540abb66919f",
+        );
+    }
+
+    /// olia byte-exact over the real bundled source (a 1.2 MB striped vocab with
+    /// the same DOCTYPE + 145 interspersed comments + general-entity refs).
+    #[test]
+    fn olia_reconstruct_byte_exact_over_real_source() {
+        assert_striped_vocab_byte_exact(
+            "olia-2026-04-09.owl",
+            "e310679f23af25357538d1fae43c693d4f782e221ba170845fa91ee02516a7b7",
+        );
+    }
+
+    /// CORRUPTION META-TEST for the striped family — the gate has teeth on the NEW
+    /// residue too. Corrupting the verbatim DOCTYPE internal subset, OR a triple's
+    /// leaf text, MUST make the reconstruction diverge from the source.
+    fn assert_striped_vocab_corruption_diverges(file: &str) {
+        let path = format!("{}/data/ontologies/{}", env!("CARGO_MANIFEST_DIR"), file);
+        let Ok(source) = std::fs::read(&path) else {
+            eprintln!("{file} absent — skipping corruption meta-test");
+            return;
+        };
+        let src = core::str::from_utf8(&source).expect("striped vocab is UTF-8");
+        let (_ont, base) =
+            capture_owl_complement(src).unwrap_or_else(|e| panic!("capture {file}: {e}"));
+        assert_eq!(
+            reconstruct_owl_rdfxml_source(&base).expect("reconstruct base"),
+            source,
+            "{file}: baseline must be byte-exact before corruption"
+        );
+
+        // (1) Corrupt the verbatim DOCTYPE internal subset.
+        {
+            let mut c = base.clone();
+            let dt = c.document_residue.doctype.as_mut().expect("doctype");
+            dt.verbatim = dt
+                .verbatim
+                .as_ref()
+                .map(|v| v.replacen("<!ENTITY", "<!ENTITY CORRUPT", 1));
+            let out = reconstruct_owl_rdfxml_source(&c).expect("reconstruct corrupt-doctype");
+            assert_ne!(
+                out, source,
+                "{file}: corrupting the DOCTYPE internal subset must DIVERGE"
+            );
+        }
+
+        // (2) Corrupt a triple leaf text (recursing into nested members).
+        {
+            let mut c = base.clone();
+            let mut flipped = false;
+            'outer: for block in &mut c.structure.node_blocks {
+                if corrupt_first_text(&mut block.properties) {
+                    flipped = true;
+                    break 'outer;
+                }
+            }
+            assert!(flipped, "{file}: found a leaf-text property to corrupt");
+            let out = reconstruct_owl_rdfxml_source(&c).expect("reconstruct corrupt-triple");
+            assert_ne!(
+                out, source,
+                "{file}: corrupting a triple's leaf text must DIVERGE"
+            );
+        }
+    }
+
+    /// prov_o corruption meta-test.
+    #[test]
+    fn prov_o_corruption_diverges_red() {
+        assert_striped_vocab_corruption_diverges("prov_o-2013-04-30.owl");
+    }
+
+    /// olia corruption meta-test.
+    #[test]
+    fn olia_corruption_diverges_red() {
+        assert_striped_vocab_corruption_diverges("olia-2026-04-09.owl");
     }
 }

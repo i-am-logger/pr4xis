@@ -380,36 +380,39 @@
 # hash). A CI guard asserts the rkyv crate version + features so a silent
 # dependency bump that would invalidate every archive pin is caught (see
 # `rkyv_archive_format_version_guard` in owl/prx.rs).
-# Re-pinned (#36 Leg 2): adding the byte-exact graph-faithful `graph:
-# Option<OwlGraphFaithful>` field to the shared `PrxEnvelope` struct shifts the
-# rkyv envelope layout for ALL six OWL vocabs (the new Option field perturbs the
-# archived struct even when `None`), so every `[archive_signatures]` MerkleRoot
-# moves. These pins are the per-toolchain build-output content addresses (NOT
-# durable identity — see the header note), re-pinned here from a
-# determinism-proven `dump_archive_addresses` run (identical across two runs).
-# The DURABLE pins ([hashes], [canonical_signatures]) are UNCHANGED for ALL six
-# OWL vocabs. The flat SPAR family (cito/biro/c4o/doco) additionally carries a
-# [byte_exact_signatures] pin (= its [hashes]) and its [archive_signatures] pin
-# here is the GRAPH-FAITHFUL envelope's MerkleRoot (re-pinned, determinism-proven
-# — identical across two `zzz_dump_archive_addresses` runs); the two still-floor
-# vocabs (prov_o, olia) keep their floor-envelope [archive_signatures] unchanged.
+# Re-pinned (#36 L3): the L3 byte kernel grows the SHARED concrete-syntax residue
+# kernel used by EVERY XML-family graph-faithful source — the
+# `EntityReferenceForm.ext_refs` numeric/general reference forms, the
+# `XmlDoctype.verbatim` internal-subset PROLOG residue, the `DocumentResidue`
+# xml_version/xml_encoding, and the new `ChildSlot` comment/PI variants. Growing
+# those shared rkyv-archived residue types shifts the archive layout of EVERY
+# graph-faithful envelope, so the `[archive_signatures]` MerkleRoot moves for ALL
+# six OWL vocabs (cito/biro/c4o/doco AND the newly-flipped prov_o/olia), the nine
+# USC titles, AND english_wordnet. These pins are the per-toolchain build-output
+# content addresses (NOT durable identity — see the header note), re-pinned here
+# from determinism-proven `dump_archive_addresses` / `tmp_dump_usc_archive_addresses`
+# / `dump_wordnet_archive_addresses` runs (identical across two runs). The DURABLE
+# pins ([hashes], [canonical_signatures], [byte_exact_signatures]) are UNCHANGED for
+# every source — only the build-output archive layout moved. All six OWL vocabs now
+# carry a [byte_exact_signatures] pin (= its [hashes]); prov_o/olia move from a
+# floor envelope to the GRAPH-FAITHFUL envelope's MerkleRoot (determinism-proven).
 [archive_signatures]
-"biro@1.1.1"             = "5978e4f8c3050fadf911f0c93733ecab8466688dd9a0e68af438d9da3e4254a4"
-"c4o@1.2"                = "4b21b62a85b3b3a3971fe0c366b3cf521d543d8a12b9daa11eeb7d2984ce7b2f"
-"cito@2.8.1"             = "7821a3786d4a511125cfa683a30ab35caaae2bd5c7083a264ea473598b221607"
-"doco@1.3"               = "3fc926269df239163d38f08b67a4ed20febf970b56d6bf22cd1d2f157220053a"
-"olia@2026-04-09"        = "23cba70cac9b2a996dd46409bb5a693c46a88c361665adf750a633ea4fa11ca4"
-"prov_o@2013-04-30"      = "e2b583fdf6c719e33b30d3836a541ebb7f26e6287d04024f3db9deb9a7a4c61b"
-"usc_title_1@pl-119-90" = "df3c96abc606158189ba9911ba8e0e5453828ceac7bfca4dd4bc2358f6eef767"
-"usc_title_15@pl-119-90" = "70ebb2bced68ac9ff2f066caa1294411ee03741ac39c1572ed867581553ca09a"
-"usc_title_18@pl-119-90" = "f26e2e76b3ab2e51643715cb892a37c6cfaabd9e5c8347ae8e226806734327e7"
-"usc_title_28@pl-119-90" = "e3c22a163b251589e43c87c85c78d9ded12a9ba94ae7bc6dd9ceb0eeec1a358d"
-"usc_title_29@pl-119-90" = "1decd242387f3662b8949612573399fe5db3eb0dc0a0f4feb1340e00bfe5a303"
-"usc_title_42@pl-119-90" = "26d4a58ad31039876f795e37c67b3f451a05fa4b15ab077881d99a76cf92adb1"
-"usc_title_49@pl-119-90" = "f7938f3e92dda38d60d9a77838ac3171a894bc009507edc88f4c17d27992e53f"
-"usc_title_5@pl-119-90" = "bbec725227814cfe4346f60c78ab9b517311e359c89a40a9fe130c24dbed19b8"
-"usc_title_50@pl-119-90" = "af92fda83acaeb93862cfba17c82884a43d2e6e518216fd5c1cf0ed4ff3c658a"
-"english_wordnet@2025" = "b11e5b3f39b99c34bb714751c057fab8dd19c2ac94f5246e68bf7774395ac417"
+"biro@1.1.1"             = "f68cb7baa046b1127c9b41761469b8f7080e96271aac9e6476019262f303fb85"
+"c4o@1.2"                = "a3ba5f29c2b47c50f8d882a8c0112370f6486d0b8dc17c19aa12a35c4ce745d4"
+"cito@2.8.1"             = "b956dbe623728730bde5fa64b04668b9685442797cee03d13b76bc801021f830"
+"doco@1.3"               = "b0d6aeb0508504f6adda321197dbab069d4da9ec80448a9718c6f75a529180b6"
+"olia@2026-04-09"        = "169e0f651985f7ba2579187344a18d287a156d1371b18199fc7d092ded3ce5aa"
+"prov_o@2013-04-30"      = "66c790ed9eb6489c770088420965349f7a759464ac83cfd3cecf7a93d8a272f2"
+"usc_title_1@pl-119-90" = "1875cb1af013b32194eecc11063c59d0662e5584cbe698e7324cf5846aadb102"
+"usc_title_15@pl-119-90" = "aa8b57740a7f119685c59e8476100b3a813da5698050eac56607e6963521cd46"
+"usc_title_18@pl-119-90" = "04939ebc2a29a00b883fa7566772ec03a89110b6ee54bf89c723c0cb8bf5824c"
+"usc_title_28@pl-119-90" = "1281aec2b59659e05855966a4a41d6f7fc51f190e7f138875f4ebb6d29e042d7"
+"usc_title_29@pl-119-90" = "4cc0206973619c181398f528e8e7310654dc0a954958b2e70e3a22022d1b6384"
+"usc_title_42@pl-119-90" = "1307a560104eb8bd33c710a14a18e29031368fccbe08992202bfbc3620ec98c0"
+"usc_title_49@pl-119-90" = "90d963480ddb0050e77b52c6468315b9438275161a7149579de431e9e8232a32"
+"usc_title_5@pl-119-90" = "430f5d9f4192d2d00774be182e54e810988e113183d8b72552365dbc7d243398"
+"usc_title_50@pl-119-90" = "79af142d7d597246e17b3d23a3dccbb8ab9ecbacc01f6f46927f96063074fc24"
+"english_wordnet@2025" = "9a60b6db0bedc4ec3bcaf4c54e010a09f02cb36abfbb48ad58f62eaca9e00660"
 
 # Byte-exact round-trip signatures — SHA-256 of the bytes a source's
 # graph-faithful lens regenerates under the STRICT byte-exact PutGet law
@@ -449,10 +452,18 @@
 # entities), so the OwlGraphFaithfulLens regenerates the on-disk bytes from the
 # typed OwlOntology graph + the STRUCTURED RDF/XML serialization complement, with
 # NO stored raw blob and NO stored DOM. Because put(get(b)) == b, each value MUST
-# equal that vocab's `[hashes]` pin (registry.rs enforces sig == raw_hash). The
-# remaining two OWL vocabs (prov_o — striped but blocked by §4.1 numeric character
-# references / internal-subset DTD entities / interspersed comments — and olia —
-# internal-subset DTD entities) stay on the raw-bytes floor.
+# equal that vocab's `[hashes]` pin (registry.rs enforces sig == raw_hash).
 "biro@1.1.1"             = "2985f8da53083178a5ac53bc5abf211345864dbdd29ca6ae64faf74d9c87e0ba"
 "c4o@1.2"                = "82eda358b640810ad5aab9dbfaee9f29f77abc49ed2f1aec6064bf0c21ed1ea8"
 "doco@1.3"               = "7e56cfd96cab75d49c53446128b1ba927085a2e258a8b580f3de822c0cbb29ed"
+# prov_o 2013-04-30 + olia 2026-04-09 — the STRIPED SPAR/OLiA OWL vocabs, flipped
+# to byte-exact graph-faithful by the L3 byte kernel: the verbatim internal-subset
+# DOCTYPE (`<!DOCTYPE rdf:RDF [ <!ENTITY …> ]>`) as PROLOG residue, the §4.1
+# numeric (`&#39;`) and general-entity (`&rdfs;seeAlso`) reference forms as the
+# `ExtendedRef` residue, and the interspersed §2.5 comments as the
+# `ChildSlot::InsertComment` residue — all STRUCTURED concrete-syntax, NO stored
+# DOM, NO raw blob. The recursive node-block writer regenerates the element
+# backbone from the graph; the byte kernel re-applies the residue. Because
+# put(get(b)) == b, each value MUST equal that vocab's `[hashes]` pin.
+"prov_o@2013-04-30"      = "02a4d7409ee3e1f697a04e4980d8d208a847cc7fa5180ca0d187540abb66919f"
+"olia@2026-04-09"        = "e310679f23af25357538d1fae43c693d4f782e221ba170845fa91ee02516a7b7"

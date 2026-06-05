@@ -4,23 +4,26 @@
 //!
 //! # The graph-faithful OWL vocabularies
 //!
-//! The flat SPAR OWL family — **cito, biro, c4o, doco** — is held to the strict
-//! byte-exact PutGet law ([`RoundTripFidelity::ByteExactGraphFaithful`], Foster,
-//! Greenwald, Moore, Pierce & Schmitt 2007 §2.2): each source regenerates from
-//! the typed [`OwlOntology`] graph PLUS a content-addressed concrete-syntax
-//! complement ([`OwlSyntaxComplement`] — the structured RDF/XML striping + the
-//! generic DOCTYPE/namespace/white-space/attribute/entity/EOL residue), with NO
-//! stored raw blob. CiTO was the FIRST; biro/c4o/doco joined it once registered
-//! (they share the same flat serialization, so the same structural writer
-//! reconstructs each byte-for-byte).
+//! ALL SIX bundled OWL vocabularies are held to the strict byte-exact PutGet law
+//! ([`RoundTripFidelity::ByteExactGraphFaithful`], Foster, Greenwald, Moore,
+//! Pierce & Schmitt 2007 §2.2): each source regenerates from the typed
+//! [`OwlOntology`] graph PLUS a content-addressed concrete-syntax complement
+//! ([`OwlSyntaxComplement`] — the structured RDF/XML striping + the generic
+//! DOCTYPE/namespace/white-space/attribute/entity/EOL residue), with NO stored
+//! raw blob.
 //!
-//! The two remaining bundled OWL vocabularies — **prov_o, olia** — ride the
-//! universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`], the
-//! [`OwlLens`](super::lens::OwlLens) constant-complement identity), byte-exact
-//! only via a stored raw-bytes complement. prov_o is the STRIPED form (which the
-//! recursive node-block writer models) but is blocked below the writer layer by
-//! §4.1 numeric character references, internal-subset DTD entity references, and
-//! interspersed comments; olia by the same internal-subset DTD entities.
+//! - The **flat SPAR family — cito, biro, c4o, doco** — serialise every node a
+//!   top-level `<rdf:Description>` (no parseType, no DOCTYPE, no comments, no
+//!   numeric/general references). CiTO was the FIRST; biro/c4o/doco joined it.
+//! - The **striped family — prov_o, olia** — nest inline resources
+//!   (`parseType="Collection"`, `owl:Restriction`) AND carry the concrete syntax
+//!   the flat form lacks: an internal-subset DOCTYPE (`<!DOCTYPE rdf:RDF [
+//!   <!ENTITY …> ]>`), §4.1 numeric character references (`&#39;`), §4.1
+//!   general-entity references (`&rdfs;seeAlso`), and interspersed §2.5 comments.
+//!   The L3 byte kernel captures each as STRUCTURED concrete-syntax residue (the
+//!   DOCTYPE verbatim PROLOG residue, the numeric/general `ExtendedRef` form, the
+//!   `ChildSlot::InsertComment` residue), NOT a stored DOM, so the recursive
+//!   node-block writer reconstructs both byte-for-byte.
 //!
 //! It is the OWL sibling of the WN-LMF [`WordNetLmfLens`] and the USLM
 //! `UslmGraphFaithfulLens`:
@@ -42,13 +45,13 @@
 //!
 //! The completeness meter reads each source's DECLARED fidelity from its
 //! registered lens's [`WellBehavedLens::FIDELITY`]. Registering
-//! `OwlGraphFaithfulLens` for each flat SPAR vocab — `cito@2.8.1`, `biro@1.1.1`,
-//! `c4o@1.2`, `doco@1.3` (replacing each one's floor `OwlLens` registration) —
-//! with `FIDELITY = ByteExactGraphFaithful` declares it graph-faithful; the
-//! harness MEASURES the achieved tier by running the byte-exact law against the
+//! `OwlGraphFaithfulLens` for each bundled vocab — the flat `cito@2.8.1`,
+//! `biro@1.1.1`, `c4o@1.2`, `doco@1.3` AND the striped `prov_o@2013-04-30`,
+//! `olia@2026-04-09` (each REPLACING its floor `OwlLens` registration) — with
+//! `FIDELITY = ByteExactGraphFaithful` declares it graph-faithful; the harness
+//! MEASURES the achieved tier by running the byte-exact law against the
 //! `[byte_exact_signatures]` pin (which, because `put(get(b)) == b`, equals the
-//! raw-source `[hashes]` pin). The two still-floor OWL vocabularies (prov_o,
-//! olia) keep the floor `OwlLens` registration unchanged.
+//! raw-source `[hashes]` pin). No bundled OWL vocab remains on the floor.
 //!
 //! # The RDFC-1.0 graph-identity gate is untouched
 //!
@@ -133,7 +136,7 @@ impl WellBehavedLens for OwlGraphFaithfulLens {
     type Target = OwlGraphFaithfulView;
     type Error = OwlGraphFaithfulLensError;
 
-    /// CiTO's tier — held to the strict byte-exact PutGet law.
+    /// Every bundled OWL vocab's tier — held to the strict byte-exact PutGet law.
     const FIDELITY: RoundTripFidelity = RoundTripFidelity::ByteExactGraphFaithful;
 
     /// `get` — capture the typed graph AND the concrete-syntax complement from
@@ -165,25 +168,27 @@ impl WellBehavedLens for OwlGraphFaithfulLens {
 }
 
 // =============================================================================
-// Harness registration — flips the FLAT SPAR OWL vocabs to graph-faithful.
+// Harness registration — flips EVERY bundled OWL vocab to graph-faithful.
 //
-// Binds `OwlGraphFaithfulLens` to each flat-serialised SPAR vocab — `cito@2.8.1`
-// (the first), plus `biro@1.1.1`, `c4o@1.2`, `doco@1.3` (this slice) — REPLACING
-// each one's floor `OwlLens` registration. These four serialise every node
-// (named and blank) as a top-level `<rdf:Description>` with leaf property
-// elements (no `parseType`, no DOCTYPE, no comments, no numeric character
-// references, no DTD entities), so the structural writer regenerates each
-// byte-for-byte. The harness runs the byte-exact law (FIDELITY is
-// ByteExactGraphFaithful) and verifies the raw-bytes signature against
-// `[byte_exact_signatures]` in praxis.lock.
+// Binds `OwlGraphFaithfulLens` to each bundled vocab, REPLACING its floor
+// `OwlLens` registration:
+//   • the FLAT SPAR family — `cito@2.8.1` (the first), `biro@1.1.1`, `c4o@1.2`,
+//     `doco@1.3` — which serialise every node (named and blank) as a top-level
+//     `<rdf:Description>` with leaf property elements (no `parseType`, no DOCTYPE,
+//     no comments, no numeric/general references), so the structural writer
+//     regenerates each byte-for-byte;
+//   • the STRIPED family — `prov_o@2013-04-30`, `olia@2026-04-09` — which nest
+//     inline resources AND carry the concrete syntax the flat form lacks (an
+//     internal-subset DOCTYPE, §4.1 numeric `&#39;` and general-entity `&rdfs;`
+//     references, interspersed §2.5 comments). The L3 byte kernel captures each
+//     as STRUCTURED concrete-syntax residue (the verbatim DOCTYPE PROLOG residue,
+//     the numeric/general `ExtendedRef` form, the `ChildSlot::InsertComment`
+//     residue), NOT a stored DOM, so the recursive node-block writer reconstructs
+//     both byte-for-byte.
 //
-// The remaining two OWL vocabs keep the floor `OwlLens`: `prov_o@2013-04-30`
-// (the STRIPED form — but blocked below the writer by §4.1 numeric character
-// references, internal-subset DTD entity references, and interspersed comments)
-// and `olia@2026-04-09` (internal-subset DTD entities, the rejected Infoset
-// shortcut). The recursive node-block writer added in this slice models the
-// striped nesting itself, but those two are gated on parser-layer residue out of
-// scope here — they ride the raw-bytes floor honestly.
+// The harness runs the byte-exact law (FIDELITY is ByteExactGraphFaithful) and
+// verifies each raw-bytes signature against `[byte_exact_signatures]` in
+// praxis.lock. No bundled OWL vocab remains on the floor.
 //
 // Native only — linkme's distributed slice is unsupported on wasm32, mirroring
 // every other `register_lens!`.
@@ -209,6 +214,31 @@ crate::register_lens!(
     DOCO_GRAPH_FAITHFUL_LENS,
     "doco",
     "1.3",
+    OwlGraphFaithfulLens
+);
+
+// The STRIPED OWL vocabs — prov_o + olia. These were blocked, in the prior
+// slice, BELOW the writer layer by parser-level concrete syntax: an
+// internal-subset DOCTYPE (`<!DOCTYPE rdf:RDF [ <!ENTITY …> ]>`), §4.1 numeric
+// character references (`&#39;`), §4.1 general-entity references
+// (`&rdfs;seeAlso`), and interspersed §2.5 comments. The L3 byte kernel captures
+// each as STRUCTURED concrete-syntax residue (the DOCTYPE verbatim PROLOG
+// residue, the numeric/general `ExtendedRef` form, the `ChildSlot::InsertComment`
+// residue), so the recursive node-block writer reconstructs each byte-for-byte —
+// NO stored DOM, NO raw blob. Registering them graph-faithful REPLACES each one's
+// floor `OwlLens` registration (removed in `super::lens`).
+
+crate::register_lens!(
+    PROV_O_GRAPH_FAITHFUL_LENS,
+    "prov_o",
+    "2013-04-30",
+    OwlGraphFaithfulLens
+);
+
+crate::register_lens!(
+    OLIA_GRAPH_FAITHFUL_LENS,
+    "olia",
+    "2026-04-09",
     OwlGraphFaithfulLens
 );
 

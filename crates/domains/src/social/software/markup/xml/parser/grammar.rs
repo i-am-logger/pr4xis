@@ -31,8 +31,9 @@ use super::super::ontology::{
     XmlGeneralEntity, XmlName, XmlNamespace, XmlNode,
 };
 use super::source_syntax::{
-    CaptureCtx, EmptyForm, EndOfLineForm, EntityName, EntityReferenceForm, EolKind,
-    IntraTagWhitespace, NodeDecisions, PrologDecisions, StartTagToken, SyntaxDecisions,
+    CaptureCtx, EmptyForm, EndOfLineForm, EntityName, EntityReferenceForm, EolKind, ExtendedRef,
+    ExtendedRefKind, IntraTagWhitespace, NodeDecisions, PrologDecisions, StartTagToken,
+    SyntaxDecisions,
 };
 
 /// Failure modes when parsing XML 1.0 bytes.
@@ -899,6 +900,13 @@ fn skip_pi(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 /// affect validity, not well-formedness, so the document still
 /// parses well-formedly without their typed representation.
 fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
+    // Capture the whole `<!DOCTYPE … >` declaration VERBATIM (after §2.11 EOL
+    // normalization) as PROLOG residue — the byte-exact serializer reproduces it
+    // exactly, the analogue of re-emitting the `<?xml?>` declaration bytes. The
+    // structured projection below STILL runs (it yields the typed entities used
+    // for entity-reference resolution and the PE-reference flag); this is a
+    // parallel verbatim slice, NOT a stored element-tree DOM.
+    let decl_start = c.pos;
     c.consume("<!DOCTYPE")?;
     c.require_whitespace("DOCTYPE name")?;
     let name = parse_name(c)?;
@@ -926,11 +934,16 @@ fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
     }
 
     c.consume(">")?;
+    // The whole declaration's verbatim bytes (`<!DOCTYPE … >`), captured only on
+    // the byte-exact reverse-lens read path; the serializer prefers it for
+    // byte-exact output and falls back to the structured re-projection otherwise.
+    let verbatim = Some(c.misc_run_since(decl_start).to_string());
     Ok(XmlDoctype {
         root_name: name.qualified(),
         external_id,
         general_entities,
         internal_subset_had_pe_references,
+        verbatim,
     })
 }
 
@@ -1788,6 +1801,73 @@ fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
     Ok(ch)
 }
 
+/// Parse a §4.1 \[66\] numeric character reference AND capture its exact source
+/// FORM as an [`ExtendedRefKind::Numeric`] (decimal vs hex, the hex letters' case,
+/// and the verbatim digit string incl. leading zeros) so the byte-exact serializer
+/// re-emits the reference spelling rather than the resolved literal char.
+///
+/// The form-aware sibling of [`parse_char_ref`]; the resolution rules (radix,
+/// §2.2 Char legality) are identical. Used only on the byte-exact capturing path —
+/// `parse_char_ref` stays the non-capturing default.
+fn parse_char_ref_capturing(c: &mut Cursor<'_>) -> Result<(char, ExtendedRefKind), XmlParseError> {
+    let start_pos = c.pos;
+    c.consume("&")?;
+    let (hex, upper_hex, digits, code_point) =
+        if c.rest().starts_with("#x") || c.rest().starts_with("#X") {
+            // Hex form `&#x…;` / `&#X…;` — preserve the `x`/`X` case AND the a–f
+            // digit case so e.g. `&#X2019;` round-trips.
+            let upper_x = c.rest().starts_with("#X");
+            c.consume(if upper_x { "#X" } else { "#x" })?;
+            let rest = c.rest();
+            let end = rest.find(';').ok_or_else(|| XmlParseError::UnexpectedEof {
+                context: "character reference".into(),
+            })?;
+            let digits = rest[..end].to_string();
+            let cp = u32::from_str_radix(&digits, 16).map_err(|_| XmlParseError::Syntax {
+                position: c.pos,
+                expected: "hex digits".into(),
+                found: digits.clone(),
+            })?;
+            c.pos += end + 1;
+            let upper_hex = upper_x || digits.chars().any(|ch| ch.is_ascii_uppercase());
+            (true, upper_hex, digits, cp)
+        } else if c.starts_with("#") {
+            c.consume("#")?;
+            let rest = c.rest();
+            let end = rest.find(';').ok_or_else(|| XmlParseError::UnexpectedEof {
+                context: "character reference".into(),
+            })?;
+            let digits = rest[..end].to_string();
+            let cp = digits.parse::<u32>().map_err(|_| XmlParseError::Syntax {
+                position: c.pos,
+                expected: "decimal digits".into(),
+                found: digits.clone(),
+            })?;
+            c.pos += end + 1;
+            (false, false, digits, cp)
+        } else {
+            return Err(c.syntax_error("character reference", &c.preview()));
+        };
+    let ch = char::from_u32(code_point).ok_or(XmlParseError::InvalidCharRef {
+        position: start_pos,
+        code_point,
+    })?;
+    if !is_xml_char(ch) {
+        return Err(XmlParseError::InvalidCharRef {
+            position: start_pos,
+            code_point,
+        });
+    }
+    Ok((
+        ch,
+        ExtendedRefKind::Numeric {
+            hex,
+            upper_hex,
+            digits,
+        },
+    ))
+}
+
 /// W3C XML 1.0 §3 production \[39\] `element`:
 /// `element ::= EmptyElemTag | STag content ETag`.
 ///
@@ -1894,16 +1974,24 @@ fn parse_element(
         let name_to_eq = c.take_whitespace().to_string();
         c.consume("=")?;
         let eq_to_value = c.take_whitespace().to_string();
-        // Per-attribute §4.6 entity-reference capture sink (only when capturing).
-        let mut value_ref_sink: Option<Vec<(usize, EntityName)>> = capturing.then(Vec::new);
+        // Per-attribute reference-form capture sink (only when capturing): the
+        // closed §4.6 predefined set PLUS the open §4.1 numeric/general-entity
+        // forms (the `&rdfs;seeAlso` reference prov_o writes in `rdf:resource`).
+        let mut value_ref_sink: Option<AttrRefSink> = capturing.then(AttrRefSink::default);
         let value = parse_att_value(c, entities, strict_entity_declared, &mut value_ref_sink)?;
 
         if let Some(iw) = intra_ws.as_mut() {
             iw.before_attr.push(ws_run.to_string());
             iw.around_eq.push((name_to_eq, eq_to_value));
         }
-        if let Some(refs) = value_ref_sink.filter(|r| !r.is_empty()) {
-            attr_refs.insert(attr_slot, EntityReferenceForm { refs });
+        if let Some(sink) = value_ref_sink.filter(|s| !s.is_empty()) {
+            attr_refs.insert(
+                attr_slot,
+                EntityReferenceForm {
+                    refs: sink.predefined,
+                    ext_refs: sink.ext,
+                },
+            );
         }
         attr_slot += 1;
 
@@ -2160,7 +2248,7 @@ fn parse_att_value(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
-    ref_capture: &mut Option<Vec<(usize, EntityName)>>,
+    ref_capture: &mut Option<AttrRefSink>,
 ) -> Result<String, XmlParseError> {
     let quote = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
         context: "AttValue".into(),
@@ -2228,13 +2316,13 @@ fn parse_att_value_body_into(
     strict_entity_declared: bool,
     term: AttValueTerminator,
     out: &mut String,
-    // Reader-side capture sink for the §4.6 predefined-entity-reference FORM
-    // (which resolved chars were written as `&amp;`/`&lt;`/`&gt;`/`&apos;`/
-    // `&quot;`), keyed by char index into the resolved value. `None` on the
-    // non-capturing path (`parse_document`) and on the ATTLIST default-value
-    // validation path, which discard their output. See
+    // Reader-side capture sink for the reference FORM (the closed §4.6 predefined
+    // set AND the open §4.1 numeric `&#39;` / general-entity `&rdfs;` forms),
+    // keyed by char index into the resolved value. `None` on the non-capturing
+    // path (`parse_document`) and on the ATTLIST default-value validation path,
+    // which discard their output. See
     // [`EntityReferenceForm`](super::source_syntax::EntityReferenceForm).
-    ref_capture: &mut Option<Vec<(usize, EntityName)>>,
+    ref_capture: &mut Option<AttrRefSink>,
 ) -> Result<(), XmlParseError> {
     loop {
         match term {
@@ -2263,22 +2351,23 @@ fn parse_att_value_body_into(
         }
         if ch == '&' {
             if c.rest().starts_with("&#") {
-                // §4.1 [66] CharRef `&#N;`/`&#xN;`. OUT OF SCOPE for the
-                // byte-exact reverse lens this slice builds: the parser resolves
-                // the reference to its char and the byte-exact serializer would
-                // re-emit that literal char, NOT the numeric reference — a silent
-                // byte mismatch. Fail LOUD (not silently drop) when capturing so
-                // the limitation surfaces; a follow-up slice records the numeric
-                // form. The non-capturing `parse_document` path is unaffected.
-                debug_assert!(
-                    ref_capture.is_none(),
-                    "byte-exact capture met a §4.1 numeric character reference in an \
-                     attribute value — out of scope for this slice (only §4.6 \
-                     predefined entity references round-trip; numeric refs are a \
-                     follow-up)"
-                );
-                let ch_val = parse_char_ref(c)?;
-                out.push(ch_val);
+                // §4.1 [66] CharRef `&#N;`/`&#xN;`. When capturing, record the
+                // exact numeric FORM (decimal/hex, case, verbatim digits) as an
+                // [`ExtendedRef`] keyed by the resolved char's index, so the
+                // byte-exact serializer re-emits the reference rather than the
+                // resolved literal char. The non-capturing path resolves to the
+                // char as before.
+                if let Some(sink) = ref_capture.as_mut() {
+                    let (ch_val, kind) = parse_char_ref_capturing(c)?;
+                    sink.ext.push(ExtendedRef {
+                        char_index: out.chars().count(),
+                        kind,
+                    });
+                    out.push(ch_val);
+                } else {
+                    let ch_val = parse_char_ref(c)?;
+                    out.push(ch_val);
+                }
             } else {
                 let ref_pos = c.pos;
                 c.consume("&")?;
@@ -2299,10 +2388,18 @@ fn parse_att_value_body_into(
                     if let (Some(sink), Some(entity)) =
                         (ref_capture.as_mut(), EntityName::for_resolved_char(ch))
                     {
-                        sink.push((out.chars().count(), entity));
+                        sink.predefined.push((out.chars().count(), entity));
                     }
                     out.push(ch);
                 } else {
+                    // §4.1 [68] reference to a DTD-declared general entity
+                    // (`&rdfs;seeAlso`). The inclusion EXPANDS the replacement
+                    // text into `out`; when capturing, record the reference FORM
+                    // (the entity name + the expansion's resolved-char length) as
+                    // an [`ExtendedRef`] so the byte-exact serializer re-emits the
+                    // `&name;` reference and skips the expanded run — reproducing
+                    // the internal-subset entity reference WITHOUT storing a DOM.
+                    let ref_char_index = out.chars().count();
                     include_user_general_entity_in_att_value(
                         &qualified,
                         ref_pos,
@@ -2311,6 +2408,16 @@ fn parse_att_value_body_into(
                         strict_entity_declared,
                         out,
                     )?;
+                    if let Some(sink) = ref_capture.as_mut() {
+                        let expansion_chars = out.chars().count() - ref_char_index;
+                        sink.ext.push(ExtendedRef {
+                            char_index: ref_char_index,
+                            kind: ExtendedRefKind::General {
+                                name: qualified,
+                                expansion_chars,
+                            },
+                        });
+                    }
                 }
             }
         } else if matches!(ch, '\t' | '\n' | '\r') {
@@ -2389,13 +2496,12 @@ fn include_user_general_entity_in_att_value(
             let value = entity.value.clone();
             let mut sub = Cursor::new(&value);
             visited.push(name.to_string());
-            // A user-declared (DTD) general entity's replacement text is NOT
-            // captured for the §4.6 predefined-entity-reference form: it is a
-            // distinct concrete-syntax decision (the `&name;` user-entity
-            // SYNTAX, a separate later slice), and re-parsing it would shift the
-            // resolved char indices the top-level capture is keyed by. The
-            // OEWN-2025 corpus uses no user entities in attribute values, so
-            // dropping capture here is faithful for the in-scope inputs.
+            // The replacement text is re-parsed with NO inner capture (`&mut
+            // None`): the `&name;` user-entity reference FORM is recorded ONCE at
+            // the OUTER call site (`parse_att_value_body_into`'s general-entity
+            // branch) as an `ExtendedRef::General` keyed by the reference's char
+            // index plus the expansion's char-length. Capturing the inner refs
+            // here would double-count and shift those char indices.
             let result = parse_att_value_body_into(
                 &mut sub,
                 entities,
@@ -2614,19 +2720,23 @@ fn parse_content_into_buffers(
             //      entity expansion that does NOT form a valid
             //      content fragment — are rejected here.
             if c.rest().starts_with("&#") {
-                // §4.1 [66] CharRef — OUT OF SCOPE for this byte-exact slice
-                // (see the matching note in `parse_att_value_body_into`): the
-                // resolved char would re-emit literally, never as `&#N;`. Fail
-                // LOUD when capturing; a follow-up slice records the numeric
-                // form. Non-capturing `parse_document` is unaffected.
-                debug_assert!(
-                    text_ref.is_none(),
-                    "byte-exact capture met a §4.1 numeric character reference in char \
-                     data — out of scope for this slice (only §4.6 predefined entity \
-                     references round-trip; numeric refs are a follow-up)"
-                );
-                let ch_val = parse_char_ref(c)?;
-                text_buf.push(ch_val);
+                // §4.1 [66] CharRef. When capturing, record the exact numeric FORM
+                // (decimal/hex, case, verbatim digits) as an [`ExtendedRef`] keyed
+                // by the resolved char's index, so the byte-exact serializer
+                // re-emits `&#39;`/`&#x27;` rather than the resolved literal char.
+                // The non-capturing `parse_document` path resolves to the char as
+                // before.
+                if let Some(cap) = text_ref.as_mut() {
+                    let (ch_val, kind) = parse_char_ref_capturing(c)?;
+                    cap.pending_ext.push(ExtendedRef {
+                        char_index: text_buf.chars().count(),
+                        kind,
+                    });
+                    text_buf.push(ch_val);
+                } else {
+                    let ch_val = parse_char_ref(c)?;
+                    text_buf.push(ch_val);
+                }
             } else {
                 let ref_pos = c.pos;
                 c.consume("&")?;
@@ -2650,6 +2760,21 @@ fn parse_content_into_buffers(
                     }
                     text_buf.push(ch);
                 } else {
+                    // §4.1 [68] general-entity reference in content. When
+                    // capturing, record the reference FORM (name + expansion
+                    // char-length) as an [`ExtendedRef`] so the byte-exact writer
+                    // re-emits `&name;`. The inclusion may splice further nodes
+                    // (the replacement text is re-parsed as content); the simple
+                    // char-index keying only works when the expansion is pure
+                    // text appended to `text_buf` (no spliced element/comment
+                    // nodes). If it spliced nodes, fail closed — the capture is
+                    // out of this slice's byte-exact scope rather than a silent
+                    // mismatch. (prov_o's general-entity refs are all in attribute
+                    // VALUES, so this content path is not exercised by it.)
+                    let nodes_before = nodes.len();
+                    let chars_before = text_buf.chars().count();
+                    let ext_before = text_ref.as_ref().map_or(0, |t| t.pending_ext.len());
+                    let pred_before = text_ref.as_ref().map_or(0, |t| t.pending.len());
                     include_user_general_entity_in_content(
                         &qualified,
                         ref_pos,
@@ -2661,6 +2786,34 @@ fn parse_content_into_buffers(
                         capture,
                         text_ref,
                     )?;
+                    if let Some(cap) = text_ref.as_mut() {
+                        // Capture the §4.1 general-entity reference FORM ONLY when
+                        // the expansion is PURE TEXT appended to `text_buf` — no
+                        // spliced element/comment nodes, no nested refs captured
+                        // inside (which would shift the char-index keying the
+                        // single `&name;` slot relies on). A non-pure expansion
+                        // (an entity whose replacement text contains markup, as in
+                        // `<!ENTITY e "<m></m>">`) is NOT recorded: it remains the
+                        // existing §4.4.3 spliced-DOM behaviour, byte-INEXACT in
+                        // its reference syntax (a separate later slice) but a
+                        // well-formed PARSE — never a fail-closed error. The
+                        // bundled byte-exact OWL vocabs use general-entity refs
+                        // only in ATTRIBUTE values (pure-text URIs), so this
+                        // content path's non-capture does not affect them.
+                        let pure_text = nodes.len() == nodes_before
+                            && cap.pending_ext.len() == ext_before
+                            && cap.pending.len() == pred_before;
+                        if pure_text {
+                            let expansion_chars = text_buf.chars().count() - chars_before;
+                            cap.pending_ext.push(ExtendedRef {
+                                char_index: chars_before,
+                                kind: ExtendedRefKind::General {
+                                    name: qualified,
+                                    expansion_chars,
+                                },
+                            });
+                        }
+                    }
                 }
             }
         } else {
@@ -2804,9 +2957,35 @@ fn include_user_general_entity_in_content(
 /// A text node spans the entity-inclusion boundary (§4.4.3) — its char indices
 /// and refs accumulate across the `text_buf` lifetime, so capture rides
 /// alongside `text_buf` and is flushed by [`flush_text_capturing`].
+/// Reader-side capture sink for the reference FORM inside ONE attribute value —
+/// the closed §4.6 predefined set ([`EntityName`], one resolved char each) plus
+/// the open §4.1 numeric / general-entity forms ([`ExtendedRef`]), both keyed by
+/// resolved-string char index. Flushed into one [`EntityReferenceForm`] per
+/// attribute slot. Empty for a canonical value (no resolved references), so the
+/// capture is purely additive.
+#[derive(Debug, Default)]
+struct AttrRefSink {
+    /// The §4.6 predefined references (`&amp;`/`&lt;`/`&gt;`/`&apos;`/`&quot;`).
+    predefined: Vec<(usize, EntityName)>,
+    /// The §4.1 numeric (`&#39;`) / general-entity (`&rdfs;`) references.
+    ext: Vec<ExtendedRef>,
+}
+
+impl AttrRefSink {
+    fn is_empty(&self) -> bool {
+        self.predefined.is_empty() && self.ext.is_empty()
+    }
+}
+
 #[derive(Debug, Default)]
 struct TextRefCapture {
     pending: Vec<(usize, EntityName)>,
+    /// The §4.1 numeric/general reference forms in the CURRENTLY buffered text
+    /// run (char index into the running `text_buf`), the open-set sibling of
+    /// `pending`'s closed §4.6 predefined set — `&#39;` numeric refs and `&rdfs;`
+    /// general-entity refs. Flushed alongside `pending` by
+    /// [`flush_text_capturing`].
+    pending_ext: Vec<ExtendedRef>,
     done: Vec<(usize, EntityReferenceForm)>,
 }
 
@@ -2821,13 +3000,14 @@ fn flush_text_capturing(
 ) {
     if !buf.is_empty() {
         if let Some(cap) = text_ref.as_mut()
-            && !cap.pending.is_empty()
+            && (!cap.pending.is_empty() || !cap.pending_ext.is_empty())
         {
             let child_ordinal = nodes.len();
             cap.done.push((
                 child_ordinal,
                 EntityReferenceForm {
                     refs: core::mem::take(&mut cap.pending),
+                    ext_refs: core::mem::take(&mut cap.pending_ext),
                 },
             ));
         }
