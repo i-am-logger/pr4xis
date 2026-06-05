@@ -175,6 +175,9 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
         },
         aux,
         mode: RoundTripFidelity::RawBytesComplementFloor,
+        // This witness rides the universal floor (the raw blob); the
+        // graph-faithful payload is absent in this tier.
+        graph: None,
         raw: Some(RawSource {
             content_address: hash,
             blob: source.to_vec(),

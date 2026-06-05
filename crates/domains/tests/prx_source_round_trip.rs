@@ -237,19 +237,29 @@ fn completeness_meter_declared_tier_matches_achieved() {
          (declared != achieved): {liars:?}"
     );
 
-    // The meter must be HONEST per source. WordNet is praxis's FIRST
-    // graph-faithful `.prx` source (SLICE 3b): it MAY claim
-    // `ByteExactGraphFaithful` and carries NO gap. OWL and USC are still on the
-    // stored-complement FLOOR — they may NOT claim graph-faithfulness, and a
-    // floor row must name its per-source writer gap.
+    // The meter must be HONEST per source. Two sources are graph-faithful in
+    // this slice: `english_wordnet` (WordNet, the FIRST — SLICE 3b) and
+    // `usc_title_1` (UsCode, SLICE U6). Each MAY claim `ByteExactGraphFaithful`
+    // and carries NO gap. EVERY OTHER source — all OWL, and every other USC title
+    // (`usc_title_15/18/49`, …) — is still on the stored-complement FLOOR: it may
+    // NOT claim graph-faithfulness, and a floor row must name its per-source
+    // writer gap. The whitelist below has TEETH: it accepts ONLY those two named
+    // sources, so a future over-claim — e.g. `usc_title_15` leaking a
+    // graph-faithful tier from a title-agnostic emit — still trips this assertion
+    // (it is UsCode but NOT `usc_title_1`).
     for r in &meter {
         match r.declared {
             RoundTripFidelity::ByteExactGraphFaithful => {
-                // Only WordNet has a graph-faithful writer today.
-                assert_eq!(
-                    r.kind,
-                    DecompileKind::WordNet,
-                    "{}: only WordNet is graph-faithful in this slice; {:?} over-claims",
+                // The two legitimately graph-faithful sources in this slice. Note
+                // `r.source` is the `"{name}@{version}"` key, so the `usc_title_1`
+                // arm pins the EXACT source — `usc_title_15` (kind=UsCode) does
+                // NOT match and is correctly rejected as an over-claim. The same
+                // predicate is proven to keep its teeth by
+                // `slice_guard_rejects_graph_faithful_over_claims`.
+                assert!(
+                    slice_allows_graph_faithful(r.kind, &r.source),
+                    "{}: only english_wordnet (WordNet) and usc_title_1 (UsCode) are \
+                     graph-faithful in this slice; {:?} over-claims",
                     r.source,
                     r.kind
                 );
@@ -285,4 +295,58 @@ fn completeness_meter_declared_tier_matches_achieved() {
         "completeness meter: {} rows, {floor} on the stored-complement floor (the remaining gap)",
         meter.len()
     );
+}
+
+/// The graph-faithful WHITELIST used by
+/// [`completeness_meter_declared_tier_matches_achieved`] — `kind == WordNet`, OR
+/// `kind == UsCode && source` is exactly `usc_title_1@…`. Extracted so the meta-
+/// test below can prove the guard keeps its teeth against an over-claim leak.
+fn slice_allows_graph_faithful(kind: DecompileKind, source: &str) -> bool {
+    kind == DecompileKind::WordNet
+        || (kind == DecompileKind::UsCode && source.starts_with("usc_title_1@"))
+}
+
+/// The over-claim guard in `completeness_meter_declared_tier_matches_achieved`
+/// must keep its TEETH after SLICE U6 widened it from "WordNet only" to "WordNet
+/// or usc_title_1": it accepts EXACTLY the two graph-faithful sources of this
+/// slice and rejects every other source that might leak a graph-faithful tier —
+/// most pointedly `usc_title_15` (also `kind == UsCode`, the precise title the
+/// title-agnostic emit bug over-claimed). The `usc_title_1@` prefix is `@`-
+/// anchored, so `usc_title_15@…` does NOT match it (position 11 is `5`, not `@`).
+#[test]
+fn slice_guard_rejects_graph_faithful_over_claims() {
+    // The two legitimately graph-faithful sources are accepted.
+    assert!(slice_allows_graph_faithful(
+        DecompileKind::WordNet,
+        "english_wordnet@2025"
+    ));
+    assert!(slice_allows_graph_faithful(
+        DecompileKind::UsCode,
+        "usc_title_1@pl-119-90"
+    ));
+
+    // A sibling USC title that LEAKS a graph-faithful claim is rejected — the
+    // exact regression the title-agnostic `build_usc_envelope` produced.
+    assert!(
+        !slice_allows_graph_faithful(DecompileKind::UsCode, "usc_title_15@pl-119-90"),
+        "usc_title_15 (kind=UsCode) must NOT be accepted as graph-faithful — \
+         the @-anchored usc_title_1 prefix keeps the guard's teeth"
+    );
+    for leak in [
+        "usc_title_18@pl-119-90",
+        "usc_title_49@pl-119-90",
+        "usc_title_5@pl-119-90",
+    ] {
+        assert!(
+            !slice_allows_graph_faithful(DecompileKind::UsCode, leak),
+            "{leak} must NOT be accepted as graph-faithful"
+        );
+    }
+
+    // An OWL source claiming graph-faithfulness is rejected too (only WordNet +
+    // usc_title_1 are graph-faithful in this slice).
+    assert!(!slice_allows_graph_faithful(
+        DecompileKind::Owl,
+        "cito@2.8.1"
+    ));
 }

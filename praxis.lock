@@ -371,16 +371,16 @@
 "doco@1.3"               = "c8b2ceb1b2d7b8bc4078c03644e04333dad5570360b79d3e9705b6f36cf98859"
 "olia@2026-04-09"        = "711f6a0fc6c93c03dca67a5b5cd2e1a4d4f5333ae5ae06bee3fb1e2df1e61283"
 "prov_o@2013-04-30"      = "f858921e3aaaa9ee478765c0f60132a5f4a13e1b1e5251ab0454d4b1d749f1bf"
-"usc_title_1@pl-119-90" = "199a7175a987feb70a21d95d115468f89eed8ca990a9c97bd2b1012b0871fe51"
-"usc_title_15@pl-119-90" = "f5038b839c59b49c6139b826c880c575f69952e42620638c4bc0a4b8b5b1a009"
-"usc_title_18@pl-119-90" = "01bbce3d9f51a660e7ba74c3df2ad5dfb99a2806ae91d14d90d4036cbb920421"
-"usc_title_28@pl-119-90" = "7c9e799212ff3eaa6d686b7d069d2791dd397923940bdce665103f7872d8650c"
-"usc_title_29@pl-119-90" = "8080e676e1520e2f646bb527cd6c12998fa49584d224205cd51475984a76642c"
-"usc_title_42@pl-119-90" = "f841ea02b322e34aa6b4585114448251574d599c4b0505eccf11de58b83a85fb"
-"usc_title_49@pl-119-90" = "4a9fff4c4c268dcf0039f1f2ce5a3d77050ebcaef4c7904aa9379de76ee2ab2e"
-"usc_title_5@pl-119-90" = "cd11c71234ae60026c8629dc36aa0fd8592c1582a58e4f999a0ebf6f45ad7fa9"
-"usc_title_50@pl-119-90" = "1d0ca977ecd1a38b502c6879afcef66be1c2ce5421a24ca7e2980e653390648a"
-"english_wordnet@2025" = "7254a6c65ddd100ba02c594a4babb8d78d72691e9597db2f9a99c62a44241ebe"
+"usc_title_1@pl-119-90" = "df3c96abc606158189ba9911ba8e0e5453828ceac7bfca4dd4bc2358f6eef767"
+"usc_title_15@pl-119-90" = "70ebb2bced68ac9ff2f066caa1294411ee03741ac39c1572ed867581553ca09a"
+"usc_title_18@pl-119-90" = "3df3f4fd356e93e89fd0edf18ec04b47ee3029af2562527936866291d2d15c69"
+"usc_title_28@pl-119-90" = "2de1fe2de620a8a4654a646db3e1c267e99c983d89b9a76ab132e5f169d2db2a"
+"usc_title_29@pl-119-90" = "1decd242387f3662b8949612573399fe5db3eb0dc0a0f4feb1340e00bfe5a303"
+"usc_title_42@pl-119-90" = "26d4a58ad31039876f795e37c67b3f451a05fa4b15ab077881d99a76cf92adb1"
+"usc_title_49@pl-119-90" = "86af4a9b800983bebe20cf23a72b43a652017ac66f8aeaa05804f848fad94bc3"
+"usc_title_5@pl-119-90" = "74ee8a986edae6673c33cb35289adda34fe0e9c2680b4ab3d6015de5e98067a8"
+"usc_title_50@pl-119-90" = "af92fda83acaeb93862cfba17c82884a43d2e6e518216fd5c1cf0ed4ff3c658a"
+"english_wordnet@2025" = "b11e5b3f39b99c34bb714751c057fab8dd19c2ac94f5246e68bf7774395ac417"
 
 # Byte-exact round-trip signatures — SHA-256 of the bytes a source's
 # graph-faithful lens regenerates under the STRICT byte-exact PutGet law
@@ -393,7 +393,14 @@
 # that differs from `[hashes]`, is rejected at load time). This is a DURABLE
 # identity pin (unlike the per-toolchain `[archive_signatures]` build-output
 # pin above). `english_wordnet` is praxis's first byte-exact graph-faithful
-# source (SLICE 3b, #186); the WordNet round-trip harness verifies the
-# byte-exact law against this pin.
+# source (SLICE 3b, #186); `usc_title_1` is the first byte-exact graph-faithful
+# USC title (SLICE U6, #186). Each round-trip harness verifies the byte-exact law
+# against these pins.
 [byte_exact_signatures]
 "english_wordnet@2025"   = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
+# USC Title 1 — General Provisions. The `UslmGraphFaithfulLens` regenerates the
+# literal on-disk `usc01.xml` bytes (CRLFs included) from the typed `UsCodeTitle`
+# ontology + a concrete-syntax complement, so the byte-exact round-trip output
+# hash equals the raw source content hash — i.e. this value MUST equal the
+# `usc_title_1@pl-119-90` `[hashes]` pin (registry.rs enforces sig == raw_hash).
+"usc_title_1@pl-119-90"  = "a334616a6e0956556bf9de99906caf8ae709535b3d47bbc1150acca673dad727"

@@ -40,6 +40,10 @@ use super::kinds::{
 /// Subtitle > Part > Chapter > Subchapter > Section. The
 /// [`HierarchyNode`] enum keeps the model uniform across titles.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTitle {
     /// USLM identifier for the title, e.g. `/us/usc/t18`.
     pub identifier: String,
@@ -142,7 +146,20 @@ fn walk_containers<'a>(node: &'a HierarchyNode, out: &mut Vec<&'a UsCodeContaine
 /// Both variants are boxed so the enum size remains small (one
 /// pointer) regardless of how many fields the underlying value
 /// types accumulate as the ontology grows.
+// `HierarchyNode` and `UsCodeContainer` form a mutual cycle
+// (`UsCodeContainer::children: Vec<HierarchyNode>`). The rkyv derive needs the
+// recursive bound cycle broken with `#[rkyv(omit_bounds)]` on the back-edge
+// field (`UsCodeContainer::children`) plus the manual non-recursive container
+// bounds the omitted derive would otherwise supply — the canonical rkyv 0.8
+// recursive-type pattern (rkyv `examples/json_like_schema.rs`), mirroring
+// `OwnedUscSubdivision` in `corpus::prx`. `HierarchyNode` itself carries no
+// recursive bound of its own (its boxed members are concrete `Archive` types),
+// so it takes the plain derive.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum HierarchyNode {
     Container(Box<UsCodeContainer>),
     Section(Box<UsCodeSection>),
@@ -153,6 +170,19 @@ pub enum HierarchyNode {
 /// structural shape (identifier, num, heading, children) and
 /// different semantic roles tracked by [`ContainerKind`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "prx", rkyv(serialize_bounds(
+    __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+    __S::Error: rkyv::rancor::Source,
+)))]
+#[cfg_attr(feature = "prx", rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)))]
+#[cfg_attr(feature = "prx", rkyv(bytecheck(bounds(
+    __C: rkyv::validation::ArchiveContext,
+    __C::Error: rkyv::rancor::Source,
+))))]
 pub struct UsCodeContainer {
     pub kind: ContainerKind,
     /// USLM identifier, e.g. `/us/usc/t18/ptI`.
@@ -161,7 +191,9 @@ pub struct UsCodeContainer {
     pub num: String,
     /// `<heading>` plain text.
     pub heading: String,
-    /// Nested children — further containers or leaf sections.
+    /// Nested children — further containers or leaf sections. `omit_bounds`
+    /// breaks the `HierarchyNode` ↔ `UsCodeContainer` recursive bound cycle.
+    #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
     pub children: Vec<HierarchyNode>,
     /// Container-level editorial notes blocks (chapter-level
     /// short titles, amendment history, etc.).
@@ -191,6 +223,10 @@ pub struct UsCodeContainer {
 /// `"uscNote"` (the dominant in-corpus value), `"statutoryNote"`,
 /// etc. See [`UsCodeNote`]'s `topic` field for finer-grained semantic kinds.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeNotesBlock {
     pub block_type: Option<String>,
     pub identifier: Option<String>,
@@ -218,6 +254,10 @@ pub struct UsCodeNotesBlock {
 /// (`"crossHeading"` etc.); semantically informative but not
 /// part of the note's body.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeNote {
     pub topic: Option<String>,
     pub role: Option<String>,
@@ -274,6 +314,10 @@ impl UsCodeNote {
 /// the originating public-law URN (`/us/pl/107/204/...`) and the
 /// Stat. URN (`/us/stat/116/804`).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSourceCredit {
     pub identifier: Option<String>,
     /// Whitespace-collapsed plain-text projection of `mixed` (DERIVED).
@@ -297,6 +341,10 @@ pub struct UsCodeSourceCredit {
 /// subdivision boundary. Used when a section's body text continues
 /// past an enumerated paragraph back to the parent's flow.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeContinuation {
     pub body: String,
 }
@@ -306,6 +354,10 @@ pub struct UsCodeContinuation {
 /// it's a conditional / exception qualifier per long-standing
 /// statutory drafting convention.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeProviso {
     pub body: String,
 }
@@ -318,6 +370,10 @@ pub struct UsCodeProviso {
 /// discrimination is on the namespace URI per W3C XML Namespaces 1.0
 /// §6.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTable {
     /// `id` attribute.
     pub identifier: Option<String>,
@@ -333,6 +389,10 @@ pub struct UsCodeTable {
 
 /// One `<tr>` row of a [`UsCodeTable`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTableRow {
     /// `class` attribute, if any.
     pub class: Option<String>,
@@ -343,6 +403,10 @@ pub struct UsCodeTableRow {
 
 /// One `<th>` or `<td>` cell of a [`UsCodeTableRow`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTableCell {
     /// Header (`<th>`) vs data (`<td>`).
     pub kind: UsCodeTableCellKind,
@@ -363,6 +427,10 @@ pub struct UsCodeTableCell {
 /// uses `"threeColumnTOC"` for Part/Heading/Section three-column
 /// layout. The role is preserved verbatim for downstream renderers.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeToc {
     /// `id` attribute on `<toc>`, if any.
     pub identifier: Option<String>,
@@ -377,6 +445,10 @@ pub struct UsCodeToc {
 
 /// One row in a [`UsCodeToc`] — `<tocItem>` per LRC USLM Schema.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTocItem {
     /// USLM identifier of the *target* (not the TOC item itself).
     /// Derived from the first `<ref href="...">` inside the item if
@@ -403,6 +475,10 @@ pub struct UsCodeTocItem {
 /// documents (bills, public laws); this type carries them as
 /// `Option<String>` so an incomplete meta block doesn't fail.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMeta {
     /// `<dc:title>`. Typically `"Title 18"`, `"Title 49"`, etc.
     pub title: Option<String>,
@@ -469,6 +545,10 @@ pub struct UsCodeMeta {
 /// `<meta>`. LRC uses this for legally-significant doc-level facts
 /// (e.g. positive-law status). Per LRC USLM User Guide § "Metadata".
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMetaProperty {
     /// `role` attribute. Observed values: `"is-positive-law"`.
     /// Other values may appear in non-USC documents.
@@ -502,6 +582,10 @@ impl UsCodeMeta {
 /// carries the title's authoritative heading block and is a
 /// sibling of `<main>` under `<uscDoc>`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeHeader {
     pub text: String,
 }
@@ -522,6 +606,10 @@ pub struct UsCodeHeader {
 /// attribute is a URN pointing at the law being quoted (e.g.
 /// `/us/pl/107/204/s806`).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeQuotedContent {
     /// `origin="..."` — URN of the act being quoted.
     pub origin: Option<String>,
@@ -545,6 +633,10 @@ pub struct UsCodeQuotedContent {
 /// (`section`) but live in different ontological roles per the
 /// USLM Schema's quoted-content semantics.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSectionRef {
     pub identifier: Option<String>,
     pub num: String,
@@ -560,6 +652,10 @@ pub struct UsCodeSectionRef {
 /// string; the element body holds the human-readable form (e.g.
 /// "July 30, 2002").
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeDate {
     pub iso: String,
     pub text: String,
@@ -569,6 +665,10 @@ pub struct UsCodeDate {
 /// one or more `<name>` elements identifying the signatory and
 /// their role.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSignature {
     pub names: Vec<UsCodeName>,
 }
@@ -576,6 +676,10 @@ pub struct UsCodeSignature {
 /// USLM `<name>` — a person or entity name, typically inside a
 /// `<signature>` block.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeName {
     pub text: String,
 }
@@ -603,6 +707,10 @@ pub struct UsCodeName {
 
 /// A single inline-markup run within a text-bearing element.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeInlineRun {
     pub kind: InlineKind,
     pub text: String,
@@ -659,7 +767,26 @@ pub struct UsCodeInlineRun {
 /// a named, typed variant. White-space layout, attribute order, and the
 /// `<!DOCTYPE>` / namespaces are byte residue carried by the generic
 /// SourceSyntax complement, not here.
+// `UsCodeContentNode` is recursive (`children: Vec<UsCodeContentNode>` in every
+// element variant), so the rkyv derive needs `#[rkyv(omit_bounds)]` on each
+// recursive field to break the `Self: Archive` bound cycle, plus the manual
+// non-recursive container bounds the omitted derive would otherwise supply — the
+// canonical rkyv 0.8 recursive-type pattern (rkyv `examples/json_like_schema.rs`),
+// mirroring `OwnedUscSubdivision` in `corpus::prx`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "prx", rkyv(serialize_bounds(
+    __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+    __S::Error: rkyv::rancor::Source,
+)))]
+#[cfg_attr(feature = "prx", rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)))]
+#[cfg_attr(feature = "prx", rkyv(bytecheck(bounds(
+    __C: rkyv::validation::ArchiveContext,
+    __C::Error: rkyv::rancor::Source,
+))))]
 pub enum UsCodeContentNode {
     /// A genuine `#PCDATA` run (W3C XML 1.0 §2.4 \[14\] `CharData`), captured
     /// VERBATIM — no whitespace collapse, no trim — so the writer reproduces
@@ -672,11 +799,13 @@ pub enum UsCodeContentNode {
     /// mixed content (its visible text, possibly itself inline-marked).
     Ref {
         attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
         children: Vec<UsCodeContentNode>,
     },
     /// A `<date date="YYYY-MM-DD">…</date>` typed-value element.
     Date {
         attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
         children: Vec<UsCodeContentNode>,
     },
     /// A USLM/XHTML inline ornament (`<inline>` / `<i>` / `<b>` / `<sup>` /
@@ -685,12 +814,14 @@ pub enum UsCodeContentNode {
     Inline {
         kind: InlineKind,
         attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
         children: Vec<UsCodeContentNode>,
     },
     /// A block-level `<p>` paragraph inside a `<content>` / `<chapeau>`.
     /// `children` is its mixed content.
     Para {
         attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
         children: Vec<UsCodeContentNode>,
     },
     /// Any other element the slice does not yet model as its own typed kind —
@@ -703,6 +834,7 @@ pub enum UsCodeContentNode {
         /// The element's local name (e.g. an unmodeled inline ornament).
         name: String,
         attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
         children: Vec<UsCodeContentNode>,
     },
 }
@@ -713,6 +845,10 @@ pub enum UsCodeContentNode {
 /// `AttributeOverrides` complement carries the EXACT byte sequence, so this
 /// only needs to be present, not byte-perfect, for the backbone diff.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeContentAttr {
     /// Qualified attribute name (e.g. `href`, `date`, `class`, `xml:lang`).
     pub name: String,
@@ -771,6 +907,10 @@ impl UsCodeContentNode {
 /// / `<ref>` …). The semantic source of truth from which the flat `*_runs` /
 /// plain-text / `refs` views are derived.
 #[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMixed {
     /// The element's children in EXACT source order (W3C XML 1.0 §3.2.2).
     pub nodes: Vec<UsCodeContentNode>,
@@ -839,6 +979,10 @@ fn collapse_ws(s: &str) -> String {
 /// tooling can ask "show me the text as it stood before vs after
 /// this amendment" without re-parsing.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeAmendmentMarkup {
     pub kind: UsCodeAmendmentKind,
     /// Body text of the `<ins>` or `<del>` element (whitespace
@@ -879,6 +1023,10 @@ pub struct UsCodeAmendmentMarkup {
 /// A `<def>` block — a definitional clause introducing one or more
 /// `<term>` definitions. Per USLM Schema § "Lexical Elements".
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeDefBlock {
     /// USLM `id` if present (allows cross-references to land here).
     pub identifier: Option<String>,
@@ -896,6 +1044,10 @@ pub struct UsCodeDefBlock {
 /// term being either introduced (inside a `<def>`) or used (inside
 /// any text-bearing element). Per USLM Schema § "Lexical Elements".
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTerm {
     /// The visible term text, e.g. `"covered employee"`. Whitespace
     /// is collapsed per W3C XML 1.0 §2.10.
@@ -911,6 +1063,10 @@ pub struct UsCodeTerm {
 /// the text. `<marker name="foo"/>` is referenced from elsewhere via
 /// `<ref href="#foo">`. Per USLM Schema § "Lexical Elements".
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMarker {
     /// The marker's `name` attribute — its fragment identifier.
     /// Required by the schema; empty string if missing in source.
@@ -921,7 +1077,15 @@ pub struct UsCodeMarker {
 }
 
 /// One § of a U.S. Code title.
+///
+/// `UsCodeSection` carries a `Vec<UsCodeSubdivision>` (the self-recursive type);
+/// the recursion lives on `UsCodeSubdivision`, which holds the `omit_bounds` +
+/// manual bounds, so the section itself takes the plain derive.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSection {
     /// USLM identifier, e.g. `/us/usc/t18/s1514A`.
     pub identifier: String,
@@ -1021,7 +1185,25 @@ pub struct UsCodeSection {
 /// captures USLM's strictly-nested hierarchy: a subsection contains
 /// paragraphs, which contain subparagraphs, which contain clauses,
 /// and so on.
+// `UsCodeSubdivision` is self-recursive (`children: Vec<UsCodeSubdivision>`), so
+// the rkyv derive needs `#[rkyv(omit_bounds)]` on the recursive `children` field
+// to break the `Self: Archive` bound cycle, plus the manual non-recursive
+// container bounds — the canonical rkyv 0.8 recursive-type pattern (rkyv
+// `examples/json_like_schema.rs`), mirroring `OwnedUscSubdivision` in `corpus::prx`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "prx", rkyv(serialize_bounds(
+    __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+    __S::Error: rkyv::rancor::Source,
+)))]
+#[cfg_attr(feature = "prx", rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)))]
+#[cfg_attr(feature = "prx", rkyv(bytecheck(bounds(
+    __C: rkyv::validation::ArchiveContext,
+    __C::Error: rkyv::rancor::Source,
+))))]
 pub struct UsCodeSubdivision {
     /// USLM identifier, e.g. `/us/usc/t18/s1514A/a/1/A`.
     pub identifier: String,
@@ -1063,7 +1245,9 @@ pub struct UsCodeSubdivision {
     /// the subdivision is a branch (carries children, not content).
     pub content_mixed: Option<UsCodeMixed>,
     /// Nested children — for a subsection these are paragraphs;
-    /// for a paragraph, subparagraphs; etc.
+    /// for a paragraph, subparagraphs; etc. `omit_bounds` breaks the
+    /// `UsCodeSubdivision` self-recursive bound cycle.
+    #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
     pub children: Vec<UsCodeSubdivision>,
     /// Cross-references collected from this subdivision's body
     /// text (not from its children — they hold their own).
@@ -1086,6 +1270,10 @@ pub struct UsCodeSubdivision {
 /// Securities Exchange Act § 78). Their resolution is the
 /// foundation of cross-statute reasoning in the legal layer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeRef {
     /// The `href` attribute value — a USLM identifier URN.
     pub href: String,

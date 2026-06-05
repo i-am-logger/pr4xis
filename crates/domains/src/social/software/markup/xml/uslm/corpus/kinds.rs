@@ -22,6 +22,10 @@ use crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance;
 /// The schema doesn't enforce a strict order so any subset can
 /// appear in any title.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum ContainerKind {
     /// `<subtitle>` — used in long titles (Title 49, Title 26).
     Subtitle,
@@ -147,6 +151,10 @@ impl ContainerKind {
 /// uses a different numbering convention (a/b/c, 1/2/3, A/B/C,
 /// i/ii/iii, …) that Bluebook §3.3 formalizes for citation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum SubdivisionKind {
     Subsection,
     Paragraph,
@@ -528,6 +536,10 @@ impl UsCodeFormElement {
 /// markup. Identifies whether a text fragment is being added to or
 /// removed from the underlying statute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum UsCodeAmendmentKind {
     /// `<ins>` — text inserted by this amendment.
     Insertion,
@@ -558,6 +570,10 @@ impl UsCodeAmendmentKind {
 
 /// USLM-recognized inline kinds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum InlineKind {
     /// Plain text (no inline markup ornament). The default kind
     /// for text directly inside a heading/chapeau/content.
@@ -612,6 +628,10 @@ impl InlineKind {
 /// cells; the visual rendering convention is different (bold vs
 /// regular) and the semantic role is different (label vs value).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum UsCodeTableCellKind {
     /// `<th>` — header cell. Labels the row or column it belongs to.
     Header,
@@ -635,6 +655,10 @@ pub enum UsCodeTableCellKind {
 /// "Note Topics"; LRC's Office of the Law Revision Counsel
 /// editorial-note conventions documented at uscode.house.gov.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum UsCodeNoteKind {
     /// Material added by the codifier (LRC's Office of the Law
     /// Revision Counsel). Includes section-history headers,

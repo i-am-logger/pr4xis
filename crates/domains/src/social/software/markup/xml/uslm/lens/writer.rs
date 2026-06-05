@@ -875,6 +875,134 @@ pub fn reconstruct_uslm_source(
     ))
 }
 
+// =============================================================================
+// UslmGraphFaithfulLens — the byte-exact graph-faithful lens, and the
+// registration that flips the PROVEN `usc_title_1` off the universal floor in
+// the completeness meter.
+//
+// The USC analogue of the WN-LMF
+// [`WordNetLmfLens`](crate::social::software::markup::xml::lmf::lens::WordNetLmfLens):
+// the source regenerates from the typed [`UsCodeTitle`] ontology PLUS a content-
+// addressed concrete-syntax complement ([`UslmSyntaxComplement`]), held to the
+// strict byte-exact PutGet law (Foster, Greenwald, Moore, Pierce & Schmitt 2007
+// ACM TOPLAS 29(3) §2.2; Mac Lane 1998 §IV.4 equivalence-of-categories counit at
+// byte identity), with NO stored raw blob.
+//
+// - `get : &[u8] → (UsCodeTitle, UslmSyntaxComplement)` — [`capture_uslm_complement`]:
+//   parse the source through the USLM grammar, yielding the typed ontology AND
+//   the byte-affecting residue. Fails closed on malformed input, an uncovered
+//   family, or a structural-writer divergence.
+// - `put : &(UsCodeTitle, UslmSyntaxComplement) → Vec<u8>` —
+//   [`reconstruct_uslm_source`]: re-apply the complement to the structural
+//   writer's regenerated tree and serialize byte-exact.
+// - `canonical` — the IDENTITY: a byte-exact lens guarantees the source IS its
+//   own canonical form (`put(get(b)) == b`); the byte-exact harness path never
+//   calls it (it compares raw bytes via `assert_byte_exact_law` and signs the raw
+//   bytes via `[byte_exact_signatures]`). Provided only for trait totality.
+//
+// Registering this lens with `FIDELITY = ByteExactGraphFaithful` makes the
+// completeness meter
+// ([`crate::formal::meta::well_behaved_lens::completeness`]) DECLARE
+// `usc_title_1` graph-faithful and drop its `write_uslm` gap; when the title is
+// provisioned on disk the harness MEASURES the achieved tier by running the
+// byte-exact law, and the anti-lie cross-check confirms declared == achieved. The
+// existing floor `UslmXmlLens` (in `lens/mod.rs`) stays registered for the OTHER
+// USC titles (`usc_title_18` / `usc_title_49`), whose families `write_uslm` does
+// not yet cover.
+// =============================================================================
+
+/// The USLM byte-exact graph-faithful lens: `bytes ↔ (UsCodeTitle ontology +
+/// concrete-syntax complement)`. Declares
+/// [`RoundTripFidelity::ByteExactGraphFaithful`] — the USC sibling of the WN-LMF
+/// `WordNetLmfLens`.
+#[derive(Debug)]
+pub struct UslmGraphFaithfulLens;
+
+/// The graph-faithful target: the typed [`UsCodeTitle`] ontology paired with the
+/// concrete-syntax [`UslmSyntaxComplement`] the byte-exact `put` re-applies.
+/// `get` produces this pair; `put` consumes it to regenerate the source bytes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UslmGraphFaithfulView {
+    /// The typed USLM title ontology — the graph the source regenerates from.
+    pub title: UsCodeTitle,
+    /// The concrete-syntax residue the typed ontology does not carry.
+    pub complement: UslmSyntaxComplement,
+}
+
+/// Error from the USLM graph-faithful lens: a UTF-8 decode failure (the source is
+/// not valid UTF-8 text) or a [`UslmReconstructError`] from the
+/// capture/reconstruct pair.
+#[derive(Debug)]
+pub enum UslmGraphFaithfulLensError {
+    /// The source bytes are not valid UTF-8 (USLM is XML text).
+    NotUtf8(String),
+    /// The graph-faithful capture or reconstruction failed (a parse error, an
+    /// unrecognised USLM shape, an uncovered family, or a backbone divergence).
+    Reconstruct(UslmReconstructError),
+}
+
+impl core::fmt::Display for UslmGraphFaithfulLensError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::NotUtf8(e) => write!(f, "USLM source is not UTF-8: {e}"),
+            Self::Reconstruct(e) => write!(f, "USLM graph-faithful round-trip: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for UslmGraphFaithfulLensError {}
+
+impl From<UslmReconstructError> for UslmGraphFaithfulLensError {
+    fn from(e: UslmReconstructError) -> Self {
+        Self::Reconstruct(e)
+    }
+}
+
+impl crate::formal::meta::well_behaved_lens::WellBehavedLens for UslmGraphFaithfulLens {
+    type Target = UslmGraphFaithfulView;
+    type Error = UslmGraphFaithfulLensError;
+
+    /// `usc_title_1`'s tier — held to the strict byte-exact PutGet law.
+    const FIDELITY: crate::formal::meta::well_behaved_lens::RoundTripFidelity =
+        crate::formal::meta::well_behaved_lens::RoundTripFidelity::ByteExactGraphFaithful;
+
+    /// `get` — capture the typed ontology AND the concrete-syntax complement
+    /// from the source ([`capture_uslm_complement`]).
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
+        let text = core::str::from_utf8(bytes)
+            .map_err(|e| UslmGraphFaithfulLensError::NotUtf8(alloc::format!("{e}")))?;
+        let (title, complement) = capture_uslm_complement(text)?;
+        Ok(UslmGraphFaithfulView { title, complement })
+    }
+
+    /// `put` — regenerate the source bytes from the graph + complement
+    /// ([`reconstruct_uslm_source`]), NO stored raw blob.
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
+        Ok(reconstruct_uslm_source(&target.title, &target.complement)?)
+    }
+
+    /// `canonical` — the IDENTITY for a byte-exact lens: the source is its own
+    /// canonical form (`put(get(b)) == b`). The byte-exact harness path never
+    /// calls this (it compares raw bytes); it is here only for trait totality.
+    fn canonical(bytes: &[u8]) -> Result<Vec<u8>, Self::Error> {
+        Ok(bytes.to_vec())
+    }
+}
+
+// Bind `UslmGraphFaithfulLens` to the registered, PROVEN `usc_title_1@pl-119-90`
+// source. The harness runs the byte-exact law (because FIDELITY is
+// ByteExactGraphFaithful) and verifies the raw-bytes signature against
+// `[byte_exact_signatures]` in praxis.lock. The completeness meter reads the
+// FIDELITY const to declare the title graph-faithful and drop its `write_uslm`
+// gap. Native only — linkme's distributed slice is unsupported on wasm32 (the
+// harness is a native CI/audit tool), mirroring every other `register_lens!`.
+crate::register_lens!(
+    USC_TITLE_1_GRAPH_FAITHFUL_LENS,
+    "usc_title_1",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;

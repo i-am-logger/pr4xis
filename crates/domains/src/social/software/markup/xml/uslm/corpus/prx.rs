@@ -46,22 +46,40 @@
 //! `subdivision_count`, `section_by_urn`, every `UscComposesEdge`,
 //! `to_statute`) — not the `UsCodeTitle` parse.
 //!
-//! Byte-exact source fidelity (`hash(out) == hash(in)`, the #186 invariant)
-//! is discharged ENTIRELY by [`RawSource::blob`] — the whole unzipped USLM
-//! XML, content-addressed to the `praxis.lock` `[hashes]` pin — exactly as
-//! the OWL leaf's [`RoundTripFidelity::RawBytesComplementFloor`] does. The
-//! parse-only fields survive in `raw.blob`, so source regeneration is
-//! lossless; `data` + `aux` are never re-hashed against the source pin.
-//! USLM has no byte-exact writer + canonicalization (the analogue of the
-//! OWL `write_owl` + RDFC #258 gap), so USC is permanently
-//! `RawBytesComplementFloor` today; `ByteExactGraphFaithful` stays
-//! unemitted, not stubbed.
+//! Byte-exact source fidelity (`hash(out) == hash(in)`, the #186 invariant) is
+//! GRAPH-FAITHFUL for the PROVEN title (`usc_title_1`) since SLICE U6: that
+//! title's `.prx` regenerates the exact source bytes from the typed
+//! [`UsCodeTitle`] ontology plus a content-addressed concrete-syntax complement
+//! ([`UscGraphFaithful`] — the `<?xml-stylesheet?>` prolog PI, the `<!DOCTYPE>`,
+//! the root `xmlns` declarations, the §2.4 inter-element white-space, the §3.1
+//! intra-tag layout, the §4.6 entity-reference form, the §2.11 end-of-line form,
+//! the source attribute sequences), with NO stored raw blob. The
+//! capture/reconstruct pair ([`capture_uslm_complement`] /
+//! [`reconstruct_uslm_source`], parser `source_syntax` residue + the USLM
+//! structural writer [`write_uslm`](super::super::lens::writer::write_uslm)) is
+//! proven a byte-exact inverse over the LITERAL on-disk
+//! `usc_title_1-pl-119-90.xml` (slices U1–U5). `usc_title_1` therefore emits
+//! [`RoundTripFidelity::ByteExactGraphFaithful`].
+//!
+//! The OTHER registered titles HONESTLY DEGRADE to the universal floor
+//! [`RoundTripFidelity::RawBytesComplementFloor`] — byte-exact via the
+//! content-addressed [`RawSource::blob`] (the whole unzipped USLM XML), exactly
+//! as the OWL leaf does — because they exercise USLM families `write_uslm` does
+//! not yet cover (the `<continuation>` flush-text family, `<def>` / `<marker>` /
+//! `<ins>` amendment markup) that are absent from Title 1. `data` + `aux` are the
+//! runtime reasoning view, carried unchanged in BOTH tiers; the source is
+//! regenerated from the graph in the graph-faithful tier and from `raw.blob` in
+//! the floor tier. The degrade is never a silent lie: the floor tier is explicit
+//! in `mode`, and the completeness meter only declares a title graph-faithful
+//! when a [`UslmGraphFaithfulLens`](super::super::lens::writer) is registered for
+//! it. A MALFORMED source stays a hard error in both tiers.
 //!
 //! ## Citations
 //!
 //! - LRC, *USLM XML User Guide* §V (USC URN hierarchy / subdivision depth).
 //! - Foster, Greenwald, Moore, Pierce & Schmitt (2007) "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2.
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 (the strict
+//!   byte-exact PutGet law the graph-faithful tier satisfies).
 //! - NIST (2015) FIPS 180-4 §6.2 (SHA-256); Dolstra (2006)
 //!   content-addressing.
 
@@ -84,6 +102,12 @@ use crate::formal::meta::identifier_format::Identifier;
 use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
 use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
 use crate::social::software::markup::xml::uslm::lens::read_uslm_title;
+// The graph-faithful capture/reconstruct pair (slices U1–U5) + the
+// concrete-syntax complement they thread — the USC analogue of the WN-LMF
+// `capture_wn_complement` / `reconstruct_wn_lmf_source` / `WnSyntaxComplement`.
+use crate::social::software::markup::xml::uslm::lens::writer::{
+    UslmReconstructError, UslmSyntaxComplement, capture_uslm_complement, reconstruct_uslm_source,
+};
 // Shared archive primitives — reused VERBATIM from the OWL leaf (the genuine
 // second-consumer boundary): the content-hash, the gzip/rkyv codecs, the
 // owned codegen mirror, the raw-source complement, and the error type. Only
@@ -252,6 +276,56 @@ fn to_aux_leaked(aux: &[OwnedUscSectionAux]) -> &'static [UscSectionAux] {
 }
 
 // =============================================================================
+// UscGraphFaithful — the typed ontology + concrete-syntax complement, the
+// graph-faithful reconstruction payload (no stored raw blob).
+// =============================================================================
+
+/// The graph-faithful reconstruction payload: the typed USLM [`UsCodeTitle`]
+/// ontology PLUS the concrete-syntax [`UslmSyntaxComplement`] the byte-exact
+/// `put` ([`reconstruct_uslm_source`]) re-applies. Present in a
+/// [`UsCodePrxEnvelope`] iff `mode == ByteExactGraphFaithful`.
+///
+/// The USC realisation of #186's graph-faithful tier (the exact analogue of the
+/// WN-LMF
+/// [`WnGraphFaithful`](crate::social::software::markup::xml::lmf::prx::WnGraphFaithful)):
+/// the source bytes are regenerated from the ONTOLOGY GRAPH (`title`) plus a
+/// content-addressed SYNTAX residue (`complement`) — the `<?xml-stylesheet?>`
+/// prolog PI, the `<!DOCTYPE>`, the root `xmlns` declarations, the §2.4
+/// inter-element white-space, the §3.1 intra-tag layout, the §4.6
+/// entity-reference form, the §2.11 end-of-line form, and the source attribute
+/// sequences — and NO stored raw blob (the `RawBytesComplementFloor`
+/// constant-complement). The complement is concrete-syntax, NOT ontology: the
+/// same `title` serialized two ways keeps one content address; only the
+/// per-source `complement` differs. The capture/reconstruct pair
+/// ([`capture_uslm_complement`] / [`reconstruct_uslm_source`]) is proven a
+/// byte-exact inverse over the LITERAL on-disk `usc_title_1-pl-119-90.xml`
+/// (slices U1–U5).
+///
+/// rkyv-serializable through the `prx`-gated derives on [`UsCodeTitle`] and
+/// [`UslmSyntaxComplement`] (and the runtime/residue types they reference) —
+/// additive `#[cfg_attr(feature = "prx", derive(rkyv::…))]` derives, so the
+/// default + wasm builds are unaffected.
+///
+/// `Eq` is intentionally NOT derived (unlike the WN-LMF `WnGraphFaithful`): the
+/// USC runtime aggregate [`UsCodeTitle`] is `PartialEq`-only by design, so this
+/// payload and the [`UsCodePrxEnvelope`] that carries it are `PartialEq`-only.
+/// rkyv (`Archive`/`Serialize`/`Deserialize`) does not require `Eq`, and the
+/// envelope is never used as a `HashSet`/`BTreeSet` key.
+#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct UscGraphFaithful {
+    /// The typed USLM title ontology — the GRAPH the source is regenerated from.
+    /// Captured by [`capture_uslm_complement`] (the same `read_uslm_title` model
+    /// `data` + `aux` project from), serialized here directly.
+    pub title: UsCodeTitle,
+    /// The concrete-syntax COMPLEMENT — the byte-affecting residue the typed
+    /// ontology does not carry (prolog PI, DOCTYPE, namespaces, white-space
+    /// layout, entity-reference form, end-of-line form, source attribute
+    /// sequences). Re-applied by [`reconstruct_uslm_source`] to reproduce the
+    /// source bytes exactly.
+    pub complement: UslmSyntaxComplement,
+}
+
+// =============================================================================
 // UscPrxMetadata — the OMV/PROV-O-grounded metadata block, USC structural metrics.
 // =============================================================================
 
@@ -307,31 +381,68 @@ pub struct UscPrxMetadata {
 }
 
 /// The rkyv-serializable `.prx` envelope for the U.S. Code: the archived
-/// section corpus, its subdivision-depth aux side-channel, and the
+/// section corpus, its subdivision-depth aux side-channel, the source
+/// reconstruction payload (graph-faithful OR raw floor), and the
 /// OMV/PROV-O-grounded metadata. Serialized to rkyv bytes and gzip-wrapped
 /// to form the `.prx.gz` artifact.
 ///
 /// Structurally the OWL
 /// [`PrxEnvelope`](crate::social::software::markup::xml::owl::prx::PrxEnvelope)
-/// plus exactly ONE field — [`Self::aux`] — because the U.S. Code carries
-/// subdivision DEPTH the OWL flat edge tables do not.
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+/// plus the [`Self::aux`] field (because the U.S. Code carries subdivision DEPTH
+/// the OWL flat edge tables do not) and the [`Self::graph`] field (the
+/// graph-faithful reconstruction payload, exactly as the WN-LMF
+/// [`WordNetPrxEnvelope`](crate::social::software::markup::xml::lmf::prx::WordNetPrxEnvelope)
+/// carries one).
+///
+/// # The two reconstruction tiers — one envelope, exactly one payload
+///
+/// `mode` selects which source-reconstruction payload the envelope carries, and
+/// the two are mutually exclusive:
+///
+/// - [`RoundTripFidelity::ByteExactGraphFaithful`] — `graph` is `Some`, `raw`
+///   is `None`: the source regenerates from the typed [`UsCodeTitle`] ontology
+///   plus the concrete-syntax [`UslmSyntaxComplement`] ([`UscGraphFaithful`]),
+///   NO stored raw blob. This is `usc_title_1`'s tier since SLICE U6 — the first
+///   graph-faithful USC `.prx` title.
+/// - [`RoundTripFidelity::RawBytesComplementFloor`] — `raw` is `Some`, `graph`
+///   is `None`: the source bytes are stored as a content-addressed constant
+///   complement (the universal floor the OTHER USC titles still ride, because
+///   they exercise USLM families `write_uslm` does not yet cover).
+///
+/// In both tiers [`Self::data`] + [`Self::aux`] (the reasoning view) are carried
+/// unchanged — the runtime materializes [`UsCode`] from them identically
+/// regardless of the reconstruction tier.
+///
+/// `Eq` is no longer derived: the new [`Self::graph`] payload transitively carries
+/// the `PartialEq`-only [`UsCodeTitle`], so the envelope is `PartialEq`-only. rkyv
+/// does not need `Eq` and nothing keys the envelope in a set.
+#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct UsCodePrxEnvelope {
     /// OMV/PROV-O-grounded self-description, incl. the source content hash
     /// the load gate validates.
     pub metadata: UscPrxMetadata,
     /// The archived section corpus — the owned mirror of the
-    /// `CodegenData<UsCode>` interchange (flat section leaves).
+    /// `CodegenData<UsCode>` interchange (flat section leaves). The runtime
+    /// reasoning view, carried unchanged in both reconstruction tiers.
     pub data: OwnedCodegenData,
     /// The subdivision-depth side-channel — the owned mirror of the
     /// [`UscSectionAux`] table [`UsCode::from_codegen_with_aux`] attaches.
-    /// This is the one structural delta from the OWL envelope.
+    /// The structural delta from the OWL envelope; carried unchanged in both
+    /// reconstruction tiers.
     pub aux: Vec<OwnedUscSectionAux>,
-    /// The source lens's [`RoundTripFidelity`] — `RawBytesComplementFloor`
-    /// for USC today (no byte-exact USLM writer + canonicalization yet).
+    /// The source lens's [`RoundTripFidelity`] — `ByteExactGraphFaithful` for
+    /// the proven `usc_title_1` since SLICE U6 (the typed ontology +
+    /// concrete-syntax complement regenerate the source from the graph alone),
+    /// `RawBytesComplementFloor` for the titles whose families `write_uslm` does
+    /// not yet cover.
     pub mode: RoundTripFidelity,
+    /// The graph-faithful reconstruction payload (typed ontology + concrete-
+    /// syntax complement) — `Some` iff `mode == ByteExactGraphFaithful`, `None`
+    /// otherwise (the floor stores `raw` instead). No raw blob is kept in this
+    /// tier; the source is regenerated from the graph.
+    pub graph: Option<UscGraphFaithful>,
     /// The content-addressed source bytes (the constant-complement) — `Some`
-    /// iff `mode == RawBytesComplementFloor`.
+    /// iff `mode == RawBytesComplementFloor`. `None` in the graph-faithful tier.
     pub raw: Option<RawSource>,
 }
 
@@ -389,17 +500,27 @@ fn usc_verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Res
 }
 
 /// Reconstruct the exact source USLM bytes from a USC envelope — the
-/// `.prx → xml` leg of the #186 byte-hash invariant. Mirrors the OWL
-/// `reconstruct_source` over the USC envelope.
+/// `.prx → xml` leg of the #186 byte-hash invariant. Mirrors the WN-LMF
+/// `wn_reconstruct_source` over the USC envelope.
 ///
-/// For [`RoundTripFidelity::RawBytesComplementFloor`] (USC today): return the
-/// stored `raw.blob` after enforcing the in-envelope honesty doctrine
-/// (`sha256(blob) == raw.content_address == metadata.source_sha256`). A
-/// tampered blob is rejected. [`RoundTripFidelity::ByteExactGraphFaithful`]
-/// would regenerate from `data`+`aux` via a byte-exact `write_uslm` + USLM
-/// canonicalization — the USC analogue of the OWL `write_owl`+RDFC gap
-/// (#258), unimplemented, so no envelope is emitted in that mode today.
+/// For [`RoundTripFidelity::RawBytesComplementFloor`] (the USC titles whose
+/// families `write_uslm` does not yet cover): return the stored `raw.blob` after
+/// enforcing the in-envelope honesty doctrine
+/// (`sha256(blob) == raw.content_address == metadata.source_sha256`). A tampered
+/// blob is rejected.
+///
+/// For [`RoundTripFidelity::ByteExactGraphFaithful`] (`usc_title_1` since SLICE
+/// U6): regenerate the source from the typed [`UsCodeTitle`] ontology PLUS the
+/// concrete-syntax [`UslmSyntaxComplement`] carried in `graph` via
+/// [`reconstruct_uslm_source`] (the graph-faithful `put`, NO stored raw blob),
+/// then enforce the SAME sha256 honesty gate the floor arm uses — the
+/// regenerated bytes MUST hash to `metadata.source_sha256` (the `praxis.lock`
+/// `[byte_exact_signatures]` / `[hashes]` pin). A regeneration that does not
+/// reproduce the pinned source is rejected ([`PrxError::HashMismatch`]),
+/// fail-closed, never fabricating or returning unverified bytes. No
+/// `unwrap`/`expect` on the path.
 pub fn usc_reconstruct_source(envelope: &UsCodePrxEnvelope) -> Result<Vec<u8>, PrxError> {
+    let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     match envelope.mode {
         RoundTripFidelity::RawBytesComplementFloor => {
             let raw = envelope
@@ -410,7 +531,6 @@ pub fn usc_reconstruct_source(envelope: &UsCodePrxEnvelope) -> Result<Vec<u8>, P
                         .to_string(),
                 })?;
             let computed = source_content_hash(&raw.blob);
-            let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
             if computed != raw.content_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (raw content address)"),
@@ -427,28 +547,62 @@ pub fn usc_reconstruct_source(envelope: &UsCodePrxEnvelope) -> Result<Vec<u8>, P
             }
             Ok(raw.blob.clone())
         }
-        RoundTripFidelity::ByteExactGraphFaithful => Err(PrxError::SourceNotReconstructible {
-            reason: "byte-exact USLM graph→source regeneration (write_uslm + USLM \
-                     canonicalization) is not yet implemented"
-                .to_string(),
-        }),
+        RoundTripFidelity::ByteExactGraphFaithful => {
+            // The graph-faithful payload (typed ontology + concrete-syntax
+            // complement) must be present — its absence is a malformed envelope,
+            // not a fabrication opportunity.
+            let graph =
+                envelope
+                    .graph
+                    .as_ref()
+                    .ok_or_else(|| PrxError::SourceNotReconstructible {
+                        reason: "ByteExactGraphFaithful envelope is missing its graph payload \
+                                 (typed ontology + concrete-syntax complement)"
+                            .to_string(),
+                    })?;
+            // Regenerate from the GRAPH alone (no stored raw blob): the typed
+            // USLM title ontology + the captured concrete-syntax complement. This
+            // is the byte-exact `put` proven inverse over the literal Title 1
+            // source (slices U1–U5).
+            let bytes = reconstruct_uslm_source(&graph.title, &graph.complement).map_err(|e| {
+                PrxError::SourceNotReconstructible {
+                    reason: format!("graph-faithful USLM reconstruction failed: {e}"),
+                }
+            })?;
+            // The SAME honesty gate the floor arm enforces: the regenerated bytes
+            // must hash to the pinned source content address. A regeneration that
+            // drifts from the pinned source fails closed.
+            let computed = source_content_hash(&bytes);
+            if computed != envelope.metadata.source_sha256 {
+                return Err(PrxError::HashMismatch {
+                    key: format!("{key} (graph-faithful reconstruction vs metadata)"),
+                    expected: envelope.metadata.source_sha256.clone(),
+                    found: computed,
+                });
+            }
+            Ok(bytes)
+        }
     }
 }
 
 /// Verify the source-identity leg: reconstruct the source and bind it to the
-/// trusted `SourcePin` (`praxis.lock` `[hashes]`). Mirrors OWL `verify_source_leg`.
+/// trusted `SourcePin` (`praxis.lock` `[hashes]`). Mirrors the WN-LMF
+/// `wn_verify_source_leg`.
+///
+/// Both tiers reconstruct the source and bind it to the trusted source pin — the
+/// floor from its stored raw complement, the graph-faithful tier from the
+/// ontology + concrete-syntax complement. [`usc_reconstruct_source`] already
+/// enforces the in-envelope honesty gate (regenerated == metadata hash); binding
+/// to `source_pin` additionally anchors it to the EXTERNAL `praxis.lock` pin
+/// (`[hashes]` == `[byte_exact_signatures]` for a graph-faithful title, since
+/// `put(get(b)) == b` makes the round-trip hash the raw-source hash).
 fn usc_verify_source_leg(
     envelope: &UsCodePrxEnvelope,
     source_pin: &str,
     key: &str,
 ) -> Result<(), PrxError> {
-    match envelope.mode {
-        RoundTripFidelity::RawBytesComplementFloor => {
-            let source_bytes = usc_reconstruct_source(envelope)?;
-            usc_verify_content_address(&source_bytes, source_pin, key)
-        }
-        RoundTripFidelity::ByteExactGraphFaithful => Ok(()),
-    }
+    let source_bytes = usc_reconstruct_source(envelope)?;
+    usc_verify_content_address(&source_bytes, source_pin, key)
 }
 
 /// Admit a decoded USC envelope only after BOTH gate legs verify, then
@@ -599,9 +753,42 @@ fn count_owned(subs: &[OwnedUscSubdivision]) -> usize {
 }
 
 /// Build a [`UsCodePrxEnvelope`] from USLM source bytes plus its registry
-/// `(name, version, url)`. Parses via `read_uslm_title`, projects with
-/// `title_to_owned`, attaches the OMV/PROV-O metadata, and carries the exact
-/// source bytes as the `RawBytesComplementFloor` raw leaf (content-addressed).
+/// `(name, version, url)`, preferring the GRAPH-FAITHFUL tier — `usc_title_1`'s
+/// tier since SLICE U6 — and gracefully degrading to the universal floor only
+/// for a title whose USLM families the structural writer cannot yet reproduce.
+/// Mirrors the WN-LMF `build_wordnet_envelope`.
+///
+/// 1. Parse the typed [`UsCodeTitle`] ontology once ([`read_uslm_title`]) and
+///    project the [`OwnedCodegenData`] + [`OwnedUscSectionAux`] reasoning view.
+///    This is carried unchanged in BOTH tiers.
+/// 2. ATTEMPT the graph-faithful `get`: [`capture_uslm_complement`] re-parses the
+///    source and captures the concrete-syntax [`UslmSyntaxComplement`] (prolog
+///    PI, DOCTYPE, namespaces, white-space layout, entity-reference form,
+///    end-of-line form, source attribute sequences) the byte-exact `put`
+///    re-applies.
+///    - **Captured** → emit `mode = ByteExactGraphFaithful`, the `graph` payload
+///      (ontology + complement), `raw = None` (NO stored raw blob; the source
+///      regenerates from the graph). This is `usc_title_1`'s tier.
+///    - **Uncovered family** ([`UslmReconstructError::Write`]) or **backbone
+///      divergence** ([`UslmReconstructError::Complement`]) → the structural
+///      writer cannot yet regenerate THIS title (e.g. `usc_title_18` /
+///      `usc_title_49`, which exercise the `<continuation>` flush-text family or
+///      `<def>` / `<marker>` / `<ins>` markup absent from Title 1, surfacing as a
+///      [`UslmWriteError::UncoveredFamily`](super::super::lens::writer::UslmWriteError);
+///      or a residue that is not a pure white-space/decl complement). Degrade
+///      HONESTLY to the universal floor: emit `mode = RawBytesComplementFloor`,
+///      `graph = None`, `raw =` the content-addressed source blob — the same
+///      constant-complement OWL rides. NEVER a silent lie: the floor tier is
+///      explicit in `mode`, and the completeness meter only declares a title
+///      graph-faithful when a lens is registered for it.
+///    - **Malformed source** ([`UslmReconstructError::Parse`] /
+///      [`UslmReconstructError::Read`]) → a hard error; a non-well-formed or
+///      unrecognised USLM document is a defect, not a floor candidate.
+///
+/// The OMV/PROV-O metadata's `source_sha256` is the content address of the exact
+/// source bytes (the `[hashes]` / `[byte_exact_signatures]` pin), against which
+/// [`usc_reconstruct_source`] gates the regenerated bytes fail-closed in BOTH
+/// tiers.
 pub fn build_usc_envelope(
     source: &[u8],
     name: &str,
@@ -610,6 +797,9 @@ pub fn build_usc_envelope(
 ) -> Result<UsCodePrxEnvelope, PrxError> {
     let text = core::str::from_utf8(source)
         .map_err(|e| PrxError::Read(format!("source is not UTF-8: {e}")))?;
+    // Parse the typed ontology once — the reasoning view (`data` + `aux`) is
+    // projected from it in both tiers, so the materialized `UsCode` is identical
+    // either way.
     let title = read_uslm_title(text).map_err(|e| PrxError::Read(format!("{e}")))?;
     let (data, aux) = title_to_owned(&title);
     let number_of_sections = aux.len() as u64;
@@ -627,16 +817,75 @@ pub fn build_usc_envelope(
         number_of_sections,
         number_of_subdivisions,
     };
-    Ok(UsCodePrxEnvelope {
-        metadata,
-        data,
-        aux,
-        mode: RoundTripFidelity::RawBytesComplementFloor,
-        raw: Some(RawSource {
-            content_address: source_sha256,
-            blob: source.to_vec(),
+
+    // The emitted tier MUST agree with the completeness meter's DECLARED tier —
+    // they are not allowed to be two disagreeing sources of truth. The meter
+    // declares a title graph-faithful ONLY when a graph-faithful lens is
+    // REGISTERED for `(name, version)` (it reads
+    // `lens_registrations().find(name@version).fidelity`; see
+    // `well_behaved_lens::completeness::completeness_meter`). So we consult THAT
+    // SAME registry here — a successful `capture_uslm_complement` is necessary but
+    // NOT sufficient to claim the graph-faithful tier; the title must ALSO have a
+    // registered `RoundTripFidelity::ByteExactGraphFaithful` lens. `usc_title_1`
+    // (registered `UslmGraphFaithfulLens`) qualifies; `usc_title_15/18/49` (no
+    // registration, or only the floor `UslmXmlLens`) do not and ride the floor —
+    // matching the meter. The lens registry is native-only (`linkme`); emit is a
+    // native `fetch`/`codegen` path, so the lookup is sound here.
+    let registered_graph_faithful =
+        crate::formal::meta::well_behaved_lens::lens_by_name(&format!("{name}@{version}"))
+            .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
+
+    // Attempt the graph-faithful capture. Prefer it ONLY for a registered
+    // graph-faithful title; otherwise degrade to the floor even on a successful
+    // capture. We still also degrade on an uncovered-family / backbone divergence.
+    match capture_uslm_complement(text) {
+        Ok((title_captured, complement)) if registered_graph_faithful => Ok(UsCodePrxEnvelope {
+            metadata,
+            data,
+            aux,
+            mode: RoundTripFidelity::ByteExactGraphFaithful,
+            graph: Some(UscGraphFaithful {
+                title: title_captured,
+                complement,
+            }),
+            raw: None,
         }),
-    })
+        // Capture SUCCEEDED but no graph-faithful lens is registered for this
+        // title — the meter declares it FLOOR, so emit the floor (the raw
+        // content-addressed blob), keeping emit-tier == meter-tier. The captured
+        // graph is discarded; the source regenerates from the stored blob.
+        Ok(_) => Ok(UsCodePrxEnvelope {
+            metadata,
+            data,
+            aux,
+            mode: RoundTripFidelity::RawBytesComplementFloor,
+            graph: None,
+            raw: Some(RawSource {
+                content_address: source_sha256,
+                blob: source.to_vec(),
+            }),
+        }),
+        // The structural writer cannot reproduce this title's backbone (an
+        // uncovered USLM family or a non-pure-white-space residue) — ride the
+        // universal floor (the content-addressed raw blob), honestly tiered.
+        Err(UslmReconstructError::Write(_) | UslmReconstructError::Complement(_)) => {
+            Ok(UsCodePrxEnvelope {
+                metadata,
+                data,
+                aux,
+                mode: RoundTripFidelity::RawBytesComplementFloor,
+                graph: None,
+                raw: Some(RawSource {
+                    content_address: source_sha256,
+                    blob: source.to_vec(),
+                }),
+            })
+        }
+        // A malformed / unrecognised USLM source is a defect, not a floor candidate.
+        Err(e @ (UslmReconstructError::Parse(_) | UslmReconstructError::Read(_))) => {
+            Err(PrxError::Read(format!("graph-faithful capture: {e}")))
+        }
+    }
 }
 
 /// Emit a USC `.prx.gz` artifact from USLM source bytes:
@@ -885,6 +1134,9 @@ mod tests {
             data,
             aux,
             mode: RoundTripFidelity::RawBytesComplementFloor,
+            // This fixture rides the universal floor (the raw blob); the
+            // graph-faithful payload is absent in this tier.
+            graph: None,
             raw: Some(RawSource {
                 content_address: source_sha256,
                 blob,
@@ -1180,5 +1432,218 @@ mod tests {
         let err =
             load_usc_prx_gz_from_lock(&prx_gz).expect_err("unpinned USC source must be rejected");
         assert!(matches!(err, PrxError::NoArchivePin { .. }), "got {err:?}");
+    }
+
+    // ── SLICE U6: graph-faithful .prx for the proven `usc_title_1` ──────────
+
+    /// The registry `(name, version)` of the PROVEN graph-faithful title.
+    const T1_NAME: &str = "usc_title_1";
+    const T1_VERSION: &str = "pl-119-90";
+    const T1_URL: &str =
+        "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc01@119-90.zip";
+
+    /// The LITERAL on-disk Title 1 USLM file — the raw published bytes EXACTLY,
+    /// CRLFs included (the same file the writer's
+    /// `real_title1_full_uscdoc_reconstruct_is_byte_exact` gate runs over).
+    /// `None` when the corpus is not provisioned (graceful skip).
+    fn real_title1_source() -> Option<Vec<u8>> {
+        let path = workspace_root()
+            .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
+        std::fs::read(&path).ok()
+    }
+
+    /// The graph-faithful build over the literal Title 1 source carries the typed
+    /// ontology + concrete-syntax complement (NO raw blob), and
+    /// `usc_reconstruct_source` regenerates the EXACT source bytes from the GRAPH
+    /// alone. The cheap in-memory cousin of the rkyv round-trip gate below.
+    #[test]
+    fn usc_title1_graph_faithful_reconstructs_source_byte_exact() {
+        let Some(source) = real_title1_source() else {
+            return; // corpus not provisioned — skip gracefully
+        };
+        let envelope = build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL)
+            .expect("build graph-faithful envelope over the literal Title 1 source");
+        // The tier is graph-faithful: graph payload present, NO raw blob.
+        assert_eq!(envelope.mode, RoundTripFidelity::ByteExactGraphFaithful);
+        assert!(
+            envelope.graph.is_some(),
+            "graph-faithful envelope carries the ontology + complement payload"
+        );
+        assert!(
+            envelope.raw.is_none(),
+            "graph-faithful envelope stores NO raw blob"
+        );
+        let out = usc_reconstruct_source(&envelope).expect("reconstruct");
+        assert_eq!(
+            out, source,
+            "usc_reconstruct_source must regenerate the exact literal Title 1 bytes from the graph"
+        );
+        assert_eq!(
+            source_content_hash(&out),
+            envelope.metadata.source_sha256,
+            "reconstructed bytes must hash to the pinned source content address"
+        );
+    }
+
+    /// Fail-closed: a graph-faithful envelope with no graph payload cannot
+    /// reconstruct its source — `usc_reconstruct_source` refuses `graph = None`
+    /// rather than fabricating bytes.
+    #[test]
+    fn usc_reconstruct_refuses_missing_graph_payload() {
+        let Some(source) = real_title1_source() else {
+            return;
+        };
+        let mut envelope =
+            build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL).expect("build envelope");
+        envelope.graph = None;
+        let err = usc_reconstruct_source(&envelope)
+            .expect_err("graph-faithful envelope without its payload must be rejected");
+        assert!(
+            matches!(err, PrxError::SourceNotReconstructible { .. }),
+            "got {err:?}"
+        );
+    }
+
+    /// Fail-closed: a drifted source pin (the graph still reconstructs the true
+    /// source, but it no longer matches the metadata pin) is rejected by the
+    /// in-envelope honesty gate rather than returning wrong bytes — the
+    /// graph-faithful analogue of the floor arm's tampered-blob test.
+    #[test]
+    fn usc_title1_graph_faithful_rejects_pin_drift() {
+        let Some(source) = real_title1_source() else {
+            return;
+        };
+        let mut envelope =
+            build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL).expect("build envelope");
+        envelope.metadata.source_sha256 = "0".repeat(64);
+        let err = usc_reconstruct_source(&envelope)
+            .expect_err("pin drift must fail closed (HashMismatch)");
+        assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
+    }
+
+    /// THE SLICE-U6 HARD GATE. The LITERAL on-disk `usc_title_1-pl-119-90.xml`
+    /// (CRLFs included) emits as a `ByteExactGraphFaithful` envelope, serializes
+    /// to rkyv bytes, loads back THROUGH the bytecheck-validated rkyv decode
+    /// ([`usc_envelope_from_bytes`]), reconstructs via [`usc_reconstruct_source`]
+    /// (the graph-faithful arm — typed [`UsCodeTitle`] ontology + concrete-syntax
+    /// complement, NO stored raw blob), and the regenerated bytes equal the source
+    /// BYTE-FOR-BYTE. This is the only non-vacuous proof that `usc_title_1`'s
+    /// `.prx` is graph-faithful end-to-end: the source bytes survive the FULL
+    /// serialize → bytecheck → reconstruct path, not just the in-memory
+    /// capture/reconstruct of slices U1–U5.
+    ///
+    /// AND the completeness meter reports `usc_title_1` graph-faithful (its
+    /// declared tier is `ByteExactGraphFaithful` via the registered
+    /// `UslmGraphFaithfulLens`, and it carries NO `write_uslm` gap), while the
+    /// OTHER registered USC titles (`usc_title_18` / `usc_title_49`, on the floor
+    /// `UslmXmlLens`) STILL carry their `write_uslm` gap. Gated behind the on-disk
+    /// file with a graceful skip — a plain checkout that hasn't provisioned Title 1
+    /// skips, the same doctrine the emitters use.
+    #[test]
+    fn usc_title1_graph_faithful_prx_round_trip_over_real_corpus() {
+        use crate::formal::meta::well_behaved_lens::{
+            CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
+        };
+
+        let Some(source) = real_title1_source() else {
+            return; // not provisioned on disk — skip gracefully
+        };
+
+        // Emit the graph-faithful envelope: typed ontology + concrete-syntax
+        // complement, NO raw blob.
+        let envelope = build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL)
+            .expect("build graph-faithful envelope over the literal Title 1 source");
+        assert_eq!(
+            envelope.mode,
+            Tier::ByteExactGraphFaithful,
+            "the literal Title 1 source emits the graph-faithful tier"
+        );
+        assert!(envelope.graph.is_some(), "graph payload present");
+        assert!(envelope.raw.is_none(), "NO stored raw blob in this tier");
+
+        // Serialize → rkyv bytes → bytecheck-validated decode (the full path, not
+        // just the in-memory capture/reconstruct of slices U1–U5).
+        let rkyv_bytes = usc_envelope_to_bytes(&envelope).expect("serialize envelope to rkyv");
+        let decoded =
+            usc_envelope_from_bytes(&rkyv_bytes).expect("bytecheck-validated rkyv decode");
+
+        // Reconstruct from the DECODED envelope's graph + complement.
+        let out = usc_reconstruct_source(&decoded).expect("graph-faithful reconstruct");
+
+        // BYTE-FOR-BYTE over the whole literal file. Report the EXACT first
+        // byte-diff for an honest failure (a bounded 80-byte window).
+        if out != source {
+            let first = out
+                .iter()
+                .zip(source.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or(out.len().min(source.len()));
+            let lo = first.saturating_sub(40);
+            let hi_out = (first + 40).min(out.len());
+            let hi_src = (first + 40).min(source.len());
+            panic!(
+                "graph-faithful .prx round-trip is NOT byte-exact: out.len()={}, \
+                 source.len()={}, first diff at byte {first}\n  out[..]: {:?}\n  src[..]: {:?}",
+                out.len(),
+                source.len(),
+                String::from_utf8_lossy(&out[lo..hi_out]),
+                String::from_utf8_lossy(&source[lo..hi_src]),
+            );
+        }
+        assert_eq!(
+            source_content_hash(&out),
+            decoded.metadata.source_sha256,
+            "the regenerated bytes must hash to the pinned source content address"
+        );
+
+        // The completeness meter reports usc_title_1 graph-faithful: declared tier
+        // == ByteExactGraphFaithful and NO write_uslm gap remains.
+        let meter = completeness_meter();
+        let t1_row: &CompletenessReport = meter
+            .iter()
+            .find(|r| r.source == "usc_title_1@pl-119-90")
+            .expect("usc_title_1 must have a completeness row");
+        assert_eq!(
+            t1_row.kind,
+            DecompileKind::UsCode,
+            "usc_title_1 routes through the USC decompile leaf"
+        );
+        assert_eq!(
+            t1_row.declared,
+            Tier::ByteExactGraphFaithful,
+            "usc_title_1 DECLARES graph-faithful (via the registered UslmGraphFaithfulLens)"
+        );
+        assert!(
+            t1_row.graph_faithful_gap.is_none(),
+            "usc_title_1 carries NO write_uslm gap — it IS graph-faithful, got gap {:?}",
+            t1_row.graph_faithful_gap
+        );
+        // With the title provisioned the harness MEASURES the achieved tier by
+        // running the byte-exact law; it must agree with the declaration (the
+        // anti-lie cross-check), never silently fall to the floor.
+        assert_eq!(
+            t1_row.achieved,
+            Some(Tier::ByteExactGraphFaithful),
+            "with the title on disk the harness must MEASURE graph-faithful (achieved == declared)"
+        );
+
+        // The OTHER USC titles STILL floor — their write_uslm gap remains, so the
+        // degrade is honest and the meter did not over-credit them. (They declare
+        // the floor via the UslmXmlLens registration; they keep their gap.)
+        for other in ["usc_title_18@pl-119-90", "usc_title_49@pl-119-90"] {
+            let row = meter
+                .iter()
+                .find(|r| r.source == other)
+                .unwrap_or_else(|| panic!("{other} must have a completeness row"));
+            assert_eq!(
+                row.declared,
+                Tier::RawBytesComplementFloor,
+                "{other} still DECLARES the floor (no graph-faithful lens registered for it)"
+            );
+            assert!(
+                row.graph_faithful_gap.is_some(),
+                "{other} still carries its write_uslm gap (it is NOT graph-faithful yet)"
+            );
+        }
     }
 }

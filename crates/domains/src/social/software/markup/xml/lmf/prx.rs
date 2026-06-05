@@ -746,10 +746,26 @@ pub fn build_wordnet_envelope(
         number_of_senses,
     };
 
-    // Attempt the graph-faithful capture. Prefer it; degrade to the floor only on
-    // a structural-writer backbone divergence.
+    // The emitted tier MUST agree with the completeness meter's DECLARED tier —
+    // a successful `capture_wn_complement` is necessary but NOT sufficient to
+    // claim the graph-faithful tier. The meter declares a source graph-faithful
+    // ONLY when a graph-faithful lens is REGISTERED for `(name, version)` (it
+    // reads `lens_registrations().find(name@version).fidelity`). We consult THAT
+    // SAME registry here so emit-tier == meter-tier: `english_wordnet`
+    // (registered `WordNetLmfLens`) qualifies; `us_legal_lexicon` (no
+    // registration) rides the floor even when capture succeeds — matching the
+    // meter (and mirroring `build_usc_envelope`'s registry gate). The lens
+    // registry is native-only (`linkme`); emit is a native `prx`/`fetch` path,
+    // so the lookup is sound here.
+    let registered_graph_faithful =
+        crate::formal::meta::well_behaved_lens::lens_by_name(&format!("{name}@{version}"))
+            .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
+
+    // Attempt the graph-faithful capture. Prefer it ONLY for a registered
+    // graph-faithful source; otherwise degrade to the floor even on a successful
+    // capture. We still also degrade on a structural-writer backbone divergence.
     match capture_wn_complement(text) {
-        Ok((wn_captured, complement)) => Ok(WordNetPrxEnvelope {
+        Ok((wn_captured, complement)) if registered_graph_faithful => Ok(WordNetPrxEnvelope {
             metadata,
             data,
             mode: RoundTripFidelity::ByteExactGraphFaithful,
@@ -758,6 +774,19 @@ pub fn build_wordnet_envelope(
                 complement,
             }),
             raw: None,
+        }),
+        // Capture SUCCEEDED but no graph-faithful lens is registered for this
+        // source — the meter declares it FLOOR, so emit the floor (the raw
+        // content-addressed blob), keeping emit-tier == meter-tier.
+        Ok(_) => Ok(WordNetPrxEnvelope {
+            metadata,
+            data,
+            mode: RoundTripFidelity::RawBytesComplementFloor,
+            graph: None,
+            raw: Some(RawSource {
+                content_address: source_sha256,
+                blob: source.to_vec(),
+            }),
         }),
         // The structural writer cannot reproduce this source's backbone — ride
         // the universal floor (the content-addressed raw blob), honestly tiered.
