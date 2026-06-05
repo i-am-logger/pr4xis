@@ -16,16 +16,17 @@
 //! checked byte-for-byte (`out == in`).
 //!
 //! It is the SOURCE round-trip, NOT the FORMAT round-trip (`prx_runtime_emit.rs`
-//! checks the latter). WordNet is praxis's FIRST graph-faithful source (SLICE
-//! 3b): its `.prx.gz` regenerates the source from the typed ontology plus a
-//! content-addressed concrete-syntax complement (NO stored raw blob), achieving
-//! [`RoundTripFidelity::ByteExactGraphFaithful`]. OWL and USC still ride the
-//! universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`]): the
-//! `.prx.gz` stores the exact source as a content-addressed constant complement
-//! and the decompile op returns it only after the `sha256` honesty gate. The
-//! test asserts the achieved tier PER KIND — graph-faithful for WordNet,
-//! floor-via-stored-complement for OWL/USC — so a tier regression in either
-//! direction fails loudly.
+//! checks the latter). praxis's graph-faithful `.prx` sources regenerate the
+//! source from the typed ontology plus a content-addressed concrete-syntax
+//! complement (NO stored raw blob), achieving
+//! [`RoundTripFidelity::ByteExactGraphFaithful`] — one per kind so far:
+//! `english_wordnet` (SLICE 3b), `usc_title_1` (SLICE U6), and `cito` (the first
+//! byte-exact OWL vocab). Every other source still rides the universal FLOOR
+//! ([`RoundTripFidelity::RawBytesComplementFloor`]): the `.prx.gz` stores the
+//! exact source as a content-addressed constant complement and the decompile op
+//! returns it only after the `sha256` honesty gate. The test asserts the
+//! achieved tier PER SOURCE against the completeness meter's DECLARED tier (the
+//! lens registration), so a tier regression in either direction fails loudly.
 //!
 //! # Graceful skip + non-vacuity
 //!
@@ -146,20 +147,20 @@ fn all_sources_source_round_trip_byte_exact() {
             entry.name, entry.version
         );
 
-        // The achieved tier, per SOURCE (not just per kind). `english_wordnet`
-        // is praxis's FIRST graph-faithful `.prx` source since SLICE 3b: its
-        // bytes regenerate from the typed ontology + a concrete-syntax
-        // complement (NO stored raw blob), so it carries
-        // `ByteExactGraphFaithful`. OWL and USC still ride the stored-complement
-        // FLOOR (their writers — `write_owl` + RDFC #258, `write_uslm` — remain
-        // the open gap). A WN-LMF source the structural writer cannot yet
+        // The achieved tier, per SOURCE (not just per kind). Graph-faithful
+        // `.prx` sources regenerate from the typed ontology + a concrete-syntax
+        // complement (NO stored raw blob), carrying `ByteExactGraphFaithful`:
+        // `english_wordnet` (SLICE 3b), `usc_title_1` (SLICE U6), and `cito`
+        // (the first byte-exact OWL vocab). The remaining OWL/USC sources still
+        // ride the stored-complement FLOOR — their per-source byte-exact writers
+        // are the open gap. A WN-LMF source the structural writer cannot yet
         // regenerate byte-exactly (`us_legal_lexicon`, whose child order the
         // DTD-ordered writer reorders) honestly degrades to the floor.
         //
         // The single source of truth for the EXPECTED tier is the completeness
         // meter's DECLARED tier (the lens registration), so the emit tier and the
-        // meter cannot drift: english_wordnet declares graph-faithful (a lens is
-        // registered), every other source declares the floor.
+        // meter cannot drift: a source declares graph-faithful iff a graph-
+        // faithful lens is registered for it, else it declares the floor.
         let expected_tier = meter_declared_tier(&entry.name, &entry.version);
         assert_eq!(
             fidelity, expected_tier,
@@ -299,11 +300,14 @@ fn completeness_meter_declared_tier_matches_achieved() {
 
 /// The graph-faithful WHITELIST used by
 /// [`completeness_meter_declared_tier_matches_achieved`] — `kind == WordNet`, OR
-/// `kind == UsCode && source` is exactly `usc_title_1@…`. Extracted so the meta-
-/// test below can prove the guard keeps its teeth against an over-claim leak.
+/// `kind == UsCode && source` is exactly `usc_title_1@…`, OR `kind == Owl &&
+/// source` is exactly `cito@…` (the first byte-exact OWL vocab; the other five
+/// OWL vocabs stay on the raw-bytes floor). Extracted so the meta-test below can
+/// prove the guard keeps its teeth against an over-claim leak.
 fn slice_allows_graph_faithful(kind: DecompileKind, source: &str) -> bool {
     kind == DecompileKind::WordNet
         || (kind == DecompileKind::UsCode && source.starts_with("usc_title_1@"))
+        || (kind == DecompileKind::Owl && source.starts_with("cito@"))
 }
 
 /// The over-claim guard in `completeness_meter_declared_tier_matches_achieved`
@@ -343,10 +347,18 @@ fn slice_guard_rejects_graph_faithful_over_claims() {
         );
     }
 
-    // An OWL source claiming graph-faithfulness is rejected too (only WordNet +
-    // usc_title_1 are graph-faithful in this slice).
-    assert!(!slice_allows_graph_faithful(
+    // cito is the first byte-exact OWL vocab — accepted.
+    assert!(slice_allows_graph_faithful(
         DecompileKind::Owl,
         "cito@2.8.1"
     ));
+    // A DIFFERENT OWL vocab claiming graph-faithfulness is still rejected — the
+    // `@`-anchored `cito@` prefix keeps the teeth so ONLY cito (not all OWL) is
+    // graph-faithful in this slice.
+    for leak in ["doco@1.3", "olia@2026-04-09", "prov_o@2013-04-30"] {
+        assert!(
+            !slice_allows_graph_faithful(DecompileKind::Owl, leak),
+            "{leak} (kind=Owl) must NOT be accepted — only cito is graph-faithful"
+        );
+    }
 }

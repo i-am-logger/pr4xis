@@ -83,6 +83,7 @@ fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
             references: Vec::new(),
         },
         mode: RoundTripFidelity::RawBytesComplementFloor,
+        graph: None,
         raw: Some(RawSource {
             content_address: hash,
             blob: source.to_vec(),

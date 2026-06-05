@@ -201,7 +201,14 @@ impl WellBehavedLens for OwlLens {
 // Round-trip harness registrations — one entry per bundled OWL source.
 // =============================================================================
 
-crate::register_lens!(CITO_LENS, "cito", "2.8.1", OwlLens);
+// NOTE: `cito@2.8.1` is NO LONGER registered with the floor `OwlLens` here — it
+// is praxis's first byte-exact graph-faithful OWL vocabulary, registered with
+// `OwlGraphFaithfulLens` (FIDELITY = ByteExactGraphFaithful) in
+// `super::graph_faithful_lens`. Registering it here too would double-register
+// the `cito@2.8.1` harness key (one floor, one byte-exact). The OTHER FIVE OWL
+// vocabularies keep the floor `OwlLens` below. CiTO's RDFC-1.0 graph-identity
+// gate (`[canonical_signatures]`, the `.prx` load-gate canonical leg) is
+// independent of its lens registration and stays in force unchanged.
 crate::register_lens!(DOCO_LENS, "doco", "1.3", OwlLens);
 crate::register_lens!(C4O_LENS, "c4o", "1.2", OwlLens);
 crate::register_lens!(BIRO_LENS, "biro", "1.1.1", OwlLens);

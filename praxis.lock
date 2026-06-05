@@ -380,13 +380,22 @@
 # hash). A CI guard asserts the rkyv crate version + features so a silent
 # dependency bump that would invalidate every archive pin is caught (see
 # `rkyv_archive_format_version_guard` in owl/prx.rs).
+# Re-pinned (#36 Leg 2): adding the byte-exact graph-faithful `graph:
+# Option<OwlGraphFaithful>` field to the shared `PrxEnvelope` struct shifts the
+# rkyv envelope layout for ALL six OWL vocabs (the new Option field perturbs the
+# archived struct even when `None`), so every `[archive_signatures]` MerkleRoot
+# moves. These pins are the per-toolchain build-output content addresses (NOT
+# durable identity — see the header note), re-pinned here from a
+# determinism-proven `dump_archive_addresses` run (identical across two runs).
+# The DURABLE pins ([hashes], [canonical_signatures]) are UNCHANGED for the five
+# floor vocabs; only cito additionally gains a [byte_exact_signatures] pin.
 [archive_signatures]
-"biro@1.1.1"             = "fa52ae534e3e8681d2142d6b7e096bd6f8ed7268470469b9c6e1264436f4a09e"
-"c4o@1.2"                = "f8f17c223f8c0ebae9302f6ffd9bf522e2bb271848c6e229943f183e895ee163"
-"cito@2.8.1"             = "0a87de693dbfb7d8c76f03fcf268974e1d582e60ae2c7ce7cee2e420b5905fac"
-"doco@1.3"               = "c8b2ceb1b2d7b8bc4078c03644e04333dad5570360b79d3e9705b6f36cf98859"
-"olia@2026-04-09"        = "711f6a0fc6c93c03dca67a5b5cd2e1a4d4f5333ae5ae06bee3fb1e2df1e61283"
-"prov_o@2013-04-30"      = "f858921e3aaaa9ee478765c0f60132a5f4a13e1b1e5251ab0454d4b1d749f1bf"
+"biro@1.1.1"             = "6371f6090263b85e9d1074aa90b79aa05e1be83cfdc599fdc63fc865bf8c1c4c"
+"c4o@1.2"                = "f61abe2dcc8a79edab9e28ee3a15390f97eff46dbbda576e0109700d809ebc32"
+"cito@2.8.1"             = "7821a3786d4a511125cfa683a30ab35caaae2bd5c7083a264ea473598b221607"
+"doco@1.3"               = "08545cdf34d27be793fd3ee4ba7d604981b7be1becad09117fa0b866dd7c04b8"
+"olia@2026-04-09"        = "23cba70cac9b2a996dd46409bb5a693c46a88c361665adf750a633ea4fa11ca4"
+"prov_o@2013-04-30"      = "e2b583fdf6c719e33b30d3836a541ebb7f26e6287d04024f3db9deb9a7a4c61b"
 "usc_title_1@pl-119-90" = "df3c96abc606158189ba9911ba8e0e5453828ceac7bfca4dd4bc2358f6eef767"
 "usc_title_15@pl-119-90" = "70ebb2bced68ac9ff2f066caa1294411ee03741ac39c1572ed867581553ca09a"
 "usc_title_18@pl-119-90" = "f26e2e76b3ab2e51643715cb892a37c6cfaabd9e5c8347ae8e226806734327e7"
@@ -420,3 +429,13 @@
 # hash equals the raw source content hash — i.e. this value MUST equal the
 # `usc_title_1@pl-119-90` `[hashes]` pin (registry.rs enforces sig == raw_hash).
 "usc_title_1@pl-119-90"  = "a334616a6e0956556bf9de99906caf8ae709535b3d47bbc1150acca673dad727"
+# CiTO 2.8.1 — praxis's FIRST byte-exact graph-faithful OWL vocabulary (#36 Leg
+# 2). The `OwlGraphFaithfulLens` regenerates the on-disk `cito-2.8.1.owl` bytes
+# from the typed `OwlOntology` graph + a STRUCTURED RDF/XML serialization
+# complement (the node-block/property-element striping + the namespace,
+# white-space, attribute, entity, EOL residue), with NO stored raw blob and NO
+# stored DOM. Because `put(get(b)) == b`, the byte-exact round-trip output hash
+# equals the raw source content hash — i.e. this value MUST equal the
+# `cito@2.8.1` `[hashes]` pin (registry.rs enforces sig == raw_hash). The other
+# five OWL vocabs (doco/c4o/biro/prov_o/olia) stay on the raw-bytes floor.
+"cito@2.8.1"             = "48b31bbb36f2a81efb9a65bd8334be6b41b7c00dd54dc4f8a061e69607d66a84"

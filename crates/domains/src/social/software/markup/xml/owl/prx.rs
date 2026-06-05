@@ -165,6 +165,7 @@ use crate::formal::meta::artifact_identity::schemes::raw_hash;
 use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens};
 
 use super::lens::OwlLens;
+use super::rdfxml_writer::reconstruct_owl_rdfxml_source;
 
 // =============================================================================
 // OMV / PROV-O term IRIs — the vocabulary the metadata block is typed by.
@@ -423,6 +424,42 @@ pub struct RawSource {
     pub blob: Vec<u8>,
 }
 
+/// The graph-faithful reconstruction payload: the typed [`OwlOntology`] graph
+/// PLUS the structured concrete-syntax [`OwlSyntaxComplement`] the byte-exact
+/// `put` ([`reconstruct_owl_rdfxml_source`]) re-applies. Present in a
+/// [`PrxEnvelope`] iff `mode == ByteExactGraphFaithful` (CiTO since this slice).
+///
+/// The OWL realisation of #186's graph-faithful tier — the direct sibling of
+/// WordNet's
+/// [`WnGraphFaithful`](crate::social::software::markup::xml::lmf::prx::WnGraphFaithful):
+/// the source bytes are regenerated from the ONTOLOGY GRAPH (`ontology`) plus a
+/// content-addressed structured RDF/XML SERIALIZATION complement (`complement` —
+/// the node-block/property-element striping + the generic DOCTYPE/namespace/
+/// white-space/attribute/entity/EOL residue) and NO stored raw blob (the
+/// `RawBytesComplementFloor` constant-complement). The complement is concrete
+/// syntax, NOT ontology: the same graph serialised two ways keeps one content
+/// address; only the per-source `complement` differs. The capture/reconstruct
+/// pair ([`capture_owl_complement`] / [`reconstruct_owl_rdfxml_source`]) is
+/// proven a byte-exact inverse over the real bundled CiTO source (the slice
+/// hard gate).
+///
+/// rkyv-serializable through the `prx`-gated derives on
+/// [`OwlSyntaxComplement`](super::rdfxml_writer::OwlSyntaxComplement) and the XML/residue
+/// types it references. [`OwlOntology`] is NOT rkyv-serializable (it carries the
+/// proof/category machinery), so it is NOT archived directly — the navigable
+/// reasoning view the runtime materializes is `data` (the [`OwnedCodegenData`]
+/// projection). The `complement` alone suffices for the byte-exact `put`; this
+/// payload therefore carries only the structured RDF/XML complement.
+#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct OwlGraphFaithful {
+    /// The structured RDF/XML serialization complement — the byte-affecting
+    /// residue the typed graph does not carry (the striping, the root
+    /// namespaces, the white-space, the exact source attribute sequences, the
+    /// §4.6 entity form, the §2.11 EOL form). Re-applied by
+    /// [`reconstruct_owl_rdfxml_source`] to reproduce the source bytes exactly.
+    pub complement: super::rdfxml_writer::OwlSyntaxComplement,
+}
+
 /// The rkyv-serializable `.prx` envelope: the archived corpus plus its
 /// OMV/PROV-O-grounded metadata. Serialized to rkyv bytes and gzip-wrapped
 /// to form the `.prx.gz` artifact.
@@ -432,16 +469,24 @@ pub struct PrxEnvelope {
     /// hash the load gate validates.
     pub metadata: PrxMetadata,
     /// The archived corpus — the owned mirror of the
-    /// `CodegenData<LoadedOwlVocabulary>` interchange.
+    /// `CodegenData<LoadedOwlVocabulary>` interchange. The runtime reasoning
+    /// view, carried unchanged in BOTH reconstruction tiers.
     pub data: OwnedCodegenData,
     /// The source lens's [`RoundTripFidelity`] — which PutGet law the
     /// source round-trips under, and therefore how `.prx` reconstructs it.
-    /// OWL is [`RoundTripFidelity::RawBytesComplementFloor`] today.
+    /// [`RoundTripFidelity::ByteExactGraphFaithful`] for CiTO (this slice);
+    /// [`RoundTripFidelity::RawBytesComplementFloor`] for the other five OWL
+    /// vocabs.
     pub mode: RoundTripFidelity,
+    /// The graph-faithful reconstruction payload (structured RDF/XML
+    /// complement) — `Some` iff `mode == ByteExactGraphFaithful` (CiTO), `None`
+    /// otherwise (the floor stores `raw` instead). NO raw blob is kept in this
+    /// tier; the source regenerates from the graph + complement.
+    pub graph: Option<OwlGraphFaithful>,
     /// The content-addressed source bytes (the constant-complement) —
     /// `Some` iff `mode == RawBytesComplementFloor`, `None` for a
     /// `ByteExactGraphFaithful` envelope (whose source is regenerable from
-    /// `data`).
+    /// `graph`).
     pub raw: Option<RawSource>,
 }
 
@@ -661,17 +706,21 @@ fn verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<
 /// metadata.source_sha256`); we then discharge a content-hash
 /// `IntegrityClaim` binding those bytes to the trusted `SourcePin`
 /// (`praxis.lock` `[hashes]`). A floor envelope with no raw leaf is rejected
-/// here. [`RoundTripFidelity::ByteExactGraphFaithful`] carries no source
-/// blob (the source regenerates from `data`, #258) and is not emitted
-/// today; the `MerkleRoot` archive pin already binds its `data`.
+/// here. [`RoundTripFidelity::ByteExactGraphFaithful`] (now emitted for
+/// cito) carries no raw blob either — [`reconstruct_source`] regenerates
+/// the exact source bytes from the typed graph + the structured RDF/XML
+/// complement, then the same content-hash claim binds them to the pin.
 fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Result<(), PrxError> {
-    match envelope.mode {
-        RoundTripFidelity::RawBytesComplementFloor => {
-            let source_bytes = reconstruct_source(envelope)?;
-            verify_content_address(&source_bytes, source_pin, key)
-        }
-        RoundTripFidelity::ByteExactGraphFaithful => Ok(()),
-    }
+    // BOTH tiers reconstruct the source and bind it to the trusted source pin —
+    // the floor from its stored raw complement, the graph-faithful tier from the
+    // structured RDF/XML complement (`reconstruct_source` now regenerates CiTO's
+    // exact bytes, so the source leg is no longer skipped). `reconstruct_source`
+    // already enforces the in-envelope honesty gate (regenerated == metadata
+    // hash); binding to `source_pin` anchors it to the EXTERNAL `praxis.lock`
+    // pin (`[hashes]` == `[byte_exact_signatures]` for a byte-exact source, since
+    // `put(get(b)) == b` makes the round-trip hash the raw-source hash).
+    let source_bytes = reconstruct_source(envelope)?;
+    verify_content_address(&source_bytes, source_pin, key)
 }
 
 /// Verify the **graph-identity (RDFC-1.0) leg**: the W3C RDF Dataset
@@ -696,27 +745,30 @@ fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Res
 /// [`PrxError::CanonicalUnderivable`]; a hash mismatch is
 /// [`PrxError::HashMismatch`].
 ///
-/// `ByteExactGraphFaithful` (not emitted for OWL today) carries no raw
-/// source leaf; its graph identity is already bound transitively through
-/// the `data` column under the `MerkleRoot` archive pin, so there is no
-/// separate source graph to canonicalize here.
+/// This runs for BOTH tiers: a `ByteExactGraphFaithful` envelope (cito)
+/// regenerates its exact source bytes from the structured complement, so
+/// the same RDFC canonical form is re-derived and pinned — the graph-
+/// identity leg is enforced for the byte-exact tier too, never skipped.
 fn verify_canonical_leg(
     envelope: &PrxEnvelope,
     canonical_pin: &str,
     key: &str,
 ) -> Result<(), PrxError> {
-    match envelope.mode {
-        RoundTripFidelity::RawBytesComplementFloor => {
-            let source_bytes = reconstruct_source(envelope)?;
-            let canonical_form =
-                OwlLens::canonical(&source_bytes).map_err(|e| PrxError::CanonicalUnderivable {
-                    key: key.to_string(),
-                    reason: format!("{e}"),
-                })?;
-            verify_content_address(&canonical_form, canonical_pin, key)
-        }
-        RoundTripFidelity::ByteExactGraphFaithful => Ok(()),
-    }
+    // The RDFC-1.0 graph-identity leg runs for BOTH tiers — for a graph-faithful
+    // CiTO envelope just as for a floor one. `reconstruct_source` now regenerates
+    // CiTO's exact source bytes from the structured complement, so `OwlLens::
+    // canonical` (read_owl_to_quads → rdf::canonicalize) re-derives the same RDFC
+    // canonical N-Quads it would from the on-disk source, and the
+    // `[canonical_signatures]` pin (229d0967) is enforced unchanged on the load
+    // path. The graph-identity gate is therefore NOT weakened by the byte-exact
+    // flip — both the source-bytes pin AND the source-graph pin bind CiTO.
+    let source_bytes = reconstruct_source(envelope)?;
+    let canonical_form =
+        OwlLens::canonical(&source_bytes).map_err(|e| PrxError::CanonicalUnderivable {
+            key: key.to_string(),
+            reason: format!("{e}"),
+        })?;
+    verify_content_address(&canonical_form, canonical_pin, key)
 }
 
 /// Admit a decoded envelope only after both legs of the load gate verify,
@@ -870,11 +922,41 @@ pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
             }
             Ok(raw.blob.clone())
         }
-        RoundTripFidelity::ByteExactGraphFaithful => Err(PrxError::SourceNotReconstructible {
-            reason: "byte-exact graph→source regeneration (write_owl + RDFC, #258) \
-                     is not yet implemented"
-                .to_string(),
-        }),
+        RoundTripFidelity::ByteExactGraphFaithful => {
+            // The graph-faithful payload (structured RDF/XML complement) must be
+            // present — its absence is a malformed envelope, not a fabrication
+            // opportunity. Mirrors `wn_reconstruct_source`.
+            let graph =
+                envelope
+                    .graph
+                    .as_ref()
+                    .ok_or_else(|| PrxError::SourceNotReconstructible {
+                        reason: "ByteExactGraphFaithful envelope is missing its graph payload \
+                             (structured RDF/XML complement)"
+                            .to_string(),
+                    })?;
+            // Regenerate from the GRAPH alone (NO stored raw blob): the structured
+            // RDF/XML striping + the captured concrete-syntax complement. This is
+            // the byte-exact `put` proven inverse over the real bundled CiTO source.
+            let bytes = reconstruct_owl_rdfxml_source(&graph.complement).map_err(|e| {
+                PrxError::SourceNotReconstructible {
+                    reason: format!("graph-faithful RDF/XML reconstruction failed: {e}"),
+                }
+            })?;
+            // The SAME honesty gate the floor arm enforces: the regenerated bytes
+            // must hash to the pinned source content address. A regeneration that
+            // drifts from the pinned source fails closed.
+            let computed = source_content_hash(&bytes);
+            let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
+            if computed != envelope.metadata.source_sha256 {
+                return Err(PrxError::HashMismatch {
+                    key: format!("{key} (graph-faithful reconstruction vs metadata)"),
+                    expected: envelope.metadata.source_sha256.clone(),
+                    found: computed,
+                });
+            }
+            Ok(bytes)
+        }
     }
 }
 
@@ -1016,20 +1098,49 @@ mod emit {
             number_of_classes,
             number_of_properties,
         };
-        // OWL is the RawBytesComplementFloor today: write_owl emits
-        // canonical RDF/XML (sorted entities, synthetic prefixes) — not
-        // byte-exact source — and RDF Dataset Canonicalization is
-        // unimplemented (#258), so the graph is not yet byte-faithful for
-        // OWL. Carry the exact source bytes content-addressed (the
-        // Bancilhon & Spyratos 1981 constant-complement) so `.prx`
-        // self-reconstructs the source NOW (the operator's "…→ ontology →
-        // .prx → xml, same byte hash" invariant). ByteExactGraphFaithful
-        // (raw omitted) is earned per-artifact once a byte-exact write_owl
-        // + RDFC lands.
+
+        // Tier selection (mirrors `build_wordnet_envelope`): prefer the
+        // BYTE-EXACT GRAPH-FAITHFUL tier ONLY for a source whose registered lens
+        // declares it (the completeness meter reads the SAME registry, so
+        // emit-tier == meter-tier), and only when the structural capture
+        // actually succeeds. CiTO (registered `OwlGraphFaithfulLens`) qualifies;
+        // the other five OWL vocabs (registered the floor `OwlLens`) ride the
+        // raw-bytes floor even though they parse — their byte-exact writer gap is
+        // not yet closed. A registered-graph-faithful source whose capture FAILS
+        // (a non-flat RDF/XML serialization the structural writer cannot
+        // regenerate) degrades HONESTLY to the floor, never a silent lie.
+        let registered_graph_faithful =
+            crate::formal::meta::well_behaved_lens::lens_by_name(&format!("{name}@{version}"))
+                .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
+
+        if registered_graph_faithful
+            && let Ok((_ont, complement)) =
+                crate::social::software::markup::xml::owl::rdfxml_writer::capture_owl_complement(
+                    text,
+                )
+        {
+            // ByteExactGraphFaithful: the source regenerates from the structured
+            // RDF/XML complement, NO stored raw blob (the byte-exact tier the
+            // operator's "…→ ontology → .prx → xml, same byte hash" invariant
+            // reaches WITHOUT a constant-complement side-channel).
+            return Ok(PrxEnvelope {
+                metadata,
+                data,
+                mode: RoundTripFidelity::ByteExactGraphFaithful,
+                graph: Some(OwlGraphFaithful { complement }),
+                raw: None,
+            });
+        }
+
+        // RawBytesComplementFloor: the other five OWL vocabs (and a
+        // graph-faithful-declared source whose capture failed). Carry the exact
+        // source bytes content-addressed (the Bancilhon & Spyratos 1981
+        // constant-complement) so `.prx` self-reconstructs the source.
         Ok(PrxEnvelope {
             metadata,
             data,
             mode: RoundTripFidelity::RawBytesComplementFloor,
+            graph: None,
             raw: Some(RawSource {
                 content_address: source_sha256,
                 blob: source.to_vec(),
@@ -1289,26 +1400,35 @@ mod tests {
         assert_eq!(loaded, direct, "loaded corpus must equal the direct corpus");
     }
 
-    // ── raw leaf: .prx → source byte-exact (BytesPlusView floor, #186) ─
+    // ── graph-faithful leaf: .prx → source byte-exact (CiTO, #36 Leg 2) ─
+    //
+    // CiTO is praxis's first byte-exact graph-faithful OWL vocab: its envelope
+    // carries the structured RDF/XML complement (`graph: Some`, `raw: None`), and
+    // `reconstruct_source` regenerates the exact source bytes from it — NO stored
+    // raw blob. The other five OWL vocabs still ride the raw-bytes floor.
 
     #[test]
-    fn raw_leaf_reconstructs_source_byte_exact() {
+    fn cito_graph_faithful_reconstructs_source_byte_exact() {
         let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
-        // OWL is the RawBytesComplementFloor today (write_owl not byte-exact; RDFC #258).
-        assert_eq!(envelope.mode, RoundTripFidelity::RawBytesComplementFloor);
-        let raw = envelope
-            .raw
-            .as_ref()
-            .expect("a BytesPlusView envelope carries a raw leaf");
-        assert_eq!(raw.content_address, envelope.metadata.source_sha256);
+        // CiTO is the byte-exact graph-faithful tier — no stored raw blob.
+        assert_eq!(envelope.mode, RoundTripFidelity::ByteExactGraphFaithful);
+        assert!(
+            envelope.graph.is_some(),
+            "a graph-faithful envelope carries the structured RDF/XML complement"
+        );
+        assert!(
+            envelope.raw.is_none(),
+            "a graph-faithful envelope stores NO raw blob (the rejected shortcut)"
+        );
 
-        // The .prx → source leg returns the EXACT original bytes …
+        // The .prx → source leg regenerates the EXACT original bytes from the
+        // graph + structured complement …
         let reconstructed = reconstruct_source(&envelope).expect("reconstruct");
         assert_eq!(
             reconstructed,
             CITO_2_8_1_OWL.as_bytes(),
-            "reconstruct_source must return the exact source bytes"
+            "reconstruct_source must return the exact source bytes (graph-faithful)"
         );
         // … so the operator's invariant holds: round-trip hash == source hash.
         assert_eq!(
@@ -1319,27 +1439,42 @@ mod tests {
     }
 
     #[test]
-    fn raw_leaf_survives_prx_gz_round_trip() {
-        // The raw leaf must survive the full rkyv + gzip envelope round-trip
-        // so a distributed .prx.gz is self-reconstructing.
+    fn cito_graph_faithful_survives_prx_gz_round_trip() {
+        // The structured complement must survive the full rkyv + gzip envelope
+        // round-trip so a distributed .prx.gz is self-reconstructing.
         let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
         let back = envelope_from_bytes(&gunzip(&prx_gz).expect("gunzip")).expect("deserialize");
-        assert_eq!(back.mode, RoundTripFidelity::RawBytesComplementFloor);
+        assert_eq!(back.mode, RoundTripFidelity::ByteExactGraphFaithful);
+        assert!(back.raw.is_none(), "no raw blob survives — none was stored");
         let reconstructed = reconstruct_source(&back).expect("reconstruct after round-trip");
         assert_eq!(reconstructed, CITO_2_8_1_OWL.as_bytes());
     }
 
     #[test]
-    fn raw_leaf_rejects_tampered_blob() {
-        // Fail-closed: if the carried bytes no longer hash to the content
-        // address, reconstruction refuses rather than returning wrong bytes.
+    fn cito_graph_faithful_rejects_tampered_complement() {
+        // Fail-closed: if the regenerated bytes no longer hash to the content
+        // address (here a corrupted property-element leaf text in the structured
+        // complement), reconstruction refuses rather than returning wrong bytes.
         let mut envelope =
             build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
                 .expect("build envelope");
-        envelope.raw.as_mut().expect("raw leaf").blob.push(b'!');
-        let err = reconstruct_source(&envelope).expect_err("tampered blob must fail closed");
+        let graph = envelope.graph.as_mut().expect("graph-faithful payload");
+        let mut flipped = false;
+        'outer: for block in &mut graph.complement.structure.node_blocks {
+            for prop in &mut block.properties {
+                if let super::super::rdfxml_writer::PropertyContent::Text(t) = &mut prop.content
+                    && !t.is_empty()
+                {
+                    t.push_str("__TAMPER__");
+                    flipped = true;
+                    break 'outer;
+                }
+            }
+        }
+        assert!(flipped, "found a leaf-text property to tamper");
+        let err = reconstruct_source(&envelope).expect_err("tampered complement must fail closed");
         assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
     }
 
@@ -1639,29 +1774,36 @@ mod tests {
         );
     }
 
-    /// The source leg — not the archive leg — rejects a floor envelope with
-    /// no raw complement: with a genuine MerkleRoot pin the archive check
-    /// passes, then `verify_source_leg` -> `reconstruct_source` refuses
-    /// `raw = None`.
+    /// The source leg — not the archive leg — rejects an envelope with no
+    /// reconstruction payload: with a genuine MerkleRoot pin the archive check
+    /// passes, then `verify_source_leg` -> `reconstruct_source` refuses an
+    /// envelope whose tier-appropriate payload is absent. For CiTO's
+    /// graph-faithful tier that is `graph = None` (the structured complement is
+    /// what the byte-exact `put` rides; without it there is nothing to
+    /// regenerate from).
     #[test]
-    fn load_rejects_floor_envelope_missing_raw_leaf() {
+    fn load_rejects_envelope_missing_reconstruction_payload() {
         let mut envelope =
             build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
                 .expect("build envelope");
+        // CiTO is graph-faithful — strip its structured complement so neither a
+        // raw leaf nor a graph payload is present.
+        assert_eq!(envelope.mode, RoundTripFidelity::ByteExactGraphFaithful);
+        envelope.graph = None;
         envelope.raw = None;
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-        // Genuine MerkleRoot for THIS (raw-less) envelope, so the archive
+        // Genuine MerkleRoot for THIS (payload-less) envelope, so the archive
         // leg passes and the source leg is what rejects.
         let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
         let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
         let canonical_pin = lock_canonical_signature("cito", "2.8.1")
             .expect("cito canonical pin")
             .to_string();
-        // The source leg runs before the canonical leg, so a missing raw
-        // leaf is rejected by `reconstruct_source` there (canonical pin
-        // value is immaterial — that leg is never reached).
+        // The source leg runs before the canonical leg, so a missing payload is
+        // rejected by `reconstruct_source` there (canonical pin value is
+        // immaterial — that leg is never reached).
         let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
-            .expect_err("missing raw leaf must reject");
+            .expect_err("missing reconstruction payload must reject");
         assert!(
             matches!(err, PrxError::SourceNotReconstructible { .. }),
             "expected SourceNotReconstructible from the source leg, got {err:?}"
@@ -1959,6 +2101,7 @@ mod tests {
             },
             data,
             mode: RoundTripFidelity::RawBytesComplementFloor,
+            graph: None,
             raw: Some(RawSource {
                 content_address: source_sha256,
                 blob: source.into_bytes(),

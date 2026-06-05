@@ -732,6 +732,14 @@ impl AttributeOverrides {
     pub fn len(&self) -> usize {
         self.by_index.len()
     }
+
+    /// Mutable iterator over each overridden element's exact source attribute
+    /// sequence. Used by the byte-exact corruption meta-tests to mutate a
+    /// captured attribute (e.g. a blank-node `rdf:nodeID`) and prove the
+    /// reconstruction diverges — the gate's teeth.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut ElementAttributes> {
+        self.by_index.values_mut()
+    }
 }
 
 /// The whole regenerated-tree complement: the inter-element white-space and the
