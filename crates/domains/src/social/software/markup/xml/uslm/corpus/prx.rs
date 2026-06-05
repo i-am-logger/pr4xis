@@ -691,7 +691,12 @@ fn title_to_owned(title: &UsCodeTitle) -> (OwnedCodegenData, Vec<OwnedUscSection
     for section in &title.sections {
         entity_ids.push(section.identifier.clone());
         entity_kind.push("section".to_string());
-        entity_labels.push(section.heading.clone());
+        // PROSE heading — footnote annotation stripped via the typed tree, so
+        // the archived `entity_labels` heading column MATCHES the XML path's
+        // `from_uslm_titles_owned` (`prose_text()`). The byte-exact source
+        // reconstruction regenerates from the typed `heading_mixed`, not this
+        // flat column, so U6 byte-exactness is unaffected.
+        entity_labels.push(section.heading_mixed.prose_text());
         // Reuse the EXACT corpus body-text projection (mod.rs) so the archive
         // matches `from_uslm_titles_owned`.
         entity_defs.push(super::section_body_text(section));
@@ -1359,17 +1364,24 @@ mod tests {
 
     // ── emit-all + lock gate ────────────────────────────────────────────
 
-    /// Emitting a registered USC title reproduces the exact `MerkleRoot` pinned
-    /// for it in `praxis.lock` `[archive_signatures]` — the emit→address→lock
-    /// anchor the fail-closed load gate relies on.
+    /// Every on-disk pinned USC title small enough to emit within CI's per-test
+    /// budget reproduces the exact `MerkleRoot` pinned for it in `praxis.lock`
+    /// `[archive_signatures]` — the emit→address→lock anchor the fail-closed load
+    /// gate relies on. Checking EVERY (not just the smallest) pinned title means
+    /// a stale or wrong pin is caught for that title — including the titles whose
+    /// archive shifts when a section heading carries a footnote (`prose_text`).
     ///
-    /// Uses the SMALLEST on-disk pinned title (Title 1 ≈ 58 KB) rather than
-    /// re-emitting every title (Title 42 ≈ 108 MB): re-emitting the whole corpus
-    /// is what tipped this test past the nextest `ci` profile's 30 s terminate-
-    /// after on CI's runner. The full-corpus emit + round-trip is `pr4xis
-    /// compile` (run in CI before the suite), and each title's emit→load
-    /// round-trip is exercised non-vacuously by `usc_emit_then_load_equals_corpus`;
-    /// this test pins the address↔lock anchor cheaply on a representative title.
+    /// Titles larger than [`ANCHOR_EMIT_SIZE_CAP`] are skipped here so the test
+    /// stays WELL under the nextest `ci` profile's 30 s terminate-after — re-
+    /// emitting the whole corpus (Title 42 ≈ 108 MB) is what tipped it over
+    /// before. The cap covers the small + mid pinned titles, including the
+    /// footnote-heading titles 18 and 28 whose `[archive_signatures]` shift with
+    /// the `prose_text` heading projection — so that regression class is self-
+    /// verified in-suite (not just the smallest, unaffected, title). The larger
+    /// titles (5/49/15/42) are anchored by the full-corpus `pr4xis compile` CI
+    /// step (see issue tracker: wire `compile --verify` to re-derive EVERY pin)
+    /// and by `loaded()`'s fail-closed prx gate; each title's emit→load round-
+    /// trip is exercised by `usc_emit_then_load_equals_corpus`.
     ///
     /// USC titles are externally provisioned (fetched via `pr4xis update`, NOT
     /// git-committed), so in a plain checkout none are on disk and the test skips
@@ -1378,42 +1390,35 @@ mod tests {
     fn usc_archive_anchors_match_lock() {
         use crate::applied::data_provisioning::registry::{data_sources, lock_archive_signature};
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        /// Skip titles whose XML exceeds this — keeps the per-test emit WELL
+        /// under CI's 30 s terminate-after while still covering the footnote-
+        /// heading titles (18 ≈ 12 MB, 28 ≈ 8 MB) whose archive shifts.
+        const ANCHOR_EMIT_SIZE_CAP: u64 = 16 * 1024 * 1024;
         let root = workspace_root();
-        // Pick the smallest on-disk, pinned USC title — emitting it reproduces
-        // its pinned MerkleRoot for a few KB of parse instead of ~85 MB.
-        let mut best: Option<(String, String, String, std::path::PathBuf, u64)> = None;
         for entry in data_sources() {
             if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
                 continue;
             }
-            if lock_archive_signature(&entry.name, &entry.version).is_none() {
-                continue;
-            }
+            let Some(pinned) = lock_archive_signature(&entry.name, &entry.version) else {
+                continue; // not pinned — nothing to anchor
+            };
             let path = root.join(entry.local_path());
             let Ok(meta) = std::fs::metadata(&path) else {
-                continue;
+                continue; // not provisioned on disk — skip gracefully
             };
-            if best.as_ref().is_none_or(|b| meta.len() < b.4) {
-                best = Some((
-                    entry.name.clone(),
-                    entry.version.clone(),
-                    entry.url.clone(),
-                    path,
-                    meta.len(),
-                ));
+            if meta.len() > ANCHOR_EMIT_SIZE_CAP {
+                continue; // too large for the per-test CI budget — see doc
             }
+            let src = std::fs::read(&path).expect("read pinned USC title");
+            let prx_gz = emit_usc_prx_gz(&src, &entry.name, &entry.version, &entry.url)
+                .expect("emit pinned USC title");
+            let addr = prx_archive_address(&prx_gz).expect("derive MerkleRoot");
+            assert_eq!(
+                addr, pinned,
+                "{}@{} .prx MerkleRoot must equal its [archive_signatures] pin",
+                entry.name, entry.version
+            );
         }
-        let Some((name, version, url, path, _)) = best else {
-            return; // no pinned USC title provisioned on disk — skip
-        };
-        let src = std::fs::read(&path).expect("read smallest pinned USC title");
-        let prx_gz = emit_usc_prx_gz(&src, &name, &version, &url).expect("emit smallest USC title");
-        let addr = prx_archive_address(&prx_gz).expect("derive MerkleRoot");
-        let pinned = lock_archive_signature(&name, &version).expect("pinned (filtered above)");
-        assert_eq!(
-            addr, pinned,
-            "{name}@{version} .prx MerkleRoot must equal its [archive_signatures] pin"
-        );
     }
 
     /// The lock-driven load path fails closed for a USC envelope whose

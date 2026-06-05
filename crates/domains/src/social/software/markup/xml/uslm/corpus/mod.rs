@@ -538,7 +538,18 @@ impl UsCode {
                     alloc::boxed::Box::leak(section.identifier.clone().into_boxed_str());
                 let urn =
                     Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, urn_str);
-                let heading = section.heading.clone();
+                // The section's PROSE heading — the title text minus the
+                // editorial footnote annotation the LRC nests inside the
+                // `<heading>` (a typed `<note type="footnote">` plus its
+                // `<ref class="footnoteRef">` marker). The flat
+                // `section.heading` (`heading_mixed.plain_text()`) flattens
+                // that footnote's own sentence INTO the title; the runtime
+                // vocabulary entry — and the lexical-understanding pipeline
+                // that reads it — wants the title, not the editor's note, so
+                // it projects from the typed tree via `prose_text()`. The
+                // corpus `section.heading` field itself stays untouched (the
+                // byte-exact writer path depends on it).
+                let heading = section.heading_mixed.prose_text();
                 let text = section_body_text(&section);
                 let (sub_vec, rel_vec) = subdivisions_to_static(&section.children, urn_str);
                 let subdivisions: &'static [UscSubdivision] =

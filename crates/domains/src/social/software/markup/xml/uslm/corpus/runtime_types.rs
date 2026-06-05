@@ -900,6 +900,47 @@ impl UsCodeContentNode {
             }
         }
     }
+
+    /// Append every descendant `#PCDATA` run that belongs to the element's
+    /// PROSE to `buf` (pre-order), SKIPPING editorial footnote annotation —
+    /// the typed `<note type="footnote">` the LRC nests inside a text-bearing
+    /// element (e.g. a `<heading>`) plus the superscript `<ref
+    /// class="footnoteRef">` marker that points at it.
+    ///
+    /// This is the discriminator the flat [`UsCodeMixed::plain_text`]
+    /// projection lacks: `plain_text` flattens the whole mixed tree, so the
+    /// footnote's own sentence ("Section catchline was not amended…") leaks
+    /// into the heading string and a reader of the prose sees the editor's
+    /// note as if it were part of the title. The typed model already
+    /// DISTINGUISHES these nodes (the footnote is a
+    /// [`Self::Generic`]`{ name: "note" }` carrying `type="footnote"`; the
+    /// marker is a [`Self::Ref`] carrying `class="footnoteRef"` — both per the
+    /// LRC USLM XML User Guide § "Notes" / XHTML footnote-reference idiom), so
+    /// the prose projection just declines to descend into them.
+    ///
+    /// CONSERVATIVE by construction: only those two annotation shapes are
+    /// skipped. A genuine `<ref href="…">` cross-reference in the prose is
+    /// kept (it has no `class="footnoteRef"`); a non-footnote `<note>` (e.g.
+    /// `type="uscNote"`) is kept (its `type` is not `"footnote"`); every other
+    /// node recurses exactly as [`Self::push_raw_text`] would.
+    pub fn push_prose_text(&self, buf: &mut String) {
+        match self {
+            Self::Text(t) => buf.push_str(t),
+            // The editorial footnote the LRC embeds inside a text-bearing
+            // element: a `<note type="footnote">`. Skip its WHOLE subtree —
+            // its `<num>` marker and its sentence are annotation, not prose.
+            Self::Generic { name, .. }
+                if name == "note" && self.attr("type") == Some("footnote") => {}
+            // The superscript marker that points at that footnote: a `<ref
+            // class="footnoteRef">`. Skip its subtree (the bare marker digit).
+            Self::Ref { .. } if self.attr("class") == Some("footnoteRef") => {}
+            other => {
+                for child in other.children() {
+                    child.push_prose_text(buf);
+                }
+            }
+        }
+    }
 }
 
 /// A USLM mixed-content sequence — the ordered child list of one text-bearing
@@ -945,6 +986,27 @@ impl UsCodeMixed {
     #[must_use]
     pub fn plain_text(&self) -> String {
         collapse_ws(&self.raw_text())
+    }
+
+    /// Whitespace-collapsed, trimmed PROSE text — `plain_text` minus the
+    /// editorial footnote annotation the LRC nests inside the element (the
+    /// typed `<note type="footnote">` and its `<ref class="footnoteRef">`
+    /// marker). See [`UsCodeContentNode::push_prose_text`].
+    ///
+    /// The lexical-understanding pipeline reads THIS, not `plain_text`: a
+    /// heading's prose is its title, and the editor's footnote ("Section
+    /// catchline was not amended…") is metadata about the title, not a word IN
+    /// the title — so resolving the heading's lemmas against WordNet should
+    /// never see "catchline". `plain_text` is deliberately left untouched
+    /// (the byte-exact writer + the `heading` flat projection depend on it),
+    /// so this is a strictly-narrower SIBLING projection, not a replacement.
+    #[must_use]
+    pub fn prose_text(&self) -> String {
+        let mut buf = String::new();
+        for node in &self.nodes {
+            node.push_prose_text(&mut buf);
+        }
+        collapse_ws(&buf)
     }
 }
 
@@ -1317,3 +1379,127 @@ impl core::fmt::Display for UslmReadError {
 }
 
 impl std::error::Error for UslmReadError {}
+
+#[cfg(test)]
+mod prose_text_tests {
+    use super::{UsCodeContentAttr, UsCodeContentNode, UsCodeMixed};
+    use alloc::{string::ToString, vec};
+
+    fn attr(name: &str, value: &str) -> UsCodeContentAttr {
+        UsCodeContentAttr {
+            name: name.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    fn text(s: &str) -> UsCodeContentNode {
+        UsCodeContentNode::Text(s.to_string())
+    }
+
+    /// A `<heading>` shaped exactly like the LRC catchline cases
+    /// (18 U.S.C. § 1303): prose text, then a `<ref class="footnoteRef">`
+    /// superscript marker, then the `<note type="footnote">` whose sentence
+    /// carries "catchline".
+    fn heading_with_footnote() -> UsCodeMixed {
+        UsCodeMixed {
+            nodes: vec![
+                text(" Postmaster or employee as lottery agent "),
+                UsCodeContentNode::Ref {
+                    attrs: vec![attr("class", "footnoteRef"), attr("idref", "fn002105")],
+                    children: vec![text("1")],
+                },
+                UsCodeContentNode::Generic {
+                    name: "note".to_string(),
+                    attrs: vec![attr("type", "footnote"), attr("id", "fn002105")],
+                    children: vec![
+                        UsCodeContentNode::Generic {
+                            name: "num".to_string(),
+                            attrs: vec![],
+                            children: vec![text("1")],
+                        },
+                        text(
+                            " Section catchline was not amended to conform to change made in the text by ",
+                        ),
+                        UsCodeContentNode::Ref {
+                            attrs: vec![attr("href", "/us/pl/91/375")],
+                            children: vec![text("Pub. L. 91–375")],
+                        },
+                        text("."),
+                    ],
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn prose_text_excludes_footnote_note() {
+        let prose = heading_with_footnote().prose_text();
+        assert_eq!(prose, "Postmaster or employee as lottery agent");
+        // Neither the footnote's sentence ("catchline") nor the superscript
+        // marker digit survives the prose projection.
+        assert!(
+            !prose.contains("catchline"),
+            "prose must not carry the footnote sentence: {prose:?}"
+        );
+        assert!(
+            !prose.contains("Section catchline"),
+            "prose must not carry the footnote sentence: {prose:?}"
+        );
+        // The `<ref class=footnoteRef>` marker leaf ("1") is also gone — the
+        // prose ends at "agent", not "agent 1".
+        assert!(
+            !prose.contains('1'),
+            "prose must not carry the footnoteRef marker digit: {prose:?}"
+        );
+    }
+
+    #[test]
+    fn prose_text_keeps_genuine_href_ref() {
+        // A genuine `<ref href="…">` cross-reference in the prose (NOT a
+        // footnoteRef) is kept — only `class="footnoteRef"` is skipped.
+        let mixed = UsCodeMixed {
+            nodes: vec![
+                text("Civil action — see "),
+                UsCodeContentNode::Ref {
+                    attrs: vec![attr("href", "/us/usc/t18/s1514A")],
+                    children: vec![text("section 1514A")],
+                },
+            ],
+        };
+        assert_eq!(mixed.prose_text(), "Civil action — see section 1514A");
+    }
+
+    #[test]
+    fn prose_text_keeps_non_footnote_note() {
+        // A `<note>` whose `type` is NOT "footnote" (e.g. "uscNote") is kept:
+        // the skip predicate is `type == "footnote"`, conservatively narrow.
+        let mixed = UsCodeMixed {
+            nodes: vec![
+                text("Definitions "),
+                UsCodeContentNode::Generic {
+                    name: "note".to_string(),
+                    attrs: vec![attr("type", "uscNote")],
+                    children: vec![text("kept-note-prose")],
+                },
+            ],
+        };
+        assert_eq!(mixed.prose_text(), "Definitions kept-note-prose");
+    }
+
+    #[test]
+    fn plain_text_still_includes_annotations() {
+        // `plain_text` is UNTOUCHED — on the same synthetic heading it STILL
+        // flattens the footnote (so U6 byte-exactness + the flat `heading`
+        // projection that depends on it are unchanged).
+        let plain = heading_with_footnote().plain_text();
+        assert!(
+            plain.contains("catchline"),
+            "plain_text must still flatten the footnote: {plain:?}"
+        );
+        assert_eq!(
+            plain,
+            "Postmaster or employee as lottery agent 11 Section catchline \
+             was not amended to conform to change made in the text by Pub. L. 91–375."
+        );
+    }
+}
