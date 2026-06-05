@@ -75,6 +75,20 @@ impl Quad {
         Self { triple, graph }
     }
 
+    /// Lift a [`Triple`] into a default-graph quad (`graph = None`).
+    ///
+    /// The canonical embedding of the RDF 1.1 graph model into the
+    /// dataset model (RDF 1.1 Concepts §4): every triple of a single
+    /// graph — e.g. the one an RDF/XML document denotes — belongs to the
+    /// dataset's *default graph*. Used by the OWL lens to present the
+    /// source triple stream to RDFC-1.0 as a default-graph dataset.
+    pub fn from_default_graph(triple: Triple) -> Self {
+        Self {
+            triple,
+            graph: None,
+        }
+    }
+
     /// Convenience accessors mirroring N-Quads positions.
     pub fn subject(&self) -> &RdfTerm {
         &self.triple.subject

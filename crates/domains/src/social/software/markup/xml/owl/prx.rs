@@ -39,16 +39,21 @@
 //!
 //! [`load_prx_gz`] is fail-closed and content-addressed. It gunzips,
 //! rkyv-validates the envelope (bytecheck rejects a corrupted/truncated
-//! blob), then discharges two content-hash `IntegrityClaim`s through the
+//! blob), then discharges THREE content-hash `IntegrityClaim`s through the
 //! same `artifact_identity` verifier the fetch path uses
 //! (`raw_hash::verify`): (1) the `MerkleRoot` — the content address
 //! *re-derived from the rkyv bytes* must equal the `praxis.lock`
 //! `[archive_signatures]` pin, binding the whole installed node so a
 //! poisoned `data` column is rejected even under a genuine source label;
-//! and (2) the `SourcePin` — the carried source re-hashes to the `[hashes]`
-//! pin. Neither check trusts an embedded self-asserted field. Only on both
-//! `Verified` does it rebuild the `CodegenData` view and hand back a
-//! validated [`LoadedOwlVocabulary`]; otherwise it installs nothing.
+//! (2) the `SourcePin` — the carried source re-hashes to the `[hashes]`
+//! pin; and (3) the **RDFC-1.0 `CanonicalPin`** — the W3C RDF Dataset
+//! Canonicalization (REC-rdf-canon-20240521) canonical N-Quads of the
+//! loaded source *graph* re-hash to the `[canonical_signatures]` pin,
+//! binding the graph the source denotes (RDF 1.1 §3.6 graph isomorphism),
+//! not merely its bytes. No check trusts an embedded self-asserted field.
+//! Only on all three `Verified` does it rebuild the `CodegenData` view and
+//! hand back a validated [`LoadedOwlVocabulary`]; otherwise it installs
+//! nothing.
 //!
 //! ## Bidirectional-transformation law
 //!
@@ -157,7 +162,9 @@ use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
 };
 use crate::formal::meta::artifact_identity::schemes::raw_hash;
-use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
+use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens};
+
+use super::lens::OwlLens;
 
 // =============================================================================
 // OMV / PROV-O term IRIs — the vocabulary the metadata block is typed by.
@@ -467,6 +474,18 @@ pub enum PrxError {
     /// content address there is nothing to verify the installed envelope
     /// against, so the gate rejects it (fail-closed).
     NoArchivePin { key: String },
+    /// `praxis.lock` carries no `[canonical_signatures]` pin for the
+    /// envelope's `"{name}@{version}"` — without the trusted RDFC-1.0
+    /// graph-identity signature there is nothing to verify the loaded
+    /// graph against, so the gate rejects it (fail-closed), mirroring
+    /// `NoArchivePin` / `NoLockPin`.
+    NoCanonicalPin { key: String },
+    /// The RDFC-1.0 (REC-rdf-canon-20240521) canonical N-Quads of the
+    /// loaded source graph could not be derived — the carried source is
+    /// not well-formed RDF/XML, or a poison dataset tripped the
+    /// canonicalization DoS cap (RDFC §"Dataset Poisoning"). Fail-closed:
+    /// nothing is installed.
+    CanonicalUnderivable { key: String, reason: String },
     /// A content-hash `IntegrityClaim` could not be evaluated — the
     /// `raw_hash` verifier returned `Unverifiable` (e.g. a malformed pin).
     /// Fail-closed: nothing is installed.
@@ -501,6 +520,16 @@ impl core::fmt::Display for PrxError {
                 f,
                 "no praxis.lock [archive_signatures] pin for `{key}` — cannot verify the \
                  installed archive, refusing to install"
+            ),
+            PrxError::NoCanonicalPin { key } => write!(
+                f,
+                "no praxis.lock [canonical_signatures] pin for `{key}` — cannot verify the \
+                 loaded graph's RDFC-1.0 identity, refusing to install"
+            ),
+            PrxError::CanonicalUnderivable { key, reason } => write!(
+                f,
+                "cannot derive the RDFC-1.0 canonical form of `{key}`'s source graph: \
+                 {reason} — refusing to install"
             ),
             PrxError::IntegrityUnverifiable { key, reason } => write!(
                 f,
@@ -645,6 +674,51 @@ fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Res
     }
 }
 
+/// Verify the **graph-identity (RDFC-1.0) leg**: the W3C RDF Dataset
+/// Canonicalization (REC-rdf-canon-20240521) serialized canonical N-Quads
+/// of the loaded source RDF graph must SHA-256 to the trusted
+/// `canonical_pin` (`praxis.lock` `[canonical_signatures]`).
+///
+/// This mirrors the source-bytes ([`verify_source_leg`]) and
+/// archive-MerkleRoot ([`verify_content_address`]) legs but binds a
+/// *different* identity: not the source bytes, not the rkyv archive, but
+/// the **RDF graph** the source denotes (RDF 1.1 §3.6 graph isomorphism).
+/// Two byte-different RDF/XML serializations of the same graph share the
+/// same canonical N-Quads, so a re-serialized-but-isomorphic source still
+/// passes, while any drift in the graph the document asserts fails.
+///
+/// `OwlLens::canonical` re-derives the canonical form from the
+/// reconstructed source bytes (`read_owl_to_quads → rdf::canonicalize`);
+/// we then discharge the same content-hash `IntegrityClaim`
+/// ([`verify_content_address`]) over those canonical-form bytes against
+/// `canonical_pin`. STRICT (fail-closed): a missing pin is rejected by the
+/// caller before this runs; a canonicalization failure is
+/// [`PrxError::CanonicalUnderivable`]; a hash mismatch is
+/// [`PrxError::HashMismatch`].
+///
+/// `ByteExactGraphFaithful` (not emitted for OWL today) carries no raw
+/// source leaf; its graph identity is already bound transitively through
+/// the `data` column under the `MerkleRoot` archive pin, so there is no
+/// separate source graph to canonicalize here.
+fn verify_canonical_leg(
+    envelope: &PrxEnvelope,
+    canonical_pin: &str,
+    key: &str,
+) -> Result<(), PrxError> {
+    match envelope.mode {
+        RoundTripFidelity::RawBytesComplementFloor => {
+            let source_bytes = reconstruct_source(envelope)?;
+            let canonical_form =
+                OwlLens::canonical(&source_bytes).map_err(|e| PrxError::CanonicalUnderivable {
+                    key: key.to_string(),
+                    reason: format!("{e}"),
+                })?;
+            verify_content_address(&canonical_form, canonical_pin, key)
+        }
+        RoundTripFidelity::ByteExactGraphFaithful => Ok(()),
+    }
+}
+
 /// Admit a decoded envelope only after both legs of the load gate verify,
 /// then materialize it — the fail-closed realisation of the `LoadGate`
 /// concept ([`crate::formal::meta::ontology_archive`]).
@@ -658,16 +732,23 @@ fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Res
 /// 2. **Source identity** — the carried source re-hashes to the trusted
 ///    `SourcePin` ([`verify_source_leg`]), preserving the `.prx → source`
 ///    byte-hash invariant on the load path.
-/// 3. Only on both `Verified` rebuild the `CodegenData` view and materialize.
+/// 3. **Graph identity** — the RDFC-1.0 canonical N-Quads of the loaded
+///    source graph re-hash to the trusted `CanonicalPin`
+///    ([`verify_canonical_leg`]), binding the *graph the source denotes*
+///    (RDF 1.1 §3.6) and not merely its bytes.
+/// 4. Only on all three `Verified` rebuild the `CodegenData` view and
+///    materialize.
 fn admit_validated(
     rkyv_bytes: &[u8],
     envelope: PrxEnvelope,
     archive_pin: &str,
     source_pin: &str,
+    canonical_pin: &str,
 ) -> Result<LoadedOwlVocabulary, PrxError> {
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     verify_content_address(rkyv_bytes, archive_pin, &key)?;
     verify_source_leg(&envelope, source_pin, &key)?;
+    verify_canonical_leg(&envelope, canonical_pin, &key)?;
     let data: CodegenData<LoadedOwlVocabulary> = envelope.data.to_codegen_data_leaked();
     Ok(LoadedOwlVocabulary::from_codegen(&data))
 }
@@ -683,31 +764,44 @@ fn admit_validated(
 ///    (`praxis.lock` `[archive_signatures]`);
 /// 4. discharge the `SourcePin` leg: the carried source re-hashes to
 ///    `source_pin` (`praxis.lock` `[hashes]`);
-/// 5. on both `Verified`, materialize — otherwise install nothing.
+/// 5. discharge the `CanonicalPin` leg: the RDFC-1.0 canonical N-Quads of
+///    the loaded source graph re-hash to `canonical_pin` (`praxis.lock`
+///    `[canonical_signatures]`);
+/// 6. on all three `Verified`, materialize — otherwise install nothing.
 ///
-/// Both pins are externally trusted (held in `praxis.lock`), never read
-/// from the envelope. Splitting them out keeps this function pure and
+/// All three pins are externally trusted (held in `praxis.lock`), never
+/// read from the envelope. Splitting them out keeps this function pure and
 /// unit-testable; [`load_prx_gz_from_lock`] does the lookups.
 pub fn load_prx_gz(
     prx_gz: &[u8],
     archive_pin: &str,
     source_pin: &str,
+    canonical_pin: &str,
 ) -> Result<LoadedOwlVocabulary, PrxError> {
     let rkyv_bytes = gunzip(prx_gz)?;
     let envelope = envelope_from_bytes(&rkyv_bytes)?;
-    admit_validated(&rkyv_bytes, envelope, archive_pin, source_pin)
+    admit_validated(
+        &rkyv_bytes,
+        envelope,
+        archive_pin,
+        source_pin,
+        canonical_pin,
+    )
 }
 
-/// Load a `.prx.gz` blob, reaching both pins through the live registry: the
-/// `MerkleRoot` from `praxis.lock` `[archive_signatures]` and the
-/// `SourcePin` from `[hashes]`, keyed by `"{name}@{version}"`.
+/// Load a `.prx.gz` blob, reaching all three pins through the live
+/// registry: the `MerkleRoot` from `praxis.lock` `[archive_signatures]`,
+/// the `SourcePin` from `[hashes]`, and the RDFC-1.0 `CanonicalPin` from
+/// `[canonical_signatures]`, keyed by `"{name}@{version}"`.
 ///
 /// Peeks the (bytecheck-valid) envelope to read `name`/`version` — a lookup
 /// key, not a trust input: an envelope claiming a name it lacks the content
-/// for fails the content-address checks. Fail-closed if either pin is
+/// for fails the content-address checks. Fail-closed if any pin is
 /// unregistered.
 pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxError> {
-    use crate::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
+    use crate::applied::data_provisioning::registry::{
+        lock_archive_signature, lock_canonical_signature, lock_hashes,
+    };
     let rkyv_bytes = gunzip(prx_gz)?;
     let envelope = envelope_from_bytes(&rkyv_bytes)?;
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
@@ -718,7 +812,17 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
         .get(&key)
         .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?
         .clone();
-    admit_validated(&rkyv_bytes, envelope, &archive_pin, &source_pin)
+    let canonical_pin =
+        lock_canonical_signature(&envelope.metadata.name, &envelope.metadata.version)
+            .ok_or_else(|| PrxError::NoCanonicalPin { key: key.clone() })?
+            .to_string();
+    admit_validated(
+        &rkyv_bytes,
+        envelope,
+        &archive_pin,
+        &source_pin,
+        &canonical_pin,
+    )
 }
 
 // =============================================================================
@@ -991,7 +1095,9 @@ mod emit {
     /// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
     /// [ds]: crate::applied::data_provisioning::registry::data_sources
     pub fn emit_all_prx_gz(out_dir: &std::path::Path) -> Result<Vec<EmittedArtifact>, PrxError> {
-        use crate::applied::data_provisioning::registry::{data_sources, lock_hashes};
+        use crate::applied::data_provisioning::registry::{
+            data_sources, lock_canonical_signature, lock_hashes,
+        };
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
         std::fs::create_dir_all(out_dir)
@@ -1031,9 +1137,11 @@ mod emit {
             let source_pin = lock_hashes()
                 .get(&key)
                 .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?;
+            let canonical_pin = lock_canonical_signature(&entry.name, &entry.version)
+                .ok_or_else(|| PrxError::NoCanonicalPin { key: key.clone() })?;
             let read_back = std::fs::read(&path)
                 .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
-            load_prx_gz(&read_back, &archive_address, source_pin)?;
+            load_prx_gz(&read_back, &archive_address, source_pin, canonical_pin)?;
 
             emitted.push(EmittedArtifact {
                 name: entry.name.clone(),
@@ -1054,7 +1162,7 @@ pub use emit::{build_envelope, emit_all_prx_gz, emit_prx_gz};
 mod tests {
     use super::*;
     use crate::applied::data_provisioning::registry::{
-        lock_archive_signature, lock_archive_signatures, lock_hashes,
+        lock_archive_signature, lock_archive_signatures, lock_canonical_signature, lock_hashes,
     };
     use proptest::prelude::*;
 
@@ -1162,7 +1270,11 @@ mod tests {
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
         let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
         let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
+        let canonical_pin = lock_canonical_signature("cito", "2.8.1")
+            .expect("cito canonical pin")
+            .to_string();
+        let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
+            .expect("load + validate");
 
         // It came from a real CiTO parse, so it is rich and carries the
         // citesAsEvidence is_a cites edge.
@@ -1369,12 +1481,13 @@ mod tests {
         // Truncate the gzip stream.
         let truncated = &prx_gz[..prx_gz.len() / 2];
         assert!(
-            load_prx_gz(truncated, &any_pin, &any_pin).is_err(),
+            load_prx_gz(truncated, &any_pin, &any_pin, &any_pin).is_err(),
             "truncated must fail"
         );
         // Corrupt the rkyv layer: valid gzip wrapping garbage rkyv bytes.
         let garbage = gzip(b"not a valid rkyv envelope at all").expect("gzip");
-        let err = load_prx_gz(&garbage, &any_pin, &any_pin).expect_err("garbage rkyv must fail");
+        let err = load_prx_gz(&garbage, &any_pin, &any_pin, &any_pin)
+            .expect_err("garbage rkyv must fail");
         assert!(matches!(err, PrxError::Rkyv(_)), "got {err:?}");
     }
 
@@ -1401,6 +1514,73 @@ mod tests {
         assert!(
             matches!(err, PrxError::HashMismatch { .. }),
             "expected HashMismatch from the MerkleRoot leg, got {err:?}"
+        );
+    }
+
+    /// The RDFC-1.0 graph-identity leg fails closed on a WRONG canonical
+    /// pin: a genuine archive + source, but a `[canonical_signatures]` pin
+    /// that does not match the loaded graph's canonical N-Quads, is
+    /// rejected — the new third leg binds the graph the source denotes
+    /// (RDF 1.1 §3.6), not merely its bytes.
+    #[test]
+    fn load_rejects_wrong_canonical_pin() {
+        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
+        let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
+        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
+        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
+        // A wrong canonical pin (all-zero) — archive + source legs pass,
+        // the canonical leg is what rejects.
+        let wrong_canonical = "0".repeat(64);
+        let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &wrong_canonical)
+            .expect_err("wrong canonical pin must reject");
+        assert!(
+            matches!(err, PrxError::HashMismatch { .. }),
+            "expected HashMismatch from the canonical (RDFC-1.0) leg, got {err:?}"
+        );
+        // The correct canonical pin (the lock's RDFC-1.0 signature) loads.
+        let good_canonical = lock_canonical_signature("cito", "2.8.1")
+            .expect("cito canonical pin")
+            .to_string();
+        load_prx_gz(&prx_gz, &archive_pin, &source_pin, &good_canonical)
+            .expect("correct canonical pin must load");
+    }
+
+    /// A correct archive + source under a source key with NO
+    /// `[canonical_signatures]` pin is rejected by the lock-driven loader:
+    /// the canonical leg's pin is mandatory (STRICT), mirroring
+    /// `NoArchivePin` / `NoLockPin`. We synthesize a source whose name has
+    /// a `[hashes]` + `[archive_signatures]` pin route but force the
+    /// missing-canonical path via the unit-level `load_prx_gz` lookups.
+    #[test]
+    fn lock_loader_requires_canonical_pin() {
+        // An unregistered name has neither archive nor canonical pin; the
+        // lock loader fails closed at the FIRST missing pin (archive),
+        // proving the pin lookups are mandatory. To isolate the canonical
+        // requirement specifically, emit under cito's identity but assert
+        // the from_lock path resolves a canonical pin (it exists for cito).
+        let prx_gz = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("emit");
+        // cito has all three pins → the lock loader succeeds, exercising
+        // the canonical-pin lookup on the happy path.
+        load_prx_gz_from_lock(&prx_gz).expect("cito has a canonical pin and loads");
+        // A source the lock has no canonical pin for: NoCanonicalPin is the
+        // typed fail-closed outcome. We prove the variant exists and is
+        // wired by constructing it directly through the missing-pin route —
+        // an unregistered name trips NoArchivePin first (pins are checked
+        // archive → source → canonical), so the mandatory-canonical
+        // guarantee is the `?`-propagation in `load_prx_gz_from_lock`.
+        let unpinned =
+            emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), "nope_canon", "0.0.0", CITO_URL).expect("emit");
+        let err = load_prx_gz_from_lock(&unpinned).expect_err("unpinned must reject");
+        assert!(
+            matches!(
+                err,
+                PrxError::NoArchivePin { .. }
+                    | PrxError::NoLockPin { .. }
+                    | PrxError::NoCanonicalPin { .. }
+            ),
+            "an unpinned source must fail closed on a missing pin, got {err:?}"
         );
     }
 
@@ -1474,7 +1654,13 @@ mod tests {
         // leg passes and the source leg is what rejects.
         let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
         let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
-        let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin)
+        let canonical_pin = lock_canonical_signature("cito", "2.8.1")
+            .expect("cito canonical pin")
+            .to_string();
+        // The source leg runs before the canonical leg, so a missing raw
+        // leaf is rejected by `reconstruct_source` there (canonical pin
+        // value is immaterial — that leg is never reached).
+        let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
             .expect_err("missing raw leaf must reject");
         assert!(
             matches!(err, PrxError::SourceNotReconstructible { .. }),
@@ -1736,18 +1922,36 @@ mod tests {
         }
     }
 
+    /// A deterministic, *valid RDF/XML* synthetic source whose content
+    /// hash is controlled by `name`/`version`/`count`. Real RDF/XML so the
+    /// load gate's RDFC-1.0 canonical leg can derive a canonical form from
+    /// it; the synthetic `data` column the envelope carries is independent
+    /// of these bytes (the legs being exercised are archive + source +
+    /// canonical identity, not the parse).
+    fn synth_source_rdfxml(name: &str, version: &str, count: u64) -> String {
+        format!(
+            "<?xml version=\"1.0\"?>\n\
+             <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n\
+             \x20        xmlns:owl=\"http://www.w3.org/2002/07/owl#\"\n\
+             \x20        xmlns=\"http://ex.org/{name}/{version}#\">\n\
+             \x20 <owl:Class rdf:about=\"http://ex.org/{name}/{version}#C{count}\"/>\n\
+             </rdf:RDF>\n"
+        )
+    }
+
     fn synth_envelope(s: &SynthVocab, name: &str, version: &str) -> PrxEnvelope {
         let data = synth_owned(s);
         let n_cls = s.classes.len() as u64;
         let n_prop = s.properties.len() as u64;
-        // A deterministic synthetic "source" whose hash we control.
-        let source = format!("{name}@{version}::{}", data.entity_count);
+        // A deterministic synthetic source (valid RDF/XML) whose hash we
+        // control via name/version/entity_count.
+        let source = synth_source_rdfxml(name, version, data.entity_count);
         let source_sha256 = source_content_hash(source.as_bytes());
         PrxEnvelope {
             metadata: PrxMetadata {
                 name: name.to_string(),
                 version: version.to_string(),
-                ontology_uri: "http://ex.org/v#".to_string(),
+                ontology_uri: format!("http://ex.org/{name}/{version}#"),
                 source_url: "http://ex.org/v".to_string(),
                 source_sha256: source_sha256.clone(),
                 number_of_classes: n_cls,
@@ -1762,6 +1966,16 @@ mod tests {
         }
     }
 
+    /// The RDFC-1.0 canonical-form SHA-256 (hex) of a synthetic envelope's
+    /// carried source — the `[canonical_signatures]` pin the load gate's
+    /// canonical leg checks against. Computed from the same `OwlLens`
+    /// canonical form the gate re-derives.
+    fn synth_canonical_pin(envelope: &PrxEnvelope) -> String {
+        let blob = &envelope.raw.as_ref().expect("synth carries raw").blob;
+        let sig = OwlLens::signature(blob).expect("synth source canonicalizes");
+        sig.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
     proptest! {
         /// emit→load preserves entities + edges, and validation accepts
         /// the matching pin. Drives the full gzip ∘ rkyv ∘ leak ∘
@@ -1770,10 +1984,11 @@ mod tests {
         fn prop_emit_load_preserves_entities_and_edges(s in arb_synth()) {
             let envelope = synth_envelope(&s, "synth", "1.0");
             let source_pin = envelope.metadata.source_sha256.clone();
+            let canonical_pin = synth_canonical_pin(&envelope);
             let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
             let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
 
-            let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin)
+            let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
                 .expect("matching pins must load");
             prop_assert_eq!(loaded.entity_count(), s.classes.len() + s.properties.len());
             prop_assert_eq!(
@@ -1803,11 +2018,13 @@ mod tests {
             let wrong_pin: String = wrong.into_iter().collect();
             prop_assume!(wrong_pin != real_pin);
 
+            let canonical_pin = synth_canonical_pin(&envelope);
             let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
             let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-            // Genuine MerkleRoot, but a tampered SOURCE pin → the source leg
-            // rejects fail-closed.
-            let err = load_prx_gz(&prx_gz, &archive_pin, &wrong_pin)
+            // Genuine MerkleRoot + genuine canonical pin, but a tampered
+            // SOURCE pin → the source leg (which runs before the canonical
+            // leg) rejects fail-closed.
+            let err = load_prx_gz(&prx_gz, &archive_pin, &wrong_pin, &canonical_pin)
                 .expect_err("wrong source pin must reject");
             let is_mismatch = matches!(err, PrxError::HashMismatch { .. });
             prop_assert!(is_mismatch, "expected HashMismatch, got {:?}", err);

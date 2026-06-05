@@ -179,13 +179,36 @@ fn toml_canonical_sorts_keys() {
 }
 
 #[test]
-fn rdf_canonical_returns_unimplemented() {
+fn rdf_canonical_is_rdfc10_nquads() {
     use super::canonical::rdf;
-    let err = rdf::canonicalize(b"").expect_err("rdf is a stub");
+    // A minimal RDF/XML graph: one class with a label.
+    let doc = r#"<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns="http://example.org/o#">
+  <owl:Class rdf:about="http://example.org/o#A">
+    <rdfs:label>A</rdfs:label>
+  </owl:Class>
+</rdf:RDF>"#;
+    let c1 = rdf::canonicalize(doc.as_bytes()).expect("RDFC-1.0 canonicalize");
+    // Deterministic: a second run is byte-identical (RDFC §4.4.3).
+    let c2 = rdf::canonicalize(doc.as_bytes()).expect("RDFC-1.0 canonicalize again");
+    assert_eq!(c1, c2, "RDFC-1.0 canonical N-Quads must be deterministic");
+    // The output is canonical N-Quads — `.`-terminated LF lines.
+    let s = core::str::from_utf8(&c1).expect("UTF-8 N-Quads");
     assert!(
-        err.message.contains("REC-rdf-canon-20240521"),
-        "stub error must cite W3C REC-rdf-canon-20240521, got: {}",
-        err.message
+        s.lines().all(|l| l.is_empty() || l.ends_with(" .")),
+        "RDFC-1.0 output is canonical N-Quads, got: {s:?}"
+    );
+    // The class's rdf:type triple is present in the canonical graph.
+    assert!(
+        s.contains(
+            "<http://example.org/o#A> \
+             <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> \
+             <http://www.w3.org/2002/07/owl#Class> ."
+        ),
+        "canonical graph must carry the owl:Class type triple, got: {s}"
     );
 }
 

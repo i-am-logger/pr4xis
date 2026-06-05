@@ -21,7 +21,8 @@ use alloc::vec::Vec;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
-use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
+use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens};
+use crate::social::software::markup::xml::owl::lens::OwlLens;
 use crate::social::software::markup::xml::owl::prx::{
     OwnedCodegenData, PrxEnvelope, PrxError, PrxMetadata, RawSource, envelope_from_bytes,
     envelope_to_bytes, gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
@@ -611,7 +612,18 @@ pub struct LoadGateFailsClosed;
 
 impl Axiom for LoadGateFailsClosed {
     fn verify(&self) -> Verdict {
-        let envelope = witness_envelope("load-gate", b"gated source bytes");
+        // A valid RDF/XML witness source: the OWL load gate's third leg
+        // (RDFC-1.0 graph identity) re-derives the canonical N-Quads from
+        // the carried source, so it must parse. A minimal one-class graph
+        // suffices.
+        let gated_source = br#"<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns="http://ex.org/gate#">
+  <owl:Class rdf:about="http://ex.org/gate#Gated"/>
+</rdf:RDF>
+"#;
+        let envelope = witness_envelope("load-gate", gated_source);
         let Ok(rkyv_bytes) = envelope_to_bytes(&envelope) else {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
@@ -622,14 +634,23 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        // The genuine MerkleRoot (re-derived from the node's own bytes) and
-        // the genuine SourcePin.
+        // The genuine MerkleRoot (re-derived from the node's own bytes), the
+        // genuine SourcePin, and the genuine RDFC-1.0 graph-identity pin.
         let archive_pin = source_content_hash(&rkyv_bytes);
         let source_pin = envelope.metadata.source_sha256.clone();
+        let Ok(canonical_sig) = OwlLens::signature(gated_source) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let canonical_pin: String = canonical_sig
+            .iter()
+            .map(|b| alloc::format!("{b:02x}"))
+            .collect();
 
         // Accept-on-match: genuine pins admit the archive. Without this leg a
         // degenerate gate that rejects EVERYTHING would satisfy the axiom.
-        if load_prx_gz(&prx_gz, &archive_pin, &source_pin).is_err() {
+        if load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin).is_err() {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             )));
@@ -639,7 +660,18 @@ impl Axiom for LoadGateFailsClosed {
         // by the MerkleRoot leg — a HashMismatch, not just any error).
         let wrong_pin = "0".repeat(64);
         if !matches!(
-            load_prx_gz(&prx_gz, &wrong_pin, &source_pin),
+            load_prx_gz(&prx_gz, &wrong_pin, &source_pin, &canonical_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // Reject a wrong RDFC-1.0 canonical pin: a graph-identity label that
+        // does not match the canonical N-Quads of the loaded graph is refused
+        // by the new third leg (also a HashMismatch).
+        if !matches!(
+            load_prx_gz(&prx_gz, &archive_pin, &source_pin, &wrong_pin),
             Err(PrxError::HashMismatch { .. })
         ) {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -650,7 +682,7 @@ impl Axiom for LoadGateFailsClosed {
         // the MerkleRoot binds the installed node, so a poisoned column
         // changes the content address and is refused even with the genuine
         // source pin (the attack a label-only gate would admit).
-        let mut poisoned = witness_envelope("load-gate", b"gated source bytes");
+        let mut poisoned = witness_envelope("load-gate", gated_source);
         poisoned.data.entity_count += 1;
         let Ok(poisoned_bytes) = envelope_to_bytes(&poisoned) else {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -663,7 +695,7 @@ impl Axiom for LoadGateFailsClosed {
             )));
         };
         if !matches!(
-            load_prx_gz(&poisoned_gz, &archive_pin, &source_pin),
+            load_prx_gz(&poisoned_gz, &archive_pin, &source_pin, &canonical_pin),
             Err(PrxError::HashMismatch { .. })
         ) {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(

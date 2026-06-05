@@ -14,12 +14,14 @@
 # produced by the source's well-behaved lens (Foster, Greenwald,
 # Moore, Pierce & Schmitt 2007 ACM TOPLAS 29(3)). The canonical form
 # is the lens's normalized output — W3C XML Canonicalization 1.1
-# (Boyer & Marcy 2008) for XML sources, RFC 8785 JCS for JSON,
-# Unicode NFKC for plain text, etc. Verifies "the source, after lens
-# normalization, has the same structural shape" — drift in the lens
-# implementation surfaces here while the raw-bytes hash remains
-# stable. Optional per source; sources without a signature are not
-# yet round-trip-pinned.
+# (Boyer & Marcy 2008) for USLM/XML sources, W3C RDF Dataset
+# Canonicalization (RDFC-1.0, REC-rdf-canon-20240521) serialized
+# N-Quads of the source RDF graph for OWL/RDF sources, RFC 8785 JCS
+# for JSON, Unicode NFKC for plain text, etc. Verifies "the source,
+# after lens normalization, has the same structural shape" — drift in
+# the lens implementation surfaces here while the raw-bytes hash
+# remains stable. Optional per source; sources without a signature are
+# not yet round-trip-pinned.
 #
 # Drift detection: the LockManifestAgreement axiom compares each
 # manifest entry to its lock hash. Missing lock entry, extra lock
@@ -315,10 +317,12 @@
 
 # Canonical-form SHA-256s — SHA-256 of the bytes a registered
 # WellBehavedLens emits after applying its source's canonical
-# transformation (W3C XML Canonicalization 1.1 for XML sources, RFC
-# 8785 JCS for JSON, Unicode NFKC for plain text, etc.). Drift in the
-# lens implementation or in the canonical form surfaces here while
-# the raw-bytes hash above remains stable. The
+# transformation (W3C XML Canonicalization 1.1 for USLM/XML sources,
+# W3C RDF Dataset Canonicalization RDFC-1.0 N-Quads of the source
+# graph for OWL/RDF sources, RFC 8785 JCS for JSON, Unicode NFKC for
+# plain text, etc.). Drift in the lens implementation or in the
+# canonical form surfaces here while the raw-bytes hash above remains
+# stable. The
 # `formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`
 # axiom verifies these match on every test run.
 [canonical_signatures]
@@ -330,18 +334,30 @@
 "usc_title_18@pl-119-90" = "7e8f4cdf99cdca0ed611fef0f8b508f1179f3dbdae67cdfd751c4f8944736939"
 # USC Title 49 — Transportation. Same lens, same canonical form.
 "usc_title_49@pl-119-90" = "1902b2bb287fcfd2af1a59cec9619f05a177161bde1aec77c5683216aca0cccb"
-# OWL vocabularies — OwlLens canonical form is the deterministic
-# RDF/XML emission of `read_owl(bytes)` per the W3C OWL 2 RDF
-# Mapping (Patel-Schneider & Motik 2012). The lens has no byte
-# complement; PutGet holds because `read_owl ∘ write_owl ∘ read_owl ≡
-# read_owl` (Phase 2 categorical round-trip verified) and `write_owl`
-# is deterministic over the typed view.
-"cito@2.8.1"             = "a75621363223ea1939cedfd9fefadc1cc9b171655c4c5a409348846887b096cd"
-"doco@1.3"               = "e531613f42f29a6202402f6c455ad717ec9203bd755dd000385069953273191a"
-"c4o@1.2"                = "7e3dc07dc0ee3bbada544a9f66b6ec70d852e02ea24ee180e60951b0493f03e0"
-"biro@1.1.1"             = "3b5f6b00c5a721c4913d1f6398fc01b66d57b4a0dc11c679770af5ff1cec5f6f"
-"prov_o@2013-04-30"      = "1d75fac49d06fac3be48ab2edba4dbe47b0e535ada1186126d3f0fbb734017ae"
-"olia@2026-04-09"        = "934547422365700fa23c7562822c91dbd38df824c9b8490af79aa1247c6b2576"
+# OWL vocabularies — OwlLens canonical form is the W3C RDF Dataset
+# Canonicalization (RDFC-1.0, REC-rdf-canon-20240521 §1.1/§4.4.3)
+# serialized canonical N-Quads of the *source RDF graph*
+# (`read_owl_to_quads(bytes)`, the raw triple stream below the
+# OwlOntology projection). This pins RDF GRAPH identity (RDF 1.1
+# Concepts §3.6 graph isomorphism; Hogan 2017): isomorphic graphs
+# canonicalize byte-identically. It is NOT OWL-structural identity
+# (OWL 2 Structural Spec §3 — deferred) nor logical/entailment
+# identity (never pinned). Term-level caveat: RDFC fixes blank-node
+# *arrangement*, not literal lexical forms ("1"^^xsd:int ≠
+# "01"^^xsd:int). The six vocabs DO carry blank nodes (cito 9, doco
+# 287, c4o 21, biro 16, prov_o 68, olia 317 — from rdf:nodeID,
+# parseType="Collection", owl:unionOf/intersectionOf/Restriction), so
+# RDFC's blank-node labelling is load-bearing here. It also fixes the
+# old lossy `write_owl(read_owl(bytes))` typed-view re-emission (which
+# dropped 24–1187 triples/vocab) and is the W3C-standard graph-identity
+# grounding, now checked by the live `.prx` load-gate canonical leg:
+# drift in ANY source triple (not just the typed-view subset) surfaces.
+"cito@2.8.1"             = "85d3bd921b607e1876d2da8cce603f9451a6e7166de227e8ba56ac06844d47e0"
+"doco@1.3"               = "bc9c6e809bf03799058e4f1a39d67d9ac5498e830fd78b14d475a2d60abe6e57"
+"c4o@1.2"                = "fed7d6940ebc891df709b08bb97bad27b5c8bf0819f34a7b642f8251dc84bb88"
+"biro@1.1.1"             = "7ec43d2d6e4960259b7a5d6349ad9f5e21ca22df0abd86de9635786258a7715d"
+"prov_o@2013-04-30"      = "5c940419be8d4d5d5dce3ce09b319f90d88bafb1268c6245fd65c667217d1fe3"
+"olia@2026-04-09"        = "63ebf45ba1840b9827176f393c032840948929a3a005dac5720b2cecaff34ae9"
 
 # Archive content addresses — SHA-256 of the rkyv `.prx` envelope bytes
 # (the `BinaryEnvelope` MerkleRoot) for each source's compiled archive.

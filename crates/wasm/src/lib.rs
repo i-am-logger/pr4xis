@@ -2,7 +2,9 @@ use wasm_bindgen::prelude::*;
 
 use pr4xis::ontology::Staging;
 use pr4xis::ontology::meta::OntologyName;
-use pr4xis_domains::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
+use pr4xis_domains::applied::data_provisioning::registry::{
+    lock_archive_signature, lock_canonical_signature, lock_hashes,
+};
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language;
@@ -229,15 +231,17 @@ impl Pr4xis {
 
     /// Load a registered OWL vocabulary from its `.prx.gz` distribution
     /// envelope (downloaded by the host from the vocabulary's served
-    /// `prx_url`). **Content-addressed, fail-closed, identity-bound**: both
-    /// pins are looked up by the caller's `(name, version)` from the embedded
-    /// `praxis.lock`, then the gate gunzips, bytecheck-validates the rkyv
-    /// envelope, and verifies two content-hash integrity claims — the
-    /// archive's `MerkleRoot` (re-derived from the envelope's own bytes) and
-    /// the source pin. Because the pins are the *caller-named* vocabulary's,
-    /// a genuine archive for a DIFFERENT vocabulary fails (its `MerkleRoot`
-    /// won't match the named pin), so the install key cannot disagree with
-    /// the loaded content. On any mismatch nothing is installed. Idempotent.
+    /// `prx_url`). **Content-addressed, fail-closed, identity-bound**: all
+    /// three pins are looked up by the caller's `(name, version)` from the
+    /// embedded `praxis.lock`, then the gate gunzips, bytecheck-validates the
+    /// rkyv envelope, and verifies three content-hash integrity claims — the
+    /// archive's `MerkleRoot` (re-derived from the envelope's own bytes), the
+    /// source pin, and the RDFC-1.0 graph-identity pin (the canonical N-Quads
+    /// of the loaded source graph). Because the pins are the *caller-named*
+    /// vocabulary's, a genuine archive for a DIFFERENT vocabulary fails (its
+    /// `MerkleRoot` won't match the named pin), so the install key cannot
+    /// disagree with the loaded content. On any mismatch nothing is installed.
+    /// Idempotent.
     ///
     /// This differs from [`Self::load_owl_source`] in *where* trust is
     /// anchored: `load_prx` re-derives the content address from the bytes it
@@ -260,7 +264,12 @@ impl Pr4xis {
                 "no embedded praxis.lock pin for {key}; cannot validate .prx.gz"
             ))
         })?;
-        let vocab = load_prx_gz(prx_gz, archive_pin, source_pin).map_err(|e| {
+        let canonical_pin = lock_canonical_signature(&name, &version).ok_or_else(|| {
+            JsValue::from_str(&format!(
+                "no embedded praxis.lock [canonical_signatures] pin for {key}; cannot validate .prx.gz"
+            ))
+        })?;
+        let vocab = load_prx_gz(prx_gz, archive_pin, source_pin, canonical_pin).map_err(|e| {
             JsValue::from_str(&format!(".prx.gz load/validate failed for {key}: {e}"))
         })?;
         self.install(name, LoadedPayload::Owl(vocab));
