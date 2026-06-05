@@ -13,10 +13,11 @@ pub mod writer;
 pub mod rdfxml_writer;
 
 // The byte-exact graph-faithful OWL lens (`bytes ↔ OWL graph + structured RDF/XML
-// complement`, FIDELITY = ByteExactGraphFaithful) and the registration that flips
-// `cito@2.8.1` off the floor — praxis's first byte-exact OWL vocabulary, the
-// sibling of `lmf::lens::WordNetLmfLens`. The other five OWL vocabs keep the floor
-// `OwlLens` in `lens.rs`. Native register_lens! is wasm32-skipped inside the macro.
+// complement`, FIDELITY = ByteExactGraphFaithful) and the registrations that flip
+// the FLAT SPAR family — `cito@2.8.1`, `biro@1.1.1`, `c4o@1.2`, `doco@1.3` — off
+// the floor (the sibling of `lmf::lens::WordNetLmfLens`). The two remaining OWL
+// vocabs (`prov_o`, `olia`) keep the floor `OwlLens` in `lens.rs`. Native
+// register_lens! is wasm32-skipped inside the macro.
 pub mod graph_faithful_lens;
 
 // Runtime corpus + praxis `Category` over a loaded OWL vocabulary —

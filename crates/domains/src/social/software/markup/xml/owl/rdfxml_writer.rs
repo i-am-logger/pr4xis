@@ -33,11 +33,17 @@
 //! [`RdfXmlStructure`] captures that striping as a TYPED, structured projection
 //! (NOT a stored [`XmlDocument`] DOM, NOT raw bytes): per node element its QName
 //! and its ordered property elements; per property element its QName and whether
-//! it is empty or carries leaf text (the literal lexical form). Attribute
-//! *values* are NOT in this structure — they are the generic
-//! [`AttributeOverrides`] residue (the source `rdf:about`/`rdf:nodeID`/
-//! `rdf:resource`/`rdf:datatype`/`xml:lang` sequences), because XML attribute
-//! order/coverage is concrete-syntax (Cowan & Tobin 2004 §2.3), not Infoset.
+//! it is empty, carries leaf text (the literal lexical form), or carries nested
+//! node elements (the striped inline-resource form — `parseType="Collection"`
+//! member lists, an inline `owl:unionOf`/`owl:Restriction` block). The structure
+//! is RECURSIVE: [`PropertyContent::Nested`] holds further [`RdfNodeBlock`]s, so
+//! the exact source nesting (and, via the attribute residue, the exact blank-node
+//! label) is captured as typed structure to arbitrary depth — never opaque
+//! exact-bytes for a whole element, never a stored DOM. Attribute *values* are
+//! NOT in this structure — they are the generic [`AttributeOverrides`] residue
+//! (the source `rdf:about`/`rdf:nodeID`/`rdf:resource`/`rdf:datatype`/`xml:lang`
+//! sequences), because XML attribute order/coverage is concrete-syntax (Cowan &
+//! Tobin 2004 §2.3), not Infoset.
 //!
 //! [`write_owl_document`] folds [`RdfXmlStructure`] back to an [`XmlDocument`]
 //! whose element backbone equals the source's; the generic residue machinery
@@ -114,16 +120,54 @@ use crate::social::software::markup::xml::parser::source_syntax::{
 ///   support to</rdfs:label>`: a single leaf-text child whose value is the
 ///   literal's lexical form (the only #PCDATA the typed model would carry as a
 ///   `Keep` child).
+/// - [`Nested`](Self::Nested) — an INLINE-RESOURCE property element whose content
+///   is one or more nested **node elements** (RDF/XML §2.14 `striped` form): an
+///   `<owl:Class>`/`<rdf:Description>`/anonymous-node child block, an
+///   `rdf:parseType="Collection"` member list, an `owl:unionOf`/`owl:intersectionOf`
+///   inline list, or an inline `owl:Restriction` blank-node block. Each member is
+///   itself a recursive [`RdfNodeBlock`], so the structure captures the EXACT
+///   source nesting (and, via the generic [`AttributeOverrides`] residue keyed by
+///   pre-order index, the exact blank-node label / `parseType` attribute) as
+///   TYPED structure — never opaque exact-bytes, never a stored DOM. The cito
+///   (and biro/c4o/doco) SPAR vocabs serialise every node FLAT (each blank node a
+///   separate top-level block), so they never use this variant; the striped
+///   RDF/XML form (prov_o's `parseType="Collection"`, an inline `owl:Restriction`)
+///   does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+// `PropertyContent` and `RdfNodeBlock` are mutually recursive
+// (`PropertyContent::Nested(Vec<RdfNodeBlock>)`, `RdfNodeBlock.properties:
+// Vec<RdfPropertyElement>`, `RdfPropertyElement.content: PropertyContent`). rkyv's
+// derive would otherwise recurse infinitely computing the
+// `Archive`/`Serialize`/`Deserialize` where-bounds (rustc E0275 overflow), so the
+// recursive `Nested` field carries `#[rkyv(omit_bounds)]` and this container
+// supplies the resolved bounds explicitly — the canonical rkyv 0.8 recursive-type
+// pattern, identical to `XmlElement`/`XmlNode`. CFG-GATED on `prx`: the default +
+// wasm32 builds (no rkyv) see a plain enum.
+#[cfg_attr(
+    feature = "prx",
+    rkyv(serialize_bounds(
+        __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+        __S::Error: rkyv::rancor::Source,
+    )),
+    rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)),
+    rkyv(bytecheck(bounds(
+        __C: rkyv::validation::ArchiveContext,
+        __C::Error: rkyv::rancor::Source,
+    )))
 )]
 pub enum PropertyContent {
     /// An empty property element — `rdf:resource`/`rdf:nodeID` reference form.
     Empty,
     /// A literal property element carrying one leaf-text run (the lexical form).
     Text(String),
+    /// An inline-resource property element carrying one or more nested node
+    /// elements in document order (a striped sub-node, a `parseType="Collection"`
+    /// member list, an inline `owl:unionOf`/`owl:Restriction` block). Recursive.
+    Nested(#[cfg_attr(feature = "prx", rkyv(omit_bounds))] Vec<RdfNodeBlock>),
 }
 
 /// One property element of a node block (RDF/XML §3.4 `propertyElt`).
@@ -156,6 +200,13 @@ pub struct RdfPropertyElement {
 /// defined once and referenced once) is TWO node blocks in document order, so
 /// the backbone count is preserved (a triple-grouped view would wrongly merge
 /// them).
+///
+/// RECURSIVE: a property element's content may itself be nested node blocks
+/// ([`PropertyContent::Nested`]) — the striped RDF/XML form (RDF/XML §2.14). A
+/// flat SPAR vocab is a one-level tree (every node a top-level block); a striped
+/// vocab (prov_o) nests an inline `owl:Restriction` / `parseType="Collection"`
+/// member list under a property element, and this type captures that nesting to
+/// arbitrary depth.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
@@ -197,25 +248,28 @@ pub struct RdfXmlStructure {
 // =============================================================================
 
 /// Failure projecting a source DOM to an [`RdfXmlStructure`] — a shape the
-/// flat-striping structural writer does not model (a NESTED node element inside
-/// a property element, i.e. a non-flat RDF/XML serialization, or non-leaf mixed
-/// content). cito (and the SPAR vocab family) serialise every node — named and
-/// blank — as a FLAT top-level `<rdf:Description>` under `<rdf:RDF>`, with no
-/// `parseType` and no nested typed nodes, so the flat projection is exact. A
-/// vocab that nests (a striped sub-node, `parseType="Resource"`/`"Collection"`
-/// inline content) is honestly rejected here (the byte-exact tier is earned
-/// per-source; the rejected source rides the floor), never silently flattened.
+/// RECURSIVE node-block writer does not model. The projection handles the flat
+/// SPAR form (every node a top-level `<rdf:Description>`) AND the striped RDF/XML
+/// form (RDF/XML §2.14): nested node elements under a property element
+/// (`parseType="Collection"` member lists, inline `owl:Restriction`/`owl:unionOf`
+/// blocks). What it still rejects, fail-closed (the source rides the floor):
+/// non-element non-white-space content the byte kernel's element-backbone
+/// reconstruction cannot reproduce — a comment/PI interspersed with node blocks
+/// (the structural writer emits only elements), or MIXED content (text *and*
+/// element children, or multiple text runs) in one property element.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RdfXmlStructureError {
     /// The source bytes did not parse as well-formed XML (§2.1).
     Parse(XmlParseError),
-    /// A node block contained a non-flat shape: a child of the root that is not
-    /// an element node, or a property element with element children (a nested
-    /// node element / inline `parseType` content) the flat writer cannot
-    /// reproduce. Carries the offending element's qualified name.
+    /// A non-element, non-white-space node appeared where the structural writer
+    /// reproduces only elements: a comment / PI / non-white-space text run
+    /// directly among node blocks or inside a node element. The structural fold
+    /// emits no comments, so such a source rides the raw-bytes floor. Carries the
+    /// containing element's qualified name.
     NonFlat { element: String },
-    /// A property element carried more than one text run or mixed text and
-    /// element content — not the single-leaf-literal shape the structure models.
+    /// A property element MIXED text and element content (or carried more than
+    /// one text run, or a comment/PI/CDATA child) — not the single-leaf-literal,
+    /// empty-reference, or pure-nested-resource shape the structure models.
     MixedContent { element: String },
 }
 
@@ -225,14 +279,15 @@ impl core::fmt::Display for RdfXmlStructureError {
             Self::Parse(e) => write!(f, "RDF/XML source parse: {e}"),
             Self::NonFlat { element } => write!(
                 f,
-                "non-flat RDF/XML serialization at <{element}> — the flat structural \
-                 writer models only top-level rdf:Description blocks with leaf property \
-                 elements (this source rides the raw-bytes floor)"
+                "RDF/XML serialization at <{element}> carries a comment/PI/non-white-space \
+                 text run among node blocks — the structural writer reproduces only the \
+                 element backbone (this source rides the raw-bytes floor)"
             ),
             Self::MixedContent { element } => write!(
                 f,
                 "mixed content at property element <{element}> — the structure models a \
-                 single leaf-text literal or an empty reference element only"
+                 single leaf-text literal, an empty reference element, or pure nested \
+                 node elements (not text-and-element mixed)"
             ),
         }
     }
@@ -247,47 +302,56 @@ impl From<XmlParseError> for RdfXmlStructureError {
     }
 }
 
+/// `true` iff `t` is pure XML white-space (§2.3 `S`) — inter-element
+/// indentation, generic residue (the content-white-space complement), not
+/// structure.
+fn is_whitespace(t: &str) -> bool {
+    t.chars().all(|c| matches!(c, ' ' | '\t' | '\r' | '\n'))
+}
+
 /// Project a parsed RDF/XML [`XmlDocument`] to the structured
-/// [`RdfXmlStructure`] striping. Fails closed on any non-flat shape (a nested
-/// node element, inline `parseType` content, mixed property content) so the
-/// byte-exact tier is never claimed for a source the flat writer cannot
-/// regenerate.
+/// [`RdfXmlStructure`] striping. Handles the flat AND the striped (nested) form;
+/// fails closed only on a comment/PI/non-white-space text run interspersed with
+/// node blocks (the structural writer reproduces only elements), so the
+/// byte-exact tier is never claimed for a source the writer cannot regenerate.
 fn project_rdfxml_structure(doc: &XmlDocument) -> Result<RdfXmlStructure, RdfXmlStructureError> {
     let root = &doc.root;
-    let mut node_blocks = Vec::new();
-    for child in &root.children {
-        match child {
-            XmlNode::Element(node_el) => {
-                node_blocks.push(project_node_block(node_el)?);
-            }
-            // Inter-element white-space `Text` between node blocks is generic
-            // residue (the content-white-space complement), not structure — skip
-            // it here. A NON-white-space text run directly under <rdf:RDF> is not
-            // a flat RDF/XML shape.
-            XmlNode::Text(t) if t.chars().all(|c| matches!(c, ' ' | '\t' | '\r' | '\n')) => {}
-            XmlNode::Text(_) => {
-                return Err(RdfXmlStructureError::NonFlat {
-                    element: root.name.qualified(),
-                });
-            }
-            // Comments / PIs / CDATA directly under the root are not the flat
-            // node-block shape (cito carries none).
-            _ => {
-                return Err(RdfXmlStructureError::NonFlat {
-                    element: root.name.qualified(),
-                });
-            }
-        }
-    }
+    let node_blocks = project_node_block_list(&root.children, &root.name)?;
     Ok(RdfXmlStructure {
         root_name: root.name.clone(),
         node_blocks,
     })
 }
 
-/// Project one node element (`<rdf:Description …>`) to an [`RdfNodeBlock`]. Each
-/// element child must be a leaf property element (RDF/XML §3.4); a nested node
-/// element or inline `parseType` content is non-flat and rejected.
+/// Project a sequence of children into the node blocks among them. Used for the
+/// root's children AND for the nested member list of an inline-resource property
+/// element (RDF/XML §2.14 striped form). Inter-element white-space is skipped
+/// (generic residue); a comment/PI/non-white-space text run is rejected
+/// fail-closed (the structural writer emits only elements). `container` names the
+/// element whose children these are, for the error.
+fn project_node_block_list(
+    children: &[XmlNode],
+    container: &XmlName,
+) -> Result<Vec<RdfNodeBlock>, RdfXmlStructureError> {
+    let mut node_blocks = Vec::new();
+    for child in children {
+        match child {
+            XmlNode::Element(node_el) => node_blocks.push(project_node_block(node_el)?),
+            XmlNode::Text(t) if is_whitespace(t) => {}
+            _ => {
+                return Err(RdfXmlStructureError::NonFlat {
+                    element: container.qualified(),
+                });
+            }
+        }
+    }
+    Ok(node_blocks)
+}
+
+/// Project one node element (`<rdf:Description …>` or a typed node `<owl:Class>`)
+/// to an [`RdfNodeBlock`]. Each element child is a property element (RDF/XML
+/// §3.4), projected recursively; inter-element white-space is skipped; a
+/// comment/PI/non-white-space text run inside a node element is rejected.
 fn project_node_block(node_el: &XmlElement) -> Result<RdfNodeBlock, RdfXmlStructureError> {
     let mut properties = Vec::new();
     for child in &node_el.children {
@@ -295,16 +359,7 @@ fn project_node_block(node_el: &XmlElement) -> Result<RdfNodeBlock, RdfXmlStruct
             XmlNode::Element(prop_el) => {
                 properties.push(project_property_element(prop_el)?);
             }
-            // Inter-element white-space between property elements — generic
-            // residue, skip.
-            XmlNode::Text(t) if t.chars().all(|c| matches!(c, ' ' | '\t' | '\r' | '\n')) => {}
-            // Non-white-space char data directly inside a node element is not the
-            // flat striped shape.
-            XmlNode::Text(_) => {
-                return Err(RdfXmlStructureError::NonFlat {
-                    element: node_el.name.qualified(),
-                });
-            }
+            XmlNode::Text(t) if is_whitespace(t) => {}
             _ => {
                 return Err(RdfXmlStructureError::NonFlat {
                     element: node_el.name.qualified(),
@@ -318,27 +373,61 @@ fn project_node_block(node_el: &XmlElement) -> Result<RdfNodeBlock, RdfXmlStruct
     })
 }
 
-/// Project one property element to an [`RdfPropertyElement`]. Empty ⇒
-/// [`PropertyContent::Empty`] (a reference element); a single leaf-text child ⇒
-/// [`PropertyContent::Text`] (a literal). Anything else (element children — a
-/// nested node element; multiple text runs — mixed content) is rejected.
+/// Project one property element to an [`RdfPropertyElement`], RECURSIVELY:
+/// - no children ⇒ [`PropertyContent::Empty`] (a reference element);
+/// - exactly one leaf-text child (+ optional surrounding white-space) ⇒
+///   [`PropertyContent::Text`] (a literal);
+/// - one or more nested NODE elements (+ optional white-space) ⇒
+///   [`PropertyContent::Nested`] (the striped inline-resource form — each member
+///   projected recursively as an [`RdfNodeBlock`]).
+///
+/// MIXED text *and* element content, multiple text runs, or a comment/PI/CDATA
+/// child is rejected ([`RdfXmlStructureError::MixedContent`]) — the source rides
+/// the floor.
 fn project_property_element(
     prop_el: &XmlElement,
 ) -> Result<RdfPropertyElement, RdfXmlStructureError> {
-    // Partition the children: collect non-white-space leaf text; reject any
-    // element child (a nested node element / inline content the flat writer does
-    // not reproduce).
+    // First, does this property have ANY element children (the striped
+    // inline-resource form)? If not, fall through to the leaf classification,
+    // which preserves the flat writer's EXACT text/empty semantics byte-for-byte.
+    let has_element_child = prop_el
+        .children
+        .iter()
+        .any(|c| matches!(c, XmlNode::Element(_)));
+
+    if has_element_child {
+        // Striped form: collect the nested node elements; surrounding white-space
+        // text is generic residue (the byte kernel's content-white-space
+        // complement re-splices it), exactly as it does between top-level node
+        // blocks. Any NON-white-space text run abutting the elements is MIXED
+        // content the structure does not model.
+        let mut nested: Vec<RdfNodeBlock> = Vec::new();
+        for child in &prop_el.children {
+            match child {
+                XmlNode::Element(child_el) => nested.push(project_node_block(child_el)?),
+                XmlNode::Text(t) if is_whitespace(t) => {}
+                _ => {
+                    return Err(RdfXmlStructureError::MixedContent {
+                        element: prop_el.name.qualified(),
+                    });
+                }
+            }
+        }
+        return Ok(RdfPropertyElement {
+            name: prop_el.name.clone(),
+            content: PropertyContent::Nested(nested),
+        });
+    }
+
+    // Leaf form (no element children) — the original flat classification,
+    // unchanged: collect every text/CData run; [] ⇒ Empty, [single] ⇒ Text,
+    // anything else (a comment/PI child, multiple coalesced runs) ⇒ MixedContent.
     let mut texts: Vec<&String> = Vec::new();
     for child in &prop_el.children {
         match child {
             XmlNode::Text(t) | XmlNode::CData(t) => texts.push(t),
-            XmlNode::Element(_) => {
-                return Err(RdfXmlStructureError::NonFlat {
-                    element: prop_el.name.qualified(),
-                });
-            }
             // Comments / PIs inside a property element are not the leaf-literal
-            // shape (cito carries none).
+            // shape (the flat vocabs carry none).
             _ => {
                 return Err(RdfXmlStructureError::MixedContent {
                     element: prop_el.name.qualified(),
@@ -349,8 +438,6 @@ fn project_property_element(
     let content = match texts.as_slice() {
         [] => PropertyContent::Empty,
         [single] => PropertyContent::Text((*single).clone()),
-        // More than one text run on a leaf — the grammar coalesces adjacent text,
-        // so this would be mixed content the structure does not model.
         _ => {
             return Err(RdfXmlStructureError::MixedContent {
                 element: prop_el.name.qualified(),
@@ -381,30 +468,48 @@ fn bare_element(name: &XmlName, children: Vec<XmlNode>) -> XmlElement {
     }
 }
 
+/// Emit one node block as a bare [`XmlElement`] (RECURSIVE) — the node's QName
+/// with one `<{property name}>` child element per property. A property's content
+/// becomes its child nodes: [`Empty`](PropertyContent::Empty) ⇒ none (a
+/// reference element); [`Text`](PropertyContent::Text) ⇒ one leaf-text node (a
+/// literal); [`Nested`](PropertyContent::Nested) ⇒ the nested node blocks emitted
+/// recursively (the striped inline-resource form). No attributes / white-space —
+/// the generic residue restores them in lockstep pre-order.
+fn write_node_block(block: &RdfNodeBlock) -> XmlElement {
+    let mut block_children: Vec<XmlNode> = Vec::with_capacity(block.properties.len());
+    for prop in &block.properties {
+        let prop_children = match &prop.content {
+            PropertyContent::Empty => Vec::new(),
+            PropertyContent::Text(text) => vec![XmlNode::Text(text.clone())],
+            PropertyContent::Nested(members) => members
+                .iter()
+                .map(|m| XmlNode::Element(write_node_block(m)))
+                .collect(),
+        };
+        block_children.push(XmlNode::Element(bare_element(&prop.name, prop_children)));
+    }
+    bare_element(&block.name, block_children)
+}
+
 /// Regenerate the RDF/XML element backbone from an [`RdfXmlStructure`] — the
 /// structural fold, the OWL analogue of
 /// [`write_wordnet_document`](crate::social::software::markup::xml::lmf::writer::write_wordnet_document).
 ///
 /// Emits `<{root}>` (no namespaces — the [`DocumentResidue`] restores them),
-/// then one `<{node block name}>` element per node block, each with one
-/// `<{property name}>` element per property (empty for a reference, a single
-/// leaf-text child for a literal). The result is element-backbone-equal to the
-/// source DOM: same elements, same pre-order, same names, same leaf text. The
-/// `version="1.0" encoding="UTF-8"` prolog matches the bundled vocab declaration
-/// (the byte kernel reproduces the exact declaration bytes).
+/// then RECURSIVELY one `<{node block name}>` element per node block (via
+/// [`write_node_block`]), each with one `<{property name}>` element per property
+/// — empty for a reference, a single leaf-text child for a literal, or the nested
+/// member blocks for the striped inline-resource form. The result is
+/// element-backbone-equal to the source DOM: same elements, same pre-order, same
+/// names, same leaf text, same nesting. The `version="1.0" encoding="UTF-8"`
+/// prolog matches the bundled flat vocab declarations (cito/biro/c4o/doco — the
+/// byte kernel reproduces the exact declaration bytes).
 pub fn write_owl_document(structure: &RdfXmlStructure) -> XmlDocument {
-    let mut root_children: Vec<XmlNode> = Vec::with_capacity(structure.node_blocks.len());
-    for block in &structure.node_blocks {
-        let mut block_children: Vec<XmlNode> = Vec::with_capacity(block.properties.len());
-        for prop in &block.properties {
-            let prop_children = match &prop.content {
-                PropertyContent::Empty => Vec::new(),
-                PropertyContent::Text(text) => vec![XmlNode::Text(text.clone())],
-            };
-            block_children.push(XmlNode::Element(bare_element(&prop.name, prop_children)));
-        }
-        root_children.push(XmlNode::Element(bare_element(&block.name, block_children)));
-    }
+    let root_children: Vec<XmlNode> = structure
+        .node_blocks
+        .iter()
+        .map(|block| XmlNode::Element(write_node_block(block)))
+        .collect();
     let root = bare_element(&structure.root_name, root_children);
     XmlDocument {
         version: "1.0".to_string(),
@@ -465,8 +570,9 @@ pub struct OwlSyntaxComplement {
 pub enum OwlReconstructError {
     /// The source did not parse as well-formed XML (§2.1).
     Parse(XmlParseError),
-    /// The source is not the flat RDF/XML shape the structural writer models
-    /// (a nested node element, inline `parseType` content, mixed content).
+    /// The source is not a shape the structural writer models — a comment/PI/
+    /// non-white-space text run interspersed with node blocks, or mixed
+    /// text-and-element property content (the nested striped form IS modelled).
     Structure(RdfXmlStructureError),
     /// [`write_owl_document`]'s regenerated tree was not element-backbone-equal
     /// to the captured source DOM (a dropped/added/reordered/renamed
@@ -532,8 +638,9 @@ impl From<RegeneratedComplementError> for OwlReconstructError {
 ///    read straight off the exact DOM.
 ///
 /// Returns the typed [`OwlOntology`] (the reasoning graph) and the complement.
-/// Fails closed if the source is not well-formed XML, not the flat RDF/XML
-/// shape, or if the regenerated tree is not element-backbone-equal to the DOM.
+/// Fails closed if the source is not well-formed XML, carries a shape the
+/// structural writer does not model (an interspersed comment/PI, mixed property
+/// content), or if the regenerated tree is not element-backbone-equal to the DOM.
 pub fn capture_owl_complement(
     source: &str,
 ) -> Result<(super::ontology::OwlOntology, OwlSyntaxComplement), OwlReconstructError> {
@@ -675,23 +782,104 @@ mod tests {
         );
     }
 
-    /// Fail-closed: a NESTED node element inside a property element (a striped
-    /// non-flat RDF/XML serialization) is honestly rejected by the structure
-    /// projection rather than silently flattened — the byte-exact tier is earned
-    /// per-source, a non-flat source rides the floor.
+    /// A STRIPED RDF/XML fragment exercising every nested shape the recursive
+    /// node-block writer regenerates: (a) an inline-resource nested
+    /// `<owl:Class>` under `<owl:equivalentClass>`; (b) an
+    /// `<owl:unionOf rdf:parseType="Collection">` member list of two nested
+    /// `<rdf:Description>` blocks; (c) an inline `<owl:Restriction>` blank-node
+    /// block with its own `<owl:onProperty>`/`<owl:someValuesFrom>` leaf
+    /// properties — two levels deep. Two-space indented, trailing newline. The
+    /// cheap proof that `reconstruct(capture(s)) == s` BYTE-FOR-BYTE over the
+    /// striped form (the cito/biro/c4o/doco flat form is the sibling
+    /// `FLAT_RDFXML` proof).
+    const STRIPED_RDFXML: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<rdf:RDF\n\
+   xmlns:owl=\"http://www.w3.org/2002/07/owl#\"\n\
+   xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n\
+>\n\
+  <owl:Class rdf:about=\"http://example.org/A\">\n\
+    <owl:equivalentClass>\n\
+      <owl:Class rdf:about=\"http://example.org/B\"/>\n\
+    </owl:equivalentClass>\n\
+    <owl:unionOf rdf:parseType=\"Collection\">\n\
+      <rdf:Description rdf:about=\"http://example.org/C\"/>\n\
+      <owl:Restriction>\n\
+        <owl:onProperty rdf:resource=\"http://example.org/p\"/>\n\
+        <owl:someValuesFrom rdf:resource=\"http://example.org/D\"/>\n\
+      </owl:Restriction>\n\
+    </owl:unionOf>\n\
+  </owl:Class>\n\
+</rdf:RDF>\n";
+
+    /// The RECURSIVE byte-exact gate: capture the typed graph + complement from a
+    /// striped (nested) cito-shaped fragment, reconstruct, assert byte-for-byte.
+    /// Exercises [`PropertyContent::Nested`] at two depths, the
+    /// `parseType="Collection"` member list, the inline `owl:Restriction`
+    /// blank-node block, and the per-element pre-order attribute/white-space
+    /// residue across the nesting. This is the proof the new recursion is real,
+    /// not dead code.
     #[test]
-    fn capture_rejects_nonflat_serialization() {
-        let nested = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+    fn reconstruct_striped_rdfxml_byte_exact() {
+        let (_ont, complement) = capture_owl_complement(STRIPED_RDFXML).expect("capture striped");
+        // The structure carries ONE top-level node block (the named class); its
+        // nesting lives inside the property contents, not as sibling blocks.
+        assert_eq!(
+            complement.structure.node_blocks.len(),
+            1,
+            "one top-level node block (the striped members are nested, not top-level)"
+        );
+        // The nesting is genuinely captured as TYPED structure (not flattened,
+        // not opaque bytes): the class has an equivalentClass with one nested
+        // member and a unionOf with two nested members (one of which is itself a
+        // Restriction with two leaf properties).
+        let top = &complement.structure.node_blocks[0];
+        let union = top
+            .properties
+            .iter()
+            .find(|p| p.name.local == "unionOf")
+            .expect("unionOf property present");
+        match &union.content {
+            PropertyContent::Nested(members) => {
+                assert_eq!(members.len(), 2, "the Collection has two members");
+                // The second member is the inline Restriction, with two nested
+                // leaf properties (onProperty + someValuesFrom).
+                assert_eq!(members[1].name.local, "Restriction");
+                assert_eq!(
+                    members[1].properties.len(),
+                    2,
+                    "the inline Restriction carries its two leaf properties as recursive structure"
+                );
+            }
+            other => panic!("unionOf must be Nested structure, got {other:?}"),
+        }
+        let out = reconstruct_owl_rdfxml_source(&complement).expect("reconstruct striped");
+        assert_eq!(
+            core::str::from_utf8(&out).unwrap(),
+            STRIPED_RDFXML,
+            "the recursive writer must reconstruct the striped form byte-for-byte"
+        );
+    }
+
+    /// Fail-closed: a COMMENT interspersed among node blocks (a shape the
+    /// structural writer, which emits only the element backbone, cannot
+    /// reproduce) is honestly rejected rather than silently dropped — the
+    /// byte-exact tier is earned per-source; such a source rides the raw-bytes
+    /// floor. (This is the honest boundary that keeps prov_o — DTD entities +
+    /// numeric char refs + interspersed comments — on the floor.)
+    #[test]
+    fn capture_rejects_interspersed_comment() {
+        let with_comment = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
 <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" \
 xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
+<!-- a section comment the structural writer does not emit -->\
 <rdf:Description rdf:about=\"http://example.org/s\">\
-<owl:equivalentClass><owl:Class rdf:about=\"http://example.org/o\"/></owl:equivalentClass>\
+<rdf:type rdf:resource=\"http://www.w3.org/2002/07/owl#Class\"/>\
 </rdf:Description></rdf:RDF>";
-        let err = capture_owl_complement(nested)
-            .expect_err("a nested node element must fail closed, not fake a flat structure");
+        let err = capture_owl_complement(with_comment)
+            .expect_err("an interspersed comment must fail closed, not be silently dropped");
         assert!(
             matches!(err, OwlReconstructError::Structure(_)),
-            "expected a Structure (non-flat) error, got {err:?}"
+            "expected a Structure (non-flat) error for the comment, got {err:?}"
         );
     }
 
@@ -885,6 +1073,274 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
             assert_ne!(
                 out, source,
                 "corrupting a namespace-prefix declaration must make reconstruction DIVERGE"
+            );
+        }
+    }
+
+    // =========================================================================
+    // The byte-exact OWL vocab family — biro / c4o / doco.
+    //
+    // These three SPAR vocabs serialise in the FLAT form (every node — named and
+    // blank — a top-level `<rdf:Description>`, no `parseType`, no DOCTYPE, no
+    // comments, no numeric character references, no DTD entities), so the
+    // structural writer reconstructs each byte-for-byte exactly as it does cito.
+    // Each gets the same HARD GATE as cito: a real-source byte-exact reconstruct
+    // against the pinned `[hashes]` content address, and a corruption meta-test
+    // proving the gate has teeth.
+    //
+    // prov_o and olia are NOT here: prov_o is the striped form but is blocked,
+    // BELOW the writer layer, by §4.1 numeric character references (`&#39;`, 43×),
+    // internal-subset DTD `&owl;`/`&xsd;`/`&rdfs;`/`&rdf;` entity references (the
+    // OLiA-class Infoset shortcut) and 88 interspersed comments — all out of scope
+    // for this slice; olia rides the floor for the same DTD-entity reason. Their
+    // `capture_owl_complement` honestly errors, so `build_envelope` degrades them
+    // to the raw-bytes floor (it never registers them graph-faithful).
+    // =========================================================================
+
+    /// Reconstruct one bundled flat OWL vocab byte-for-byte and assert it hashes
+    /// to its pinned `[hashes]` content address — the shared HARD GATE body for
+    /// biro/c4o/doco (the cito gate inlined the same logic). `expect_blocks` and
+    /// `expect_namespaces` make the capture non-vacuity assertion source-specific.
+    fn assert_vocab_byte_exact(file: &str, expect_hash: &str, expect_namespaces: usize) {
+        let path = format!("{}/data/ontologies/{}", env!("CARGO_MANIFEST_DIR"), file);
+        let source = std::fs::read(&path).unwrap_or_else(|_| panic!("bundled {file} must exist"));
+        let src = core::str::from_utf8(&source).expect("vocab is UTF-8");
+
+        let (ont, complement) =
+            capture_owl_complement(src).unwrap_or_else(|e| panic!("capture {file}: {e}"));
+
+        // Non-vacuous: the typed graph and the residue both carry real content.
+        assert!(
+            !ont.classes.is_empty() || !ont.properties.is_empty(),
+            "{file}: typed OWL graph carries classes/properties (capture is non-vacuous)"
+        );
+        assert_eq!(
+            complement.document_residue.root_namespaces.len(),
+            expect_namespaces,
+            "{file}: the <rdf:RDF> xmlns:* declarations are captured"
+        );
+        assert!(
+            !complement.regenerated.content_whitespace.is_empty(),
+            "{file}: inter-element indentation captured"
+        );
+        assert!(
+            !complement.regenerated.attribute_overrides.is_empty(),
+            "{file}: exact source attribute sequences captured"
+        );
+
+        let out = reconstruct_owl_rdfxml_source(&complement)
+            .unwrap_or_else(|e| panic!("reconstruct {file}: {e}"));
+
+        if out != source {
+            let first = out
+                .iter()
+                .zip(source.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or(source.len().min(out.len()));
+            let lo = first.saturating_sub(80);
+            panic!(
+                "{file}: byte mismatch at offset {first} (out.len()={}, source.len()={})\n  \
+                 expected: {:?}\n  got:      {:?}",
+                out.len(),
+                source.len(),
+                String::from_utf8_lossy(&source[lo..(first + 80).min(source.len())]),
+                String::from_utf8_lossy(&out[lo..(first + 80).min(out.len())]),
+            );
+        }
+        let hash = sha256_hex(&out);
+        assert_eq!(
+            hash,
+            sha256_hex(&source),
+            "{file}: reconstructed must hash-equal the source"
+        );
+        assert_eq!(
+            hash, expect_hash,
+            "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source sha256"
+        );
+    }
+
+    /// Capture one bundled flat OWL vocab, prove the baseline reconstructs
+    /// byte-exact, then corrupt each residue species (a triple's leaf text, a
+    /// blank-node `rdf:nodeID`, a namespace prefix) and assert the reconstruction
+    /// DIVERGES — the shared CORRUPTION META-TEST for biro/c4o/doco.
+    fn assert_vocab_corruption_diverges(file: &str) {
+        let path = format!("{}/data/ontologies/{}", env!("CARGO_MANIFEST_DIR"), file);
+        let source = std::fs::read(&path).unwrap_or_else(|_| panic!("bundled {file} must exist"));
+        let src = core::str::from_utf8(&source).expect("vocab is UTF-8");
+        let (_ont, base) =
+            capture_owl_complement(src).unwrap_or_else(|e| panic!("capture {file}: {e}"));
+
+        assert_eq!(
+            reconstruct_owl_rdfxml_source(&base).expect("reconstruct base"),
+            source,
+            "{file}: baseline reconstruction must be byte-exact before corruption"
+        );
+
+        // (1) Corrupt a TRIPLE leaf text.
+        {
+            let mut c = base.clone();
+            let mut flipped = false;
+            'outer: for block in &mut c.structure.node_blocks {
+                if corrupt_first_text(&mut block.properties) {
+                    flipped = true;
+                    break 'outer;
+                }
+            }
+            assert!(flipped, "{file}: found a leaf-text property to corrupt");
+            let out = reconstruct_owl_rdfxml_source(&c).expect("reconstruct corrupt-triple");
+            assert_ne!(
+                out, source,
+                "{file}: corrupting a triple's leaf text must DIVERGE"
+            );
+        }
+
+        // (2) Corrupt a blank-node rdf:nodeID attribute.
+        {
+            let mut c = base.clone();
+            let mut flipped = false;
+            for over in c.regenerated.attribute_overrides.values_mut() {
+                for attr in &mut over.attributes {
+                    if attr.name.local == "nodeID" {
+                        attr.value.push_str("DEADBEEF");
+                        flipped = true;
+                        break;
+                    }
+                }
+                if flipped {
+                    break;
+                }
+            }
+            assert!(flipped, "{file}: found an rdf:nodeID attribute to corrupt");
+            let out = reconstruct_owl_rdfxml_source(&c).expect("reconstruct corrupt-nodeID");
+            assert_ne!(
+                out, source,
+                "{file}: corrupting a blank-node rdf:nodeID must DIVERGE"
+            );
+        }
+
+        // (3) Corrupt a namespace prefix.
+        {
+            let mut c = base.clone();
+            let mut flipped = false;
+            for over in c.regenerated.attribute_overrides.values_mut() {
+                if let Some(ns) = over.namespaces.first_mut() {
+                    ns.prefix = Some("ZZ".to_string());
+                    flipped = true;
+                    break;
+                }
+            }
+            assert!(flipped, "{file}: found a root xmlns:* prefix to corrupt");
+            let out = reconstruct_owl_rdfxml_source(&c).expect("reconstruct corrupt-prefix");
+            assert_ne!(
+                out, source,
+                "{file}: corrupting a namespace prefix must DIVERGE"
+            );
+        }
+    }
+
+    /// Push `__CORRUPT__` onto the first non-empty leaf-text literal in a property
+    /// list, recursing into nested members. Returns whether it found one.
+    fn corrupt_first_text(props: &mut [RdfPropertyElement]) -> bool {
+        for prop in props.iter_mut() {
+            match &mut prop.content {
+                PropertyContent::Text(t) if !t.is_empty() => {
+                    t.push_str("__CORRUPT__");
+                    return true;
+                }
+                PropertyContent::Nested(members) => {
+                    for m in members.iter_mut() {
+                        if corrupt_first_text(&mut m.properties) {
+                            return true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// BiRO byte-exact over the real bundled source (4 root namespaces, all-flat).
+    #[test]
+    fn biro_reconstruct_byte_exact_over_real_source() {
+        assert_vocab_byte_exact(
+            "biro-1.1.1.owl",
+            "2985f8da53083178a5ac53bc5abf211345864dbdd29ca6ae64faf74d9c87e0ba",
+            4,
+        );
+    }
+
+    /// BiRO corruption meta-test — the gate has teeth.
+    #[test]
+    fn biro_corruption_diverges_red() {
+        assert_vocab_corruption_diverges("biro-1.1.1.owl");
+    }
+
+    /// C4O byte-exact over the real bundled source (5 root namespaces incl. swrl).
+    #[test]
+    fn c4o_reconstruct_byte_exact_over_real_source() {
+        assert_vocab_byte_exact(
+            "c4o-1.2.owl",
+            "82eda358b640810ad5aab9dbfaee9f29f77abc49ed2f1aec6064bf0c21ed1ea8",
+            5,
+        );
+    }
+
+    /// C4O corruption meta-test.
+    #[test]
+    fn c4o_corruption_diverges_red() {
+        assert_vocab_corruption_diverges("c4o-1.2.owl");
+    }
+
+    /// DoCO byte-exact over the real bundled source (371 node blocks).
+    #[test]
+    fn doco_reconstruct_byte_exact_over_real_source() {
+        assert_vocab_byte_exact(
+            "doco-1.3.owl",
+            "7e56cfd96cab75d49c53446128b1ba927085a2e258a8b580f3de822c0cbb29ed",
+            4,
+        );
+    }
+
+    /// DoCO corruption meta-test.
+    #[test]
+    fn doco_corruption_diverges_red() {
+        assert_vocab_corruption_diverges("doco-1.3.owl");
+    }
+
+    /// HONEST FLOOR: prov_o and olia capture must NOT succeed (they ride the
+    /// raw-bytes floor), so `build_envelope` never registers them graph-faithful.
+    /// prov_o is blocked BELOW the writer by §4.1 numeric character references
+    /// (`&#39;`), internal-subset DTD `&owl;`/`&xsd;`/`&rdfs;`/`&rdf;` entity
+    /// references (the OLiA-class Infoset shortcut) and 88 interspersed comments;
+    /// olia by the same internal-subset DTD entities. This pins the boundary: the
+    /// recursive node-block writer did NOT silently start claiming them — a future
+    /// flip must come with its own real gate + pins. In the test (debug) build the
+    /// numeric-char-ref deferral is a `debug_assert!` panic, so we catch the
+    /// unwind (a panic counts as "did not silently succeed") with the panic hook
+    /// muted to keep the output clean.
+    #[test]
+    fn prov_o_and_olia_stay_floor_capture_errors() {
+        for file in ["prov_o-2013-04-30.owl", "olia-2026-04-09.owl"] {
+            let path = format!("{}/data/ontologies/{}", env!("CARGO_MANIFEST_DIR"), file);
+            let Ok(source) = std::fs::read(&path) else {
+                // olia is large + may be externally provisioned; skip if absent.
+                continue;
+            };
+            let prior_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let captured_ok = std::panic::catch_unwind(|| {
+                core::str::from_utf8(&source)
+                    .ok()
+                    .map(|s| capture_owl_complement(s).is_ok())
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false);
+            std::panic::set_hook(prior_hook);
+            assert!(
+                !captured_ok,
+                "{file} must NOT capture byte-exact in this slice (it rides the floor); \
+                 if this now succeeds, flip it properly with its own gate + pins"
             );
         }
     }

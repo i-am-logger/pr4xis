@@ -2,18 +2,25 @@
 //! for an OWL/RDF source, and the registration that flips `cito` off the
 //! universal floor in the completeness meter.
 //!
-//! # The first graph-faithful OWL vocabulary
+//! # The graph-faithful OWL vocabularies
 //!
-//! The five other bundled OWL vocabularies (doco, c4o, biro, prov_o, olia) ride
-//! the universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`], the
-//! [`OwlLens`](super::lens::OwlLens) constant-complement identity) — byte-exact
-//! only via a stored raw-bytes complement. **CiTO is praxis's FIRST OWL source
-//! held to the strict byte-exact PutGet law** ([`RoundTripFidelity::ByteExactGraphFaithful`],
-//! Foster, Greenwald, Moore, Pierce & Schmitt 2007 §2.2): the source regenerates
-//! from the typed [`OwlOntology`] graph PLUS a content-addressed concrete-syntax
+//! The flat SPAR OWL family — **cito, biro, c4o, doco** — is held to the strict
+//! byte-exact PutGet law ([`RoundTripFidelity::ByteExactGraphFaithful`], Foster,
+//! Greenwald, Moore, Pierce & Schmitt 2007 §2.2): each source regenerates from
+//! the typed [`OwlOntology`] graph PLUS a content-addressed concrete-syntax
 //! complement ([`OwlSyntaxComplement`] — the structured RDF/XML striping + the
 //! generic DOCTYPE/namespace/white-space/attribute/entity/EOL residue), with NO
-//! stored raw blob.
+//! stored raw blob. CiTO was the FIRST; biro/c4o/doco joined it once registered
+//! (they share the same flat serialization, so the same structural writer
+//! reconstructs each byte-for-byte).
+//!
+//! The two remaining bundled OWL vocabularies — **prov_o, olia** — ride the
+//! universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`], the
+//! [`OwlLens`](super::lens::OwlLens) constant-complement identity), byte-exact
+//! only via a stored raw-bytes complement. prov_o is the STRIPED form (which the
+//! recursive node-block writer models) but is blocked below the writer layer by
+//! §4.1 numeric character references, internal-subset DTD entity references, and
+//! interspersed comments; olia by the same internal-subset DTD entities.
 //!
 //! It is the OWL sibling of the WN-LMF [`WordNetLmfLens`] and the USLM
 //! `UslmGraphFaithfulLens`:
@@ -35,12 +42,13 @@
 //!
 //! The completeness meter reads each source's DECLARED fidelity from its
 //! registered lens's [`WellBehavedLens::FIDELITY`]. Registering
-//! `OwlGraphFaithfulLens` for `cito@2.8.1` (replacing the floor `OwlLens`
-//! registration) with `FIDELITY = ByteExactGraphFaithful` declares CiTO
-//! graph-faithful; the harness MEASURES the achieved tier by running the
-//! byte-exact law against the `[byte_exact_signatures]` pin (which, because
-//! `put(get(b)) == b`, equals the raw-source `[hashes]` pin). The OTHER FIVE OWL
-//! vocabularies keep the floor `OwlLens` registration unchanged.
+//! `OwlGraphFaithfulLens` for each flat SPAR vocab — `cito@2.8.1`, `biro@1.1.1`,
+//! `c4o@1.2`, `doco@1.3` (replacing each one's floor `OwlLens` registration) —
+//! with `FIDELITY = ByteExactGraphFaithful` declares it graph-faithful; the
+//! harness MEASURES the achieved tier by running the byte-exact law against the
+//! `[byte_exact_signatures]` pin (which, because `put(get(b)) == b`, equals the
+//! raw-source `[hashes]` pin). The two still-floor OWL vocabularies (prov_o,
+//! olia) keep the floor `OwlLens` registration unchanged.
 //!
 //! # The RDFC-1.0 graph-identity gate is untouched
 //!
@@ -157,20 +165,50 @@ impl WellBehavedLens for OwlGraphFaithfulLens {
 }
 
 // =============================================================================
-// Harness registration — flips `cito` to graph-faithful.
+// Harness registration — flips the FLAT SPAR OWL vocabs to graph-faithful.
 //
-// Binds `OwlGraphFaithfulLens` to `cito@2.8.1`, REPLACING its floor `OwlLens`
-// registration (the other five OWL vocabs keep `OwlLens`). The harness runs the
-// byte-exact law (because FIDELITY is ByteExactGraphFaithful) and verifies the
-// raw-bytes signature against `[byte_exact_signatures]` in praxis.lock. Native
-// only — linkme's distributed slice is unsupported on wasm32, mirroring every
-// other `register_lens!`.
+// Binds `OwlGraphFaithfulLens` to each flat-serialised SPAR vocab — `cito@2.8.1`
+// (the first), plus `biro@1.1.1`, `c4o@1.2`, `doco@1.3` (this slice) — REPLACING
+// each one's floor `OwlLens` registration. These four serialise every node
+// (named and blank) as a top-level `<rdf:Description>` with leaf property
+// elements (no `parseType`, no DOCTYPE, no comments, no numeric character
+// references, no DTD entities), so the structural writer regenerates each
+// byte-for-byte. The harness runs the byte-exact law (FIDELITY is
+// ByteExactGraphFaithful) and verifies the raw-bytes signature against
+// `[byte_exact_signatures]` in praxis.lock.
+//
+// The remaining two OWL vocabs keep the floor `OwlLens`: `prov_o@2013-04-30`
+// (the STRIPED form — but blocked below the writer by §4.1 numeric character
+// references, internal-subset DTD entity references, and interspersed comments)
+// and `olia@2026-04-09` (internal-subset DTD entities, the rejected Infoset
+// shortcut). The recursive node-block writer added in this slice models the
+// striped nesting itself, but those two are gated on parser-layer residue out of
+// scope here — they ride the raw-bytes floor honestly.
+//
+// Native only — linkme's distributed slice is unsupported on wasm32, mirroring
+// every other `register_lens!`.
 // =============================================================================
 
 crate::register_lens!(
     CITO_GRAPH_FAITHFUL_LENS,
     "cito",
     "2.8.1",
+    OwlGraphFaithfulLens
+);
+
+crate::register_lens!(
+    BIRO_GRAPH_FAITHFUL_LENS,
+    "biro",
+    "1.1.1",
+    OwlGraphFaithfulLens
+);
+
+crate::register_lens!(C4O_GRAPH_FAITHFUL_LENS, "c4o", "1.2", OwlGraphFaithfulLens);
+
+crate::register_lens!(
+    DOCO_GRAPH_FAITHFUL_LENS,
+    "doco",
+    "1.3",
     OwlGraphFaithfulLens
 );
 
@@ -209,5 +247,50 @@ mod tests {
         let sample = b"<x/>";
         let c = OwlGraphFaithfulLens::canonical(sample).expect("canonical");
         assert_eq!(c, sample, "byte-exact lens canonical is identity");
+    }
+
+    /// Each flat SPAR vocab's `OwlGraphFaithfulLens` registration is LIVE in this
+    /// binary and resolves to the byte-exact tier — `cito@2.8.1`, `biro@1.1.1`,
+    /// `c4o@1.2`, `doco@1.3`. This both proves the flip (the completeness meter +
+    /// `build_envelope` read the SAME registry) AND keeps the `register_lens!`
+    /// statics from being linker-GC'd out of the lib-test binary (a `linkme`
+    /// distributed-slice entry needs a live reference to survive `--test`
+    /// dead-code elimination, otherwise `build_envelope` would silently emit the
+    /// FLOOR envelope for an unreferenced registration).
+    #[test]
+    fn flat_spar_owl_family_registered_graph_faithful() {
+        use crate::formal::meta::well_behaved_lens::{LensRegistration, lens_by_name};
+        // Touch the registration statics so the linker retains them in --test.
+        let _live: &[&'static LensRegistration] = &[
+            &CITO_GRAPH_FAITHFUL_LENS,
+            &BIRO_GRAPH_FAITHFUL_LENS,
+            &C4O_GRAPH_FAITHFUL_LENS,
+            &DOCO_GRAPH_FAITHFUL_LENS,
+        ];
+        for key in ["cito@2.8.1", "biro@1.1.1", "c4o@1.2", "doco@1.3"] {
+            let reg = lens_by_name(key)
+                .unwrap_or_else(|| panic!("{key} must have a registered lens in this binary"));
+            assert_eq!(
+                reg.fidelity,
+                RoundTripFidelity::ByteExactGraphFaithful,
+                "{key} must be registered byte-exact graph-faithful"
+            );
+        }
+    }
+
+    /// The byte-exact PutGet law holds on the REAL bundled biro/c4o/doco —
+    /// `put(get(b)) == b` byte-for-byte, the law the harness runs for each.
+    #[test]
+    fn owl_graph_faithful_lens_is_byte_exact_on_flat_spar_family() {
+        for file in ["biro-1.1.1.owl", "c4o-1.2.owl", "doco-1.3.owl"] {
+            let bytes = std::fs::read(format!(
+                "{}/data/ontologies/{}",
+                env!("CARGO_MANIFEST_DIR"),
+                file
+            ))
+            .unwrap_or_else(|_| panic!("bundled {file} must exist"));
+            OwlGraphFaithfulLens::assert_byte_exact_law(&bytes)
+                .unwrap_or_else(|e| panic!("{file} must satisfy the byte-exact PutGet law: {e}"));
+        }
     }
 }

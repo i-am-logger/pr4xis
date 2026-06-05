@@ -387,13 +387,17 @@
 # moves. These pins are the per-toolchain build-output content addresses (NOT
 # durable identity — see the header note), re-pinned here from a
 # determinism-proven `dump_archive_addresses` run (identical across two runs).
-# The DURABLE pins ([hashes], [canonical_signatures]) are UNCHANGED for the five
-# floor vocabs; only cito additionally gains a [byte_exact_signatures] pin.
+# The DURABLE pins ([hashes], [canonical_signatures]) are UNCHANGED for ALL six
+# OWL vocabs. The flat SPAR family (cito/biro/c4o/doco) additionally carries a
+# [byte_exact_signatures] pin (= its [hashes]) and its [archive_signatures] pin
+# here is the GRAPH-FAITHFUL envelope's MerkleRoot (re-pinned, determinism-proven
+# — identical across two `zzz_dump_archive_addresses` runs); the two still-floor
+# vocabs (prov_o, olia) keep their floor-envelope [archive_signatures] unchanged.
 [archive_signatures]
-"biro@1.1.1"             = "6371f6090263b85e9d1074aa90b79aa05e1be83cfdc599fdc63fc865bf8c1c4c"
-"c4o@1.2"                = "f61abe2dcc8a79edab9e28ee3a15390f97eff46dbbda576e0109700d809ebc32"
+"biro@1.1.1"             = "5978e4f8c3050fadf911f0c93733ecab8466688dd9a0e68af438d9da3e4254a4"
+"c4o@1.2"                = "4b21b62a85b3b3a3971fe0c366b3cf521d543d8a12b9daa11eeb7d2984ce7b2f"
 "cito@2.8.1"             = "7821a3786d4a511125cfa683a30ab35caaae2bd5c7083a264ea473598b221607"
-"doco@1.3"               = "08545cdf34d27be793fd3ee4ba7d604981b7be1becad09117fa0b866dd7c04b8"
+"doco@1.3"               = "3fc926269df239163d38f08b67a4ed20febf970b56d6bf22cd1d2f157220053a"
 "olia@2026-04-09"        = "23cba70cac9b2a996dd46409bb5a693c46a88c361665adf750a633ea4fa11ca4"
 "prov_o@2013-04-30"      = "e2b583fdf6c719e33b30d3836a541ebb7f26e6287d04024f3db9deb9a7a4c61b"
 "usc_title_1@pl-119-90" = "df3c96abc606158189ba9911ba8e0e5453828ceac7bfca4dd4bc2358f6eef767"
@@ -436,6 +440,19 @@
 # white-space, attribute, entity, EOL residue), with NO stored raw blob and NO
 # stored DOM. Because `put(get(b)) == b`, the byte-exact round-trip output hash
 # equals the raw source content hash — i.e. this value MUST equal the
-# `cito@2.8.1` `[hashes]` pin (registry.rs enforces sig == raw_hash). The other
-# five OWL vocabs (doco/c4o/biro/prov_o/olia) stay on the raw-bytes floor.
+# `cito@2.8.1` `[hashes]` pin (registry.rs enforces sig == raw_hash).
 "cito@2.8.1"             = "48b31bbb36f2a81efb9a65bd8334be6b41b7c00dd54dc4f8a061e69607d66a84"
+# BiRO 1.1.1, C4O 1.2, DoCO 1.3 — the flat-serialised SPAR OWL family, flipped to
+# byte-exact graph-faithful alongside cito. Each serialises every node (named and
+# blank) as a top-level <rdf:Description> with leaf property elements (no
+# parseType, no DOCTYPE, no comments, no numeric character references, no DTD
+# entities), so the OwlGraphFaithfulLens regenerates the on-disk bytes from the
+# typed OwlOntology graph + the STRUCTURED RDF/XML serialization complement, with
+# NO stored raw blob and NO stored DOM. Because put(get(b)) == b, each value MUST
+# equal that vocab's `[hashes]` pin (registry.rs enforces sig == raw_hash). The
+# remaining two OWL vocabs (prov_o — striped but blocked by §4.1 numeric character
+# references / internal-subset DTD entities / interspersed comments — and olia —
+# internal-subset DTD entities) stay on the raw-bytes floor.
+"biro@1.1.1"             = "2985f8da53083178a5ac53bc5abf211345864dbdd29ca6ae64faf74d9c87e0ba"
+"c4o@1.2"                = "82eda358b640810ad5aab9dbfaee9f29f77abc49ed2f1aec6064bf0c21ed1ea8"
+"doco@1.3"               = "7e56cfd96cab75d49c53446128b1ba927085a2e258a8b580f3de822c0cbb29ed"

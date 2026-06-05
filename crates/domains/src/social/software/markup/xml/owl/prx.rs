@@ -427,7 +427,8 @@ pub struct RawSource {
 /// The graph-faithful reconstruction payload: the typed [`OwlOntology`] graph
 /// PLUS the structured concrete-syntax [`OwlSyntaxComplement`] the byte-exact
 /// `put` ([`reconstruct_owl_rdfxml_source`]) re-applies. Present in a
-/// [`PrxEnvelope`] iff `mode == ByteExactGraphFaithful` (CiTO since this slice).
+/// [`PrxEnvelope`] iff `mode == ByteExactGraphFaithful` (the flat SPAR OWL family
+/// cito/biro/c4o/doco).
 ///
 /// The OWL realisation of #186's graph-faithful tier — the direct sibling of
 /// WordNet's
@@ -474,14 +475,14 @@ pub struct PrxEnvelope {
     pub data: OwnedCodegenData,
     /// The source lens's [`RoundTripFidelity`] — which PutGet law the
     /// source round-trips under, and therefore how `.prx` reconstructs it.
-    /// [`RoundTripFidelity::ByteExactGraphFaithful`] for CiTO (this slice);
-    /// [`RoundTripFidelity::RawBytesComplementFloor`] for the other five OWL
-    /// vocabs.
+    /// [`RoundTripFidelity::ByteExactGraphFaithful`] for the flat SPAR OWL family
+    /// (cito/biro/c4o/doco); [`RoundTripFidelity::RawBytesComplementFloor`] for
+    /// the two still-floor OWL vocabs (prov_o, olia).
     pub mode: RoundTripFidelity,
     /// The graph-faithful reconstruction payload (structured RDF/XML
-    /// complement) — `Some` iff `mode == ByteExactGraphFaithful` (CiTO), `None`
-    /// otherwise (the floor stores `raw` instead). NO raw blob is kept in this
-    /// tier; the source regenerates from the graph + complement.
+    /// complement) — `Some` iff `mode == ByteExactGraphFaithful` (cito/biro/c4o/
+    /// doco), `None` otherwise (the floor stores `raw` instead). NO raw blob is
+    /// kept in this tier; the source regenerates from the graph + complement.
     pub graph: Option<OwlGraphFaithful>,
     /// The content-addressed source bytes (the constant-complement) —
     /// `Some` iff `mode == RawBytesComplementFloor`, `None` for a
@@ -1103,12 +1104,14 @@ mod emit {
         // BYTE-EXACT GRAPH-FAITHFUL tier ONLY for a source whose registered lens
         // declares it (the completeness meter reads the SAME registry, so
         // emit-tier == meter-tier), and only when the structural capture
-        // actually succeeds. CiTO (registered `OwlGraphFaithfulLens`) qualifies;
-        // the other five OWL vocabs (registered the floor `OwlLens`) ride the
-        // raw-bytes floor even though they parse — their byte-exact writer gap is
-        // not yet closed. A registered-graph-faithful source whose capture FAILS
-        // (a non-flat RDF/XML serialization the structural writer cannot
-        // regenerate) degrades HONESTLY to the floor, never a silent lie.
+        // actually succeeds. The flat SPAR family cito/biro/c4o/doco (registered
+        // `OwlGraphFaithfulLens`) qualifies; the two still-floor OWL vocabs prov_o
+        // and olia (registered the floor `OwlLens`) ride the raw-bytes floor —
+        // their parser-layer residue (prov_o: §4.1 numeric char refs, DTD
+        // entities, interspersed comments; olia: DTD entities) is out of scope. A
+        // registered-graph-faithful source whose capture FAILS (a shape the
+        // structural writer cannot regenerate) degrades HONESTLY to the floor,
+        // never a silent lie.
         let registered_graph_faithful =
             crate::formal::meta::well_behaved_lens::lens_by_name(&format!("{name}@{version}"))
                 .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
@@ -1132,9 +1135,9 @@ mod emit {
             });
         }
 
-        // RawBytesComplementFloor: the other five OWL vocabs (and a
-        // graph-faithful-declared source whose capture failed). Carry the exact
-        // source bytes content-addressed (the Bancilhon & Spyratos 1981
+        // RawBytesComplementFloor: the two still-floor OWL vocabs prov_o/olia
+        // (and a graph-faithful-declared source whose capture failed). Carry the
+        // exact source bytes content-addressed (the Bancilhon & Spyratos 1981
         // constant-complement) so `.prx` self-reconstructs the source.
         Ok(PrxEnvelope {
             metadata,
@@ -1402,10 +1405,11 @@ mod tests {
 
     // ── graph-faithful leaf: .prx → source byte-exact (CiTO, #36 Leg 2) ─
     //
-    // CiTO is praxis's first byte-exact graph-faithful OWL vocab: its envelope
-    // carries the structured RDF/XML complement (`graph: Some`, `raw: None`), and
-    // `reconstruct_source` regenerates the exact source bytes from it — NO stored
-    // raw blob. The other five OWL vocabs still ride the raw-bytes floor.
+    // CiTO is praxis's first byte-exact graph-faithful OWL vocab (joined by the
+    // flat SPAR family biro/c4o/doco): its envelope carries the structured RDF/XML
+    // complement (`graph: Some`, `raw: None`), and `reconstruct_source`
+    // regenerates the exact source bytes from it — NO stored raw blob. The two
+    // still-floor OWL vocabs (prov_o, olia) ride the raw-bytes floor.
 
     #[test]
     fn cito_graph_faithful_reconstructs_source_byte_exact() {

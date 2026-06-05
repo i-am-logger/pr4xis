@@ -201,17 +201,19 @@ impl WellBehavedLens for OwlLens {
 // Round-trip harness registrations — one entry per bundled OWL source.
 // =============================================================================
 
-// NOTE: `cito@2.8.1` is NO LONGER registered with the floor `OwlLens` here — it
-// is praxis's first byte-exact graph-faithful OWL vocabulary, registered with
-// `OwlGraphFaithfulLens` (FIDELITY = ByteExactGraphFaithful) in
-// `super::graph_faithful_lens`. Registering it here too would double-register
-// the `cito@2.8.1` harness key (one floor, one byte-exact). The OTHER FIVE OWL
-// vocabularies keep the floor `OwlLens` below. CiTO's RDFC-1.0 graph-identity
+// NOTE: the FLAT SPAR OWL family — `cito@2.8.1`, `biro@1.1.1`, `c4o@1.2`,
+// `doco@1.3` — is NO LONGER registered with the floor `OwlLens` here. Each is
+// byte-exact graph-faithful, registered with `OwlGraphFaithfulLens` (FIDELITY =
+// ByteExactGraphFaithful) in `super::graph_faithful_lens`. Registering them here
+// too would DOUBLE-REGISTER each harness key (one floor, one byte-exact), and
+// `lens_by_name` (a `.find` over the slice) would resolve whichever came first —
+// silently leaving `build_envelope` on the floor. The two remaining OWL
+// vocabularies (`prov_o`, `olia`) keep the floor `OwlLens` below: prov_o is the
+// striped form but is blocked below the writer by §4.1 numeric character
+// references / internal-subset DTD entities / interspersed comments; olia by the
+// same internal-subset DTD entities. The flat family's RDFC-1.0 graph-identity
 // gate (`[canonical_signatures]`, the `.prx` load-gate canonical leg) is
-// independent of its lens registration and stays in force unchanged.
-crate::register_lens!(DOCO_LENS, "doco", "1.3", OwlLens);
-crate::register_lens!(C4O_LENS, "c4o", "1.2", OwlLens);
-crate::register_lens!(BIRO_LENS, "biro", "1.1.1", OwlLens);
+// independent of the lens registration and stays in force unchanged.
 crate::register_lens!(PROV_O_LENS, "prov_o", "2013-04-30", OwlLens);
 crate::register_lens!(OLIA_LENS, "olia", "2026-04-09", OwlLens);
 
