@@ -1,0 +1,2 @@
+15619df2fda7a4ca88308733789b6774517f9638
+https://github.com/w3c/rdf-canon (W3C rdf-canon test suite, RDFC-1.0)
