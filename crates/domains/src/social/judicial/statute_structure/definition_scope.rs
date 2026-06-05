@@ -47,6 +47,7 @@ use crate::cognitive::linguistics::lemon::lexicon::{ConceptRef, Lexicon};
 use crate::formal::meta::identifier_format::Identifier;
 use crate::social::judicial::citation::PinpointCite;
 use crate::social::judicial::ontology::{LegalRelation, RelationType};
+use crate::social::judicial::source_text::SourceTextRef;
 
 /// The applicability scope of a statutory definition — the lex-specialis ladder.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -102,11 +103,21 @@ impl DefinitionScope {
 /// A statutory definition: a defined `term`, its applicability `scope`, and the
 /// legal concept it binds the term to (`defines` — a reference into the legal
 /// lexicon, the sense a use elevates to in the legal domain).
+///
+/// The optional `definition` carries the authoritative source text that JUSTIFIES
+/// the binding — a verbatim, attributable [`SourceTextRef`] (the enacting section,
+/// a glossary entry, an editorial-style guide). It is the cited, queryable
+/// provenance for "why does this term mean this concept", distinct from
+/// `as_defines_relation`'s structural `usc:<labels>` provenance (which names the
+/// PROVISION). `None` where the layer is a hand-coded prototype that has not yet
+/// attached its enacting text (the Dictionary-Act prototype below).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LegalDefinition {
     pub term: String,
     pub scope: DefinitionScope,
     pub defines: ConceptRef,
+    /// The authoritative source text justifying this binding, when cited.
+    pub definition: Option<SourceTextRef>,
 }
 
 impl LegalDefinition {
@@ -267,8 +278,64 @@ pub fn dictionary_act_definitions() -> DefinitionLexicon {
                 ontology: "usc_title_1".to_string(),
                 concept: term.to_string(),
             },
+            // Prototype: the per-term enacting text (§1/§3/§4/§5) is a later
+            // refinement, the same prototype discipline this layer already
+            // notes for its `Defines`-morphism provenance.
+            definition: None,
         });
     }
+    lexicon
+}
+
+/// The USLM / editorial-vocabulary definitional layer — terms the U.S. Code's
+/// own markup and the Office of the Law Revision Counsel (OLRC) editors use to
+/// NAME parts of a section, but which the Code does not itself define as
+/// terms-of-art. "catchline" is the canonical inhabitant: in USLM and OLRC
+/// practice it is the heading of a Code section.
+///
+/// It is grounded not in a Code definition but in an ALREADY-LOADED, cited
+/// standard ontology — DoCO (the SPAR Document Components Ontology), bundled and
+/// hydrated by the registry-driven `owl::loaded_vocabularies::loaded_vocabulary`
+/// loader. "catchline" lexicalizes, in the legal/editorial
+/// register, the DoCO class `doco:SectionTitle` (IRI
+/// `http://purl.org/spar/doco/SectionTitle`; `rdfs:label` "section title";
+/// `rdfs:subClassOf doco:Title`; `rdfs:comment` "The title of a section.") —
+/// loaded OWL concepts are keyed by IRI, so the `defines` `ConceptRef`'s
+/// `concept` is that IRI and its `ontology` is the registry name `"doco"`. The
+/// authoritative DEFINITION of the concept lives on the DoCO class itself; this
+/// layer only records that "catchline" is the US-Code-register word FOR it.
+///
+/// The scope is [`DefinitionScope::OrdinaryMeaning`]: "catchline" is editorial
+/// vocabulary, NOT a Code-enacted term, so it contributes no `Defines` morphism
+/// ([`LegalDefinition::as_defines_relation`] correctly yields `None`) — the word
+/// is grounded by its lexicalization of a cited concept, not by a statute that
+/// defines it.
+///
+/// # Source
+///
+/// - **OLRC, U.S. Code Glossary** — "Catchline: A catchline is the heading of a
+///   Code section." <https://uscode.house.gov/faq.xhtml> (the mapping
+///   justification, carried verbatim on the `definition` `SourceTextRef`).
+/// - **DoCO `doco:SectionTitle`** — Constantin, Peroni, Pettifer, Shotton &
+///   Vitali (2016) *The Document Components Ontology (DoCO)*, Semantic Web 7(2)
+///   — the grounding concept (`rdfs:comment` "The title of a section.").
+#[must_use]
+pub fn uslm_vocabulary_definitions() -> DefinitionLexicon {
+    let mut lexicon = DefinitionLexicon::new();
+    lexicon.define(LegalDefinition {
+        term: "catchline".to_string(),
+        scope: DefinitionScope::OrdinaryMeaning,
+        defines: ConceptRef {
+            // Loaded OWL concepts are keyed by their IRI; `"doco"` is the
+            // registry name under which DoCO is hydrated.
+            ontology: "doco".to_string(),
+            concept: "http://purl.org/spar/doco/SectionTitle".to_string(),
+        },
+        definition: Some(SourceTextRef::new(
+            "Catchline: A catchline is the heading of a Code section. \
+             (OLRC, U.S. Code Glossary, uscode.house.gov/faq.xhtml)",
+        )),
+    });
     lexicon
 }
 
@@ -356,6 +423,7 @@ mod tests {
                 ontology: "us_legal_lexicon".to_string(),
                 concept: "person".to_string(),
             },
+            definition: None,
         }
     }
 
@@ -441,6 +509,7 @@ mod tests {
                 ontology: "us_legal_lexicon".to_string(),
                 concept: "dictionary_act_person".to_string(),
             },
+            definition: None,
         });
         layer.define(LegalDefinition {
             term: "person".to_string(),
@@ -449,6 +518,7 @@ mod tests {
                 ontology: "us_legal_lexicon".to_string(),
                 concept: "title26_person".to_string(),
             },
+            definition: None,
         });
 
         // A use within Title 26 §7701 resolves to the title-specific definition…
@@ -534,5 +604,125 @@ mod tests {
             "english_wordnet"
         );
         assert!(lex.lookup("vessel").is_some());
+    }
+
+    /// (a) RESOLUTION — the praxis-way crux: the concept "catchline" grounds in
+    /// is NOT a dangling reference. The `defines` `ConceptRef` names the loaded
+    /// DoCO vocabulary by registry key (`"doco"`) and the concept by IRI; this
+    /// genuinely hydrates DoCO and resolves that IRI to a real loaded
+    /// `owl:Class` through the typed [`LoadedOwlVocabulary`] accessors — not a
+    /// `String==` on the IRI, not a graceful skip. (The sibling
+    /// `loaded_vocabulary_resolves_cito_subproperty` proves `loaded_vocabulary`
+    /// hydrates SPAR vocabularies in this same lib suite, so DoCO resolves too.)
+    ///
+    /// Gated on `feature = "fetch"` exactly like the sibling
+    /// `loaded_vocabulary_resolves_cito_subproperty`: the `loaded_vocabularies`
+    /// module that hydrates DoCO is itself `#[cfg(all(feature = "fetch", …))]`
+    /// (it needs `prx`'s `build_envelope` + the codegen materialiser), so this
+    /// resolution proof runs whenever that loader is compiled — `cargo test
+    /// --features fetch` here, the `fetch`-enabled CI test job there.
+    #[cfg(feature = "fetch")]
+    #[test]
+    fn catchline_grounds_in_loaded_doco_section_title() {
+        use crate::social::software::markup::xml::owl::loaded_vocabularies::loaded_vocabulary;
+        use crate::social::software::markup::xml::owl::vocabulary::OwlEntityKind;
+
+        let layer = uslm_vocabulary_definitions();
+        let catchline = layer
+            .definitions()
+            .iter()
+            .find(|d| d.term == "catchline")
+            .expect("uslm layer defines catchline");
+
+        // The grounding target, read off the definition itself (no literal).
+        let ConceptRef { ontology, concept } = &catchline.defines;
+        assert_eq!(ontology, "doco", "catchline grounds in the DoCO vocabulary");
+
+        // DoCO is a registered, bundled OntologyVocabulary — it must hydrate.
+        let doco = loaded_vocabulary(ontology)
+            .expect("doco must be a registered, on-disk OntologyVocabulary");
+
+        // The IRI resolves to a REAL loaded concept (not a dangling ref).
+        let idx = doco
+            .find(concept)
+            .unwrap_or_else(|| panic!("catchline's grounding IRI {concept} must resolve in DoCO"));
+        let entity = doco.entity(idx).expect("resolved index is in range");
+        assert_eq!(
+            entity.kind,
+            OwlEntityKind::Class,
+            "doco:SectionTitle is an owl:Class"
+        );
+        // …and it carries DoCO's own authoritative label + comment.
+        assert_eq!(
+            doco.label_of(concept),
+            Some("section title"),
+            "doco:SectionTitle's rdfs:label"
+        );
+        assert_eq!(
+            doco.definition_of(concept),
+            Some("The title of a section."),
+            "doco:SectionTitle's rdfs:comment is the authoritative definition"
+        );
+        // It is a kind of doco:Title (the modeling claim "a catchline is a
+        // section's title" holds in the loaded taxonomy, strict is_a).
+        assert!(
+            doco.is_a(concept, "http://purl.org/spar/doco/Title"),
+            "doco:SectionTitle rdfs:subClassOf doco:Title"
+        );
+    }
+
+    /// (b) MINT: `uslm_vocabulary_definitions().mint_into(lexicon)` puts a
+    /// `"legal"`-register sense for "catchline" on the lexicon, whose reference
+    /// is exactly the loaded DoCO concept — the word is now understood as a
+    /// lexicalization of `doco:SectionTitle`.
+    #[test]
+    fn catchline_mints_a_sense_referencing_loaded_doco_concept() {
+        use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
+
+        let mut lex = Lexicon::new("en");
+        uslm_vocabulary_definitions().mint_into(&mut lex);
+
+        let entry = lex.lookup("catchline").expect("catchline entry minted");
+        let want = ConceptRef {
+            ontology: "doco".to_string(),
+            concept: "http://purl.org/spar/doco/SectionTitle".to_string(),
+        };
+        assert!(
+            entry.senses.iter().any(|s| s.reference == want),
+            "catchline carries a Sense referencing doco:SectionTitle, got {:?}",
+            entry.senses
+        );
+        // The minted sense is in the legal/editorial register.
+        let legal = lex
+            .resolve("catchline", Some("legal"))
+            .expect("a legal sense");
+        assert_eq!(legal.reference, want);
+    }
+
+    /// The catchline definition is `OrdinaryMeaning` scope — editorial
+    /// vocabulary, not a Code-enacted term — so it contributes NO `Defines`
+    /// morphism, and it carries its OLRC-glossary justification verbatim on the
+    /// structured `definition` `SourceTextRef`.
+    #[test]
+    fn catchline_yields_no_defines_morphism_but_cites_its_source() {
+        let layer = uslm_vocabulary_definitions();
+        let catchline = layer
+            .definitions()
+            .iter()
+            .find(|d| d.term == "catchline")
+            .expect("catchline defined");
+        assert_eq!(catchline.scope, DefinitionScope::OrdinaryMeaning);
+        assert!(
+            catchline.as_defines_relation().is_none(),
+            "editorial vocabulary is not a Code-defined term, so no Defines morphism"
+        );
+        let cite = catchline
+            .definition
+            .as_ref()
+            .expect("catchline cites the OLRC glossary");
+        assert!(
+            cite.as_str().contains("heading of a Code section"),
+            "the OLRC glossary justification is carried verbatim"
+        );
     }
 }
