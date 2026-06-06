@@ -671,7 +671,14 @@ impl WellBehavedLens for UslmXmlLens {
 // list to keep in sync.
 // =============================================================================
 
-crate::register_lens!(USC_TITLE_18_LENS, "usc_title_18", "pl-119-90", UslmXmlLens);
+// `usc_title_18` FLIPPED to the byte-exact `UslmGraphFaithfulLens` (SLICE U7,
+// registered in `lens/writer.rs`); its floor registration is REMOVED here so the
+// harness runs ONE tier per source (the double-registration lesson — a source
+// registered both floor-canonical AND byte-exact would run both laws and pin both
+// a `[canonical_signatures]` and a `[byte_exact_signatures]` for the same key).
+// `usc_title_49` stays FLOOR — it is proven byte-exact too but, at ≈ 26 MB, is
+// held off the always-run harness for the nextest `ci` budget (a CI-cost floor,
+// NOT a missing family), alongside the other giants (5/15/42).
 crate::register_lens!(USC_TITLE_49_LENS, "usc_title_49", "pl-119-90", UslmXmlLens);
 
 // =============================================================================

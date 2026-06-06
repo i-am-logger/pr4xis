@@ -1009,6 +1009,50 @@ crate::register_lens!(
     UslmGraphFaithfulLens
 );
 
+// SLICE U7 — flip the smaller positive-law titles that ride the SAME generic
+// `uscdoc_mixed` document-wrapper path Title 1 proved (U4) onto the byte-exact
+// graph-faithful lens. They exercise USLM families ABSENT from Title 1 — the
+// `<continuation>` flush-text family and the XHTML `<table>` family — yet
+// regenerate byte-exact, because the U4 mixed-content backbone carries every
+// such element as a generic node and the L3 byte kernel restores their residue
+// (prolog PI, §2.11 CRLFs, §4.6 `&amp;` predefined-entity form, attribute order,
+// inter-element white-space). No new typed family was needed; the proof is the
+// `flipped_titles_reconstruct_byte_exact` gate + the all-sources round-trip
+// integration test, and each title's `[byte_exact_signatures]` pin equals its
+// `[hashes]` content address (registry.rs enforces sig == raw_hash).
+//
+// These FOUR titles are all ≤ 16 MB, keeping the always-run `ci_gate_passes`
+// harness under the nextest `ci` 30 s budget. The proven-but-larger giants
+// (usc_title_5/49/15/42, 19–108 MB) stay FLOOR for CI cost/memory — a CI-budget
+// floor, NOT a missing family. The PREVIOUS floor `UslmXmlLens` registrations
+// for `usc_title_18`/`usc_title_49` are removed from `lens/mod.rs` for the four
+// flipped here (the double-registration lesson: one source, one lens, one tier);
+// `usc_title_49` stays floor-registered there as a giant.
+crate::register_lens!(
+    USC_TITLE_28_GRAPH_FAITHFUL_LENS,
+    "usc_title_28",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+crate::register_lens!(
+    USC_TITLE_18_GRAPH_FAITHFUL_LENS,
+    "usc_title_18",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+crate::register_lens!(
+    USC_TITLE_29_GRAPH_FAITHFUL_LENS,
+    "usc_title_29",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+crate::register_lens!(
+    USC_TITLE_50_GRAPH_FAITHFUL_LENS,
+    "usc_title_50",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2009,5 +2053,155 @@ mod tests {
             "the literal on-disk Title 1 file must reconstruct byte-for-byte (U5: the \
              §2.11 end-of-line carve-out is now zero)"
         );
+    }
+
+    /// HARD BYTE-EXACT GATE (slice U7): each FLIPPED on-disk USC title — the
+    /// smaller positive-law titles that ride the SAME generic `uscdoc_mixed`
+    /// document-wrapper path Title 1 proved — reconstructs BYTE-FOR-BYTE from the
+    /// typed [`UsCodeTitle`] ontology + captured [`UslmSyntaxComplement`], over the
+    /// LITERAL on-disk file (CRLFs included). These titles exercise USLM families
+    /// ABSENT from Title 1 — the `<continuation>` flush-text family (Title 28 ≈
+    /// 148, Title 29 ≈ many) and the XHTML `<table>` family (Title 28 ≈ 83) — yet
+    /// regenerate byte-exact because the generic mixed-content backbone carries
+    /// every such element as a [`UsCodeContentNode::Generic`] node, node-for-node,
+    /// and the byte kernel restores their concrete-syntax residue (the prolog
+    /// `<?xml-stylesheet?>` PI, the §2.11 prolog CRLFs, the §4.6 `&amp;`
+    /// predefined-entity form, the start-tag attribute order, the inter-element
+    /// white-space). No new typed family was needed — the U4 `uscdoc_mixed` path
+    /// plus the L3 generic byte kernel already cover them.
+    ///
+    /// SIZE-CAPPED to stay under the nextest `ci` 30 s budget (mirrors
+    /// `usc_archive_anchors_match_lock`): the FOUR flipped titles here are all
+    /// ≤ 16 MB. The giants (5 ≈ 19 MB, 49 ≈ 26 MB, 15 ≈ 30 MB, 42 ≈ 108 MB) are
+    /// PROVEN byte-exact too (verified in development) but stay FLOOR — registering
+    /// them in the always-run harness would risk the CI budget + memory; that is a
+    /// CI-cost floor, NOT a missing family.
+    #[test]
+    fn flipped_titles_reconstruct_byte_exact() {
+        // (number, expected source SHA-256 == the `[hashes]` pin == the
+        // `[byte_exact_signatures]` pin). Each is the literal on-disk file's
+        // content address; `put(get(b)) == b` makes the round-trip output hash
+        // equal it.
+        const FLIPPED: &[(&str, &str)] = &[
+            (
+                "28",
+                "5a24bea79bc49bb339af09c2fff0178880944d8726d628fc35bf06f41f0922fe",
+            ),
+            (
+                "18",
+                "00bb3b87d056164095e174a4993151e5fbd2f5c114aaa6f86853b76e514d883f",
+            ),
+            (
+                "29",
+                "bd3f0e9fc634cdbd887adde480cf08a52d49cced457385cb0fdef1447feab413",
+            ),
+            (
+                "50",
+                "623ecd3f0f7c00331f7f98151ef75bf5262328435865fc3a2aff7b1fb16f3713",
+            ),
+        ];
+        for (n, expected_sha) in FLIPPED {
+            let path = workspace_root().join(format!(
+                "crates/domains/data/legal/uscode/usc_title_{n}/usc_title_{n}-pl-119-90.xml"
+            ));
+            let Ok(bytes) = std::fs::read(&path) else {
+                continue; // corpus not provisioned — skip gracefully
+            };
+            // Sanity: the source's content address is the pinned value (else a
+            // corpus swap silently weakened this gate).
+            assert_eq!(
+                &sha256_hex(&bytes),
+                expected_sha,
+                "title {n} on-disk source must hash to its pinned content address"
+            );
+            let src = String::from_utf8(bytes).expect("title is UTF-8");
+            // Sanity: this title genuinely exercises a family ABSENT from Title 1
+            // (continuation and/or XHTML table) — else the slice is vacuous.
+            assert!(
+                src.contains("<continuation") || src.contains("<table"),
+                "title {n} must exercise a beyond-Title-1 family (continuation/table)"
+            );
+            let (title, complement) = capture_uslm_complement(&src).expect("capture flipped title");
+            // The residue is GENUINELY present (a vacuous round-trip would lie).
+            // A full `<uscDoc>` document carries its inter-element white-space as
+            // verbatim `#PCDATA` in the semantic mixed tree (not as the
+            // `content_whitespace` residue the bare-section slice uses), so the
+            // genuine byte residue here is the start-tag attribute overrides (the
+            // reordered/dropped `<uscDoc>`/`<section>`/`<table>` attrs), the prolog
+            // `<?xml-stylesheet?>` PI, and the §2.11 prolog CRLFs.
+            assert!(
+                !complement.regenerated.attribute_overrides.is_empty(),
+                "title {n} must carry genuine start-tag attribute-override residue"
+            );
+            assert!(
+                complement
+                    .syntax_decisions
+                    .prolog()
+                    .after_xml_decl
+                    .contains("<?xml-stylesheet"),
+                "title {n} must carry the prolog <?xml-stylesheet?> PI residue"
+            );
+            assert!(
+                !complement.syntax_decisions.eol_form().is_empty(),
+                "title {n} must carry the §2.11 prolog-CRLF EOL-form residue"
+            );
+            let out = reconstruct_uslm_source(&title, &complement).expect("reconstruct");
+            assert_eq!(
+                out,
+                src.as_bytes(),
+                "title {n} must reconstruct byte-for-byte from the graph + complement"
+            );
+            assert_eq!(
+                &sha256_hex(&out),
+                expected_sha,
+                "title {n} round-trip output must hash to its pinned content address"
+            );
+        }
+    }
+
+    /// META-TEST (slice U7 has TEETH on EVERY flipped title): for each flipped
+    /// title, capture the real `<uscDoc>` document, CORRUPT a #PCDATA Text leaf
+    /// deep in the `uscdoc_mixed` backbone (continuation/table family content),
+    /// and assert the byte-exact reconstruction NO LONGER equals the source.
+    /// Proves the flipped titles' beyond-Title-1 families are reproduced from the
+    /// EXACT text, not merely a backbone the positional diff could reconcile. The
+    /// UNcorrupted (clean) round-trip is the control proven for all four by
+    /// [`flipped_titles_reconstruct_byte_exact`]; one reconstruct per title keeps
+    /// this under the CI per-test budget (every flipped title is ≤ 16 MB).
+    #[test]
+    fn corrupted_flipped_title_breaks_byte_exact_gate() {
+        for n in ["28", "18", "29", "50"] {
+            let path = workspace_root().join(format!(
+                "crates/domains/data/legal/uscode/usc_title_{n}/usc_title_{n}-pl-119-90.xml"
+            ));
+            let Ok(bytes) = std::fs::read(&path) else {
+                continue; // corpus not provisioned — skip gracefully
+            };
+            let src = String::from_utf8(bytes).expect("title is UTF-8");
+            let (mut title, complement) =
+                capture_uslm_complement(&src).expect("capture flipped title");
+
+            // Corrupt the FIRST #PCDATA Text leaf anywhere in the document
+            // backbone. The element backbone stays identical (the complement's
+            // pre-order walk still succeeds), but a faithful writer must now emit
+            // different bytes.
+            let uscdoc = title
+                .uscdoc_mixed
+                .as_mut()
+                .expect("a flipped title is a full <uscDoc> document with a captured backbone");
+            assert!(
+                corrupt_first_text_in(&mut uscdoc.nodes),
+                "title {n} backbone must carry a #PCDATA Text leaf to corrupt"
+            );
+
+            let out = reconstruct_uslm_source(&title, &complement)
+                .expect("reconstruct still runs on a corrupted-but-backbone-valid model");
+            assert_ne!(
+                out,
+                src.as_bytes(),
+                "a corrupted title {n} backbone #PCDATA value MUST diverge the byte-exact \
+                 reconstruction — the U7 flipped-title gate has teeth"
+            );
+        }
     }
 }

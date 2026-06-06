@@ -1632,22 +1632,48 @@ mod tests {
             "with the title on disk the harness must MEASURE graph-faithful (achieved == declared)"
         );
 
-        // The OTHER USC titles STILL floor — their write_uslm gap remains, so the
-        // degrade is honest and the meter did not over-credit them. (They declare
-        // the floor via the UslmXmlLens registration; they keep their gap.)
-        for other in ["usc_title_18@pl-119-90", "usc_title_49@pl-119-90"] {
+        // The remaining floor-registered USC giant STILL floors — its
+        // (CI-budget-deferred) graph-faithful flip is not registered, so the meter
+        // did not over-credit it. (usc_title_18 was FLIPPED to byte-exact in SLICE
+        // U7; usc_title_49, at ≈ 26 MB, stays floor-registered via UslmXmlLens for
+        // the CI harness budget — proven byte-exact in development, but its
+        // always-run round-trip is held off, so the meter still DECLARES the floor
+        // and keeps its gap.)
+        let other = "usc_title_49@pl-119-90";
+        let row = meter
+            .iter()
+            .find(|r| r.source == other)
+            .unwrap_or_else(|| panic!("{other} must have a completeness row"));
+        assert_eq!(
+            row.declared,
+            Tier::RawBytesComplementFloor,
+            "{other} still DECLARES the floor (no graph-faithful lens registered for it)"
+        );
+        assert!(
+            row.graph_faithful_gap.is_some(),
+            "{other} still carries its write_uslm gap (it is NOT graph-faithful yet)"
+        );
+
+        // The FLIPPED titles (SLICE U7) now DECLARE graph-faithful with NO gap —
+        // the meter credits them once their `UslmGraphFaithfulLens` is registered.
+        for flipped in [
+            "usc_title_28@pl-119-90",
+            "usc_title_18@pl-119-90",
+            "usc_title_29@pl-119-90",
+            "usc_title_50@pl-119-90",
+        ] {
             let row = meter
                 .iter()
-                .find(|r| r.source == other)
-                .unwrap_or_else(|| panic!("{other} must have a completeness row"));
+                .find(|r| r.source == flipped)
+                .unwrap_or_else(|| panic!("{flipped} must have a completeness row"));
             assert_eq!(
                 row.declared,
-                Tier::RawBytesComplementFloor,
-                "{other} still DECLARES the floor (no graph-faithful lens registered for it)"
+                Tier::ByteExactGraphFaithful,
+                "{flipped} DECLARES graph-faithful (SLICE U7 — UslmGraphFaithfulLens registered)"
             );
             assert!(
-                row.graph_faithful_gap.is_some(),
-                "{other} still carries its write_uslm gap (it is NOT graph-faithful yet)"
+                row.graph_faithful_gap.is_none(),
+                "{flipped} carries NO write_uslm gap — it IS graph-faithful"
             );
         }
     }

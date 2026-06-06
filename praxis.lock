@@ -326,13 +326,13 @@
 # `formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`
 # axiom verifies these match on every test run.
 [canonical_signatures]
-# USC Title 18 — Crimes and Criminal Procedure. UslmXmlLens get/put
-# is constant-complement (Bancilhon & Spyratos 1981); the canonical
-# form normalizes via xml-c14n-1.1 (Boyer & Marcy 2008) which expands
-# the five XML-predefined entity references (XML 1.0 §4.6) before
-# re-escaping per §3.5.
-"usc_title_18@pl-119-90" = "7e8f4cdf99cdca0ed611fef0f8b508f1179f3dbdae67cdfd751c4f8944736939"
-# USC Title 49 — Transportation. Same lens, same canonical form.
+# USC Title 49 — Transportation. The floor `UslmXmlLens` get/put is
+# constant-complement (Bancilhon & Spyratos 1981); the canonical form normalizes
+# via xml-c14n-1.1 (Boyer & Marcy 2008) which expands the five XML-predefined
+# entity references (XML 1.0 §4.6) before re-escaping per §3.5. Title 49 stays
+# FLOOR (a CI-budget floor at ≈ 26 MB; proven byte-exact in development).
+# (Title 18 was FLIPPED to byte-exact graph-faithful in SLICE U7 — its stale
+# canonical signature is removed; it now carries a `[byte_exact_signatures]` pin.)
 "usc_title_49@pl-119-90" = "1902b2bb287fcfd2af1a59cec9619f05a177161bde1aec77c5683216aca0cccb"
 # OWL vocabularies — OwlLens canonical form is the W3C RDF Dataset
 # Canonicalization (RDFC-1.0, REC-rdf-canon-20240521 §1.1/§4.4.3)
@@ -405,13 +405,18 @@
 "prov_o@2013-04-30"      = "66c790ed9eb6489c770088420965349f7a759464ac83cfd3cecf7a93d8a272f2"
 "usc_title_1@pl-119-90" = "1875cb1af013b32194eecc11063c59d0662e5584cbe698e7324cf5846aadb102"
 "usc_title_15@pl-119-90" = "aa8b57740a7f119685c59e8476100b3a813da5698050eac56607e6963521cd46"
-"usc_title_18@pl-119-90" = "04939ebc2a29a00b883fa7566772ec03a89110b6ee54bf89c723c0cb8bf5824c"
-"usc_title_28@pl-119-90" = "1281aec2b59659e05855966a4a41d6f7fc51f190e7f138875f4ebb6d29e042d7"
-"usc_title_29@pl-119-90" = "4cc0206973619c181398f528e8e7310654dc0a954958b2e70e3a22022d1b6384"
+# usc_title_18/28/29/50 FLIPPED to byte-exact graph-faithful (SLICE U7) — the
+# .prx envelope now carries the typed `UsCodeTitle` ontology + concrete-syntax
+# complement (graph payload) instead of a raw blob, so its MerkleRoot shifted.
+# Determinism-proven (the emit is reproducible: each re-emit yields the same
+# MerkleRoot). The giants (5/49/15/42) stay raw-floor envelopes, unchanged.
+"usc_title_18@pl-119-90" = "be313a693b29ecb625f7b369ee10723d0aa0e2bf9cfeca426a389ade2422b34f"
+"usc_title_28@pl-119-90" = "194109ea7088f1876ed01d5e829c1e3cfd0693e0a9ddc5ecc53e9c40dc271e10"
+"usc_title_29@pl-119-90" = "0c34ddba10ab7e8d6b95134fa1f0b6a0e3f6fe435495a5c46b4f799f80744571"
 "usc_title_42@pl-119-90" = "1307a560104eb8bd33c710a14a18e29031368fccbe08992202bfbc3620ec98c0"
 "usc_title_49@pl-119-90" = "90d963480ddb0050e77b52c6468315b9438275161a7149579de431e9e8232a32"
 "usc_title_5@pl-119-90" = "430f5d9f4192d2d00774be182e54e810988e113183d8b72552365dbc7d243398"
-"usc_title_50@pl-119-90" = "79af142d7d597246e17b3d23a3dccbb8ab9ecbacc01f6f46927f96063074fc24"
+"usc_title_50@pl-119-90" = "fe24b6fdb523dd4b47579861176298e283a00921f2864e3a30503d767a758ece"
 "english_wordnet@2025" = "9a60b6db0bedc4ec3bcaf4c54e010a09f02cb36abfbb48ad58f62eaca9e00660"
 
 # Byte-exact round-trip signatures — SHA-256 of the bytes a source's
@@ -467,3 +472,20 @@
 # put(get(b)) == b, each value MUST equal that vocab's `[hashes]` pin.
 "prov_o@2013-04-30"      = "02a4d7409ee3e1f697a04e4980d8d208a847cc7fa5180ca0d187540abb66919f"
 "olia@2026-04-09"        = "e310679f23af25357538d1fae43c693d4f782e221ba170845fa91ee02516a7b7"
+# USC Titles 28 / 18 / 29 / 50 — the smaller positive-law titles flipped to
+# byte-exact graph-faithful (SLICE U7, #186). Each rides the SAME generic
+# `uscDoc` document-wrapper path Title 1 proved (U4): the `UslmGraphFaithfulLens`
+# regenerates the literal on-disk bytes (CRLFs included) from the typed
+# `UsCodeTitle` ontology + a concrete-syntax complement, with NO stored raw blob
+# and NO stored DOM. They exercise USLM families ABSENT from Title 1 — the
+# `<continuation>` flush-text family and the XHTML `<table>` family — carried as
+# generic mixed-content nodes; the byte kernel restores their residue (prolog PI,
+# §2.11 CRLFs, §4.6 `&amp;` predefined-entity form, attribute order, white-space).
+# Because put(get(b)) == b, each value MUST equal that title's `[hashes]` pin
+# (registry.rs enforces sig == raw_hash). The proven-but-larger giants
+# (usc_title_5/49/15/42, 19–108 MB) are byte-exact too but stay FLOOR for the CI
+# harness budget — a CI-cost floor, NOT a missing family.
+"usc_title_28@pl-119-90" = "5a24bea79bc49bb339af09c2fff0178880944d8726d628fc35bf06f41f0922fe"
+"usc_title_18@pl-119-90" = "00bb3b87d056164095e174a4993151e5fbd2f5c114aaa6f86853b76e514d883f"
+"usc_title_29@pl-119-90" = "bd3f0e9fc634cdbd887adde480cf08a52d49cced457385cb0fdef1447feab413"
+"usc_title_50@pl-119-90" = "623ecd3f0f7c00331f7f98151ef75bf5262328435865fc3a2aff7b1fb16f3713"

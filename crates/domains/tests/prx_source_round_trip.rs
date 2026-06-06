@@ -240,29 +240,32 @@ fn completeness_meter_declared_tier_matches_achieved() {
     );
 
     // The meter must be HONEST per source. The graph-faithful sources are:
-    // `english_wordnet` (WordNet, the FIRST — SLICE 3b), `usc_title_1` (UsCode,
-    // SLICE U6), and ALL SIX bundled OWL vocabs — the flat SPAR family `cito` /
-    // `biro` / `c4o` / `doco` and the striped `prov_o` / `olia` (flipped by the L3
-    // byte kernel). Each MAY claim `ByteExactGraphFaithful` and carries NO gap.
-    // EVERY OTHER source — every other USC title (`usc_title_15/18/49`, …) — is
-    // still on the stored-complement FLOOR: it may NOT claim graph-faithfulness,
-    // and a floor row must name its per-source writer gap. The whitelist below has
-    // TEETH: it accepts ONLY those named sources (each OWL prefix `@`-anchored), so
-    // a future over-claim — e.g. `usc_title_15` leaking a graph-faithful tier from
-    // a title-agnostic emit — still trips this assertion.
+    // `english_wordnet` (WordNet, the FIRST — SLICE 3b), the USC titles
+    // `usc_title_1` (SLICE U6) plus `usc_title_28/18/29/50` (SLICE U7 — the
+    // smaller positive-law titles riding the same `uscDoc` wrapper path), and ALL
+    // SIX bundled OWL vocabs — the flat SPAR family `cito` / `biro` / `c4o` /
+    // `doco` and the striped `prov_o` / `olia` (flipped by the L3 byte kernel).
+    // Each MAY claim `ByteExactGraphFaithful` and carries NO gap. EVERY OTHER
+    // source — the FLOORED giant USC titles (`usc_title_5/49/15/42`) — is still on
+    // the stored-complement FLOOR (a CI-budget floor): it may NOT claim
+    // graph-faithfulness, and a floor row must name its per-source writer gap. The
+    // whitelist below has TEETH: it accepts ONLY those named sources (each prefix
+    // `@`-anchored), so a future over-claim — e.g. `usc_title_15` leaking a
+    // graph-faithful tier from a title-agnostic emit — still trips this assertion.
     for r in &meter {
         match r.declared {
             RoundTripFidelity::ByteExactGraphFaithful => {
-                // The two legitimately graph-faithful sources in this slice. Note
-                // `r.source` is the `"{name}@{version}"` key, so the `usc_title_1`
-                // arm pins the EXACT source — `usc_title_15` (kind=UsCode) does
-                // NOT match and is correctly rejected as an over-claim. The same
-                // predicate is proven to keep its teeth by
+                // The legitimately graph-faithful sources in this slice. Note
+                // `r.source` is the `"{name}@{version}"` key, so each arm pins the
+                // EXACT source — `usc_title_15` (kind=UsCode) does NOT match and is
+                // correctly rejected as an over-claim. The same predicate is proven
+                // to keep its teeth by
                 // `slice_guard_rejects_graph_faithful_over_claims`.
                 assert!(
                     slice_allows_graph_faithful(r.kind, &r.source),
-                    "{}: only english_wordnet (WordNet), usc_title_1 (UsCode), and the flat \
-                     SPAR OWL family cito/biro/c4o/doco are graph-faithful in this slice; \
+                    "{}: only english_wordnet (WordNet), the byte-exact USC titles \
+                     usc_title_1/28/18/29/50 (UsCode), and the six byte-exact OWL vocabs \
+                     cito/biro/c4o/doco/prov_o/olia are graph-faithful in this slice; \
                      {:?} over-claims",
                     r.source,
                     r.kind
@@ -311,7 +314,19 @@ fn completeness_meter_declared_tier_matches_achieved() {
 /// prove the guard keeps its teeth against an over-claim leak.
 fn slice_allows_graph_faithful(kind: DecompileKind, source: &str) -> bool {
     kind == DecompileKind::WordNet
-        || (kind == DecompileKind::UsCode && source.starts_with("usc_title_1@"))
+        || (kind == DecompileKind::UsCode
+            && (source.starts_with("usc_title_1@")
+                // SLICE U7 — the smaller positive-law titles flipped to byte-exact
+                // graph-faithful (28/18/29/50, all ≤ 16 MB), riding the SAME generic
+                // `uscDoc` document-wrapper path Title 1 proved. Each prefix is
+                // `@`-anchored so a sibling title (e.g. `usc_title_15@`) cannot leak a
+                // graph-faithful claim. The proven-but-larger giants (5/49/15/42)
+                // stay FLOOR for the CI harness budget — a CI-cost floor, NOT a
+                // missing family — so they are NOT admitted here.
+                || source.starts_with("usc_title_28@")
+                || source.starts_with("usc_title_18@")
+                || source.starts_with("usc_title_29@")
+                || source.starts_with("usc_title_50@")))
         || (kind == DecompileKind::Owl
             && (source.starts_with("cito@")
                 || source.starts_with("biro@")
@@ -340,22 +355,40 @@ fn slice_guard_rejects_graph_faithful_over_claims() {
         DecompileKind::WordNet,
         "english_wordnet@2025"
     ));
-    assert!(slice_allows_graph_faithful(
-        DecompileKind::UsCode,
-        "usc_title_1@pl-119-90"
-    ));
+    // The byte-exact graph-faithful USC titles are accepted: usc_title_1 (U6)
+    // plus the SLICE U7 flips (28/18/29/50).
+    for ok in [
+        "usc_title_1@pl-119-90",
+        "usc_title_28@pl-119-90",
+        "usc_title_18@pl-119-90",
+        "usc_title_29@pl-119-90",
+        "usc_title_50@pl-119-90",
+    ] {
+        assert!(
+            slice_allows_graph_faithful(DecompileKind::UsCode, ok),
+            "{ok} (kind=UsCode) is a byte-exact graph-faithful title and must be accepted"
+        );
+    }
 
     // A sibling USC title that LEAKS a graph-faithful claim is rejected — the
-    // exact regression the title-agnostic `build_usc_envelope` produced.
+    // exact regression the title-agnostic `build_usc_envelope` produced. Each
+    // `@`-anchored prefix keeps its teeth: `usc_title_15@…` does NOT match
+    // `usc_title_1@` (position 11 is `5`, not `@`). The proven-but-larger giants
+    // (5/49/15/42) stay FLOOR for the CI budget — they are NOT admitted, so the
+    // guard must reject them too.
     assert!(
         !slice_allows_graph_faithful(DecompileKind::UsCode, "usc_title_15@pl-119-90"),
         "usc_title_15 (kind=UsCode) must NOT be accepted as graph-faithful — \
          the @-anchored usc_title_1 prefix keeps the guard's teeth"
     );
     for leak in [
-        "usc_title_18@pl-119-90",
         "usc_title_49@pl-119-90",
         "usc_title_5@pl-119-90",
+        "usc_title_42@pl-119-90",
+        // a non-`@`-anchored lookalike of a FLIPPED prefix still leaks nothing:
+        // `usc_title_280@…` is not `usc_title_28@…` (position 13 is `0`, not `@`).
+        "usc_title_280@pl-119-90",
+        "usc_title_500@pl-119-90",
     ] {
         assert!(
             !slice_allows_graph_faithful(DecompileKind::UsCode, leak),
