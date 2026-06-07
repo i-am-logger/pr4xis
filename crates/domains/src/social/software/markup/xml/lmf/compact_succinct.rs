@@ -722,7 +722,9 @@ mod tests {
             let wn = read_wordnet(core::str::from_utf8(&bytes).expect("UTF-8")).expect("parse");
 
             let prx_gz = emit_prx_gz(&wn);
+            let t = std::time::Instant::now();
             let loaded = load_prx_gz(&prx_gz);
+            let load_ms = t.elapsed().as_secs_f64() * 1e3;
             let reference = English::from_wordnet(&wn);
 
             assert_eq!(
@@ -736,10 +738,11 @@ mod tests {
             );
 
             eprintln!(
-                "PRX-GZ {name}: .prx.gz = {:.2}MB  (loads to {} concepts)  vs  source download \
-                 {:.2}MB",
+                "PRX-GZ {name}: .prx.gz = {:.2}MB  loads to {} concepts in {:.0}ms (native)  vs \
+                 source download {:.2}MB",
                 prx_gz.len() as f64 / 1e6,
                 loaded.concept_count(),
+                load_ms,
                 gz_len(&bytes) as f64 / 1e6,
             );
             measured += 1;
