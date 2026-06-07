@@ -20,8 +20,9 @@ use alloc::{string::String, vec::Vec};
 
 use hashbrown::HashMap;
 
-use super::compact::{CompactWordNet, IForm, ILexiconMetadata, IPron, ISynBehav};
-use super::ontology::{LmfPos, SenseRelationType, SynsetRelationType};
+use super::compact::{CompactWordNet, IForm, ILexiconMetadata, IPron, ISynBehav, decode, encode};
+use super::ontology::{LmfPos, SenseRelationType, SynsetRelationType, WordNet};
+use crate::cognitive::linguistics::english::English;
 
 // ── primitive writers / readers ───────────────────────────────────────────
 
@@ -607,12 +608,41 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
     }
 }
 
+// ── `.prx.gz` emit / load — the shipped artifact and its runtime decode ─────
+
+fn gzip(data: &[u8]) -> Vec<u8> {
+    use std::io::Write as _;
+    let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    e.write_all(data).expect("gz write");
+    e.finish().expect("gz finish")
+}
+
+fn gunzip(data: &[u8]) -> Vec<u8> {
+    use std::io::Read as _;
+    let mut out = Vec::new();
+    flate2::read::GzDecoder::new(data)
+        .read_to_end(&mut out)
+        .expect("gunzip");
+    out
+}
+
+/// Serialize a parsed [`WordNet`] to the `.prx.gz` bytes — the artifact that is
+/// embedded (`include_bytes!`) or downloaded.
+pub fn emit_prx_gz(wn: &WordNet) -> Vec<u8> {
+    gzip(&to_succinct(&encode(wn)))
+}
+
+/// Load `.prx.gz` bytes into a materialized [`English`]: gunzip → succinct
+/// decode → [`decode`] → `English::from_wordnet`.
+pub fn load_prx_gz(prx_gz: &[u8]) -> English {
+    English::from_wordnet(&decode(&from_succinct(&gunzip(prx_gz))))
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Write as _;
 
     use super::*;
-    use crate::social::software::markup::xml::lmf::compact::encode;
     use crate::social::software::markup::xml::lmf::reader::read_wordnet;
 
     fn gz_len(bytes: &[u8]) -> usize {
@@ -671,6 +701,52 @@ mod tests {
         assert!(
             measured >= 1,
             "no WN-LMF source on disk for the succinct codec"
+        );
+    }
+
+    /// End-to-end: `emit_prx_gz` → `load_prx_gz` materializes an `English` equal
+    /// to `from_wordnet` over the source (same concept count and word→concept
+    /// index) — the full embed/download → gunzip → decode → reason pipeline.
+    #[test]
+    fn prx_gz_round_trips_to_english() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let sources = [
+            ("us_legal_lexicon", "data/legal-text/us_legal_lexicon.xml"),
+            ("english_wordnet", "data/wordnet/english-wordnet-2025.xml"),
+        ];
+        let mut measured = 0usize;
+        for (name, rel) in sources {
+            let Ok(bytes) = std::fs::read(manifest.join(rel)) else {
+                continue;
+            };
+            let wn = read_wordnet(core::str::from_utf8(&bytes).expect("UTF-8")).expect("parse");
+
+            let prx_gz = emit_prx_gz(&wn);
+            let loaded = load_prx_gz(&prx_gz);
+            let reference = English::from_wordnet(&wn);
+
+            assert_eq!(
+                loaded.concept_count(),
+                reference.concept_count(),
+                "{name}: loaded English concept_count differs from from_wordnet"
+            );
+            assert_eq!(
+                loaded.word_index, reference.word_index,
+                "{name}: loaded English word→concept index differs"
+            );
+
+            eprintln!(
+                "PRX-GZ {name}: .prx.gz = {:.2}MB  (loads to {} concepts)  vs  source download \
+                 {:.2}MB",
+                prx_gz.len() as f64 / 1e6,
+                loaded.concept_count(),
+                gz_len(&bytes) as f64 / 1e6,
+            );
+            measured += 1;
+        }
+        assert!(
+            measured >= 1,
+            "no WN-LMF source on disk for the prx.gz round-trip"
         );
     }
 }
