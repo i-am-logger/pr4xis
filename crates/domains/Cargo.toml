@@ -128,11 +128,6 @@ codegen = ["std", "pr4xis/codegen"]
 # lets the WASM runtime load a validated `.prx.gz` while keeping `ureq` /
 # `rustls` (which do not compile to wasm32) off that build.
 prx = ["std", "dep:rkyv", "dep:flate2"]
-# The succinct `.prx` codec (hand-rolled wasm32-safe bit-packed CSR structure +
-# LOUDS topology over the compact ontology core). No succinct-crate dependency
-# (sucds is 64-bit-only and cannot target wasm32); folds into `prx` once the
-# runtime decode path is wired.
-succinct = ["prx"]
 fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
 
 [build-dependencies]

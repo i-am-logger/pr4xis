@@ -4,8 +4,8 @@ pub mod dtd;
 // and is the on-the-wire/embedded compact form of the ontology.
 #[cfg(feature = "prx")]
 pub mod compact;
-// The succinct `.prx` codec (sucds: bit-packed CSR structure + LOUDS topology).
-#[cfg(feature = "succinct")]
+// The succinct `.prx` codec (bit-packed CSR structure) + `.prx.gz` emit/load.
+#[cfg(feature = "prx")]
 pub mod compact_succinct;
 // The WN-LMF byte-exact graph-faithful lens + its harness registration (flips
 // `english_wordnet` off the universal floor in the completeness meter). Native
