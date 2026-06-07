@@ -49,14 +49,13 @@ unimplemented = "deny"
 unreachable = "deny"
 
 [build-dependencies]
-pr4xis = { path = "../pr4xis", features = ["codegen"] }
 # build.rs runs natively (not wasm32), so it can read the live registry
 # (`data_sources()` / `lock_hashes()`) to emit the ontology manifest —
 # `(name, version, prx_url, source_url, lock_pin_sha256)` per registered
 # OntologyVocabulary — and stage each bundled `.owl` for serving. The pin
 # is baked in here because the wasm runtime has no filesystem to read
 # praxis.lock from.
-pr4xis-domains = { path = "../domains" }
+pr4xis-domains = { path = "../domains", features = ["prx"] }
 # `emit`, so build.rs can project a real compiled domain ontology
 # (`DependabilityCategory`) into a content-addressed `.prx` Archive and emit
 # its canonical bytes + Merkle root for the browser to load fail-closed. The

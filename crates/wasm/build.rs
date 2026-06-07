@@ -6,28 +6,32 @@ fn main() {
     let manifest_dir =
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set"));
 
-    // ---------- English / WordNet (Embedded staging — baked in) ----------
+    // ---------- English / WordNet (the compact `.prx.gz`, baked in) ------
+    // Emit the COMPLETE WordNet ontology as the size-reduced `.prx.gz` and bake
+    // it into the wasm via `include_bytes!`; the runtime gunzips and loads it
+    // (`load_prx_gz` → `English::from_wordnet`) into the full typed graph.
+    use pr4xis_domains::social::software::markup::xml::lmf::{compact_succinct, reader};
     let wordnet_path = "../../crates/domains/data/wordnet/english-wordnet-2025.xml";
+    let english_prx = out_dir.join("english.prx.gz");
     if Path::new(wordnet_path).exists() {
         println!("cargo:rerun-if-changed={}", wordnet_path);
-        let path = Path::new(wordnet_path);
-        let builder = pr4xis::codegen::wordnet::parse_wordnet_xml(path)
-            .expect("failed to parse WordNet XML at build time");
-        let config = pr4xis::codegen::GenerateConfig::with_marker(
-            "english_codegen",
-            "ConceptId",
-            "pr4xis_domains::cognitive::linguistics::english::English",
-        );
-        let code = builder.generate(&config);
-        std::fs::write(out_dir.join("english_codegen.rs"), code)
-            .expect("failed to write generated English module");
+        let xml = std::fs::read_to_string(wordnet_path).expect("read WordNet XML");
+        let wn = reader::read_wordnet(&xml).expect("parse WordNet XML at build time");
+        let prx_gz = compact_succinct::emit_prx_gz(&wn);
         eprintln!(
-            "Generated English: {} entities, {} relations",
-            builder.entity_count(),
-            builder.relation_count()
+            "Emitted english.prx.gz: {} bytes, {} synsets, {} entries",
+            prx_gz.len(),
+            wn.synsets.len(),
+            wn.entries.len()
         );
+        std::fs::write(&english_prx, prx_gz).expect("write english.prx.gz");
     } else {
         println!("cargo:warning=WordNet XML not found at build time. English will be empty.");
+        std::fs::write(
+            &english_prx,
+            compact_succinct::emit_prx_gz(&empty_wordnet()),
+        )
+        .expect("write empty english.prx.gz");
     }
 
     // ---------- On-demand sources (Async staging — downloaded XML) ------
@@ -276,4 +280,29 @@ fn write_sources_manifest(out_dir: &Path, manifest: &[(String, String, String, u
     }
     src.push_str("];\n");
     std::fs::write(out_dir.join("sources_manifest.rs"), src).expect("write sources manifest");
+}
+
+/// An empty WordNet, so an `english.prx.gz` always exists for `include_bytes!`
+/// even when the corpus is absent at build time.
+fn empty_wordnet() -> pr4xis_domains::social::software::markup::xml::lmf::ontology::WordNet {
+    use pr4xis_domains::social::software::markup::xml::lmf::ontology::{LexiconMetadata, WordNet};
+    WordNet {
+        lexicon: LexiconMetadata {
+            id: None,
+            label: None,
+            language: None,
+            email: None,
+            license: None,
+            version: None,
+            url: None,
+            citation: None,
+            logo: None,
+            status: None,
+            confidence_score: None,
+            dc: Vec::new(),
+        },
+        synsets: Vec::new(),
+        entries: Vec::new(),
+        syntactic_behaviours: Vec::new(),
+    }
 }

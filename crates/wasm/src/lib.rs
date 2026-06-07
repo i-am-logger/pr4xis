@@ -7,9 +7,9 @@ use pr4xis_domains::applied::data_provisioning::registry::{
 };
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
-use pr4xis_domains::cognitive::linguistics::language;
 use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
+use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
 use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
 use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
@@ -18,9 +18,12 @@ use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
 
-#[allow(dead_code)]
-mod codegen_output {
-    include!(concat!(env!("OUT_DIR"), "/english_codegen.rs"));
+/// The complete WordNet ontology, baked in as the compact `.prx.gz` (emitted by
+/// build.rs). `load_english` gunzips and materializes the full `English`.
+const ENGLISH_PRX_GZ: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/english.prx.gz"));
+
+fn load_english() -> English {
+    load_english_prx(ENGLISH_PRX_GZ)
 }
 
 /// Build-time catalog of the authoritative source documents available to
@@ -164,7 +167,7 @@ impl Pr4xis {
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
         Self {
-            english: language::from_codegen(&codegen_output::CODEGEN_DATA),
+            english: load_english(),
             loaded: Vec::new(),
             runtime_ontologies: Vec::new(),
             composed: None,
@@ -489,7 +492,7 @@ impl Pr4xis {
     fn install_runtime_ontology(&mut self, onto: RuntimeOntology) {
         self.runtime_ontologies.retain(|o| o != &onto);
         self.runtime_ontologies.push(onto);
-        let english = language::from_codegen(&codegen_output::CODEGEN_DATA);
+        let english = load_english();
         self.composed = Some(ComposedReasoner::new(
             english,
             self.runtime_ontologies.clone(),
@@ -594,7 +597,7 @@ mod acceptance {
     fn browser_loads_a_prx_and_the_chat_answers_about_its_content_and_abstains_without_it() {
         // A fresh English to choose a discriminating concept + to assert the
         // WITHOUT precondition. `Pr4xis::new()` builds the same model.
-        let english = language::from_codegen(&codegen_output::CODEGEN_DATA);
+        let english = load_english();
         let (surface, gloss) = demo_concept(&english);
         let question = format!("what is a {surface}");
 
@@ -784,7 +787,7 @@ mod browser_acceptance {
     fn browser_loads_the_embedded_prx_and_the_chat_answers_from_its_gloss() {
         // A fresh English to choose a discriminating concept + assert the WITHOUT
         // precondition — the same model `Pr4xis::new()` builds in the browser.
-        let english = language::from_codegen(&codegen_output::CODEGEN_DATA);
+        let english = load_english();
         let (surface, gloss) = demo_concept(&english);
         let question = format!("what is a {surface}");
 
