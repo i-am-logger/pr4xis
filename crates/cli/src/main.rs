@@ -83,6 +83,14 @@ enum Command {
         /// erroring. Convenience for a fresh checkout; CI provisions separately.
         #[arg(long)]
         update: bool,
+        /// Emit (and verify/pin) ONLY the portable compact U.S. Code archives —
+        /// the runtime fast-load cache `loaded()` reads. Skips the heavy rkyv
+        /// envelopes (the `decompile`/distribution artifacts) and WordNet. The
+        /// CI mode: it re-derives + verifies the committed `[compact_archive_signatures]`
+        /// pins for ALL titles (including the giants the unit tests cap out of)
+        /// in ~seconds, without re-emitting the toolchain-coupled envelopes.
+        #[arg(long)]
+        compact: bool,
     },
     /// Decompile a compiled `.prx` archive back to its exact source bytes —
     /// the inverse of `compile`, the `.prx → source` leg of the universal
@@ -130,8 +138,12 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Command::Compile { lock, update } => {
-            if let Err(e) = run_compile(lock, update) {
+        Command::Compile {
+            lock,
+            update,
+            compact,
+        } => {
+            if let Err(e) = run_compile(lock, update, compact) {
                 eprintln!("pr4xis compile: {e}");
                 std::process::exit(1);
             }
@@ -235,7 +247,7 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
 // `pr4xis compile` — emit verifiable `.prx` archives (the parse-once cache)
 // --------------------------------------------------------------------------
 
-fn run_compile(lock: bool, update: bool) -> anyhow::Result<()> {
+fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_all_wordnet_prx_gz;
     use pr4xis_domains::social::software::markup::xml::owl::prx::{
         emit_all_prx_gz as emit_all_owl_prx_gz, owl_prx_cache_dir,
@@ -249,8 +261,9 @@ fn run_compile(lock: bool, update: bool) -> anyhow::Result<()> {
     // Precondition: `compile` consumes the physical sources `pr4xis update`
     // provisions. A registered, pinned, compilable source that is not on disk is
     // the "forgot to run update" failure — alert (or auto-provision with
-    // `--update`) instead of silently emitting nothing for it.
-    let missing = missing_compilable_sources(&workspace_root);
+    // `--update`) instead of silently emitting nothing for it. `--compact` only
+    // touches U.S. Code titles, so it only requires those.
+    let missing = missing_compilable_sources(&workspace_root, compact);
     if !missing.is_empty() {
         if update {
             println!(
@@ -258,7 +271,7 @@ fn run_compile(lock: bool, update: bool) -> anyhow::Result<()> {
                 missing.len()
             );
             run_update(None, false, false, false, false, false)?;
-            let still = missing_compilable_sources(&workspace_root);
+            let still = missing_compilable_sources(&workspace_root, compact);
             if !still.is_empty() {
                 anyhow::bail!("still missing after update: {}", still.join(", "));
             }
@@ -278,28 +291,33 @@ fn run_compile(lock: bool, update: bool) -> anyhow::Result<()> {
     // collected separately.
     let mut compact_artifacts: Vec<EmittedArtifact> = Vec::new();
 
-    // OWL vocabularies → `.prx-cache/ontologies/` (the `pr4xis decompile`
-    // source for OWL; bundled `.owl` files make these compile on a plain
-    // checkout, unlike the externally-provisioned USC/WordNet corpora).
-    let owl_dir = owl_prx_cache_dir(&workspace_root);
-    artifacts.extend(emit_all_owl_prx_gz(&owl_dir).map_err(|e| anyhow::anyhow!("emit OWL: {e}"))?);
-    // U.S. Code titles → `.prx-cache/usc/` (the rkyv-envelope decompile source).
-    let usc_dir = usc_prx_cache_dir(&workspace_root);
-    artifacts.extend(emit_all_usc_prx_gz(&usc_dir).map_err(|e| anyhow::anyhow!("emit USC: {e}"))?);
-    // U.S. Code titles (COMPACT) → `.prx-cache/usc-compact/` — the corpus
-    // loader's FAST content-address-gated path (portable succinct bytes, no
-    // source reconstruction on load).
+    // The portable compact U.S. Code cache → `.prx-cache/usc-compact/` — the
+    // corpus loader's FAST content-address-gated path. Always emitted (it is the
+    // runtime fast-load artifact); under `--compact` it is the ONLY thing emitted.
     let usc_compact_dir = usc_compact_prx_cache_dir(&workspace_root);
     compact_artifacts.extend(
         emit_all_compact_usc_prx_gz(&usc_compact_dir)
             .map_err(|e| anyhow::anyhow!("emit USC compact: {e}"))?,
     );
-    // WordNet/English → `.prx-cache/wordnet/` (the embedded reasoning base, once
-    // the runtime de-codegens onto it).
-    let wn_dir = workspace_root.join(".prx-cache").join("wordnet");
-    artifacts.extend(
-        emit_all_wordnet_prx_gz(&wn_dir).map_err(|e| anyhow::anyhow!("emit WordNet: {e}"))?,
-    );
+
+    if !compact {
+        // The rkyv envelopes (the `decompile`/distribution artifacts) + WordNet.
+        // Heavy and, for USC/WordNet, toolchain-coupled; skipped by `--compact`.
+        // OWL → `.prx-cache/ontologies/` (the `pr4xis decompile` source; bundled
+        // `.owl` makes these compile on a plain checkout).
+        let owl_dir = owl_prx_cache_dir(&workspace_root);
+        artifacts
+            .extend(emit_all_owl_prx_gz(&owl_dir).map_err(|e| anyhow::anyhow!("emit OWL: {e}"))?);
+        // USC rkyv envelopes → `.prx-cache/usc/` (the decompile source).
+        let usc_dir = usc_prx_cache_dir(&workspace_root);
+        artifacts
+            .extend(emit_all_usc_prx_gz(&usc_dir).map_err(|e| anyhow::anyhow!("emit USC: {e}"))?);
+        // WordNet/English → `.prx-cache/wordnet/`.
+        let wn_dir = workspace_root.join(".prx-cache").join("wordnet");
+        artifacts.extend(
+            emit_all_wordnet_prx_gz(&wn_dir).map_err(|e| anyhow::anyhow!("emit WordNet: {e}"))?,
+        );
+    }
 
     let mut total_bytes: u64 = 0;
     for a in artifacts.iter().chain(&compact_artifacts) {
@@ -337,7 +355,7 @@ fn run_compile(lock: bool, update: bool) -> anyhow::Result<()> {
 /// (`OntologyVocabulary` OWL, `UsCodeTitle` USC, `Language` WordNet); other
 /// registered kinds (conformance suites, …) are not flagged. "Pinned" = present
 /// in `[hashes]` (a source with no source-pin is not yet provisioned-expected).
-fn missing_compilable_sources(workspace_root: &Path) -> Vec<String> {
+fn missing_compilable_sources(workspace_root: &Path, compact_only: bool) -> Vec<String> {
     use pr4xis_domains::applied::data_provisioning::registry::{data_sources, lock_hashes};
     use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::{
         Language, OntologyVocabulary, UsCodeTitle,
@@ -345,7 +363,13 @@ fn missing_compilable_sources(workspace_root: &Path) -> Vec<String> {
     let hashes = lock_hashes();
     let mut missing = Vec::new();
     for e in data_sources() {
-        if !matches!(e.kind, OntologyVocabulary | UsCodeTitle | Language) {
+        // `--compact` only emits U.S. Code titles, so only those are required.
+        let required = if compact_only {
+            matches!(e.kind, UsCodeTitle)
+        } else {
+            matches!(e.kind, OntologyVocabulary | UsCodeTitle | Language)
+        };
+        if !required {
             continue;
         }
         let key = format!("{}@{}", e.name, e.version);
