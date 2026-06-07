@@ -26,6 +26,12 @@ Aristotle named three kinds of knowing:
 
 pr4xis is the doing.
 
+## Demo
+
+Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
+
+## Foundation
+
 The mathematical foundation runs from G. Spencer-Brown's *Laws of Form* (1969) through Heim's syntrometric logic to contemporary applied category theory — see [Foundations](docs/understand/foundations.md) for the academic lineage. Every step in that chain is **verified at test time**, not asserted:
 
 ```
@@ -60,10 +66,6 @@ pr4xis solves both. It runs on formal scientific knowledge humans have already a
 | **Cross-domain reasoning** | Implicit blending, no guarantees | Proven connections between domains |
 | **Undo / redo / branch** | None — each completion is final | Built in: undo, redo, branch from any prior state |
 | **Missing knowledge** | Doesn't know what it doesn't know | Detects gaps automatically |
-
-## Demo
-
-Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
 
 ## Get started
 
