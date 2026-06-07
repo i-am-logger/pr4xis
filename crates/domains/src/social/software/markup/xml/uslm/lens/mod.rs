@@ -671,15 +671,16 @@ impl WellBehavedLens for UslmXmlLens {
 // list to keep in sync.
 // =============================================================================
 
-// `usc_title_18` FLIPPED to the byte-exact `UslmGraphFaithfulLens` (SLICE U7,
-// registered in `lens/writer.rs`); its floor registration is REMOVED here so the
-// harness runs ONE tier per source (the double-registration lesson — a source
-// registered both floor-canonical AND byte-exact would run both laws and pin both
-// a `[canonical_signatures]` and a `[byte_exact_signatures]` for the same key).
-// `usc_title_49` stays FLOOR — it is proven byte-exact too but, at ≈ 26 MB, is
-// held off the always-run harness for the nextest `ci` budget (a CI-cost floor,
-// NOT a missing family), alongside the other giants (5/15/42).
-crate::register_lens!(USC_TITLE_49_LENS, "usc_title_49", "pl-119-90", UslmXmlLens);
+// ALL nine USC titles are now byte-exact graph-faithful, bound to
+// `UslmGraphFaithfulLens` in `lens/writer.rs`: titles 1 (U6), 28/18/29/50 (U7),
+// and the giants 5/15/42/49 (U8). NONE is floor-registered here anymore — the
+// double-registration lesson (one source, one lens, one tier): a source bound to
+// both the floor-canonical AND the byte-exact lens would run both laws and pin
+// both a `[canonical_signatures]` and a `[byte_exact_signatures]` for the same
+// key. The giants' > 16 MB reconstruction is deferred from the always-run harness
+// by the CI-A oversize split (`OVERSIZE_BYTE_EXACT_CAP_BYTES`) to the slow
+// `ci_gate_passes_giants` lane, so the fast lane stays under the nextest budget
+// while every title is still proven byte-exact on every push.
 
 // =============================================================================
 // UslmTreeViewLens — the field-focus general [`Lens`] from

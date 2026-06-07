@@ -326,14 +326,11 @@
 # `formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`
 # axiom verifies these match on every test run.
 [canonical_signatures]
-# USC Title 49 — Transportation. The floor `UslmXmlLens` get/put is
-# constant-complement (Bancilhon & Spyratos 1981); the canonical form normalizes
-# via xml-c14n-1.1 (Boyer & Marcy 2008) which expands the five XML-predefined
-# entity references (XML 1.0 §4.6) before re-escaping per §3.5. Title 49 stays
-# FLOOR (a CI-budget floor at ≈ 26 MB; proven byte-exact in development).
-# (Title 18 was FLIPPED to byte-exact graph-faithful in SLICE U7 — its stale
-# canonical signature is removed; it now carries a `[byte_exact_signatures]` pin.)
-"usc_title_49@pl-119-90" = "1902b2bb287fcfd2af1a59cec9619f05a177161bde1aec77c5683216aca0cccb"
+# No USC title carries a canonical signature anymore: ALL nine are byte-exact
+# graph-faithful (SLICE U8 flipped the last floor title, usc_title_49, to the
+# `UslmGraphFaithfulLens`), so each now pins a `[byte_exact_signatures]` entry
+# instead. The floor `UslmXmlLens` canonical form (xml-c14n-1.1, Boyer & Marcy
+# 2008) is no longer the registered tier for any title.
 # OWL vocabularies — OwlLens canonical form is the W3C RDF Dataset
 # Canonicalization (RDFC-1.0, REC-rdf-canon-20240521 §1.1/§4.4.3)
 # serialized canonical N-Quads of the *source RDF graph*
@@ -419,13 +416,13 @@
 # change (see the OWL note above). Determinism-proven (reproducible re-emit). The
 # raw-floor envelopes (5/15/42/49) are unaffected.
 "usc_title_1@pl-119-90" = "14c72b4a89015f5dd313926de6cfdd73b34e389ad2404016bb1f56fae004c997"
-"usc_title_15@pl-119-90" = "aa8b57740a7f119685c59e8476100b3a813da5698050eac56607e6963521cd46"
+"usc_title_15@pl-119-90" = "82888e07454b299b98a632c97af52140287d4a9b244871d5ce1381d091a4f011"
 "usc_title_18@pl-119-90" = "ed47add3155399bf553c6184f5beef392f8ae9f6166ad3eb2e72433e6efdba8b"
 "usc_title_28@pl-119-90" = "8c18da1c803bc282825d6aa090bc439e80af3315aa5217cfb4206b9561e7fc46"
 "usc_title_29@pl-119-90" = "fb20fac7373b8f891eaf8a7ab09cb87040be3da1096863e1e56bab29b2e10f2b"
-"usc_title_42@pl-119-90" = "1307a560104eb8bd33c710a14a18e29031368fccbe08992202bfbc3620ec98c0"
-"usc_title_49@pl-119-90" = "90d963480ddb0050e77b52c6468315b9438275161a7149579de431e9e8232a32"
-"usc_title_5@pl-119-90" = "430f5d9f4192d2d00774be182e54e810988e113183d8b72552365dbc7d243398"
+"usc_title_42@pl-119-90" = "87fd56a28c297ca3f73dacf525e31247d7ff4241af812c64f43fcdb30dfc3c5a"
+"usc_title_49@pl-119-90" = "3e129bbc2a6598cb8707eff35d845fcad3a078e026c35ad7582ed278dd1d4e7c"
+"usc_title_5@pl-119-90" = "8dc1e79e2d98a3e401792c05c8f24af324906aaece4dd574c8301ca49ac49636"
 "usc_title_50@pl-119-90" = "382ec8ceea78366f70f1cd1604aa072f1fce60ea5d1607b7b2169feaae638b7a"
 "english_wordnet@2025" = "92a3d67322a027143a05fa46686747c811c1f048f9d205374b3d781f3b659b42"
 
@@ -503,10 +500,21 @@
 # generic mixed-content nodes; the byte kernel restores their residue (prolog PI,
 # §2.11 CRLFs, §4.6 `&amp;` predefined-entity form, attribute order, white-space).
 # Because put(get(b)) == b, each value MUST equal that title's `[hashes]` pin
-# (registry.rs enforces sig == raw_hash). The proven-but-larger giants
-# (usc_title_5/49/15/42, 19–108 MB) are byte-exact too but stay FLOOR for the CI
-# harness budget — a CI-cost floor, NOT a missing family.
+# (registry.rs enforces sig == raw_hash). The giants (usc_title_5/15/42/49) are
+# flipped to the same lens in SLICE U8 below; their > 16 MB reconstruction is
+# deferred to the slow `ci_gate_passes_giants` lane (the CI-A oversize split).
 "usc_title_28@pl-119-90" = "5a24bea79bc49bb339af09c2fff0178880944d8726d628fc35bf06f41f0922fe"
 "usc_title_18@pl-119-90" = "00bb3b87d056164095e174a4993151e5fbd2f5c114aaa6f86853b76e514d883f"
 "usc_title_29@pl-119-90" = "bd3f0e9fc634cdbd887adde480cf08a52d49cced457385cb0fdef1447feab413"
 "usc_title_50@pl-119-90" = "623ecd3f0f7c00331f7f98151ef75bf5262328435865fc3a2aff7b1fb16f3713"
+# USC Titles 5 / 15 / 42 / 49 — the GIANT positive-law titles (19–113 MB) flipped
+# to byte-exact graph-faithful (SLICE U8, #186), completing 17/17: EVERY bundled
+# `.prx`-consumer source is now byte-exact. They ride the IDENTICAL title-agnostic
+# `UslmGraphFaithfulLens` the smaller titles proved — no new writer family — so the
+# structural writer regenerates them byte-exact too; the > 16 MB reconstruction is
+# deferred from the always-run harness to the slow `ci_gate_passes_giants` lane.
+# Because put(get(b)) == b, each value MUST equal that title's `[hashes]` pin.
+"usc_title_5@pl-119-90"  = "8f568f9c5750e8ba9ecc32b5449965763f7e82f3405148618a9f36e122e6a9ae"
+"usc_title_15@pl-119-90" = "9b851f3d85cb72c4ba744a4d859b24885ad30ab378592544f7054fe4a97fdc77"
+"usc_title_42@pl-119-90" = "8d142346d2239b1e13242b236c3549cbcce7e10cf2289e4a600bd0d247705db8"
+"usc_title_49@pl-119-90" = "9be46928d04bae7c821246f800780493fdfe900cbcfffd52fedf8142a42db650"

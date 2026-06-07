@@ -1023,13 +1023,14 @@ crate::register_lens!(
 // integration test, and each title's `[byte_exact_signatures]` pin equals its
 // `[hashes]` content address (registry.rs enforces sig == raw_hash).
 //
-// These FOUR titles are all ≤ 16 MB, keeping the always-run `ci_gate_passes`
-// harness under the nextest `ci` 30 s budget. The proven-but-larger giants
-// (usc_title_5/49/15/42, 19–108 MB) stay FLOOR for CI cost/memory — a CI-budget
-// floor, NOT a missing family. The PREVIOUS floor `UslmXmlLens` registrations
-// for `usc_title_18`/`usc_title_49` are removed from `lens/mod.rs` for the four
-// flipped here (the double-registration lesson: one source, one lens, one tier);
-// `usc_title_49` stays floor-registered there as a giant.
+// These four titles are all ≤ 16 MB, so the always-run `ci_gate_passes` harness
+// reconstructs them within the strict nextest `ci` budget. The GIANT titles
+// (usc_title_5/15/42/49, 19–113 MB) ride the SAME lens in SLICE U8 below; their
+// > 16 MB reconstruction is deferred by the CI-A oversize split
+// (`OVERSIZE_BYTE_EXACT_CAP_BYTES`) to the slow `ci_gate_passes_giants` lane, so
+// the fast lane stays under budget. The double-registration lesson — one source,
+// one lens, one tier — means each flipped title carries ONLY this graph-faithful
+// lens; its previous floor `UslmXmlLens` registration in `lens/mod.rs` is removed.
 crate::register_lens!(
     USC_TITLE_28_GRAPH_FAITHFUL_LENS,
     "usc_title_28",
@@ -1051,6 +1052,44 @@ crate::register_lens!(
 crate::register_lens!(
     USC_TITLE_50_GRAPH_FAITHFUL_LENS,
     "usc_title_50",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+
+// SLICE U8 — flip the GIANT positive-law titles (usc_title_5/15/42/49, 19–113 MB)
+// onto the SAME title-agnostic `UslmGraphFaithfulLens`. No new writer family: the
+// giants ride the identical generic `uscDoc` mixed-content backbone (U4) + L3 byte
+// kernel the smaller titles proved, so the structural writer reconstructs them
+// byte-exact too. They were held on the floor ONLY for the always-run harness
+// budget; the CI-A oversize split now defers their reconstruction to the slow
+// `ci_gate_passes_giants` lane, so registering them no longer burdens the fast
+// lane — and EVERY bundled `.prx`-consumer USC title is now byte-exact
+// graph-faithful (17/17 sources overall). Each title's `[byte_exact_signatures]`
+// pin equals its `[hashes]` content address (registry.rs enforces sig == raw_hash);
+// the proof is `ci_gate_passes_giants` + the all-sources source round-trip test,
+// whose coverage assertion requires every provisioned graph-faithful source to
+// reconstruct byte-exact.
+crate::register_lens!(
+    USC_TITLE_5_GRAPH_FAITHFUL_LENS,
+    "usc_title_5",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+crate::register_lens!(
+    USC_TITLE_15_GRAPH_FAITHFUL_LENS,
+    "usc_title_15",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+crate::register_lens!(
+    USC_TITLE_42_GRAPH_FAITHFUL_LENS,
+    "usc_title_42",
+    "pl-119-90",
+    UslmGraphFaithfulLens
+);
+crate::register_lens!(
+    USC_TITLE_49_GRAPH_FAITHFUL_LENS,
+    "usc_title_49",
     "pl-119-90",
     UslmGraphFaithfulLens
 );
