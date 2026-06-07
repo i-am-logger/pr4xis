@@ -1,26 +1,20 @@
-//! Succinct codec for [`CompactWordNet`](super::compact::CompactWordNet) — the
-//! size-reduced `.prx` bytes that get embedded (`include_bytes!` of the `.gz`)
-//! or downloaded, then gunzipped and decoded at load.
+//! Succinct codec for [`CompactWordNet`](super::compact::CompactWordNet):
+//! [`to_succinct`] / [`from_succinct`] serialize the compact ontology to the
+//! `.prx` bytes (embedded as `include_bytes!` of the `.gz`, or downloaded, then
+//! gunzipped and decoded at load).
 //!
-//! The columnar structure is re-encoded as **hand-rolled bit-packed columns**
-//! (each value at `bits(max)` bits, LSB-first), with CSR (offset + flat-value)
-//! layout for the `Vec<Vec<_>>` columns — eliminating rkyv's per-inner-`Vec`
-//! length-prefix / relative-pointer overhead. Offsets are stored as their small
-//! per-node-length GAPS; relation adjacency is sorted per node and delta-coded.
-//! The lexical dictionary is front-coded (sorted; shared prefixes elided).
-//! Relation types map through a tiny per-codec string dictionary, reconstructed
-//! by `parse(as_str(_))` (a proven inverse, incl. the `Other(_)` tail). The
-//! small nested tails (pronunciations, forms, syntactic behaviours, lexicon
-//! metadata) ride along as one rkyv blob.
+//! Each columnar value uses `bits(max)` bits, LSB-first, in CSR (offset +
+//! flat-value) layout. CSR offsets are stored as their per-node-length gaps;
+//! relation adjacency is sorted per node and delta-coded. The lexical dictionary
+//! is front-coded (sorted; shared prefixes elided). Relation types map through a
+//! small string dictionary and reconstruct via `parse(as_str(_))`. The nested
+//! tails (pronunciations, forms, syntactic behaviours, lexicon metadata) are one
+//! rkyv blob.
 //!
-//! **wasm32-safe and dependency-free**: the bit-packing is pure `u64`-accumulator
-//! arithmetic. (The succinct crates — `sucds`/`sux` — `compile_error!` on
-//! non-64-bit targets, so they could never decode in the browser; the
-//! hand-rolled primitives are exactly as compact and build anywhere.)
-//!
-//! [`from_succinct`] reconstructs the `CompactWordNet` exactly
-//! (`from_succinct(&to_succinct(c)) == c`), so it composes with `compact::decode`
-//! → `from_wordnet` unchanged. The LOUDS hypernym tree is the remaining lever.
+//! The bit-packing is pure `u64`-accumulator arithmetic with no dependency, so
+//! the `.prx` decodes on any target including wasm32.
+//! `from_succinct(&to_succinct(c)) == c`, composing with
+//! [`super::compact::decode`] → `from_wordnet`.
 
 use alloc::{string::String, vec::Vec};
 
@@ -72,9 +66,8 @@ fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> &'a [u8] {
 
 /// A bit-packed column: each value uses `width = bits(max)` bits, LSB-first into
 /// a byte stream. Format: `varint(len)`, then if non-empty `u8(width)` + packed
-/// bits (`width == 0` for an all-zero column → no payload). Pure arithmetic on
-/// `u64` accumulators — wasm32-safe (no 64-bit-target assumption, unlike the
-/// succinct crates), the reason the `.prx` can decode in the browser.
+/// bits (`width == 0` for an all-zero column → no payload). Pure `u64`-
+/// accumulator arithmetic — wasm32-safe.
 fn put_cv(out: &mut Vec<u8>, vals: &[usize]) {
     put_varint(out, vals.len() as u64);
     if vals.is_empty() {
@@ -247,12 +240,10 @@ fn get_dict(buf: &[u8], pos: &mut usize) -> Vec<String> {
         .collect()
 }
 
-/// Front-coded dictionary (HDT's technique): for a SORTED list, store each
-/// entry as `varint(shared_prefix_len) varint(suffix_len) suffix`, so a shared
-/// prefix with the previous entry is never repeated. The `compact::encode`
-/// pass sorts the dict so adjacent entries share prefixes. Decodes back to the
-/// exact `Vec<String>` (a sequential pass at load — not random-access; that is
-/// the FSST/query-in-place tradeoff, deliberately not taken here).
+/// Front-coded dictionary: for the sorted dict, store each entry as
+/// `varint(shared_prefix_len) varint(suffix_len) suffix`, so a prefix shared
+/// with the previous entry is not repeated (`compact::encode` sorts the dict).
+/// Decodes to the exact `Vec<String>` in one sequential pass at load.
 fn put_dict_fc(out: &mut Vec<u8>, dict: &[String]) {
     put_varint(out, dict.len() as u64);
     let mut fc = Vec::new();
@@ -630,9 +621,10 @@ mod tests {
         e.finish().expect("gz finish").len()
     }
 
-    /// Stage S1 gate: the succinct codec is LOSSLESS over the compact core
-    /// (`from_succinct(to_succinct(c)) == c`) and shrinks the encoding. Reads the
-    /// tiny lexicon (instant) + 89 MB english (one parse); graceful skip.
+    /// The codec is LOSSLESS over the compact core
+    /// (`from_succinct(to_succinct(c)) == c`) and the `.prx` is smaller than the
+    /// raw source. Reads the tiny lexicon (instant) + 89 MB english (one parse);
+    /// graceful skip if absent.
     #[test]
     fn succinct_codec_roundtrip_and_smaller() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));

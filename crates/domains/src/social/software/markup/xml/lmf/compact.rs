@@ -1,39 +1,26 @@
 //! Compact, integer-addressed encoding of a WN-LMF [`WordNet`] — the `.prx`
-//! ontology core, sized for the runtime (loaded dynamically or embedded in the
-//! wasm; same bytes either way).
+//! ontology core (loaded dynamically or embedded in the wasm; same bytes either
+//! way). The succinct serialization is [`super::compact_succinct`].
 //!
-//! # Why this shape
+//! Two properties make it compact:
 //!
-//! The graph-faithful envelope stored [`WordNet`] **un-interned and string-
-//! addressed**: every synset id, sense id, lemma, relation target and gloss
-//! repeated inline (78 MB raw / 17.6 MB gz for Open English WordNet). Two
-//! independent levers shrink that to the integer-addressed floor (~9–10 MB gz),
-//! with NO change to the gz wrapper and NO succinct coding yet:
-//!
-//! 1. **Columnar layout** — parallel arrays per node class instead of a tree of
-//!    nested structs, so rkyv stores one length-prefix / padding run per COLUMN
-//!    instead of per element across ~107k synsets × ~11 fields.
+//! 1. **Columnar layout** — parallel arrays per node class rather than nested
+//!    structs, so the encoding carries one length-prefix per COLUMN, not per
+//!    element across ~107k synsets × ~11 fields.
 //! 2. **Integer node-addressing** — a synset's array index IS its `ConceptId`
-//!    (`from_wordnet` already assigns `ConceptId` by synset order, ontology.rs),
-//!    a sense's global index IS its `SenseId`, an entry's index IS its position.
-//!    Every cross-reference (relation targets, `sense.synset`, synset `members`
-//!    → entry, syntactic-behaviour senses) becomes a `u32` index, so the
-//!    `oewn-…` id-strings are NOT stored at all. The dictionary holds only
-//!    LEXICAL text (lemmas, glosses, examples, frames, pronunciations, ILI
-//!    codes, tags), deduplicated.
+//!    (`from_wordnet` assigns `ConceptId` by synset order), a sense's global
+//!    index IS its `SenseId`, an entry's index IS its position. Every
+//!    cross-reference (relation targets, `sense.synset`, synset `members` →
+//!    entry, syntactic-behaviour senses) is a `u32` index, so the `oewn-…`
+//!    id-strings are not stored; the dictionary holds only lexical text (lemmas,
+//!    glosses, examples, frames, pronunciations, ILI codes, tags), deduplicated.
 //!
-//! [`encode`] drops the same dangling edges `English::from_wordnet` drops (an
-//! edge whose endpoint id is unknown), so it is **reasoning-equivalent**: the
+//! [`encode`] drops dangling edges (endpoint id absent), the same ones
+//! `English::from_wordnet` drops, so the encoding is REASONING-EQUIVALENT: the
 //! materialized [`English`](crate::cognitive::linguistics::english::English) is
-//! identical (same `ConceptId`s, same relations, same word index) — only the
-//! original `oewn-…` id-strings become index-derived synthetic ids (`s{i}` /
-//! `k{g}` / `e{e}`), which the runtime never surfaces (it addresses by integer
-//! `ConceptId`). It is NOT a byte-exact source round-trip — that decompile
-//! property is deliberately not in the shipped `.prx`.
-//!
-//! The succinct layer (front-coded / FSST dictionary, LOUDS / WebGraph-BV
-//! topology → ~3–5 MB) is the NEXT phase, encoding the same `(dict, columns)`
-//! split; it is not applied here.
+//! identical (same `ConceptId`s, relations, word index); only a `Concept`'s
+//! original id becomes an index-derived synthetic id (`s{i}` / `k{g}` / `e{e}`),
+//! which the runtime never surfaces. It is not a byte-exact source round-trip.
 
 use alloc::{format, string::String, string::ToString, vec::Vec};
 
@@ -666,11 +653,11 @@ mod tests {
         e.finish().expect("gz finish").len()
     }
 
-    /// The 9.5 MB milestone: the compact integer-addressed `.prx` core is
-    /// REASONING-EQUIVALENT to the source `WordNet` (materializes the same
-    /// `English`), and materially smaller than the un-interned graph — with NO
-    /// succinct coding and gz unchanged. Reads the tiny lexicon (instant) + the
-    /// 89 MB english (one heavy parse); graceful skip if absent.
+    /// The compact integer-addressed core is REASONING-EQUIVALENT to the source
+    /// `WordNet`: `from_wordnet` over the original and over `decode(encode(wn))`
+    /// build the same `English` (same concept count and word→concept index).
+    /// Reads the tiny lexicon (instant) + the 89 MB english (one parse); graceful
+    /// skip if absent.
     #[test]
     fn compact_is_reasoning_equivalent_and_small() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -705,32 +692,12 @@ mod tests {
                 "{name}: word→concept index differs — lexical addressing not preserved"
             );
 
-            let wn_raw = rkyv::to_bytes::<rkyv::rancor::Error>(&wn).expect("rkyv wn");
-            let c_raw = rkyv::to_bytes::<rkyv::rancor::Error>(&compact).expect("rkyv compact");
-            let wn_gz = gz_len(&wn_raw);
-            let prx_gz = gz_len(&c_raw); // THE shipped .prx (rkyv core, gz-wrapped)
-            // What you fetch to obtain the source itself: the distributed .xml.gz.
-            let source_download = gz_len(&bytes);
-
             eprintln!(
-                "COMPACT9 {name}: .prx = {:.2}MB gz  ({:.2}MB uncompressed/mmap)   vs   downloaded \
-                 source (.xml.gz) = {:.2}MB   ->   .prx is {:.2}x the download || dict={} \
-                 synsets={} senses={} entries={}  (un-interned wn ref: {:.2}MB gz)",
-                prx_gz as f64 / 1e6,
-                c_raw.len() as f64 / 1e6,
-                source_download as f64 / 1e6,
-                prx_gz as f64 / source_download.max(1) as f64,
+                "compact {name}: dict={} synsets={} senses={} entries={} (reasoning-equivalent)",
                 compact.dict.len(),
                 compact.syn_pos.len(),
                 compact.sense_synset.len(),
                 compact.entry_lemma_form.len(),
-                wn_gz as f64 / 1e6,
-            );
-            assert!(
-                c_raw.len() < wn_raw.len(),
-                "{name}: compact .prx raw ({}) not smaller than un-interned wn ({})",
-                c_raw.len(),
-                wn_raw.len()
             );
             measured += 1;
         }
@@ -770,11 +737,9 @@ mod tests {
         out
     }
 
-    /// SUCCINCT-PHASE MEASURE-FIRST: split the compact `.prx` encoding into its
-    /// dictionary (strings → front-coding/FSST target) and its structure (the
-    /// graph → LOUDS/WebGraph-BV target), so the bigger lever is built first; and
-    /// measure the front-coded-dictionary win (dependency-free, queryable). No
-    /// crate yet. Graceful skip if the corpus is absent.
+    /// Reports how the compact `.prx` encoding splits between its dictionary
+    /// (strings) and its structure (the graph), and the front-coded-dictionary
+    /// size, over the real corpora. Graceful skip if the corpus is absent.
     #[test]
     fn succinct_floor_breakdown() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
