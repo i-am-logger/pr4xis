@@ -518,3 +518,22 @@
 "usc_title_15@pl-119-90" = "9b851f3d85cb72c4ba744a4d859b24885ad30ab378592544f7054fe4a97fdc77"
 "usc_title_42@pl-119-90" = "8d142346d2239b1e13242b236c3549cbcce7e10cf2289e4a600bd0d247705db8"
 "usc_title_49@pl-119-90" = "9be46928d04bae7c821246f800780493fdfe900cbcfffd52fedf8142a42db650"
+
+# Portable content addresses of the COMPACT `.prx` archives — the SHA-256 of each
+# title's uncompressed succinct bytes. Unlike `[archive_signatures]` (the rkyv
+# envelope MerkleRoot, a per-toolchain build output), the compact codec is
+# dependency-free bit-packing, so these are STABLE across toolchains and targets:
+# they can be committed and verified anywhere. The compact runtime load gate
+# (`load_compact_usc_prx_gz_gated`) checks the installed compact bytes against
+# these; `loaded()` takes the fast, no-source-reconstruction path only for a title
+# pinned here. Written by `pr4xis compile --lock`.
+[compact_archive_signatures]
+"usc_title_1@pl-119-90" = "178a193a000f72d894c3289e97d8b24093d82b0d472c2daaca49e14c3a82eeca"
+"usc_title_15@pl-119-90" = "d81acca95b22aadb8a7aab83902d92662bad53437ec6b7aed5e124f94b2baf81"
+"usc_title_18@pl-119-90" = "2b7e105650728ce604e82fa77de888b086d5ce7b27b992b74d8e54621a8ecebe"
+"usc_title_28@pl-119-90" = "31e0b6dc368d9f908e8b7f6865757f272011a4c09e30adfdcf469deec58e90be"
+"usc_title_29@pl-119-90" = "45b5ccfa8acb6a642f2207907e69bb0e23b31aa9b7236f4ced94a4f65e2ba6ae"
+"usc_title_42@pl-119-90" = "b95e8cd78f873370d934e6491c6c59a4153f727ffac80cdbc5f46c737877009c"
+"usc_title_49@pl-119-90" = "f1e9e33628b412e6bb17f5374bfb8475fdf06f901862104318de9e70be164f12"
+"usc_title_5@pl-119-90" = "edea7c7213c5b4239e7acc374aa909706f80c255647982ccab64a0293f06917a"
+"usc_title_50@pl-119-90" = "bc9e95616239ce2f4aa0bb1328006ac74bea15b0139fc5a023dd64fa87e2b31f"

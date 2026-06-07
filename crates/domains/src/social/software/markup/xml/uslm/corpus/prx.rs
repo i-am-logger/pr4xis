@@ -1148,17 +1148,51 @@ pub fn emit_compact_usc_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
     gzip(&compact_usc_to_succinct(&data, &aux))
 }
 
-/// Load a compact runtime `.prx.gz` (produced by [`emit_compact_usc_prx_gz`])
-/// into a materialized [`UsCode`]: gunzip → [`compact_usc_from_succinct`] →
-/// [`to_aux_leaked`] + [`UsCode::from_codegen_with_aux`]. The runtime decode path
-/// — no XML re-parse, no rkyv envelope, no integrity gate (that is the
-/// distribution envelope's job).
-pub fn load_compact_usc_prx_gz(prx_gz: &[u8]) -> Result<UsCode, PrxError> {
-    let bytes = gunzip(prx_gz)?;
-    let (data, aux) = compact_usc_from_succinct(&bytes);
+/// Materialize a [`UsCode`] from the uncompressed compact succinct bytes:
+/// [`compact_usc_from_succinct`] → [`to_aux_leaked`] +
+/// [`UsCode::from_codegen_with_aux`]. No XML re-parse, no rkyv envelope.
+fn materialize_compact(raw_succinct: &[u8]) -> UsCode {
+    let (data, aux) = compact_usc_from_succinct(raw_succinct);
     let leaked = to_aux_leaked(&aux);
     let codegen: CodegenData<UsCode> = data.to_codegen_data_leaked();
-    Ok(UsCode::from_codegen_with_aux(&codegen, leaked))
+    UsCode::from_codegen_with_aux(&codegen, leaked)
+}
+
+/// Load a compact runtime `.prx.gz` (produced by [`emit_compact_usc_prx_gz`])
+/// into a materialized [`UsCode`] WITHOUT an integrity gate — gunzip →
+/// materialize. For trusted bytes (tests, the build emitter's round-trip
+/// check); the runtime fast path uses the gated [`load_compact_usc_prx_gz_gated`].
+pub fn load_compact_usc_prx_gz(prx_gz: &[u8]) -> Result<UsCode, PrxError> {
+    Ok(materialize_compact(&gunzip(prx_gz)?))
+}
+
+/// The content address of a compact `.prx.gz` archive — the SHA-256 of its
+/// uncompressed succinct bytes (gzip-level-independent), as 64-char lowercase
+/// hex. The value pinned in `praxis.lock` `[compact_archive_signatures]` and the
+/// one [`load_compact_usc_prx_gz_gated`] re-derives and verifies. Portable: the
+/// compact codec is dependency-free bit-packing, so this is stable across
+/// toolchains and targets (unlike the rkyv [`prx_archive_address`]).
+pub fn compact_prx_archive_address(cprx_gz: &[u8]) -> Result<String, PrxError> {
+    Ok(source_content_hash(&gunzip(cprx_gz)?))
+}
+
+/// Load a compact runtime `.prx.gz` into a [`UsCode`] through the fail-closed
+/// content-address gate — gunzip → discharge a content-hash `IntegrityClaim`
+/// (the succinct bytes must SHA-256 to `archive_pin`, the
+/// `[compact_archive_signatures]` pin) → only then materialize. A compact
+/// archive whose bytes do not match the pin is rejected before any data is
+/// installed (Dolstra 2006 content-addressing; W3C SRI 2016). The portable,
+/// no-source-reconstruction sibling of [`load_usc_prx_gz`]: the gate hashes the
+/// installed bytes directly, so the giant-title source-regeneration cost the
+/// envelope gate pays on load is gone.
+pub fn load_compact_usc_prx_gz_gated(
+    cprx_gz: &[u8],
+    archive_pin: &str,
+    key: &str,
+) -> Result<UsCode, PrxError> {
+    let raw = gunzip(cprx_gz)?;
+    usc_verify_content_address(&raw, archive_pin, key)?;
+    Ok(materialize_compact(&raw))
 }
 
 /// Workspace root — the grandparent of `CARGO_MANIFEST_DIR` (`crates/domains/`),
@@ -1180,6 +1214,16 @@ fn workspace_root() -> std::path::PathBuf {
 /// cache. The filesystem analogue of the OWL emitter's `dist/ontologies`.
 pub fn usc_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
     workspace_root.join(".prx-cache").join("usc")
+}
+
+/// The compiled COMPACT-USC-archive cache directory:
+/// `<workspace_root>/.prx-cache/usc-compact`. `pr4xis compile` writes one
+/// `{name}-{version}.cprx.gz` here per registered title (a sibling of
+/// [`usc_prx_cache_dir`] so the compact and envelope caches never collide), and
+/// [`loaded`][super::loaded] prefers it as the fast, content-address-gated load
+/// path. Gitignored build output — never committed.
+pub fn usc_compact_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root.join(".prx-cache").join("usc-compact")
 }
 
 /// Emit a USC `.prx.gz` artifact for EVERY registered [`UsCodeTitle`] source
@@ -1236,6 +1280,57 @@ pub fn emit_all_usc_prx_gz(out_dir: &std::path::Path) -> Result<Vec<EmittedArtif
             version: entry.version.clone(),
             path,
             byte_len: prx_gz.len() as u64,
+            archive_address,
+        });
+    }
+    Ok(emitted)
+}
+
+/// Emit the COMPACT `.prx.gz` for EVERY registered on-disk [`UsCodeTitle`] into
+/// `out_dir`, content-addressing and round-trip-validating each through the
+/// fail-closed gate before returning it — the compact sibling of
+/// [`emit_all_usc_prx_gz`]. Registry-driven; a title not on disk is skipped
+/// gracefully. Each artifact's `archive_address` is the portable
+/// [`compact_prx_archive_address`] the operator pins into
+/// `[compact_archive_signatures]`; the round-trip load through
+/// [`load_compact_usc_prx_gz_gated`] proves the published archive is loadable
+/// and content-anchored.
+pub fn emit_all_compact_usc_prx_gz(
+    out_dir: &std::path::Path,
+) -> Result<Vec<EmittedArtifact>, PrxError> {
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| PrxError::Gzip(format!("create out_dir {}: {e}", out_dir.display())))?;
+    let root = workspace_root();
+    let mut emitted = Vec::new();
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let src_path = root.join(entry.local_path());
+        let Ok(source) = std::fs::read(&src_path) else {
+            continue;
+        };
+        let cprx_gz = emit_compact_usc_prx_gz(&source)?;
+        let archive_address = compact_prx_archive_address(&cprx_gz)?;
+        let key = format!("{}@{}", entry.name, entry.version);
+        let path = out_dir.join(format!("{}-{}.cprx.gz", entry.name, entry.version));
+        std::fs::write(&path, &cprx_gz)
+            .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
+
+        // Round-trip-validate the written file through the fail-closed compact
+        // gate against the address this emit just produced.
+        let read_back = std::fs::read(&path)
+            .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
+        load_compact_usc_prx_gz_gated(&read_back, &archive_address, &key)?;
+
+        emitted.push(EmittedArtifact {
+            name: entry.name.clone(),
+            version: entry.version.clone(),
+            path,
+            byte_len: cprx_gz.len() as u64,
             archive_address,
         });
     }
@@ -1869,6 +1964,74 @@ mod tests {
                 entry.name, entry.version
             );
         }
+    }
+
+    /// COMPACT ARCHIVE ANCHOR — for every on-disk title within the CI budget
+    /// that has a `[compact_archive_signatures]` pin, a fresh
+    /// `emit_compact_usc_prx_gz` re-derives EXACTLY that pin. The portable
+    /// (toolchain-independent) compact sibling of `usc_archive_anchors_match_lock`;
+    /// keeps the committed compact pins honest — a stale or wrong pin (or a codec
+    /// change that shifts the bytes) fails closed here. Skips titles > the cap and
+    /// titles not on disk (USC is externally provisioned).
+    #[test]
+    fn compact_usc_archive_anchors_match_lock() {
+        use crate::applied::data_provisioning::registry::{
+            data_sources, lock_compact_archive_signature,
+        };
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        const CAP: u64 = 16 * 1024 * 1024;
+        let root = workspace_root();
+        let mut checked = 0usize;
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+                continue;
+            }
+            let Some(pinned) = lock_compact_archive_signature(&entry.name, &entry.version) else {
+                continue;
+            };
+            let path = root.join(entry.local_path());
+            let Ok(meta) = std::fs::metadata(&path) else {
+                continue;
+            };
+            if meta.len() > CAP {
+                continue;
+            }
+            let src = std::fs::read(&path).expect("read pinned USC title");
+            let cprx_gz = emit_compact_usc_prx_gz(&src).expect("emit compact");
+            let addr = compact_prx_archive_address(&cprx_gz).expect("derive compact address");
+            assert_eq!(
+                addr, pinned,
+                "{}@{} compact .prx address must equal its \
+                 [compact_archive_signatures] pin (codec or source drift?)",
+                entry.name, entry.version
+            );
+            checked += 1;
+        }
+        if checked == 0 {
+            eprintln!("compact anchor: no pinned on-disk USC title within the cap — skipped");
+        }
+    }
+
+    /// The content gate is a well-behaved lens: a compact archive loads under its
+    /// genuine address, and a SINGLE flipped byte is rejected (the fail-closed
+    /// `HashMismatch`) before any data is materialized.
+    #[test]
+    fn compact_usc_gated_load_round_trips_and_rejects_tampering() {
+        let key = "usc_title_18@pl-119-90";
+        let cprx_gz = emit_compact_usc_prx_gz(SAMPLE_USC_TITLE.as_bytes()).expect("emit");
+        let addr = compact_prx_archive_address(&cprx_gz).expect("address");
+
+        // Genuine address → loads.
+        let usc = load_compact_usc_prx_gz_gated(&cprx_gz, &addr, key).expect("gated load");
+        assert_eq!(usc.section_count(), 1);
+
+        // A wrong pin (one hex char flipped) → fail-closed HashMismatch.
+        let mut bad = addr.clone().into_bytes();
+        bad[0] = if bad[0] == b'0' { b'1' } else { b'0' };
+        let bad_pin = String::from_utf8(bad).unwrap();
+        let err = load_compact_usc_prx_gz_gated(&cprx_gz, &bad_pin, key)
+            .expect_err("a pin mismatch must be rejected");
+        assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
     }
 
     /// The lock-driven load path fails closed for a USC envelope whose

@@ -141,6 +141,38 @@ pub fn loaded() -> &'static UsCode {
             if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
                 continue;
             }
+            // Fastest path: a content-addressed COMPACT archive (portable
+            // dependency-free succinct bytes), admitted through the fail-closed
+            // `[compact_archive_signatures]` gate — gunzip + hash-check + decode,
+            // with NO source reconstruction (the cost the rkyv-envelope gate pays
+            // on giant titles). Tried before the envelope; an absent or unpinned
+            // compact archive falls through to it.
+            #[cfg(feature = "prx")]
+            {
+                use crate::applied::data_provisioning::registry::lock_compact_archive_signature;
+                let cprx_path = prx::usc_compact_prx_cache_dir(&workspace_root)
+                    .join(alloc::format!("{}-{}.cprx.gz", entry.name, entry.version));
+                if let Ok(cprx_gz) = std::fs::read(&cprx_path)
+                    && let Some(pin) = lock_compact_archive_signature(&entry.name, &entry.version)
+                {
+                    let key = alloc::format!("{}@{}", entry.name, entry.version);
+                    match prx::load_compact_usc_prx_gz_gated(&cprx_gz, pin, &key) {
+                        Ok(corpus) => {
+                            parts.push(corpus);
+                            continue;
+                        }
+                        // Pinned but the compact archive failed the content gate —
+                        // the committed pin and emitted bytes disagree (a stale
+                        // source or tampering). Fail LOUD; silently falling
+                        // through would mask the contract violation.
+                        Err(e) => panic!(
+                            "loaded(): compact archive {} is pinned but failed the \
+                             content gate: {e}",
+                            cprx_path.display()
+                        ),
+                    }
+                }
+            }
             // Fast path: a compiled `.prx` archive carries the
             // already-parsed corpus (rkyv), admitted through the
             // fail-closed lock gate. A present-but-bad archive is a hard

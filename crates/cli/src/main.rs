@@ -61,19 +61,28 @@ enum Command {
     },
     /// Compile registered sources into verifiable `.prx` archives.
     ///
-    /// Emits one content-addressed `.prx.gz` per registered U.S. Code
-    /// title into the build cache (`.prx-cache/usc/`), round-trip-
-    /// validating each. This is the parse-once artifact the corpus loader
-    /// reads instead of re-parsing ~85 MB of USLM XML per process — what
-    /// CI runs before the test suite so each test loads in ~ms. Requires
-    /// the title XML on disk (run `pr4xis update` first).
+    /// Emits one content-addressed `.prx.gz` per registered OWL vocabulary,
+    /// U.S. Code title (envelope + portable COMPACT), and WordNet language into
+    /// the build cache (`.prx-cache/`), the parse-once artifacts the runtime
+    /// loaders read instead of re-parsing the source per process. Requires the
+    /// sources on disk — run `pr4xis update` first (or pass `--update`).
+    ///
+    /// By default this is a VERIFY pass (CI-safe, writes nothing): each emitted
+    /// archive's content address must match its committed `praxis.lock` pin, and
+    /// any drift fails closed. `--lock` switches to the maintainer WRITE mode
+    /// that records the pins (run locally after a deliberate change; never in CI).
     Compile {
-        /// Write each emitted archive's `MerkleRoot` into the
-        /// `[archive_signatures]` section of `praxis.lock`. The fail-closed
-        /// load gate validates loaded archives against these pins. Like
-        /// `update --lock`, this is a write-only mode.
+        /// WRITE each emitted archive's content address into `praxis.lock`
+        /// (`[archive_signatures]` for the rkyv envelopes, the portable
+        /// `[compact_archive_signatures]` for the compact archives). The
+        /// maintainer re-pin mode — like `update --lock`, run locally, not in CI.
+        /// Without it, `compile` VERIFIES against the committed pins instead.
         #[arg(long)]
         lock: bool,
+        /// Provision any missing sources by running `update` first, instead of
+        /// erroring. Convenience for a fresh checkout; CI provisions separately.
+        #[arg(long)]
+        update: bool,
     },
     /// Decompile a compiled `.prx` archive back to its exact source bytes —
     /// the inverse of `compile`, the `.prx → source` leg of the universal
@@ -121,8 +130,8 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Command::Compile { lock } => {
-            if let Err(e) = run_compile(lock) {
+        Command::Compile { lock, update } => {
+            if let Err(e) = run_compile(lock, update) {
                 eprintln!("pr4xis compile: {e}");
                 std::process::exit(1);
             }
@@ -226,25 +235,65 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
 // `pr4xis compile` — emit verifiable `.prx` archives (the parse-once cache)
 // --------------------------------------------------------------------------
 
-fn run_compile(lock: bool) -> anyhow::Result<()> {
+fn run_compile(lock: bool, update: bool) -> anyhow::Result<()> {
     use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_all_wordnet_prx_gz;
     use pr4xis_domains::social::software::markup::xml::owl::prx::{
         emit_all_prx_gz as emit_all_owl_prx_gz, owl_prx_cache_dir,
     };
     use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
-        emit_all_usc_prx_gz, usc_prx_cache_dir,
+        emit_all_compact_usc_prx_gz, emit_all_usc_prx_gz, usc_compact_prx_cache_dir,
+        usc_prx_cache_dir,
     };
     let workspace_root = workspace_root()?;
+
+    // Precondition: `compile` consumes the physical sources `pr4xis update`
+    // provisions. A registered, pinned, compilable source that is not on disk is
+    // the "forgot to run update" failure — alert (or auto-provision with
+    // `--update`) instead of silently emitting nothing for it.
+    let missing = missing_compilable_sources(&workspace_root);
+    if !missing.is_empty() {
+        if update {
+            println!(
+                "provisioning {} missing source(s) via update…",
+                missing.len()
+            );
+            run_update(None, false, false, false, false, false)?;
+            let still = missing_compilable_sources(&workspace_root);
+            if !still.is_empty() {
+                anyhow::bail!("still missing after update: {}", still.join(", "));
+            }
+        } else {
+            anyhow::bail!(
+                "{} registered source(s) not provisioned: {} — run `pr4xis update` first \
+                 (or `pr4xis compile --update`)",
+                missing.len(),
+                missing.join(", "),
+            );
+        }
+    }
+
     let mut artifacts: Vec<EmittedArtifact> = Vec::new();
+    // Compact USC archives pin into `[compact_archive_signatures]`, a different
+    // lock space than the rkyv envelopes' `[archive_signatures]`, so they are
+    // collected separately.
+    let mut compact_artifacts: Vec<EmittedArtifact> = Vec::new();
 
     // OWL vocabularies → `.prx-cache/ontologies/` (the `pr4xis decompile`
     // source for OWL; bundled `.owl` files make these compile on a plain
     // checkout, unlike the externally-provisioned USC/WordNet corpora).
     let owl_dir = owl_prx_cache_dir(&workspace_root);
     artifacts.extend(emit_all_owl_prx_gz(&owl_dir).map_err(|e| anyhow::anyhow!("emit OWL: {e}"))?);
-    // U.S. Code titles → `.prx-cache/usc/` (the corpus loader's fast path).
+    // U.S. Code titles → `.prx-cache/usc/` (the rkyv-envelope decompile source).
     let usc_dir = usc_prx_cache_dir(&workspace_root);
     artifacts.extend(emit_all_usc_prx_gz(&usc_dir).map_err(|e| anyhow::anyhow!("emit USC: {e}"))?);
+    // U.S. Code titles (COMPACT) → `.prx-cache/usc-compact/` — the corpus
+    // loader's FAST content-address-gated path (portable succinct bytes, no
+    // source reconstruction on load).
+    let usc_compact_dir = usc_compact_prx_cache_dir(&workspace_root);
+    compact_artifacts.extend(
+        emit_all_compact_usc_prx_gz(&usc_compact_dir)
+            .map_err(|e| anyhow::anyhow!("emit USC compact: {e}"))?,
+    );
     // WordNet/English → `.prx-cache/wordnet/` (the embedded reasoning base, once
     // the runtime de-codegens onto it).
     let wn_dir = workspace_root.join(".prx-cache").join("wordnet");
@@ -253,7 +302,7 @@ fn run_compile(lock: bool) -> anyhow::Result<()> {
     );
 
     let mut total_bytes: u64 = 0;
-    for a in &artifacts {
+    for a in artifacts.iter().chain(&compact_artifacts) {
         total_bytes += a.byte_len;
         println!(
             "  compiled  {}@{}  {} bytes  {}",
@@ -261,17 +310,104 @@ fn run_compile(lock: bool) -> anyhow::Result<()> {
         );
     }
     println!(
-        "{} archive(s), {total_bytes} bytes total → {}",
-        artifacts.len(),
+        "{} archive(s) ({} compact), {total_bytes} bytes total → {}",
+        artifacts.len() + compact_artifacts.len(),
+        compact_artifacts.len(),
         workspace_root.join(".prx-cache").display()
     );
 
-    if artifacts.is_empty() {
+    if artifacts.is_empty() && compact_artifacts.is_empty() {
         eprintln!("  [warn]    no registered source on disk — run `pr4xis update` first");
     }
     if lock {
+        // Maintainer WRITE mode: record the pins (local; never CI).
         apply_archive_signature_lock(&artifacts, &workspace_root)?;
+        apply_compact_archive_signature_lock(&compact_artifacts, &workspace_root)?;
+    } else {
+        // Default VERIFY mode (CI-safe): each emitted archive's content address
+        // must match its committed pin, else drift fails closed. An unpinned
+        // source is reported (it just gets no fast path), never a failure.
+        verify_archives_against_lock(&artifacts, &compact_artifacts)?;
     }
+    Ok(())
+}
+
+/// Registered, pinned, COMPILABLE sources whose source file is not on disk —
+/// `"name@version"` keys. "Compilable" = the kinds `compile` emits
+/// (`OntologyVocabulary` OWL, `UsCodeTitle` USC, `Language` WordNet); other
+/// registered kinds (conformance suites, …) are not flagged. "Pinned" = present
+/// in `[hashes]` (a source with no source-pin is not yet provisioned-expected).
+fn missing_compilable_sources(workspace_root: &Path) -> Vec<String> {
+    use pr4xis_domains::applied::data_provisioning::registry::{data_sources, lock_hashes};
+    use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::{
+        Language, OntologyVocabulary, UsCodeTitle,
+    };
+    let hashes = lock_hashes();
+    let mut missing = Vec::new();
+    for e in data_sources() {
+        if !matches!(e.kind, OntologyVocabulary | UsCodeTitle | Language) {
+            continue;
+        }
+        let key = format!("{}@{}", e.name, e.version);
+        if !hashes.contains_key(&key) {
+            continue; // not source-pinned — not an expected-present source
+        }
+        if !workspace_root.join(e.local_path()).exists() {
+            missing.push(key);
+        }
+    }
+    missing.sort();
+    missing
+}
+
+/// Verify each emitted archive's content address equals its committed
+/// `praxis.lock` pin (drift = fail-closed); an unpinned archive is reported, not
+/// failed. The read-only default `compile` runs in CI to catch a source/codec
+/// change that no longer matches the pins, without mutating the lock.
+fn verify_archives_against_lock(
+    envelopes: &[EmittedArtifact],
+    compact: &[EmittedArtifact],
+) -> anyhow::Result<()> {
+    use pr4xis_domains::applied::data_provisioning::registry::{
+        lock_archive_signature, lock_compact_archive_signature,
+    };
+    let mut drift: Vec<String> = Vec::new();
+    let mut unpinned = 0usize;
+    let mut check = |a: &EmittedArtifact, pin: Option<&str>, space: &str| match pin {
+        Some(p) if p == a.archive_address => {}
+        Some(p) => drift.push(format!(
+            "{}@{} {space}: emitted {} ≠ pinned {}",
+            a.name, a.version, a.archive_address, p
+        )),
+        None => unpinned += 1,
+    };
+    for a in envelopes {
+        check(
+            a,
+            lock_archive_signature(&a.name, &a.version),
+            "[archive_signatures]",
+        );
+    }
+    for a in compact {
+        check(
+            a,
+            lock_compact_archive_signature(&a.name, &a.version),
+            "[compact_archive_signatures]",
+        );
+    }
+    if !drift.is_empty() {
+        anyhow::bail!(
+            "praxis.lock pin drift ({} archive(s)) — re-run `pr4xis compile --lock` after \
+             confirming the change is intended:\n  {}",
+            drift.len(),
+            drift.join("\n  "),
+        );
+    }
+    let total = envelopes.len() + compact.len();
+    println!(
+        "verified {} archive(s) against praxis.lock pins ({unpinned} unpinned, no fast path).",
+        total - unpinned,
+    );
     Ok(())
 }
 
@@ -306,6 +442,44 @@ fn apply_archive_signature_lock(
         println!("praxis.lock [archive_signatures] updated.");
     } else {
         println!("praxis.lock [archive_signatures] unchanged.");
+    }
+    Ok(())
+}
+
+/// Write each compiled COMPACT archive's content address into the
+/// `[compact_archive_signatures]` section of `praxis.lock`. The write-side
+/// companion to the compact runtime gate (`load_compact_usc_prx_gz_gated`);
+/// unlike `[archive_signatures]` these addresses are portable across toolchains
+/// (the compact codec is dependency-free bit-packing). Mirrors
+/// [`apply_archive_signature_lock`].
+fn apply_compact_archive_signature_lock(
+    artifacts: &[EmittedArtifact],
+    workspace_root: &Path,
+) -> anyhow::Result<()> {
+    if artifacts.is_empty() {
+        return Ok(());
+    }
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let mut text = original.clone();
+    for a in artifacts {
+        let key = format!("{}@{}", a.name, a.version);
+        text = pr4xis_domains::applied::data_provisioning::lockfile::set_compact_archive_signature(
+            &text,
+            &key,
+            &a.archive_address,
+        )
+        .map_err(|e| {
+            anyhow::anyhow!("praxis.lock [compact_archive_signatures] rewrite for {key}: {e}")
+        })?;
+    }
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock [compact_archive_signatures] updated.");
+    } else {
+        println!("praxis.lock [compact_archive_signatures] unchanged.");
     }
     Ok(())
 }

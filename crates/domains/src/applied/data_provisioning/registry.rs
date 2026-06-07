@@ -158,6 +158,30 @@ pub fn lock_archive_signature(name: &str, version: &str) -> Option<&'static str>
     lock_archive_signatures().get(&key).map(String::as_str)
 }
 
+/// The pinned COMPACT `.prx` archive content addresses from `praxis.lock`.
+/// Keys are `"<name>@<version>"`; each value is the SHA-256 of the compact
+/// archive's uncompressed succinct bytes (its content address). Unlike
+/// `[archive_signatures]` — which pins the rkyv `BinaryEnvelope`, a
+/// toolchain-dependent layout — the compact codec is pure dependency-free
+/// bit-packing, so this address is **portable across toolchains and targets**.
+/// It is the integrity claim the compact runtime load gate verifies against the
+/// bytes it installs; a compact `.prx.gz` whose succinct bytes do not hash to
+/// this pin is rejected fail-closed before any data is materialized.
+pub fn lock_compact_archive_signatures() -> &'static HashMap<String, String> {
+    &lock_data().compact_archive_signatures
+}
+
+/// Look up the COMPACT `.prx` archive content address for a specific source.
+/// Returns `None` if the source has no pinned compact archive — the compact
+/// load gate then has nothing to validate against and falls back (to the
+/// envelope archive or the authoritative source).
+pub fn lock_compact_archive_signature(name: &str, version: &str) -> Option<&'static str> {
+    let key = format!("{name}@{version}");
+    lock_compact_archive_signatures()
+        .get(&key)
+        .map(String::as_str)
+}
+
 /// The pinned whole-graph `GraphSnapshot` content addresses from
 /// `praxis.lock`. Keys are `GraphVersion` labels; each value is the SHA-256
 /// `MerkleRoot` of the snapshot's rkyv blob. The integrity claim the snapshot
@@ -357,6 +381,14 @@ pub struct LockData {
     pub canonical_signatures: HashMap<String, String>,
     pub byte_exact_signatures: HashMap<String, String>,
     pub archive_signatures: HashMap<String, String>,
+    /// SHA-256 of the COMPACT `.prx` archive's uncompressed succinct bytes,
+    /// keyed by `"<name>@<version>"`. The portable (toolchain-independent)
+    /// sibling of `[archive_signatures]`: the compact codec is dependency-free
+    /// bit-packing, so the same source yields the same compact address on every
+    /// toolchain and target. The integrity claim the compact runtime load gate
+    /// checks; like `[archive_signatures]` it pins a compiled artifact (not the
+    /// raw source) and requires a matching `[hashes]` entry.
+    pub compact_archive_signatures: HashMap<String, String>,
     /// SHA-256 `MerkleRoot` of a whole-graph `GraphSnapshot` rkyv blob
     /// (`crate::formal::meta::praxis_knowledge_graph::snapshot`), keyed by
     /// its `GraphVersion`. Unlike `[archive_signatures]`, a snapshot is keyed
@@ -410,6 +442,8 @@ struct RawLockFile {
     byte_exact_signatures: HashMap<String, String>,
     #[serde(default)]
     archive_signatures: HashMap<String, String>,
+    #[serde(default)]
+    compact_archive_signatures: HashMap<String, String>,
     #[serde(default)]
     snapshot_signatures: HashMap<String, String>,
 }
@@ -491,6 +525,26 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
             ));
         }
     }
+    // A compact_archive_signature pins the content address of the COMPACT `.prx`
+    // archive for an already-hashed source — same contract as [archive_signatures]
+    // (must name a [hashes]-pinned source + be a 64-char lowercase hex SHA-256),
+    // but addresses the portable dependency-free succinct bytes, not the rkyv
+    // envelope.
+    for (key, sig) in &raw.compact_archive_signatures {
+        if !raw.hashes.contains_key(key) {
+            return Err(format!(
+                "praxis.lock: `[compact_archive_signatures.\"{key}\"]` has no matching \
+                 entry in `[hashes]` — the signature pins the compact `.prx` archive \
+                 of an already-hashed source"
+            ));
+        }
+        if !is_lowercase_hex_sha256(sig) {
+            return Err(format!(
+                "praxis.lock: `[compact_archive_signatures.\"{key}\"]` is not a 64-char \
+                 lowercase hex SHA-256: {sig:?}"
+            ));
+        }
+    }
     // A snapshot_signature pins the MerkleRoot of a whole-graph GraphSnapshot
     // rkyv blob, keyed by its GraphVersion. DELIBERATE ASYMMETRY vs
     // [archive_signatures]: a snapshot is keyed by the synthetic GraphVersion
@@ -510,6 +564,7 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
         canonical_signatures: raw.canonical_signatures,
         byte_exact_signatures: raw.byte_exact_signatures,
         archive_signatures: raw.archive_signatures,
+        compact_archive_signatures: raw.compact_archive_signatures,
         snapshot_signatures: raw.snapshot_signatures,
     })
 }

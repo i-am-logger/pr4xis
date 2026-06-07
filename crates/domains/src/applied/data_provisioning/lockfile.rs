@@ -113,6 +113,24 @@ pub fn set_archive_signature(
     set_in_section(lockfile_text, "archive_signatures", key, sig)
 }
 
+/// Set the COMPACT archive content address for `key` (a `"name@version"`
+/// string) to `sig` in the `[compact_archive_signatures]` section of
+/// `lockfile_text`, returning the rewritten text.
+///
+/// The write-side companion to the compact runtime load gate
+/// (`uslm::corpus::prx::load_compact_usc_prx_gz_gated`): a loaded compact
+/// archive's re-hashed content address is checked against this pin. Unlike
+/// [`set_archive_signature`] the pinned address is portable across toolchains
+/// (the compact codec is dependency-free bit-packing, not rkyv). Same
+/// comment-/order-preserving rewrite; `sig` must be 64 lowercase hex chars.
+pub fn set_compact_archive_signature(
+    lockfile_text: &str,
+    key: &str,
+    sig: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "compact_archive_signatures", key, sig)
+}
+
 /// Comment-/order-preserving rewrite of a `"key" = "value"` line within a
 /// named TOML section — the shared core of [`set_hash`] and
 /// [`set_archive_signature`]. Locates `[section]`, replaces the hex value
