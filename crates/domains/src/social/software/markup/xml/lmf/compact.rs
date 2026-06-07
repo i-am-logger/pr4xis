@@ -1,24 +1,41 @@
-//! Compact interned encoding of a WN-LMF [`WordNet`] — the size-reduced `.prx`
-//! ontology core.
+//! Compact, integer-addressed encoding of a WN-LMF [`WordNet`] — the `.prx`
+//! ontology core, sized for the runtime (loaded dynamically or embedded in the
+//! wasm; same bytes either way).
 //!
-//! The graph-faithful envelope stores [`WordNet`] **un-interned**: every synset
-//! id, lemma, relation target, POS tag and gloss is repeated inline across
-//! ~107k synsets and ~136k entries (78 MB raw / 17.6 MB gz for Open English
-//! WordNet 2025). [`InternedWordNet`] stores each UNIQUE string ONCE in a
-//! [`pool`](InternedWordNet::pool) and replaces every string field with a
-//! [`Sym`] (`u32`) handle into it. The transform is LOSSLESS —
-//! `deintern(intern(wn)) == wn` byte-for-byte at the struct level — so it is the
-//! compact, COMPLETE ontology the `.prx` carries (whether the `.prx` is loaded
-//! dynamically or embedded in the wasm; the encoding is the same bytes either
-//! way). It materializes the SAME full [`English`](crate::cognitive::linguistics::english::English)
-//! by de-interning to [`WordNet`] and running `English::from_wordnet` — no new
-//! materialization path, no relation type dropped.
+//! # Why this shape
 //!
-//! This is the FIRST size lever (interning); the succinct layer (front-coded
-//! dictionary + LOUDS/WebGraph-BV topology + FSST text, → ~3 MB) sits beneath
-//! it as a later, research-backed encoding of the same `(pool, topology)` split.
+//! The graph-faithful envelope stored [`WordNet`] **un-interned and string-
+//! addressed**: every synset id, sense id, lemma, relation target and gloss
+//! repeated inline (78 MB raw / 17.6 MB gz for Open English WordNet). Two
+//! independent levers shrink that to the integer-addressed floor (~9–10 MB gz),
+//! with NO change to the gz wrapper and NO succinct coding yet:
+//!
+//! 1. **Columnar layout** — parallel arrays per node class instead of a tree of
+//!    nested structs, so rkyv stores one length-prefix / padding run per COLUMN
+//!    instead of per element across ~107k synsets × ~11 fields.
+//! 2. **Integer node-addressing** — a synset's array index IS its `ConceptId`
+//!    (`from_wordnet` already assigns `ConceptId` by synset order, ontology.rs),
+//!    a sense's global index IS its `SenseId`, an entry's index IS its position.
+//!    Every cross-reference (relation targets, `sense.synset`, synset `members`
+//!    → entry, syntactic-behaviour senses) becomes a `u32` index, so the
+//!    `oewn-…` id-strings are NOT stored at all. The dictionary holds only
+//!    LEXICAL text (lemmas, glosses, examples, frames, pronunciations, ILI
+//!    codes, tags), deduplicated.
+//!
+//! [`encode`] drops the same dangling edges `English::from_wordnet` drops (an
+//! edge whose endpoint id is unknown), so it is **reasoning-equivalent**: the
+//! materialized [`English`](crate::cognitive::linguistics::english::English) is
+//! identical (same `ConceptId`s, same relations, same word index) — only the
+//! original `oewn-…` id-strings become index-derived synthetic ids (`s{i}` /
+//! `k{g}` / `e{e}`), which the runtime never surfaces (it addresses by integer
+//! `ConceptId`). It is NOT a byte-exact source round-trip — that decompile
+//! property is deliberately not in the shipped `.prx`.
+//!
+//! The succinct layer (front-coded / FSST dictionary, LOUDS / WebGraph-BV
+//! topology → ~3–5 MB) is the NEXT phase, encoding the same `(dict, columns)`
+//! split; it is not applied here.
 
-use alloc::{string::String, string::ToString, vec::Vec};
+use alloc::{format, string::String, string::ToString, vec::Vec};
 
 use hashbrown::HashMap;
 
@@ -27,447 +44,501 @@ use super::ontology::{
     SenseRelationType, Synset, SynsetRelation, SynsetRelationType, SyntacticBehaviour, WordNet,
 };
 
-/// A handle into [`InternedWordNet::pool`] — the interned form of one string.
-pub type Sym = u32;
+/// An index into [`CompactWordNet::dict`] (a lexical string).
+pub type Dict = u32;
 
-/// The compact, interned, COMPLETE WordNet ontology — the `.prx` core.
+/// The compact, integer-addressed, COMPLETE WordNet ontology — the `.prx` core.
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct InternedWordNet {
-    /// Every unique string, in first-seen order. The dictionary.
-    pub pool: Vec<String>,
+pub struct CompactWordNet {
+    /// Every unique LEXICAL string, deduplicated (NO synset/sense/entry ids —
+    /// those are array indices).
+    pub dict: Vec<String>,
     pub lexicon: ILexiconMetadata,
-    pub synsets: Vec<ISynset>,
-    pub entries: Vec<ILexicalEntry>,
-    pub syntactic_behaviours: Vec<ISyntacticBehaviour>,
+
+    // ── synsets · array index == ConceptId ──
+    pub syn_pos: Vec<LmfPos>,
+    pub syn_ili: Vec<Option<Dict>>,
+    pub syn_definitions: Vec<Vec<Dict>>,
+    pub syn_ili_definition: Vec<Option<Dict>>,
+    pub syn_examples: Vec<Vec<Dict>>,
+    pub syn_relations: Vec<Vec<ISynRel>>,
+    /// Synset → member LexicalEntry indices.
+    pub syn_members: Vec<Vec<u32>>,
+    pub syn_lexfile: Vec<Option<Dict>>,
+    pub syn_dc_source: Vec<Option<Dict>>,
+    pub syn_confidence: Vec<Option<Dict>>,
+
+    // ── senses · global array index == SenseId (entry order) ──
+    pub sense_synset: Vec<u32>,
+    pub sense_relations: Vec<Vec<ISenRel>>,
+    pub sense_subcat: Vec<Vec<Dict>>,
+    pub sense_adjposition: Vec<Option<Dict>>,
+    pub sense_dc_source: Vec<Option<Dict>>,
+    pub sense_counts: Vec<Vec<Dict>>,
+
+    // ── entries · array index == position; senses live in [start, start+count) ──
+    pub entry_lemma_form: Vec<Dict>,
+    pub entry_lemma_pos: Vec<LmfPos>,
+    pub entry_lemma_script: Vec<Option<Dict>>,
+    pub entry_lemma_prons: Vec<Vec<IPron>>,
+    pub entry_sense_start: Vec<u32>,
+    pub entry_sense_count: Vec<u32>,
+    pub entry_forms: Vec<Vec<IForm>>,
+    pub entry_synbehav: Vec<Vec<ISynBehav>>,
+
+    pub lex_synbehav: Vec<ISynBehav>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ILexiconMetadata {
-    pub id: Option<Sym>,
-    pub label: Option<Sym>,
-    pub language: Option<Sym>,
-    pub email: Option<Sym>,
-    pub license: Option<Sym>,
-    pub version: Option<Sym>,
-    pub url: Option<Sym>,
-    pub citation: Option<Sym>,
-    pub logo: Option<Sym>,
-    pub status: Option<Sym>,
-    pub confidence_score: Option<Sym>,
-    pub dc: Vec<(Sym, Sym)>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ISynset {
-    pub id: Sym,
-    pub ili: Option<Sym>,
-    pub pos: LmfPos,
-    pub members: Vec<Sym>,
-    pub definitions: Vec<Sym>,
-    pub ili_definition: Option<Sym>,
-    pub examples: Vec<Sym>,
-    pub relations: Vec<ISynsetRelation>,
-    pub lexfile: Option<Sym>,
-    pub dc_source: Option<Sym>,
-    pub confidence_score: Option<Sym>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ISynsetRelation {
+pub struct ISynRel {
     pub rel_type: SynsetRelationType,
-    pub target: Sym,
+    /// Target synset index (ConceptId).
+    pub target: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ILexicalEntry {
-    pub id: Sym,
-    pub lemma: ILemma,
-    pub senses: Vec<ISense>,
-    pub forms: Vec<IForm>,
-    pub syntactic_behaviours: Vec<ISyntacticBehaviour>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ILemma {
-    pub written_form: Sym,
-    pub pos: LmfPos,
-    pub script: Option<Sym>,
-    pub pronunciations: Vec<IPronunciation>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct IPronunciation {
-    pub text: Sym,
-    pub variety: Option<Sym>,
-    pub notation: Option<Sym>,
-    pub phonemic: Option<Sym>,
-    pub audio: Option<Sym>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ISense {
-    pub id: Sym,
-    pub synset: Sym,
-    pub relations: Vec<ISenseRelation>,
-    pub subcat: Vec<Sym>,
-    pub adjposition: Option<Sym>,
-    pub dc_source: Option<Sym>,
-    pub counts: Vec<ICount>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ISenseRelation {
+pub struct ISenRel {
     pub rel_type: SenseRelationType,
-    pub target: Sym,
+    /// Target sense global index (SenseId).
+    pub target: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct IPron {
+    pub text: Dict,
+    pub variety: Option<Dict>,
+    pub notation: Option<Dict>,
+    pub phonemic: Option<Dict>,
+    pub audio: Option<Dict>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct IForm {
-    pub written_form: Sym,
-    pub id: Option<Sym>,
-    pub script: Option<Sym>,
-    pub pronunciations: Vec<IPronunciation>,
+    pub written_form: Dict,
+    pub id: Option<Dict>,
+    pub script: Option<Dict>,
+    pub pronunciations: Vec<IPron>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ISyntacticBehaviour {
-    pub id: Option<Sym>,
-    pub subcategorization_frame: Sym,
-    pub senses: Vec<Sym>,
+pub struct ISynBehav {
+    pub id: Option<Dict>,
+    pub subcategorization_frame: Dict,
+    /// Member sense global indices (SenseIds).
+    pub senses: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub struct ICount {
-    pub value: Sym,
+pub struct ILexiconMetadata {
+    pub id: Option<Dict>,
+    pub label: Option<Dict>,
+    pub language: Option<Dict>,
+    pub email: Option<Dict>,
+    pub license: Option<Dict>,
+    pub version: Option<Dict>,
+    pub url: Option<Dict>,
+    pub citation: Option<Dict>,
+    pub logo: Option<Dict>,
+    pub status: Option<Dict>,
+    pub confidence_score: Option<Dict>,
+    pub dc: Vec<(Dict, Dict)>,
 }
 
-// ── intern: WordNet -> InternedWordNet ────────────────────────────────────
+// ── encode: WordNet -> CompactWordNet ──────────────────────────────────────
 
 #[derive(Default)]
-struct Interner {
+struct DictBuilder {
     pool: Vec<String>,
-    map: HashMap<String, Sym>,
+    map: HashMap<String, Dict>,
 }
-
-impl Interner {
-    fn s(&mut self, s: &str) -> Sym {
+impl DictBuilder {
+    fn s(&mut self, s: &str) -> Dict {
         if let Some(&id) = self.map.get(s) {
             return id;
         }
-        let id = self.pool.len() as Sym;
+        let id = self.pool.len() as Dict;
         self.pool.push(s.to_string());
         self.map.insert(s.to_string(), id);
         id
     }
-    fn opt(&mut self, o: &Option<String>) -> Option<Sym> {
+    fn opt(&mut self, o: &Option<String>) -> Option<Dict> {
         o.as_deref().map(|s| self.s(s))
     }
-    fn many(&mut self, xs: &[String]) -> Vec<Sym> {
+    fn many(&mut self, xs: &[String]) -> Vec<Dict> {
         xs.iter().map(|x| self.s(x)).collect()
     }
 }
 
-/// Intern a [`WordNet`] into its compact [`InternedWordNet`] form. Deterministic
-/// (first-seen pool order over a fixed walk), so equal inputs give equal bytes.
-pub fn intern(wn: &WordNet) -> InternedWordNet {
-    let mut it = Interner::default();
-    let lexicon = intern_lexicon(&mut it, &wn.lexicon);
-    let synsets: Vec<ISynset> = wn
+/// Encode a parsed [`WordNet`] into the compact integer-addressed core.
+/// Deterministic; equal inputs give equal bytes. Dangling edges (endpoint id
+/// not present) are dropped — the SAME drop `English::from_wordnet` performs —
+/// so the materialized ontology is unchanged.
+pub fn encode(wn: &WordNet) -> CompactWordNet {
+    let mut d = DictBuilder::default();
+
+    // Index maps for the three id-spaces.
+    let syn_idx: HashMap<&str, u32> = wn
         .synsets
         .iter()
-        .map(|s| intern_synset(&mut it, s))
+        .enumerate()
+        .map(|(i, s)| (s.id.as_str(), i as u32))
         .collect();
-    let entries: Vec<ILexicalEntry> = wn
+    let entry_idx: HashMap<&str, u32> = wn
         .entries
         .iter()
-        .map(|e| intern_entry(&mut it, e))
+        .enumerate()
+        .map(|(i, e)| (e.id.as_str(), i as u32))
         .collect();
-    let syntactic_behaviours: Vec<ISyntacticBehaviour> = wn
+    // Global sense index in entry order.
+    let mut sense_idx: HashMap<&str, u32> = HashMap::new();
+    {
+        let mut g = 0u32;
+        for e in &wn.entries {
+            for s in &e.senses {
+                sense_idx.insert(s.id.as_str(), g);
+                g += 1;
+            }
+        }
+    }
+
+    let lexicon = encode_lexicon(&mut d, &wn.lexicon);
+
+    // Synsets.
+    let n = wn.synsets.len();
+    let mut syn_pos = Vec::with_capacity(n);
+    let mut syn_ili = Vec::with_capacity(n);
+    let mut syn_definitions = Vec::with_capacity(n);
+    let mut syn_ili_definition = Vec::with_capacity(n);
+    let mut syn_examples = Vec::with_capacity(n);
+    let mut syn_relations = Vec::with_capacity(n);
+    let mut syn_members = Vec::with_capacity(n);
+    let mut syn_lexfile = Vec::with_capacity(n);
+    let mut syn_dc_source = Vec::with_capacity(n);
+    let mut syn_confidence = Vec::with_capacity(n);
+    for s in &wn.synsets {
+        syn_pos.push(s.pos);
+        syn_ili.push(d.opt(&s.ili));
+        syn_definitions.push(d.many(&s.definitions));
+        syn_ili_definition.push(d.opt(&s.ili_definition));
+        syn_examples.push(d.many(&s.examples));
+        syn_relations.push(
+            s.relations
+                .iter()
+                .filter_map(|r| {
+                    syn_idx.get(r.target.as_str()).map(|&t| ISynRel {
+                        rel_type: r.rel_type.clone(),
+                        target: t,
+                    })
+                })
+                .collect(),
+        );
+        syn_members.push(
+            s.members
+                .iter()
+                .filter_map(|m| entry_idx.get(m.as_str()).copied())
+                .collect(),
+        );
+        syn_lexfile.push(d.opt(&s.lexfile));
+        syn_dc_source.push(d.opt(&s.dc_source));
+        syn_confidence.push(d.opt(&s.confidence_score));
+    }
+
+    // Senses (global, entry order) + entry columns.
+    let mut sense_synset = Vec::new();
+    let mut sense_relations = Vec::new();
+    let mut sense_subcat = Vec::new();
+    let mut sense_adjposition = Vec::new();
+    let mut sense_dc_source = Vec::new();
+    let mut sense_counts = Vec::new();
+
+    let m = wn.entries.len();
+    let mut entry_lemma_form = Vec::with_capacity(m);
+    let mut entry_lemma_pos = Vec::with_capacity(m);
+    let mut entry_lemma_script = Vec::with_capacity(m);
+    let mut entry_lemma_prons = Vec::with_capacity(m);
+    let mut entry_sense_start = Vec::with_capacity(m);
+    let mut entry_sense_count = Vec::with_capacity(m);
+    let mut entry_forms = Vec::with_capacity(m);
+    let mut entry_synbehav = Vec::with_capacity(m);
+
+    for e in &wn.entries {
+        entry_lemma_form.push(d.s(&e.lemma.written_form));
+        entry_lemma_pos.push(e.lemma.pos);
+        entry_lemma_script.push(d.opt(&e.lemma.script));
+        entry_lemma_prons.push(encode_prons(&mut d, &e.lemma.pronunciations));
+
+        entry_sense_start.push(sense_synset.len() as u32);
+        entry_sense_count.push(e.senses.len() as u32);
+        for s in &e.senses {
+            sense_synset.push(*syn_idx.get(s.synset.as_str()).unwrap_or(&u32::MAX));
+            sense_relations.push(
+                s.relations
+                    .iter()
+                    .filter_map(|r| {
+                        sense_idx.get(r.target.as_str()).map(|&t| ISenRel {
+                            rel_type: r.rel_type.clone(),
+                            target: t,
+                        })
+                    })
+                    .collect(),
+            );
+            sense_subcat.push(d.many(&s.subcat));
+            sense_adjposition.push(d.opt(&s.adjposition));
+            sense_dc_source.push(d.opt(&s.dc_source));
+            sense_counts.push(s.counts.iter().map(|c| d.s(&c.value)).collect());
+        }
+
+        entry_forms.push(e.forms.iter().map(|f| encode_form(&mut d, f)).collect());
+        entry_synbehav.push(
+            e.syntactic_behaviours
+                .iter()
+                .map(|sb| encode_synbehav(&mut d, &sense_idx, sb))
+                .collect(),
+        );
+    }
+
+    let lex_synbehav = wn
         .syntactic_behaviours
         .iter()
-        .map(|sb| intern_synbehav(&mut it, sb))
+        .map(|sb| encode_synbehav(&mut d, &sense_idx, sb))
         .collect();
-    InternedWordNet {
-        pool: it.pool,
+
+    CompactWordNet {
+        dict: d.pool,
         lexicon,
-        synsets,
-        entries,
-        syntactic_behaviours,
+        syn_pos,
+        syn_ili,
+        syn_definitions,
+        syn_ili_definition,
+        syn_examples,
+        syn_relations,
+        syn_members,
+        syn_lexfile,
+        syn_dc_source,
+        syn_confidence,
+        sense_synset,
+        sense_relations,
+        sense_subcat,
+        sense_adjposition,
+        sense_dc_source,
+        sense_counts,
+        entry_lemma_form,
+        entry_lemma_pos,
+        entry_lemma_script,
+        entry_lemma_prons,
+        entry_sense_start,
+        entry_sense_count,
+        entry_forms,
+        entry_synbehav,
+        lex_synbehav,
     }
 }
 
-fn intern_lexicon(it: &mut Interner, lx: &LexiconMetadata) -> ILexiconMetadata {
+fn encode_lexicon(d: &mut DictBuilder, lx: &LexiconMetadata) -> ILexiconMetadata {
     ILexiconMetadata {
-        id: it.opt(&lx.id),
-        label: it.opt(&lx.label),
-        language: it.opt(&lx.language),
-        email: it.opt(&lx.email),
-        license: it.opt(&lx.license),
-        version: it.opt(&lx.version),
-        url: it.opt(&lx.url),
-        citation: it.opt(&lx.citation),
-        logo: it.opt(&lx.logo),
-        status: it.opt(&lx.status),
-        confidence_score: it.opt(&lx.confidence_score),
-        dc: lx.dc.iter().map(|(k, v)| (it.s(k), it.s(v))).collect(),
+        id: d.opt(&lx.id),
+        label: d.opt(&lx.label),
+        language: d.opt(&lx.language),
+        email: d.opt(&lx.email),
+        license: d.opt(&lx.license),
+        version: d.opt(&lx.version),
+        url: d.opt(&lx.url),
+        citation: d.opt(&lx.citation),
+        logo: d.opt(&lx.logo),
+        status: d.opt(&lx.status),
+        confidence_score: d.opt(&lx.confidence_score),
+        dc: lx.dc.iter().map(|(k, v)| (d.s(k), d.s(v))).collect(),
     }
 }
 
-fn intern_synset(it: &mut Interner, s: &Synset) -> ISynset {
-    ISynset {
-        id: it.s(&s.id),
-        ili: it.opt(&s.ili),
-        pos: s.pos,
-        members: it.many(&s.members),
-        definitions: it.many(&s.definitions),
-        ili_definition: it.opt(&s.ili_definition),
-        examples: it.many(&s.examples),
-        relations: s
-            .relations
-            .iter()
-            .map(|r| ISynsetRelation {
-                rel_type: r.rel_type.clone(),
-                target: it.s(&r.target),
-            })
-            .collect(),
-        lexfile: it.opt(&s.lexfile),
-        dc_source: it.opt(&s.dc_source),
-        confidence_score: it.opt(&s.confidence_score),
-    }
+fn encode_prons(d: &mut DictBuilder, ps: &[Pronunciation]) -> Vec<IPron> {
+    ps.iter()
+        .map(|p| IPron {
+            text: d.s(&p.text),
+            variety: d.opt(&p.variety),
+            notation: d.opt(&p.notation),
+            phonemic: d.opt(&p.phonemic),
+            audio: d.opt(&p.audio),
+        })
+        .collect()
 }
 
-fn intern_entry(it: &mut Interner, e: &LexicalEntry) -> ILexicalEntry {
-    ILexicalEntry {
-        id: it.s(&e.id),
-        lemma: intern_lemma(it, &e.lemma),
-        senses: e.senses.iter().map(|s| intern_sense(it, s)).collect(),
-        forms: e.forms.iter().map(|f| intern_form(it, f)).collect(),
-        syntactic_behaviours: e
-            .syntactic_behaviours
-            .iter()
-            .map(|sb| intern_synbehav(it, sb))
-            .collect(),
-    }
-}
-
-fn intern_lemma(it: &mut Interner, l: &Lemma) -> ILemma {
-    ILemma {
-        written_form: it.s(&l.written_form),
-        pos: l.pos,
-        script: it.opt(&l.script),
-        pronunciations: l
-            .pronunciations
-            .iter()
-            .map(|p| intern_pron(it, p))
-            .collect(),
-    }
-}
-
-fn intern_pron(it: &mut Interner, p: &Pronunciation) -> IPronunciation {
-    IPronunciation {
-        text: it.s(&p.text),
-        variety: it.opt(&p.variety),
-        notation: it.opt(&p.notation),
-        phonemic: it.opt(&p.phonemic),
-        audio: it.opt(&p.audio),
-    }
-}
-
-fn intern_sense(it: &mut Interner, s: &Sense) -> ISense {
-    ISense {
-        id: it.s(&s.id),
-        synset: it.s(&s.synset),
-        relations: s
-            .relations
-            .iter()
-            .map(|r| ISenseRelation {
-                rel_type: r.rel_type.clone(),
-                target: it.s(&r.target),
-            })
-            .collect(),
-        subcat: it.many(&s.subcat),
-        adjposition: it.opt(&s.adjposition),
-        dc_source: it.opt(&s.dc_source),
-        counts: s
-            .counts
-            .iter()
-            .map(|c| ICount {
-                value: it.s(&c.value),
-            })
-            .collect(),
-    }
-}
-
-fn intern_form(it: &mut Interner, f: &Form) -> IForm {
+fn encode_form(d: &mut DictBuilder, f: &Form) -> IForm {
     IForm {
-        written_form: it.s(&f.written_form),
-        id: it.opt(&f.id),
-        script: it.opt(&f.script),
-        pronunciations: f
-            .pronunciations
+        written_form: d.s(&f.written_form),
+        id: d.opt(&f.id),
+        script: d.opt(&f.script),
+        pronunciations: encode_prons(d, &f.pronunciations),
+    }
+}
+
+fn encode_synbehav(
+    d: &mut DictBuilder,
+    sense_idx: &HashMap<&str, u32>,
+    sb: &SyntacticBehaviour,
+) -> ISynBehav {
+    ISynBehav {
+        id: d.opt(&sb.id),
+        subcategorization_frame: d.s(&sb.subcategorization_frame),
+        senses: sb
+            .senses
             .iter()
-            .map(|p| intern_pron(it, p))
+            .filter_map(|s| sense_idx.get(s.as_str()).copied())
             .collect(),
     }
 }
 
-fn intern_synbehav(it: &mut Interner, sb: &SyntacticBehaviour) -> ISyntacticBehaviour {
-    ISyntacticBehaviour {
-        id: it.opt(&sb.id),
-        subcategorization_frame: it.s(&sb.subcategorization_frame),
-        senses: it.many(&sb.senses),
-    }
+// ── decode: CompactWordNet -> WordNet (index-derived synthetic ids) ─────────
+
+fn syn_id(i: usize) -> String {
+    format!("s{i}")
+}
+fn sense_id(g: usize) -> String {
+    format!("k{g}")
+}
+fn entry_id(e: usize) -> String {
+    format!("e{e}")
 }
 
-// ── deintern: InternedWordNet -> WordNet ──────────────────────────────────
+/// Decode back to a reasoning-equivalent [`WordNet`]: identical graph, glosses
+/// and word index, with index-derived synthetic ids in place of the original
+/// `oewn-…` strings. `English::from_wordnet` on the result is identical to
+/// `from_wordnet` on the original (same `ConceptId`s, same relations) — the only
+/// difference is `Concept::original_id`, which the runtime addresses by integer.
+pub fn decode(c: &CompactWordNet) -> WordNet {
+    let dict = c.dict.as_slice();
+    let g = |i: Dict| dict[i as usize].clone();
+    let go = |o: &Option<Dict>| o.map(|i| dict[i as usize].clone());
+    let gm = |xs: &[Dict]| {
+        xs.iter()
+            .map(|&i| dict[i as usize].clone())
+            .collect::<Vec<_>>()
+    };
 
-/// De-intern back to a [`WordNet`]. The inverse of [`intern`]:
-/// `deintern(&intern(wn)) == *wn`. Panics if a handle is out of range (only an
-/// internally-inconsistent `InternedWordNet` could trigger it).
-pub fn deintern(iwn: &InternedWordNet) -> WordNet {
-    let p = iwn.pool.as_slice();
-    WordNet {
-        lexicon: deintern_lexicon(p, &iwn.lexicon),
-        synsets: iwn.synsets.iter().map(|s| deintern_synset(p, s)).collect(),
-        entries: iwn.entries.iter().map(|e| deintern_entry(p, e)).collect(),
-        syntactic_behaviours: iwn
-            .syntactic_behaviours
-            .iter()
-            .map(|sb| deintern_synbehav(p, sb))
-            .collect(),
-    }
-}
+    let lexicon = LexiconMetadata {
+        id: go(&c.lexicon.id),
+        label: go(&c.lexicon.label),
+        language: go(&c.lexicon.language),
+        email: go(&c.lexicon.email),
+        license: go(&c.lexicon.license),
+        version: go(&c.lexicon.version),
+        url: go(&c.lexicon.url),
+        citation: go(&c.lexicon.citation),
+        logo: go(&c.lexicon.logo),
+        status: go(&c.lexicon.status),
+        confidence_score: go(&c.lexicon.confidence_score),
+        dc: c.lexicon.dc.iter().map(|&(k, v)| (g(k), g(v))).collect(),
+    };
 
-fn g(p: &[String], sym: Sym) -> String {
-    p[sym as usize].clone()
-}
-fn go(p: &[String], o: &Option<Sym>) -> Option<String> {
-    o.map(|s| p[s as usize].clone())
-}
-fn gm(p: &[String], xs: &[Sym]) -> Vec<String> {
-    xs.iter().map(|&s| p[s as usize].clone()).collect()
-}
+    let synsets: Vec<Synset> = (0..c.syn_pos.len())
+        .map(|i| Synset {
+            id: syn_id(i),
+            ili: go(&c.syn_ili[i]),
+            pos: c.syn_pos[i],
+            members: c.syn_members[i]
+                .iter()
+                .map(|&e| entry_id(e as usize))
+                .collect(),
+            definitions: gm(&c.syn_definitions[i]),
+            ili_definition: go(&c.syn_ili_definition[i]),
+            examples: gm(&c.syn_examples[i]),
+            relations: c.syn_relations[i]
+                .iter()
+                .map(|r| SynsetRelation {
+                    rel_type: r.rel_type.clone(),
+                    target: syn_id(r.target as usize),
+                })
+                .collect(),
+            lexfile: go(&c.syn_lexfile[i]),
+            dc_source: go(&c.syn_dc_source[i]),
+            confidence_score: go(&c.syn_confidence[i]),
+        })
+        .collect();
 
-fn deintern_lexicon(p: &[String], lx: &ILexiconMetadata) -> LexiconMetadata {
-    LexiconMetadata {
-        id: go(p, &lx.id),
-        label: go(p, &lx.label),
-        language: go(p, &lx.language),
-        email: go(p, &lx.email),
-        license: go(p, &lx.license),
-        version: go(p, &lx.version),
-        url: go(p, &lx.url),
-        citation: go(p, &lx.citation),
-        logo: go(p, &lx.logo),
-        status: go(p, &lx.status),
-        confidence_score: go(p, &lx.confidence_score),
-        dc: lx.dc.iter().map(|&(k, v)| (g(p, k), g(p, v))).collect(),
-    }
-}
-
-fn deintern_synset(p: &[String], s: &ISynset) -> Synset {
-    Synset {
-        id: g(p, s.id),
-        ili: go(p, &s.ili),
-        pos: s.pos,
-        members: gm(p, &s.members),
-        definitions: gm(p, &s.definitions),
-        ili_definition: go(p, &s.ili_definition),
-        examples: gm(p, &s.examples),
-        relations: s
-            .relations
-            .iter()
-            .map(|r| SynsetRelation {
-                rel_type: r.rel_type.clone(),
-                target: g(p, r.target),
-            })
-            .collect(),
-        lexfile: go(p, &s.lexfile),
-        dc_source: go(p, &s.dc_source),
-        confidence_score: go(p, &s.confidence_score),
-    }
-}
-
-fn deintern_entry(p: &[String], e: &ILexicalEntry) -> LexicalEntry {
-    LexicalEntry {
-        id: g(p, e.id),
-        lemma: deintern_lemma(p, &e.lemma),
-        senses: e.senses.iter().map(|s| deintern_sense(p, s)).collect(),
-        forms: e.forms.iter().map(|f| deintern_form(p, f)).collect(),
-        syntactic_behaviours: e
-            .syntactic_behaviours
-            .iter()
-            .map(|sb| deintern_synbehav(p, sb))
-            .collect(),
-    }
-}
-
-fn deintern_lemma(p: &[String], l: &ILemma) -> Lemma {
-    Lemma {
-        written_form: g(p, l.written_form),
-        pos: l.pos,
-        script: go(p, &l.script),
-        pronunciations: l
-            .pronunciations
-            .iter()
-            .map(|x| deintern_pron(p, x))
-            .collect(),
-    }
-}
-
-fn deintern_pron(p: &[String], x: &IPronunciation) -> Pronunciation {
-    Pronunciation {
-        text: g(p, x.text),
-        variety: go(p, &x.variety),
-        notation: go(p, &x.notation),
-        phonemic: go(p, &x.phonemic),
-        audio: go(p, &x.audio),
-    }
-}
-
-fn deintern_sense(p: &[String], s: &ISense) -> Sense {
-    Sense {
-        id: g(p, s.id),
-        synset: g(p, s.synset),
-        relations: s
-            .relations
+    let decode_sense = |gx: usize| Sense {
+        id: sense_id(gx),
+        synset: syn_id(c.sense_synset[gx] as usize),
+        relations: c.sense_relations[gx]
             .iter()
             .map(|r| SenseRelation {
                 rel_type: r.rel_type.clone(),
-                target: g(p, r.target),
+                target: sense_id(r.target as usize),
             })
             .collect(),
-        subcat: gm(p, &s.subcat),
-        adjposition: go(p, &s.adjposition),
-        dc_source: go(p, &s.dc_source),
-        counts: s
-            .counts
+        subcat: gm(&c.sense_subcat[gx]),
+        adjposition: go(&c.sense_adjposition[gx]),
+        dc_source: go(&c.sense_dc_source[gx]),
+        counts: c.sense_counts[gx]
             .iter()
-            .map(|c| Count {
-                value: g(p, c.value),
-            })
+            .map(|&v| Count { value: g(v) })
+            .collect(),
+    };
+
+    let entries: Vec<LexicalEntry> = (0..c.entry_lemma_form.len())
+        .map(|e| {
+            let start = c.entry_sense_start[e] as usize;
+            let count = c.entry_sense_count[e] as usize;
+            LexicalEntry {
+                id: entry_id(e),
+                lemma: Lemma {
+                    written_form: g(c.entry_lemma_form[e]),
+                    pos: c.entry_lemma_pos[e],
+                    script: go(&c.entry_lemma_script[e]),
+                    pronunciations: decode_prons(dict, &c.entry_lemma_prons[e]),
+                },
+                senses: (start..start + count).map(decode_sense).collect(),
+                forms: c.entry_forms[e]
+                    .iter()
+                    .map(|f| decode_form(dict, f))
+                    .collect(),
+                syntactic_behaviours: c.entry_synbehav[e]
+                    .iter()
+                    .map(|sb| decode_synbehav(dict, sb))
+                    .collect(),
+            }
+        })
+        .collect();
+
+    WordNet {
+        lexicon,
+        synsets,
+        entries,
+        syntactic_behaviours: c
+            .lex_synbehav
+            .iter()
+            .map(|sb| decode_synbehav(dict, sb))
             .collect(),
     }
 }
 
-fn deintern_form(p: &[String], f: &IForm) -> Form {
+fn decode_prons(dict: &[String], ps: &[IPron]) -> Vec<Pronunciation> {
+    let go = |o: &Option<Dict>| o.map(|i| dict[i as usize].clone());
+    ps.iter()
+        .map(|p| Pronunciation {
+            text: dict[p.text as usize].clone(),
+            variety: go(&p.variety),
+            notation: go(&p.notation),
+            phonemic: go(&p.phonemic),
+            audio: go(&p.audio),
+        })
+        .collect()
+}
+
+fn decode_form(dict: &[String], f: &IForm) -> Form {
+    let go = |o: &Option<Dict>| o.map(|i| dict[i as usize].clone());
     Form {
-        written_form: g(p, f.written_form),
-        id: go(p, &f.id),
-        script: go(p, &f.script),
-        pronunciations: f
-            .pronunciations
-            .iter()
-            .map(|x| deintern_pron(p, x))
-            .collect(),
+        written_form: dict[f.written_form as usize].clone(),
+        id: go(&f.id),
+        script: go(&f.script),
+        pronunciations: decode_prons(dict, &f.pronunciations),
     }
 }
 
-fn deintern_synbehav(p: &[String], sb: &ISyntacticBehaviour) -> SyntacticBehaviour {
+fn decode_synbehav(dict: &[String], sb: &ISynBehav) -> SyntacticBehaviour {
     SyntacticBehaviour {
-        id: go(p, &sb.id),
-        subcategorization_frame: g(p, sb.subcategorization_frame),
-        senses: gm(p, &sb.senses),
+        id: sb.id.map(|i| dict[i as usize].clone()),
+        subcategorization_frame: dict[sb.subcategorization_frame as usize].clone(),
+        senses: sb.senses.iter().map(|&s| sense_id(s as usize)).collect(),
     }
 }
 
@@ -476,6 +547,7 @@ mod tests {
     use std::io::Write as _;
 
     use super::*;
+    use crate::cognitive::linguistics::english::English;
     use crate::social::software::markup::xml::lmf::reader::read_wordnet;
 
     fn gz_len(bytes: &[u8]) -> usize {
@@ -484,12 +556,13 @@ mod tests {
         e.finish().expect("gz finish").len()
     }
 
-    /// The correctness GATE: interning is LOSSLESS. `deintern(intern(wn)) == wn`
-    /// over the real corpora, AND the interned `.prx` core is materially smaller
-    /// than the un-interned `WordNet` (the size win). Reads the tiny lexicon
-    /// (instant) + the 89 MB english (one heavy parse); graceful skip if absent.
+    /// The 9.5 MB milestone: the compact integer-addressed `.prx` core is
+    /// REASONING-EQUIVALENT to the source `WordNet` (materializes the same
+    /// `English`), and materially smaller than the un-interned graph — with NO
+    /// succinct coding and gz unchanged. Reads the tiny lexicon (instant) + the
+    /// 89 MB english (one heavy parse); graceful skip if absent.
     #[test]
-    fn intern_roundtrip_is_lossless_and_smaller() {
+    fn compact_is_reasoning_equivalent_and_small() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let sources = [
             ("us_legal_lexicon", "data/legal-text/us_legal_lexicon.xml"),
@@ -503,57 +576,57 @@ mod tests {
             let text = core::str::from_utf8(&bytes).expect("UTF-8");
             let wn = read_wordnet(text).expect("parse WN-LMF");
 
-            let iwn = intern(&wn);
-            let back = deintern(&iwn);
+            let compact = encode(&wn);
+            let wn2 = decode(&compact);
+
+            // Reasoning-equivalence: from_wordnet over the original and over the
+            // decoded (synthetic-id) WordNet build the SAME English — same
+            // concept count and same word→concept index (the integer addressing
+            // preserves every ConceptId, since both assign by synset order).
+            let e_orig = English::from_wordnet(&wn);
+            let e_compact = English::from_wordnet(&wn2);
             assert_eq!(
-                back, wn,
-                "{name}: intern -> deintern is NOT lossless (the .prx core would corrupt the ontology)"
+                e_orig.concept_count(),
+                e_compact.concept_count(),
+                "{name}: concept_count differs — the compact core dropped concepts"
+            );
+            assert_eq!(
+                e_orig.word_index, e_compact.word_index,
+                "{name}: word→concept index differs — lexical addressing not preserved"
             );
 
             let wn_raw = rkyv::to_bytes::<rkyv::rancor::Error>(&wn).expect("rkyv wn");
-            let iwn_raw = rkyv::to_bytes::<rkyv::rancor::Error>(&iwn).expect("rkyv iwn");
+            let c_raw = rkyv::to_bytes::<rkyv::rancor::Error>(&compact).expect("rkyv compact");
             let wn_gz = gz_len(&wn_raw);
-            let iwn_gz = gz_len(&iwn_raw);
+            let prx_gz = gz_len(&c_raw); // THE shipped .prx (rkyv core, gz-wrapped)
+            // What you fetch to obtain the source itself: the distributed .xml.gz.
+            let source_download = gz_len(&bytes);
 
             eprintln!(
-                "COMPACT {name}: un-interned wn raw={:.2}MB/gz={:.2}MB  ->  interned .prx core \
-                 raw={:.2}MB/gz={:.2}MB  ({:.2}x raw, {:.2}x gz smaller) || pool_strings={} \
-                 synsets={} entries={}",
-                wn_raw.len() as f64 / 1e6,
+                "COMPACT9 {name}: .prx = {:.2}MB gz  ({:.2}MB uncompressed/mmap)   vs   downloaded \
+                 source (.xml.gz) = {:.2}MB   ->   .prx is {:.2}x the download || dict={} \
+                 synsets={} senses={} entries={}  (un-interned wn ref: {:.2}MB gz)",
+                prx_gz as f64 / 1e6,
+                c_raw.len() as f64 / 1e6,
+                source_download as f64 / 1e6,
+                prx_gz as f64 / source_download.max(1) as f64,
+                compact.dict.len(),
+                compact.syn_pos.len(),
+                compact.sense_synset.len(),
+                compact.entry_lemma_form.len(),
                 wn_gz as f64 / 1e6,
-                iwn_raw.len() as f64 / 1e6,
-                iwn_gz as f64 / 1e6,
-                wn_raw.len() as f64 / iwn_raw.len().max(1) as f64,
-                wn_gz as f64 / iwn_gz.max(1) as f64,
-                iwn.pool.len(),
-                iwn.synsets.len(),
-                iwn.entries.len(),
             );
-            // The interned ENCODING is always smaller (less duplication) — that
-            // is the `.prx` size win the user asked for, independent of the gz
-            // wrapper.
             assert!(
-                iwn_raw.len() < wn_raw.len(),
-                "{name}: interned .prx core raw ({}) is not smaller than un-interned wn raw ({})",
-                iwn_raw.len(),
+                c_raw.len() < wn_raw.len(),
+                "{name}: compact .prx raw ({}) not smaller than un-interned wn ({})",
+                c_raw.len(),
                 wn_raw.len()
             );
-            // The gz win only materializes at CORPUS scale: gzip's 32 KB window
-            // already dedups the small repeats in a tiny lexicon (so interning's
-            // u32 handles can lose there), but it CANNOT dedup identical strings
-            // megabytes apart — which interning does. Assert the gz win only for
-            // large corpora; the tiny lexicon is reported, not gated.
-            if wn_raw.len() > 1_000_000 {
-                assert!(
-                    iwn_gz < wn_gz,
-                    "{name}: interned .prx core ({iwn_gz} gz) is not smaller than un-interned wn ({wn_gz} gz) at corpus scale"
-                );
-            }
             measured += 1;
         }
         assert!(
             measured >= 1,
-            "no WN-LMF source on disk to exercise interning"
+            "no WN-LMF source on disk to exercise the compact core"
         );
     }
 }
