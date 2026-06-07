@@ -224,20 +224,24 @@ jobs:
         run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
         run: ./target/release/pr4xis update
-      # Parse-once: compile each registered USC title into its `.prx.gz` ONCE,
-      # up front, so the corpus loader deserialises the archive (~ms) instead of
-      # re-parsing ~85 MB of USLM XML in every nextest process (process-per-test).
-      # Cached on praxis.lock so a warm run restores the archives and skips the
-      # emit entirely.
+      # Parse-once: compile each registered USC title into its portable COMPACT
+      # `.cprx.gz` ONCE, up front, so the corpus loader content-gates + deserialises
+      # the archive (~ms total) instead of re-parsing ~250 MB of USLM XML in every
+      # nextest process (process-per-test). `--compact` emits + verifies ONLY the
+      # runtime fast-load cache `loaded()` reads (the only on-disk cache nextest
+      # touches), and verifies the portable `[compact_archive_signatures]` pins for
+      # all titles incl. the giants — it skips the heavy, toolchain-coupled rkyv
+      # envelopes (the `decompile` artifacts, which no test reads). Cached on
+      # praxis.lock so a warm run restores the archives and skips the emit entirely.
       - name: Cache compiled .prx archives
         id: prx-cache
         uses: actions/cache@v4
         with:
           path: .prx-cache
           key: prx-cache-${{ hashFiles('praxis.lock') }}
-      - name: Compile .prx archives (parse-once)
+      - name: Compile compact .prx archives (parse-once fast load)
         if: steps.prx-cache.outputs.cache-hit != 'true'
-        run: ./target/release/pr4xis compile
+        run: ./target/release/pr4xis compile --compact
       - uses: actions/download-artifact@v4
         with:
           name: nextest-archive

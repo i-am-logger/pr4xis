@@ -99,6 +99,8 @@ in
     treefmt --fail-on-change || { echo "FAILED: fmt"; exit 1; }
     echo "=== fetch external data ==="
     cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
+    echo "=== compile compact .prx cache (parse-once fast load, matches CI) ==="
+    cargo run -p pr4xis-cli --release --quiet -- compile --compact || { echo "FAILED: pr4xis compile"; exit 1; }
     echo "=== clippy (release) ==="
     cargo clippy --workspace --all-targets --release --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
     echo "=== docs (rustdoc, same flags as CI) ==="
