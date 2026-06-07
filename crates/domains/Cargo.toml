@@ -129,6 +129,13 @@ codegen = ["std", "pr4xis/codegen"]
 # `rustls` (which do not compile to wasm32) off that build.
 prx = ["std", "dep:rkyv", "dep:flate2"]
 fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
+# Exposes parse/codec/axiom internals (otherwise `#[cfg(test)]`- or
+# crate-private) to the workspace's own heavy-corpus test crate
+# (`crates/praxis-corpus-tests`) and benches, so they can load a giant source
+# ONCE under `cargo test`/`cargo bench` instead of re-parsing it per
+# process-isolated nextest test. NOT a public API surface — it is gated on
+# this feature precisely so it never reaches the normal/published build.
+test-internals = ["prx"]
 
 [build-dependencies]
 # Statute codegen at build time. Reads workspace-root praxis.toml + praxis.lock,

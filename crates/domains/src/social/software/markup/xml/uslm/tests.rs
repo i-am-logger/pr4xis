@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use super::axioms::*;
 use super::corpus::*;
 use super::lens::read_uslm_title;
 
@@ -265,18 +266,9 @@ fn collect_ids_sub(d: &UsCodeSubdivision, out: &mut Vec<String>) {
 
 /// Axiom — every `<section>` has a non-empty `num` (the §-number).
 ///
-/// USLM Schema requires `<section>` to contain a `<num>` element.
-/// Per Bluebook §3.3 statutory subdivision marker convention, the §
-/// can't be cited without its number.
-fn axiom_every_section_has_num(title: &UsCodeTitle) -> Result<(), String> {
-    for s in &title.sections {
-        if s.num.is_empty() {
-            return Err(format!("section {} has empty num", s.identifier));
-        }
-    }
-    Ok(())
-}
-
+// `axiom_*` structural validators now live in `super::axioms` (feature-gated
+// pub so the heavy-corpus test crate can use them); the `#[test]` wrappers below
+// exercise them on the inline sample + the real on-disk slice.
 #[test]
 fn axiom_every_section_has_num_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
@@ -294,40 +286,6 @@ fn axiom_every_section_has_num_on_real_slice() {
     let xml = std::fs::read_to_string(&path).unwrap();
     let t = read_uslm_title(&xml).unwrap();
     axiom_every_section_has_num(&t).expect("axiom must hold on real SOX § 1514A");
-}
-
-/// Axiom — every container (Section + every nested Subdivision) has a
-/// non-empty USLM identifier URN.
-///
-/// USLM Schema requires identifiers per ISO 32000-2 §3.3 + the LRC's
-/// `/us/usc/...` URN convention. Without identifiers, cross-references
-/// can't resolve and the citation hierarchy collapses.
-fn axiom_every_container_has_identifier(title: &UsCodeTitle) -> Result<(), String> {
-    if title.identifier.is_empty() {
-        return Err("title identifier is empty".into());
-    }
-    for s in &title.sections {
-        if s.identifier.is_empty() {
-            return Err(format!("section with num {} has empty identifier", s.num));
-        }
-        for child in &s.children {
-            axiom_check_subdivision_identifier(child)?;
-        }
-    }
-    Ok(())
-}
-
-fn axiom_check_subdivision_identifier(d: &UsCodeSubdivision) -> Result<(), String> {
-    if d.identifier.is_empty() {
-        return Err(format!(
-            "{:?} with num {} has empty identifier",
-            d.kind, d.num
-        ));
-    }
-    for c in &d.children {
-        axiom_check_subdivision_identifier(c)?;
-    }
-    Ok(())
 }
 
 #[test]
@@ -349,42 +307,6 @@ fn axiom_every_container_has_identifier_on_real_slice() {
     axiom_every_container_has_identifier(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
-/// Axiom — child container identifiers start with the parent's
-/// identifier followed by `/`.
-///
-/// USLM uses hierarchical URN paths: `/us/usc/t18/s1514A/a/1/A` is a
-/// strict extension of `/us/usc/t18/s1514A/a/1`. The schema doesn't
-/// enforce this textually but the citation convention requires it
-/// (Bluebook §3.3).
-fn axiom_child_identifier_extends_parent(title: &UsCodeTitle) -> Result<(), String> {
-    for s in &title.sections {
-        for child in &s.children {
-            axiom_check_subdivision_extends(&s.identifier, child)?;
-        }
-    }
-    Ok(())
-}
-
-fn axiom_check_subdivision_extends(parent_id: &str, d: &UsCodeSubdivision) -> Result<(), String> {
-    if !d.identifier.starts_with(parent_id) {
-        return Err(format!(
-            "{:?} identifier {} does not extend parent {}",
-            d.kind, d.identifier, parent_id
-        ));
-    }
-    let suffix = &d.identifier[parent_id.len()..];
-    if !suffix.starts_with('/') {
-        return Err(format!(
-            "{:?} identifier {} extends parent {} without `/` separator",
-            d.kind, d.identifier, parent_id
-        ));
-    }
-    for c in &d.children {
-        axiom_check_subdivision_extends(&d.identifier, c)?;
-    }
-    Ok(())
-}
-
 #[test]
 fn axiom_child_identifier_extends_parent_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
@@ -404,40 +326,6 @@ fn axiom_child_identifier_extends_parent_on_real_slice() {
     axiom_child_identifier_extends_parent(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
-/// Axiom — hierarchy is strictly nested per the LRC schema: a child's
-/// `kind.nesting_depth()` is strictly greater than its parent's
-/// `nesting_depth()`. Subsection (depth 0) > Paragraph (depth 1) >
-/// Subparagraph (depth 2) > Clause (3) > Subclause (4) > Item (5) >
-/// Subitem (6).
-fn axiom_hierarchy_strictly_nested(title: &UsCodeTitle) -> Result<(), String> {
-    for s in &title.sections {
-        for child in &s.children {
-            // Children of a Section start the hierarchy — any depth
-            // is acceptable as long as further nesting is strict.
-            axiom_check_strict_nesting(child)?;
-        }
-    }
-    Ok(())
-}
-
-fn axiom_check_strict_nesting(parent: &UsCodeSubdivision) -> Result<(), String> {
-    let parent_depth = parent.kind.nesting_depth();
-    for child in &parent.children {
-        if child.kind.nesting_depth() <= parent_depth {
-            return Err(format!(
-                "{:?} (depth {}) at identifier {} has child {:?} (depth {}) — not strictly nested",
-                parent.kind,
-                parent_depth,
-                parent.identifier,
-                child.kind,
-                child.kind.nesting_depth()
-            ));
-        }
-        axiom_check_strict_nesting(child)?;
-    }
-    Ok(())
-}
-
 #[test]
 fn axiom_hierarchy_strictly_nested_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
@@ -455,87 +343,6 @@ fn axiom_hierarchy_strictly_nested_on_real_slice() {
     let xml = std::fs::read_to_string(&path).unwrap();
     let t = read_uslm_title(&xml).unwrap();
     axiom_hierarchy_strictly_nested(&t).expect("axiom must hold on real SOX § 1514A");
-}
-
-/// Axiom — a section URN repeats within a title ONLY when every
-/// occurrence carries the LRC's duplicate-numbering cross-reference
-/// footnote inside its `<num>`.
-///
-/// USLM URN paths are intended as citation keys, but the LRC's
-/// editorial convention permits URN duplicates when Congress enacts
-/// two unrelated sections that received the same section number
-/// under different Public Laws. Three shapes appear in the corpus:
-///
-/// - **28 U.S.C. § 1932** — same URN, *different* headings
-///   ("Judicial Panel on Multidistrict Litigation" vs "Revocation of
-///   earned release credit").
-/// - **5 U.S.C. § 5757** — same URN, different headings ("Payment of
-///   expenses to obtain professional credentials" vs "Extended
-///   assignment incentive").
-/// - **5 U.S.C. § 3598** — same URN *and identical heading*
-///   ("Federal Bureau of Investigation Reserve Service" on both).
-///
-/// The § 3598 case disproves the tempting "the headings always
-/// differ" invariant: the only structural discriminator the LRC
-/// publishes for *every* duplicate is a `<note type="footnote">`
-/// inside each `<num>` reading "Another section N is set out [after|
-/// preceding] this section." That footnote — not the heading — is
-/// the LRC's own disambiguation mechanism (Office of the Law Revision
-/// Counsel duplicate-numbering editorial convention). The XML `id`
-/// (xs:ID) is the only globally-unique handle, but the citation-level
-/// discriminator is this footnote.
-///
-/// So the axiom groups sections by URN and, for any URN appearing
-/// more than once, requires that *every* occurrence carry the
-/// duplicate-numbering footnote. A repeated URN without that footnote
-/// on every occurrence is a genuine parse error / corpus corruption
-/// (e.g. the same section captured twice), which the axiom must
-/// still catch.
-///
-/// Per `feedback_bottom_up_loaded_not_encoded`: this grounds in the
-/// loaded LRC USLM XML's own publication structure (the `<num>`
-/// footnote) rather than in a hand-curated list of known duplicates
-/// or in the heading-distinctness heuristic that § 3598 violates.
-fn axiom_section_identifiers_unique(title: &UsCodeTitle) -> Result<(), String> {
-    let mut by_urn: std::collections::HashMap<&str, Vec<&UsCodeSection>> =
-        std::collections::HashMap::new();
-    for s in &title.sections {
-        by_urn.entry(s.identifier.as_str()).or_default().push(s);
-    }
-    for (urn, group) in &by_urn {
-        if group.len() == 1 {
-            continue;
-        }
-        for s in group {
-            let is_lrc_dup = s
-                .num_footnote
-                .as_deref()
-                .map(is_lrc_duplicate_numbering_footnote)
-                .unwrap_or(false);
-            if !is_lrc_dup {
-                return Err(format!(
-                    "URN {urn:?} appears {} times, but the occurrence headed \
-                     {:?} carries no LRC duplicate-numbering footnote \
-                     (\"Another section N is set out…\") in its <num>. A \
-                     repeated URN is legitimate only when every occurrence \
-                     bears that footnote; absent it, this is a parse error or \
-                     corpus corruption.",
-                    group.len(),
-                    s.heading
-                ));
-            }
-        }
-    }
-    Ok(())
-}
-
-/// True iff `footnote` is the LRC's duplicate-numbering cross-
-/// reference idiom — "Another section N is set out [after|preceding]
-/// this section." Recognized by the distinctive "Another section"
-/// lead phrase together with "set out"; this is the only footnote
-/// shape the LRC uses on a `<num>` to mark a re-used section number.
-fn is_lrc_duplicate_numbering_footnote(footnote: &str) -> bool {
-    footnote.contains("Another section") && footnote.contains("set out")
 }
 
 #[test]
@@ -566,50 +373,6 @@ fn lrc_duplicate_numbering_footnote_recognizes_the_idiom() {
     assert!(!is_lrc_duplicate_numbering_footnote(
         "Section was formerly set out as a note under section 5301."
     ));
-}
-
-/// Axiom — all `<ref href="...">` URNs follow the USLM identifier
-/// shape: begin with `/us/usc/t`. Off-USC refs (e.g. to public laws
-/// `/us/pl/...` or to Stat. `/us/stat/...`) also follow `/us/...`.
-fn axiom_ref_hrefs_well_formed(title: &UsCodeTitle) -> Result<(), String> {
-    for s in &title.sections {
-        for r in &s.refs {
-            axiom_check_ref_shape(&r.href, &s.identifier)?;
-        }
-        for child in &s.children {
-            axiom_check_subdivision_refs(child)?;
-        }
-    }
-    Ok(())
-}
-
-fn axiom_check_subdivision_refs(d: &UsCodeSubdivision) -> Result<(), String> {
-    for r in &d.refs {
-        axiom_check_ref_shape(&r.href, &d.identifier)?;
-    }
-    for c in &d.children {
-        axiom_check_subdivision_refs(c)?;
-    }
-    Ok(())
-}
-
-fn axiom_check_ref_shape(href: &str, in_identifier: &str) -> Result<(), String> {
-    if href.is_empty() {
-        return Err(format!(
-            "empty ref href encountered in subtree of {in_identifier}"
-        ));
-    }
-    // USLM ref hrefs always begin with `/` (root-relative URN form).
-    // Non-USLM internal references (e.g. footnote backlinks) may use
-    // `#anchor` form per the schema; the parser collects only `<ref>`
-    // elements so footnote `<ref class="footnoteRef" idref="...">`
-    // elements with idref (not href) are skipped.
-    if !href.starts_with('/') {
-        return Err(format!(
-            "ref href {href:?} in subtree of {in_identifier} not URN-rooted (expected /...)"
-        ));
-    }
-    Ok(())
 }
 
 #[test]
@@ -1415,18 +1178,6 @@ fn full_title_18_every_section_lifts_to_statute() {
         );
     }
     assert_eq!(failed, 0);
-}
-
-/// Derive a praxis statute_name from a USLM section identifier.
-///
-/// Example: `/us/usc/t18/s1514A` → `usc_t18_s1514a`.
-///
-/// Lowercase + slash-to-underscore. Result satisfies the CURIE prefix
-/// pattern (`[a-z][a-z0-9_]*`). Used by full-title tests to walk every
-/// section and verify the functor accepts it.
-fn section_identifier_to_statute_name(identifier: &str) -> String {
-    let trimmed = identifier.trim_start_matches('/');
-    trimmed.replace('/', "_").to_lowercase()
 }
 
 #[test]
