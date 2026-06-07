@@ -905,7 +905,6 @@ pub fn emit_all_wordnet_prx_gz(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cognitive::linguistics::english::ConceptId;
 
     /// A minimal but full-shape WN-LMF lexicon: `<LexicalResource>` wrapper,
     /// one `<Lexicon>`, a small dog/cat/mammal/animal taxonomy plus a verb
@@ -1573,54 +1572,6 @@ mod tests {
         assert!(LoadGateFailsClosed.verify().is_ok());
     }
 
-    // ── full-corpus emit (gated on the bundled XML, graceful skip) ────
-
-    /// The full Open English WordNet 2025 corpus (≈89 MB on disk) emits and
-    /// round-trips through the gate, materializing a rich [`English`] whose
-    /// `concept_count` matches `English::from_wordnet`. Gated behind the
-    /// on-disk file with a graceful skip — a plain checkout that hasn't
-    /// provisioned the data emits nothing here, the same graceful-skip
-    /// doctrine `loaded_vocabularies` and the emitters use. Heavy, so it is
-    /// the on-disk-only corroboration of the cheap sample round-trip above.
-    #[test]
-    fn wordnet_full_corpus_emit_then_load_matches_from_wordnet() {
-        let path = workspace_root().join("crates/domains/data/wordnet/english-wordnet-2025.xml");
-        let Ok(source) = std::fs::read(&path) else {
-            return; // not provisioned on disk — skip gracefully
-        };
-        let text = core::str::from_utf8(&source).expect("WordNet XML is UTF-8");
-        let wn = read_wordnet(text).expect("parse full WordNet");
-        let reference = English::from_wordnet(&wn);
-
-        let prx_gz = emit_wordnet_prx_gz(&source, FX_NAME, FX_VERSION, FX_URL).expect("emit");
-        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let source_pin = source_content_hash(&source);
-        let loaded =
-            load_wordnet_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
-
-        assert!(
-            loaded.concept_count() > 100_000,
-            "real English WordNet is rich (>100k synsets); got {}",
-            loaded.concept_count()
-        );
-        assert_eq!(
-            loaded.concept_count(),
-            reference.concept_count(),
-            "full-corpus concept_count must survive the archive"
-        );
-
-        // A canonical lemma resolves to the same synsets pre/post-archive.
-        let lref: Vec<ConceptId> = reference.lookup("dog").to_vec();
-        let larch: Vec<ConceptId> = loaded.lookup("dog").to_vec();
-        assert_eq!(
-            lref.len(),
-            larch.len(),
-            "lookup('dog') sense count must survive the archive"
-        );
-    }
-
-    // ── COMPACTNESS MEASUREMENT: where do the WN `.prx` bytes actually go? ──
-
     /// MEASUREMENT (2026-06-07), not a gate — answers "why is the `.prx` larger
     /// than the source, and what would a compact-AND-complete one cost?" for the
     /// source that matters (`english_wordnet`; the ~5.8 MB-gzipped-wasm runtime
@@ -1645,6 +1596,7 @@ mod tests {
     /// Runs on the tiny `us_legal_lexicon` (instant) AND the 89 MB english (one
     /// heavy build); graceful skip if absent.
     #[test]
+    #[ignore = "measurement, not a gate"]
     fn wn_compactness_breakdown_measurement() {
         use std::io::Write as _;
         fn gz_len(bytes: &[u8]) -> usize {
@@ -1789,117 +1741,4 @@ mod tests {
     }
 
     // ── THE HARD GATE: graph-faithful .prx round-trip over the real corpus ──
-
-    /// THE SLICE-3b GATE. The full Open English WordNet 2025 corpus (89 237 271
-    /// bytes) emits as a `ByteExactGraphFaithful` envelope, serializes to rkyv
-    /// bytes, loads back THROUGH the bytecheck-validated rkyv decode
-    /// ([`wordnet_envelope_from_bytes`]), reconstructs via
-    /// [`wn_reconstruct_source`] (the graph-faithful arm — typed ontology +
-    /// concrete-syntax complement, NO stored raw blob), and the regenerated
-    /// bytes equal the source BYTE-FOR-BYTE. This is the only non-vacuous proof
-    /// that WordNet's `.prx` is graph-faithful at corpus scale: the source bytes
-    /// survive the FULL serialize → bytecheck → reconstruct path, not just the
-    /// in-memory capture/reconstruct of SLICE 3a.
-    ///
-    /// AND the completeness meter reports `english_wordnet` graph-faithful (its
-    /// declared tier is `ByteExactGraphFaithful` via the registered
-    /// `WordNetLmfLens`, and it carries NO `write_wordnet` gap). Gated behind the
-    /// on-disk corpus with a graceful skip — a plain checkout that hasn't
-    /// provisioned the ≈89 MB XML skips, the same doctrine the emitters use.
-    #[test]
-    fn wordnet_graph_faithful_prx_round_trip_over_real_corpus() {
-        use crate::formal::meta::well_behaved_lens::{
-            CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
-        };
-
-        let path = workspace_root().join("crates/domains/data/wordnet/english-wordnet-2025.xml");
-        let Ok(source) = std::fs::read(&path) else {
-            return; // not provisioned on disk — skip gracefully
-        };
-
-        // Emit the graph-faithful envelope: typed ontology + concrete-syntax
-        // complement, NO raw blob.
-        let envelope = build_wordnet_envelope(&source, FX_NAME, FX_VERSION, FX_URL)
-            .expect("build graph-faithful envelope over the real corpus");
-        assert_eq!(
-            envelope.mode,
-            Tier::ByteExactGraphFaithful,
-            "the real corpus emits the graph-faithful tier"
-        );
-        assert!(envelope.graph.is_some(), "graph payload present");
-        assert!(envelope.raw.is_none(), "NO stored raw blob in this tier");
-
-        // Serialize → rkyv bytes → bytecheck-validated decode (the full path,
-        // not just the in-memory capture/reconstruct of SLICE 3a).
-        let rkyv_bytes = wordnet_envelope_to_bytes(&envelope).expect("serialize envelope to rkyv");
-        let decoded =
-            wordnet_envelope_from_bytes(&rkyv_bytes).expect("bytecheck-validated rkyv decode");
-
-        // Reconstruct from the DECODED envelope's graph + complement.
-        let out = wn_reconstruct_source(&decoded).expect("graph-faithful reconstruct");
-
-        // BYTE-FOR-BYTE over the whole 89 MB corpus. Report the EXACT first
-        // byte-diff for an honest failure, never a bare assert_eq! that dumps 89 MB.
-        if out != source {
-            let first = out
-                .iter()
-                .zip(source.iter())
-                .position(|(a, b)| a != b)
-                .unwrap_or(out.len().min(source.len()));
-            let lo = first.saturating_sub(40);
-            let hi_out = (first + 40).min(out.len());
-            let hi_src = (first + 40).min(source.len());
-            panic!(
-                "graph-faithful .prx round-trip is NOT byte-exact: out.len()={}, \
-                 source.len()={}, first diff at byte {first}\n  out[..]: {:?}\n  src[..]: {:?}",
-                out.len(),
-                source.len(),
-                String::from_utf8_lossy(&out[lo..hi_out]),
-                String::from_utf8_lossy(&source[lo..hi_src]),
-            );
-        }
-        assert_eq!(
-            source_content_hash(&out),
-            decoded.metadata.source_sha256,
-            "the regenerated bytes must hash to the pinned source content address"
-        );
-
-        // The completeness meter reports english_wordnet graph-faithful: declared
-        // tier == ByteExactGraphFaithful and NO write_wordnet gap remains.
-        let meter = completeness_meter();
-        let wn_row: &CompletenessReport = meter
-            .iter()
-            .find(|r| r.source == "english_wordnet@2025")
-            .expect("english_wordnet must have a completeness row");
-        assert_eq!(
-            wn_row.kind,
-            DecompileKind::WordNet,
-            "english_wordnet routes through the WordNet decompile leaf"
-        );
-        assert_eq!(
-            wn_row.declared,
-            Tier::ByteExactGraphFaithful,
-            "english_wordnet DECLARES graph-faithful (via the registered WordNetLmfLens)"
-        );
-        assert!(
-            wn_row.graph_faithful_gap.is_none(),
-            "english_wordnet carries NO write_wordnet gap — it IS graph-faithful, \
-             got gap {:?}",
-            wn_row.graph_faithful_gap
-        );
-        // english_wordnet is OVERSIZE (~86 MB > the 16 MB byte-exact cap), so the
-        // FAST completeness-meter harness DEFERS its reconstruction
-        // (`OversizeDeferred`) to keep the always-run lane under budget — hence no
-        // in-crate `achieved` tier here. Its byte-exact proof is THIS test (the
-        // direct serialize -> decode -> reconstruct -> byte-compare above) plus
-        // the slow `ci_gate_passes_giants` + the all-sources source round-trip
-        // test. `achieved == None` for an oversize graph-faithful source is the
-        // honest "pending in the slow lane", NOT a floor — the declared tier and
-        // the absent gap already establish it IS graph-faithful.
-        assert_eq!(
-            wn_row.achieved, None,
-            "english_wordnet is oversize, so the fast meter defers it (achieved == None); \
-             its byte-exactness is proven by this test + the slow lane, not the fast harness"
-        );
-    }
 }

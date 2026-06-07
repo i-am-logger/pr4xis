@@ -583,8 +583,10 @@ dependencies = [
 name = "praxis-corpus-tests"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "pr4xis",
  "pr4xis-domains",
+ "sha2",
 ]
 
 [[package]]

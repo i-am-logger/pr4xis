@@ -18,6 +18,8 @@
 
 use std::path::PathBuf;
 
+use pr4xis_domains::social::software::markup::xml::lmf::WordNet;
+use pr4xis_domains::social::software::markup::xml::lmf::reader::read_wordnet;
 use pr4xis_domains::social::software::markup::xml::uslm::{UsCodeTitle, read_uslm_title};
 
 /// A USLM corpus parsed once: the raw XML (kept so the codegen path can re-read
@@ -48,4 +50,61 @@ pub fn load_uslm_corpus(rel: &str) -> Option<UslmCorpus> {
     let xml = std::fs::read_to_string(&path).ok()?;
     let title = read_uslm_title(&xml).expect("on-disk USLM corpus must parse");
     Some(UslmCorpus { xml, title })
+}
+
+/// One on-disk WN-LMF source, parsed once: the raw bytes (kept for gzip-size /
+/// sha256 / byte-exact comparisons and for the path-based codegen parser)
+/// alongside the parsed [`WordNet`].
+pub struct WnSource {
+    /// The registry name (`"english_wordnet"` or `"us_legal_lexicon"`).
+    pub name: &'static str,
+    /// The resolved on-disk path (the codegen parser takes a `&Path`).
+    pub path: PathBuf,
+    /// The raw WN-LMF XML bytes.
+    pub source: Vec<u8>,
+    /// The parsed WordNet ontology.
+    pub wn: WordNet,
+}
+
+/// The WN-LMF corpus parsed once: the 89 MB `english_wordnet` and the small
+/// `us_legal_lexicon`, whichever are on disk. The WordNet producer/round-trip
+/// tests share this so the 89 MB parse is paid once for the whole test binary.
+pub struct WnCorpus {
+    /// The on-disk sources, in registry order (`us_legal_lexicon` then
+    /// `english_wordnet`), skipping any absent on a fresh checkout.
+    pub sources: Vec<WnSource>,
+}
+
+impl WnCorpus {
+    /// The full English WordNet source, or `None` when not on disk.
+    pub fn english(&self) -> Option<&WnSource> {
+        self.sources.iter().find(|s| s.name == "english_wordnet")
+    }
+}
+
+/// Load and parse every on-disk WN-LMF source under `crates/domains/data`.
+///
+/// A source absent on disk is skipped (the 89 MB WordNet is fetched, not
+/// committed); a source that IS present but fails to parse is a hard error.
+pub fn load_wordnet_corpus() -> WnCorpus {
+    const SPECS: [(&str, &str); 2] = [
+        ("us_legal_lexicon", "legal-text/us_legal_lexicon.xml"),
+        ("english_wordnet", "wordnet/english-wordnet-2025.xml"),
+    ];
+    let mut sources = Vec::new();
+    for (name, rel) in SPECS {
+        let path = domains_data_dir().join(rel);
+        let Ok(source) = std::fs::read(&path) else {
+            continue;
+        };
+        let text = std::str::from_utf8(&source).expect("on-disk WN-LMF must be UTF-8");
+        let wn = read_wordnet(text).expect("on-disk WN-LMF corpus must parse");
+        sources.push(WnSource {
+            name,
+            path,
+            source,
+            wn,
+        });
+    }
+    WnCorpus { sources }
 }

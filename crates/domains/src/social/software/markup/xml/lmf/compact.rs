@@ -644,67 +644,12 @@ mod tests {
     use std::io::Write as _;
 
     use super::*;
-    use crate::cognitive::linguistics::english::English;
     use crate::social::software::markup::xml::lmf::reader::read_wordnet;
 
     fn gz_len(bytes: &[u8]) -> usize {
         let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         e.write_all(bytes).expect("gz write");
         e.finish().expect("gz finish").len()
-    }
-
-    /// The compact integer-addressed core is REASONING-EQUIVALENT to the source
-    /// `WordNet`: `from_wordnet` over the original and over `decode(encode(wn))`
-    /// build the same `English` (same concept count and word→concept index).
-    /// Reads the tiny lexicon (instant) + the 89 MB english (one parse); graceful
-    /// skip if absent.
-    #[test]
-    fn compact_is_reasoning_equivalent_and_small() {
-        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        let sources = [
-            ("us_legal_lexicon", "data/legal-text/us_legal_lexicon.xml"),
-            ("english_wordnet", "data/wordnet/english-wordnet-2025.xml"),
-        ];
-        let mut measured = 0usize;
-        for (name, rel) in sources {
-            let Ok(bytes) = std::fs::read(manifest.join(rel)) else {
-                continue;
-            };
-            let text = core::str::from_utf8(&bytes).expect("UTF-8");
-            let wn = read_wordnet(text).expect("parse WN-LMF");
-
-            let compact = encode(&wn);
-            let wn2 = decode(&compact);
-
-            // Reasoning-equivalence: from_wordnet over the original and over the
-            // decoded (synthetic-id) WordNet build the SAME English — same
-            // concept count and same word→concept index (the integer addressing
-            // preserves every ConceptId, since both assign by synset order).
-            let e_orig = English::from_wordnet(&wn);
-            let e_compact = English::from_wordnet(&wn2);
-            assert_eq!(
-                e_orig.concept_count(),
-                e_compact.concept_count(),
-                "{name}: concept_count differs — the compact core dropped concepts"
-            );
-            assert_eq!(
-                e_orig.word_index, e_compact.word_index,
-                "{name}: word→concept index differs — lexical addressing not preserved"
-            );
-
-            eprintln!(
-                "compact {name}: dict={} synsets={} senses={} entries={} (reasoning-equivalent)",
-                compact.dict.len(),
-                compact.syn_pos.len(),
-                compact.sense_synset.len(),
-                compact.entry_lemma_form.len(),
-            );
-            measured += 1;
-        }
-        assert!(
-            measured >= 1,
-            "no WN-LMF source on disk to exercise the compact core"
-        );
     }
 
     fn write_varint(out: &mut Vec<u8>, mut n: u64) {
@@ -740,7 +685,13 @@ mod tests {
     /// Reports how the compact `.prx` encoding splits between its dictionary
     /// (strings) and its structure (the graph), and the front-coded-dictionary
     /// size, over the real corpora. Graceful skip if the corpus is absent.
+    ///
+    /// MEASUREMENT, not a gate: it only `eprintln!`s sizes and asserts that at
+    /// least one corpus was measured, so it is `#[ignore]`d off the default run
+    /// (it re-parses the 89 MB english corpus that the correctness test above
+    /// already parses).
     #[test]
+    #[ignore = "measurement, not a gate"]
     fn succinct_floor_breakdown() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let sources = [
