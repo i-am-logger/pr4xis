@@ -81,6 +81,22 @@ use crate::applied::data_provisioning::registry::{
     by_name_version, lock_byte_exact_signature, lock_canonical_signature,
 };
 
+/// The size above which a [`RoundTripFidelity::ByteExactGraphFaithful`] source's
+/// full reconstruction is DEFERRED out of the always-run (fast) harness pass and
+/// proven in the slow lane instead — 16 MiB.
+///
+/// Reconstructing a byte-exact source means parsing it AND regenerating it from
+/// the typed ontology + complement; for a multi-tens-of-MB source (WordNet at
+/// ~86 MB, the giant USC titles at 19–113 MB) that does not fit the strict
+/// per-test nextest budget of the always-run lane. The default
+/// [`run_round_trip_harness`] therefore reports such a source as
+/// [`HarnessOutcome::OversizeDeferred`] (non-fatal), and
+/// [`run_round_trip_harness_including_oversize`] — routed by nextest to a relaxed
+/// `usc-giants` test-group — does the full reconstruction. Mirrors the 16 MiB
+/// `ANCHOR_EMIT_SIZE_CAP` the USC archive-anchor gate already uses for the same
+/// CI-budget reason; the predicate is on SIZE, never on a source name.
+pub const OVERSIZE_BYTE_EXACT_CAP_BYTES: u64 = 16 * 1024 * 1024;
+
 // =============================================================================
 // Registration: one entry per (lens type, source key) pair.
 // =============================================================================
@@ -245,6 +261,14 @@ pub enum HarnessOutcome {
     /// Source not in the praxis registry — the registration key
     /// points at a `(name, version)` praxis.toml does not declare.
     SourceNotRegistered,
+    /// A `ByteExactGraphFaithful` source whose on-disk size exceeds
+    /// [`OVERSIZE_BYTE_EXACT_CAP_BYTES`]: its full reconstruction is DEFERRED out
+    /// of the always-run (fast) harness pass to keep that pass under the strict
+    /// nextest per-test budget, and is proven by
+    /// [`run_round_trip_harness_including_oversize`] (the slow `usc-giants`
+    /// test-group) plus the all-sources source round-trip test. Non-fatal — this
+    /// is an explicit CI-budget deferral, not a failed or skipped proof.
+    OversizeDeferred { size_bytes: u64 },
 }
 
 impl HarnessOutcome {
@@ -262,11 +286,33 @@ impl HarnessOutcome {
     }
 }
 
-/// Run the harness over every entry in [`LENS_REGISTRATIONS`].
-/// Returns one [`HarnessResult`] per registration, ordered by `key`.
+/// Run the harness over every entry in [`LENS_REGISTRATIONS`] — the ALWAYS-RUN
+/// (fast) pass. Returns one [`HarnessResult`] per registration, ordered by `key`.
+///
+/// A `ByteExactGraphFaithful` source larger than [`OVERSIZE_BYTE_EXACT_CAP_BYTES`]
+/// is reported as [`HarnessOutcome::OversizeDeferred`] (non-fatal) rather than
+/// reconstructed here, so this pass stays within the strict nextest per-test
+/// budget; [`run_round_trip_harness_including_oversize`] proves those sources.
 #[must_use]
 pub fn run_round_trip_harness() -> Vec<HarnessResult> {
-    let mut out: Vec<HarnessResult> = lens_registrations().iter().map(check_one).collect();
+    run_round_trip_harness_scoped(false)
+}
+
+/// Like [`run_round_trip_harness`], but ALSO fully reconstructs the oversize
+/// (> [`OVERSIZE_BYTE_EXACT_CAP_BYTES`]) byte-exact sources the default pass
+/// defers — WordNet + the giant USC titles. The SLOW lane: routed by nextest to
+/// the relaxed `usc-giants` test-group (and used by the all-sources source
+/// round-trip test), never the always-run fast lane.
+#[must_use]
+pub fn run_round_trip_harness_including_oversize() -> Vec<HarnessResult> {
+    run_round_trip_harness_scoped(true)
+}
+
+fn run_round_trip_harness_scoped(include_oversize: bool) -> Vec<HarnessResult> {
+    let mut out: Vec<HarnessResult> = lens_registrations()
+        .iter()
+        .map(|r| check_one(r, include_oversize))
+        .collect();
     out.sort_by(|a, b| a.key.cmp(&b.key));
     out
 }
@@ -282,7 +328,9 @@ pub fn run_round_trip_harness() -> Vec<HarnessResult> {
 /// [[feedback-never-use-ignore]]: helpers belong in callable
 /// functions and CLI subcommands, never as `#[ignore]`d tests.
 pub fn dump_unpinned_signatures() {
-    for r in run_round_trip_harness() {
+    // Include the oversize sources so the human pinning the lock sees every
+    // source's computed signature, not an `OversizeDeferred` placeholder.
+    for r in run_round_trip_harness_including_oversize() {
         match &r.outcome {
             HarnessOutcome::LawHoldsSignatureUnpinned {
                 computed_sha256_hex,
@@ -297,16 +345,54 @@ pub fn dump_unpinned_signatures() {
     }
 }
 
-fn check_one(reg: &LensRegistration) -> HarnessResult {
-    let outcome = match resolve_source_bytes(reg) {
-        Ok(SourceBytes::Loaded { bytes, .. }) => verify_loaded_bytes(reg, &bytes),
-        Ok(SourceBytes::NotOnDisk { path }) => HarnessOutcome::SourceNotOnDisk { path },
-        Ok(SourceBytes::LoadError { path, message }) => HarnessOutcome::LoadError { path, message },
-        Err(SourceLookupError::NotRegistered) => HarnessOutcome::SourceNotRegistered,
-    };
+fn check_one(reg: &LensRegistration, include_oversize: bool) -> HarnessResult {
     HarnessResult {
         key: reg.key.to_string(),
-        outcome,
+        outcome: check_outcome(reg, include_oversize),
+    }
+}
+
+fn check_outcome(reg: &LensRegistration, include_oversize: bool) -> HarnessOutcome {
+    let abs_path = match resolve_abs_path(reg) {
+        Ok(p) => p,
+        Err(SourceLookupError::NotRegistered) => return HarnessOutcome::SourceNotRegistered,
+    };
+
+    // Fast-lane OVERSIZE deferral: a byte-exact source larger than the cap is
+    // proven in the slow lane, not reconstructed here. Decided from file SIZE
+    // (cheap metadata stat) so the fast lane never even READS the giant. Purely a
+    // size predicate — never a source name (the source-agnostic discipline).
+    if !include_oversize && reg.fidelity == RoundTripFidelity::ByteExactGraphFaithful {
+        match std::fs::metadata(&abs_path) {
+            Ok(m) if m.len() > OVERSIZE_BYTE_EXACT_CAP_BYTES => {
+                return HarnessOutcome::OversizeDeferred {
+                    size_bytes: m.len(),
+                };
+            }
+            Ok(_) => {} // within budget — reconstruct in this (fast) pass below
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return HarnessOutcome::SourceNotOnDisk {
+                    path: abs_path.to_string_lossy().into_owned(),
+                };
+            }
+            Err(e) => {
+                return HarnessOutcome::LoadError {
+                    path: abs_path.to_string_lossy().into_owned(),
+                    message: format!("{e}"),
+                };
+            }
+        }
+    }
+
+    match std::fs::read(&abs_path) {
+        Ok(bytes) => verify_loaded_bytes(reg, &bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => HarnessOutcome::SourceNotOnDisk {
+            path: abs_path.to_string_lossy().into_owned(),
+        },
+        Err(e) => HarnessOutcome::LoadError {
+            path: abs_path.to_string_lossy().into_owned(),
+            message: format!("{e}"),
+        },
     }
 }
 
@@ -385,53 +471,26 @@ fn raw_signature_hex(bytes: &[u8]) -> String {
     hex_of(&h.finalize())
 }
 
-enum SourceBytes {
-    Loaded {
-        #[allow(dead_code)]
-        path: String,
-        bytes: Vec<u8>,
-    },
-    NotOnDisk {
-        path: String,
-    },
-    LoadError {
-        path: String,
-        message: String,
-    },
-}
-
 enum SourceLookupError {
     NotRegistered,
 }
 
-fn resolve_source_bytes(reg: &LensRegistration) -> Result<SourceBytes, SourceLookupError> {
+/// Resolve a registration's source to its absolute on-disk path (NO read), so
+/// the caller can `metadata`-stat it (the size gate) before deciding whether to
+/// read and reconstruct it. `RegistryEntry::local_path()` is workspace-relative,
+/// resolved against the workspace root via `CARGO_MANIFEST_DIR` (the path to
+/// `crates/domains/`) stepped up two levels.
+fn resolve_abs_path(reg: &LensRegistration) -> Result<std::path::PathBuf, SourceLookupError> {
     let entry = by_name_version(reg.source_name, reg.source_version)
         .ok_or(SourceLookupError::NotRegistered)?;
-    // RegistryEntry::local_path() is workspace-relative — the
-    // harness must resolve it against the workspace root. We use
-    // `CARGO_MANIFEST_DIR` (path to `crates/domains/`) and step up
-    // two levels to reach the workspace root.
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let path_str = entry.local_path();
     let workspace_root = std::path::Path::new(manifest_dir)
         .parent()
         .and_then(std::path::Path::parent);
-    let abs_path = workspace_root
+    Ok(workspace_root
         .map(|root| root.join(&path_str))
-        .unwrap_or_else(|| std::path::PathBuf::from(&path_str));
-    match std::fs::read(&abs_path) {
-        Ok(bytes) => Ok(SourceBytes::Loaded {
-            path: abs_path.to_string_lossy().into_owned(),
-            bytes,
-        }),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(SourceBytes::NotOnDisk {
-            path: abs_path.to_string_lossy().into_owned(),
-        }),
-        Err(e) => Ok(SourceBytes::LoadError {
-            path: abs_path.to_string_lossy().into_owned(),
-            message: format!("{e}"),
-        }),
-    }
+        .unwrap_or_else(|| std::path::PathBuf::from(&path_str)))
 }
 
 fn hex_of(bytes: &[u8]) -> String {
@@ -459,6 +518,15 @@ fn hex_of(bytes: &[u8]) -> String {
 /// `LawHoldsSignatureUnpinned` allowance lets a lens land before its
 /// `canonical_signature` is pinned in `praxis.lock` — the harness
 /// surfaces the computed value so a follow-up commit can pin it.
+///
+/// This axiom runs the ALWAYS-RUN [`run_round_trip_harness`], which DEFERS the
+/// oversize (> [`OVERSIZE_BYTE_EXACT_CAP_BYTES`]) byte-exact sources — WordNet
+/// and the giant USC titles — as the non-fatal [`HarnessOutcome::OversizeDeferred`]
+/// so the always-run gate stays within the strict per-test nextest budget. Those
+/// sources are reconstructed in full by the slow `ci_gate_passes_giants` test
+/// ([`run_round_trip_harness_including_oversize`]) and the all-sources source
+/// round-trip test, so the proof is complete across the two lanes — the fast lane
+/// keeps catching every small-source lens regression on every push.
 pub struct RoundTripHarnessAllVerified;
 
 impl Axiom for RoundTripHarnessAllVerified {

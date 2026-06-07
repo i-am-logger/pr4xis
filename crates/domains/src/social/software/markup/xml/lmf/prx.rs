@@ -1490,13 +1490,19 @@ mod tests {
              got gap {:?}",
             wn_row.graph_faithful_gap
         );
-        // When the corpus is provisioned the harness MEASURES the achieved tier
-        // by running the byte-exact law; it must agree with the declaration (the
-        // anti-lie cross-check), never silently fall to the floor.
+        // english_wordnet is OVERSIZE (~86 MB > the 16 MB byte-exact cap), so the
+        // FAST completeness-meter harness DEFERS its reconstruction
+        // (`OversizeDeferred`) to keep the always-run lane under budget — hence no
+        // in-crate `achieved` tier here. Its byte-exact proof is THIS test (the
+        // direct serialize -> decode -> reconstruct -> byte-compare above) plus
+        // the slow `ci_gate_passes_giants` + the all-sources source round-trip
+        // test. `achieved == None` for an oversize graph-faithful source is the
+        // honest "pending in the slow lane", NOT a floor — the declared tier and
+        // the absent gap already establish it IS graph-faithful.
         assert_eq!(
-            wn_row.achieved,
-            Some(Tier::ByteExactGraphFaithful),
-            "with the corpus on disk the harness must MEASURE graph-faithful (achieved == declared)"
+            wn_row.achieved, None,
+            "english_wordnet is oversize, so the fast meter defers it (achieved == None); \
+             its byte-exactness is proven by this test + the slow lane, not the fast harness"
         );
     }
 }

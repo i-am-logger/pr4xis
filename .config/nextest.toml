@@ -41,3 +41,26 @@ terminate-after = 3
 
 [profile.ci.junit]
 path = "junit.xml"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Oversize byte-exact proofs (CI-A, #186). The always-run `ci_gate_passes` DEFERS
+# the > 16 MB byte-exact sources (WordNet ~86 MB, the giant USC titles 19–113 MB)
+# as `OversizeDeferred`; `ci_gate_passes_giants` — and, under
+# `--features "fetch codegen"`, `all_sources_source_round_trip_byte_exact` —
+# RECONSTRUCT them in full. That work legitimately exceeds the strict per-test cap
+# above, so these tests get a relaxed slow-timeout and run SERIALIZED (the
+# `usc-giants` group, max-threads = 1) so several > 100 MB reconstructions don't
+# run concurrently and exhaust the runner's memory. The fast lane keeps its strict
+# cap and still catches every small-source lens regression on every push.
+[test-groups.usc-giants]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = 'test(ci_gate_passes_giants) | test(all_sources_source_round_trip_byte_exact)'
+test-group = "usc-giants"
+slow-timeout = { period = "180s", terminate-after = 3 }
+
+[[profile.ci.overrides]]
+filter = 'test(ci_gate_passes_giants) | test(all_sources_source_round_trip_byte_exact)'
+test-group = "usc-giants"
+slow-timeout = { period = "120s", terminate-after = 3 }

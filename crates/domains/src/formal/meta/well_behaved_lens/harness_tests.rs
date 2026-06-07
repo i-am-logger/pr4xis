@@ -9,12 +9,16 @@ use pr4xis::ontology::Axiom;
 
 #[test]
 fn ci_gate_passes() {
-    // The CI gate axiom: every entry in LENS_REGISTRATIONS must
-    // either Verify, report SourceNotOnDisk (pending `pr4xis update`),
-    // or report LawHoldsSignatureUnpinned (pending lock-file entry).
+    // The CI gate axiom (the ALWAYS-RUN fast lane): every entry in
+    // LENS_REGISTRATIONS must either Verify, report SourceNotOnDisk (pending
+    // `pr4xis update`), report LawHoldsSignatureUnpinned (pending lock-file
+    // entry), or — for an oversize byte-exact source (WordNet, the giant USC
+    // titles) — report OversizeDeferred (its full reconstruction is proven in the
+    // slow `ci_gate_passes_giants` lane, keeping this gate under the per-test
+    // nextest budget). All four are non-fatal.
     //
-    // Hard failures (SignatureMismatch / LawViolated / LoadError /
-    // SourceNotRegistered) trip the gate.
+    // Hard failures (SignatureMismatch / LawViolated / ByteLawViolated /
+    // LoadError / SourceNotRegistered) trip the gate.
     let verdict = RoundTripHarnessAllVerified.verify();
     if verdict.is_err() {
         // Dump the report for the human running the test.
@@ -23,6 +27,57 @@ fn ci_gate_passes() {
         }
     }
     assert!(verdict.is_ok(), "round-trip harness reported hard failures");
+}
+
+#[test]
+fn ci_gate_passes_giants() {
+    // The SLOW-lane companion to `ci_gate_passes`: it includes the oversize
+    // (> OVERSIZE_BYTE_EXACT_CAP_BYTES) byte-exact sources the fast lane DEFERS —
+    // WordNet and the giant USC titles — and reconstructs them in full. Nextest
+    // routes it to the relaxed `usc-giants` test-group (slow-timeout override,
+    // serialized) via `.config/nextest.toml`, so the always-run fast lane keeps
+    // its strict per-test cap while every big source is still proven on every
+    // push. Hard failures trip the gate exactly as `ci_gate_passes`.
+    let slow = run_round_trip_harness_including_oversize();
+    let failures: Vec<_> = slow.iter().filter(|r| r.outcome.is_failure()).collect();
+    assert!(
+        failures.is_empty(),
+        "slow-lane (include-oversize) harness reported hard failures: {failures:?}"
+    );
+
+    // NON-VACUITY: whatever the FAST lane deferred as OversizeDeferred (it skips
+    // reconstruction for it), this lane must have actually RECONSTRUCTED — i.e.
+    // the same key is no longer OversizeDeferred here. Guards against the slow
+    // lane silently degrading into a copy of the fast lane (which would leave the
+    // giants unproven on every push). When no oversize source is provisioned the
+    // loop is empty and the test is a graceful no-op, the same skip discipline
+    // the rest of the harness uses.
+    let deferred: Vec<String> = run_round_trip_harness()
+        .into_iter()
+        .filter(|r| matches!(r.outcome, HarnessOutcome::OversizeDeferred { .. }))
+        .map(|r| r.key)
+        .collect();
+    for key in &deferred {
+        let row = slow.iter().find(|r| &r.key == key).unwrap_or_else(|| {
+            panic!("{key} deferred in the fast lane but absent from the slow lane")
+        });
+        assert!(
+            !matches!(row.outcome, HarnessOutcome::OversizeDeferred { .. }),
+            "{key}: still OversizeDeferred in the include-oversize lane — the slow lane did not reconstruct it"
+        );
+    }
+}
+
+#[test]
+fn oversize_deferred_is_not_a_failure() {
+    // The oversize deferral is an explicit CI-budget choice, NOT a failed or
+    // skipped proof — it must never trip the CI gate (the slow lane proves it).
+    assert!(
+        !HarnessOutcome::OversizeDeferred {
+            size_bytes: 113_000_000
+        }
+        .is_failure()
+    );
 }
 
 #[test]
@@ -103,11 +158,12 @@ fn ci_gate_axiom_metadata_cites_literature() {
 // Byte-exact leg (M4.ι / #186) — drive `verify_byte_exact` against witness
 // lenses declaring `RoundTripFidelity::ByteExactGraphFaithful`.
 //
-// `run_round_trip_harness` only exercises the registered production lenses,
-// all of which default to `RawBytesComplementFloor` and route to
-// `verify_canonical`. The byte-exact dispatch leg (`verify_loaded_bytes` ->
-// `verify_byte_exact`) therefore has no coverage from the harness runner;
-// these tests cover it directly with controlled `LensRegistration`s.
+// `run_round_trip_harness` exercises the registered production lenses against
+// their on-disk sources — including the byte-exact graph-faithful lenses (OWL,
+// USC titles, WN-LMF). These witness tests ADDITIONALLY drive the byte-exact
+// dispatch leg (`verify_loaded_bytes` -> `verify_byte_exact`) with controlled
+// `LensRegistration`s, so the success/violation branches are covered even when a
+// corpus is not provisioned and independently of any one production lens.
 // ----------------------------------------------------------------------------
 
 /// An identity byte-exact witness lens. `get`/`put` round-trip valid UTF-8

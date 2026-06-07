@@ -109,12 +109,20 @@ impl CompletenessReport {
         let tier = match self.achieved {
             Some(RoundTripFidelity::RawBytesComplementFloor) => "floor-via-stored-complement",
             Some(RoundTripFidelity::ByteExactGraphFaithful) => "graph-faithful",
-            // No in-crate measurement: either a registered lens whose corpus
-            // isn't provisioned on this machine, or a source with no canonical
-            // lens at all (WordNet). Either way it is on the FLOOR (it declares
-            // the floor and names its gap); its byte-exact round-trip is proven
-            // by the all-sources source round-trip test, not this report.
-            None => "floor — pending in-crate verification",
+            // No in-crate measurement. The reason depends on what the source
+            // DECLARES: a graph-faithful source with no fast-lane measurement is
+            // either oversize (deferred to the slow lane) or not provisioned —
+            // its byte-exact proof lives in the slow `ci_gate_passes_giants` +
+            // the all-sources source round-trip test, NOT on the floor; a
+            // floor-declared source with no measurement is genuinely pending.
+            None => match self.declared {
+                RoundTripFidelity::ByteExactGraphFaithful => {
+                    "graph-faithful (declared) — byte-exact proof in the slow / all-sources lane"
+                }
+                RoundTripFidelity::RawBytesComplementFloor => {
+                    "floor — pending in-crate verification"
+                }
+            },
         };
         match self.graph_faithful_gap {
             Some(gap) => alloc::format!("{}: {tier} — gap to graph-faithful: {gap}", self.source),
@@ -146,6 +154,12 @@ fn achieved_tier(
         }
         // Not provisioned — no achieved tier yet; the meter states "pending".
         HarnessOutcome::SourceNotOnDisk { .. } => None,
+        // Oversize byte-exact source deferred out of the fast harness for the CI
+        // budget — proven in the slow lane (`ci_gate_passes_giants` + the
+        // all-sources source round-trip test), not measured in this fast view.
+        // Like `SourceNotOnDisk`, the proof lives elsewhere, so the meter states
+        // "pending" rather than crediting a tier it did not measure here.
+        HarnessOutcome::OversizeDeferred { .. } => None,
         // The declared law did NOT hold (or the source is unloadable). Report
         // no achieved tier so `tier_is_consistent` flags it instead of
         // crediting an unproven declaration.
