@@ -1,8 +1,8 @@
 //! WN-LMF structural writer — the XML-tree-level inverse of
-//! [`read_wordnet`](super::reader::read_wordnet).
+//! [`read_wordnet`].
 //!
 //! [`write_wordnet_document`] folds the typed LMF structs
-//! ([`WordNet`]/[`Lexicon`] → [`LexicalEntry`]/[`Synset`] → …) back
+//! ([`WordNet`]/`Lexicon` → [`LexicalEntry`]/[`Synset`] → …) back
 //! onto the XML ontology ([`XmlDocument`]/[`XmlElement`]/
 //! [`XmlAttribute`]/[`XmlNode`]). For every element and attribute the
 //! reader CONSUMES, the writer EMITS exactly one — in the deterministic
@@ -47,7 +47,7 @@ use crate::social::software::markup::xml::parser::source_syntax::{
 };
 
 /// Write a [`WordNet`] lexicon back to a WN-LMF [`XmlDocument`] — the
-/// XML-tree-level inverse of [`read_wordnet`](super::reader::read_wordnet).
+/// XML-tree-level inverse of [`read_wordnet`].
 ///
 /// Emits the `<LexicalResource><Lexicon>…</Lexicon></LexicalResource>`
 /// shell, then every [`LexicalEntry`] followed by every [`Synset`], in

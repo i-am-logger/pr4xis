@@ -921,7 +921,7 @@ pub fn reconstruct_uslm_source(
 
 /// The USLM byte-exact graph-faithful lens: `bytes ↔ (UsCodeTitle ontology +
 /// concrete-syntax complement)`. Declares
-/// [`RoundTripFidelity::ByteExactGraphFaithful`] — the USC sibling of the WN-LMF
+/// [`RoundTripFidelity::ByteExactGraphFaithful`](crate::formal::meta::well_behaved_lens::RoundTripFidelity::ByteExactGraphFaithful) — the USC sibling of the WN-LMF
 /// `WordNetLmfLens`.
 #[derive(Debug)]
 pub struct UslmGraphFaithfulLens;

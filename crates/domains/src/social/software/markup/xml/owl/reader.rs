@@ -100,7 +100,7 @@ pub fn read_owl(xml_text: &str) -> Result<OwlOntology, OwlReadError> {
 /// default graph — *below* the [`OwlOntology`] typed projection.
 ///
 /// This is the true source graph the OWL 2 RDF Mapping
-/// ([`read_owl`]/[`project_triples_to_owl`]) projects from. Where
+/// ([`read_owl`]/`project_triples_to_owl`) projects from. Where
 /// [`read_owl`] keeps only the typed view (classes, properties,
 /// individuals, the restriction/cardinality shapes it recognises),
 /// `read_owl_to_quads` keeps **every** triple the document denotes —

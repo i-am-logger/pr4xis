@@ -5,10 +5,10 @@
 //! own `<li id="…">` markers.
 //!
 //! - **§4.4.3 Canonicalization Algorithm** — [`canonicalize`].
-//! - **§4.5 Issue Identifier Algorithm** — [`IdentifierIssuer::issue`].
-//! - **§4.6.3 Hash First Degree Quads** — [`hash_first_degree_quads`].
-//! - **§4.7 Hash Related Blank Node** — [`hash_related_blank_node`].
-//! - **§4.8.3 Hash N-Degree Quads** — [`hash_n_degree_quads`] (the
+//! - **§4.5 Issue Identifier Algorithm** — `IdentifierIssuer::issue`.
+//! - **§4.6.3 Hash First Degree Quads** — `hash_first_degree_quads`.
+//! - **§4.7 Hash Related Blank Node** — `hash_related_blank_node`.
+//! - **§4.8.3 Hash N-Degree Quads** — `hash_n_degree_quads` (the
 //!   recursive gossip-path walk over permutations of the related
 //!   blank-node list — the subtle, super-polynomial part the DoS cap
 //!   defends).

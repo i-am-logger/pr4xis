@@ -13,7 +13,7 @@
 //!
 //! - [`nquads`] — an N-Quads parser (reads the suite's `*-in.nq`) and the
 //!   **canonical** N-Quads serializer (REC §"A Canonical form of
-//!   N-Quads"), over praxis [`Quad`] / [`RdfTerm`] / [`Triple`].
+//!   N-Quads"), over praxis [`Quad`] / [`RdfTerm`](crate::social::software::markup::xml::rdf::term::RdfTerm) / [`Triple`](crate::social::software::markup::xml::rdf::term::Triple).
 //! - [`algorithm`] — the four sub-algorithms (§4.4.3 Canonicalization,
 //!   §4.5 Issue Identifier, §4.6.3 Hash First Degree Quads, §4.8.3 Hash
 //!   N-Degree Quads, plus §4.7 Hash Related Blank Node), hashed with
@@ -21,7 +21,7 @@
 //!
 //! ## Type reuse
 //!
-//! The term model is praxis [`RdfTerm`]/[`Triple`]
+//! The term model is praxis [`RdfTerm`](crate::social::software::markup::xml::rdf::term::RdfTerm)/[`Triple`](crate::social::software::markup::xml::rdf::term::Triple)
 //! (`super::term`) — this module adds only the [`Quad`] (a triple plus an
 //! optional graph-name component, the RDF 1.1 dataset extension) and never
 //! forks the term enum.

@@ -84,6 +84,7 @@
 //!
 //! [`WordNet`]: crate::social::software::markup::xml::lmf::ontology::WordNet
 //! [`OwlOntology`]: super::ontology::OwlOntology
+//! [`AttributeOverrides`]: crate::social::software::markup::xml::parser::source_syntax::AttributeOverrides
 //! [`capture_wn_complement`]: crate::social::software::markup::xml::lmf::writer::capture_wn_complement
 //! [`reconstruct_wn_lmf_source`]: crate::social::software::markup::xml::lmf::writer::reconstruct_wn_lmf_source
 
@@ -126,7 +127,9 @@ use crate::social::software::markup::xml::parser::source_syntax::{
 ///   `rdf:parseType="Collection"` member list, an `owl:unionOf`/`owl:intersectionOf`
 ///   inline list, or an inline `owl:Restriction` blank-node block. Each member is
 ///   itself a recursive [`RdfNodeBlock`], so the structure captures the EXACT
-///   source nesting (and, via the generic [`AttributeOverrides`] residue keyed by
+///   source nesting (and, via the generic
+///   [`AttributeOverrides`](crate::social::software::markup::xml::parser::source_syntax::AttributeOverrides)
+///   residue keyed by
 ///   pre-order index, the exact blank-node label / `parseType` attribute) as
 ///   TYPED structure — never opaque exact-bytes, never a stored DOM. The cito
 ///   (and biro/c4o/doco) SPAR vocabs serialise every node FLAT (each blank node a
@@ -231,6 +234,8 @@ pub struct RdfNodeBlock {
 /// document-ordered node-block / property-element backbone plus per-property
 /// leaf text, captured so a structural writer reproduces the source's exact
 /// element tree.
+///
+/// [`OwlOntology`]: super::ontology::OwlOntology
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
@@ -511,7 +516,7 @@ fn write_node_block(block: &RdfNodeBlock) -> XmlElement {
 ///
 /// Emits `<{root}>` (no namespaces — the [`DocumentResidue`] restores them),
 /// then RECURSIVELY one `<{node block name}>` element per node block (via
-/// [`write_node_block`]), each with one `<{property name}>` element per property
+/// `write_node_block`), each with one `<{property name}>` element per property
 /// — empty for a reference, a single leaf-text child for a literal, or the nested
 /// member blocks for the striped inline-resource form. The result is
 /// element-backbone-equal to the source DOM: same elements, same pre-order, same
@@ -643,7 +648,7 @@ impl From<RegeneratedComplementError> for OwlReconstructError {
 ///    white-space, the multi-line `<rdf:RDF>` layout) and the
 ///    [`SyntaxDecisions`] the byte-exact serializer honours.
 /// 2. **The structural projection + regenerated-tree complement** —
-///    [`project_rdfxml_structure`] derives the structured striping;
+///    `project_rdfxml_structure` derives the structured striping;
 ///    [`write_owl_document`] regenerates the backbone from it; and
 ///    [`diff_content_whitespace`] extracts the inter-element white-space the
 ///    regenerated tree lacks PLUS the exact source attribute sequences the
@@ -655,6 +660,8 @@ impl From<RegeneratedComplementError> for OwlReconstructError {
 /// Fails closed if the source is not well-formed XML, carries a shape the
 /// structural writer does not model (an interspersed comment/PI, mixed property
 /// content), or if the regenerated tree is not element-backbone-equal to the DOM.
+///
+/// [`OwlOntology`]: super::ontology::OwlOntology
 pub fn capture_owl_complement(
     source: &str,
 ) -> Result<(super::ontology::OwlOntology, OwlSyntaxComplement), OwlReconstructError> {

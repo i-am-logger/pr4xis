@@ -30,7 +30,8 @@
 //! harness registered it) and the *achieved* tier (the `RoundTripFidelity` the
 //! emitted `.prx` actually carries, as [`super::decompile::decompile`] returns
 //! it). [`CompletenessReport::tier_is_consistent`] asserts they agree;
-//! [`assert_declared_matches_achieved`] turns a disagreement into a test
+//! [`declared_matches_achieved`](crate::formal::meta::well_behaved_lens::completeness::declared_matches_achieved())
+//! turns a disagreement into a test
 //! failure. So a `.prx` carrying a `RawBytesComplementFloor` complement under a
 //! lens that declares `ByteExactGraphFaithful` (or the reverse) is caught — the
 //! meter cannot be made to over-claim.

@@ -11,7 +11,8 @@
 //! away* — which is exactly why the `.prx` floor today keeps the raw source
 //! bytes as a stored complement (`RawBytesComplementFloor`).
 //!
-//! This ontology names that residue. Each [`ConcreteSyntaxDecision`] is a
+//! This ontology names that residue. Each
+//! [`ConcreteSyntaxDecision`](crate::formal::meta::source_syntax::ontology::SourceSyntaxConcept::ConcreteSyntaxDecision) is a
 //! byte-affecting choice the Information Set underdetermines; recording the
 //! decisions per node alongside the Information Set content lets a writer
 //! regenerate the exact bytes from the graph *alone*

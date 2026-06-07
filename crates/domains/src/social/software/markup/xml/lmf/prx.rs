@@ -699,7 +699,7 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 ///    - **Captured** → emit `mode = ByteExactGraphFaithful`, the `graph` payload
 ///      (ontology + complement), `raw = None` (NO stored raw blob; the source
 ///      regenerates from the graph). This is English's tier.
-///    - **Backbone divergence** ([`WnReconstructError::Complement`]) → the
+///    - **Backbone divergence** ([`WnReconstructError::Complement`](crate::social::software::markup::xml::lmf::writer::WnReconstructError::Complement)) → the
 ///      structural writer cannot yet regenerate THIS source's element backbone
 ///      (e.g. a WN-LMF lexicon whose `<LexicalEntry>`/`<Synset>` child order the
 ///      DTD-ordered writer reorders). Degrade HONESTLY to the universal floor:
@@ -708,7 +708,7 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 ///      ride. NEVER a silent lie: the floor tier is explicit in `mode`, and the
 ///      completeness meter only declares a source graph-faithful when a lens is
 ///      registered for it.
-///    - **Malformed source** ([`WnReconstructError::Parse`]) → a hard error;
+///    - **Malformed source** ([`WnReconstructError::Parse`](crate::social::software::markup::xml::lmf::writer::WnReconstructError::Parse)) → a hard error;
 ///      a non-well-formed WN-LMF file is a defect, not a floor candidate.
 ///
 /// The OMV/PROV-O metadata's `source_sha256` is the content address of the exact

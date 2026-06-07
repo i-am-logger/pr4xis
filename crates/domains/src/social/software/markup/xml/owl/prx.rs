@@ -424,8 +424,8 @@ pub struct RawSource {
     pub blob: Vec<u8>,
 }
 
-/// The graph-faithful reconstruction payload: the typed [`OwlOntology`] graph
-/// PLUS the structured concrete-syntax [`OwlSyntaxComplement`] the byte-exact
+/// The graph-faithful reconstruction payload: the typed [`OwlOntology`](super::ontology::OwlOntology) graph
+/// PLUS the structured concrete-syntax [`OwlSyntaxComplement`](super::rdfxml_writer::OwlSyntaxComplement) the byte-exact
 /// `put` ([`reconstruct_owl_rdfxml_source`]) re-applies. Present in a
 /// [`PrxEnvelope`] iff `mode == ByteExactGraphFaithful` (the flat SPAR OWL family
 /// cito/biro/c4o/doco).
@@ -440,13 +440,13 @@ pub struct RawSource {
 /// `RawBytesComplementFloor` constant-complement). The complement is concrete
 /// syntax, NOT ontology: the same graph serialised two ways keeps one content
 /// address; only the per-source `complement` differs. The capture/reconstruct
-/// pair ([`capture_owl_complement`] / [`reconstruct_owl_rdfxml_source`]) is
+/// pair ([`capture_owl_complement`](super::rdfxml_writer::capture_owl_complement()) / [`reconstruct_owl_rdfxml_source`]) is
 /// proven a byte-exact inverse over the real bundled CiTO source (the slice
 /// hard gate).
 ///
 /// rkyv-serializable through the `prx`-gated derives on
 /// [`OwlSyntaxComplement`](super::rdfxml_writer::OwlSyntaxComplement) and the XML/residue
-/// types it references. [`OwlOntology`] is NOT rkyv-serializable (it carries the
+/// types it references. [`OwlOntology`](super::ontology::OwlOntology) is NOT rkyv-serializable (it carries the
 /// proof/category machinery), so it is NOT archived directly — the navigable
 /// reasoning view the runtime materializes is `data` (the [`OwnedCodegenData`]
 /// projection). The `complement` alone suffices for the byte-exact `put`; this
