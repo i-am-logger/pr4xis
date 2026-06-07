@@ -1830,12 +1830,23 @@ mod tests {
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
         use crate::formal::meta::well_behaved_lens::lens_by_name;
 
+        use std::time::Instant;
         let root = workspace_root();
         eprintln!(
-            "\n{:<14} {:>9} {:>11} {:>9} {:>7} {:>9} {:>9}  tier",
-            "title", "src.xml", "cmp.prx.gz", "src.gz", "vs.dl", "sections", "subdivs"
+            "\n{:<14} {:>9} {:>8} {:>9} {:>10} {:>9} {:>9} {:>7} {:>8} {:>9}  tier",
+            "title",
+            "src.xml",
+            "src.gz",
+            "prx(raw)",
+            "prx.gz",
+            "prx_load",
+            "xml_load",
+            "vs.dl",
+            "sections",
+            "subdivs"
         );
-        let (mut tot_src, mut tot_cmp, mut tot_srcgz) = (0u64, 0u64, 0u64);
+        let (mut tot_src, mut tot_raw, mut tot_cmp, mut tot_srcgz) = (0u64, 0u64, 0u64, 0u64);
+        let (mut tot_prx_ms, mut tot_xml_ms) = (0f64, 0f64);
         for entry in data_sources() {
             if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
                 continue;
@@ -1845,6 +1856,13 @@ mod tests {
                 continue;
             };
             let text = core::str::from_utf8(&source).expect("UTF-8");
+
+            // XML path (what loaded() falls back to): parse + materialize the corpus.
+            let t = Instant::now();
+            let title = read_uslm_title(text).expect("parse title");
+            let xml_corpus = UsCode::from_uslm_titles_owned(alloc::vec![title]);
+            let xml_ms = t.elapsed().as_secs_f64() * 1e3;
+
             let title = read_uslm_title(text).expect("parse title");
             let (data, aux) = title_to_owned(&title);
             let subdivs: usize = aux.iter().map(|a| count_owned(&a.subdivisions)).sum();
@@ -1856,18 +1874,38 @@ mod tests {
             assert_eq!(aux_back, aux, "{}: aux not lossless", entry.name);
             let compact = gzip(&succ).expect("gzip compact");
             let source_gz = gzip(&source).expect("gzip source");
+
+            // PRX path (the loaded() fast path): gunzip + content-gate + materialize.
+            let addr = compact_prx_archive_address(&compact).expect("address");
+            let t = Instant::now();
+            let prx_corpus =
+                load_compact_usc_prx_gz_gated(&compact, &addr, &entry.name).expect("gated load");
+            let prx_ms = t.elapsed().as_secs_f64() * 1e3;
+            assert_eq!(
+                prx_corpus.section_count(),
+                xml_corpus.section_count(),
+                "{}: compact-loaded section count differs from XML",
+                entry.name
+            );
+
             let graph_faithful = lens_by_name(&format!("{}@{}", entry.name, entry.version))
                 .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
 
             tot_src += source.len() as u64;
+            tot_raw += succ.len() as u64;
             tot_cmp += compact.len() as u64;
             tot_srcgz += source_gz.len() as u64;
+            tot_prx_ms += prx_ms;
+            tot_xml_ms += xml_ms;
             eprintln!(
-                "{:<14} {:>8.1}M {:>10.2}M {:>8.2}M {:>6.2}x {:>9} {:>9}  {}",
+                "{:<14} {:>8.1}M {:>7.2}M {:>8.2}M {:>9.2}M {:>7.0}ms {:>7.0}ms {:>6.2}x {:>8} {:>9}  {}",
                 entry.name,
                 source.len() as f64 / 1e6,
-                compact.len() as f64 / 1e6,
                 source_gz.len() as f64 / 1e6,
+                succ.len() as f64 / 1e6,
+                compact.len() as f64 / 1e6,
+                prx_ms,
+                xml_ms,
                 compact.len() as f64 / source_gz.len().max(1) as f64,
                 data.entity_count,
                 subdivs,
@@ -1879,11 +1917,17 @@ mod tests {
             );
         }
         eprintln!(
-            "{:<14} {:>8.1}M {:>10.2}M {:>8.2}M {:>6.2}x  (compact .prx.gz vs source download, all on-disk titles)",
+            "{:<14} {:>8.1}M {:>7.2}M {:>8.2}M {:>9.2}M {:>7.0}ms {:>7.0}ms {:>6.2}x   \
+             (prx_load {:.0}× faster than xml_load; .prx.gz {:.2}× the source download)",
             "TOTAL",
             tot_src as f64 / 1e6,
-            tot_cmp as f64 / 1e6,
             tot_srcgz as f64 / 1e6,
+            tot_raw as f64 / 1e6,
+            tot_cmp as f64 / 1e6,
+            tot_prx_ms,
+            tot_xml_ms,
+            tot_cmp as f64 / tot_srcgz.max(1) as f64,
+            tot_xml_ms / tot_prx_ms.max(1.0),
             tot_cmp as f64 / tot_srcgz.max(1) as f64,
         );
     }
