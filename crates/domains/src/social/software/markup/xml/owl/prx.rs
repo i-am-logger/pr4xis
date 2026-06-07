@@ -166,6 +166,9 @@ use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens}
 
 use super::lens::OwlLens;
 use super::rdfxml_writer::reconstruct_owl_rdfxml_source;
+use crate::social::software::markup::xml::succinct::{
+    get_cv, get_dict_fc, get_ef, get_varint, put_cv, put_dict_fc, put_ef, put_varint,
+};
 
 // =============================================================================
 // OMV / PROV-O term IRIs — the vocabulary the metadata block is typed by.
@@ -319,6 +322,146 @@ impl OwnedCodegenData {
             equivalence: leak_edges(&self.equivalence),
             causation: leak_edges(&self.causation),
             references: leak_edges(&self.references),
+        }
+    }
+
+    /// Serialize to the compact succinct `.prx` bytes — the runtime reasoning
+    /// view alone, far below the source it was derived from.
+    ///
+    /// One sorted, front-coded string dictionary is shared by every text column
+    /// (`entity_ids`/`entity_kind`/`entity_labels`/`entity_defs` and the
+    /// `word_index` words); each column reduces to a bit-packed array of indices
+    /// into it. IRIs share long prefixes and kinds/labels repeat heavily, so the
+    /// shared dictionary deduplicates them and front-coding elides the prefixes.
+    /// The `word_index` handles ride a CSR (gap-coded offsets + a flat value
+    /// column); the six edge tables store two bit-packed endpoint columns each,
+    /// at `bits(entity_count)` per value. No source bytes, no graph-faithful
+    /// complement — only the columns the runtime reasons over.
+    ///
+    /// Source-agnostic: it touches only the generic
+    /// [`CodegenData`](pr4xis::codegen_data::CodegenData) columns, so the same
+    /// codec serializes any source's interchange. Entity handles and edge
+    /// endpoints are `< entity_count` (well under `2^32`), so the `usize`
+    /// columns are lossless on wasm32. `from_succinct(&to_succinct(d)) == d`.
+    pub fn to_succinct(&self) -> Vec<u8> {
+        use hashbrown::HashMap;
+
+        let mut out = Vec::new();
+        put_varint(&mut out, self.entity_count);
+
+        // One sorted, deduplicated dictionary spanning every text column.
+        let mut all: Vec<&str> = Vec::new();
+        all.extend(self.entity_ids.iter().map(String::as_str));
+        all.extend(self.entity_kind.iter().map(String::as_str));
+        all.extend(self.entity_labels.iter().map(String::as_str));
+        all.extend(self.entity_defs.iter().map(String::as_str));
+        all.extend(self.word_index.iter().map(|(w, _)| w.as_str()));
+        all.sort_unstable();
+        all.dedup();
+        let idx: HashMap<&str, usize> = all.iter().enumerate().map(|(i, &s)| (s, i)).collect();
+        let dict: Vec<String> = all.iter().map(|s| String::from(*s)).collect();
+        put_dict_fc(&mut out, &dict);
+
+        let to_idx =
+            |strs: &[String]| -> Vec<usize> { strs.iter().map(|s| idx[s.as_str()]).collect() };
+        put_cv(&mut out, &to_idx(&self.entity_ids));
+        put_cv(&mut out, &to_idx(&self.entity_kind));
+        put_cv(&mut out, &to_idx(&self.entity_labels));
+        put_cv(&mut out, &to_idx(&self.entity_defs));
+
+        // word_index: the word column (dict indices) + a CSR of concept handles.
+        let word_ixs: Vec<usize> = self
+            .word_index
+            .iter()
+            .map(|(w, _)| idx[w.as_str()])
+            .collect();
+        put_cv(&mut out, &word_ixs);
+        let mut offsets = Vec::with_capacity(self.word_index.len() + 1);
+        let mut handles = Vec::new();
+        let mut acc = 0usize;
+        offsets.push(0);
+        for (_, hs) in &self.word_index {
+            acc += hs.len();
+            offsets.push(acc);
+            handles.extend(hs.iter().map(|&h| h as usize));
+        }
+        put_ef(&mut out, &offsets);
+        put_cv(&mut out, &handles);
+
+        // The six edge tables — two bit-packed endpoint columns each.
+        for table in [
+            &self.taxonomy,
+            &self.mereology,
+            &self.opposition,
+            &self.equivalence,
+            &self.causation,
+            &self.references,
+        ] {
+            let src: Vec<usize> = table.iter().map(|&(a, _)| a as usize).collect();
+            let dst: Vec<usize> = table.iter().map(|&(_, b)| b as usize).collect();
+            put_cv(&mut out, &src);
+            put_cv(&mut out, &dst);
+        }
+        out
+    }
+
+    /// Decode the compact succinct `.prx` bytes back into an exact
+    /// [`OwnedCodegenData`] (the inverse of [`Self::to_succinct`]).
+    pub fn from_succinct(buf: &[u8]) -> Self {
+        let mut pos = 0usize;
+        let entity_count = get_varint(buf, &mut pos);
+        let dict = get_dict_fc(buf, &mut pos);
+        let take = |buf: &[u8], pos: &mut usize| -> Vec<String> {
+            get_cv(buf, pos)
+                .into_iter()
+                .map(|i| dict[i].clone())
+                .collect()
+        };
+        let entity_ids = take(buf, &mut pos);
+        let entity_kind = take(buf, &mut pos);
+        let entity_labels = take(buf, &mut pos);
+        let entity_defs = take(buf, &mut pos);
+
+        let word_ixs = get_cv(buf, &mut pos);
+        let offsets = get_ef(buf, &mut pos);
+        let handles = get_cv(buf, &mut pos);
+        let word_index: Vec<(String, Vec<u64>)> = word_ixs
+            .iter()
+            .enumerate()
+            .map(|(i, &w)| {
+                let hs = handles[offsets[i]..offsets[i + 1]]
+                    .iter()
+                    .map(|&x| x as u64)
+                    .collect();
+                (dict[w].clone(), hs)
+            })
+            .collect();
+
+        let mut tables: Vec<Vec<(u64, u64)>> = Vec::with_capacity(6);
+        for _ in 0..6 {
+            let src = get_cv(buf, &mut pos);
+            let dst = get_cv(buf, &mut pos);
+            tables.push(
+                src.into_iter()
+                    .zip(dst)
+                    .map(|(a, b)| (a as u64, b as u64))
+                    .collect(),
+            );
+        }
+        let mut it = tables.into_iter();
+        Self {
+            entity_count,
+            entity_ids,
+            entity_kind,
+            entity_labels,
+            entity_defs,
+            word_index,
+            taxonomy: it.next().unwrap_or_default(),
+            mereology: it.next().unwrap_or_default(),
+            opposition: it.next().unwrap_or_default(),
+            equivalence: it.next().unwrap_or_default(),
+            causation: it.next().unwrap_or_default(),
+            references: it.next().unwrap_or_default(),
         }
     }
 }
@@ -877,6 +1020,34 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
         &source_pin,
         &canonical_pin,
     )
+}
+
+// =============================================================================
+// Compact runtime `.prx.gz` — the small data-only artifact the runtime loads.
+// =============================================================================
+
+/// Serialize a built [`OwnedCodegenData`] to the compact runtime `.prx.gz`:
+/// `to_succinct` (the bit-packed data-only codec) then gzip.
+///
+/// This is the small artifact the runtime embeds or downloads — the reasoning
+/// view alone, with neither the source bytes nor the graph-faithful complement
+/// the integrity-bearing [`PrxEnvelope`] carries. The OWL sibling of WordNet's
+/// `emit_prx_gz`; the byte-exact reconstruction + `praxis.lock` content-address
+/// gate stay on the distribution path ([`emit_all_prx_gz`], [`load_prx_gz`]).
+pub fn emit_compact_prx_gz(data: &OwnedCodegenData) -> Result<Vec<u8>, PrxError> {
+    gzip(&data.to_succinct())
+}
+
+/// Load a compact runtime `.prx.gz` (produced by [`emit_compact_prx_gz`]) into a
+/// materialized [`LoadedOwlVocabulary`]: gunzip → [`OwnedCodegenData::from_succinct`]
+/// → [`to_codegen_data_leaked`](OwnedCodegenData::to_codegen_data_leaked) →
+/// [`LoadedOwlVocabulary::from_codegen`]. The runtime decode path — no re-parse,
+/// no rkyv envelope.
+pub fn load_compact_prx_gz(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxError> {
+    let bytes = gunzip(prx_gz)?;
+    let data = OwnedCodegenData::from_succinct(&bytes);
+    let codegen: CodegenData<LoadedOwlVocabulary> = data.to_codegen_data_leaked();
+    Ok(LoadedOwlVocabulary::from_codegen(&codegen))
 }
 
 // =============================================================================
@@ -1813,6 +1984,93 @@ mod tests {
         assert!(
             matches!(err, PrxError::SourceNotReconstructible { .. }),
             "expected SourceNotReconstructible from the source leg, got {err:?}"
+        );
+    }
+
+    /// COMPACTNESS GATE — for every registered, on-disk OWL vocabulary: the
+    /// compact runtime `.prx.gz` (the data-only succinct codec) is smaller than
+    /// fetching its source (`gzip(source)`), the codec round-trips its
+    /// [`OwnedCodegenData`] losslessly, and the loaded [`LoadedOwlVocabulary`]
+    /// equals the directly materialized one (reasoning-equivalent). The OWL
+    /// sibling of the WordNet `prx_gz_round_trips_to_english` gate.
+    ///
+    /// Registry-driven, not a hardcoded source set (the same source-agnostic
+    /// walk [`emit_all_prx_gz`] makes); a source whose `.owl` is absent is
+    /// skipped gracefully. This is the guard that fails closed if any OWL source
+    /// ever re-bloats past its own download.
+    #[test]
+    fn compact_prx_gz_is_smaller_than_source_and_reasoning_equivalent() {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+        // Workspace root — grandparent of `crates/domains/` (CARGO_MANIFEST_DIR);
+        // `entry.local_path()` is workspace-relative.
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(std::path::PathBuf::from)
+            .expect("workspace root");
+
+        let mut measured = 0usize;
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::OntologyVocabulary {
+                continue;
+            }
+            let Ok(source) = std::fs::read(root.join(entry.local_path())) else {
+                continue;
+            };
+
+            let envelope = build_envelope(&source, &entry.name, &entry.version, &entry.url)
+                .expect("build envelope");
+            let data = &envelope.data;
+
+            // (1) the data-only codec is lossless over OwnedCodegenData.
+            let succ = data.to_succinct();
+            let back = OwnedCodegenData::from_succinct(&succ);
+            assert_eq!(
+                &back, data,
+                "{}: succinct codec is not lossless",
+                entry.name
+            );
+
+            // (2) the compact runtime artifact is smaller than the source download.
+            let prx_gz = emit_compact_prx_gz(data).expect("emit compact");
+            let source_dl = gzip(&source).expect("gzip source").len();
+            eprintln!(
+                "OWL-COMPACT {}@{}: .prx = {:.1}KB ({:.1}KB gz)  vs  SOURCE = {:.1}KB owl \
+                 ({:.1}KB .owl.gz download)  ->  .prx.gz is {:.2}x the download",
+                entry.name,
+                entry.version,
+                succ.len() as f64 / 1e3,
+                prx_gz.len() as f64 / 1e3,
+                source.len() as f64 / 1e3,
+                source_dl as f64 / 1e3,
+                prx_gz.len() as f64 / source_dl.max(1) as f64,
+            );
+            assert!(
+                prx_gz.len() < source_dl,
+                "{}: compact .prx.gz ({} B) is NOT smaller than the source download \
+                 gzip(source) ({} B)",
+                entry.name,
+                prx_gz.len(),
+                source_dl,
+            );
+
+            // (3) the compact-loaded vocabulary equals the directly materialized
+            // one — the runtime reasons over exactly the same graph.
+            let loaded = load_compact_prx_gz(&prx_gz).expect("load compact");
+            let direct = materialize_direct(data);
+            assert_eq!(
+                loaded, direct,
+                "{}: compact-loaded vocabulary differs from direct",
+                entry.name
+            );
+
+            measured += 1;
+        }
+        assert!(
+            measured >= 1,
+            "no OntologyVocabulary source on disk for the compact gate"
         );
     }
 
