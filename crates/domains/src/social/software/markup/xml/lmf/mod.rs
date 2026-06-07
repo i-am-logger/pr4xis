@@ -1,4 +1,9 @@
 pub mod dtd;
+// The compact interned encoding of a WN-LMF `WordNet` — the size-reduced `.prx`
+// ontology core (string pool + u32 handles). `prx`-only: it carries rkyv derives
+// and is the on-the-wire/embedded compact form of the ontology.
+#[cfg(feature = "prx")]
+pub mod compact;
 // The WN-LMF byte-exact graph-faithful lens + its harness registration (flips
 // `english_wordnet` off the universal floor in the completeness meter). Native
 // only — `register_lens!`'s `linkme` distributed slice is unsupported on wasm32,
