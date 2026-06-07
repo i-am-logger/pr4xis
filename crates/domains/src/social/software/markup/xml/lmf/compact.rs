@@ -629,4 +629,85 @@ mod tests {
             "no WN-LMF source on disk to exercise the compact core"
         );
     }
+
+    fn write_varint(out: &mut Vec<u8>, mut n: u64) {
+        loop {
+            let b = (n & 0x7f) as u8;
+            n >>= 7;
+            if n == 0 {
+                out.push(b);
+                break;
+            }
+            out.push(b | 0x80);
+        }
+    }
+
+    /// Front-code a SORTED string list (HDT's queryable dictionary technique):
+    /// for each entry store `varint(shared_prefix_len) varint(suffix_len) suffix`,
+    /// so a shared prefix with the previous entry is never repeated. Stays
+    /// binary-searchable. Returns the encoded bytes.
+    fn front_code(sorted: &[String]) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut prev: &[u8] = b"";
+        for s in sorted {
+            let b = s.as_bytes();
+            let shared = prev.iter().zip(b).take_while(|(x, y)| x == y).count();
+            write_varint(&mut out, shared as u64);
+            write_varint(&mut out, (b.len() - shared) as u64);
+            out.extend_from_slice(&b[shared..]);
+            prev = b;
+        }
+        out
+    }
+
+    /// SUCCINCT-PHASE MEASURE-FIRST: split the compact `.prx` encoding into its
+    /// dictionary (strings → front-coding/FSST target) and its structure (the
+    /// graph → LOUDS/WebGraph-BV target), so the bigger lever is built first; and
+    /// measure the front-coded-dictionary win (dependency-free, queryable). No
+    /// crate yet. Graceful skip if the corpus is absent.
+    #[test]
+    fn succinct_floor_breakdown() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let sources = [
+            ("us_legal_lexicon", "data/legal-text/us_legal_lexicon.xml"),
+            ("english_wordnet", "data/wordnet/english-wordnet-2025.xml"),
+        ];
+        let mut measured = 0usize;
+        for (name, rel) in sources {
+            let Ok(bytes) = std::fs::read(manifest.join(rel)) else {
+                continue;
+            };
+            let wn = read_wordnet(core::str::from_utf8(&bytes).expect("UTF-8")).expect("parse");
+            let compact = encode(&wn);
+
+            let total = rkyv::to_bytes::<rkyv::rancor::Error>(&compact).expect("rkyv total");
+            let dict_b = rkyv::to_bytes::<rkyv::rancor::Error>(&compact.dict).expect("rkyv dict");
+            let struct_raw = total.len().saturating_sub(dict_b.len());
+
+            let mut sorted = compact.dict.clone();
+            sorted.sort();
+            let fc = front_code(&sorted);
+
+            eprintln!(
+                "SUCCINCT {name}: .prx total raw={:.2}MB/gz={:.2}MB || DICT raw={:.2}MB/gz={:.2}MB  \
+                 STRUCTURE raw≈{:.2}MB || dict front-coded raw={:.2}MB/gz={:.2}MB ({:.2}x vs dict \
+                 rkyv raw, {:.2}x vs dict gz) || dict_strings={}",
+                total.len() as f64 / 1e6,
+                gz_len(&total) as f64 / 1e6,
+                dict_b.len() as f64 / 1e6,
+                gz_len(&dict_b) as f64 / 1e6,
+                struct_raw as f64 / 1e6,
+                fc.len() as f64 / 1e6,
+                gz_len(&fc) as f64 / 1e6,
+                dict_b.len() as f64 / fc.len().max(1) as f64,
+                gz_len(&dict_b) as f64 / gz_len(&fc).max(1) as f64,
+                compact.dict.len(),
+            );
+            measured += 1;
+        }
+        assert!(
+            measured >= 1,
+            "no WN-LMF source on disk for the succinct breakdown"
+        );
+    }
 }
