@@ -737,13 +737,25 @@ mod tests {
                 "{name}: loaded English word→concept index differs"
             );
 
+            let source_download = gz_len(&bytes);
             eprintln!(
                 "PRX-GZ {name}: .prx.gz = {:.2}MB  loads to {} concepts in {:.0}ms (native)  vs \
                  source download {:.2}MB",
                 prx_gz.len() as f64 / 1e6,
                 loaded.concept_count(),
                 load_ms,
-                gz_len(&bytes) as f64 / 1e6,
+                source_download as f64 / 1e6,
+            );
+            // THE COMPACTNESS GATE: the shipped `.prx.gz` must be smaller than
+            // fetching the source itself (`gzip(source)`). This is the guard the
+            // .prx-bigger-than-source regression lacked; it fails closed if any
+            // source ever re-bloats past its own download.
+            assert!(
+                prx_gz.len() < source_download,
+                "{name}: .prx.gz ({} B) is NOT smaller than the source download gzip(source) \
+                 ({} B) — compactness regressed",
+                prx_gz.len(),
+                source_download,
             );
             measured += 1;
         }
