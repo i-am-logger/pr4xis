@@ -320,6 +320,15 @@ jobs:
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo test --manifest-path crates/wasm/Cargo.toml --release
+      # praxis-corpus-tests is workspace-excluded so the default nextest run
+      # never re-parses the multi-hundred-MB USC titles per process-isolated
+      # test. It runs under `cargo test` (one process → a LazyLock fixture parses
+      # each giant once) on the host, with the giants materialised above. Mirrors
+      # the dev-ci `heavy-corpus tests` step exactly (local == CI).
+      - name: heavy-corpus tests (release)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release
       - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
         run: |
           mkdir -p crates/wasm/ontologies

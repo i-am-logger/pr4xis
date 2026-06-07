@@ -73,6 +73,8 @@ in
     }
     echo "Running tests via nextest --release (mirrors CI)..."
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release
+    echo "Running heavy-corpus tests (cargo test — parse each giant once)..."
+    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release
     echo "Running doc tests --release (nextest excludes them)..."
     RUSTFLAGS="-D warnings" cargo test --doc --workspace --release
   '';
@@ -112,6 +114,8 @@ in
     mdbook test docs/ || { echo "FAILED: mdbook test"; exit 1; }
     echo "=== test (nextest --release, strict [profile.ci]) ==="
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
+    echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
+    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release || { echo "FAILED: corpus tests"; exit 1; }
     echo "=== clippy (wasm, release) ==="
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --release --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== wasm native acceptance tests ==="
