@@ -121,6 +121,10 @@ use crate::social::software::markup::xml::owl::prx::{
     EmittedArtifact, OwnedCodegenData, PrxError, RawSource, gunzip, gzip, prx_archive_address,
     source_content_hash,
 };
+use crate::social::software::markup::xml::succinct::{
+    get_blob, get_cv, get_dict_fc, get_opt, get_varint, put_blob, put_cv, put_dict_fc, put_opt,
+    put_varint,
+};
 
 // =============================================================================
 // Owned aux mirror — the rkyv-serializable twin of the corpus subdivision tree.
@@ -913,6 +917,250 @@ pub fn emit_usc_prx_gz(
     gzip(&rkyv_bytes)
 }
 
+// =============================================================================
+// Compact runtime `.prx.gz` — the small (data + aux) reasoning view, bit-packed,
+// with NO source-reconstruction payload (the USC sibling of the OWL
+// `emit_compact_prx_gz`). The byte-exact / `praxis.lock` integrity path stays the
+// separate envelope above; this is what the runtime embeds or downloads.
+// =============================================================================
+
+/// Pre-order columnar view of a subdivision forest: one row per node, the tree
+/// shape carried by the `child_count` column (pre-order + child-count uniquely
+/// reconstructs an ordered tree), the six per-node text fields as dictionary
+/// indices (`heading`/`chapeau`/`content` optional).
+#[derive(Default)]
+struct AuxColumns {
+    child_count: Vec<usize>,
+    urn: Vec<usize>,
+    kind: Vec<usize>,
+    num: Vec<usize>,
+    heading: Vec<Option<u32>>,
+    chapeau: Vec<Option<u32>>,
+    content: Vec<Option<u32>>,
+}
+
+impl AuxColumns {
+    /// Flatten one node and its descendants pre-order into the columns.
+    fn push_tree(&mut self, node: &OwnedUscSubdivision, idx: &hashbrown::HashMap<&str, usize>) {
+        self.child_count.push(node.children.len());
+        self.urn.push(idx[node.urn.as_str()]);
+        self.kind.push(idx[node.kind.as_str()]);
+        self.num.push(idx[node.num.as_str()]);
+        self.heading
+            .push(node.heading.as_deref().map(|s| idx[s] as u32));
+        self.chapeau
+            .push(node.chapeau.as_deref().map(|s| idx[s] as u32));
+        self.content
+            .push(node.content.as_deref().map(|s| idx[s] as u32));
+        for c in &node.children {
+            self.push_tree(c, idx);
+        }
+    }
+}
+
+/// Rebuild the owned subdivision forest from the decoded columns via a single
+/// global cursor (pre-order + `child_count`).
+struct AuxDecoder<'a> {
+    dict: &'a [String],
+    child_count: &'a [usize],
+    urn: &'a [usize],
+    kind: &'a [usize],
+    num: &'a [usize],
+    heading: &'a [Option<u32>],
+    chapeau: &'a [Option<u32>],
+    content: &'a [Option<u32>],
+    cur: usize,
+}
+
+impl AuxDecoder<'_> {
+    fn rebuild(&mut self) -> OwnedUscSubdivision {
+        let i = self.cur;
+        self.cur += 1;
+        let cc = self.child_count[i];
+        let urn = self.dict[self.urn[i]].clone();
+        let kind = self.dict[self.kind[i]].clone();
+        let num = self.dict[self.num[i]].clone();
+        let heading = self.heading[i].map(|v| self.dict[v as usize].clone());
+        let chapeau = self.chapeau[i].map(|v| self.dict[v as usize].clone());
+        let content = self.content[i].map(|v| self.dict[v as usize].clone());
+        let mut children = Vec::with_capacity(cc);
+        for _ in 0..cc {
+            children.push(self.rebuild());
+        }
+        OwnedUscSubdivision {
+            urn,
+            kind,
+            num,
+            heading,
+            chapeau,
+            content,
+            children,
+        }
+    }
+}
+
+/// Re-derive a section's `Composes` edges from its decoded subdivision tree —
+/// the identical document-order, edge-before-recursion DFS [`owned_subdivisions`]
+/// emits. The edges are pure derived data (one child→parent edge per node), so
+/// the compact codec stores NONE of them and regenerates them here losslessly.
+fn derive_compose_edges(subs: &[OwnedUscSubdivision], parent_urn: &str) -> Vec<(String, String)> {
+    let mut edges = Vec::new();
+    for sub in subs {
+        edges.push((sub.urn.clone(), parent_urn.to_string()));
+        edges.extend(derive_compose_edges(&sub.children, &sub.urn));
+    }
+    edges
+}
+
+/// Append the aux subdivision forest to `out`: one shared front-coded dictionary
+/// over every aux string (section URNs + node urn/kind/num + present
+/// heading/chapeau/content), then per-section the section-URN index + root count,
+/// then the global pre-order node columns. The `Composes` edges are NOT stored
+/// (re-derived on load).
+fn aux_to_succinct(out: &mut Vec<u8>, aux: &[OwnedUscSectionAux]) {
+    use hashbrown::HashMap;
+
+    fn collect<'a>(subs: &'a [OwnedUscSubdivision], all: &mut Vec<&'a str>) {
+        for s in subs {
+            all.push(s.urn.as_str());
+            all.push(s.kind.as_str());
+            all.push(s.num.as_str());
+            if let Some(h) = &s.heading {
+                all.push(h);
+            }
+            if let Some(c) = &s.chapeau {
+                all.push(c);
+            }
+            if let Some(c) = &s.content {
+                all.push(c);
+            }
+            collect(&s.children, all);
+        }
+    }
+
+    let mut all: Vec<&str> = Vec::new();
+    for sec in aux {
+        all.push(sec.urn.as_str());
+        collect(&sec.subdivisions, &mut all);
+    }
+    all.sort_unstable();
+    all.dedup();
+    let idx: HashMap<&str, usize> = all.iter().enumerate().map(|(i, &s)| (s, i)).collect();
+    let dict: Vec<String> = all.iter().map(|s| String::from(*s)).collect();
+    put_dict_fc(out, &dict);
+
+    put_varint(out, aux.len() as u64);
+    let mut sec_urn = Vec::with_capacity(aux.len());
+    let mut root_count = Vec::with_capacity(aux.len());
+    let mut cols = AuxColumns::default();
+    for sec in aux {
+        sec_urn.push(idx[sec.urn.as_str()]);
+        root_count.push(sec.subdivisions.len());
+        for node in &sec.subdivisions {
+            cols.push_tree(node, &idx);
+        }
+    }
+    put_cv(out, &sec_urn);
+    put_cv(out, &root_count);
+    put_cv(out, &cols.child_count);
+    put_cv(out, &cols.urn);
+    put_cv(out, &cols.kind);
+    put_cv(out, &cols.num);
+    put_opt(out, &cols.heading);
+    put_opt(out, &cols.chapeau);
+    put_opt(out, &cols.content);
+}
+
+/// Decode the aux subdivision forest from `buf` at `pos` (inverse of
+/// [`aux_to_succinct`]), re-deriving each section's `Composes` edges from the
+/// rebuilt tree.
+fn aux_from_succinct(buf: &[u8], pos: &mut usize) -> Vec<OwnedUscSectionAux> {
+    let dict = get_dict_fc(buf, pos);
+    let n_sec = get_varint(buf, pos) as usize;
+    let sec_urn = get_cv(buf, pos);
+    let root_count = get_cv(buf, pos);
+    let child_count = get_cv(buf, pos);
+    let urn = get_cv(buf, pos);
+    let kind = get_cv(buf, pos);
+    let num = get_cv(buf, pos);
+    let heading = get_opt(buf, pos);
+    let chapeau = get_opt(buf, pos);
+    let content = get_opt(buf, pos);
+
+    let mut dec = AuxDecoder {
+        dict: &dict,
+        child_count: &child_count,
+        urn: &urn,
+        kind: &kind,
+        num: &num,
+        heading: &heading,
+        chapeau: &chapeau,
+        content: &content,
+        cur: 0,
+    };
+    let mut aux = Vec::with_capacity(n_sec);
+    for s in 0..n_sec {
+        let rc = root_count[s];
+        let mut subdivisions = Vec::with_capacity(rc);
+        for _ in 0..rc {
+            subdivisions.push(dec.rebuild());
+        }
+        let urn_s = dec.dict[sec_urn[s]].clone();
+        let relations = derive_compose_edges(&subdivisions, &urn_s);
+        aux.push(OwnedUscSectionAux {
+            urn: urn_s,
+            subdivisions,
+            relations,
+        });
+    }
+    aux
+}
+
+/// Serialize the compact reasoning view `(data, aux)` to `.prx` bytes: the
+/// length-prefixed flat-section codec ([`OwnedCodegenData::to_succinct`], the
+/// SAME source-agnostic codec OWL uses) followed by the aux subdivision-tree
+/// columns. `compact_usc_from_succinct(&compact_usc_to_succinct(d, a)) == (d, a)`.
+fn compact_usc_to_succinct(data: &OwnedCodegenData, aux: &[OwnedUscSectionAux]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_blob(&mut out, &data.to_succinct());
+    aux_to_succinct(&mut out, aux);
+    out
+}
+
+/// Decode the compact reasoning view (inverse of [`compact_usc_to_succinct`]).
+fn compact_usc_from_succinct(buf: &[u8]) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
+    let mut pos = 0usize;
+    let data = OwnedCodegenData::from_succinct(get_blob(buf, &mut pos));
+    let aux = aux_from_succinct(buf, &mut pos);
+    (data, aux)
+}
+
+/// Emit the COMPACT runtime `.prx.gz` from USLM source — the small artifact the
+/// runtime loads (`read_uslm_title → title_to_owned → compact codec → gzip`),
+/// the data-only reasoning view with no stored source bytes and no graph-faithful
+/// complement. The OWL sibling of `emit_compact_prx_gz`; reachable under `prx`
+/// alone (no codegen), so the WASM runtime can produce and load it.
+pub fn emit_compact_usc_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
+    let text = core::str::from_utf8(source)
+        .map_err(|e| PrxError::Read(format!("USLM source is not UTF-8: {e}")))?;
+    let title = read_uslm_title(text).map_err(|e| PrxError::Read(format!("{e}")))?;
+    let (data, aux) = title_to_owned(&title);
+    gzip(&compact_usc_to_succinct(&data, &aux))
+}
+
+/// Load a compact runtime `.prx.gz` (produced by [`emit_compact_usc_prx_gz`])
+/// into a materialized [`UsCode`]: gunzip → [`compact_usc_from_succinct`] →
+/// [`to_aux_leaked`] + [`UsCode::from_codegen_with_aux`]. The runtime decode path
+/// — no XML re-parse, no rkyv envelope, no integrity gate (that is the
+/// distribution envelope's job).
+pub fn load_compact_usc_prx_gz(prx_gz: &[u8]) -> Result<UsCode, PrxError> {
+    let bytes = gunzip(prx_gz)?;
+    let (data, aux) = compact_usc_from_succinct(&bytes);
+    let leaked = to_aux_leaked(&aux);
+    let codegen: CodegenData<UsCode> = data.to_codegen_data_leaked();
+    Ok(UsCode::from_codegen_with_aux(&codegen, leaked))
+}
+
 /// Workspace root — the grandparent of `CARGO_MANIFEST_DIR` (`crates/domains/`),
 /// against which registry `local_path()`s and `praxis.lock` resolve. Mirrors
 /// the OWL emitter + the USC corpus loader.
@@ -1348,6 +1596,201 @@ mod tests {
         );
         // (a → section) and (a/1 → a) Composes edges.
         assert_eq!(s.relations.len(), 2);
+    }
+
+    // ── compact runtime codec (data + aux, no source-reconstruction payload) ──
+
+    /// The compact codec is LOSSLESS over the `(data, aux)` reasoning view
+    /// (`from(to(d,a)) == (d,a)`, including the re-derived `Composes` edges), the
+    /// compact `.prx.gz` materializes back to the same corpus (section + depth +
+    /// edges), and it is smaller than fetching the source. Inline fixture — runs
+    /// in any checkout with no provisioned title.
+    #[test]
+    fn compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent() {
+        let src = SAMPLE_USC_TITLE.as_bytes();
+        let title = read_uslm_title(SAMPLE_USC_TITLE).expect("parse sample title");
+        let (data, aux) = title_to_owned(&title);
+
+        // (1) lossless over the reasoning view, INCLUDING the re-derived edges.
+        let succ = compact_usc_to_succinct(&data, &aux);
+        let (data_back, aux_back) = compact_usc_from_succinct(&succ);
+        assert_eq!(data_back, data, "compact codec: data column not lossless");
+        assert_eq!(
+            aux_back, aux,
+            "compact codec: aux tree / re-derived Composes edges not lossless"
+        );
+
+        // (2) the compact .prx.gz materializes to the same corpus as the envelope.
+        let prx_gz = emit_compact_usc_prx_gz(src).expect("emit compact");
+        let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
+        assert_eq!(usc.section_count(), 1);
+        let urn =
+            Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, "/us/usc/t18/s1514A");
+        let s = usc.section_by_urn(&urn).expect("section present by URN");
+        assert_eq!(
+            s.heading,
+            "Civil action to protect against retaliation in fraud cases"
+        );
+        assert_eq!(s.subdivision_count(), 2, "subsection a + paragraph a/1");
+        assert_eq!(s.subdivisions[0].num, "a");
+        assert_eq!(s.subdivisions[0].kind, SubdivisionKind::Subsection);
+        assert_eq!(s.subdivisions[0].children[0].num, "1");
+        assert_eq!(s.relations.len(), 2, "(a→section) + (a/1→a) Composes edges");
+
+        // (3) smaller than fetching the source.
+        let source_dl = gzip(src).expect("gzip source").len();
+        assert!(
+            prx_gz.len() < source_dl,
+            "compact .prx.gz ({}) not smaller than gzip(source) ({})",
+            prx_gz.len(),
+            source_dl
+        );
+    }
+
+    /// COMPACTNESS GATE — for every registered, on-disk USC title small enough
+    /// for the per-test CI budget, the compact runtime `.prx.gz` is smaller than
+    /// fetching its source (`gzip(source)`), the codec round-trips `(data, aux)`
+    /// losslessly, and it materializes to a corpus with the same section count.
+    /// Registry-driven (no hardcoded title set); a title not on disk is skipped
+    /// gracefully (USC titles are externally provisioned, not git-committed). The
+    /// giants (> the cap) are measured by the ignored `deep_dive_all_usc_titles`.
+    #[test]
+    fn compact_usc_prx_gz_smaller_than_source() {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        // Same proven-CI-safe cap the archive-anchor test uses — covers the small
+        // + mid titles (1/28/18/29/50) while staying well under the 30 s lane.
+        const CAP: u64 = 16 * 1024 * 1024;
+
+        let root = workspace_root();
+        let mut measured = 0usize;
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+                continue;
+            }
+            let path = root.join(entry.local_path());
+            let Ok(meta) = std::fs::metadata(&path) else {
+                continue;
+            };
+            if meta.len() > CAP {
+                continue;
+            }
+            let source = std::fs::read(&path).expect("read USC title");
+            let text = core::str::from_utf8(&source).expect("UTF-8");
+            let title = read_uslm_title(text).expect("parse title");
+            let (data, aux) = title_to_owned(&title);
+
+            let succ = compact_usc_to_succinct(&data, &aux);
+            let (data_back, aux_back) = compact_usc_from_succinct(&succ);
+            assert_eq!(data_back, data, "{}: data not lossless", entry.name);
+            assert_eq!(aux_back, aux, "{}: aux not lossless", entry.name);
+
+            let prx_gz = gzip(&succ).expect("gzip");
+            let source_dl = gzip(&source).expect("gzip source").len();
+            eprintln!(
+                "USC-COMPACT {}@{}: .prx = {:.2}MB ({:.2}MB gz)  vs  SOURCE = {:.2}MB xml \
+                 ({:.2}MB .xml.gz)  ->  .prx.gz is {:.2}x the download",
+                entry.name,
+                entry.version,
+                succ.len() as f64 / 1e6,
+                prx_gz.len() as f64 / 1e6,
+                source.len() as f64 / 1e6,
+                source_dl as f64 / 1e6,
+                prx_gz.len() as f64 / source_dl.max(1) as f64,
+            );
+            assert!(
+                prx_gz.len() < source_dl,
+                "{}: compact .prx.gz ({} B) NOT smaller than gzip(source) ({} B)",
+                entry.name,
+                prx_gz.len(),
+                source_dl,
+            );
+
+            let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
+            assert_eq!(
+                usc.section_count(),
+                data.entity_count as usize,
+                "{}: compact-loaded section count differs",
+                entry.name
+            );
+            measured += 1;
+        }
+        // No on-disk title within the cap (a plain checkout) — correctness is
+        // still covered by the inline-fixture test above.
+        if measured == 0 {
+            eprintln!("compact_usc gate: no on-disk USC title within the CI cap — skipped");
+        }
+    }
+
+    /// Deep-dive measurement over EVERY on-disk USC title (including the giants),
+    /// printing the compact runtime `.prx.gz` against the SOURCE download
+    /// (`gzip(source)`), plus section/subdivision counts and the registered
+    /// fidelity tier. Ignored by default — it parses the whole provisioned corpus
+    /// (Title 42 ≈ 113 MB), far past the CI per-test budget. One parse per title.
+    /// Run: `cargo test … deep_dive_all_usc_titles --features prx -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "parses the whole provisioned USC corpus (~250MB); measurement, not a gate"]
+    fn deep_dive_all_usc_titles() {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        use crate::formal::meta::well_behaved_lens::lens_by_name;
+
+        let root = workspace_root();
+        eprintln!(
+            "\n{:<14} {:>9} {:>11} {:>9} {:>7} {:>9} {:>9}  tier",
+            "title", "src.xml", "cmp.prx.gz", "src.gz", "vs.dl", "sections", "subdivs"
+        );
+        let (mut tot_src, mut tot_cmp, mut tot_srcgz) = (0u64, 0u64, 0u64);
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+                continue;
+            }
+            let path = root.join(entry.local_path());
+            let Ok(source) = std::fs::read(&path) else {
+                continue;
+            };
+            let text = core::str::from_utf8(&source).expect("UTF-8");
+            let title = read_uslm_title(text).expect("parse title");
+            let (data, aux) = title_to_owned(&title);
+            let subdivs: usize = aux.iter().map(|a| count_owned(&a.subdivisions)).sum();
+            let succ = compact_usc_to_succinct(&data, &aux);
+            // Lossless even on the giants the CI-capped gate skips (Title 42 ≈ 113 MB,
+            // 132 889 subdivisions) — the round-trip the same codec path makes.
+            let (data_back, aux_back) = compact_usc_from_succinct(&succ);
+            assert_eq!(data_back, data, "{}: data not lossless", entry.name);
+            assert_eq!(aux_back, aux, "{}: aux not lossless", entry.name);
+            let compact = gzip(&succ).expect("gzip compact");
+            let source_gz = gzip(&source).expect("gzip source");
+            let graph_faithful = lens_by_name(&format!("{}@{}", entry.name, entry.version))
+                .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
+
+            tot_src += source.len() as u64;
+            tot_cmp += compact.len() as u64;
+            tot_srcgz += source_gz.len() as u64;
+            eprintln!(
+                "{:<14} {:>8.1}M {:>10.2}M {:>8.2}M {:>6.2}x {:>9} {:>9}  {}",
+                entry.name,
+                source.len() as f64 / 1e6,
+                compact.len() as f64 / 1e6,
+                source_gz.len() as f64 / 1e6,
+                compact.len() as f64 / source_gz.len().max(1) as f64,
+                data.entity_count,
+                subdivs,
+                if graph_faithful {
+                    "graph-faithful"
+                } else {
+                    "floor"
+                },
+            );
+        }
+        eprintln!(
+            "{:<14} {:>8.1}M {:>10.2}M {:>8.2}M {:>6.2}x  (compact .prx.gz vs source download, all on-disk titles)",
+            "TOTAL",
+            tot_src as f64 / 1e6,
+            tot_cmp as f64 / 1e6,
+            tot_srcgz as f64 / 1e6,
+            tot_cmp as f64 / tot_srcgz.max(1) as f64,
+        );
     }
 
     /// The OMV/PROV-O metadata's USC structural metrics are computed
