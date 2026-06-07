@@ -1540,6 +1540,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "sucds",
  "tempfile",
  "toml",
  "unicode-normalization",
@@ -2205,6 +2206,16 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "sucds"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd324eaa05be64f105ea5269bb8aabd70e5dd57fa5c673b167f451b07d6c0dcd"
+dependencies = [
+ "anyhow",
+ "num-traits",
+]
 
 [[package]]
 name = "syn"

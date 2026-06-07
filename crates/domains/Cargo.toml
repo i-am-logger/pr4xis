@@ -104,6 +104,11 @@ flate2 = { version = "1", optional = true }
 # Cite: Hill, D. *rkyv: zero-copy deserialization framework for Rust*,
 # v0.8, MIT, <https://github.com/rkyv/rkyv>.
 rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"], optional = true }
+# Succinct data structures (Vigna-style: CompactVector / EliasFano / LOUDS,
+# rank-select) for the size-reduced `.prx` ontology core — the structure
+# (bit-packed CSR adjacency) and, later, the hypernym tree (LOUDS). Pure Rust;
+# `intrinsics` (x86-only) stays OFF so it can target wasm32 once folded in.
+sucds = { version = "0.8", default-features = false, features = ["std"], optional = true }
 
 [features]
 default = ["std"]
@@ -128,6 +133,10 @@ codegen = ["std", "pr4xis/codegen"]
 # lets the WASM runtime load a validated `.prx.gz` while keeping `ureq` /
 # `rustls` (which do not compile to wasm32) off that build.
 prx = ["std", "dep:rkyv", "dep:flate2"]
+# The succinct `.prx` codec (bit-packed CSR structure + LOUDS topology over the
+# compact ontology core). Isolated from `prx` while its wasm32 build is being
+# verified; folds into `prx` once the runtime decode path is wasm-clean.
+succinct = ["prx", "dep:sucds"]
 fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
 
 [build-dependencies]

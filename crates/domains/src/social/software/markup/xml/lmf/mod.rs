@@ -4,6 +4,9 @@ pub mod dtd;
 // and is the on-the-wire/embedded compact form of the ontology.
 #[cfg(feature = "prx")]
 pub mod compact;
+// The succinct `.prx` codec (sucds: bit-packed CSR structure + LOUDS topology).
+#[cfg(feature = "succinct")]
+pub mod compact_succinct;
 // The WN-LMF byte-exact graph-faithful lens + its harness registration (flips
 // `english_wordnet` off the universal floor in the completeness meter). Native
 // only — `register_lens!`'s `linkme` distributed slice is unsupported on wasm32,
