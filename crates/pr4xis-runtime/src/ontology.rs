@@ -195,7 +195,7 @@ pub struct RuntimeEdge {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MaterializedClosure {
     /// `kind → ReachabilityClosure` — one shared
-    /// [`ReachabilityClosure`](pr4xis::category::quiver::ReachabilityClosure)
+    /// [`ReachabilityClosure`]
     /// per transitive relation kind. The fold, the fixpoint, and the
     /// O(1)-lookup invariant all live in that one shared construct (the same one
     /// the English hypernym closure uses); this type only partitions it by kind
@@ -215,7 +215,7 @@ impl MaterializedClosure {
     /// saturated here, once, so every later query is an O(1) lookup. We always
     /// fold from the GENERATING edges and never trust a pre-stored closure. The
     /// per-kind fold delegates to the shared
-    /// [`ReachabilityClosure`](pr4xis::category::quiver::ReachabilityClosure) —
+    /// [`ReachabilityClosure`] —
     /// no bespoke fixpoint loop lives here.
     pub fn fold(edges: &[RuntimeEdge]) -> Self {
         let mut reachable: BTreeMap<RelationKind, ReachabilityClosure<ConceptRef>> =
@@ -266,7 +266,7 @@ impl MaterializedClosure {
     /// distance. A lookup over the materialized set; empty (apart from `c`) when
     /// `c` has no Subsumption ancestors. This is the loaded-ontology analogue of
     /// `English::ancestors`, sharing the same
-    /// [`ReachabilityClosure`](pr4xis::category::quiver::ReachabilityClosure).
+    /// [`ReachabilityClosure`].
     pub fn subsumption_image(&self, c: &ConceptRef) -> Vec<(ConceptRef, u32)> {
         self.reachable
             .get(&RelationKind::Subsumption)

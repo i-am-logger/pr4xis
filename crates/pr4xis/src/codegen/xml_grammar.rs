@@ -3,7 +3,7 @@
 //! Reads the registered `xml_1_0_fifth_edition@2008` source — the
 //! published `xmlspec.dtd`-format XML containing 86 `<prod>` blocks,
 //! one per EBNF production. Extracts the character-class productions
-//! (§2.2 [2] `Char`, §2.3 [4] `NameStartChar`, §2.3 [4a] `NameChar`)
+//! (§2.2 \[2\] `Char`, §2.3 \[4\] `NameStartChar`, §2.3 \[4a\] `NameChar`)
 //! and emits Rust source with const range tables + predicate
 //! functions consumed by `parser::grammar`.
 //!
@@ -33,7 +33,7 @@
 //! - **Bray, T., Paoli, J., Sperberg-McQueen, C. M., Maler, E. &
 //!   Yergeau, F.** (eds.) (2008) *Extensible Markup Language (XML)
 //!   1.0 (Fifth Edition)*, W3C Recommendation 26 November 2008,
-//!   §2.2 production [2] `Char`, §2.3 productions [4]/[4a]
+//!   §2.2 production \[2\] `Char`, §2.3 productions \[4\]/\[4a\]
 //!   `NameStartChar` / `NameChar`, Appendix \[B\] *Notation*.
 
 use std::path::Path;

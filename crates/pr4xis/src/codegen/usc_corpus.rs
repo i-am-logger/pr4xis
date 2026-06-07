@@ -21,7 +21,7 @@
 //!   `/us/usc/t18/s1514A`. Grammar-validated against the LRC USLM
 //!   identifier conventions (§V) by virtue of being read straight
 //!   out of the LRC-published XML; the runtime functor
-//!   [`UsCode::from_codegen`] const-constructs an `Identifier` from
+//!   `UsCode::from_codegen` const-constructs an `Identifier` from
 //!   it without re-validation.
 //! - `EntityDef.label` — section heading text (`<heading>`),
 //!   whitespace-collapsed.
@@ -32,12 +32,12 @@
 //! - `pos` — the string `"section"` (USLM element name); the
 //!   `entity_kind` slice of `CodegenData` carries this through.
 //!
-//! Each section also produces one [`SectionAux`] record holding the
+//! Each section also produces one `SectionAux` record holding the
 //! full subdivision tree (subsection / paragraph / subparagraph /
 //! clause / subclause / item / subitem — every member of the loaded
 //! USLM XSD's `substitutionGroup="level"` family per W3C XSD 1.1
 //! Part 1 §3.3.6, intersected with the level-below-section subset
-//! per [`SubdivisionKind`]) and the Composes-edge list joining
+//! per `SubdivisionKind`) and the Composes-edge list joining
 //! parent to child.
 //!
 //! ## Literature

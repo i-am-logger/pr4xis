@@ -8,13 +8,13 @@
 //! structure-preserving map out of a finitely-presented category is *fully
 //! determined by its action on generators*. The generators of an `ontology!`
 //! category are its concept variants ([`FinitelyGenerated::variants`]) and its
-//! relation-kinds; a [`Functor`](super::functor::Functor) is therefore
+//! relation-kinds; a [`Functor`] is therefore
 //! recoverable from the finite table `(source generator → target image)` it
 //! induces. This struct IS that table, computed once per registered arrow.
 //!
 //! # Why `pr4xis`-native (not the runtime `Connection`)
 //!
-//! The serialized, content-addressed [`Connection`] lives in `pr4xis-runtime`,
+//! The serialized, content-addressed `Connection` lives in `pr4xis-runtime`,
 //! which depends on `pr4xis` — so `pr4xis` cannot name it without a cycle. The
 //! registry (here, in `pr4xis`) instead emits this language: the typed
 //! source/target [`OntologyName`]s plus the finite generator tables. The

@@ -2,7 +2,7 @@
 //!
 //! # Why a separate trait
 //!
-//! [`Category`](super::category::Category) is the bare categorical structure:
+//! [`Category`] is the bare categorical structure:
 //! objects, morphisms, identity, composition. It deliberately carries no name —
 //! a category is a mathematical object, not a named ontology, and the 41
 //! hand-rolled `impl Category` blocks across the workspace must stay valid
@@ -42,7 +42,7 @@ use crate::ontology::meta::OntologyName;
 ///
 /// The name is the ontology's identity at the connection layer: a functor
 /// between two `NamedCategory`s serializes each endpoint's `ontology_name()`
-/// into its [`Connection`]'s `source`/`target`, so the cross-ontology arrow is
+/// into its `Connection`'s `source`/`target`, so the cross-ontology arrow is
 /// content-addressed by the OTHER ontology's declared name — never by a
 /// toolchain-bound type name. The declared name must agree with the name the
 /// category's `Vocabulary` registers under (the same `name:` literal the author

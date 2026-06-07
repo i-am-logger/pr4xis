@@ -19,7 +19,7 @@
 //!
 //! The projection also serializes every **connection** (functor / adjunction /
 //! natural transformation) that touches `Cat`: from the registry's
-//! [`connection_constructors`](pr4xis::ontology::connection_constructors) it
+//! [`connection_constructors`] it
 //! selects the entries whose source or target ontology name is `Cat`'s own
 //! ([`NamedCategory::ontology_name`](pr4xis::category::NamedCategory::ontology_name)),
 //! extracts each one's finite

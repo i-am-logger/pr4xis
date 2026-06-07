@@ -339,7 +339,7 @@ impl OwnedCodegenData {
     /// complement — only the columns the runtime reasons over.
     ///
     /// Source-agnostic: it touches only the generic
-    /// [`CodegenData`](pr4xis::codegen_data::CodegenData) columns, so the same
+    /// [`CodegenData`] columns, so the same
     /// codec serializes any source's interchange. Entity handles and edge
     /// endpoints are `< entity_count` (well under `2^32`), so the `usize`
     /// columns are lossless on wasm32. `from_succinct(&to_succinct(d)) == d`.

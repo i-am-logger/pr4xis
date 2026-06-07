@@ -1,4 +1,4 @@
-//! Succinct codec for [`CompactWordNet`](super::compact::CompactWordNet):
+//! Succinct codec for [`CompactWordNet`]:
 //! [`to_succinct`] / [`from_succinct`] serialize the compact ontology to the
 //! `.prx` bytes (embedded as `include_bytes!` of the `.gz`, or downloaded, then
 //! gunzipped and decoded at load).
