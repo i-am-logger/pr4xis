@@ -303,7 +303,7 @@ pub fn encode(wn: &WordNet) -> CompactWordNet {
         .map(|sb| encode_synbehav(&mut d, &sense_idx, sb))
         .collect();
 
-    CompactWordNet {
+    let built = CompactWordNet {
         dict: d.pool,
         lexicon,
         syn_pos,
@@ -331,7 +331,107 @@ pub fn encode(wn: &WordNet) -> CompactWordNet {
         entry_forms,
         entry_synbehav,
         lex_synbehav,
+    };
+    // Canonicalize the dictionary to SORTED order (remapping every dict
+    // reference), so the codec's front-coding finds shared prefixes between
+    // adjacent entries. Node-index references are untouched; reasoning-
+    // equivalence is preserved (each reference still resolves to the same
+    // string).
+    canonicalize_dict(built)
+}
+
+/// Sort [`CompactWordNet::dict`] lexicographically and remap every dictionary
+/// reference to the new index. Node-index references (relation targets,
+/// `sense_synset`, members, synbehav senses, sense ranges) are NOT touched.
+fn canonicalize_dict(mut c: CompactWordNet) -> CompactWordNet {
+    let n = c.dict.len();
+    let mut order: Vec<u32> = (0..n as u32).collect();
+    order.sort_by(|&a, &b| c.dict[a as usize].cmp(&c.dict[b as usize]));
+    let mut remap = alloc::vec![0u32; n];
+    for (new, &old) in order.iter().enumerate() {
+        remap[old as usize] = new as u32;
     }
+    let new_dict: Vec<String> = order
+        .iter()
+        .map(|&old| c.dict[old as usize].clone())
+        .collect();
+
+    let rd = |d: &mut Dict| *d = remap[*d as usize];
+    let rdo = |o: &mut Option<Dict>| {
+        if let Some(d) = o {
+            *d = remap[*d as usize];
+        }
+    };
+    let remap_pron = |p: &mut IPron| {
+        rd(&mut p.text);
+        rdo(&mut p.variety);
+        rdo(&mut p.notation);
+        rdo(&mut p.phonemic);
+        rdo(&mut p.audio);
+    };
+
+    c.syn_ili.iter_mut().for_each(&rdo);
+    c.syn_definitions
+        .iter_mut()
+        .for_each(|v| v.iter_mut().for_each(&rd));
+    c.syn_ili_definition.iter_mut().for_each(&rdo);
+    c.syn_examples
+        .iter_mut()
+        .for_each(|v| v.iter_mut().for_each(&rd));
+    c.syn_lexfile.iter_mut().for_each(&rdo);
+    c.syn_dc_source.iter_mut().for_each(&rdo);
+    c.syn_confidence.iter_mut().for_each(&rdo);
+
+    c.sense_subcat
+        .iter_mut()
+        .for_each(|v| v.iter_mut().for_each(&rd));
+    c.sense_adjposition.iter_mut().for_each(&rdo);
+    c.sense_dc_source.iter_mut().for_each(&rdo);
+    c.sense_counts
+        .iter_mut()
+        .for_each(|v| v.iter_mut().for_each(&rd));
+
+    c.entry_lemma_form.iter_mut().for_each(&rd);
+    c.entry_lemma_script.iter_mut().for_each(&rdo);
+    c.entry_lemma_prons
+        .iter_mut()
+        .for_each(|ps| ps.iter_mut().for_each(&remap_pron));
+    c.entry_forms.iter_mut().for_each(|fs| {
+        fs.iter_mut().for_each(|f| {
+            rd(&mut f.written_form);
+            rdo(&mut f.id);
+            rdo(&mut f.script);
+            f.pronunciations.iter_mut().for_each(&remap_pron);
+        })
+    });
+
+    let remap_sb = |sb: &mut ISynBehav| {
+        rdo(&mut sb.id);
+        rd(&mut sb.subcategorization_frame);
+    };
+    c.entry_synbehav
+        .iter_mut()
+        .for_each(|v| v.iter_mut().for_each(&remap_sb));
+    c.lex_synbehav.iter_mut().for_each(&remap_sb);
+
+    rdo(&mut c.lexicon.id);
+    rdo(&mut c.lexicon.label);
+    rdo(&mut c.lexicon.language);
+    rdo(&mut c.lexicon.email);
+    rdo(&mut c.lexicon.license);
+    rdo(&mut c.lexicon.version);
+    rdo(&mut c.lexicon.url);
+    rdo(&mut c.lexicon.citation);
+    rdo(&mut c.lexicon.logo);
+    rdo(&mut c.lexicon.status);
+    rdo(&mut c.lexicon.confidence_score);
+    c.lexicon.dc.iter_mut().for_each(|(k, v)| {
+        rd(k);
+        rd(v);
+    });
+
+    c.dict = new_dict;
+    c
 }
 
 fn encode_lexicon(d: &mut DictBuilder, lx: &LexiconMetadata) -> ILexiconMetadata {

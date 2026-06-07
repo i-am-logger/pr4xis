@@ -155,6 +155,45 @@ fn get_dict(buf: &[u8], pos: &mut usize) -> Vec<String> {
         .collect()
 }
 
+/// Front-coded dictionary (HDT's technique): for a SORTED list, store each
+/// entry as `varint(shared_prefix_len) varint(suffix_len) suffix`, so a shared
+/// prefix with the previous entry is never repeated. The `compact::encode`
+/// pass sorts the dict so adjacent entries share prefixes. Decodes back to the
+/// exact `Vec<String>` (a sequential pass at load — not random-access; that is
+/// the FSST/query-in-place tradeoff, deliberately not taken here).
+fn put_dict_fc(out: &mut Vec<u8>, dict: &[String]) {
+    put_varint(out, dict.len() as u64);
+    let mut fc = Vec::new();
+    let mut prev: &[u8] = b"";
+    for s in dict {
+        let b = s.as_bytes();
+        let shared = prev.iter().zip(b).take_while(|(x, y)| x == y).count();
+        put_varint(&mut fc, shared as u64);
+        put_varint(&mut fc, (b.len() - shared) as u64);
+        fc.extend_from_slice(&b[shared..]);
+        prev = b;
+    }
+    put_blob(out, &fc);
+}
+
+fn get_dict_fc(buf: &[u8], pos: &mut usize) -> Vec<String> {
+    let n = get_varint(buf, pos) as usize;
+    let fc = get_blob(buf, pos);
+    let mut fp = 0usize;
+    let mut out = Vec::with_capacity(n);
+    let mut prev: Vec<u8> = Vec::new();
+    for _ in 0..n {
+        let shared = get_varint(fc, &mut fp) as usize;
+        let suffix_len = get_varint(fc, &mut fp) as usize;
+        let mut s = prev[..shared].to_vec();
+        s.extend_from_slice(&fc[fp..fp + suffix_len]);
+        fp += suffix_len;
+        out.push(String::from_utf8(s.clone()).expect("dict utf8"));
+        prev = s;
+    }
+    out
+}
+
 // ── LmfPos <-> u8 (a closed enum; an exact bijection) ──────────────────────
 
 fn pos_to_u8(p: LmfPos) -> u8 {
@@ -233,7 +272,7 @@ pub fn to_succinct(c: &CompactWordNet) -> Vec<u8> {
     put_varint(&mut out, c.sense_synset.len() as u64);
     put_varint(&mut out, c.entry_lemma_form.len() as u64);
 
-    put_dict(&mut out, &c.dict);
+    put_dict_fc(&mut out, &c.dict);
 
     // Relation-type string dictionaries (distinct as_str values), so each
     // relation stores a tiny index; parse(as_str) reconstructs the enum.
@@ -374,7 +413,7 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
     let _n_sense = get_varint(buf, &mut pos) as usize;
     let _n_entry = get_varint(buf, &mut pos) as usize;
 
-    let dict = get_dict(buf, &mut pos);
+    let dict = get_dict_fc(buf, &mut pos);
     let syn_rt = get_dict(buf, &mut pos);
     let sense_rt = get_dict(buf, &mut pos);
 
