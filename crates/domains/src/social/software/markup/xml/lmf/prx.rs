@@ -978,6 +978,234 @@ mod tests {
     const FX_VERSION: &str = "2025";
     const FX_URL: &str = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz";
 
+    // ── interned-complete measurement substrate (words+meanings vs connections) ──
+
+    /// A measurement-only string interner that separates the WHOLE WordNet into
+    /// three honest cost buckets, deduplicating as it goes:
+    ///
+    /// * `text` — the **words + meanings**: every lemma, inflected form, gloss,
+    ///   example, ILI definition, pronunciation transcription and subcat-frame
+    ///   template. The irreducible lexical content — this is what a dictionary
+    ///   IS, the floor no encoding can drop without losing meaning.
+    /// * `refs` — the **addressing**: synset / sense / entry / form ids,
+    ///   relation targets, members, ILI codes, POS + relType tokens, lexfile /
+    ///   dc:source tags. Stored here as strings, but this is exactly the bucket
+    ///   a content-addressed / integer-indexed runtime could collapse to `u32`s
+    ///   — so it measures the *squeezable* addressing overhead.
+    /// * `topo` — the **structure**: a flat `u32` stream of ids + inline counts
+    ///   carrying NO text, the graph skeleton itself.
+    ///
+    /// `(text, refs, topo)` is a LOSSLESS interned encoding of the WHOLE WordNet
+    /// ([`intern_wordnet`] walks every field of every struct — no relation type
+    /// dropped, no gloss truncated), so its gzipped size is the honest FLOOR for
+    /// a "compact AND complete" `.prx`: the un-interned `wn` (≈17.6 MB, every
+    /// duplicate id/POS/relType re-stored) overshoots it, and the lossy `data`
+    /// (≈5.6 MB, ~7 of ~25 relations, one gloss, no examples/pronunciations)
+    /// undershoots it by THROWING THE ONTOLOGY AWAY. Used ONLY by
+    /// [`wn_compactness_breakdown_measurement`].
+    #[derive(Default)]
+    struct WnInterner {
+        text_index: std::collections::HashMap<String, u32>,
+        /// Unique lexical strings — the words + meanings.
+        text: Vec<String>,
+        ref_index: std::collections::HashMap<String, u32>,
+        /// Unique addressing strings — ids, targets, tokens (→ collapsible).
+        refs: Vec<String>,
+        /// u32 ids + inline counts — the pure graph structure.
+        topo: Vec<u32>,
+        /// Lexical occurrences walked (pre-dedup), for the dedup ratio.
+        text_occ: usize,
+        /// Addressing occurrences walked (pre-dedup), for the dedup ratio.
+        ref_occ: usize,
+    }
+
+    impl WnInterner {
+        /// Intern a LEXICAL string (a word or a meaning) and record its id.
+        fn s(&mut self, s: &str) {
+            self.text_occ += 1;
+            let id = if let Some(&id) = self.text_index.get(s) {
+                id
+            } else {
+                let id = self.text.len() as u32;
+                self.text.push(s.to_string());
+                self.text_index.insert(s.to_string(), id);
+                id
+            };
+            self.topo.push(id);
+        }
+        /// Intern an ADDRESSING string (an id, target, or token) and record it.
+        fn r(&mut self, s: &str) {
+            self.ref_occ += 1;
+            let id = if let Some(&id) = self.ref_index.get(s) {
+                id
+            } else {
+                let id = self.refs.len() as u32;
+                self.refs.push(s.to_string());
+                self.ref_index.insert(s.to_string(), id);
+                id
+            };
+            self.topo.push(id);
+        }
+        /// Optional lexical string (absent → the interned empty string).
+        fn opt_s(&mut self, o: &Option<String>) {
+            self.s(o.as_deref().unwrap_or(""));
+        }
+        /// Optional addressing string (absent → the interned empty string).
+        fn opt_r(&mut self, o: &Option<String>) {
+            self.r(o.as_deref().unwrap_or(""));
+        }
+        /// Emit a raw count/length into the topology stream (no text).
+        fn n(&mut self, v: usize) {
+            self.topo.push(v as u32);
+        }
+    }
+
+    /// Walk the FULL `wn` ONCE, routing every string to its cost bucket (lexical
+    /// content → [`WnInterner::s`], addressing → [`WnInterner::r`]) and emitting
+    /// the complete topology — covering EVERY field of EVERY struct (lexicon
+    /// metadata, synsets with all definitions/examples/members/relations,
+    /// entries with lemma + senses + forms + pronunciations + counts + syntactic
+    /// behaviours). The three buckets therefore losslessly encode the whole
+    /// ontology; nothing is projected away. Pronunciation and syntactic-
+    /// behaviour subtrees are inlined (not factored into helpers) so the walk
+    /// names no ontology type beyond [`WordNet`] — field access carries the rest.
+    fn intern_wordnet(wn: &WordNet) -> WnInterner {
+        let mut iv = WnInterner::default();
+
+        // <Lexicon> metadata — id is addressing, the rest descriptive text.
+        let lx = &wn.lexicon;
+        iv.opt_r(&lx.id);
+        for f in [
+            &lx.label,
+            &lx.language,
+            &lx.email,
+            &lx.license,
+            &lx.version,
+            &lx.url,
+            &lx.citation,
+            &lx.logo,
+            &lx.status,
+            &lx.confidence_score,
+        ] {
+            iv.opt_s(f);
+        }
+        iv.n(lx.dc.len());
+        for (k, v) in &lx.dc {
+            iv.r(k);
+            iv.s(v);
+        }
+
+        // <Synset>* — definitions / examples / ILI-gloss are MEANING; the id,
+        // ILI code, POS, members, relType + target, lexfile, dc:source are
+        // ADDRESSING.
+        iv.n(wn.synsets.len());
+        for syn in &wn.synsets {
+            iv.r(&syn.id);
+            iv.opt_r(&syn.ili);
+            iv.r(&format!("{:?}", syn.pos));
+            iv.n(syn.members.len());
+            for m in &syn.members {
+                iv.r(m);
+            }
+            iv.n(syn.definitions.len());
+            for d in &syn.definitions {
+                iv.s(d);
+            }
+            iv.opt_s(&syn.ili_definition);
+            iv.n(syn.examples.len());
+            for e in &syn.examples {
+                iv.s(e);
+            }
+            iv.n(syn.relations.len());
+            for r in &syn.relations {
+                iv.r(r.rel_type.as_str());
+                iv.r(&r.target);
+            }
+            iv.opt_r(&syn.lexfile);
+            iv.opt_r(&syn.dc_source);
+            iv.opt_r(&syn.confidence_score);
+        }
+
+        // <LexicalEntry>* — the lemma / form written-forms and the IPA + frame
+        // templates are WORDS; ids, sense→synset refs, relation targets are
+        // ADDRESSING.
+        iv.n(wn.entries.len());
+        for e in &wn.entries {
+            iv.r(&e.id);
+            // <Lemma>.
+            iv.s(&e.lemma.written_form);
+            iv.r(&format!("{:?}", e.lemma.pos));
+            iv.opt_r(&e.lemma.script);
+            iv.n(e.lemma.pronunciations.len());
+            for p in &e.lemma.pronunciations {
+                iv.s(&p.text);
+                iv.opt_r(&p.variety);
+                iv.opt_r(&p.notation);
+                iv.opt_r(&p.phonemic);
+                iv.opt_r(&p.audio);
+            }
+            // <Sense>*.
+            iv.n(e.senses.len());
+            for s in &e.senses {
+                iv.r(&s.id);
+                iv.r(&s.synset);
+                iv.n(s.relations.len());
+                for r in &s.relations {
+                    iv.r(r.rel_type.as_str());
+                    iv.r(&r.target);
+                }
+                iv.n(s.subcat.len());
+                for sc in &s.subcat {
+                    iv.r(sc);
+                }
+                iv.opt_r(&s.adjposition);
+                iv.opt_r(&s.dc_source);
+                iv.n(s.counts.len());
+                for c in &s.counts {
+                    iv.r(&c.value);
+                }
+            }
+            // <Form>*.
+            iv.n(e.forms.len());
+            for f in &e.forms {
+                iv.s(&f.written_form);
+                iv.opt_r(&f.id);
+                iv.opt_r(&f.script);
+                iv.n(f.pronunciations.len());
+                for p in &f.pronunciations {
+                    iv.s(&p.text);
+                    iv.opt_r(&p.variety);
+                    iv.opt_r(&p.notation);
+                    iv.opt_r(&p.phonemic);
+                    iv.opt_r(&p.audio);
+                }
+            }
+            // entry-level <SyntacticBehaviour>* — frame template is content.
+            iv.n(e.syntactic_behaviours.len());
+            for sb in &e.syntactic_behaviours {
+                iv.opt_r(&sb.id);
+                iv.s(&sb.subcategorization_frame);
+                iv.n(sb.senses.len());
+                for sref in &sb.senses {
+                    iv.r(sref);
+                }
+            }
+        }
+
+        // lexicon-level <SyntacticBehaviour>*.
+        iv.n(wn.syntactic_behaviours.len());
+        for sb in &wn.syntactic_behaviours {
+            iv.opt_r(&sb.id);
+            iv.s(&sb.subcategorization_frame);
+            iv.n(sb.senses.len());
+            for sref in &sb.senses {
+                iv.r(sref);
+            }
+        }
+
+        iv
+    }
+
     // ── envelope / gate round-trip + determinism ──────────────────────
 
     /// to_bytes ∘ from_bytes is identity (the GetPut leg, incl. the word
@@ -1388,6 +1616,175 @@ mod tests {
             lref.len(),
             larch.len(),
             "lookup('dog') sense count must survive the archive"
+        );
+    }
+
+    // ── COMPACTNESS MEASUREMENT: where do the WN `.prx` bytes actually go? ──
+
+    /// MEASUREMENT (2026-06-07), not a gate — answers "why is the `.prx` larger
+    /// than the source, and what would a compact-AND-complete one cost?" for the
+    /// source that matters (`english_wordnet`; the ~5.8 MB-gzipped-wasm runtime
+    /// baseline is codegen of THIS). Two views, both gzipped for apples-to-apples:
+    ///
+    /// 1. **Layer split** of the shipped graph-faithful `.prx`: `wn` (the
+    ///    semantic WordNet ontology, rkyv'd un-interned), `complement` (concrete-
+    ///    syntax residue), `data` (the lossy `OwnedCodegenData` reasoning
+    ///    projection) — vs `gzip(source)` and the current total. Confirms the
+    ///    bloat is the SEMANTIC graph's rkyv encoding (every duplicate id / POS /
+    ///    relType re-stored — NO interning), not the residue.
+    ///
+    /// 2. **Interned-complete split** ([`intern_wordnet`]): the LOSSLESS floor a
+    ///    compact-but-complete `.prx` could reach, decomposed into the
+    ///    irreducible lexical content (words+meanings), the squeezable addressing
+    ///    (string ids that a content-addressed runtime could collapse to `u32`),
+    ///    and the pure graph structure. This is the honest target the North Star
+    ///    aims at — strictly bigger than the lossy `data` (which hits ~5.8 MB only
+    ///    by dropping ~18 of ~25 relation types, all examples, pronunciations,
+    ///    ILI, …), strictly smaller than the un-interned `wn`.
+    ///
+    /// Runs on the tiny `us_legal_lexicon` (instant) AND the 89 MB english (one
+    /// heavy build); graceful skip if absent.
+    #[test]
+    fn wn_compactness_breakdown_measurement() {
+        use std::io::Write as _;
+        fn gz_len(bytes: &[u8]) -> usize {
+            let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            e.write_all(bytes).expect("gz write");
+            e.finish().expect("gz finish").len()
+        }
+        // (name, version, relative path) — lexicon first (instant), english second.
+        let sources = [
+            (
+                "us_legal_lexicon",
+                "2026",
+                "crates/domains/data/legal-text/us_legal_lexicon.xml",
+            ),
+            (
+                FX_NAME,
+                FX_VERSION,
+                "crates/domains/data/wordnet/english-wordnet-2025.xml",
+            ),
+        ];
+        let mut measured = 0usize;
+        for (name, version, rel) in sources {
+            let Ok(source) = std::fs::read(workspace_root().join(rel)) else {
+                continue;
+            };
+            let envelope = build_wordnet_envelope(&source, name, version, FX_URL)
+                .unwrap_or_else(|e| panic!("build {name}: {e}"));
+            let g = envelope
+                .graph
+                .as_ref()
+                .unwrap_or_else(|| panic!("{name} must be graph-faithful for this measurement"));
+
+            // Keep the RAW rkyv buffers: the `.prx` itself is the uncompressed
+            // rkyv (what the runtime mmaps / loads zero-copy); the `.gz` is only
+            // the transport wrapper. Report BOTH so the in-memory footprint is
+            // visible, not just the wire size.
+            let prx_bytes = wordnet_envelope_to_bytes(&envelope).expect("envelope bytes");
+            let wn_bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&g.wn).expect("rkyv wn");
+            let comp_bytes =
+                rkyv::to_bytes::<rkyv::rancor::Error>(&g.complement).expect("rkyv complement");
+            let data_bytes =
+                rkyv::to_bytes::<rkyv::rancor::Error>(&envelope.data).expect("rkyv data");
+
+            let source_gz = gz_len(&source);
+            let total_raw = prx_bytes.len(); // the .prx (uncompressed rkyv)
+            let total_gz = gz_len(&prx_bytes); // the .prx.gz (transport)
+            let semantic_raw = wn_bytes.len();
+            let semantic_gz = gz_len(&wn_bytes);
+            let complement_raw = comp_bytes.len();
+            let complement_gz = gz_len(&comp_bytes);
+            let data_raw = data_bytes.len();
+            let data_gz = gz_len(&data_bytes);
+
+            eprintln!(
+                "WN-COMPACTNESS {name}: source.xml={:.2}MB | gzip(source)={:.2}MB || \
+                 total.prx(raw rkyv)={:.2}MB  total.prx.gz={:.2}MB  (gz {:.1}x) || \
+                 wn(semantic) raw={:.2}MB/gz={:.2}MB  complement raw={:.2}MB/gz={:.2}MB  \
+                 data raw={:.2}MB/gz={:.2}MB || synsets={} entries={}",
+                source.len() as f64 / 1e6,
+                source_gz as f64 / 1e6,
+                total_raw as f64 / 1e6,
+                total_gz as f64 / 1e6,
+                total_raw as f64 / total_gz.max(1) as f64,
+                semantic_raw as f64 / 1e6,
+                semantic_gz as f64 / 1e6,
+                complement_raw as f64 / 1e6,
+                complement_gz as f64 / 1e6,
+                data_raw as f64 / 1e6,
+                data_gz as f64 / 1e6,
+                g.wn.synsets.len(),
+                g.wn.entries.len(),
+            );
+
+            // ── INTERNED-COMPLETE split — does the user's hypothesis hold? One
+            // lossless walk separating the WHOLE ontology into the irreducible
+            // lexical content (words+meanings), the squeezable addressing
+            // (string ids → could be u32), and the pure graph structure.
+            let iv = intern_wordnet(&g.wn);
+            let text_bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&iv.text).expect("rkyv text");
+            let refs_bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&iv.refs).expect("rkyv refs");
+            let mut topo_bytes = Vec::with_capacity(iv.topo.len() * 4);
+            for &x in &iv.topo {
+                topo_bytes.extend_from_slice(&x.to_le_bytes());
+            }
+            let words_raw = text_bytes.len(); // words + meanings (irreducible)
+            let words_gz = gz_len(&text_bytes);
+            let addr_raw = refs_bytes.len(); // addressing (id strings, squeezable)
+            let addr_gz = gz_len(&refs_bytes);
+            let struct_raw = topo_bytes.len(); // graph structure (u32 stream)
+            let struct_gz = gz_len(&topo_bytes);
+            let mut combined =
+                Vec::with_capacity(text_bytes.len() + refs_bytes.len() + topo_bytes.len());
+            combined.extend_from_slice(&text_bytes);
+            combined.extend_from_slice(&refs_bytes);
+            combined.extend_from_slice(&topo_bytes);
+            let interned_total_raw = combined.len();
+            let interned_total_gz = gz_len(&combined); // one gzip over all three
+            // The content-addressed floor: a runtime that addresses nodes by
+            // INTEGER index keeps the lexical text + the (already-integer)
+            // structure stream, and moves the id-STRINGS to the decompile-only
+            // complement. So drop the `refs` table — text + topo is the compact,
+            // COMPLETE runtime graph.
+            let mut content_addressed = Vec::with_capacity(text_bytes.len() + topo_bytes.len());
+            content_addressed.extend_from_slice(&text_bytes);
+            content_addressed.extend_from_slice(&topo_bytes);
+            let content_addressed_raw = content_addressed.len();
+            let content_addressed_gz = gz_len(&content_addressed);
+
+            eprintln!(
+                "WN-INTERNED {name}: interned.total raw={:.2}MB/gz={:.2}MB  (content-addressed \
+                 floor, id-strings→complement: raw={:.2}MB/gz={:.2}MB) || words+meanings \
+                 raw={:.2}MB/gz={:.2}MB  addressing raw={:.2}MB/gz={:.2}MB  structure \
+                 raw={:.2}MB/gz={:.2}MB || unique_words={} (×{} occ, dedup {:.1}x)  unique_refs={} \
+                 (×{} occ, dedup {:.1}x) || vs un-interned wn gz={:.2}MB  vs lossy data gz={:.2}MB  \
+                 vs current total.prx.gz={:.2}MB",
+                interned_total_raw as f64 / 1e6,
+                interned_total_gz as f64 / 1e6,
+                content_addressed_raw as f64 / 1e6,
+                content_addressed_gz as f64 / 1e6,
+                words_raw as f64 / 1e6,
+                words_gz as f64 / 1e6,
+                addr_raw as f64 / 1e6,
+                addr_gz as f64 / 1e6,
+                struct_raw as f64 / 1e6,
+                struct_gz as f64 / 1e6,
+                iv.text.len(),
+                iv.text_occ,
+                iv.text_occ as f64 / iv.text.len().max(1) as f64,
+                iv.refs.len(),
+                iv.ref_occ,
+                iv.ref_occ as f64 / iv.refs.len().max(1) as f64,
+                semantic_gz as f64 / 1e6,
+                data_gz as f64 / 1e6,
+                total_gz as f64 / 1e6,
+            );
+            measured += 1;
+        }
+        assert!(
+            measured >= 1,
+            "no WN-LMF source provisioned on disk — cannot measure .prx compactness"
         );
     }
 

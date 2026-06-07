@@ -1464,6 +1464,81 @@ mod tests {
         std::fs::read(&path).ok()
     }
 
+    /// MEASUREMENT (not a gate yet) — the go/no-go for the generative-serialization
+    /// redesign (retro 2026-06-06). For each provisioned USC title, split the
+    /// graph-faithful `.prx` into its two layers and gzip each:
+    ///
+    /// - SEMANTIC graph = `UsCodeTitle` (the meaning — the master ~compact path).
+    /// - COMPLEMENT = `UslmSyntaxComplement` (the per-element concrete-syntax
+    ///   residue — the byte-exact tax that bloated the artifact).
+    ///
+    /// It then reports the per-element residue POPULATION (whitespace /
+    /// attribute-order / child-order entries) — the exception-rate proxy. The
+    /// hypothesis the bidi-transform literature endorses: the semantic graph is
+    /// compact (< gzip(source)) and the complement is dominated by REGULAR
+    /// per-element residue (whitespace = f(depth), attr order = schema order)
+    /// that a generative serialization ontology regenerates — so moving it out
+    /// reclaims the size. This test prints the numbers that decide whether to
+    /// build that; it asserts only non-vacuity + the semantic layer being
+    /// compact. Kept small (titles ≤ ~20 MB) to stay resource-light.
+    #[test]
+    fn prx_compactness_breakdown_measurement() {
+        use std::io::Write as _;
+        fn gz_len(bytes: &[u8]) -> usize {
+            let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            e.write_all(bytes).expect("gz write");
+            e.finish().expect("gz finish").len()
+        }
+
+        // Small → moderate titles only (skip the >20 MB giants for CI budget).
+        let titles = ["usc_title_1", "usc_title_28", "usc_title_5"];
+        let mut measured = 0usize;
+        for name in titles {
+            let path = workspace_root().join(format!(
+                "crates/domains/data/legal/uscode/{name}/{name}-pl-119-90.xml"
+            ));
+            let Ok(source) = std::fs::read(&path) else {
+                continue;
+            };
+            let envelope = build_usc_envelope(&source, name, "pl-119-90", T1_URL)
+                .unwrap_or_else(|e| panic!("build {name}: {e}"));
+            let g = envelope
+                .graph
+                .as_ref()
+                .unwrap_or_else(|| panic!("{name} must be graph-faithful for this measurement"));
+
+            let source_gz = gz_len(&source);
+            let total_gz = gz_len(&usc_envelope_to_bytes(&envelope).expect("envelope bytes"));
+            let semantic_gz =
+                gz_len(&rkyv::to_bytes::<rkyv::rancor::Error>(&g.title).expect("rkyv title"));
+            let complement_gz = gz_len(
+                &rkyv::to_bytes::<rkyv::rancor::Error>(&g.complement).expect("rkyv complement"),
+            );
+            let ws = g.complement.regenerated.content_whitespace.len();
+            let ao = g.complement.regenerated.attribute_overrides.len();
+            let co = g.complement.regenerated.child_order.len();
+
+            eprintln!(
+                "COMPACTNESS {name}: source.xml={:.2}MB | gzip(source)={:.2}MB \
+                 total.prx.gz={:.2}MB || semantic(graph)={:.2}MB  complement(residue)={:.2}MB \
+                 || residue entries: whitespace={ws} attr_overrides={ao} child_order={co} sections={} \
+                 || semantic<gzip(source)? {}",
+                source.len() as f64 / 1e6,
+                source_gz as f64 / 1e6,
+                total_gz as f64 / 1e6,
+                semantic_gz as f64 / 1e6,
+                complement_gz as f64 / 1e6,
+                envelope.aux.len(),
+                semantic_gz < source_gz,
+            );
+            measured += 1;
+        }
+        assert!(
+            measured >= 1,
+            "no USC title provisioned on disk — cannot measure .prx compactness"
+        );
+    }
+
     /// The graph-faithful build over the literal Title 1 source carries the typed
     /// ontology + concrete-syntax complement (NO raw blob), and
     /// `usc_reconstruct_source` regenerates the EXACT source bytes from the GRAPH
