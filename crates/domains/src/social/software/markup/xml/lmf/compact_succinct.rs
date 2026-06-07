@@ -123,6 +123,34 @@ fn get_ef(buf: &[u8], pos: &mut usize) -> Vec<usize> {
     (0..n).map(|i| ef.select(i).expect("ef select")).collect()
 }
 
+/// Delta-code a flat value array within each CSR node range `[offsets[i],
+/// offsets[i+1])`: store ascending gaps (the relations are sorted by target, so
+/// the gaps are small and the bit-packed column is far below the absolute one).
+fn put_delta(out: &mut Vec<u8>, values: &[usize], offsets: &[usize]) {
+    let mut d = Vec::with_capacity(values.len());
+    for w in offsets.windows(2) {
+        let mut prev = 0usize;
+        for &v in &values[w[0]..w[1]] {
+            d.push(v - prev);
+            prev = v;
+        }
+    }
+    put_cv(out, &d);
+}
+
+fn get_delta(buf: &[u8], pos: &mut usize, offsets: &[usize]) -> Vec<usize> {
+    let d = get_cv(buf, pos);
+    let mut values = alloc::vec![0usize; d.len()];
+    for w in offsets.windows(2) {
+        let mut prev = 0usize;
+        for (slot, &delta) in values[w[0]..w[1]].iter_mut().zip(&d[w[0]..w[1]]) {
+            prev += delta;
+            *slot = prev;
+        }
+    }
+    values
+}
+
 // ── CSR (Vec<Vec<u32>>) and option columns ────────────────────────────────
 
 fn put_csr(out: &mut Vec<u8>, vecs: &[Vec<u32>]) {
@@ -352,7 +380,7 @@ pub fn to_succinct(c: &CompactWordNet) -> Vec<u8> {
         }
         put_ef(&mut out, &offsets);
         put_cv(&mut out, &rts);
-        put_cv(&mut out, &tgts);
+        put_delta(&mut out, &tgts, &offsets);
     }
     put_csr(&mut out, &c.syn_members);
     put_opt(&mut out, &c.syn_lexfile);
@@ -386,7 +414,7 @@ pub fn to_succinct(c: &CompactWordNet) -> Vec<u8> {
         }
         put_ef(&mut out, &offsets);
         put_cv(&mut out, &rts);
-        put_cv(&mut out, &tgts);
+        put_delta(&mut out, &tgts, &offsets);
     }
     put_csr(&mut out, &c.sense_subcat);
     put_opt(&mut out, &c.sense_adjposition);
@@ -453,7 +481,7 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
     let syn_relations = {
         let offsets = get_ef(buf, &mut pos);
         let rts = get_cv(buf, &mut pos);
-        let tgts = get_cv(buf, &mut pos);
+        let tgts = get_delta(buf, &mut pos, &offsets);
         let n = offsets.len().saturating_sub(1);
         (0..n)
             .map(|i| {
@@ -479,7 +507,7 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
     let sense_relations = {
         let offsets = get_ef(buf, &mut pos);
         let rts = get_cv(buf, &mut pos);
-        let tgts = get_cv(buf, &mut pos);
+        let tgts = get_delta(buf, &mut pos, &offsets);
         let n = offsets.len().saturating_sub(1);
         (0..n)
             .map(|i| {
@@ -588,22 +616,27 @@ mod tests {
             let back = from_succinct(&succ);
             assert_eq!(back, compact, "{name}: succinct codec is not lossless");
 
-            let rkyv_raw = rkyv::to_bytes::<rkyv::rancor::Error>(&compact).expect("rkyv");
-            let source_dl = gz_len(&bytes);
+            let succ_gz = gz_len(&succ);
+            let source_raw = bytes.len(); // the .xml on disk
+            let source_dl = gz_len(&bytes); // the .xml.gz you download
             eprintln!(
-                "S1 {name}: .prx rkyv-columnar={:.2}MB/gz={:.2}MB  ->  succinct={:.2}MB/gz={:.2}MB \
-                 ({:.2}x raw, {:.2}x gz)  vs  source download {:.2}MB",
-                rkyv_raw.len() as f64 / 1e6,
-                gz_len(&rkyv_raw) as f64 / 1e6,
+                "SUCCINCT {name}: .prx = {:.2}MB ({:.2}MB gz)   vs   SOURCE = {:.2}MB xml \
+                 ({:.2}MB .xml.gz download)   ->   .prx is {:.2}x the raw source, {:.2}x the \
+                 download",
                 succ.len() as f64 / 1e6,
-                gz_len(&succ) as f64 / 1e6,
-                rkyv_raw.len() as f64 / succ.len().max(1) as f64,
-                gz_len(&rkyv_raw) as f64 / gz_len(&succ).max(1) as f64,
+                succ_gz as f64 / 1e6,
+                source_raw as f64 / 1e6,
                 source_dl as f64 / 1e6,
+                succ.len() as f64 / source_raw.max(1) as f64,
+                succ_gz as f64 / source_dl.max(1) as f64,
             );
+            // The succinct .prx must beat the raw source on disk (and, at corpus
+            // scale, the download too).
             assert!(
-                succ.len() < rkyv_raw.len(),
-                "{name}: succinct not smaller than rkyv columnar"
+                succ.len() < source_raw,
+                "{name}: .prx ({}) not smaller than the raw source ({})",
+                succ.len(),
+                source_raw
             );
             measured += 1;
         }

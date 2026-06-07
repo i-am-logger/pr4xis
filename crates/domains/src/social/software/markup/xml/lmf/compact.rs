@@ -430,6 +430,16 @@ fn canonicalize_dict(mut c: CompactWordNet) -> CompactWordNet {
         rd(v);
     });
 
+    // Sort each node's relations by target so the succinct codec can delta-code
+    // the adjacency (per-node ascending gaps). Reasoning-equivalent: a synset's
+    // / sense's relations are a SET — order carries no meaning.
+    c.syn_relations
+        .iter_mut()
+        .for_each(|v| v.sort_by_key(|r| r.target));
+    c.sense_relations
+        .iter_mut()
+        .for_each(|v| v.sort_by_key(|r| r.target));
+
     c.dict = new_dict;
     c
 }
