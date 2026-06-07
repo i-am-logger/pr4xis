@@ -859,10 +859,82 @@ impl AttributeOverrides {
     }
 }
 
-/// The whole regenerated-tree complement: the inter-element white-space and the
-/// exact source attribute sequences a structural writer's tree does not reproduce.
-/// Returned by [`diff_content_whitespace`] and consumed by
-/// [`reapply_regenerated_complement`].
+/// The source CHILD ORDER for elements whose children a structural writer's
+/// regenerated tree emits as the SAME SET but in a DIFFERENT ORDER — keyed by the
+/// parent element's pre-order index. The typed structural analogue of
+/// [`AttributeOverrides`] (which captures attribute ORDER) for the element-child
+/// dimension.
+///
+/// A structural writer emits an element's children in a FIXED canonical order — a
+/// content-model / DTD order (WordNet's `write_wordnet_document` emits every
+/// `<LexicalEntry>` then every `<Synset>`; per `<LexicalEntry>` it emits `Lemma,
+/// Form*, Sense*`). A source whose children carry the SAME elements in a different
+/// order — e.g. a WN-LMF lexicon that interleaves `<Synset>`s among its
+/// `<LexicalEntry>`s, or one whose entries write `Sense` before `Lemma` — has the
+/// SAME Information-Set element CONTENT but a distinct concrete-syntax SERIALIZATION
+/// order. XML child order between sibling elements IS Information-Set-significant in
+/// general (Cowan & Tobin 2004 §2.2 children are an ordered list), but a structural
+/// writer that re-derives the order from the typed model (which keys on element
+/// NAME, not position — `read_wordnet` dispatches by tag) regenerates a CANONICAL
+/// order regardless of the source's. This residue records, per parent, the
+/// PERMUTATION carrying the writer's canonical child order back to the source order,
+/// so the byte-exact reconstruction re-orders the regenerated children before
+/// serialization.
+///
+/// # Keyed by pre-order parent index; value is a permutation
+///
+/// `by_index[p]` is a permutation `source_order`: `source_order[k]` is the
+/// 0-based position, in the REGENERATED element's element-child list, of the child
+/// that belongs at source element-child slot `k`. (Only ELEMENT children are
+/// permuted — inter-element white-space / comments / PIs are the separate
+/// [`ContentWhitespace`] residue, spliced back AFTER the reorder.) Applying it
+/// reorders the regenerated children into source order.
+///
+/// # No-op for a writer-ordered source (the additivity invariant)
+///
+/// Recorded ONLY when the source element-child order DIFFERS from the regenerated
+/// (writer/DTD-canonical) order — i.e. the permutation is not the identity
+/// `0,1,2,…`. A source whose children the structural writer already emits in the
+/// SAME order (the DTD-ordered case: the 89 MB Open English WordNet 2025 corpus,
+/// the real `us_legal_lexicon.xml` — every `<LexicalEntry>` is `Lemma, Sense`, all
+/// entries precede all synsets) records NOTHING here, so [`Self::is_empty`] holds
+/// and the reconstruction is byte-identical to the pre-residue path. The species
+/// is purely additive.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct ChildOrder {
+    by_index: BTreeMap<usize, Vec<usize>>,
+}
+
+impl ChildOrder {
+    /// `true` when every element's children were emitted in the source order by
+    /// the structural writer (no permutation needed) — the DTD-ordered case.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.by_index.is_empty()
+    }
+
+    /// The number of elements whose child order had to be permuted.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.by_index.len()
+    }
+
+    /// Mutable iterator over each permuted parent's source-order permutation.
+    /// Used by the byte-exact corruption meta-tests to perturb a captured
+    /// permutation and prove the reconstruction diverges — the gate's teeth.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Vec<usize>> {
+        self.by_index.values_mut()
+    }
+}
+
+/// The whole regenerated-tree complement: the inter-element white-space, the
+/// exact source attribute sequences, and the source child ORDER a structural
+/// writer's tree does not reproduce. Returned by [`diff_content_whitespace`] and
+/// consumed by [`reapply_regenerated_complement`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(
     feature = "prx",
@@ -874,6 +946,12 @@ pub struct RegeneratedComplement {
     /// The exact source attribute sequences the regenerated tree reordered or
     /// under-populated.
     pub attribute_overrides: AttributeOverrides,
+    /// The source child ORDER for elements the structural writer emitted as the
+    /// same child SET in a different ORDER (the typed analogue of
+    /// [`AttributeOverrides`] for the element-child dimension). Empty — a no-op —
+    /// for a DTD-ordered source whose children the writer already emits in source
+    /// order.
+    pub child_order: ChildOrder,
 }
 
 /// Failure when diffing a structural writer's regenerated tree against the
@@ -927,6 +1005,16 @@ pub enum RegeneratedComplementError {
         /// Pre-order element index where the dropped character data was found.
         index: usize,
     },
+    /// At pre-order element `index`, a source ELEMENT child had no structurally
+    /// equal counterpart among the regenerated element's children — so the child
+    /// SET differs (not merely the order), which the [`ChildOrder`] permutation
+    /// cannot capture (a permutation is a bijection over the SAME set). The
+    /// structural writer dropped/added/altered an element the source carried;
+    /// fails closed rather than fabricating a partial permutation.
+    UnmatchedChildElement {
+        /// Pre-order element index of the PARENT whose child could not be matched.
+        index: usize,
+    },
 }
 
 impl core::fmt::Display for RegeneratedComplementError {
@@ -961,6 +1049,12 @@ impl core::fmt::Display for RegeneratedComplementError {
                 "non-white-space source text at pre-order element {index} had no \
                  regenerated counterpart (a structural writer dropped #PCDATA content)"
             ),
+            Self::UnmatchedChildElement { index } => write!(
+                f,
+                "a source element child of pre-order element {index} had no structurally \
+                 equal regenerated counterpart (the child SET differs, not merely the \
+                 order — a structural writer dropped/added/altered an element)"
+            ),
         }
     }
 }
@@ -992,6 +1086,7 @@ pub fn diff_content_whitespace(
 ) -> Result<RegeneratedComplement, RegeneratedComplementError> {
     let mut content = ContentWhitespace::default();
     let mut attrs = AttributeOverrides::default();
+    let mut order = ChildOrder::default();
     let mut counter = 0usize;
     diff_element(
         &source.root,
@@ -999,10 +1094,12 @@ pub fn diff_content_whitespace(
         &mut counter,
         &mut content.by_index,
         &mut attrs.by_index,
+        &mut order.by_index,
     )?;
     Ok(RegeneratedComplement {
         content_whitespace: content,
         attribute_overrides: attrs,
+        child_order: order,
     })
 }
 
@@ -1015,6 +1112,7 @@ fn diff_element(
     counter: &mut usize,
     ws_by_index: &mut BTreeMap<usize, Vec<ChildSlot>>,
     attr_by_index: &mut BTreeMap<usize, ElementAttributes>,
+    order_by_index: &mut BTreeMap<usize, Vec<usize>>,
 ) -> Result<(), RegeneratedComplementError> {
     let my_index = *counter;
     *counter += 1;
@@ -1043,20 +1141,51 @@ fn diff_element(
         );
     }
 
-    // Thread the source element's children against the regenerated element's
-    // children. A source `Text` node with no regenerated counterpart is
-    // inter-element white-space → `InsertText`; every other source child must
-    // line up positionally with a regenerated child → `Keep`. White-space-only
-    // `Text` is the residue; a non-white-space source `Text` (a leaf `#PCDATA`
-    // value the typed model carried) is matched as a `Keep` against the
-    // regenerated leaf text.
+    // CHILD ORDER: a structural writer emits the element's children in a FIXED
+    // canonical (DTD/content-model) order; the source may carry the SAME children
+    // in a different order. Decide whether the source's backbone child ORDER
+    // already matches the regenerated one (the overwhelmingly common case — every
+    // DTD-ordered WordNet/USC/OWL element). If it does, thread against the
+    // regenerated children DIRECTLY (the exact pre-residue path, byte-identical to
+    // before — ZERO behavioural change). Only when the source's backbone order
+    // DIFFERS — the same child SET permuted (an interleaved WN-LMF lexicon) — do we
+    // match each source non-residue child to its regenerated counterpart by name,
+    // record the per-parent permutation, and thread against the source-ordered view.
+    let needs_reorder = source_backbone_order_differs(source, regenerated);
+    let reordered_owned: Vec<&XmlNode>;
+    let reg_children: &[&XmlNode];
+    // A by-reference view of the regenerated children for the no-reorder path.
+    let direct_view: Vec<&XmlNode>;
+    if needs_reorder {
+        let (reordered, permutation) =
+            match_children_in_source_order(source, regenerated, my_index)?;
+        // Record the permutation as the residue (it is non-identity here, since
+        // `needs_reorder` found a backbone-order difference; the guard makes the
+        // no-op invariant explicit and defends against a future caller change).
+        if !is_identity_permutation(&permutation) {
+            order_by_index.insert(my_index, permutation);
+        }
+        reordered_owned = reordered;
+        reg_children = &reordered_owned;
+    } else {
+        direct_view = regenerated.children.iter().collect();
+        reg_children = &direct_view;
+    }
+
+    // Thread the source element's children against the (possibly source-ordered)
+    // view of the regenerated children. A source `Text` node with no regenerated
+    // counterpart is inter-element white-space → `InsertText`; every other source
+    // child lines up positionally with the next regenerated child → `Keep`.
+    // White-space-only `Text` is the residue; a non-white-space source `Text` (a
+    // leaf `#PCDATA` value the typed model carried) is matched as a `Keep` against
+    // the regenerated leaf text.
     let mut slots: Vec<ChildSlot> = Vec::new();
-    let mut reg_iter = regenerated.children.iter().peekable();
+    let mut reg_iter = reg_children.iter().copied().peekable();
     let mut carried_ws = false;
 
     for src_child in &source.children {
         match src_child {
-            XmlNode::Text(t) if is_regenerated_text_residue(reg_iter.peek()) => {
+            XmlNode::Text(t) if is_regenerated_text_residue(reg_iter.peek().copied()) => {
                 // No regenerated child lines up here (or the next regenerated
                 // child is an element, not this text) — this source text run is
                 // residue the structural writer dropped. It is inter-element
@@ -1089,14 +1218,15 @@ fn diff_element(
                 carried_ws = true;
             }
             _ => {
-                // Consume the matching regenerated child. Element children
-                // recurse; leaf text / other nodes are kept as-is (their bytes
-                // come from the regenerated tree, which the typed model produced).
+                // Consume the matching regenerated child (in source order). Element
+                // children recurse; leaf text / other nodes are kept as-is (their
+                // bytes come from the regenerated tree, which the typed model
+                // produced).
                 let Some(reg_child) = reg_iter.next() else {
                     return Err(RegeneratedComplementError::KeepUnderflow { index: my_index });
                 };
                 if let (XmlNode::Element(se), XmlNode::Element(re)) = (src_child, reg_child) {
-                    diff_element(se, re, counter, ws_by_index, attr_by_index)?;
+                    diff_element(se, re, counter, ws_by_index, attr_by_index, order_by_index)?;
                 }
                 slots.push(ChildSlot::Keep);
             }
@@ -1121,12 +1251,173 @@ fn diff_element(
     Ok(())
 }
 
+/// Whether the source's BACKBONE child order differs from the regenerated one —
+/// the trigger for engaging the [`ChildOrder`] reorder. Compares the source's
+/// NON-RESIDUE child key-sequence (element name, or `None` for a leaf node) to the
+/// regenerated children's key-sequence position-for-position. Equal ⇒ the writer
+/// already emits the children in source order, so the reorder is skipped and the
+/// pre-residue positional threading runs UNCHANGED (byte-identical to before — the
+/// no-op invariant for every DTD-ordered WordNet/USC/OWL element). A length or
+/// position mismatch ⇒ the same SET in a different order (or a genuine SET
+/// divergence), so the matcher is engaged to compute the permutation (or fail
+/// closed). The regenerated tree carries no inter-element white-space residue, so
+/// `is_residue_child` filters nothing there in practice — only the source's
+/// inter-element white-space / comments / PIs are skipped.
+/// Whether a permutation is the identity `0,1,2,…` — the DTD-ordered case where
+/// the structural writer already emits the children in source order, so the
+/// [`ChildOrder`] residue records nothing.
+fn is_identity_permutation(perm: &[usize]) -> bool {
+    perm.iter().enumerate().all(|(i, &p)| i == p)
+}
+
+fn source_backbone_order_differs(source: &XmlElement, regenerated: &XmlElement) -> bool {
+    let mut src_keys = source
+        .children
+        .iter()
+        .filter(|c| !is_residue_child(c))
+        .map(child_match_key);
+    let mut reg_keys = regenerated
+        .children
+        .iter()
+        .filter(|c| !is_residue_child(c))
+        .map(child_match_key);
+    loop {
+        match (src_keys.next(), reg_keys.next()) {
+            (None, None) => return false,
+            (a, b) if a == b => continue,
+            _ => return true,
+        }
+    }
+}
+
+/// Match each source NON-RESIDUE child to its regenerated counterpart by ELEMENT
+/// IDENTITY (the backbone key), yielding (a) the regenerated children re-ordered
+/// into SOURCE order, and (b) the PERMUTATION `source_order` where
+/// `source_order[k]` is the ORIGINAL regenerated index of the child placed at
+/// source non-residue slot `k`.
+///
+/// # Why match by name (a STABLE-REGROUPING key), not by full structural equality
+///
+/// A structural writer that re-derives the child order from the typed model — which
+/// keys on element NAME, not source position (`read_wordnet` dispatches by tag) —
+/// performs a STABLE regrouping: it emits all children of one kind, then all of the
+/// next (WordNet: every `<LexicalEntry>`, then every `<Synset>`), preserving the
+/// SOURCE order WITHIN each kind (the typed `Vec`s hold them in read order). So the
+/// only divergence between the source order and the writer order is the across-kind
+/// REGROUPING; within a name the relative order is identical. Matching the k-th
+/// source child of element-name N to the k-th regenerated child of name N (a
+/// per-name FIFO queue) therefore reconstructs the exact source order — and is the
+/// IDENTITY permutation when the source is already grouped in writer order (the
+/// DTD-ordered 89 MB OEWN corpus, the real `us_legal_lexicon`). Matching by full
+/// `XmlNode` equality would FAIL here, because a matched child still differs in its
+/// own concrete-syntax residue (attribute order, nested white-space) the recursive
+/// diff is about to capture — name is the backbone identity, the residue rides
+/// separately.
+///
+/// Leaf children that are not elements (a `#PCDATA` `Text` value the typed model
+/// carried) are matched positionally among non-element children in source order.
+///
+/// A source element child whose name has NO remaining regenerated counterpart is a
+/// child-SET divergence (not merely an order one) — the structural writer
+/// dropped/added/altered an element — so it fails closed with
+/// [`RegeneratedComplementError::UnmatchedChildElement`]. A regenerated child the
+/// source never claims surfaces downstream as a `KeepOverflow`.
+#[allow(clippy::type_complexity)]
+fn match_children_in_source_order<'a>(
+    source: &XmlElement,
+    regenerated: &'a XmlElement,
+    parent_index: usize,
+) -> Result<(Vec<&'a XmlNode>, Vec<usize>), RegeneratedComplementError> {
+    // Per-key FIFO queues of regenerated child indices, in regenerated order. The
+    // key is the element's qualified name for an `Element`, or `None` for a
+    // non-element backbone child (a leaf `#PCDATA` `Text` / other node), so the
+    // two match within their own kind.
+    let mut queues: BTreeMap<Option<String>, alloc::collections::VecDeque<usize>> = BTreeMap::new();
+    for (i, reg_child) in regenerated.children.iter().enumerate() {
+        queues
+            .entry(child_match_key(reg_child))
+            .or_default()
+            .push_back(i);
+    }
+
+    // The source's non-residue children, in source order. Residue (inter-element
+    // white-space `Text`, comments, PIs) is the SEPARATE `ContentWhitespace`
+    // residue and is NOT permuted — only the element backbone the writer
+    // regenerates participates.
+    let mut reordered: Vec<&XmlNode> = Vec::new();
+    let mut permutation: Vec<usize> = Vec::new();
+
+    for src_child in &source.children {
+        if is_residue_child(src_child) {
+            continue;
+        }
+        let key = child_match_key(src_child);
+        let Some(reg_idx) = queues.get_mut(&key).and_then(|q| q.pop_front()) else {
+            // No regenerated counterpart for this source backbone child. A
+            // non-element backbone child is a leaf `#PCDATA` `Text` value the typed
+            // model carried; its absence is a DROPPED-CONTENT divergence — report
+            // it as `UnmatchedContentText` (matching the positional path), never as
+            // a child-element-set divergence. An element child with no name match is
+            // a genuine child-element-SET divergence.
+            return Err(match src_child {
+                XmlNode::Element(_) => RegeneratedComplementError::UnmatchedChildElement {
+                    index: parent_index,
+                },
+                _ => RegeneratedComplementError::UnmatchedContentText {
+                    index: parent_index,
+                },
+            });
+        };
+        reordered.push(&regenerated.children[reg_idx]);
+        permutation.push(reg_idx);
+    }
+
+    // Any regenerated child the source never claimed = the structural writer
+    // emitted MORE than the source carried (a child-SET divergence, not an order
+    // one). Fail closed with the overflow the positional path would have reported,
+    // so the matcher path never silently drops content.
+    let remaining: usize = queues.values().map(alloc::collections::VecDeque::len).sum();
+    if remaining > 0 {
+        return Err(RegeneratedComplementError::KeepOverflow {
+            index: parent_index,
+            remaining,
+        });
+    }
+
+    Ok((reordered, permutation))
+}
+
+/// The backbone match key for a child node: the qualified element name for an
+/// `Element` (so the per-name FIFO queue groups by kind), or `None` for a
+/// non-element backbone child (a leaf `#PCDATA` `Text` the typed model carried, or
+/// any other node), so those match positionally within their own kind. Residue
+/// children (handled by [`is_residue_child`]) never reach this.
+fn child_match_key(child: &XmlNode) -> Option<String> {
+    match child {
+        XmlNode::Element(el) => Some(el.name.qualified()),
+        _ => None,
+    }
+}
+
+/// Whether a source child is inter-element RESIDUE (white-space `Text`, a comment,
+/// or a PI) — the [`ContentWhitespace`] residue spliced back AFTER any child
+/// reorder — rather than an element-backbone child the structural writer
+/// regenerates. A non-white-space leaf `Text` (a `#PCDATA` value the typed model
+/// carried) is NOT residue: it is a backbone child and participates in the match.
+fn is_residue_child(child: &XmlNode) -> bool {
+    match child {
+        XmlNode::Text(t) => t.chars().all(|c| matches!(c, ' ' | '\t' | '\r' | '\n')),
+        XmlNode::Comment(_) | XmlNode::ProcessingInstruction { .. } => true,
+        _ => false,
+    }
+}
+
 /// Whether the next regenerated child (if any) means the current source `Text`
 /// node is white-space residue: the regenerated tree has NO text node here — its
 /// next pending child is an element (or it is exhausted). A regenerated `Text`
 /// node lined up at this position is a leaf `#PCDATA` value the typed model
 /// carried, so the source `Text` is NOT residue and falls through to `Keep`.
-fn is_regenerated_text_residue(next_regenerated: Option<&&XmlNode>) -> bool {
+fn is_regenerated_text_residue(next_regenerated: Option<&XmlNode>) -> bool {
     !matches!(next_regenerated, Some(XmlNode::Text(_)))
 }
 
@@ -1139,7 +1430,9 @@ fn is_regenerated_text_residue(next_regenerated: Option<&&XmlNode>) -> bool {
 ///    ([`DocumentResidue`]);
 /// 2. for every element with an override, replace its start-tag attribute
 ///    sequence with the exact source one ([`AttributeOverrides`]);
-/// 3. splice the inter-element white-space `Text` children back into every
+/// 3. for every element the writer emitted in a different child ORDER, re-order
+///    its children into the source order ([`ChildOrder`]);
+/// 4. splice the inter-element white-space `Text` children back into every
 ///    element at its captured pre-order index ([`ContentWhitespace`]).
 ///
 /// Fails closed on any structural divergence ([`RegeneratedComplementError`]) —
@@ -1163,20 +1456,25 @@ pub fn reapply_regenerated_complement(
     // canonical writer do).
     regenerated.root.namespace = document_residue.root_namespaces.first().cloned();
 
-    // (2)+(3) per-element attribute overrides + inter-element white-space, in one
-    // pre-order walk that claims indices exactly as the diff and serializer do.
+    // (2)+(3)+(4) per-element attribute overrides + child reorder + inter-element
+    // white-space, in one pre-order walk that claims indices exactly as the diff
+    // and serializer do.
     let ws = &complement.content_whitespace.by_index;
     let attrs = &complement.attribute_overrides.by_index;
+    let order = &complement.child_order.by_index;
     let mut counter = 0usize;
     let mut ws_applied = 0usize;
     let mut attr_applied = 0usize;
+    let mut order_applied = 0usize;
     apply_element(
         &mut regenerated.root,
         &mut counter,
         ws,
         attrs,
+        order,
         &mut ws_applied,
         &mut attr_applied,
+        &mut order_applied,
     )?;
     // A residue index the walk never reached means the trees disagree on element
     // count. `counter` holds the total reached; the first residue index `>=
@@ -1191,20 +1489,29 @@ pub fn reapply_regenerated_complement(
     {
         return Err(RegeneratedComplementError::DanglingIndex { index });
     }
+    if order_applied != order.len()
+        && let Some((&index, _)) = order.range(counter..).next()
+    {
+        return Err(RegeneratedComplementError::DanglingIndex { index });
+    }
     Ok(())
 }
 
 /// Recursive worker for [`reapply_regenerated_complement`]: at one element apply
-/// its attribute override (if any) and splice its inter-element white-space (if
-/// any), claiming its pre-order index AT ENTRY (mirroring the diff and the
-/// serializer), then descend into element children.
+/// its attribute override (if any), re-order its children into source order (if
+/// any), and splice its inter-element white-space (if any), claiming its pre-order
+/// index AT ENTRY (mirroring the diff and the serializer), then descend into
+/// element children.
+#[allow(clippy::too_many_arguments)]
 fn apply_element(
     element: &mut XmlElement,
     counter: &mut usize,
     ws_by_index: &BTreeMap<usize, Vec<ChildSlot>>,
     attr_by_index: &BTreeMap<usize, ElementAttributes>,
+    order_by_index: &BTreeMap<usize, Vec<usize>>,
     ws_applied: &mut usize,
     attr_applied: &mut usize,
+    order_applied: &mut usize,
 ) -> Result<(), RegeneratedComplementError> {
     let my_index = *counter;
     *counter += 1;
@@ -1218,6 +1525,37 @@ fn apply_element(
         element.namespaces = over.namespaces.clone();
         element.namespace = over.namespaces.first().cloned();
         element.attributes = over.attributes.clone();
+    }
+
+    // Child ORDER: re-order the regenerated element's children into the SOURCE
+    // order BEFORE the white-space splice and BEFORE descending — so the pre-order
+    // walk below claims indices in the final serialized order, exactly as the diff
+    // (which walked the SOURCE order) did, and so the white-space `ChildSlot`
+    // template (built over source order) lines up. `permutation[k]` is the
+    // ORIGINAL regenerated index of the child that belongs at source slot `k`.
+    if let Some(permutation) = order_by_index.get(&my_index) {
+        *order_applied += 1;
+        if permutation.len() != element.children.len() {
+            // The captured permutation does not cover the regenerated children
+            // 1:1 — the trees disagree on this element's child count. Fail closed.
+            return Err(RegeneratedComplementError::KeepOverflow {
+                index: my_index,
+                remaining: element.children.len().saturating_sub(permutation.len()),
+            });
+        }
+        let original = core::mem::take(&mut element.children);
+        // Move each original child into a slot so we can place it by index without
+        // cloning. `taken[i]` is `Some` until consumed.
+        let mut taken: Vec<Option<XmlNode>> = original.into_iter().map(Some).collect();
+        let mut reordered: Vec<XmlNode> = Vec::with_capacity(permutation.len());
+        for &reg_idx in permutation {
+            let Some(slot) = taken.get_mut(reg_idx).and_then(Option::take) else {
+                // A duplicate or out-of-range index — a corrupted permutation.
+                return Err(RegeneratedComplementError::DanglingIndex { index: my_index });
+            };
+            reordered.push(slot);
+        }
+        element.children = reordered;
     }
 
     if let Some(slots) = ws_by_index.get(&my_index) {
@@ -1264,8 +1602,10 @@ fn apply_element(
                 counter,
                 ws_by_index,
                 attr_by_index,
+                order_by_index,
                 ws_applied,
                 attr_applied,
+                order_applied,
             )?;
         }
     }

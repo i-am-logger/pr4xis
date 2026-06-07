@@ -157,6 +157,29 @@ crate::register_lens!(
     WordNetLmfLens
 );
 
+// =============================================================================
+// us_legal_lexicon@2026 — the SECOND WN-LMF graph-faithful source.
+//
+// The U.S. Federal Legal-Text Closed-Class Lexicon
+// (crates/domains/data/legal-text/us_legal_lexicon.xml) is a small WN-LMF
+// lexicon. It rides the IDENTICAL `WordNetLmfLens` — the capture/reconstruct
+// pair is source-agnostic (generic WN-LMF concrete-syntax residue, now including
+// the CHILD-ORDER permutation species), exactly as the multiple USLM titles
+// share `UslmXmlLens` and the multiple XSD schemas share `XsdSchemaLens`.
+// Registering it flips `us_legal_lexicon` off the universal floor: the
+// completeness meter reads this lens's `FIDELITY = ByteExactGraphFaithful` to
+// declare it graph-faithful, and `build_wordnet_envelope`'s registry gate then
+// emits `graph = Some` / `raw = None`. Its source children are DTD-ordered (every
+// `<LexicalEntry>` is `Lemma, Sense`, all entries precede all synsets), so the
+// child-order residue is a no-op for it — but the generic species is what makes
+// the claim sound for ANY WN-LMF child order.
+crate::register_lens!(
+    US_LEGAL_LEXICON_LENS,
+    "us_legal_lexicon",
+    "2026",
+    WordNetLmfLens
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;

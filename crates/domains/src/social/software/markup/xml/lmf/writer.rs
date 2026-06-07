@@ -808,6 +808,93 @@ mod tests {
         );
     }
 
+    /// A WN-LMF source whose `<Lexicon>` children are NOT in the writer's
+    /// DTD-canonical order — a `<Synset>` is written BEFORE the `<LexicalEntry>`s,
+    /// and the two synsets are interleaved among the entries. The structural
+    /// writer regenerates `entries…` then `synsets…` (a DIFFERENT order, same
+    /// child SET), so the byte-exact loop closes ONLY via the generic CHILD-ORDER
+    /// residue — the typed analogue of `AttributeOverrides`. This is the exact
+    /// construct the prompt asks for: a permutation captured per parent and
+    /// reapplied to reorder the regenerated children before serialization.
+    const CHILD_PERMUTED: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<LexicalResource>\n\
+  <Lexicon id=\"perm\" label=\"Permuted\" language=\"en\">\n\
+    <Synset id=\"s-dog\" partOfSpeech=\"n\"><Definition>a canine</Definition></Synset>\n\
+    <LexicalEntry id=\"e-dog-n\"><Lemma writtenForm=\"dog\" partOfSpeech=\"n\"/><Sense id=\"dog-n-01\" synset=\"s-dog\"/></LexicalEntry>\n\
+    <Synset id=\"s-cat\" partOfSpeech=\"n\"><Definition>a feline</Definition></Synset>\n\
+    <LexicalEntry id=\"e-cat-n\"><Lemma writtenForm=\"cat\" partOfSpeech=\"n\"/><Sense id=\"cat-n-01\" synset=\"s-cat\"/></LexicalEntry>\n\
+  </Lexicon>\n\
+</LexicalResource>\n";
+
+    /// The CHILD-ORDER residue gate: a `<Lexicon>` whose `<Synset>`/`<LexicalEntry>`
+    /// children the source INTERLEAVES (synset-first), which the DTD-ordered
+    /// structural writer would regenerate as `entries…synsets…`. The capture must
+    /// (1) record a NON-EMPTY child-order permutation for the `<Lexicon>` parent
+    /// and (2) reconstruct the source BYTE-FOR-BYTE by reapplying it. Without the
+    /// child-order species this source would `Complement`-error (the old floor
+    /// degrade). The proof the new residue does its job.
+    #[test]
+    fn reconstruct_child_permuted_lexicon_byte_exact() {
+        let (wn, complement) = capture_wn_complement(CHILD_PERMUTED).expect("capture");
+        // The permutation is GENUINELY present (a no-op residue would be a lie):
+        // the source child order differs from the writer's DTD-canonical order.
+        assert!(
+            !complement.regenerated.child_order.is_empty(),
+            "the interleaved Synset/LexicalEntry order must record a child-order permutation"
+        );
+        let out = reconstruct_wn_lmf_source(&wn, &complement).expect("reconstruct");
+        assert_eq!(
+            core::str::from_utf8(&out).unwrap(),
+            CHILD_PERMUTED,
+            "the child-order residue must reconstruct the interleaved source byte-for-byte"
+        );
+    }
+
+    /// The NO-OP invariant: a DTD-ORDERED source (entries first, then synsets —
+    /// the writer's exact order, the shape of the 89 MB OEWN corpus and the real
+    /// `us_legal_lexicon`) records NOTHING in the child-order residue. Proves the
+    /// species is purely additive: a writer-ordered source is byte-identical to
+    /// the pre-residue path. `SAMPLE_WN_LMF`-shaped, entries-then-synsets.
+    #[test]
+    fn child_order_residue_is_noop_for_dtd_ordered_source() {
+        let (_wn, complement) = capture_wn_complement(REAL_SHAPED).expect("capture");
+        assert!(
+            complement.regenerated.child_order.is_empty(),
+            "a DTD-ordered (entries-then-synsets) source must record NO child-order permutation \
+             — the residue is a no-op there, so DTD-ordered sources serialize byte-identically \
+             to before"
+        );
+    }
+
+    /// Corruption meta-test: perturbing the captured child-order PERMUTATION makes
+    /// the reconstruction DIVERGE — the gate has teeth (it is not a vacuous
+    /// pass-through). Swapping two entries in the permutation produces a different
+    /// child order, so the reconstructed bytes are NOT the source.
+    #[test]
+    fn child_order_corruption_diverges() {
+        let (wn, mut complement) = capture_wn_complement(CHILD_PERMUTED).expect("capture");
+        // Reverse one parent's permutation — a real perturbation of the captured
+        // order. (Reversing a non-palindromic permutation always changes it.)
+        let mut perturbed = false;
+        for perm in complement.regenerated.child_order.values_mut() {
+            if perm.len() >= 2 && !perm.iter().rev().eq(perm.iter()) {
+                perm.reverse();
+                perturbed = true;
+            }
+        }
+        assert!(
+            perturbed,
+            "the corruption meta-test must actually perturb a permutation"
+        );
+        let out =
+            reconstruct_wn_lmf_source(&wn, &complement).expect("reconstruct still well-formed");
+        assert_ne!(
+            core::str::from_utf8(&out).unwrap(),
+            CHILD_PERMUTED,
+            "a corrupted child-order permutation must NOT reconstruct the source"
+        );
+    }
+
     /// Fail-closed: when the typed model's regenerated tree is NOT
     /// element-backbone-equal to the source DOM (here a stray non-WordNet
     /// element the reader drops, so the writer cannot reproduce it),

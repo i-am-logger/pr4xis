@@ -397,27 +397,37 @@
 # carry a [byte_exact_signatures] pin (= its [hashes]); prov_o/olia move from a
 # floor envelope to the GRAPH-FAITHFUL envelope's MerkleRoot (determinism-proven).
 [archive_signatures]
-"biro@1.1.1"             = "f68cb7baa046b1127c9b41761469b8f7080e96271aac9e6476019262f303fb85"
-"c4o@1.2"                = "a3ba5f29c2b47c50f8d882a8c0112370f6486d0b8dc17c19aa12a35c4ce745d4"
-"cito@2.8.1"             = "b956dbe623728730bde5fa64b04668b9685442797cee03d13b76bc801021f830"
-"doco@1.3"               = "b0d6aeb0508504f6adda321197dbab069d4da9ec80448a9718c6f75a529180b6"
-"olia@2026-04-09"        = "169e0f651985f7ba2579187344a18d287a156d1371b18199fc7d092ded3ce5aa"
-"prov_o@2013-04-30"      = "66c790ed9eb6489c770088420965349f7a759464ac83cfd3cecf7a93d8a272f2"
-"usc_title_1@pl-119-90" = "1875cb1af013b32194eecc11063c59d0662e5584cbe698e7324cf5846aadb102"
+# NOTE: the graph-faithful `[archive_signatures]` below shifted by a SHARED-LAYOUT
+# change — the generic `RegeneratedComplement` (embedded in every graph-faithful
+# `.prx` envelope, OWL + USC + WordNet) gained one new field, the CHILD-ORDER
+# permutation residue (`child_order: ChildOrder`, the typed analogue of
+# `AttributeOverrides`). The field is EMPTY for every source here (all are
+# DTD/striping-ordered, so the species is a no-op), but it widens the rkyv layout,
+# so the envelope MerkleRoot moves for ALL graph-faithful sources. Determinism-
+# proven (each re-emit yields the same MerkleRoot). The raw-floor envelopes
+# (usc_title_5/15/42/49) do NOT embed `RegeneratedComplement`, so their pins are
+# UNCHANGED.
+"biro@1.1.1"             = "0692e92fdb4f41b6fbaca61800fb2d1e3734040507b07c5d67e0534ca9ad0a93"
+"c4o@1.2"                = "be24a05ec510ae7f2d4a4ed48de69cd1c85de60f6d3ef6d7cd5d594a7f3ee254"
+"cito@2.8.1"             = "2fa4c96c12eafb78248b5f6249a4b93e9b83ac055aaaeb18e656ef9a2ddf6c5e"
+"doco@1.3"               = "1928e27e08e1686228caf7a41b4b0f3d88ca0fe2cdaedf36bccda011aafae7a1"
+"olia@2026-04-09"        = "6df28c7917817d44586f0463892a89ef051a9a24156ea71f0ba8aeb83f3cc3dc"
+"prov_o@2013-04-30"      = "0622bd868ac5483b1a7417fafe75370cca219256e16b203e63ead13d8a11689c"
+# usc_title_1/18/28/29/50 are byte-exact graph-faithful envelopes (typed
+# `UsCodeTitle` ontology + concrete-syntax complement, NOT a raw blob), so their
+# MerkleRoots shifted with the shared `RegeneratedComplement` child-order layout
+# change (see the OWL note above). Determinism-proven (reproducible re-emit). The
+# raw-floor envelopes (5/15/42/49) are unaffected.
+"usc_title_1@pl-119-90" = "14c72b4a89015f5dd313926de6cfdd73b34e389ad2404016bb1f56fae004c997"
 "usc_title_15@pl-119-90" = "aa8b57740a7f119685c59e8476100b3a813da5698050eac56607e6963521cd46"
-# usc_title_18/28/29/50 FLIPPED to byte-exact graph-faithful (SLICE U7) — the
-# .prx envelope now carries the typed `UsCodeTitle` ontology + concrete-syntax
-# complement (graph payload) instead of a raw blob, so its MerkleRoot shifted.
-# Determinism-proven (the emit is reproducible: each re-emit yields the same
-# MerkleRoot). The giants (5/49/15/42) stay raw-floor envelopes, unchanged.
-"usc_title_18@pl-119-90" = "be313a693b29ecb625f7b369ee10723d0aa0e2bf9cfeca426a389ade2422b34f"
-"usc_title_28@pl-119-90" = "194109ea7088f1876ed01d5e829c1e3cfd0693e0a9ddc5ecc53e9c40dc271e10"
-"usc_title_29@pl-119-90" = "0c34ddba10ab7e8d6b95134fa1f0b6a0e3f6fe435495a5c46b4f799f80744571"
+"usc_title_18@pl-119-90" = "ed47add3155399bf553c6184f5beef392f8ae9f6166ad3eb2e72433e6efdba8b"
+"usc_title_28@pl-119-90" = "8c18da1c803bc282825d6aa090bc439e80af3315aa5217cfb4206b9561e7fc46"
+"usc_title_29@pl-119-90" = "fb20fac7373b8f891eaf8a7ab09cb87040be3da1096863e1e56bab29b2e10f2b"
 "usc_title_42@pl-119-90" = "1307a560104eb8bd33c710a14a18e29031368fccbe08992202bfbc3620ec98c0"
 "usc_title_49@pl-119-90" = "90d963480ddb0050e77b52c6468315b9438275161a7149579de431e9e8232a32"
 "usc_title_5@pl-119-90" = "430f5d9f4192d2d00774be182e54e810988e113183d8b72552365dbc7d243398"
-"usc_title_50@pl-119-90" = "fe24b6fdb523dd4b47579861176298e283a00921f2864e3a30503d767a758ece"
-"english_wordnet@2025" = "9a60b6db0bedc4ec3bcaf4c54e010a09f02cb36abfbb48ad58f62eaca9e00660"
+"usc_title_50@pl-119-90" = "382ec8ceea78366f70f1cd1604aa072f1fce60ea5d1607b7b2169feaae638b7a"
+"english_wordnet@2025" = "92a3d67322a027143a05fa46686747c811c1f048f9d205374b3d781f3b659b42"
 
 # Byte-exact round-trip signatures — SHA-256 of the bytes a source's
 # graph-faithful lens regenerates under the STRICT byte-exact PutGet law
@@ -435,6 +445,17 @@
 # against these pins.
 [byte_exact_signatures]
 "english_wordnet@2025"   = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
+# US Federal Legal-Text Closed-Class Lexicon — praxis's SECOND byte-exact
+# graph-faithful WN-LMF source (the lexical sibling of english_wordnet). The
+# `WordNetLmfLens` regenerates the on-disk `us_legal_lexicon.xml` bytes from the
+# typed `WordNet` ontology + the GENERIC concrete-syntax complement (DOCTYPE,
+# namespaces, white-space, attribute order, entity-reference form, AND the new
+# CHILD-ORDER permutation residue — a no-op here, the source is DTD-ordered), with
+# NO stored raw blob and NO stored DOM. Because `put(get(b)) == b`, the byte-exact
+# round-trip output hash equals the raw source content hash — i.e. this value MUST
+# equal the `us_legal_lexicon@2026` `[hashes]` pin (registry.rs enforces
+# sig == raw_hash).
+"us_legal_lexicon@2026"  = "fe6c250fdb7b67ca623333accaef8bd264dc49aad19b9356ca31382b021cf2d8"
 # USC Title 1 — General Provisions. The `UslmGraphFaithfulLens` regenerates the
 # literal on-disk `usc01.xml` bytes (CRLFs included) from the typed `UsCodeTitle`
 # ontology + a concrete-syntax complement, so the byte-exact round-trip output

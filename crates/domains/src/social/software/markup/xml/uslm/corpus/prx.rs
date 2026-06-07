@@ -47,32 +47,35 @@
 //! `to_statute`) — not the `UsCodeTitle` parse.
 //!
 //! Byte-exact source fidelity (`hash(out) == hash(in)`, the #186 invariant) is
-//! GRAPH-FAITHFUL for the PROVEN title (`usc_title_1`) since SLICE U6: that
-//! title's `.prx` regenerates the exact source bytes from the typed
-//! [`UsCodeTitle`] ontology plus a content-addressed concrete-syntax complement
-//! ([`UscGraphFaithful`] — the `<?xml-stylesheet?>` prolog PI, the `<!DOCTYPE>`,
-//! the root `xmlns` declarations, the §2.4 inter-element white-space, the §3.1
-//! intra-tag layout, the §4.6 entity-reference form, the §2.11 end-of-line form,
-//! the source attribute sequences), with NO stored raw blob. The
-//! capture/reconstruct pair ([`capture_uslm_complement`] /
-//! [`reconstruct_uslm_source`], parser `source_syntax` residue + the USLM
-//! structural writer [`write_uslm`](super::super::lens::writer::write_uslm)) is
-//! proven a byte-exact inverse over the LITERAL on-disk
-//! `usc_title_1-pl-119-90.xml` (slices U1–U5). `usc_title_1` therefore emits
+//! GRAPH-FAITHFUL for any title bound to a
+//! [`UslmGraphFaithfulLens`](super::super::lens::writer): that title's `.prx`
+//! regenerates the exact source bytes from the typed [`UsCodeTitle`] ontology
+//! plus a content-addressed concrete-syntax complement ([`UscGraphFaithful`] —
+//! the `<?xml-stylesheet?>` prolog PI, the `<!DOCTYPE>`, the root `xmlns`
+//! declarations, the §2.4 inter-element white-space, the §3.1 intra-tag layout,
+//! the §4.6 entity-reference form, the §2.11 end-of-line form, the source
+//! attribute sequences), with NO stored raw blob. The capture/reconstruct pair
+//! ([`capture_uslm_complement`] / [`reconstruct_uslm_source`], parser
+//! `source_syntax` residue + the title-AGNOSTIC USLM structural writer
+//! [`write_uslm`](super::super::lens::writer::write_uslm)) is a byte-exact
+//! inverse, proven over the real on-disk titles by the writer's
+//! `flipped_titles_reconstruct_byte_exact` gate and the all-sources round-trip
+//! integration test. Such a title emits
 //! [`RoundTripFidelity::ByteExactGraphFaithful`].
 //!
-//! The OTHER registered titles HONESTLY DEGRADE to the universal floor
-//! [`RoundTripFidelity::RawBytesComplementFloor`] — byte-exact via the
+//! A title with NO graph-faithful registration HONESTLY DEGRADES to the universal
+//! floor [`RoundTripFidelity::RawBytesComplementFloor`] — byte-exact via the
 //! content-addressed [`RawSource::blob`] (the whole unzipped USLM XML), exactly
-//! as the OWL leaf does — because they exercise USLM families `write_uslm` does
-//! not yet cover (the `<continuation>` flush-text family, `<def>` / `<marker>` /
-//! `<ins>` amendment markup) that are absent from Title 1. `data` + `aux` are the
-//! runtime reasoning view, carried unchanged in BOTH tiers; the source is
-//! regenerated from the graph in the graph-faithful tier and from `raw.blob` in
-//! the floor tier. The degrade is never a silent lie: the floor tier is explicit
-//! in `mode`, and the completeness meter only declares a title graph-faithful
-//! when a [`UslmGraphFaithfulLens`](super::super::lens::writer) is registered for
-//! it. A MALFORMED source stays a hard error in both tiers.
+//! as the OWL leaf does. (Either an uncovered USLM family `write_uslm` cannot yet
+//! reconstruct — a `<continuation>` flush-text run or `<def>` / `<marker>` /
+//! `<ins>` amendment markup — or, for a title the title-agnostic writer DOES
+//! handle, a deliberate floor held off the always-run byte-exact gate for the CI
+//! per-test budget.) `data` + `aux` are the runtime reasoning view, carried
+//! unchanged in BOTH tiers; the source is regenerated from the graph in the
+//! graph-faithful tier and from `raw.blob` in the floor tier. The degrade is
+//! never a silent lie: the floor tier is explicit in `mode`, and the completeness
+//! meter only declares a title graph-faithful when a `UslmGraphFaithfulLens` is
+//! registered for it. A MALFORMED source stays a hard error in both tiers.
 //!
 //! ## Citations
 //!
@@ -758,10 +761,12 @@ fn count_owned(subs: &[OwnedUscSubdivision]) -> usize {
 }
 
 /// Build a [`UsCodePrxEnvelope`] from USLM source bytes plus its registry
-/// `(name, version, url)`, preferring the GRAPH-FAITHFUL tier — `usc_title_1`'s
-/// tier since SLICE U6 — and gracefully degrading to the universal floor only
-/// for a title whose USLM families the structural writer cannot yet reproduce.
-/// Mirrors the WN-LMF `build_wordnet_envelope`.
+/// `(name, version, url)`, preferring the GRAPH-FAITHFUL tier for any title that
+/// carries a registered graph-faithful lens, and gracefully degrading to the
+/// universal floor otherwise (no graph-faithful registration, or a title whose
+/// USLM families the structural writer cannot yet reproduce). Title-AGNOSTIC: it
+/// branches on the lens registry, never on a title name. Mirrors the WN-LMF
+/// `build_wordnet_envelope`.
 ///
 /// 1. Parse the typed [`UsCodeTitle`] ontology once ([`read_uslm_title`]) and
 ///    project the [`OwnedCodegenData`] + [`OwnedUscSectionAux`] reasoning view.
@@ -771,14 +776,15 @@ fn count_owned(subs: &[OwnedUscSubdivision]) -> usize {
 ///    PI, DOCTYPE, namespaces, white-space layout, entity-reference form,
 ///    end-of-line form, source attribute sequences) the byte-exact `put`
 ///    re-applies.
-///    - **Captured** → emit `mode = ByteExactGraphFaithful`, the `graph` payload
-///      (ontology + complement), `raw = None` (NO stored raw blob; the source
-///      regenerates from the graph). This is `usc_title_1`'s tier.
+///    - **Captured** (and a graph-faithful lens is registered) → emit
+///      `mode = ByteExactGraphFaithful`, the `graph` payload (ontology +
+///      complement), `raw = None` (NO stored raw blob; the source regenerates
+///      from the graph).
 ///    - **Uncovered family** ([`UslmReconstructError::Write`]) or **backbone
 ///      divergence** ([`UslmReconstructError::Complement`]) → the structural
-///      writer cannot yet regenerate THIS title (e.g. `usc_title_18` /
-///      `usc_title_49`, which exercise the `<continuation>` flush-text family or
-///      `<def>` / `<marker>` / `<ins>` markup absent from Title 1, surfacing as a
+///      writer cannot yet regenerate this title's markup (an uncovered USLM
+///      family such as a `<continuation>` flush-text run or `<def>` / `<marker>`
+///      / `<ins>` markup, surfacing as a
 ///      [`UslmWriteError::UncoveredFamily`](super::super::lens::writer::UslmWriteError);
 ///      or a residue that is not a pure white-space/decl complement). Degrade
 ///      HONESTLY to the universal floor: emit `mode = RawBytesComplementFloor`,
@@ -831,11 +837,12 @@ pub fn build_usc_envelope(
     // `well_behaved_lens::completeness::completeness_meter`). So we consult THAT
     // SAME registry here — a successful `capture_uslm_complement` is necessary but
     // NOT sufficient to claim the graph-faithful tier; the title must ALSO have a
-    // registered `RoundTripFidelity::ByteExactGraphFaithful` lens. `usc_title_1`
-    // (registered `UslmGraphFaithfulLens`) qualifies; `usc_title_15/18/49` (no
-    // registration, or only the floor `UslmXmlLens`) do not and ride the floor —
-    // matching the meter. The lens registry is native-only (`linkme`); emit is a
-    // native `fetch`/`codegen` path, so the lookup is sound here.
+    // registered `RoundTripFidelity::ByteExactGraphFaithful` lens. A title bound
+    // to a graph-faithful lens qualifies; a title with only the floor
+    // `UslmXmlLens` (or no registration at all) does not and rides the floor —
+    // matching the meter, and branching on the REGISTRY, never on a title name.
+    // The lens registry is native-only (`linkme`); emit is a native
+    // `fetch`/`codegen` path, so the lookup is sound here.
     let registered_graph_faithful =
         crate::formal::meta::well_behaved_lens::lens_by_name(&format!("{name}@{version}"))
             .is_some_and(|r| r.fidelity == RoundTripFidelity::ByteExactGraphFaithful);
@@ -1537,13 +1544,15 @@ mod tests {
     /// serialize → bytecheck → reconstruct path, not just the in-memory
     /// capture/reconstruct of slices U1–U5.
     ///
-    /// AND the completeness meter reports `usc_title_1` graph-faithful (its
-    /// declared tier is `ByteExactGraphFaithful` via the registered
-    /// `UslmGraphFaithfulLens`, and it carries NO `write_uslm` gap), while the
-    /// OTHER registered USC titles (`usc_title_18` / `usc_title_49`, on the floor
-    /// `UslmXmlLens`) STILL carry their `write_uslm` gap. Gated behind the on-disk
-    /// file with a graceful skip — a plain checkout that hasn't provisioned Title 1
-    /// skips, the same doctrine the emitters use.
+    /// AND the completeness meter reports THIS title (`usc_title_1`, the test's
+    /// own subject) graph-faithful: its declared tier is `ByteExactGraphFaithful`
+    /// via the registered `UslmGraphFaithfulLens`, and it carries NO `write_uslm`
+    /// gap. The cross-source consistency of EVERY other title's tier is the
+    /// source-agnostic concern of the `prx_source_round_trip` meta-tests (read from
+    /// the lens registry, enumerating no title), not this focused unit test —
+    /// which asserts only its own subject so it never churns as other titles flip.
+    /// Gated behind the on-disk file with a graceful skip — a plain checkout that
+    /// hasn't provisioned Title 1 skips, the same doctrine the emitters use.
     #[test]
     fn usc_title1_graph_faithful_prx_round_trip_over_real_corpus() {
         use crate::formal::meta::well_behaved_lens::{
@@ -1631,50 +1640,8 @@ mod tests {
             Some(Tier::ByteExactGraphFaithful),
             "with the title on disk the harness must MEASURE graph-faithful (achieved == declared)"
         );
-
-        // The remaining floor-registered USC giant STILL floors — its
-        // (CI-budget-deferred) graph-faithful flip is not registered, so the meter
-        // did not over-credit it. (usc_title_18 was FLIPPED to byte-exact in SLICE
-        // U7; usc_title_49, at ≈ 26 MB, stays floor-registered via UslmXmlLens for
-        // the CI harness budget — proven byte-exact in development, but its
-        // always-run round-trip is held off, so the meter still DECLARES the floor
-        // and keeps its gap.)
-        let other = "usc_title_49@pl-119-90";
-        let row = meter
-            .iter()
-            .find(|r| r.source == other)
-            .unwrap_or_else(|| panic!("{other} must have a completeness row"));
-        assert_eq!(
-            row.declared,
-            Tier::RawBytesComplementFloor,
-            "{other} still DECLARES the floor (no graph-faithful lens registered for it)"
-        );
-        assert!(
-            row.graph_faithful_gap.is_some(),
-            "{other} still carries its write_uslm gap (it is NOT graph-faithful yet)"
-        );
-
-        // The FLIPPED titles (SLICE U7) now DECLARE graph-faithful with NO gap —
-        // the meter credits them once their `UslmGraphFaithfulLens` is registered.
-        for flipped in [
-            "usc_title_28@pl-119-90",
-            "usc_title_18@pl-119-90",
-            "usc_title_29@pl-119-90",
-            "usc_title_50@pl-119-90",
-        ] {
-            let row = meter
-                .iter()
-                .find(|r| r.source == flipped)
-                .unwrap_or_else(|| panic!("{flipped} must have a completeness row"));
-            assert_eq!(
-                row.declared,
-                Tier::ByteExactGraphFaithful,
-                "{flipped} DECLARES graph-faithful (SLICE U7 — UslmGraphFaithfulLens registered)"
-            );
-            assert!(
-                row.graph_faithful_gap.is_none(),
-                "{flipped} carries NO write_uslm gap — it IS graph-faithful"
-            );
-        }
+        // Every OTHER title's declared tier is the source-agnostic concern of the
+        // `prx_source_round_trip` meta-tests (registry-derived, no title named);
+        // this focused unit test deliberately asserts only its own subject.
     }
 }

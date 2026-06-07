@@ -16,17 +16,27 @@
 //! checked byte-for-byte (`out == in`).
 //!
 //! It is the SOURCE round-trip, NOT the FORMAT round-trip (`prx_runtime_emit.rs`
-//! checks the latter). praxis's graph-faithful `.prx` sources regenerate the
-//! source from the typed ontology plus a content-addressed concrete-syntax
-//! complement (NO stored raw blob), achieving
-//! [`RoundTripFidelity::ByteExactGraphFaithful`]: `english_wordnet` (SLICE 3b),
-//! `usc_title_1` (SLICE U6), and the flat SPAR OWL family `cito` / `biro` / `c4o`
-//! / `doco`. Every other source still rides the universal FLOOR
-//! ([`RoundTripFidelity::RawBytesComplementFloor`]): the `.prx.gz` stores the
-//! exact source as a content-addressed constant complement and the decompile op
-//! returns it only after the `sha256` honesty gate. The test asserts the
-//! achieved tier PER SOURCE against the completeness meter's DECLARED tier (the
-//! lens registration), so a tier regression in either direction fails loudly.
+//! checks the latter). A graph-faithful `.prx` source regenerates the source
+//! from the typed ontology plus a content-addressed concrete-syntax complement
+//! (NO stored raw blob), achieving
+//! [`RoundTripFidelity::ByteExactGraphFaithful`]; every other source rides the
+//! universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`]): the
+//! `.prx.gz` stores the exact source as a content-addressed constant complement
+//! and the decompile op returns it only after the `sha256` honesty gate.
+//!
+//! # Source-agnostic by construction
+//!
+//! WHICH tier each source reaches is NOT enumerated here — it is read from the
+//! lens registry (the single source of truth): a source declares graph-faithful
+//! iff a graph-faithful lens is registered for it, else it declares the floor.
+//! This test asserts the achieved tier PER SOURCE against that DECLARED tier
+//! (via the completeness meter), so a tier regression in either direction fails
+//! loudly — and flipping a new source to graph-faithful needs NO edit here, only
+//! its lens registration. The over-claim teeth are likewise registry-derived:
+//! every PROVISIONED graph-faithful source MUST be exercised and reconstructed
+//! byte-exact below (the coverage assertion), so a source can never claim
+//! graph-faithfulness without that claim being proven on its real bytes — no
+//! hardcoded per-source whitelist, which would only rot as sources flip.
 //!
 //! # Graceful skip + non-vacuity
 //!
@@ -113,6 +123,13 @@ fn all_sources_source_round_trip_byte_exact() {
     let mut usc = 0usize;
     let mut wordnet = 0usize;
 
+    // The keys (`"{name}@{version}"`) of every graph-faithful source this run
+    // actually exercised + reconstructed byte-exact. The source-agnostic
+    // over-claim teeth: after the loop, EVERY provisioned graph-faithful source
+    // must appear here (it was proven), so a graph-faithful claim can never skip
+    // its byte-exact proof — replacing the old hardcoded per-source whitelist.
+    let mut exercised_graph_faithful: Vec<String> = Vec::new();
+
     for entry in data_sources() {
         // Only sources with a `.prx` consumer participate; the rest (PDF, ZIP,
         // …) have no compile/decompile leg and are correctly out of scope.
@@ -147,27 +164,29 @@ fn all_sources_source_round_trip_byte_exact() {
             entry.name, entry.version
         );
 
-        // The achieved tier, per SOURCE (not just per kind). Graph-faithful
-        // `.prx` sources regenerate from the typed ontology + a concrete-syntax
-        // complement (NO stored raw blob), carrying `ByteExactGraphFaithful`:
-        // `english_wordnet` (SLICE 3b), `usc_title_1` (SLICE U6), and the flat
-        // SPAR OWL family `cito` / `biro` / `c4o` / `doco`. The remaining OWL
-        // (`prov_o`, `olia`) / USC sources still ride the stored-complement FLOOR
-        // — their per-source byte-exact writers are the open gap. A WN-LMF source
-        // the structural writer cannot yet
-        // regenerate byte-exactly (`us_legal_lexicon`, whose child order the
-        // DTD-ordered writer reorders) honestly degrades to the floor.
-        //
-        // The single source of truth for the EXPECTED tier is the completeness
-        // meter's DECLARED tier (the lens registration), so the emit tier and the
-        // meter cannot drift: a source declares graph-faithful iff a graph-
-        // faithful lens is registered for it, else it declares the floor.
+        // The achieved tier, per SOURCE (not just per kind). A graph-faithful
+        // source regenerates from the typed ontology + a concrete-syntax
+        // complement (NO stored raw blob), carrying `ByteExactGraphFaithful`; a
+        // floor source rides the stored-complement `RawBytesComplementFloor`.
+        // WHICH it is, is NOT spelled out here: the single source of truth for the
+        // EXPECTED tier is the completeness meter's DECLARED tier (the lens
+        // registration), so the emit tier and the meter cannot drift — a source
+        // declares graph-faithful iff a graph-faithful lens is registered for it,
+        // else the floor. (This is the registry gate that caught the title-
+        // agnostic emit over-claiming a floor-registered USC title: emit tier !=
+        // declared tier ⇒ this assertion fails, for ANY source, no name list.)
         let expected_tier = meter_declared_tier(&entry.name, &entry.version);
         assert_eq!(
             fidelity, expected_tier,
             "{}@{}: emitted round-trip tier disagrees with the completeness meter's declared tier",
             entry.name, entry.version
         );
+
+        // Record the graph-faithful sources actually exercised this run, so the
+        // source-agnostic coverage assertion below can prove none was skipped.
+        if expected_tier == RoundTripFidelity::ByteExactGraphFaithful {
+            exercised_graph_faithful.push(format!("{}@{}", entry.name, entry.version));
+        }
 
         match kind {
             DecompileKind::Owl => owl += 1,
@@ -195,8 +214,39 @@ fn all_sources_source_round_trip_byte_exact() {
     assert_provisioned_kind_exercised(DecompileKind::UsCode, usc, &root);
     assert_provisioned_kind_exercised(DecompileKind::WordNet, wordnet, &root);
 
+    // The over-claim guard, SOURCE-AGNOSTIC. Every source the lens registry
+    // DECLARES graph-faithful, whose bytes are provisioned on disk, MUST have
+    // been exercised above and reconstructed byte-exact — so a graph-faithful
+    // claim is always proven over its REAL bytes, never a hardcoded name list.
+    // Flipping a new source needs no edit here; a source that declares
+    // graph-faithful yet is silently skipped (or never proven) trips this.
+    // A FLOOR source needs no such coverage: its stored-complement round-trip is
+    // the generic floor mechanism, proven by any floor source on disk.
+    for row in completeness_meter() {
+        if row.declared != RoundTripFidelity::ByteExactGraphFaithful {
+            continue;
+        }
+        let Some(entry) = data_sources()
+            .iter()
+            .find(|e| format!("{}@{}", e.name, e.version) == row.source)
+        else {
+            continue; // a graph-faithful lens with no data-source entry — out of scope here
+        };
+        if !root.join(entry.local_path()).exists() {
+            continue; // not provisioned on this machine — graceful skip, nothing to prove
+        }
+        assert!(
+            exercised_graph_faithful.contains(&row.source),
+            "{}: the lens registry DECLARES it graph-faithful and its source is provisioned on \
+             disk, but the all-sources round-trip did NOT exercise it — a graph-faithful claim \
+             must be proven byte-exact over its real bytes, never skipped",
+            row.source
+        );
+    }
+
     eprintln!(
-        "all-sources SOURCE round-trip: OWL={owl} USC={usc} WordNet={wordnet} (byte-exact at the floor)"
+        "all-sources SOURCE round-trip: OWL={owl} USC={usc} WordNet={wordnet} \
+         (graph-faithful sources proven byte-exact; floor sources byte-exact via stored complement)"
     );
 }
 
@@ -239,37 +289,22 @@ fn completeness_meter_declared_tier_matches_achieved() {
          (declared != achieved): {liars:?}"
     );
 
-    // The meter must be HONEST per source. The graph-faithful sources are:
-    // `english_wordnet` (WordNet, the FIRST — SLICE 3b), the USC titles
-    // `usc_title_1` (SLICE U6) plus `usc_title_28/18/29/50` (SLICE U7 — the
-    // smaller positive-law titles riding the same `uscDoc` wrapper path), and ALL
-    // SIX bundled OWL vocabs — the flat SPAR family `cito` / `biro` / `c4o` /
-    // `doco` and the striped `prov_o` / `olia` (flipped by the L3 byte kernel).
-    // Each MAY claim `ByteExactGraphFaithful` and carries NO gap. EVERY OTHER
-    // source — the FLOORED giant USC titles (`usc_title_5/49/15/42`) — is still on
-    // the stored-complement FLOOR (a CI-budget floor): it may NOT claim
-    // graph-faithfulness, and a floor row must name its per-source writer gap. The
-    // whitelist below has TEETH: it accepts ONLY those named sources (each prefix
-    // `@`-anchored), so a future over-claim — e.g. `usc_title_15` leaking a
-    // graph-faithful tier from a title-agnostic emit — still trips this assertion.
+    // The meter must be HONEST per source, SOURCE-AGNOSTICALLY: the tier each row
+    // declares comes from the lens registry (a graph-faithful lens ⟹
+    // graph-faithful, else the floor), so this test names NO source. Two
+    // structural invariants hold for every row, whatever its source:
+    //   * a graph-faithful row has closed its gap, so it carries NO gap; and
+    //   * a floor row has NOT achieved graph-faithfulness, and names its gap.
+    // The anti-lie (declared == achieved when provisioned) is the
+    // `declared_matches_achieved` check above; a graph-faithful claim is PROVEN
+    // true — byte-exact over real bytes, and never skipped — by
+    // `all_sources_source_round_trip_byte_exact`'s coverage assertion, and a
+    // byte-exact LAW violation is caught hard by the `RoundTripHarnessAllVerified`
+    // CI-gate axiom. No hardcoded whitelist is needed (or wanted: it would rot as
+    // sources flip).
     for r in &meter {
         match r.declared {
             RoundTripFidelity::ByteExactGraphFaithful => {
-                // The legitimately graph-faithful sources in this slice. Note
-                // `r.source` is the `"{name}@{version}"` key, so each arm pins the
-                // EXACT source — `usc_title_15` (kind=UsCode) does NOT match and is
-                // correctly rejected as an over-claim. The same predicate is proven
-                // to keep its teeth by
-                // `slice_guard_rejects_graph_faithful_over_claims`.
-                assert!(
-                    slice_allows_graph_faithful(r.kind, &r.source),
-                    "{}: only english_wordnet (WordNet), the byte-exact USC titles \
-                     usc_title_1/28/18/29/50 (UsCode), and the six byte-exact OWL vocabs \
-                     cito/biro/c4o/doco/prov_o/olia are graph-faithful in this slice; \
-                     {:?} over-claims",
-                    r.source,
-                    r.kind
-                );
                 assert!(
                     r.graph_faithful_gap.is_none(),
                     "{}: a graph-faithful source carries NO gap",
@@ -302,130 +337,4 @@ fn completeness_meter_declared_tier_matches_achieved() {
         "completeness meter: {} rows, {floor} on the stored-complement floor (the remaining gap)",
         meter.len()
     );
-}
-
-/// The graph-faithful WHITELIST used by
-/// [`completeness_meter_declared_tier_matches_achieved`] — `kind == WordNet`, OR
-/// `kind == UsCode && source` is exactly `usc_title_1@…`, OR `kind == Owl &&
-/// source` is exactly one of the SIX byte-exact OWL vocabs: the flat SPAR family
-/// `cito@…` / `biro@…` / `c4o@…` / `doco@…` AND the striped `prov_o@…` / `olia@…`
-/// (flipped by the L3 byte kernel). Every OWL prefix is `@`-anchored so a sibling
-/// vocab cannot leak a graph-faithful claim. Extracted so the meta-test below can
-/// prove the guard keeps its teeth against an over-claim leak.
-fn slice_allows_graph_faithful(kind: DecompileKind, source: &str) -> bool {
-    kind == DecompileKind::WordNet
-        || (kind == DecompileKind::UsCode
-            && (source.starts_with("usc_title_1@")
-                // SLICE U7 — the smaller positive-law titles flipped to byte-exact
-                // graph-faithful (28/18/29/50, all ≤ 16 MB), riding the SAME generic
-                // `uscDoc` document-wrapper path Title 1 proved. Each prefix is
-                // `@`-anchored so a sibling title (e.g. `usc_title_15@`) cannot leak a
-                // graph-faithful claim. The proven-but-larger giants (5/49/15/42)
-                // stay FLOOR for the CI harness budget — a CI-cost floor, NOT a
-                // missing family — so they are NOT admitted here.
-                || source.starts_with("usc_title_28@")
-                || source.starts_with("usc_title_18@")
-                || source.starts_with("usc_title_29@")
-                || source.starts_with("usc_title_50@")))
-        || (kind == DecompileKind::Owl
-            && (source.starts_with("cito@")
-                || source.starts_with("biro@")
-                || source.starts_with("c4o@")
-                || source.starts_with("doco@")
-                // The striped SPAR/OLiA vocabs, flipped byte-exact by the L3 byte
-                // kernel (verbatim internal-subset DOCTYPE PROLOG residue, the §4.1
-                // numeric/general `ExtendedRef` form, the interspersed-comment
-                // `ChildSlot::InsertComment` residue). Every OWL prefix is
-                // `@`-anchored so a sibling vocab cannot leak a graph-faithful claim.
-                || source.starts_with("prov_o@")
-                || source.starts_with("olia@")))
-}
-
-/// The over-claim guard in `completeness_meter_declared_tier_matches_achieved`
-/// must keep its TEETH after SLICE U6 widened it from "WordNet only" to "WordNet
-/// or usc_title_1": it accepts EXACTLY the two graph-faithful sources of this
-/// slice and rejects every other source that might leak a graph-faithful tier —
-/// most pointedly `usc_title_15` (also `kind == UsCode`, the precise title the
-/// title-agnostic emit bug over-claimed). The `usc_title_1@` prefix is `@`-
-/// anchored, so `usc_title_15@…` does NOT match it (position 11 is `5`, not `@`).
-#[test]
-fn slice_guard_rejects_graph_faithful_over_claims() {
-    // The two legitimately graph-faithful sources are accepted.
-    assert!(slice_allows_graph_faithful(
-        DecompileKind::WordNet,
-        "english_wordnet@2025"
-    ));
-    // The byte-exact graph-faithful USC titles are accepted: usc_title_1 (U6)
-    // plus the SLICE U7 flips (28/18/29/50).
-    for ok in [
-        "usc_title_1@pl-119-90",
-        "usc_title_28@pl-119-90",
-        "usc_title_18@pl-119-90",
-        "usc_title_29@pl-119-90",
-        "usc_title_50@pl-119-90",
-    ] {
-        assert!(
-            slice_allows_graph_faithful(DecompileKind::UsCode, ok),
-            "{ok} (kind=UsCode) is a byte-exact graph-faithful title and must be accepted"
-        );
-    }
-
-    // A sibling USC title that LEAKS a graph-faithful claim is rejected — the
-    // exact regression the title-agnostic `build_usc_envelope` produced. Each
-    // `@`-anchored prefix keeps its teeth: `usc_title_15@…` does NOT match
-    // `usc_title_1@` (position 11 is `5`, not `@`). The proven-but-larger giants
-    // (5/49/15/42) stay FLOOR for the CI budget — they are NOT admitted, so the
-    // guard must reject them too.
-    assert!(
-        !slice_allows_graph_faithful(DecompileKind::UsCode, "usc_title_15@pl-119-90"),
-        "usc_title_15 (kind=UsCode) must NOT be accepted as graph-faithful — \
-         the @-anchored usc_title_1 prefix keeps the guard's teeth"
-    );
-    for leak in [
-        "usc_title_49@pl-119-90",
-        "usc_title_5@pl-119-90",
-        "usc_title_42@pl-119-90",
-        // a non-`@`-anchored lookalike of a FLIPPED prefix still leaks nothing:
-        // `usc_title_280@…` is not `usc_title_28@…` (position 13 is `0`, not `@`).
-        "usc_title_280@pl-119-90",
-        "usc_title_500@pl-119-90",
-    ] {
-        assert!(
-            !slice_allows_graph_faithful(DecompileKind::UsCode, leak),
-            "{leak} must NOT be accepted as graph-faithful"
-        );
-    }
-
-    // ALL SIX bundled OWL vocabs are byte-exact graph-faithful — each accepted.
-    // The flat SPAR family (cito/biro/c4o/doco) plus the striped prov_o/olia,
-    // flipped by the L3 byte kernel.
-    for ok in [
-        "cito@2.8.1",
-        "biro@1.1.1",
-        "c4o@1.2",
-        "doco@1.3",
-        "prov_o@2013-04-30",
-        "olia@2026-04-09",
-    ] {
-        assert!(
-            slice_allows_graph_faithful(DecompileKind::Owl, ok),
-            "{ok} (kind=Owl) is a byte-exact OWL vocab and must be accepted"
-        );
-    }
-    // A NON-`@`-anchored lookalike of an accepted prefix still leaks NO
-    // graph-faithful claim — the `@`-anchoring keeps the teeth so only the six
-    // bundled vocabs qualify. `c4ox@…` (not `c4o@…`), `biro_extra@…` (not
-    // `biro@…`), `prov_oo@…` (not `prov_o@…`), `olia_x@…` (not `olia@…`) are all
-    // rejected.
-    for leak in [
-        "c4ox@9.9",
-        "biro_extra@1.1.1",
-        "prov_oo@2013-04-30",
-        "olia_x@2026-04-09",
-    ] {
-        assert!(
-            !slice_allows_graph_faithful(DecompileKind::Owl, leak),
-            "{leak} (kind=Owl) must NOT be accepted — only the six @-anchored OWL vocabs qualify"
-        );
-    }
 }

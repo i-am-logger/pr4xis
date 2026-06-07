@@ -908,13 +908,15 @@ pub fn reconstruct_uslm_source(
 //
 // Registering this lens with `FIDELITY = ByteExactGraphFaithful` makes the
 // completeness meter
-// ([`crate::formal::meta::well_behaved_lens::completeness`]) DECLARE
-// `usc_title_1` graph-faithful and drop its `write_uslm` gap; when the title is
-// provisioned on disk the harness MEASURES the achieved tier by running the
-// byte-exact law, and the anti-lie cross-check confirms declared == achieved. The
-// existing floor `UslmXmlLens` (in `lens/mod.rs`) stays registered for the OTHER
-// USC titles (`usc_title_18` / `usc_title_49`), whose families `write_uslm` does
-// not yet cover.
+// ([`crate::formal::meta::well_behaved_lens::completeness`]) DECLARE any title
+// BOUND to it graph-faithful and drop that title's `write_uslm` gap; when the
+// title is provisioned on disk the harness MEASURES the achieved tier by running
+// the byte-exact law, and the anti-lie cross-check confirms declared == achieved.
+// WHICH titles bind here vs the floor `UslmXmlLens` is the registry's concern
+// (the `register_lens!` calls in `lens/mod.rs` and below), NOT this type's: a
+// title rides the floor only while it carries no graph-faithful registration —
+// e.g. the largest titles, held off the always-run byte-exact gate for the CI
+// per-test budget (the writer is title-agnostic, so it reconstructs them too).
 // =============================================================================
 
 /// The USLM byte-exact graph-faithful lens: `bytes ↔ (UsCodeTitle ontology +
@@ -968,7 +970,7 @@ impl crate::formal::meta::well_behaved_lens::WellBehavedLens for UslmGraphFaithf
     type Target = UslmGraphFaithfulView;
     type Error = UslmGraphFaithfulLensError;
 
-    /// `usc_title_1`'s tier — held to the strict byte-exact PutGet law.
+    /// The graph-faithful tier — held to the strict byte-exact PutGet law.
     const FIDELITY: crate::formal::meta::well_behaved_lens::RoundTripFidelity =
         crate::formal::meta::well_behaved_lens::RoundTripFidelity::ByteExactGraphFaithful;
 
