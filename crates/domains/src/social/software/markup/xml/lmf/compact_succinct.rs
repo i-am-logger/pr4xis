@@ -21,6 +21,7 @@ use alloc::{string::String, vec::Vec};
 use hashbrown::HashMap;
 use sucds::Serializable;
 use sucds::int_vectors::CompactVector;
+use sucds::mii_sequences::{EliasFano, EliasFanoBuilder};
 
 use super::compact::{CompactWordNet, IForm, ILexiconMetadata, IPron, ISynBehav};
 use super::ontology::{LmfPos, SenseRelationType, SynsetRelationType};
@@ -95,6 +96,33 @@ fn get_cv(buf: &[u8], pos: &mut usize) -> Vec<usize> {
         .collect()
 }
 
+/// A MONOTONE non-decreasing sequence (CSR offsets) via Elias-Fano — ~`n·(2 +
+/// log2(universe/n))` bits, far below `CompactVector`'s `n·log2(universe)` for
+/// the offset arrays. Length-prefixed so the empty / all-zero cases round-trip.
+fn put_ef(out: &mut Vec<u8>, vals: &[usize]) {
+    put_varint(out, vals.len() as u64);
+    let mut tmp = Vec::new();
+    if !vals.is_empty() {
+        let universe = vals[vals.len() - 1] + 1;
+        let mut bld = EliasFanoBuilder::new(universe, vals.len()).expect("ef builder");
+        for &v in vals {
+            bld.push(v).expect("ef push");
+        }
+        bld.build().serialize_into(&mut tmp).expect("ef serialize");
+    }
+    put_blob(out, &tmp);
+}
+
+fn get_ef(buf: &[u8], pos: &mut usize) -> Vec<usize> {
+    let n = get_varint(buf, pos) as usize;
+    let b = get_blob(buf, pos);
+    if n == 0 {
+        return Vec::new();
+    }
+    let ef = EliasFano::deserialize_from(b).expect("ef deserialize");
+    (0..n).map(|i| ef.select(i).expect("ef select")).collect()
+}
+
 // ── CSR (Vec<Vec<u32>>) and option columns ────────────────────────────────
 
 fn put_csr(out: &mut Vec<u8>, vecs: &[Vec<u32>]) {
@@ -107,12 +135,12 @@ fn put_csr(out: &mut Vec<u8>, vecs: &[Vec<u32>]) {
         offsets.push(acc);
         values.extend(v.iter().map(|&x| x as usize));
     }
-    put_cv(out, &offsets);
+    put_ef(out, &offsets);
     put_cv(out, &values);
 }
 
 fn get_csr(buf: &[u8], pos: &mut usize) -> Vec<Vec<u32>> {
-    let offsets = get_cv(buf, pos);
+    let offsets = get_ef(buf, pos);
     let values = get_cv(buf, pos);
     let n = offsets.len().saturating_sub(1);
     (0..n)
@@ -322,7 +350,7 @@ pub fn to_succinct(c: &CompactWordNet) -> Vec<u8> {
                 tgts.push(r.target as usize);
             }
         }
-        put_cv(&mut out, &offsets);
+        put_ef(&mut out, &offsets);
         put_cv(&mut out, &rts);
         put_cv(&mut out, &tgts);
     }
@@ -356,7 +384,7 @@ pub fn to_succinct(c: &CompactWordNet) -> Vec<u8> {
                 tgts.push(r.target as usize);
             }
         }
-        put_cv(&mut out, &offsets);
+        put_ef(&mut out, &offsets);
         put_cv(&mut out, &rts);
         put_cv(&mut out, &tgts);
     }
@@ -423,7 +451,7 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
     let syn_ili_definition = get_opt(buf, &mut pos);
     let syn_examples = get_csr(buf, &mut pos);
     let syn_relations = {
-        let offsets = get_cv(buf, &mut pos);
+        let offsets = get_ef(buf, &mut pos);
         let rts = get_cv(buf, &mut pos);
         let tgts = get_cv(buf, &mut pos);
         let n = offsets.len().saturating_sub(1);
@@ -449,7 +477,7 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
         .map(|s| if s == n_syn { u32::MAX } else { s as u32 })
         .collect();
     let sense_relations = {
-        let offsets = get_cv(buf, &mut pos);
+        let offsets = get_ef(buf, &mut pos);
         let rts = get_cv(buf, &mut pos);
         let tgts = get_cv(buf, &mut pos);
         let n = offsets.len().saturating_sub(1);
