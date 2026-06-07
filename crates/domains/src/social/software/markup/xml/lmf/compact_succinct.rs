@@ -1,27 +1,30 @@
 //! Succinct codec for [`CompactWordNet`](super::compact::CompactWordNet) — the
-//! size-reduced `.prx` bytes.
+//! size-reduced `.prx` bytes that get embedded (`include_bytes!` of the `.gz`)
+//! or downloaded, then gunzipped and decoded at load.
 //!
-//! Stage S1: the 31 MB columnar STRUCTURE is re-encoded as bit-packed columns
-//! (`sucds::CompactVector`, each at `ceil(log2(max))` bits instead of rkyv's
-//! flat 32) with CSR (offset + flat-value) layout for the `Vec<Vec<_>>` columns,
-//! eliminating rkyv's per-inner-`Vec` length-prefix / relative-pointer overhead.
-//! Relation types are mapped through a tiny per-codec string dictionary and
-//! reconstructed by `parse(as_str(_))` (a proven inverse, incl. the `Other(_)`
-//! tail). The lexical dictionary is a length-prefixed UTF-8 blob (front-coding /
-//! FSST is Stage S2); the small nested tails (pronunciations, forms, syntactic
-//! behaviours, lexicon metadata) ride along as one rkyv blob.
+//! The columnar structure is re-encoded as **hand-rolled bit-packed columns**
+//! (each value at `bits(max)` bits, LSB-first), with CSR (offset + flat-value)
+//! layout for the `Vec<Vec<_>>` columns — eliminating rkyv's per-inner-`Vec`
+//! length-prefix / relative-pointer overhead. Offsets are stored as their small
+//! per-node-length GAPS; relation adjacency is sorted per node and delta-coded.
+//! The lexical dictionary is front-coded (sorted; shared prefixes elided).
+//! Relation types map through a tiny per-codec string dictionary, reconstructed
+//! by `parse(as_str(_))` (a proven inverse, incl. the `Other(_)` tail). The
+//! small nested tails (pronunciations, forms, syntactic behaviours, lexicon
+//! metadata) ride along as one rkyv blob.
+//!
+//! **wasm32-safe and dependency-free**: the bit-packing is pure `u64`-accumulator
+//! arithmetic. (The succinct crates — `sucds`/`sux` — `compile_error!` on
+//! non-64-bit targets, so they could never decode in the browser; the
+//! hand-rolled primitives are exactly as compact and build anywhere.)
 //!
 //! [`from_succinct`] reconstructs the `CompactWordNet` exactly
 //! (`from_succinct(&to_succinct(c)) == c`), so it composes with `compact::decode`
-//! → `from_wordnet` unchanged. LOUDS for the hypernym tree + Elias-Fano adjacency
-//! (toward the ~3 MB floor) layer on top of this same `(dict, columns)` split.
+//! → `from_wordnet` unchanged. The LOUDS hypernym tree is the remaining lever.
 
 use alloc::{string::String, vec::Vec};
 
 use hashbrown::HashMap;
-use sucds::Serializable;
-use sucds::int_vectors::CompactVector;
-use sucds::mii_sequences::{EliasFano, EliasFanoBuilder};
 
 use super::compact::{CompactWordNet, IForm, ILexiconMetadata, IPron, ISynBehav};
 use super::ontology::{LmfPos, SenseRelationType, SynsetRelationType};
@@ -67,60 +70,93 @@ fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> &'a [u8] {
     b
 }
 
-/// A bit-packed column (`sucds::CompactVector`, width = `ceil(log2(max+1))`),
-/// written as a length-prefixed blob. Empty → an empty blob.
+/// A bit-packed column: each value uses `width = bits(max)` bits, LSB-first into
+/// a byte stream. Format: `varint(len)`, then if non-empty `u8(width)` + packed
+/// bits (`width == 0` for an all-zero column → no payload). Pure arithmetic on
+/// `u64` accumulators — wasm32-safe (no 64-bit-target assumption, unlike the
+/// succinct crates), the reason the `.prx` can decode in the browser.
 fn put_cv(out: &mut Vec<u8>, vals: &[usize]) {
-    let mut tmp = Vec::new();
-    if !vals.is_empty() {
-        // CompactVector needs width ≥ 1; an all-zero column would yield width 0.
-        let cv = if vals.iter().all(|&v| v == 0) {
-            let mut c = CompactVector::with_capacity(vals.len(), 1).expect("cv cap");
-            c.extend(vals.iter().copied()).expect("cv extend");
-            c
-        } else {
-            CompactVector::from_slice(vals).expect("cv from_slice")
-        };
-        cv.serialize_into(&mut tmp).expect("cv serialize");
+    put_varint(out, vals.len() as u64);
+    if vals.is_empty() {
+        return;
     }
-    put_blob(out, &tmp);
+    let max = vals.iter().copied().max().unwrap_or(0) as u64;
+    let width = (u64::BITS - max.leading_zeros()) as usize; // 0 iff max == 0
+    out.push(width as u8);
+    if width == 0 {
+        return;
+    }
+    let mut acc: u64 = 0;
+    let mut bits = 0usize;
+    for &v in vals {
+        acc |= (v as u64) << bits;
+        bits += width;
+        while bits >= 8 {
+            out.push((acc & 0xff) as u8);
+            acc >>= 8;
+            bits -= 8;
+        }
+    }
+    if bits > 0 {
+        out.push((acc & 0xff) as u8);
+    }
 }
 
 fn get_cv(buf: &[u8], pos: &mut usize) -> Vec<usize> {
-    let b = get_blob(buf, pos);
-    if b.is_empty() {
-        return Vec::new();
-    }
-    let cv = CompactVector::deserialize_from(b).expect("cv deserialize");
-    (0..cv.len())
-        .map(|i| cv.get_int(i).expect("cv get"))
-        .collect()
-}
-
-/// A MONOTONE non-decreasing sequence (CSR offsets) via Elias-Fano — ~`n·(2 +
-/// log2(universe/n))` bits, far below `CompactVector`'s `n·log2(universe)` for
-/// the offset arrays. Length-prefixed so the empty / all-zero cases round-trip.
-fn put_ef(out: &mut Vec<u8>, vals: &[usize]) {
-    put_varint(out, vals.len() as u64);
-    let mut tmp = Vec::new();
-    if !vals.is_empty() {
-        let universe = vals[vals.len() - 1] + 1;
-        let mut bld = EliasFanoBuilder::new(universe, vals.len()).expect("ef builder");
-        for &v in vals {
-            bld.push(v).expect("ef push");
-        }
-        bld.build().serialize_into(&mut tmp).expect("ef serialize");
-    }
-    put_blob(out, &tmp);
-}
-
-fn get_ef(buf: &[u8], pos: &mut usize) -> Vec<usize> {
     let n = get_varint(buf, pos) as usize;
-    let b = get_blob(buf, pos);
     if n == 0 {
         return Vec::new();
     }
-    let ef = EliasFano::deserialize_from(b).expect("ef deserialize");
-    (0..n).map(|i| ef.select(i).expect("ef select")).collect()
+    let width = buf[*pos] as usize;
+    *pos += 1;
+    if width == 0 {
+        return alloc::vec![0usize; n];
+    }
+    let mask = if width >= 64 {
+        u64::MAX
+    } else {
+        (1u64 << width) - 1
+    };
+    let mut out = Vec::with_capacity(n);
+    let mut acc: u64 = 0;
+    let mut bits = 0usize;
+    for _ in 0..n {
+        while bits < width {
+            acc |= (buf[*pos] as u64) << bits;
+            *pos += 1;
+            bits += 8;
+        }
+        out.push((acc & mask) as usize);
+        acc >>= width;
+        bits -= width;
+    }
+    out
+}
+
+/// A MONOTONE non-decreasing sequence (CSR offsets) stored as its consecutive
+/// GAPS, bit-packed via [`put_cv`]. The gaps are the per-node lengths — small
+/// (most synsets/senses have a handful of relations/definitions) — so the
+/// packed width is tiny, the same compression Elias-Fano gives on offsets but
+/// wasm32-safe and dependency-free. Prefix-summed back on read.
+fn put_ef(out: &mut Vec<u8>, vals: &[usize]) {
+    let mut gaps = Vec::with_capacity(vals.len());
+    let mut prev = 0usize;
+    for &v in vals {
+        gaps.push(v - prev);
+        prev = v;
+    }
+    put_cv(out, &gaps);
+}
+
+fn get_ef(buf: &[u8], pos: &mut usize) -> Vec<usize> {
+    let gaps = get_cv(buf, pos);
+    let mut out = Vec::with_capacity(gaps.len());
+    let mut acc = 0usize;
+    for g in gaps {
+        acc += g;
+        out.push(acc);
+    }
+    out
 }
 
 /// Delta-code a flat value array within each CSR node range `[offsets[i],
