@@ -20,6 +20,7 @@
 
 - [Concepts](understand/concepts.md)
 - [Architecture](understand/architecture.md)
+- [Test Architecture](understand/test-architecture.md)
 - [Foundations](understand/foundations.md)
 - [Evolution](understand/evolution.md)
 
