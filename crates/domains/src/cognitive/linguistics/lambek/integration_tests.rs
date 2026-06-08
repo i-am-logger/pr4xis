@@ -8,27 +8,16 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 #[cfg(test)]
 mod tests {
-    use std::sync::OnceLock;
-
-    use crate::cognitive::linguistics::english::English;
+    use crate::cognitive::linguistics::english::{English, english_loaded};
     use crate::cognitive::linguistics::lambek::reduce::chart_reduce;
     use crate::cognitive::linguistics::lambek::tokenize;
-    use crate::social::software::markup::xml::lmf;
 
-    /// Full English — loaded ONCE, shared across all tests.
-    static ENGLISH: OnceLock<English> = OnceLock::new();
-
+    /// Full English — loaded ONCE per process via the shared `english_loaded()`
+    /// fast path: the content-addressed compact `.prx` archive when present
+    /// (~ms), else the WN-LMF XML parse. Under nextest's process-per-test model
+    /// each test re-enters this, so the compact archive is what keeps it cheap.
     fn english() -> &'static English {
-        ENGLISH.get_or_init(|| {
-            let path = concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/data/wordnet/english-wordnet-2025.xml"
-            );
-            let xml = std::fs::read_to_string(path)
-                .expect("WordNet XML not found — ensure Git LFS is pulled");
-            let wn = lmf::reader::read_wordnet(&xml).unwrap();
-            English::from_wordnet(&wn)
-        })
+        english_loaded()
     }
 
     fn tokens_debug(en: &English, input: &str) -> String {

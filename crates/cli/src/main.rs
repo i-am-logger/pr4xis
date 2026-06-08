@@ -248,7 +248,9 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
 // --------------------------------------------------------------------------
 
 fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
-    use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_all_wordnet_prx_gz;
+    use pr4xis_domains::social::software::markup::xml::lmf::prx::{
+        emit_all_compact_english_prx_gz, emit_all_wordnet_prx_gz, english_compact_prx_cache_dir,
+    };
     use pr4xis_domains::social::software::markup::xml::owl::prx::{
         emit_all_prx_gz as emit_all_owl_prx_gz, owl_prx_cache_dir,
     };
@@ -298,6 +300,15 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     compact_artifacts.extend(
         emit_all_compact_usc_prx_gz(&usc_compact_dir)
             .map_err(|e| anyhow::anyhow!("emit USC compact: {e}"))?,
+    );
+
+    // The portable compact English cache → `.prx-cache/wordnet-compact/` — the
+    // `english_loaded()` FAST content-address-gated path. Always emitted (the
+    // runtime fast-load artifact); graceful-skip if the WordNet source is absent.
+    let english_compact_dir = english_compact_prx_cache_dir(&workspace_root);
+    compact_artifacts.extend(
+        emit_all_compact_english_prx_gz(&english_compact_dir)
+            .map_err(|e| anyhow::anyhow!("emit English compact: {e}"))?,
     );
 
     if !compact {
