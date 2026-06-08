@@ -39,6 +39,14 @@ pub fn domains_data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../domains/data")
 }
 
+/// Absolute path to the workspace root (the praxis repo root).
+///
+/// The data-source registry reports each source's `local_path()` relative to
+/// the workspace root, so corpus-wide gates resolve sources via this.
+pub fn workspace_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
 /// Load and parse a USLM title from `crates/domains/data/<rel>`.
 ///
 /// Returns `None` when the giant is not on disk — the multi-hundred-MB USC
