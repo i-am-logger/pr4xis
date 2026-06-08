@@ -370,6 +370,10 @@ fn codegen_parse_well_formed_synsets_round_trips() {
 // =============================================================================
 
 #[test]
+#[ignore = "perf measurement — parses the 89 MB WordNet XML to time the build; not a gate. \
+            Correctness of the full English ontology is exercised by the (now fast, \
+            `english_loaded()`-backed) lambek/adjunction consumers and the WordNet \
+            compactness gate in praxis-corpus-tests."]
 fn load_full_english() {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
