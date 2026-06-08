@@ -902,6 +902,111 @@ pub fn emit_all_wordnet_prx_gz(
     Ok(emitted)
 }
 
+// =============================================================================
+// Compact English `.prx` — the portable, content-address-gated fast path that
+// `english_loaded()` reads. The WordNet analogue of the USC compact-archive
+// infra (`uslm::corpus::prx`): the same succinct codec the wasm runtime embeds,
+// wrapped in a `[compact_archive_signatures]` content gate + an on-disk cache.
+// =============================================================================
+
+/// Emit a COMPACT English `.prx.gz` from WN-LMF source bytes: parse → succinct
+/// encode → gzip. The portable, dependency-free sibling of
+/// [`emit_wordnet_prx_gz`] (no rkyv envelope) — the bytes `english_loaded()`
+/// loads through the content gate, and the wasm runtime embeds.
+pub fn emit_compact_english_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
+    let text = core::str::from_utf8(source)
+        .map_err(|e| PrxError::Read(format!("WN-LMF source is not UTF-8: {e}")))?;
+    let wn = read_wordnet(text).map_err(|e| PrxError::Read(format!("{e}")))?;
+    Ok(super::compact_succinct::emit_prx_gz(&wn))
+}
+
+/// The content address of a compact English `.prx.gz` — the SHA-256 of its
+/// uncompressed succinct bytes (gzip-level-independent), as 64-char lowercase
+/// hex. The value pinned in `praxis.lock` `[compact_archive_signatures]` and the
+/// one [`load_compact_english_prx_gz_gated`] re-derives and verifies. Portable:
+/// the succinct codec is dependency-free bit-packing, stable across toolchains
+/// and targets (unlike the rkyv [`prx_archive_address`]).
+pub fn compact_english_archive_address(cprx_gz: &[u8]) -> Result<String, PrxError> {
+    Ok(source_content_hash(&gunzip(cprx_gz)?))
+}
+
+/// Load a compact English `.prx.gz` into a materialized [`English`] through the
+/// fail-closed content-address gate: gunzip → verify the succinct bytes SHA-256
+/// to `archive_pin` (the `[compact_archive_signatures]` pin) → succinct-decode →
+/// `English::from_wordnet`. A compact archive whose bytes do not match the pin
+/// is rejected before any data is installed (Dolstra 2006 content-addressing;
+/// W3C SRI 2016). The portable, no-source-reconstruction sibling of
+/// [`load_wordnet_prx_gz`].
+pub fn load_compact_english_prx_gz_gated(
+    cprx_gz: &[u8],
+    archive_pin: &str,
+    key: &str,
+) -> Result<English, PrxError> {
+    let raw = gunzip(cprx_gz)?;
+    wn_verify_content_address(&raw, archive_pin, key)?;
+    Ok(English::from_wordnet(&super::compact::decode(
+        &super::compact_succinct::from_succinct(&raw),
+    )))
+}
+
+/// The compiled COMPACT-English-archive cache directory:
+/// `<workspace_root>/.prx-cache/wordnet-compact`. `pr4xis compile --compact`
+/// writes one `{name}-{version}.cprx.gz` here per registered `Language` source,
+/// and [`english_loaded`](crate::cognitive::linguistics::english::english_loaded)
+/// reads it as its content-address-gated fast path (falling back to the WN-LMF
+/// XML parse when absent). Gitignored build output — never committed.
+pub fn english_compact_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root.join(".prx-cache").join("wordnet-compact")
+}
+
+/// Emit a compact English `.prx.gz` for EVERY registered
+/// [`Language`][lang]-kind source on disk into `out_dir`,
+/// round-trip-validating each (the emitted bytes load back through the content
+/// gate) before returning it. Registry-driven; a source not on disk is skipped
+/// gracefully — the same discipline `emit_all_wordnet_prx_gz` follows.
+///
+/// [lang]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::Language
+pub fn emit_all_compact_english_prx_gz(
+    out_dir: &std::path::Path,
+) -> Result<Vec<EmittedArtifact>, PrxError> {
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| PrxError::Gzip(format!("create out_dir {}: {e}", out_dir.display())))?;
+    let root = workspace_root();
+    let mut emitted = Vec::new();
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::Language {
+            continue;
+        }
+        let src_path = root.join(entry.local_path());
+        let Ok(source) = std::fs::read(&src_path) else {
+            continue;
+        };
+        let cprx_gz = emit_compact_english_prx_gz(&source)?;
+        let archive_address = compact_english_archive_address(&cprx_gz)?;
+        let path = out_dir.join(format!("{}-{}.cprx.gz", entry.name, entry.version));
+        std::fs::write(&path, &cprx_gz)
+            .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
+
+        // Round-trip-validate against the address this emit just produced.
+        let key = format!("{}@{}", entry.name, entry.version);
+        let read_back = std::fs::read(&path)
+            .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
+        load_compact_english_prx_gz_gated(&read_back, &archive_address, &key)?;
+
+        emitted.push(EmittedArtifact {
+            name: entry.name.clone(),
+            version: entry.version.clone(),
+            path,
+            byte_len: cprx_gz.len() as u64,
+            archive_address,
+        });
+    }
+    Ok(emitted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -985,6 +1090,39 @@ mod tests {
     /// index), and emitting twice gives byte-identical `.prx.gz` — proving
     /// the `word_index` sort makes the rkyv layout process-deterministic (no
     /// HashMap iteration order leaks into the bytes).
+    /// The compact English `.prx.gz` round-trips through the content gate to an
+    /// `English` equal to `from_wordnet`, and the gate REJECTS bytes whose hash
+    /// does not match the pinned content address (fail-closed). Inline sample —
+    /// the giant-corpus compactness gate lives in praxis-corpus-tests.
+    #[test]
+    fn compact_english_prx_gz_round_trips_and_gate_rejects_tampering() {
+        let wn = read_wordnet(SAMPLE_WN_LMF).expect("parse sample");
+        let reference = English::from_wordnet(&wn);
+
+        let cprx_gz = emit_compact_english_prx_gz(SAMPLE_WN_LMF.as_bytes()).expect("emit compact");
+        let addr = compact_english_archive_address(&cprx_gz).expect("address");
+        let key = "english_wordnet@2025";
+
+        let loaded =
+            load_compact_english_prx_gz_gated(&cprx_gz, &addr, key).expect("gated load succeeds");
+        assert_eq!(
+            loaded.concept_count(),
+            reference.concept_count(),
+            "compact-loaded English concept_count differs from from_wordnet"
+        );
+        assert_eq!(
+            loaded.word_index, reference.word_index,
+            "compact-loaded English word→concept index differs from from_wordnet"
+        );
+
+        // A wrong pin is rejected before any data is installed.
+        let wrong_pin = "0".repeat(64);
+        assert!(
+            load_compact_english_prx_gz_gated(&cprx_gz, &wrong_pin, key).is_err(),
+            "the content gate must reject a compact archive whose hash != the pin"
+        );
+    }
+
     #[test]
     fn wordnet_envelope_bytes_round_trip_and_deterministic() {
         let envelope =
