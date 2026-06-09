@@ -100,9 +100,10 @@ enum Command {
     /// `compile` wrote into `.prx-cache/`, regenerates the source bytes through
     /// the uniform decompile op (routing to the OWL / USC / WordNet reconstruct
     /// leaf), writes them to `--out` (or a default path), and prints the
-    /// achieved round-trip fidelity tier. Today every source reconstructs at
-    /// the `RawBytesComplementFloor` tier — byte-exact via the `.prx`'s stored,
-    /// sha256-gated source complement, not yet from the ontology graph alone.
+    /// achieved round-trip fidelity tier. Every registered `.prx`-consumer
+    /// source reconstructs at the `ByteExactGraphFaithful` tier — the bytes
+    /// regenerate from the typed ontology graph plus its recorded
+    /// concrete-syntax complement, gated by the sha256 honesty check.
     Decompile {
         /// The registered source name to decompile (e.g. `cito`,
         /// `usc_title_18`, `english_wordnet`). Run `pr4xis update --list` to

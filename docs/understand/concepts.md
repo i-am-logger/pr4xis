@@ -75,6 +75,39 @@ Because pr4xis describes its own structure with the same machinery it uses for a
 
 This is a small but load-bearing detail: it is the reason pr4xis can extend itself without bolting on metaprogramming. Every new capability is just another ontology, and every new capability is automatically composable with everything that came before.
 
+## Reading legal text
+
+Legal text is English, but it does not read like English. A statute can redefine a word for its own purposes, and when it does, the redefinition is law, not lexicography: in ordinary English a "person" is a human being, but 1 U.S.C. §1 — the **Dictionary Act** — provides that throughout the U.S. Code "person" includes corporations, companies, associations, firms, partnerships, societies, and joint stock companies as well as individuals. A reader that brings only a dictionary's senses to a statute gets the law wrong. pr4xis models this with two pieces: a lexicon in which one word carries many senses, and a precedence order that decides which definition governs a given use.
+
+**One word, many senses.** The lexicon (`crates/domains/src/cognitive/linguistics/lemon/lexicon.rs`) follows the W3C OntoLex-Lemon model (2016; McCrae et al. 2017): each written word has exactly one `LexicalEntry`, and that entry carries many `Sense`s, each pointing at an ontology concept. `Lexicon::add_sense` *appends* to the one shared entry — so when the legal layer teaches the lexicon a legal meaning of "person", the word is not duplicated and its ordinary meaning is not overwritten; both senses live side by side. A sense may carry a domain marker (OntoLex's `dct:subject`, e.g. `"legal"`), and which sense is *predominant* depends on the domain of the question being asked — Koeling, McCarthy & Carroll (2005) showed the predominant sense of a polysemous word is domain-dependent. The ranking is simple: a sense whose domain matches the query is most salient, a general unmarked sense is the default fall-through, and a sense from some other domain ranks last. `Lexicon::resolve(word, domain)` returns the winner, and the ordering is not merely asserted: the `SenseOrderIsStrictPartialOrder` axiom verifies it is irreflexive, asymmetric, and transitive, so "the predominant sense" is always well-defined.
+
+**A defined term is a first-class sense.** When a statute defines a term, pr4xis records a `LegalDefinition` (`crates/domains/src/social/judicial/statute_structure/definition_scope.rs`): the term, the scope it applies to, and the concept it binds the term to. The load-bearing modeling choice is that the defined term's *identity anchors in the legal definition, not in the English word*: legal "person" references a concept of its own (`usc_title_1:person`), distinct from WordNet's `person.n.01`. `DefinitionLexicon::mint_into` then mints each defined term into the shared lexicon as a `"legal"`-domain sense — alongside, never instead of, the general sense.
+
+**The precedence ladder.** A term like "person" may be defined at several scopes at once, captured by `DefinitionScope`:
+
+- **Enacted** — a definition with stated applicability ("In this section …", "For purposes of this title …" — 26 U.S.C. §7701). It governs every use inside the subtree its citation names, and its specificity rises with the scope's depth: a section-level definition is more specific than a title-level one.
+- **DictionaryAct** — 1 U.S.C. §1, the default for the entire U.S. Code.
+- **OrdinaryMeaning** — no statutory definition; the word means what English says it means.
+
+When more than one scope governs a use, the more specific displaces the more general — the general/specific canon from the statutory-interpretation literature (Scalia & Garner 2012, *Reading Law* §28, *lex specialis*). So the ladder reads: enacting section > title-wide definitions > the Dictionary Act > ordinary English. pr4xis models this as a *priority ordering*, not as disjoint namespaces, because resolution is a fall-through — when a rung does not apply, the use falls to the next — and a fall-through is an ordering (Reiter 1980 on default reasoning; Prakken & Sartor 1996 on defeasible rule priorities in legal reasoning). The `DefinitionScopePrecedenceIsStrictPartialOrder` axiom verifies the ladder is a strict partial order, so a well-defined governing definition always exists.
+
+The ladder is also **defeasible — it yields**. The Dictionary Act applies "unless the context indicates otherwise", and §7701 yields where its definition would be "manifestly incompatible" with the provision at hand — the Supreme Court treated exactly this clause as a soft, contextual escape in *Rowland v. California Men's Colony*, 506 U.S. 194 (1993). `resolve_definition` therefore takes a contextual-defeater predicate alongside the candidate definitions: a defeated definition does not abort resolution, it falls through to the next-most-specific governing definition.
+
+**"person", resolved twice.** `dictionary_act_definitions()` ships the twelve Dictionary Act terms — "person", "whoever", "officer", "signature", "subscription", "oath", "sworn", "writing" (1 U.S.C. §1), "vessel" (§3), "vehicle" (§4), "company" and "association" (§5) — each bound at code-wide scope. Mint them into a lexicon that already knows WordNet's "person", and the same word resolves differently per register:
+
+```rust,ignore
+let mut lex = Lexicon::new("en");
+lex.add_sense("person", "english_wordnet", "person.n.01", None);
+dictionary_act_definitions().mint_into(&mut lex);
+
+lex.resolve("person", Some("legal")); // → usc_title_1:person  (the Title-1 sense)
+lex.resolve("person", None);          // → english_wordnet:person.n.01
+```
+
+One entry, two senses, both reachable: the legal register elevates the statutory meaning, the default stays WordNet's.
+
+This is the *definitional* layer — which sense a word resolves to, and which definition governs where. The Dictionary Act layer is a hand-coded prototype of what the Title 1 corpus loader will produce, and typed statute-to-statute cross-references ("as defined in section 3(a)" resolving to the cited provision as a first-class edge) are future work.
+
 ## Related
 
 - [Architecture](architecture.md) — the five-layer Rust stack and runtime mechanics
@@ -86,4 +119,4 @@ This is a small but load-bearing detail: it is the reason pr4xis can extend itse
 ---
 
 - **Document date:** 2026-04-14
-- **Verification:** the category and functor law axioms (`category::laws::assert_category_laws` / `assert_functor_laws`) are exercised by `cargo test -p pr4xis category`; the functor count comes from `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/`; and the round-trip collapse measurement from `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`.
+- **Verification:** the category and functor law axioms (`category::laws::assert_category_laws` / `assert_functor_laws`) are exercised by `cargo test -p pr4xis category`; the functor count comes from `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/`; the round-trip collapse measurement from `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`; and the legal-text resolution behavior (sense elevation, lex-specialis precedence, the contextual defeater, the "person" example) from `cargo test -p pr4xis-domains definition_scope` and `cargo test -p pr4xis-domains lexicon`.
