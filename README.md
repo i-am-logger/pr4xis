@@ -20,6 +20,10 @@ pr4xis represents knowledge as ontologies — typed concepts and the proven rela
 
 The mathematical lineage runs from Spencer-Brown's *Laws of Form* through Heim's syntrometric logic to contemporary applied category theory ([Foundations](docs/understand/foundations.md)). Every connection in that chain is checked at test time rather than asserted.
 
+## Demo
+
+Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
+
 ## What's here today
 
 - **More than 160 domain ontologies** in the workspace — from orbital mechanics, attitude estimation, and Kalman filtering through dialectics and possible-worlds semantics.
