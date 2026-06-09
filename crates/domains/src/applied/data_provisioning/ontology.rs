@@ -868,6 +868,25 @@ impl Axiom for LockManifestAgreement {
             }
         }
 
+        // praxis-way rule 10 (manifest agrees with lock): the same
+        // straggler invariant over the `[compact_archive_signatures]`
+        // space. The compact space is a SUBSET of `[hashes]` — only the
+        // OWL/USC/Language compilable sources publish a portable compact
+        // `.prx` content address — so the faithful assertion mirrors the
+        // reverse direction above: no compact pin may exist for a source
+        // `<name>@<version>` the manifest does not declare. (The forward
+        // direction is intentionally not asserted: a registered source
+        // having no compact pin is legitimate, just as a Stub has no
+        // `[hashes]` entry.) Without this check the compact pins are only
+        // parser-enforced and have no runnable Verdict.
+        let compact =
+            crate::applied::data_provisioning::registry::lock_compact_archive_signatures();
+        for compact_key in compact.keys() {
+            if !manifest_keys.contains(compact_key) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
         Ok(Box::new(SimpleProof::new(self.meta())))
     }
 
