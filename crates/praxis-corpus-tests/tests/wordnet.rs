@@ -22,7 +22,7 @@ use praxis_corpus_tests::{WnCorpus, load_wordnet_corpus};
 
 use pr4xis::codegen::wordnet::parse_wordnet_xml;
 use pr4xis_domains::applied::data_provisioning::registry::lock_compact_archive_signature;
-use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English};
+use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, english_loaded};
 use pr4xis_domains::formal::meta::well_behaved_lens::{
     CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
 };
@@ -322,6 +322,47 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
         pin, address,
         "praxis.lock [compact_archive_signatures] pin for {key} no longer matches the \
          emitted compact archive — the codec changed; bump the pin deliberately (KAT bump)"
+    );
+}
+
+/// THE DISPATCHER GATE: drives
+/// [`english_loaded`](pr4xis_domains::cognitive::linguistics::english::english_loaded)
+/// ITSELF (not just the wrapped fns the keystone gate exercises) and asserts
+/// that whichever branch its `OnceLock` selects — the compact `.prx` fast path
+/// or the WN-LMF XML fallback — materializes the SAME `English` as a fresh
+/// `English::from_wordnet` parse of the on-disk source: a rich corpus
+/// (>100k concepts), an identical `concept_count`, and an identical
+/// word→concept index. The runtime's chosen path must produce the authoritative
+/// English. Graceful skip when the 89 MB corpus is not provisioned.
+#[test]
+fn english_loaded_dispatcher_matches_from_wordnet() {
+    let Some(en) = WORDNET.english() else {
+        eprintln!("SKIP: WordNet not on disk");
+        return;
+    };
+
+    // The authoritative reference: a fresh parse + materialization of the
+    // on-disk source — the same English every other gate measures against.
+    let reference =
+        English::from_wordnet(&read_wordnet(core::str::from_utf8(&en.source).unwrap()).unwrap());
+
+    // Drive the runtime dispatcher itself. Whatever branch it picks must agree
+    // with the reference.
+    let dispatched = english_loaded();
+
+    assert!(
+        dispatched.concept_count() > 100_000,
+        "real English WordNet is rich (>100k synsets); english_loaded() gave {}",
+        dispatched.concept_count()
+    );
+    assert_eq!(
+        dispatched.concept_count(),
+        reference.concept_count(),
+        "english_loaded()'s chosen branch concept_count differs from from_wordnet"
+    );
+    assert_eq!(
+        dispatched.word_index, reference.word_index,
+        "english_loaded()'s chosen branch word→concept index differs from from_wordnet"
     );
 }
 
