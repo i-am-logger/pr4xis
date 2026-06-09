@@ -59,15 +59,19 @@ test-group = "usc-giants"
 slow-timeout = { period = "120s", terminate-after = 3 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Corpus-heavy statute tests (sox_1514a, statute_understanding) load the full USC
-# corpus (`usc_loaded`) and resolve WordNet lemmas. The #271 compact fast-load
-# dropped `usc_loaded` from a ~15s XML parse to ~1.4s, but at very high core
-# counts (a 32-core box) ~30 of these run concurrently and the residual WordNet
-# resolution + memory-bandwidth contention can still push a few past the strict
-# cap; at a normal CI runner's parallelism they pass comfortably. This headroom
-# keeps the suite green at ANY core count (the SLOW marker still surfaces the
-# cost). Removable once the consumer tests also load the compact `.prx` so the
-# WordNet leg is fast too (the .prx-cache fixture — see docs/understand/test-architecture.md).
+# Corpus-heavy statute tests (sox_1514a, statute_understanding) materialize the
+# full USC corpus (`usc_loaded`) AND the full English WordNet (`english_loaded`
+# via `cached_english`), then run the per-term lexical-adjunction resolution over
+# every registered statute. Both corpora now load from the content-addressed
+# compact `.prx` cache in ~ms each when it is populated (CI emits it before the
+# run — see .github/workflows/ci.yml; `dev-ci` likewise), so the cost here is no
+# longer XML parsing but the lemma-resolution graph work itself. At very high core
+# counts (a 32-core box) ~30 of these run concurrently and memory-bandwidth
+# contention can still push a few past the strict cap; at a normal CI runner's
+# parallelism they pass comfortably. (A bare `dev-test` that has not populated the
+# `.prx-cache` falls back to the full XML parse and is slower still.) This headroom
+# keeps the suite green at ANY core count, with or without the cache — the SLOW
+# marker still surfaces the cost.
 [[profile.default.overrides]]
 filter = 'test(sox_1514a) | test(statute_understanding)'
 slow-timeout = { period = "30s", terminate-after = 2 }

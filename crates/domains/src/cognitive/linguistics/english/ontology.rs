@@ -801,12 +801,12 @@ impl English {
 ///
 /// Reads the content-addressed compact `.prx` archive
 /// ([`english_compact_prx_cache_dir`][cd]) when one is present — gunzip +
-/// fail-closed content gate + succinct decode, ~ms — and parses the 89 MB WN-LMF
-/// XML otherwise. The English analogue of [`uslm::corpus::loaded`][usc]: the
-/// shared fast path for every full-English consumer (the chat, the
-/// lambek/adjunction test fixtures), so each `OnceLock` re-init under nextest's
-/// process-per-test model loads the compact archive instead of re-parsing the
-/// giant.
+/// fail-closed content gate + succinct decode + `from_wordnet` materialization,
+/// far cheaper than the 89 MB WN-LMF XML parse it does otherwise. The English
+/// analogue of [`uslm::corpus::loaded`][usc]: the shared fast path for every
+/// full-English consumer (the `pr4xis chat` CLI, the lambek/adjunction test
+/// fixtures), so each `OnceLock` re-init under nextest's process-per-test model
+/// loads the compact archive instead of re-parsing the giant.
 ///
 /// [cd]: crate::social::software::markup::xml::lmf::prx::english_compact_prx_cache_dir
 /// [usc]: crate::social::software::markup::xml::uslm::corpus::loaded
@@ -815,6 +815,7 @@ pub fn english_loaded() -> &'static English {
     static INSTANCE: OnceLock<English> = OnceLock::new();
     INSTANCE.get_or_init(|| {
         use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
         use crate::social::software::markup::xml::lmf::reader::read_wordnet;
 
         let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -822,10 +823,15 @@ pub fn english_loaded() -> &'static English {
             .and_then(|p| p.parent())
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| std::path::PathBuf::from("."));
+        // THE canonical English: the single registered `Language`-kind source
+        // (English is the sole Language implementor today). Selected by kind —
+        // exactly as every emit/anchor path filters Language — not by a name
+        // literal, so a registry rename can never silently desync the loader from
+        // the emitter that produced its archive.
         let entry = data_sources()
             .iter()
-            .find(|e| e.name == "english_wordnet")
-            .expect("english_loaded(): no `english_wordnet` source registered");
+            .find(|e| e.kind == SourceTaxonomyConcept::Language)
+            .expect("english_loaded(): no Language-kind source registered");
 
         // Fastest path: the content-addressed COMPACT archive, admitted through
         // the fail-closed `[compact_archive_signatures]` gate — gunzip +

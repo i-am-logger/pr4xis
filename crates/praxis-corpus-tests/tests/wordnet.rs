@@ -21,6 +21,7 @@ use std::sync::LazyLock;
 use praxis_corpus_tests::{WnCorpus, load_wordnet_corpus};
 
 use pr4xis::codegen::wordnet::parse_wordnet_xml;
+use pr4xis_domains::applied::data_provisioning::registry::lock_compact_archive_signature;
 use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English};
 use pr4xis_domains::formal::meta::well_behaved_lens::{
     CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
@@ -30,8 +31,9 @@ use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::{
     emit_prx_gz, from_succinct, load_prx_gz, to_succinct,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::prx::{
-    build_wordnet_envelope, emit_wordnet_prx_gz, load_wordnet_prx_gz, wn_reconstruct_source,
-    wordnet_envelope_from_bytes, wordnet_envelope_to_bytes,
+    build_wordnet_envelope, compact_english_archive_address, emit_compact_english_prx_gz,
+    emit_wordnet_prx_gz, load_compact_english_prx_gz_gated, load_wordnet_prx_gz,
+    wn_reconstruct_source, wordnet_envelope_from_bytes, wordnet_envelope_to_bytes,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::writer::{
     capture_wn_complement, reconstruct_wn_lmf_source,
@@ -177,6 +179,112 @@ fn prx_gz_round_trips_to_english() {
         measured >= 1,
         "no WN-LMF source on disk for the prx.gz round-trip"
     );
+}
+
+/// THE COMPACT-ENGLISH KEYSTONE GATE — the end-to-end machinery
+/// [`english_loaded`](pr4xis_domains::cognitive::linguistics::english::english_loaded)
+/// reads, exercised over the real 89 MB corpus through the SAME three gated
+/// wrappers the runtime loader calls:
+/// [`emit_compact_english_prx_gz`] → [`compact_english_archive_address`] →
+/// [`load_compact_english_prx_gz_gated`]. It asserts the three properties that
+/// loader depends on:
+///
+/// 1. **Reasoning-equivalence** — the compact-gated `English` has the same
+///    `concept_count` and word→concept index as `English::from_wordnet` over
+///    the source (so a chat loaded from the compact `.prx` reasons identically).
+/// 2. **Compactness (the product metric)** — the compact `.prx.gz` is smaller
+///    than fetching the source itself (`gzip(source)`), the guard the
+///    .prx-bigger-than-source regression lacked.
+/// 3. **Fail-closed content gate** — a single flipped byte in the succinct
+///    payload is REJECTED before any `English` is materialized.
+///
+/// And — when the source is pinned in `praxis.lock`
+/// `[compact_archive_signatures]` — the freshly-emitted archive's content
+/// address MUST equal the shipped pin: the regression teeth on the pin
+/// `english_loaded()` trusts (a codec change that silently invalidated the pin
+/// fails here, demanding a deliberate KAT bump). Graceful skip when the 89 MB
+/// corpus is not provisioned, the same doctrine the emitters use.
+#[test]
+fn compact_english_prx_keystone_gate_over_real_corpus() {
+    let Some(en) = WORDNET.english() else {
+        eprintln!("SKIP: WordNet not on disk");
+        return;
+    };
+    let source = &en.source;
+    let reference = English::from_wordnet(&en.wn);
+
+    // ── emit + address (the two pure functions `pr4xis compile --compact` and
+    //    `english_loaded()` share) ──
+    let cprx_gz = emit_compact_english_prx_gz(source).expect("emit compact English .prx.gz");
+    let address = compact_english_archive_address(&cprx_gz).expect("compact archive address");
+
+    // ── load THROUGH the fail-closed content gate (what `english_loaded()`
+    //    calls on its fast path) ──
+    let key = format!("{FX_NAME}@{FX_VERSION}");
+    let t = std::time::Instant::now();
+    let loaded = load_compact_english_prx_gz_gated(&cprx_gz, &address, &key)
+        .expect("load compact English through the content gate");
+    let load_ms = t.elapsed().as_secs_f64() * 1e3;
+
+    // 1. REASONING-EQUIVALENCE with the from_wordnet reference.
+    assert!(
+        loaded.concept_count() > 100_000,
+        "real English WordNet is rich (>100k synsets); got {}",
+        loaded.concept_count()
+    );
+    assert_eq!(
+        loaded.concept_count(),
+        reference.concept_count(),
+        "compact-gated English concept_count differs from from_wordnet"
+    );
+    assert_eq!(
+        loaded.word_index, reference.word_index,
+        "compact-gated English word→concept index differs from from_wordnet"
+    );
+
+    // 2. COMPACTNESS GATE: the compact .prx.gz beats the source download.
+    let source_dl = gz_len(source);
+    eprintln!(
+        "COMPACT-ENGLISH {FX_NAME}: .prx.gz = {:.2}MB loads to {} concepts in {:.0}ms  vs  \
+         source download {:.2}MB ({:.2}x)",
+        cprx_gz.len() as f64 / 1e6,
+        loaded.concept_count(),
+        load_ms,
+        source_dl as f64 / 1e6,
+        cprx_gz.len() as f64 / source_dl.max(1) as f64,
+    );
+    assert!(
+        cprx_gz.len() < source_dl,
+        "{FX_NAME}: compact .prx.gz ({} B) is NOT smaller than the source download \
+         gzip(source) ({} B) — compactness regressed",
+        cprx_gz.len(),
+        source_dl,
+    );
+
+    // 3. FAIL-CLOSED GATE: a tampered archive is rejected, never materialized.
+    //    Flip a byte deep in the gzip body (past the header) and re-load: the
+    //    content address must no longer match, so the gate returns Err.
+    let mut tampered = cprx_gz.clone();
+    let mid = tampered.len() / 2;
+    tampered[mid] ^= 0x01;
+    assert!(
+        load_compact_english_prx_gz_gated(&tampered, &address, &key).is_err(),
+        "{FX_NAME}: a tampered compact archive must be rejected by the content gate"
+    );
+
+    // PIN TEETH: when shipped, the lock pin must equal this emit's address —
+    // the regression guard on the pin `english_loaded()` trusts.
+    match lock_compact_archive_signature(FX_NAME, FX_VERSION) {
+        Some(pin) => assert_eq!(
+            pin, address,
+            "praxis.lock [compact_archive_signatures] pin for {key} no longer matches the \
+             emitted compact archive — the codec changed; bump the pin deliberately (KAT bump)"
+        ),
+        None => eprintln!(
+            "NOTE: {key} has no [compact_archive_signatures] pin in praxis.lock — \
+             emit+load verified, pin teeth skipped"
+        ),
+    }
 }
 
 /// The compact integer-addressed core is REASONING-EQUIVALENT to the source

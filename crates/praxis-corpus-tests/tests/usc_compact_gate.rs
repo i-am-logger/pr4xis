@@ -12,8 +12,11 @@
 //!    XML. Asserted on the aggregate with a generous 2× margin against the
 //!    ~30× reality, so it gates the regression without flaking on CI jitter.
 //!
-//! Losslessness rides along: the compact-loaded section count must equal the
-//! XML-parsed section count for every title (covers the 113 MB Title 42).
+//! Section-count parity rides along: the compact-loaded section count must equal
+//! the XML-parsed count for every title (covers the 113 MB Title 42). Full
+//! byte-exact losslessness is proven separately by the per-source round-trip
+//! gates (uslm/corpus/prx.rs) and the codec's own `decode(encode) == source`
+//! identity test — this gate adds a cheap corpus-scale parity check.
 //!
 //! Run under `cargo test` in the heavy-corpus lane; each title is read once in
 //! this binary. Replaces the old `#[ignore]` `deep_dive_all_usc_titles` report.

@@ -905,14 +905,16 @@ pub fn emit_all_wordnet_prx_gz(
 // =============================================================================
 // Compact English `.prx` — the portable, content-address-gated fast path that
 // `english_loaded()` reads. The WordNet analogue of the USC compact-archive
-// infra (`uslm::corpus::prx`): the same succinct codec the wasm runtime embeds,
-// wrapped in a `[compact_archive_signatures]` content gate + an on-disk cache.
+// infra (`uslm::corpus::prx`): the same succinct CODEC the wasm runtime uses,
+// wrapped here in a `[compact_archive_signatures]` content gate + an on-disk
+// cache. (The wasm build embeds the succinct bytes directly under its own
+// Merkle-root gate; it does not yet go through this compact-archive pin.)
 // =============================================================================
 
 /// Emit a COMPACT English `.prx.gz` from WN-LMF source bytes: parse → succinct
 /// encode → gzip. The portable, dependency-free sibling of
 /// [`emit_wordnet_prx_gz`] (no rkyv envelope) — the bytes `english_loaded()`
-/// loads through the content gate, and the wasm runtime embeds.
+/// loads through the content gate.
 pub fn emit_compact_english_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
     let text = core::str::from_utf8(source)
         .map_err(|e| PrxError::Read(format!("WN-LMF source is not UTF-8: {e}")))?;

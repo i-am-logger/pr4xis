@@ -12,7 +12,7 @@ mod usc_codegen_output {
 }
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
 use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
-use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::english::{English, english_loaded};
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
@@ -715,15 +715,18 @@ fn workspace_root() -> anyhow::Result<PathBuf> {
 // --------------------------------------------------------------------------
 
 fn run_chat() {
-    let wordnet_path = std::env::var("WORDNET_XML")
-        .unwrap_or_else(|_| "crates/domains/data/wordnet/english-wordnet-2025.xml".into());
-
-    let language = match load_language(&wordnet_path) {
-        Ok(lang) => Arc::new(lang),
-        Err(e) => {
-            eprintln!("{}", e);
-            std::process::exit(1);
-        }
+    // Default to the fast content-addressed compact English archive
+    // (`english_loaded()`, ~ms; XML fallback inside). An explicit `WORDNET_XML`
+    // override parses that file instead (leaked for the process lifetime).
+    let language: &'static English = match std::env::var("WORDNET_XML") {
+        Ok(path) => match load_language(&path) {
+            Ok(lang) => Box::leak(Box::new(lang)),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
+        },
+        Err(_) => english_loaded(),
     };
 
     // Materialise the U.S. Code corpus from the build-time codegen static.
@@ -770,10 +773,10 @@ fn run_chat() {
         }
 
         // Resolve anaphoric expressions via language lexicon + Centering Theory
-        let resolved_input = resolve_pronouns(input, engine.situation(), language.as_ref());
+        let resolved_input = resolve_pronouns(input, engine.situation(), language);
 
         // Process through praxis-chat (shared logic — zero I/O)
-        let (response_text, user_act, _sys_act) = chat::process(&language, &resolved_input);
+        let (response_text, user_act, _sys_act) = chat::process(language, &resolved_input);
 
         // Extract referents for discourse tracking
         let referents: Vec<String> = resolved_input
