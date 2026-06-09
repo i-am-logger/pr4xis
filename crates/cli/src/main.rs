@@ -1,15 +1,9 @@
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use pr4xis_chat as chat;
 
-#[allow(dead_code)]
-#[allow(clippy::invisible_characters)]
-mod usc_codegen_output {
-    include!(concat!(env!("OUT_DIR"), "/usc_codegen.rs"));
-}
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
 use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
 use pr4xis_domains::cognitive::linguistics::english::{English, english_loaded};
@@ -18,7 +12,6 @@ use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
 use pr4xis_domains::social::software::markup::xml::lmf;
 use pr4xis_domains::social::software::markup::xml::owl::prx::EmittedArtifact;
-use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 /// pr4xis — axiomatic intelligence via ontology.
 #[derive(Parser, Debug)]
@@ -730,10 +723,13 @@ fn run_chat() {
         Err(_) => english_loaded(),
     };
 
-    // Materialise the U.S. Code corpus from the build-time codegen static.
-    // The CLI build.rs writes an empty stub when no USC XML is on disk, so
-    // this call never panics — `usc.section_count()` is just 0 in that case.
-    let usc = Arc::new(UsCode::from_codegen(&usc_codegen_output::CODEGEN_DATA));
+    // Materialise the U.S. Code corpus through the runtime loader: the
+    // content-addressed compact `.prx` fast path when `pr4xis compile` has
+    // produced one (admitted through the fail-closed `praxis.lock` gate),
+    // the USLM XML otherwise. A title absent on disk is skipped, so on a
+    // fresh checkout `usc.section_count()` is honestly 0 — run
+    // `pr4xis update` then `pr4xis compile --compact` to provision it.
+    let usc = pr4xis_domains::social::software::markup::xml::uslm::corpus::loaded();
 
     println!("pr4xis — axiomatic intelligence");
     println!(

@@ -33,5 +33,3 @@ anyhow = "1"
 [lints]
 workspace = true
 
-[build-dependencies]
-pr4xis = { version = "0.22.1", path = "../pr4xis", features = ["codegen"] }
