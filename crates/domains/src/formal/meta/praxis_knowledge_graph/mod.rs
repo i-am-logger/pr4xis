@@ -1,9 +1,12 @@
-//! Praxis knowledge-graph ontology (#272) — a content-addressed graph-SLICE
-//! primitive: select a subgraph, emit it as a deterministic content-addressed
-//! binary, load it through a fail-closed gate, re-bind behavioural nodes by
-//! name. (The *whole* graph is just the default selection; the
-//! request-for-missing negotiation that would let a peer LEARN what it lacks is
-//! a separate, deferred layer — not this primitive.)
+//! Praxis knowledge-graph ontology (#272) — the substrate for praxis's
+//! **whole-graph wire protocol**: how one praxis instance carries its ontologies
+//! (and the functors / lenses over them) to another, content-addressed and
+//! verifiable — the p2p ontology-runtime North Star. Its shipped step today is
+//! the content-addressed graph SLICE: select a subgraph (the whole graph by
+//! default), emit it as a deterministic content-addressed binary, load it
+//! through a fail-closed gate, and re-bind behavioural nodes by name. The
+//! teach-a-peer negotiation — a receiver requesting the ontologies its unbound
+//! references name — is the deferred chat-protocol layer above this primitive.
 //!
 //! - [`ontology`] declares the 32 concepts (structural-knowledge nodes,
 //!   their pair-ontology bindings, selection/slicing, and the

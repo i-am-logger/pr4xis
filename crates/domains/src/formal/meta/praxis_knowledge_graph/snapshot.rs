@@ -1,7 +1,9 @@
-//! Whole-graph `GraphSnapshot` machinery (#271 effort B) — select a slice of
-//! the [`PraxisKnowledgeGraph`](super), content-address it as a Merkle DAG,
-//! and rehydrate it through the same fail-closed admit gate the `.prx`
-//! archive uses, re-binding behavioural nodes to the running binary.
+//! `GraphSnapshot` — the wire form of praxis's **whole-graph wire protocol**
+//! (#272 / #271 effort B): select a slice of the [`PraxisKnowledgeGraph`](super)
+//! (the whole graph by default), content-address it as a Merkle DAG, and
+//! rehydrate it through the same fail-closed admit gate the `.prx` archive uses,
+//! re-binding behavioural nodes to the running binary. This is how one praxis
+//! instance hands its ontologies to another, verifiably.
 //!
 //! This is the whole-graph generalisation of the archive storage substratum:
 //! it REUSES the prx primitives ([`source_content_hash`], gzip/rkyv, the

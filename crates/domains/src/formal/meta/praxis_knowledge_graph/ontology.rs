@@ -1,5 +1,7 @@
-//! Praxis knowledge-graph ontology (#272) — the concepts behind a
-//! content-addressed graph-**SLICE** primitive.
+//! Praxis knowledge-graph ontology (#272) — the concepts behind praxis's
+//! **whole-graph wire protocol** (the p2p substrate that carries an instance's
+//! ontologies + the functors / lenses over them to another); its shipped step
+//! is a content-addressed graph **SLICE**.
 //!
 //! The unit of persistence is a SELECTED subgraph (a `RootSet` under an
 //! `EdgeKindFilter` — the whole graph by default, but typically a minimal
@@ -115,7 +117,7 @@ pr4xis::ontology! {
         AttestationChain: ("en", "Attestation chain", "OpenSSF SLSA; in-toto: the ordered attestations covering each supply-chain step (deferred)."),
         SupplyChainStep: ("en", "Supply-chain step", "OpenSSF SLSA: one producer step whose inputs and outputs an attestation records (deferred)."),
         GraphVersion: ("en", "Graph version", "A version label of the whole knowledge graph — the content address of a GraphSnapshot identifies it."),
-        GraphSnapshot: ("en", "Graph snapshot", "The whole knowledge graph at a version, content-addressed as a Merkle DAG — the emit/load slice unit a future wire transfer would carry (negotiation deferred; realisation #271)."),
+        GraphSnapshot: ("en", "Graph snapshot", "The whole knowledge graph at a version, content-addressed as a Merkle DAG — the emit/load unit praxis's whole-graph wire protocol carries between instances (the teach-a-peer request/response negotiation is the deferred chat layer; realisation #271)."),
     },
 
     is_a: [
