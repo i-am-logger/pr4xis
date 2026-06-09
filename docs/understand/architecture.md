@@ -61,17 +61,19 @@ A new `next()` after `back()` clears the redo stack and starts a new branch from
 
 Depends on ontology. The mechanism for getting authoritative ontology data into the runtime. The layer name is `codegen` after the build-time path, but **codegen is one of several delivery options** — all of them are functors from the same `OntologyBuilder` source category, with categorical equivalence proven so that the choice between them is operational rather than semantic.
 
-- **Build-time codegen** — the reference instance is `codegen::wordnet`, which converts the WordNet XML dictionary into a compiled English ontology of ~107K concepts emitted as static Rust. This is the path the WASM browser demo uses, so the browser never has to parse 100K WordNet entries at startup.
+- **Build-time codegen** — the reference instance is `codegen::wordnet`, which converts the WordNet XML dictionary into a compiled English ontology of ~107K concepts emitted as static Rust.
 - **Runtime async loading** — load ontology data from a file or stream asynchronously at runtime, materializing the same `OntologyBuilder` structure the codegen path produces.
 - **Memory-mapped files** — mmap a precomputed ontology binary directly into memory, getting the data without parsing or copying.
 
 All three produce the same ontology because each is a verified functor from the same source. The choice depends on deployment: build-time codegen for static binaries, async loading for hot reloading or for ontologies too large to embed, mmap for very large ontologies that need to share memory across processes.
 
+For the largest ontologies, the runtime increasingly loads a **compact, content-addressed `.prx`** (see [Verifiable archives](#verifiable-archives)) instead of embedding static Rust: the English dictionary (~107K concepts) and U.S. Code both load this way — in the browser and on the command line — reading back in milliseconds without re-parsing the source. The compact `.prx` is smaller than fetching the source itself, so the read-back is the fast path and the original parse is the fallback.
+
 The runtime side of delivery — *which* external sources praxis knows about and how their on-disk bytes get verified — lives under `pr4xis_domains::applied::data_provisioning`. A workspace-root **manifest** (`praxis.toml`) declares each registered source by name, version, taxonomy type, and authoritative URL; a workspace-root **lock** (`praxis.lock`) pins the sha256 each source's bytes must match. The `LockManifestAgreement` axiom fails closed on any drift between manifest, lock, and the file on disk. The `pr4xis update` CLI is the operator's interface to the same subsystem — see [Register a Source](../use/register-a-source.md) for the contributor workflow.
 
 ## Verifiable archives
 
-A loaded source can be frozen into a self-contained, content-addressed `.prx` file that rebuilds the original byte-for-byte and refuses to load if it has been altered. The ontology that describes this storage — content-addressable nodes, a Merkle DAG, a binary envelope, a source pin, and a load gate — lives in `crates/domains/src/formal/meta/ontology_archive/`; its runnable axioms exercise the real realisation.
+A loaded source can be frozen into a small, self-contained, content-addressed `.prx` file. The runtime reads it back in a moment — instead of re-parsing the original source each time — and checks the archive's fingerprint before trusting it, refusing anything that has been altered; the same `.prx` can also rebuild the original source byte-for-byte. The ontology that describes this storage — content-addressable nodes, a Merkle DAG, a binary envelope, a source pin, and a load gate — lives in `crates/domains/src/formal/meta/ontology_archive/`; its runnable axioms exercise the real realisation.
 
 Three pieces hold the property together:
 
@@ -80,6 +82,8 @@ Three pieces hold the property together:
 - **A typed, multi-algorithm `IntegrityClaim`.** Integrity is a verifiable claim binding a resource to its expected content hash (W3C Subresource Integrity, 2016), carried over a content-hash family that spans SHA-256, SHA-512, and BLAKE3 (`crates/domains/src/formal/meta/artifact_identity/`) rather than a single hard-coded algorithm.
 
 The first realisation is the OWL leaf (`crates/domains/src/social/software/markup/xml/owl/prx.rs`): a registered OWL vocabulary, parsed once and frozen into a content-addressed `.prx` envelope the runtime materialises back without re-parsing the XML. **U.S. Code (USLM) text is a second, non-OWL consumer of the same archive machinery** — it is verified against the same archive axioms (the same lens round-trip, source-faithfulness, and fail-closed-gate laws), demonstrating that the storage ontology is not tied to OWL.
+
+The same fingerprint-checked, fail-closed discipline carries the **compact fast-load** path that the runtime reads at startup. The English dictionary (WordNet, ~107K concepts) and U.S. Code each freeze into a compact, content-addressed `.prx` — smaller than fetching the source itself — that the browser and the `pr4xis chat` CLI read back in milliseconds, verified against a pin in `praxis.lock` (`[compact_archive_signatures]`), instead of re-parsing the source. A tampered compact archive is refused before any data is installed, exactly as on the envelope path.
 
 The same primitive extends to a **content-addressed graph slice** (`crates/domains/src/formal/meta/praxis_knowledge_graph/`): select a subgraph, emit it as a deterministic content-addressed binary, reload it through the fail-closed gate, and re-bind the behavioural nodes by name, with the slice's outgoing references surfaced as explicit unbound references. Selecting the whole graph is the degenerate case of the same slice. This is the slicing primitive only — the negotiation that would let one node learn what another holds, and any wire transfer between nodes, is a separate, deferred layer, not part of this machinery.
 

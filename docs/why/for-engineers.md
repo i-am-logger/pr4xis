@@ -22,7 +22,7 @@ The contrast with statistical AI: where an LLM predicts the next token, pr4xis d
 | More than 160 ontologies covering biomedical, sensor fusion, navigation, perception, tracking, space, underwater, industrial, linguistics, formal math | `find crates/domains/src -name ontology.rs \| wc -l` |
 | Cross-domain functors whose laws are checked at test time (`assert_functor_laws`) | `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ \| wc -l` |
 | `pr4xis update` — content-addressed source provisioning with a fail-closed verify gate | `crates/cli/src/main.rs`, `crates/domains/src/applied/data_provisioning/` |
-| `.prx` verifiable archive — packs a loaded source into a self-contained file that rebuilds byte-for-byte and refuses to load if altered; today over its own OWL ontologies and U.S. Code (USLM) text | `crates/domains/src/formal/meta/ontology_archive/`, `.../xml/owl/prx.rs`, `.../xml/uslm/corpus/prx.rs` |
+| `.prx` verifiable archive — packs a loaded source into a compact, self-contained file praxis reads back in milliseconds (and can rebuild byte-for-byte), refusing to load if altered; today over its own OWL ontologies, U.S. Code (USLM) text, and the English dictionary (WordNet) | `crates/domains/src/formal/meta/ontology_archive/`, `.../xml/owl/prx.rs`, `.../xml/uslm/corpus/prx.rs`, `.../xml/lmf/prx.rs` |
 | Adjunction-based gap detection (the bioelectricity Kv discovery) | [Gap detection](../research/gap-detection.md) |
 | Engine with `back()`, `forward()`, branching, and full trace | `crates/pr4xis/src/engine/` |
 | WASM browser surface — runs entirely in-browser, no server | [pr4xis.dev](https://pr4xis.dev) |

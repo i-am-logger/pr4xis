@@ -132,7 +132,7 @@ The engine subsystem at `pr4xis_domains::applied::data_provisioning` that reads 
 
 ## `.prx`
 
-The self-contained archive format praxis packs a loaded source into. A `.prx` file rebuilds the original bytes exactly and refuses to load if it has been altered. Today praxis archives its own OWL ontologies and its U.S. Code (USLM) text this way. The format is one realisation of the [Archive](#archive) ontology; the realisation lives at `crates/domains/src/social/software/markup/xml/owl/prx.rs` (gated on `feature = "prx"`).
+The self-contained archive format praxis packs a loaded source into. praxis reads a `.prx` back in milliseconds — instead of re-parsing the original source — after checking its fingerprint and refusing anything that has been altered, and it can still rebuild the original bytes exactly. Today praxis archives its own OWL ontologies, its U.S. Code (USLM) text, and the English dictionary (WordNet) this way; the English and U.S. Code archives are compact — smaller than the source download — for the fast read-back. The format is one realisation of the [Archive](#archive) ontology; the realisation lives at `crates/domains/src/social/software/markup/xml/owl/prx.rs` (gated on `feature = "prx"`).
 
 ## Archive
 

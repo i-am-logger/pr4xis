@@ -25,7 +25,7 @@ The mathematical lineage runs from Spencer-Brown's *Laws of Form* through Heim's
 - **More than 160 domain ontologies** in the workspace — from orbital mechanics, attitude estimation, and Kalman filtering through dialectics and possible-worlds semantics.
 - **A live demo** at **[pr4xis.dev](https://pr4xis.dev)** — it runs entirely in the browser; no server, GPU, or API key.
 - **A concrete, re-runnable result** — a gap-detection finding in bioelectricity you can verify yourself ([gap detection](docs/research/gap-detection.md)).
-- **Verifiable archives.** pr4xis can pack a loaded source into a self-contained `.prx` file that rebuilds the original byte-for-byte and refuses to load if it has been altered — today for its own ontologies and for U.S. Code text.
+- **Verifiable archives.** pr4xis packs what it has loaded into a small, self-contained `.prx` file and reads it back in a moment — instead of re-reading the whole original source each time — checking the archive's fingerprint first and refusing anything that's been altered. This fast, checked read-back works today for the English dictionary (WordNet) and for U.S. Code text; any `.prx` can still rebuild its original source byte-for-byte.
 - **A full audit trail** — every conclusion carries the proof path back to its axioms.
 
 ## pr4xis and language models
