@@ -1156,9 +1156,12 @@ pub struct EmittedArtifact {
     pub path: std::path::PathBuf,
     /// Size of the written `.prx.gz` in bytes.
     pub byte_len: u64,
-    /// The `MerkleRoot` content address of the written archive (SHA-256 of
-    /// the rkyv envelope bytes) — the value to pin in `praxis.lock`
-    /// `[archive_signatures]` so the runtime load gate can verify it.
+    /// The content address of the written archive — for the envelope producers
+    /// the rkyv `MerkleRoot` (SHA-256 of the envelope bytes), for the compact
+    /// producers the SHA-256 of the uncompressed succinct bytes. The value to
+    /// pin in the corresponding `praxis.lock` signature space
+    /// (`[archive_signatures]` for envelopes, `[compact_archive_signatures]` for
+    /// compact archives) so the runtime load gate can verify it.
     pub archive_address: String,
 }
 

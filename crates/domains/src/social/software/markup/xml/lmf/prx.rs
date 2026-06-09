@@ -71,7 +71,7 @@
 //! [`English::from_wordnet`] yields from the same source.
 //!
 //! Byte-exact source fidelity (`hash(out) == hash(in)`, the #186 invariant) is
-//! GRAPH-FAITHFUL since SLICE 3b: WN-LMF is praxis's FIRST source whose `.prx`
+//! GRAPH-FAITHFUL: WN-LMF's `.prx`
 //! regenerates the exact source bytes from the typed [`WordNet`] ontology plus a
 //! content-addressed concrete-syntax complement ([`WnGraphFaithful`] — the
 //! §2.8 `<!DOCTYPE>`, the root namespaces, the §2.4 inter-element white-space,
@@ -79,12 +79,12 @@
 //! attribute sequences), with NO stored raw blob. The capture/reconstruct pair
 //! ([`capture_wn_complement`] / [`reconstruct_wn_lmf_source`], parser
 //! `source_syntax` residue + the WN-LMF structural writer) is proven a byte-exact
-//! inverse over the real 89 MB corpus (SLICE 3a). English therefore emits
-//! [`RoundTripFidelity::ByteExactGraphFaithful`]; the
+//! inverse over the real 89 MB corpus. English therefore emits
+//! [`RoundTripFidelity::ByteExactGraphFaithful`], as do OWL (via
+//! `write_owl_exact`) and USC (via `write_uslm`) through their own writers; the
 //! [`RoundTripFidelity::RawBytesComplementFloor`] raw-blob leaf
-//! [`RawSource::blob`] is the tier OWL and USC still ride (their byte-exact
-//! writers — OWL `write_owl` + RDFC #258, USC `write_uslm` — remain the open
-//! gap), kept here for the floor reconstruction path.
+//! [`RawSource::blob`] is the generic fallback for a source with no registered
+//! byte-exact lens, kept here for the floor reconstruction path.
 //!
 //! ## Citations
 //!
@@ -226,7 +226,7 @@ pub const WN_LMF_NAMESPACE_URI: &str = "https://globalwordnet.github.io/schemas/
 /// ways keeps one content address; only the per-source `complement` differs. The
 /// capture/reconstruct pair ([`capture_wn_complement`] /
 /// [`reconstruct_wn_lmf_source`]) is proven a byte-exact inverse over the real
-/// 89 MB Open English WordNet 2025 corpus (the SLICE-3a round-trip law).
+/// 89 MB Open English WordNet 2025 corpus.
 ///
 /// rkyv-serializable through the `prx`-gated derives on [`WordNet`] and
 /// [`WnSyntaxComplement`] (and the XML/residue types they reference).
@@ -267,11 +267,11 @@ pub struct WnGraphFaithful {
 /// - [`RoundTripFidelity::ByteExactGraphFaithful`] — `graph` is `Some`, `raw`
 ///   is `None`: the source regenerates from the typed [`WordNet`] ontology plus
 ///   the concrete-syntax [`WnSyntaxComplement`] ([`WnGraphFaithful`]), NO stored
-///   raw blob. This is English's tier since SLICE 3b — praxis's FIRST
-///   graph-faithful `.prx` source.
+///   raw blob. This is English's tier.
 /// - [`RoundTripFidelity::RawBytesComplementFloor`] — `raw` is `Some`, `graph`
 ///   is `None`: the source bytes are stored as a content-addressed constant
-///   complement (the universal floor OWL + USC still ride).
+///   complement (the generic fallback for a source with no registered byte-exact
+///   lens).
 ///
 /// In both tiers [`Self::data`] (the reasoning view) is carried unchanged — the
 /// runtime materializes [`English`] from it identically regardless of the
@@ -286,7 +286,7 @@ pub struct WordNetPrxEnvelope {
     /// runtime reasoning view, carried unchanged in both reconstruction tiers.
     pub data: OwnedCodegenData,
     /// The source lens's [`RoundTripFidelity`] — `ByteExactGraphFaithful` for
-    /// English since SLICE 3b (the typed ontology + concrete-syntax complement
+    /// English (the typed ontology + concrete-syntax complement
     /// regenerate the source from the graph alone).
     pub mode: RoundTripFidelity,
     /// The graph-faithful reconstruction payload (typed ontology + concrete-
@@ -362,7 +362,7 @@ fn wn_verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Resu
 /// (`sha256(blob) == raw.content_address == metadata.source_sha256`). A
 /// tampered blob is rejected.
 ///
-/// For [`RoundTripFidelity::ByteExactGraphFaithful`] (English since SLICE 3b):
+/// For [`RoundTripFidelity::ByteExactGraphFaithful`] (English):
 /// regenerate the source from the typed [`WordNet`] ontology PLUS the
 /// concrete-syntax [`WnSyntaxComplement`] carried in `graph` via
 /// [`reconstruct_wn_lmf_source`] (the graph-faithful `put`, NO stored raw blob),
@@ -685,8 +685,8 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 }
 
 /// Build a [`WordNetPrxEnvelope`] from WN-LMF source bytes plus its registry
-/// `(name, version, url)`, preferring the GRAPH-FAITHFUL tier — English's tier
-/// since SLICE 3b — and gracefully degrading to the universal floor only for a
+/// `(name, version, url)`, preferring the GRAPH-FAITHFUL tier — English's tier —
+/// and gracefully degrading to the universal floor only for a
 /// source whose concrete syntax the structural writer cannot yet reproduce.
 ///
 /// 1. Parse the typed [`WordNet`] ontology once ([`read_wordnet`]) and project
@@ -704,8 +704,9 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 ///      (e.g. a WN-LMF lexicon whose `<LexicalEntry>`/`<Synset>` child order the
 ///      DTD-ordered writer reorders). Degrade HONESTLY to the universal floor:
 ///      emit `mode = RawBytesComplementFloor`, `graph = None`, `raw =` the
-///      content-addressed source blob — the same constant-complement OWL + USC
-///      ride. NEVER a silent lie: the floor tier is explicit in `mode`, and the
+///      content-addressed source blob — the same constant-complement generic
+///      fallback OWL + USC degrade to when their writer cannot reproduce a
+///      source. NEVER a silent lie: the floor tier is explicit in `mode`, and the
 ///      completeness meter only declares a source graph-faithful when a lens is
 ///      registered for it.
 ///    - **Malformed source** ([`WnReconstructError::Parse`](crate::social::software::markup::xml::lmf::writer::WnReconstructError::Parse)) → a hard error;
@@ -1021,7 +1022,7 @@ mod tests {
     /// the corpus-equality test has a known reference.
     ///
     /// Written in REAL Open English WordNet 2025 SHAPE so it is byte-exactly
-    /// CAPTURABLE by [`capture_wn_complement`] (SLICE 3b's graph-faithful emit):
+    /// CAPTURABLE by [`capture_wn_complement`] (the graph-faithful emit):
     /// a `<!DOCTYPE>`, the root `xmlns:dc` declaration, two-space inter-element
     /// indentation, and DTD-ordered children (`Lemma, Form*, Sense*` per
     /// `<LexicalEntry>`; `Definition, …, SynsetRelation*` per `<Synset>`). The
@@ -1365,7 +1366,7 @@ mod tests {
     /// Every emitted WordNet `.prx` archive's MerkleRoot content address equals
     /// its `praxis.lock` `[archive_signatures]` pin — the invariant the
     /// lock-driven load gate enforces for every loadable lexicon. If this breaks
-    /// because the rkyv layout changed (e.g. the SLICE-3b graph-faithful
+    /// because the rkyv layout changed (e.g. the graph-faithful
     /// payload), re-pin the computed values (see `dump_wordnet_archive_addresses`).
     ///
     /// `[archive_signatures]` is a SHARED keyspace (OWL + USC + WordNet pin

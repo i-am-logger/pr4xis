@@ -372,7 +372,10 @@ fn build_entry(
 ///   it addresses a different artifact (the compiled rkyv envelope, not
 ///   the raw source).
 ///
-/// All four hash spaces are keyed by `"<name>@<version>"`.
+/// Five of the six hash spaces (`hashes`, `canonical_signatures`,
+/// `byte_exact_signatures`, `archive_signatures`, `compact_archive_signatures`)
+/// are keyed by `"<name>@<version>"`. The sixth, `snapshot_signatures`, is keyed
+/// by `GraphVersion` instead (see its field doc).
 ///
 /// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
 #[derive(Debug, Default)]

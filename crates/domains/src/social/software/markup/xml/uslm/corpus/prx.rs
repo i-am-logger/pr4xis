@@ -409,20 +409,19 @@ pub struct UscPrxMetadata {
 /// - [`RoundTripFidelity::ByteExactGraphFaithful`] — `graph` is `Some`, `raw`
 ///   is `None`: the source regenerates from the typed [`UsCodeTitle`] ontology
 ///   plus the concrete-syntax [`UslmSyntaxComplement`] ([`UscGraphFaithful`]),
-///   NO stored raw blob. This is `usc_title_1`'s tier since SLICE U6 — the first
-///   graph-faithful USC `.prx` title.
+///   NO stored raw blob. This is the tier of all registered USC `.prx` titles.
 /// - [`RoundTripFidelity::RawBytesComplementFloor`] — `raw` is `Some`, `graph`
 ///   is `None`: the source bytes are stored as a content-addressed constant
-///   complement (the universal floor the OTHER USC titles still ride, because
-///   they exercise USLM families `write_uslm` does not yet cover).
+///   complement (the universal floor, for any source exercising USLM families
+///   `write_uslm` does not yet cover).
 ///
 /// In both tiers [`Self::data`] + [`Self::aux`] (the reasoning view) are carried
 /// unchanged — the runtime materializes [`UsCode`] from them identically
 /// regardless of the reconstruction tier.
 ///
-/// `Eq` is no longer derived: the new [`Self::graph`] payload transitively carries
-/// the `PartialEq`-only [`UsCodeTitle`], so the envelope is `PartialEq`-only. rkyv
-/// does not need `Eq` and nothing keys the envelope in a set.
+/// The envelope is `PartialEq`-only: the [`Self::graph`] payload transitively
+/// carries the `PartialEq`-only [`UsCodeTitle`]. rkyv does not need `Eq` and
+/// nothing keys the envelope in a set.
 #[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct UsCodePrxEnvelope {
     /// OMV/PROV-O-grounded self-description, incl. the source content hash
@@ -438,9 +437,9 @@ pub struct UsCodePrxEnvelope {
     /// reconstruction tiers.
     pub aux: Vec<OwnedUscSectionAux>,
     /// The source lens's [`RoundTripFidelity`] — `ByteExactGraphFaithful` for
-    /// the proven `usc_title_1` since SLICE U6 (the typed ontology +
-    /// concrete-syntax complement regenerate the source from the graph alone),
-    /// `RawBytesComplementFloor` for the titles whose families `write_uslm` does
+    /// all registered USC titles (the typed ontology + concrete-syntax
+    /// complement regenerate the source from the graph alone),
+    /// `RawBytesComplementFloor` for any source whose families `write_uslm` does
     /// not yet cover.
     pub mode: RoundTripFidelity,
     /// The graph-faithful reconstruction payload (typed ontology + concrete-
@@ -516,8 +515,8 @@ fn usc_verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Res
 /// (`sha256(blob) == raw.content_address == metadata.source_sha256`). A tampered
 /// blob is rejected.
 ///
-/// For [`RoundTripFidelity::ByteExactGraphFaithful`] (`usc_title_1` since SLICE
-/// U6): regenerate the source from the typed [`UsCodeTitle`] ontology PLUS the
+/// For [`RoundTripFidelity::ByteExactGraphFaithful`] (all registered USC
+/// titles): regenerate the source from the typed [`UsCodeTitle`] ontology PLUS the
 /// concrete-syntax [`UslmSyntaxComplement`] carried in `graph` via
 /// [`reconstruct_uslm_source`] (the graph-faithful `put`, NO stored raw blob),
 /// then enforce the SAME sha256 honesty gate the floor arm uses — the
