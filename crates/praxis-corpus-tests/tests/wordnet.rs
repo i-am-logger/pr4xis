@@ -35,6 +35,7 @@ use pr4xis_domains::social::software::markup::xml::lmf::prx::{
     emit_wordnet_prx_gz, load_compact_english_prx_gz_gated, load_wordnet_prx_gz,
     wn_reconstruct_source, wordnet_envelope_from_bytes, wordnet_envelope_to_bytes,
 };
+use pr4xis_domains::social::software::markup::xml::lmf::reader::read_wordnet;
 use pr4xis_domains::social::software::markup::xml::lmf::writer::{
     capture_wn_complement, reconstruct_wn_lmf_source,
 };
@@ -52,14 +53,28 @@ const FX_NAME: &str = "english_wordnet";
 const FX_VERSION: &str = "2025";
 const FX_URL: &str = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz";
 
-/// gzip byte-length of `bytes` — the wire size of an encoding (compactness gate)
-/// and of the `.xml.gz` download. Test-local; not a crate API.
-fn gz_len(bytes: &[u8]) -> usize {
+/// gzip `bytes`. Test-local; not a crate API.
+fn gzip(bytes: &[u8]) -> Vec<u8> {
     use flate2::{Compression, write::GzEncoder};
     use std::io::Write;
     let mut e = GzEncoder::new(Vec::new(), Compression::default());
     e.write_all(bytes).expect("gz write");
-    e.finish().expect("gz finish").len()
+    e.finish().expect("gz finish")
+}
+
+/// gunzip `bytes`. Test-local; not a crate API.
+fn gunzip(bytes: &[u8]) -> Vec<u8> {
+    use flate2::read::GzDecoder;
+    use std::io::Read;
+    let mut out = Vec::new();
+    GzDecoder::new(bytes).read_to_end(&mut out).expect("gunzip");
+    out
+}
+
+/// gzip byte-length of `bytes` — the wire size of an encoding (compactness gate)
+/// and of the `.xml.gz` download. Test-local; not a crate API.
+fn gz_len(bytes: &[u8]) -> usize {
+    gzip(bytes).len()
 }
 
 /// Lowercase-hex SHA-256 (NIST FIPS 180-4 §6.2) of `bytes` — the byte-exact
@@ -186,24 +201,28 @@ fn prx_gz_round_trips_to_english() {
 /// reads, exercised over the real 89 MB corpus through the SAME three gated
 /// wrappers the runtime loader calls:
 /// [`emit_compact_english_prx_gz`] → [`compact_english_archive_address`] →
-/// [`load_compact_english_prx_gz_gated`]. It asserts the three properties that
+/// [`load_compact_english_prx_gz_gated`]. It asserts the four properties that
 /// loader depends on:
 ///
 /// 1. **Reasoning-equivalence** — the compact-gated `English` has the same
-///    `concept_count` and word→concept index as `English::from_wordnet` over
-///    the source (so a chat loaded from the compact `.prx` reasons identically).
+///    `concept_count` and word→concept index as `English::from_wordnet` over a
+///    fresh parse of the source (so a chat loaded from the compact `.prx`
+///    reasons identically).
 /// 2. **Compactness (the product metric)** — the compact `.prx.gz` is smaller
 ///    than fetching the source itself (`gzip(source)`), the guard the
 ///    .prx-bigger-than-source regression lacked.
-/// 3. **Fail-closed content gate** — a single flipped byte in the succinct
-///    payload is REJECTED before any `English` is materialized.
+/// 3. **Load-speed (the product metric)** — the compact read-back is at least
+///    2× faster than re-parsing the WN-LMF XML (the fallback path), timed on the
+///    same corpus.
+/// 4. **Fail-closed content gate** — a byte flipped in the *succinct payload*
+///    (re-gzipped so gunzip still succeeds) is REJECTED by the content-address
+///    check before any `English` is materialized.
 ///
-/// And — when the source is pinned in `praxis.lock`
-/// `[compact_archive_signatures]` — the freshly-emitted archive's content
-/// address MUST equal the shipped pin: the regression teeth on the pin
-/// `english_loaded()` trusts (a codec change that silently invalidated the pin
-/// fails here, demanding a deliberate KAT bump). Graceful skip when the 89 MB
-/// corpus is not provisioned, the same doctrine the emitters use.
+/// And the freshly-emitted archive's content address MUST equal the shipped
+/// `praxis.lock` `[compact_archive_signatures]` pin (required when the corpus is
+/// provisioned): the regression teeth on the pin `english_loaded()` trusts — a
+/// codec change that silently invalidated it fails here, demanding a deliberate
+/// KAT bump. Graceful skip when the 89 MB corpus is not provisioned.
 #[test]
 fn compact_english_prx_keystone_gate_over_real_corpus() {
     let Some(en) = WORDNET.english() else {
@@ -211,20 +230,26 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
         return;
     };
     let source = &en.source;
-    let reference = English::from_wordnet(&en.wn);
+    let text = core::str::from_utf8(source).expect("WN-LMF source is UTF-8");
+
+    // ── XML path (the loader's fallback): parse + materialize, timed. Doubles
+    //    as the reasoning-equivalence reference. ──
+    let t = std::time::Instant::now();
+    let reference = English::from_wordnet(&read_wordnet(text).expect("parse WN-LMF source"));
+    let xml_ms = t.elapsed().as_secs_f64() * 1e3;
 
     // ── emit + address (the two pure functions `pr4xis compile --compact` and
     //    `english_loaded()` share) ──
     let cprx_gz = emit_compact_english_prx_gz(source).expect("emit compact English .prx.gz");
     let address = compact_english_archive_address(&cprx_gz).expect("compact archive address");
 
-    // ── load THROUGH the fail-closed content gate (what `english_loaded()`
-    //    calls on its fast path) ──
+    // ── compact fast path (what `english_loaded()` calls): gunzip + verify +
+    //    decode + materialize, timed. ──
     let key = format!("{FX_NAME}@{FX_VERSION}");
     let t = std::time::Instant::now();
     let loaded = load_compact_english_prx_gz_gated(&cprx_gz, &address, &key)
         .expect("load compact English through the content gate");
-    let load_ms = t.elapsed().as_secs_f64() * 1e3;
+    let prx_ms = t.elapsed().as_secs_f64() * 1e3;
 
     // 1. REASONING-EQUIVALENCE with the from_wordnet reference.
     assert!(
@@ -245,11 +270,12 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
     // 2. COMPACTNESS GATE: the compact .prx.gz beats the source download.
     let source_dl = gz_len(source);
     eprintln!(
-        "COMPACT-ENGLISH {FX_NAME}: .prx.gz = {:.2}MB loads to {} concepts in {:.0}ms  vs  \
-         source download {:.2}MB ({:.2}x)",
+        "COMPACT-ENGLISH {FX_NAME}: .prx.gz = {:.2}MB loads {} concepts in {:.0}ms  vs  \
+         XML parse {:.0}ms / source download {:.2}MB ({:.2}x)",
         cprx_gz.len() as f64 / 1e6,
         loaded.concept_count(),
-        load_ms,
+        prx_ms,
+        xml_ms,
         source_dl as f64 / 1e6,
         cprx_gz.len() as f64 / source_dl.max(1) as f64,
     );
@@ -261,30 +287,42 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
         source_dl,
     );
 
-    // 3. FAIL-CLOSED GATE: a tampered archive is rejected, never materialized.
-    //    Flip a byte deep in the gzip body (past the header) and re-load: the
-    //    content address must no longer match, so the gate returns Err.
-    let mut tampered = cprx_gz.clone();
-    let mid = tampered.len() / 2;
-    tampered[mid] ^= 0x01;
+    // 3. LOAD-SPEED GATE: the compact read-back is much faster than re-parsing
+    //    the XML. A 2× floor (the measured margin is ~3×) keeps it robust to CI
+    //    jitter while still failing closed if the fast path regresses.
     assert!(
-        load_compact_english_prx_gz_gated(&tampered, &address, &key).is_err(),
-        "{FX_NAME}: a tampered compact archive must be rejected by the content gate"
+        xml_ms > 2.0 * prx_ms,
+        "{FX_NAME}: compact load ({prx_ms:.0}ms) is NOT >=2x faster than the XML parse \
+         ({xml_ms:.0}ms) — the fast-load win regressed",
     );
 
-    // PIN TEETH: when shipped, the lock pin must equal this emit's address —
-    // the regression guard on the pin `english_loaded()` trusts.
-    match lock_compact_archive_signature(FX_NAME, FX_VERSION) {
-        Some(pin) => assert_eq!(
-            pin, address,
-            "praxis.lock [compact_archive_signatures] pin for {key} no longer matches the \
-             emitted compact archive — the codec changed; bump the pin deliberately (KAT bump)"
-        ),
-        None => eprintln!(
-            "NOTE: {key} has no [compact_archive_signatures] pin in praxis.lock — \
-             emit+load verified, pin teeth skipped"
-        ),
-    }
+    // 4. FAIL-CLOSED CONTENT GATE: corrupt the SUCCINCT PAYLOAD (not the gzip
+    //    framing) so the load survives gunzip and is rejected by the
+    //    content-address check itself. Flip a byte in the uncompressed bytes and
+    //    re-gzip: the re-derived SHA-256 no longer equals `address`, so
+    //    `wn_verify_content_address` returns Err before any decode.
+    let mut corrupt = gunzip(&cprx_gz);
+    let mid = corrupt.len() / 2;
+    corrupt[mid] ^= 0x01;
+    assert!(
+        load_compact_english_prx_gz_gated(&gzip(&corrupt), &address, &key).is_err(),
+        "{FX_NAME}: a corrupt compact archive must be rejected by the content-address gate"
+    );
+
+    // PIN TEETH (required — the corpus is on disk): the lock pin MUST equal this
+    // emit's address, the regression guard on the pin `english_loaded()` trusts.
+    // A codec change that silently invalidated the shipped pin fails here.
+    let pin = lock_compact_archive_signature(FX_NAME, FX_VERSION).unwrap_or_else(|| {
+        panic!(
+            "{key} has no [compact_archive_signatures] pin in praxis.lock, but the corpus \
+             is provisioned — the pin english_loaded() trusts is missing"
+        )
+    });
+    assert_eq!(
+        pin, address,
+        "praxis.lock [compact_archive_signatures] pin for {key} no longer matches the \
+         emitted compact archive — the codec changed; bump the pin deliberately (KAT bump)"
+    );
 }
 
 /// The compact integer-addressed core is REASONING-EQUIVALENT to the source
