@@ -58,8 +58,16 @@ fn usc_archive_anchors_match_lock() {
             continue; // too large for the per-test budget — see the const doc
         }
         let src = std::fs::read(&path).expect("read pinned USC title");
-        let prx_gz = emit_usc_prx_gz(&src, &entry.name, &entry.version, &entry.url)
-            .expect("emit pinned USC title");
+        // The pinned `.prx` carries the grounding side-channel emitted against the
+        // English lexicon, so re-emit with the same English to reproduce the pin.
+        let prx_gz = emit_usc_prx_gz(
+            &src,
+            &entry.name,
+            &entry.version,
+            &entry.url,
+            Some(pr4xis_domains::cognitive::linguistics::english::english_loaded()),
+        )
+        .expect("emit pinned USC title");
         let addr = prx_archive_address(&prx_gz).expect("derive MerkleRoot");
         assert_eq!(
             &LockDigest::address(addr),

@@ -59,7 +59,7 @@ fn report_compactness_breakdown() {
         let Ok(source) = std::fs::read(&path) else {
             continue;
         };
-        let envelope = build_usc_envelope(&source, name, "pl-119-90", T1_URL)
+        let envelope = build_usc_envelope(&source, name, "pl-119-90", T1_URL, None)
             .unwrap_or_else(|e| panic!("build {name}: {e}"));
         let g = envelope
             .graph
@@ -113,7 +113,7 @@ fn bench_prx_compactness(c: &mut Criterion) {
     };
     c.bench_function("usc_title_1_build_and_serialize_prx", |b| {
         b.iter(|| {
-            let envelope = build_usc_envelope(&source, "usc_title_1", "pl-119-90", T1_URL)
+            let envelope = build_usc_envelope(&source, "usc_title_1", "pl-119-90", T1_URL, None)
                 .expect("build envelope");
             std::hint::black_box(usc_envelope_to_bytes(&envelope).expect("envelope bytes"));
         });
