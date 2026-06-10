@@ -101,7 +101,7 @@ fn harness_outcome_is_failure_classifies_correctly() {
     assert!(!HarnessOutcome::SourceNotOnDisk { path: "p".into() }.is_failure());
     assert!(
         !HarnessOutcome::LawHoldsSignatureUnpinned {
-            computed_sha256_hex: "abc".into()
+            computed_digest_hex: "abc".into()
         }
         .is_failure()
     );
@@ -110,7 +110,7 @@ fn harness_outcome_is_failure_classifies_correctly() {
     assert!(
         HarnessOutcome::SignatureMismatch {
             expected: "a".into(),
-            computed_sha256_hex: "b".into()
+            computed_digest_hex: "b".into()
         }
         .is_failure()
     );
@@ -249,7 +249,7 @@ fn witness_registration<L: super::super::WellBehavedLens>(
         source_version: version,
         assert_law: L::assert_put_get_law,
         assert_byte_exact: L::assert_byte_exact_law,
-        signature: |b| L::signature(b).map_err(|e| format!("{}", e)),
+        signature: |b, algorithm| L::signature_hex(b, algorithm).map_err(|e| format!("{}", e)),
         fidelity: L::FIDELITY,
     }
 }
@@ -294,8 +294,8 @@ fn verify_byte_exact_dispatches_through_fidelity() {
 fn verify_byte_exact_reports_unpinned_when_law_holds_but_no_pin() {
     // An identity byte-exact witness satisfies `put(get(b)) == b`. With no
     // `[byte_exact_signatures]` pin for its (name, version), the harness
-    // reports LawHoldsSignatureUnpinned (non-fatal) and surfaces the raw
-    // SHA-256 the human would pin. The name is test-only and absent from
+    // reports LawHoldsSignatureUnpinned (non-fatal) and surfaces the
+    // raw-bytes content digest the human would pin. The name is test-only and absent from
     // praxis.lock, so the lock lookup returns None.
     let reg = witness_registration::<ByteExactWitnessLens>(
         "unpinned_byte_exact_witness@1",
@@ -306,16 +306,17 @@ fn verify_byte_exact_reports_unpinned_when_law_holds_but_no_pin() {
     // Non-fatal: a law-holding-but-unpinned source does not trip the gate.
     assert!(!outcome.is_failure());
     let HarnessOutcome::LawHoldsSignatureUnpinned {
-        computed_sha256_hex,
+        computed_digest_hex,
     } = outcome
     else {
         panic!(
             "identity byte-exact witness with no pin should report LawHoldsSignatureUnpinned, got: {outcome:?}"
         );
     };
-    // The surfaced value is the raw-bytes SHA-256 (64-char lowercase hex);
-    // because `put(get(b)) == b`, it is also the round-tripped output hash.
-    assert_eq!(computed_sha256_hex.len(), 64);
+    // The surfaced value is the raw-bytes content digest (64-char lowercase
+    // hex); because `put(get(b)) == b`, it is also the round-tripped output
+    // hash.
+    assert_eq!(computed_digest_hex.len(), 64);
 }
 
 // NOTE ON COVERAGE GAP — `verify_byte_exact`'s `Verified` and

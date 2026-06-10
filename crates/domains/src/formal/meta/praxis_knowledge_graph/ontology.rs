@@ -34,7 +34,8 @@
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** ACM TOPLAS
 //!   29(3) §2.2 (lenses); **Mac Lane (1971)** CWM Ch. I §3 (functor laws),
 //!   Ch. IV §1 (adjunction triangles) — the behavioural nodes' laws.
-//! - **NIST (2015)** FIPS 180-4 §6.2; **W3C (2016)** Subresource
+//! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** BLAKE3 (the
+//!   content-address hash); **W3C (2016)** Subresource
 //!   Integrity; **Samuel et al. (2010)** TUF; **Torres-Arias et al.
 //!   (2019)** in-toto; **OpenSSF** SLSA — integrity + supply-chain
 //!   attestation (the latter declared as concepts, deferred as axioms).
@@ -44,7 +45,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "PraxisKnowledgeGraph",
-    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; NIST (2015) FIPS 180-4 §6.2 (SHA-256); Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Mac Lane (1971) Categories for the Working Mathematician Ch. I §3 + Ch. IV §1; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity; Hill rkyv v0.8",
+    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Mac Lane (1971) Categories for the Working Mathematician Ch. I §3 + Ch. IV §1; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity; Hill rkyv v0.8",
 
     concepts: [
         // === Structural-knowledge nodes (the kinds of node a graph holds) ===
@@ -110,7 +111,7 @@ pr4xis::ontology! {
         MerkleRoot: ("en", "Merkle root", "Merkle (1987): the top content address that transitively fixes every reachable node."),
         BinaryEnvelope: ("en", "Binary envelope", "Hill rkyv v0.8: the deterministic zero-copy binary container for archived data plus metadata; itself a content-addressable node."),
         CompressedForm: ("en", "Compressed form", "Deutsch (1996) RFC 1952: the gzip-wrapped serialization; gunzip(gzip(x)) == x."),
-        SourcePin: ("en", "Source pin", "NIST (2015) FIPS 180-4 §6.2; Dolstra (2006): the recorded SHA-256 content address of the authoritative source bytes."),
+        SourcePin: ("en", "Source pin", "Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Dolstra (2006): the recorded content address of the authoritative source bytes."),
         LoadGate: ("en", "Load gate", "Dolstra (2006); W3C (2016) SRI; Samuel et al. (2010) TUF: the fail-closed admission check that re-derives a node's content address from its own bytes and admits only on a match to the trusted pin."),
         Attestation: ("en", "Attestation", "Samuel et al. (2010) TUF; Torres-Arias et al. (2019) in-toto: a signed statement about how a node was produced (concept declared; axioms deferred)."),
         IntegrityClaim: ("en", "Integrity claim", "W3C (2016) Subresource Integrity: a verifiable claim binding a resource to its expected content hash."),
@@ -200,13 +201,13 @@ impl Quality for ConceptDescription {
             C::EdgeKindFilter => "which morphism kinds a selection follows",
             C::ReachableSubgraph => "the computed slice from roots through the filter",
             C::UnboundReference => "a reference leaving the slice — fail-closed on load",
-            C::ContentAddressableNode => "node named by the SHA-256 of its bytes (Merkle 1987)",
+            C::ContentAddressableNode => "node named by the BLAKE3 hash of its bytes (Merkle 1987)",
             C::MerkleEdge => "link to a node by its content address (Benet 2014 IPLD)",
             C::MerkleDag => "content-addressed DAG with cross-node dedup",
             C::MerkleRoot => "top address that fixes the whole sub-DAG (Merkle 1987)",
             C::BinaryEnvelope => "deterministic rkyv container for archived data + metadata",
             C::CompressedForm => "gzip wrapper, gunzip(gzip(x)) == x (RFC 1952)",
-            C::SourcePin => "recorded SHA-256 of the authoritative source bytes",
+            C::SourcePin => "recorded content digest of the authoritative source bytes",
             C::LoadGate => {
                 "fail-closed admission: re-derive the address and admit iff it equals the trusted pin"
             }

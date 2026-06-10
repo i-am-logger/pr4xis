@@ -7,7 +7,7 @@
 //! Markup Framework, used by WordNet) and `uslm/` (United States
 //! Legislative Markup, used by USC titles) — all three are published
 //! XML schemas the praxis runtime loads byte-faithfully from their
-//! authoritative sources, with raw-bytes sha256 pinned in `praxis.lock`.
+//! authoritative sources, with raw-bytes digests pinned in `praxis.lock`.
 //!
 //! ## Citation
 //!

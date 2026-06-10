@@ -24,7 +24,8 @@
 //!   Git content-addressed DAG — per-node content addressing.
 //! - **Lamb & Zacchiroli (2021)** IEEE Software 39(2) (arXiv:2104.06020) —
 //!   reproducible builds (the same inputs reproduce the same address).
-//! - **NIST (2015)** FIPS 180-4 §6.2 (SHA-256).
+//! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** BLAKE3 (the
+//!   content-address hash).
 
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec::Vec};
@@ -38,8 +39,9 @@ use super::ontology::{
     PraxisKnowledgeGraphCategory, PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation,
     PraxisKnowledgeGraphRelationKind,
 };
+use crate::applied::data_provisioning::registry::LockDigest;
 use crate::formal::meta::artifact_identity::ontology::{
-    ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
+    IdentityClaim, IdentityConcept, VerificationResult,
 };
 use crate::formal::meta::artifact_identity::schemes::raw_hash;
 use crate::formal::meta::well_behaved_lens::lens_by_name;
@@ -209,7 +211,7 @@ pub struct SnapshotEdge {
 }
 
 /// The rkyv-serializable `GraphSnapshot` envelope: a canonically-ordered set
-/// of name-keyed nodes + Merkle-edges. Its `GraphVersion` is the SHA-256 of
+/// of name-keyed nodes + Merkle-edges. Its `GraphVersion` is the content digest of
 /// these bytes (a DERIVED label, NOT stored inside them), so re-emitting the
 /// same slice reproduces the same address.
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -315,12 +317,14 @@ impl std::error::Error for SnapshotError {}
 /// Discharge the `MerkleRoot` content-hash `IntegrityClaim` over `bytes`
 /// against the trusted `GraphVersion` pin, through the SAME
 /// [`raw_hash::verify`] primitive the `.prx` load gate uses — never a
-/// `String==`. `raw_hash::verify` re-hashes `bytes`, so the pin is checked
-/// against bytes actually present.
+/// `String==`. The pin is a runtime-EMITTED address (a `GraphVersion` is
+/// the slice's own content address), so the claim carries the one emit
+/// algorithm ([`LockDigest::address`]); `raw_hash::verify` re-hashes
+/// `bytes`, so the pin is checked against bytes actually present.
 fn verify_merkle_root(bytes: &[u8], trusted_pin: &str) -> Result<(), SnapshotError> {
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
-        data: ClaimData::Sha256(trusted_pin.to_string()),
+        data: LockDigest::address(trusted_pin).claim_data(),
     };
     match raw_hash::verify(&claim, bytes) {
         VerificationResult::Verified(_) => Ok(()),
@@ -466,7 +470,7 @@ pub fn load_snapshot(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, S
 /// 3. **Canonical order** nodes by `(node_kind, identity)` and edges by
 ///    `(kind, from, to)` — a total order (identities are unique) — and refuse
 ///    any shared identity ([`SnapshotError::AddressCollision`]).
-/// 4. **Address** = SHA-256 of the rkyv bytes (the `GraphVersion`, derived),
+/// 4. **Address** = the content digest of the rkyv bytes (the `GraphVersion`, derived),
 ///    then gzip. Re-emitting the same slice reproduces the same address.
 pub fn emit_snapshot(
     slice: &ReachableSubgraph,

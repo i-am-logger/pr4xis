@@ -22,6 +22,7 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 use pr4xis_runtime::address::ContentAddress;
 
+use crate::applied::data_provisioning::registry::LockDigest;
 use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens};
 use crate::social::software::markup::xml::owl::lens::OwlLens;
 use crate::social::software::markup::xml::owl::prx::{
@@ -65,7 +66,7 @@ fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
             version: "1".to_string(),
             ontology_uri: String::new(),
             source_url: String::new(),
-            source_sha256: hash.clone(),
+            source_address: hash.clone(),
             number_of_classes: 0,
             number_of_properties: 0,
         },
@@ -154,7 +155,7 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
             version: "1".to_string(),
             corpus_uri: String::new(),
             source_url: String::new(),
-            source_sha256: hash.clone(),
+            source_address: hash.clone(),
             number_of_sections: 1,
             number_of_subdivisions: 3,
         },
@@ -209,7 +210,7 @@ fn witness_wordnet_envelope(name: &str, source: &[u8]) -> WordNetPrxEnvelope {
             version: "1".to_string(),
             lexicon_uri: String::new(),
             source_url: String::new(),
-            source_sha256: hash.clone(),
+            source_address: hash.clone(),
             number_of_synsets: 2,
             number_of_senses: 2,
         },
@@ -253,27 +254,29 @@ fn witness_wordnet_envelope(name: &str, source: &[u8]) -> WordNetPrxEnvelope {
 // Merkle layer.
 // ---------------------------------------------------------------------------
 
-/// The content address of a node is the SHA-256 of its bytes — a
+/// The content address of a node is the BLAKE3 hash of its bytes — a
 /// deterministic, spec-defined function. Checked by known-answer test
-/// against the NIST FIPS 180-4 SHA-256 example vectors: a degenerate,
-/// truncating, or drifted hash is falsified here. Merkle (1987); NIST
-/// FIPS 180-4 §6.2.
+/// against published BLAKE3 vectors: a degenerate, truncating, or
+/// drifted hash is falsified here. Merkle (1987); Aumasson, O'Connor,
+/// Neves & Wilcox-O'Hearn (2020).
 pub struct MerkleHashDeterministic;
 
 impl Axiom for MerkleHashDeterministic {
     fn verify(&self) -> Verdict {
-        // Known-answer test (NIST FIPS 180-4 SHA-256 example vectors): the
-        // content address must equal the exact, spec-defined SHA-256 hex of
-        // the bytes. A constant/degenerate digest, a hex-formatting bug, or
-        // a non-SHA-256 hash is falsified here (this is not `h(x) == h(x)`).
+        // Known-answer test: the content address must equal the exact,
+        // spec-defined BLAKE3 hex of the bytes. A constant/degenerate
+        // digest, a hex-formatting bug, or a non-BLAKE3 hash is falsified
+        // here (this is not `h(x) == h(x)`). Empty-input vector from the
+        // BLAKE3 team's published test_vectors.json (input_len = 0); the
+        // "abc" vector cross-derived with the reference `b3sum` binary.
         let vectors: &[(&[u8], &str)] = &[
             (
                 b"",
-                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
             ),
             (
                 b"abc",
-                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
             ),
         ];
         for (input, expected) in vectors {
@@ -288,14 +291,14 @@ impl Axiom for MerkleHashDeterministic {
 
     pr4xis::axiom_meta!(
         "MerkleHashDeterministic",
-        "the content address is the spec-defined SHA-256 of the node bytes (known-answer)",
-        "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; NIST (2015) FIPS 180-4 §6.2"
+        "the content address is the spec-defined BLAKE3 hash of the node bytes (known-answer)",
+        "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3: one function, fast everywhere"
     );
 }
 
 pr4xis::register_axiom!(
     MerkleHashDeterministic,
-    "Merkle (1987) CRYPTO '87; NIST (2015) FIPS 180-4 §6.2"
+    "Merkle (1987) CRYPTO '87; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3"
 );
 
 /// Content-addressed dedup is correct: two nodes share an address iff
@@ -532,7 +535,8 @@ pr4xis::register_axiom!(
 /// The source pin is faithful: reconstructing a `BytesPlusView`
 /// envelope's source returns the exact bytes, and their hash equals the
 /// recorded pin (the operator's "…→ .prx → xml, same byte hash"
-/// invariant). NIST FIPS 180-4 §6.2; Dolstra (2006).
+/// invariant). Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020);
+/// Dolstra (2006).
 pub struct SourceHashFaithfulness;
 
 impl Axiom for SourceHashFaithfulness {
@@ -545,7 +549,7 @@ impl Axiom for SourceHashFaithfulness {
                 )));
             };
             if &reconstructed != source
-                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_sha256
+                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_address
             {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
@@ -563,7 +567,7 @@ impl Axiom for SourceHashFaithfulness {
                 )));
             };
             if &reconstructed != source
-                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_sha256
+                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_address
             {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
@@ -581,7 +585,7 @@ impl Axiom for SourceHashFaithfulness {
                 )));
             };
             if &reconstructed != source
-                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_sha256
+                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_address
             {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
@@ -594,13 +598,13 @@ impl Axiom for SourceHashFaithfulness {
     pr4xis::axiom_meta!(
         "SourceHashFaithfulness",
         "reconstruct_source returns the exact source bytes whose hash equals the recorded pin",
-        "NIST (2015) FIPS 180-4 §6.2; Dolstra (2006) The Purely Functional Software Deployment Model"
+        "Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3: one function, fast everywhere; Dolstra (2006) The Purely Functional Software Deployment Model"
     );
 }
 
 pr4xis::register_axiom!(
     SourceHashFaithfulness,
-    "NIST (2015) FIPS 180-4 §6.2; Dolstra (2006) The Purely Functional Software Deployment Model"
+    "Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Dolstra (2006) The Purely Functional Software Deployment Model"
 );
 
 /// The load gate is a fail-closed content-address verification: it admits
@@ -638,17 +642,19 @@ impl Axiom for LoadGateFailsClosed {
         };
         // The genuine MerkleRoot (re-derived from the node's own bytes), the
         // genuine SourcePin, and the genuine RDFC-1.0 graph-identity pin.
-        let archive_pin = ContentAddress::of(&rkyv_bytes).to_hex();
-        let source_pin = envelope.metadata.source_sha256.clone();
+        let archive_pin = LockDigest::address(ContentAddress::of(&rkyv_bytes).to_hex());
+        let source_pin = LockDigest::address(envelope.metadata.source_address.clone());
         let Ok(canonical_sig) = OwlLens::signature(gated_source) else {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             )));
         };
-        let canonical_pin: String = canonical_sig
-            .iter()
-            .map(|b| alloc::format!("{b:02x}"))
-            .collect();
+        let canonical_pin = LockDigest::address(
+            canonical_sig
+                .iter()
+                .map(|b| alloc::format!("{b:02x}"))
+                .collect::<String>(),
+        );
 
         // Accept-on-match: genuine pins admit the archive. Without this leg a
         // degenerate gate that rejects EVERYTHING would satisfy the axiom.
@@ -660,7 +666,7 @@ impl Axiom for LoadGateFailsClosed {
         // Reject a wrong MerkleRoot pin: a label that does not match the
         // content address re-derived from the bytes is refused (specifically
         // by the MerkleRoot leg — a HashMismatch, not just any error).
-        let wrong_pin = "0".repeat(64);
+        let wrong_pin = LockDigest::address("0".repeat(64));
         if !matches!(
             load_prx_gz(&prx_gz, &wrong_pin, &source_pin, &canonical_pin),
             Err(PrxError::HashMismatch { .. })
@@ -719,8 +725,8 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        let usc_archive_pin = ContentAddress::of(&usc_bytes).to_hex();
-        let usc_source_pin = usc.metadata.source_sha256.clone();
+        let usc_archive_pin = LockDigest::address(ContentAddress::of(&usc_bytes).to_hex());
+        let usc_source_pin = LockDigest::address(usc.metadata.source_address.clone());
         // Accept-on-match.
         if load_usc_prx_gz(&usc_gz, &usc_archive_pin, &usc_source_pin).is_err() {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -775,8 +781,8 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        let wn_archive_pin = ContentAddress::of(&wn_bytes).to_hex();
-        let wn_source_pin = wn.metadata.source_sha256.clone();
+        let wn_archive_pin = LockDigest::address(ContentAddress::of(&wn_bytes).to_hex());
+        let wn_source_pin = LockDigest::address(wn.metadata.source_address.clone());
         // Accept-on-match.
         if load_wordnet_prx_gz(&wn_gz, &wn_archive_pin, &wn_source_pin).is_err() {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -916,7 +922,7 @@ impl Axiom for IntegrityClaimVerifiable {
     pr4xis::axiom_meta!(
         "IntegrityClaimVerifiable",
         "a named-algorithm integrity claim (SHA-256/512, BLAKE3; weak functions unrepresentable) verifies the true digest and rejects tampered content or a corrupted digest",
-        "W3C (2016) Subresource Integrity; NIST (2015) FIPS 180-4 §6.2; Aumasson, Neves, Wilcox-O'Hearn, Winnerlein (2020) BLAKE3"
+        "W3C (2016) Subresource Integrity; NIST (2015) FIPS 180-4 §6.2; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3"
     );
 }
 

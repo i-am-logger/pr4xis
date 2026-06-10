@@ -130,7 +130,7 @@ fn emit_embedded_demo_prx(out_dir: &Path) {
 /// Stage each registered OWL `OntologyVocabulary`'s bundled `.owl` to
 /// `<crate>/sources/<name>-<version>.owl` (served at `/sources/<file>`) and
 /// emit `ontologies_manifest.rs` into `OUT_DIR`:
-/// `(name, version, prx_url, source_url, lock_pin_sha256)`.
+/// `(name, version, prx_url, source_url, lock_pin)`.
 ///
 /// The set + pins come from the live registry (`data_sources()` filtered to
 /// `SourceTaxonomyConcept::OntologyVocabulary`, paired with
@@ -183,7 +183,9 @@ fn stage_ontology_vocabularies(out_dir: &Path, manifest_dir: &Path) {
             entry.version.clone(),
             prx_url,
             source_url,
-            pin.clone(),
+            // The tagged wire form (`<algorithm>:<hex>`) — the same lowering
+            // praxis.lock itself carries.
+            pin.to_string(),
         ));
     }
 

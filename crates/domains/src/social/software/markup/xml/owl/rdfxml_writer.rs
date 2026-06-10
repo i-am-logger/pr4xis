@@ -921,7 +921,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     /// [`OwlOntology`] graph + the captured concrete-syntax complement — with NO
     /// stored raw blob, NO stored DOM. `capture_owl_complement(src)` then
     /// `reconstruct_owl_rdfxml_source(&complement)` must equal the source bytes
-    /// exactly, and SHA-256 to the pinned `[hashes]` cito content address. This
+    /// exactly, and hash to the pinned `[hashes]` cito content address. This
     /// is the only non-vacuous proof that CiTO is now graph-faithful — praxis's
     /// FIRST byte-exact OWL vocabulary.
     ///
@@ -991,8 +991,8 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
             "reconstructed CiTO must hash-equal the source"
         );
         assert_eq!(
-            hash, "48b31bbb36f2a81efb9a65bd8334be6b41b7c00dd54dc4f8a061e69607d66a84",
-            "reconstructed CiTO must hash to the pinned praxis.lock [hashes] cito@2.8.1 source sha256"
+            hash, "58061b9db3e5c1739f1e17691597f6178bda0fb62d7801d57bee72185d2ebbdd",
+            "reconstructed CiTO must hash to the pinned praxis.lock [hashes] cito@2.8.1 source pin"
         );
     }
 
@@ -1174,7 +1174,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
         );
         assert_eq!(
             hash, expect_hash,
-            "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source sha256"
+            "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source pin"
         );
     }
 
@@ -1284,7 +1284,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     fn biro_reconstruct_byte_exact_over_real_source() {
         assert_vocab_byte_exact(
             "biro-1.1.1.owl",
-            "2985f8da53083178a5ac53bc5abf211345864dbdd29ca6ae64faf74d9c87e0ba",
+            "0ef855c71718304ebda66c9ce16e7a95fe2be1a78ff5c0e6c4f89c346128225e",
             4,
         );
     }
@@ -1300,7 +1300,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     fn c4o_reconstruct_byte_exact_over_real_source() {
         assert_vocab_byte_exact(
             "c4o-1.2.owl",
-            "82eda358b640810ad5aab9dbfaee9f29f77abc49ed2f1aec6064bf0c21ed1ea8",
+            "542459f6b5bb1e529fdede81440dd452a8646e619533e9249f03ffda01a28ca7",
             5,
         );
     }
@@ -1316,7 +1316,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     fn doco_reconstruct_byte_exact_over_real_source() {
         assert_vocab_byte_exact(
             "doco-1.3.owl",
-            "7e56cfd96cab75d49c53446128b1ba927085a2e258a8b580f3de822c0cbb29ed",
+            "47bef164db1c2ae524cf06f5e9958b5812c250a3ded3c2b38055d1db71345b20",
             4,
         );
     }
@@ -1394,7 +1394,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
         assert_eq!(
             ContentAddress::of(&out).to_hex(),
             expect_hash,
-            "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source sha256"
+            "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source pin"
         );
     }
 
@@ -1403,7 +1403,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     fn prov_o_reconstruct_byte_exact_over_real_source() {
         assert_striped_vocab_byte_exact(
             "prov_o-2013-04-30.owl",
-            "02a4d7409ee3e1f697a04e4980d8d208a847cc7fa5180ca0d187540abb66919f",
+            "93a7265674dc138e9ddb3c0722e333aaeeeec2195aa921b24b6743d0540d9f55",
         );
     }
 
@@ -1413,7 +1413,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     fn olia_reconstruct_byte_exact_over_real_source() {
         assert_striped_vocab_byte_exact(
             "olia-2026-04-09.owl",
-            "e310679f23af25357538d1fae43c693d4f782e221ba170845fa91ee02516a7b7",
+            "e670db8b3142dcd7cc05d07b890039e8fae708ca4699ddfa7a733e32544dfd43",
         );
     }
 

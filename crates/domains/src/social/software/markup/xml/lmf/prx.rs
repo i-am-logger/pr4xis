@@ -103,7 +103,7 @@
 //! - **Hartmann, Palma & Sure (2005)** OMV; **Lebo, Sahoo & McGuinness
 //!   (2013)** PROV-O — the metadata grounding reused from the OWL leaf.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** ACM TOPLAS 29(3)
-//!   §2.2; **NIST (2015)** FIPS 180-4 §6.2; **Dolstra (2006)**
+//!   §2.2; **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** BLAKE3; **Dolstra (2006)**
 //!   content-addressing — the shared lens / hash grounding.
 //!
 //! [`read_wordnet`]: super::reader::read_wordnet
@@ -122,10 +122,11 @@ use pr4xis_runtime::address::ContentAddress;
 use super::ontology::WordNet;
 use super::reader::read_wordnet;
 use super::writer::{WnSyntaxComplement, capture_wn_complement, reconstruct_wn_lmf_source};
+use crate::applied::data_provisioning::registry::LockDigest;
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::language;
 use crate::formal::meta::artifact_identity::ontology::{
-    ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
+    IdentityClaim, IdentityConcept, VerificationResult,
 };
 use crate::formal::meta::artifact_identity::schemes::raw_hash;
 use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
@@ -148,7 +149,7 @@ use crate::social::software::markup::xml::owl::prx::{
 /// Reuses the OWL leaf's OMV (Hartmann, Palma & Sure 2005) / PROV-O (Lebo,
 /// Sahoo & McGuinness 2013) grounding for identity — `name` (`omv:name`),
 /// `version` (`omv:version`), `lexicon_uri` (`omv:URI`), `source_url`
-/// (`prov:atLocation`), `source_sha256` (`prov:wasDerivedFrom` content
+/// (`prov:atLocation`), `source_address` (`prov:wasDerivedFrom` content
 /// address) — but swaps OWL's `omv:numberOfClasses` / `omv:numberOfProperties`
 /// structural metrics (meaningless for a lexicon) for the
 /// lexically-appropriate [`Self::number_of_synsets`] /
@@ -182,11 +183,12 @@ pub struct WnPrxMetadata {
     /// published at (the registry `url`).
     pub source_url: String,
     /// `prov:wasDerivedFrom` / `prov:Entity` (Lebo 2013) content address —
-    /// the SHA-256 (NIST FIPS 180-4 §6.2; Dolstra 2006) of the exact source
+    /// the content address (BLAKE3 — Aumasson, O'Connor, Neves & Wilcox-O'Hearn
+    /// 2020; Dolstra 2006) of the exact source
     /// WN-LMF bytes [`read_wordnet`] consumed.
     /// The load gate validates this against the `praxis.lock` `[hashes]`
     /// pin; a mismatch fails closed.
-    pub source_sha256: String,
+    pub source_address: String,
     /// Count of `<Synset>` elements in the archived lexicon — a structural
     /// metric per ISO 24613 LMF / Global WordNet WN-LMF schema, the lexical
     /// analogue of `omv:numberOfClasses`. A synset IS a concept (Fellbaum
@@ -305,7 +307,7 @@ pub struct WordNetPrxEnvelope {
 
 /// Serialize a WordNet envelope to rkyv bytes (the lens *put*).
 /// Deterministic — equal envelopes yield equal bytes (the sorted word index
-/// pins the layout), so the blob's SHA-256 is a stable `MerkleRoot` content
+/// pins the layout), so the blob's digest is a stable `MerkleRoot` content
 /// address.
 pub fn wordnet_envelope_to_bytes(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, PrxError> {
     rkyv::to_bytes::<rkyv::rancor::Error>(envelope)
@@ -332,12 +334,17 @@ pub fn wordnet_envelope_from_bytes(bytes: &[u8]) -> Result<WordNetPrxEnvelope, P
 /// here only because the OWL one is private and `&PrxEnvelope`-typed. The
 /// integrity primitive [`raw_hash::verify`] is the SAME one the fetch path,
 /// the OWL gate, and the USC gate use (Dolstra 2006 content-addressing; W3C
-/// SRI 2016): `raw_hash::verify` re-hashes `bytes`, so the pin is checked
-/// against bytes actually present, never a self-asserted label.
-fn wn_verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<(), PrxError> {
+/// SRI 2016): `raw_hash::verify` re-hashes `bytes` under the pin's named algorithm
+/// (the one verify leg, `hash_hex`), so the pin is checked against bytes
+/// actually present, never a self-asserted label.
+fn wn_verify_content_address(
+    bytes: &[u8],
+    trusted_pin: &LockDigest,
+    key: &str,
+) -> Result<(), PrxError> {
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
-        data: ClaimData::Sha256(trusted_pin.to_string()),
+        data: trusted_pin.claim_data(),
     };
     match raw_hash::verify(&claim, bytes) {
         VerificationResult::Verified(_) => Ok(()),
@@ -359,15 +366,15 @@ fn wn_verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Resu
 ///
 /// For [`RoundTripFidelity::RawBytesComplementFloor`]: return the stored
 /// `raw.blob` after enforcing the in-envelope honesty doctrine
-/// (`sha256(blob) == raw.content_address == metadata.source_sha256`). A
+/// (`address(blob) == raw.content_address == metadata.source_address`). A
 /// tampered blob is rejected.
 ///
 /// For [`RoundTripFidelity::ByteExactGraphFaithful`] (English):
 /// regenerate the source from the typed [`WordNet`] ontology PLUS the
 /// concrete-syntax [`WnSyntaxComplement`] carried in `graph` via
 /// [`reconstruct_wn_lmf_source`] (the graph-faithful `put`, NO stored raw blob),
-/// then enforce the SAME sha256 honesty gate the floor arm uses — the
-/// regenerated bytes MUST hash to `metadata.source_sha256` (the
+/// then enforce the SAME content-address honesty gate the floor arm uses — the
+/// regenerated bytes MUST hash to `metadata.source_address` (the
 /// `praxis.lock` `[byte_exact_signatures]` / `[hashes]` pin). A regeneration
 /// that does not reproduce the pinned source is rejected ([`PrxError::HashMismatch`]),
 /// fail-closed, never fabricating or returning unverified bytes.
@@ -390,10 +397,10 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
                     found: computed,
                 });
             }
-            if computed != envelope.metadata.source_sha256 {
+            if computed != envelope.metadata.source_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (raw vs metadata)"),
-                    expected: envelope.metadata.source_sha256.clone(),
+                    expected: envelope.metadata.source_address.clone(),
                     found: computed,
                 });
             }
@@ -424,10 +431,10 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
             // bytes must hash to the pinned source content address. A
             // regeneration that drifts from the pinned source fails closed.
             let computed = ContentAddress::of(&bytes).to_hex();
-            if computed != envelope.metadata.source_sha256 {
+            if computed != envelope.metadata.source_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (graph-faithful reconstruction vs metadata)"),
-                    expected: envelope.metadata.source_sha256.clone(),
+                    expected: envelope.metadata.source_address.clone(),
                     found: computed,
                 });
             }
@@ -440,7 +447,7 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
 /// trusted `SourcePin` (`praxis.lock` `[hashes]`). Mirrors OWL `verify_source_leg`.
 fn wn_verify_source_leg(
     envelope: &WordNetPrxEnvelope,
-    source_pin: &str,
+    source_pin: &LockDigest,
     key: &str,
 ) -> Result<(), PrxError> {
     // Both tiers reconstruct the source and bind it to the trusted source pin —
@@ -470,8 +477,8 @@ fn wn_verify_source_leg(
 fn wn_admit_validated(
     rkyv_bytes: &[u8],
     envelope: WordNetPrxEnvelope,
-    archive_pin: &str,
-    source_pin: &str,
+    archive_pin: &LockDigest,
+    source_pin: &LockDigest,
 ) -> Result<English, PrxError> {
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     wn_verify_content_address(rkyv_bytes, archive_pin, &key)?;
@@ -485,8 +492,8 @@ fn wn_admit_validated(
 /// `[hashes]`). Mirrors OWL `load_prx_gz`.
 pub fn load_wordnet_prx_gz(
     prx_gz: &[u8],
-    archive_pin: &str,
-    source_pin: &str,
+    archive_pin: &LockDigest,
+    source_pin: &LockDigest,
 ) -> Result<English, PrxError> {
     let rkyv_bytes = gunzip(prx_gz)?;
     let envelope = wordnet_envelope_from_bytes(&rkyv_bytes)?;
@@ -503,13 +510,11 @@ pub fn load_wordnet_prx_gz_from_lock(prx_gz: &[u8]) -> Result<English, PrxError>
     let envelope = wordnet_envelope_from_bytes(&rkyv_bytes)?;
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     let archive_pin = lock_archive_signature(&envelope.metadata.name, &envelope.metadata.version)
-        .ok_or_else(|| PrxError::NoArchivePin { key: key.clone() })?
-        .to_string();
+        .ok_or_else(|| PrxError::NoArchivePin { key: key.clone() })?;
     let source_pin = lock_hashes()
         .get(&key)
-        .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?
-        .clone();
-    wn_admit_validated(&rkyv_bytes, envelope, &archive_pin, &source_pin)
+        .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?;
+    wn_admit_validated(&rkyv_bytes, envelope, archive_pin, source_pin)
 }
 
 // =============================================================================
@@ -712,7 +717,7 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 ///    - **Malformed source** ([`WnReconstructError::Parse`](crate::social::software::markup::xml::lmf::writer::WnReconstructError::Parse)) → a hard error;
 ///      a non-well-formed WN-LMF file is a defect, not a floor candidate.
 ///
-/// The OMV/PROV-O metadata's `source_sha256` is the content address of the exact
+/// The OMV/PROV-O metadata's `source_address` is the content address of the exact
 /// source bytes (the `[hashes]` / `[byte_exact_signatures]` pin), against which
 /// [`wn_reconstruct_source`] gates the regenerated bytes fail-closed in BOTH
 /// tiers.
@@ -736,13 +741,13 @@ pub fn build_wordnet_envelope(
     let number_of_senses = wn.entries.iter().map(|e| e.senses.len()).sum::<usize>() as u64;
     let data = wn_builder_to_owned(&wn);
 
-    let source_sha256 = ContentAddress::of(source).to_hex();
+    let source_address = ContentAddress::of(source).to_hex();
     let metadata = WnPrxMetadata {
         name: name.to_string(),
         version: version.to_string(),
         lexicon_uri: WN_LMF_NAMESPACE_URI.to_string(),
         source_url: url.to_string(),
-        source_sha256: source_sha256.clone(),
+        source_address: source_address.clone(),
         number_of_synsets,
         number_of_senses,
     };
@@ -785,7 +790,7 @@ pub fn build_wordnet_envelope(
             mode: RoundTripFidelity::RawBytesComplementFloor,
             graph: None,
             raw: Some(RawSource {
-                content_address: source_sha256,
+                content_address: source_address,
                 blob: source.to_vec(),
             }),
         }),
@@ -797,7 +802,7 @@ pub fn build_wordnet_envelope(
             mode: RoundTripFidelity::RawBytesComplementFloor,
             graph: None,
             raw: Some(RawSource {
-                content_address: source_sha256,
+                content_address: source_address,
                 blob: source.to_vec(),
             }),
         }),
@@ -890,7 +895,11 @@ pub fn emit_all_wordnet_prx_gz(
             .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?;
         let read_back = std::fs::read(&path)
             .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
-        load_wordnet_prx_gz(&read_back, &archive_address, source_pin)?;
+        load_wordnet_prx_gz(
+            &read_back,
+            &LockDigest::address(archive_address.clone()),
+            source_pin,
+        )?;
 
         emitted.push(EmittedArtifact {
             name: entry.name.clone(),
@@ -923,7 +932,7 @@ pub fn emit_compact_english_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
     Ok(super::compact_succinct::emit_prx_gz(&wn))
 }
 
-/// The content address of a compact English `.prx.gz` — the SHA-256 of its
+/// The content address of a compact English `.prx.gz` — the digest of its
 /// uncompressed succinct bytes (gzip-level-independent), as 64-char lowercase
 /// hex. The value pinned in `praxis.lock` `[compact_archive_signatures]` and the
 /// one [`load_compact_english_prx_gz_gated`] re-derives and verifies. Portable:
@@ -934,7 +943,7 @@ pub fn compact_english_archive_address(cprx_gz: &[u8]) -> Result<String, PrxErro
 }
 
 /// Load a compact English `.prx.gz` into a materialized [`English`] through the
-/// fail-closed content-address gate: gunzip → verify the succinct bytes SHA-256
+/// fail-closed content-address gate: gunzip → verify the succinct bytes hash
 /// to `archive_pin` (the `[compact_archive_signatures]` pin) → succinct-decode →
 /// `English::from_wordnet`. A compact archive whose bytes do not match the pin
 /// is rejected before any data is installed (Dolstra 2006 content-addressing;
@@ -942,7 +951,7 @@ pub fn compact_english_archive_address(cprx_gz: &[u8]) -> Result<String, PrxErro
 /// [`load_wordnet_prx_gz`].
 pub fn load_compact_english_prx_gz_gated(
     cprx_gz: &[u8],
-    archive_pin: &str,
+    archive_pin: &LockDigest,
     key: &str,
 ) -> Result<English, PrxError> {
     let raw = gunzip(cprx_gz)?;
@@ -997,7 +1006,11 @@ pub fn emit_all_compact_english_prx_gz(
         let key = format!("{}@{}", entry.name, entry.version);
         let read_back = std::fs::read(&path)
             .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
-        load_compact_english_prx_gz_gated(&read_back, &archive_address, &key)?;
+        load_compact_english_prx_gz_gated(
+            &read_back,
+            &LockDigest::address(archive_address.clone()),
+            &key,
+        )?;
 
         emitted.push(EmittedArtifact {
             name: entry.name.clone(),
@@ -1106,8 +1119,8 @@ mod tests {
         let addr = compact_english_archive_address(&cprx_gz).expect("address");
         let key = "english_wordnet@2025";
 
-        let loaded =
-            load_compact_english_prx_gz_gated(&cprx_gz, &addr, key).expect("gated load succeeds");
+        let loaded = load_compact_english_prx_gz_gated(&cprx_gz, &LockDigest::address(addr), key)
+            .expect("gated load succeeds");
         assert_eq!(
             loaded.concept_count(),
             reference.concept_count(),
@@ -1119,7 +1132,7 @@ mod tests {
         );
 
         // A wrong pin is rejected before any data is installed.
-        let wrong_pin = "0".repeat(64);
+        let wrong_pin = LockDigest::address("0".repeat(64));
         assert!(
             load_compact_english_prx_gz_gated(&cprx_gz, &wrong_pin, key).is_err(),
             "the content gate must reject a compact archive whose hash != the pin"
@@ -1181,8 +1194,9 @@ mod tests {
 
         // The archived corpus: emit → load → from_codegen.
         let prx_gz = emit_wordnet_prx_gz(src, FX_NAME, FX_VERSION, FX_URL).expect("emit");
-        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let source_pin = ContentAddress::of(src).to_hex();
+        let archive_pin =
+            LockDigest::address(prx_archive_address(&prx_gz).expect("archive address"));
+        let source_pin = LockDigest::address(ContentAddress::of(src).to_hex());
         let loaded =
             load_wordnet_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
 
@@ -1260,7 +1274,7 @@ mod tests {
         );
         assert_eq!(
             ContentAddress::of(&src).to_hex(),
-            envelope.metadata.source_sha256,
+            envelope.metadata.source_address,
             "reconstructed bytes must hash to the pinned source content address"
         );
     }
@@ -1295,7 +1309,7 @@ mod tests {
         // Drift the pinned source hash: the graph still reconstructs the true
         // source, but it no longer matches the (now-wrong) metadata pin, so the
         // honesty gate must refuse it rather than return unverified bytes.
-        envelope.metadata.source_sha256 = "0".repeat(64);
+        envelope.metadata.source_address = "0".repeat(64);
         let err = wn_reconstruct_source(&envelope)
             .expect_err("pin drift must fail closed (HashMismatch)");
         assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
@@ -1314,9 +1328,10 @@ mod tests {
     fn wordnet_load_rejects_poisoned_word_index_under_honest_label() {
         let honest = build_wordnet_envelope(SAMPLE_WN_LMF.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
             .expect("build envelope");
-        let honest_archive_pin =
-            ContentAddress::of(&wordnet_envelope_to_bytes(&honest).unwrap()).to_hex();
-        let source_pin = honest.metadata.source_sha256.clone();
+        let honest_archive_pin = LockDigest::address(
+            ContentAddress::of(&wordnet_envelope_to_bytes(&honest).unwrap()).to_hex(),
+        );
+        let source_pin = LockDigest::address(honest.metadata.source_address.clone());
 
         // Same genuine source label + graph payload, only one word_index entry poisoned.
         let mut poisoned = honest;
@@ -1336,7 +1351,7 @@ mod tests {
 
     #[test]
     fn wordnet_load_rejects_corrupted_blob() {
-        let any = "0".repeat(64);
+        let any = LockDigest::address("0".repeat(64));
         let garbage = gzip(b"not a valid WordNet rkyv envelope at all").expect("gzip");
         let err = load_wordnet_prx_gz(&garbage, &any, &any).expect_err("garbage rkyv must fail");
         assert!(matches!(err, PrxError::Rkyv(_)), "got {err:?}");
@@ -1396,9 +1411,11 @@ mod tests {
                 )
             });
             assert_eq!(
-                a.archive_address, pinned,
+                &LockDigest::address(a.archive_address.clone()),
+                pinned,
                 "{}@{} .prx MerkleRoot must equal the [archive_signatures] pin",
-                a.name, a.version
+                a.name,
+                a.version
             );
         }
 

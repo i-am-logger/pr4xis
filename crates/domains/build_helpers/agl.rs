@@ -13,7 +13,7 @@
 //! (Adobe, 2002–2019; SPDX-License-Identifier: BSD-3-Clause). The
 //! repo embeds a verbatim copy at
 //! `crates/domains/data/adobe/glyphlist.txt`; `praxis.lock` pins
-//! its sha256.
+//! its content address.
 //!
 //! ## File format (per the file's own preamble)
 //!
@@ -35,7 +35,8 @@ use std::sync::OnceLock;
 
 /// Verbatim glyph list bytes embedded at build time.
 ///
-/// SHA-256: `a3b2f61ced9f3644cc0d4ecde5c59df34ca286c689d9484a43a710a81c466789`
+/// Content address (BLAKE3):
+/// `blake3:5a200d1e890dce2c1ce30e8063f241eea96c4ffadab39eb01259cb927bb1b67f`
 /// — pinned in `praxis.lock` under `[hashes."adobe_glyph_list@2019"]`.
 pub const GLYPH_LIST_BYTES: &str = include_str!("../data/adobe/glyphlist.txt");
 
@@ -80,15 +81,14 @@ pub fn glyph_name_to_unicode(name: &str) -> Option<u16> {
     glyph_name_table().get(name).copied()
 }
 
-/// SHA-256 of the embedded glyph list bytes, as a lowercase hex
-/// string. Used to verify the file in-tree matches `praxis.lock`.
+/// Content address (BLAKE3) of the embedded glyph list bytes, as a
+/// lowercase hex string. Used to verify the file in-tree matches
+/// `praxis.lock`.
 #[allow(dead_code)]
-pub fn glyph_list_sha256_hex() -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(GLYPH_LIST_BYTES.as_bytes());
-    let digest = hasher.finalize();
-    digest.iter().map(|b| format!("{b:02x}")).collect()
+pub fn glyph_list_address_hex() -> String {
+    blake3::hash(GLYPH_LIST_BYTES.as_bytes())
+        .to_hex()
+        .to_string()
 }
 
 #[cfg(test)]
@@ -132,14 +132,14 @@ mod tests {
     }
 
     #[test]
-    fn embedded_sha256_matches_pinned_hash() {
-        // The hash pinned in `praxis.lock`'s `[hashes]` table for
+    fn embedded_address_matches_pinned_hash() {
+        // The address pinned in `praxis.lock`'s `[hashes]` table for
         // `adobe_glyph_list@2019`. If this assertion fails, the
-        // file in-tree has drifted from its pinned hash — re-fetch
+        // file in-tree has drifted from its pinned address — re-fetch
         // or update praxis.lock.
         assert_eq!(
-            glyph_list_sha256_hex(),
-            "a3b2f61ced9f3644cc0d4ecde5c59df34ca286c689d9484a43a710a81c466789"
+            glyph_list_address_hex(),
+            "5a200d1e890dce2c1ce30e8063f241eea96c4ffadab39eb01259cb927bb1b67f"
         );
     }
 }

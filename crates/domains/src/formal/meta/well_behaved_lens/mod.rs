@@ -4,7 +4,7 @@
 //!
 //! A source `S` implementing [`WellBehavedLens`] proves Praxis can
 //! reconstruct it: `get → ontology → put` yields bytes whose
-//! canonical form has identical SHA-256 to the input's canonical
+//! canonical form has an identical content digest to the input's canonical
 //! form. Hash mismatch is concrete evidence of an ontology gap.
 //!
 //! ## Lens laws
@@ -26,7 +26,7 @@
 //! `WellBehavedLens` is the runtime witness of PutGet. For every byte
 //! stream `b`:
 //!
-//!   `sig(b) == sig(put(get(b)))`     where     `sig = SHA-256 ∘ canonical`
+//!   `sig(b) == sig(put(get(b)))`     where     `sig = address ∘ canonical`
 //!
 //! The [`canonical`] submodule supplies the per-source-kind
 //! canonicalization needed to compute `sig`.

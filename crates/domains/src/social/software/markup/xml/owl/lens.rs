@@ -284,7 +284,7 @@ mod tests {
         assert_typed_view_round_trip(&bytes, "PROV-O");
     }
 
-    /// Emit the canonical-form SHA-256 of each bundled OWL
+    /// Emit the canonical-form content digest of each bundled OWL
     /// vocabulary. Pair with `dump_unpinned_signatures` to update
     /// the `[canonical_signatures]` block of `praxis.lock`.
     #[test]

@@ -43,7 +43,7 @@
 //!
 //!   sig(b) == sig(put(get(b)))
 //!
-//! where `sig = SHA-256 ∘ canonical` and `canonical` is the
+//! where `sig = address ∘ canonical` and `canonical` is the
 //! source kind's published canonical form (W3C XML C14N 1.1 for
 //! XML, RFC 8785 JCS for JSON, Unicode TR #15 NFKC for plain text,
 //! W3C REC-rdf-canon-20240521 for RDF, etc.). A hash mismatch is concrete evidence
@@ -78,7 +78,7 @@
 use alloc::{string::String, vec::Vec};
 use core::fmt;
 
-use pr4xis_runtime::address::ContentAddress;
+use pr4xis_runtime::address::{ContentAddress, HashAlgorithm, hash_hex};
 
 /// The round-trip fidelity a [`WellBehavedLens`] guarantees — which
 /// PutGet law the harness holds it to (M4.ι / #186).
@@ -118,7 +118,7 @@ pub enum RoundTripFidelity {
 /// A source kind implementing `WellBehavedLens` declares that Praxis
 /// can `get` (parse) a byte stream of that kind, reconstruct it from
 /// the parsed ontology instance via `put` (re-emit), and produce a
-/// byte stream whose canonical form has identical SHA-256 to the
+/// byte stream whose canonical form has an identical content digest to the
 /// input's canonical form.
 ///
 /// Per the module-level doc-comment, this is the runtime witness of
@@ -158,10 +158,20 @@ pub trait WellBehavedLens {
         Self::put(&parsed)
     }
 
-    /// SHA-256 of the canonical form. The *signature*.
+    /// Content address of the canonical form. The *signature*.
     fn signature(bytes: &[u8]) -> Result<[u8; 32], Self::Error> {
         let c = Self::canonical(bytes)?;
         Ok(*ContentAddress::of(&c).as_bytes())
+    }
+
+    /// Lowercase-hex digest of the canonical form under a NAMED
+    /// [`HashAlgorithm`] — the verify-many leg of the canonical signature.
+    /// The harness dispatches this under the algorithm the `praxis.lock`
+    /// pin names (one verify leg, [`hash_hex`]); [`Self::signature`] is the
+    /// emit leg (always [`pr4xis_runtime::address::ADDRESS_ALGORITHM`]).
+    fn signature_hex(bytes: &[u8], algorithm: HashAlgorithm) -> Result<String, Self::Error> {
+        let c = Self::canonical(bytes)?;
+        Ok(hash_hex(algorithm, &c))
     }
 
     /// Run the PutGet law (Foster et al. 2007 §2.2):
@@ -194,7 +204,7 @@ pub trait WellBehavedLens {
             Err(LensLawFailure {
                 stage: FailureStage::DigestMismatch,
                 message: String::from(
-                    "canonical-form SHA-256 of input != canonical-form SHA-256 of put(get(input)); \
+                    "canonical-form digest of input != canonical-form digest of put(get(input)); \
                      ontology does not yet capture the full structure of the source (PutGet law violated)",
                 ),
                 input_digest: Some(input_sig),
@@ -251,11 +261,11 @@ pub struct LensLawFailure {
     pub stage: FailureStage,
     /// Human-readable description of the failure.
     pub message: String,
-    /// SHA-256 of the input bytes — the *canonical form* under the
+    /// Content digest of the input bytes — the *canonical form* under the
     /// PutGet law ([`FailureStage::DigestMismatch`]), or the *raw
     /// bytes* under the byte-exact law ([`FailureStage::ByteMismatch`]).
     pub input_digest: Option<[u8; 32]>,
-    /// SHA-256 of the round-tripped bytes — canonical form
+    /// Content digest of the round-tripped bytes — canonical form
     /// (`DigestMismatch`) or raw bytes (`ByteMismatch`). Set only when
     /// the round-trip produced output to compare.
     pub roundtrip_digest: Option<[u8; 32]>,
@@ -304,7 +314,7 @@ pub enum FailureStage {
     ByteMismatch,
 }
 
-/// SHA-256 of raw bytes (no canonicalization). Fingerprints inputs and
+/// Content digest of raw bytes (no canonicalization). Fingerprints inputs and
 /// outputs in [`WellBehavedLens::assert_byte_exact_law`] failures,
 /// where the comparison is on the original byte stream rather than a
 /// canonical form.

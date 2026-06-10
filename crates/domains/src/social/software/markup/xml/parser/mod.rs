@@ -53,7 +53,7 @@
 //!     │  get = parse(bytes)
 //!     │  canonical = c14n_1_1(bytes)
 //!     ▼
-//!   sha256(canonical(s)) is the source's stable signature.
+//!   address(canonical(s)) is the source's stable signature.
 //! ```
 //!
 //! Each submodule covers one layer of the parser pipeline:

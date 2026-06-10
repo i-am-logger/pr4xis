@@ -1148,7 +1148,7 @@ mod tests {
     /// THE BYTE-EXACT GATE over one real section fragment, mirroring the WN-LMF
     /// `reconstruct_*_byte_exact` gates: `capture_uslm_complement(frag)` then
     /// `reconstruct_uslm_source(&title, &complement)` must equal `frag` BYTE-FOR
-    /// -BYTE (SHA-256-pinned). This proves `write_uslm` FAITHFULNESS — a
+    /// -BYTE (content-address-pinned). This proves `write_uslm` FAITHFULNESS — a
     /// corrupted text leaf or a reversed mixed sequence diverges the
     /// reconstructed bytes (the meta-test below proves it goes RED on
     /// corruption), unlike the old `diff_content_whitespace(...).is_ok()` gate,
@@ -1196,7 +1196,7 @@ mod tests {
                 String::from_utf8_lossy(&out[lo..hi_out]),
             );
         }
-        // SHA-256 equality is the headline assertion. `out == source` already
+        // Content-digest equality is the headline assertion. `out == source` already
         // implies it; the explicit pin guards against a silent corpus swap.
         assert_eq!(
             ContentAddress::of(&out).to_hex(),
@@ -2107,29 +2107,29 @@ mod tests {
     /// CI-cost floor, NOT a missing family.
     #[test]
     fn flipped_titles_reconstruct_byte_exact() {
-        // (number, expected source SHA-256 == the `[hashes]` pin == the
+        // (number, expected source digest == the `[hashes]` pin == the
         // `[byte_exact_signatures]` pin). Each is the literal on-disk file's
         // content address; `put(get(b)) == b` makes the round-trip output hash
         // equal it.
         const FLIPPED: &[(&str, &str)] = &[
             (
                 "28",
-                "5a24bea79bc49bb339af09c2fff0178880944d8726d628fc35bf06f41f0922fe",
+                "fb9d714e6b0f1da383981cb8d0d02afa81af30e70f055354585bd2a7453981c8",
             ),
             (
                 "18",
-                "00bb3b87d056164095e174a4993151e5fbd2f5c114aaa6f86853b76e514d883f",
+                "e00e7187ee9b1b95cc612c9c3b40596b05f3421cf9e6b2917b5290585f1fcd0a",
             ),
             (
                 "29",
-                "bd3f0e9fc634cdbd887adde480cf08a52d49cced457385cb0fdef1447feab413",
+                "0c59a41dddfcc3a5a53aeef020c2ed58c649ef5d6af209316b5c5919977a3843",
             ),
             (
                 "50",
-                "623ecd3f0f7c00331f7f98151ef75bf5262328435865fc3a2aff7b1fb16f3713",
+                "f42660413a471f1133c1e23f93038cae9ac0437885358492e119a0fcd98aa311",
             ),
         ];
-        for (n, expected_sha) in FLIPPED {
+        for (n, expected_address) in FLIPPED {
             let path = workspace_root().join(format!(
                 "crates/domains/data/legal/uscode/usc_title_{n}/usc_title_{n}-pl-119-90.xml"
             ));
@@ -2140,7 +2140,7 @@ mod tests {
             // corpus swap silently weakened this gate).
             assert_eq!(
                 &ContentAddress::of(&bytes).to_hex(),
-                expected_sha,
+                expected_address,
                 "title {n} on-disk source must hash to its pinned content address"
             );
             let src = String::from_utf8(bytes).expect("title is UTF-8");
@@ -2182,7 +2182,7 @@ mod tests {
             );
             assert_eq!(
                 &ContentAddress::of(&out).to_hex(),
-                expected_sha,
+                expected_address,
                 "title {n} round-trip output must hash to its pinned content address"
             );
         }

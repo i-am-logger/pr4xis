@@ -12,7 +12,7 @@
 //!
 //! i.e. the SOURCE bytes round-trip exactly through the universal compiler:
 //! `source → compile → .prx.gz → decompile → source`. The comparison is a
-//! real, SHA-256-witnessed byte-exact equality, and the bytes are additionally
+//! real, content-address-witnessed byte-exact equality, and the bytes are additionally
 //! checked byte-for-byte (`out == in`).
 //!
 //! It is the SOURCE round-trip, NOT the FORMAT round-trip (`prx_runtime_emit.rs`
@@ -22,7 +22,7 @@
 //! [`RoundTripFidelity::ByteExactGraphFaithful`]; every other source rides the
 //! universal FLOOR ([`RoundTripFidelity::RawBytesComplementFloor`]): the
 //! `.prx.gz` stores the exact source as a content-addressed constant complement
-//! and the decompile op returns it only after the `sha256` honesty gate.
+//! and the decompile op returns it only after the content-address honesty gate.
 //!
 //! # Source-agnostic by construction
 //!

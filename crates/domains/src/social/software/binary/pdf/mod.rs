@@ -79,7 +79,7 @@ pub mod font;
 /// Adobe Glyph List — glyph name → Unicode codepoint resolver
 /// for `/Differences` array overrides per ISO 32000-2:2020
 /// §9.6.5.4. Loaded from a verbatim copy of Adobe's published
-/// `glyphlist.txt`; sha256 pinned and verified at test time.
+/// `glyphlist.txt`; content address pinned and verified at test time.
 #[cfg(any())]
 pub mod agl;
 

@@ -1506,6 +1506,7 @@ dependencies = [
  "pr4xis",
  "pr4xis-chat",
  "pr4xis-domains",
+ "pr4xis-runtime",
 ]
 
 [[package]]

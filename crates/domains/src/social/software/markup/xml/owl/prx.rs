@@ -61,7 +61,7 @@
 //! vocabulary (Foster, Greenwald, Moore, Pierce & Schmitt 2007,
 //! "Combinators for Bidirectional Tree Transformations", *ACM TOPLAS*
 //! 29(3) §2.2). The rkyv put is deterministic — equal envelopes
-//! serialize to equal bytes — so the blob's SHA-256 is a stable content
+//! serialize to equal bytes — so the blob's BLAKE3 hash is a stable content
 //! address; gzip (RFC 1952) round-trips losslessly, so
 //! `gunzip(gzip(x)) == x`; together the GetPut round-trip holds up to the
 //! materialized vocabulary value.
@@ -127,8 +127,8 @@
 //!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2.
 //! - **Deutsch, P. (1996)** *GZIP file format specification version
 //!   4.3*, RFC 1952. <https://www.rfc-editor.org/rfc/rfc1952>.
-//! - **NIST (2015)** *Secure Hash Standard (SHS)*, FIPS PUB 180-4 §6.2
-//!   (SHA-256). The integrity hash space.
+//! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** *BLAKE3: one
+//!   function, fast everywhere*. The integrity hash space.
 //! - **Dolstra, E. (2006)** *The Purely Functional Software Deployment
 //!   Model*, PhD thesis — content-addressing by cryptographic hash.
 //! - **Hill, D.** *rkyv: zero-copy deserialization framework for Rust*,
@@ -158,8 +158,9 @@ use pr4xis_runtime::address::ContentAddress;
 
 use super::vocabulary::LoadedOwlVocabulary;
 
+use crate::applied::data_provisioning::registry::LockDigest;
 use crate::formal::meta::artifact_identity::ontology::{
-    ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
+    IdentityClaim, IdentityConcept, VerificationResult,
 };
 use crate::formal::meta::artifact_identity::schemes::raw_hash;
 use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens};
@@ -203,12 +204,12 @@ pub const OMV_NUMBER_OF_PROPERTIES: &str =
 /// `prov:wasDerivedFrom` the source RDF/XML; the value pinned is that
 /// source entity's content address. Realized by
 /// [`PrxMetadata::source_url`] (the derivation target) together with
-/// [`PrxMetadata::source_sha256`] (its content hash).
+/// [`PrxMetadata::source_address`] (its content hash).
 pub const PROV_WAS_DERIVED_FROM: &str = "http://www.w3.org/ns/prov#wasDerivedFrom";
 /// `prov:Entity` — "a physical, digital, conceptual, or other kind of
 /// thing" (Lebo 2013 §2). The source RDF/XML bytes are the
 /// `prov:Entity` this envelope is derived from; its identity is the
-/// SHA-256 content hash. Realized by [`PrxMetadata::source_sha256`].
+/// content address. Realized by [`PrxMetadata::source_address`].
 pub const PROV_ENTITY: &str = "http://www.w3.org/ns/prov#Entity";
 /// `prov:atLocation` — "the Location of any resource" (Lebo 2013 §3.2).
 /// The URL the source entity is published at. Realized by
@@ -499,17 +500,17 @@ pub struct PrxMetadata {
     /// `prov:atLocation` (Lebo 2013 §3.2) of the `prov:Entity` this
     /// envelope is `prov:wasDerivedFrom` — the URL the source RDF/XML is
     /// published at (the registry `url`). Pairs with
-    /// [`Self::source_sha256`] to identify the derivation source.
+    /// [`Self::source_address`] to identify the derivation source.
     pub source_url: String,
     /// The content address of the source `prov:Entity`
     /// ([`PROV_WAS_DERIVED_FROM`] / [`PROV_ENTITY`], Lebo 2013) — the
-    /// SHA-256 (NIST FIPS 180-4 §6.2; content-addressing per Dolstra 2006)
-    /// of the exact source bytes [`read_owl`] consumed, as 64-char
+    /// content address (BLAKE3 — Aumasson, O'Connor, Neves & Wilcox-O'Hearn
+    /// 2020; content-addressing per Dolstra 2006) of the exact source bytes [`read_owl`] consumed, as 64-char
     /// lowercase hex. **The load-validation gate compares this against the
     /// `praxis.lock` pin**; a mismatch fails closed.
     ///
     /// [`read_owl`]: super::reader::read_owl
-    pub source_sha256: String,
+    pub source_address: String,
     /// `omv:numberOfClasses` (Hartmann 2005 `omv:OntologyMetrics`; MOD 2.0
     /// Analytics) — count of `owl:Class` entities in the archived corpus.
     /// A structural metric, redundant with the archived data and used to
@@ -543,13 +544,14 @@ pub struct PrxMetadata {
 ///
 /// Honesty doctrine (recovered design): the complement lives IN the
 /// envelope, never external; `content_address` MUST equal both
-/// `sha256(blob)` and the envelope's [`PrxMetadata::source_sha256`] — the
+/// `address(blob)` and the envelope's [`PrxMetadata::source_address`] — the
 /// byte hash is simultaneously the content address and the round-trip gate
-/// (NIST FIPS 180-4 §6.2; Dolstra 2006 content-addressing).
+/// (BLAKE3 — Aumasson, O'Connor, Neves & Wilcox-O'Hearn 2020; Dolstra 2006
+/// content-addressing).
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct RawSource {
-    /// SHA-256 of `blob` as 64-char lowercase hex; equals
-    /// [`PrxMetadata::source_sha256`].
+    /// Content address of `blob` as 64-char lowercase hex; equals
+    /// [`PrxMetadata::source_address`].
     pub content_address: String,
     /// The exact source bytes [`read_owl`](super::reader::read_owl) consumed.
     pub blob: Vec<u8>,
@@ -636,7 +638,7 @@ pub enum PrxError {
     /// gzip (RFC 1952) compression or decompression failed.
     Gzip(String),
     /// The load-validation gate rejected the envelope: its embedded
-    /// `source_sha256` did not match the `praxis.lock` pin for
+    /// `source_address` did not match the `praxis.lock` pin for
     /// `"{name}@{version}"`. Fail-closed — nothing is installed.
     HashMismatch {
         key: String,
@@ -747,7 +749,7 @@ pub fn gunzip(bytes: &[u8]) -> Result<Vec<u8>, PrxError> {
     Ok(out)
 }
 
-/// The content address (`MerkleRoot`) of a `.prx.gz` archive — the SHA-256
+/// The content address (`MerkleRoot`) of a `.prx.gz` archive — the digest
 /// of its rkyv envelope bytes (the `BinaryEnvelope`), as 64-char lowercase
 /// hex. This is the value pinned in `praxis.lock` `[archive_signatures]`
 /// and the one [`load_prx_gz`] re-derives and verifies. Computed by
@@ -801,16 +803,23 @@ pub fn envelope_from_bytes(bytes: &[u8]) -> Result<PrxEnvelope, PrxError> {
 /// pin — the realise-through that subordinates this archive's integrity to
 /// [`ArtifactIdentity`](crate::formal::meta::artifact_identity).
 ///
-/// Builds the `RawHash` / `ClaimData::Sha256(pin)` claim and discharges it
-/// through the SAME [`raw_hash::verify`] the fetch path uses
-/// (`registry::build_entry` → `fetch`), so one content-hash primitive
-/// serves both trust boundaries (Dolstra 2006 content-addressing; W3C SRI
-/// 2016). `raw_hash::verify` re-hashes `bytes` — the pin is checked against
-/// bytes that are actually present, never against a self-asserted label.
-fn verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<(), PrxError> {
+/// Builds the `RawHash` claim from the pin's named algorithm + digest
+/// ([`LockDigest::claim_data`]) and discharges it through the SAME
+/// [`raw_hash::verify`] the fetch path uses (`registry::build_entry` →
+/// `fetch`), so one content-hash primitive serves both trust boundaries
+/// (Dolstra 2006 content-addressing; W3C SRI 2016). `raw_hash::verify`
+/// re-hashes `bytes` under the pin's algorithm (the one verify leg,
+/// `hash_hex`) — the pin is checked against bytes that are actually
+/// present, never against a self-asserted label, and the algorithm comes
+/// from the trusted lock value, never from the payload.
+fn verify_content_address(
+    bytes: &[u8],
+    trusted_pin: &LockDigest,
+    key: &str,
+) -> Result<(), PrxError> {
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
-        data: ClaimData::Sha256(trusted_pin.to_string()),
+        data: trusted_pin.claim_data(),
     };
     match raw_hash::verify(&claim, bytes) {
         VerificationResult::Verified(_) => Ok(()),
@@ -819,9 +828,9 @@ fn verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<
             expected,
             found: actual,
         }),
-        // Unreachable on this path: the claim just above is always
-        // ClaimData::Sha256, which raw_hash::verify never reports as
-        // Unverifiable. Mapped explicitly so a future non-Sha256 claim still
+        // Unreachable on this path: the claim just above is always a
+        // hash-bearing variant, which raw_hash::verify never reports as
+        // Unverifiable. Mapped explicitly so a future non-hash claim still
         // fails closed rather than silently passing.
         VerificationResult::Unverifiable { reason } => Err(PrxError::IntegrityUnverifiable {
             key: key.to_string(),
@@ -835,15 +844,19 @@ fn verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<
 ///
 /// For [`RoundTripFidelity::RawBytesComplementFloor`] (OWL today),
 /// [`reconstruct_source`] returns the exact source bytes after enforcing
-/// the in-envelope honesty doctrine (`sha256(blob) == raw.content_address ==
-/// metadata.source_sha256`); we then discharge a content-hash
+/// the in-envelope honesty doctrine (`address(blob) == raw.content_address ==
+/// metadata.source_address`); we then discharge a content-hash
 /// `IntegrityClaim` binding those bytes to the trusted `SourcePin`
 /// (`praxis.lock` `[hashes]`). A floor envelope with no raw leaf is rejected
 /// here. [`RoundTripFidelity::ByteExactGraphFaithful`] (now emitted for
 /// cito) carries no raw blob either — [`reconstruct_source`] regenerates
 /// the exact source bytes from the typed graph + the structured RDF/XML
 /// complement, then the same content-hash claim binds them to the pin.
-fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Result<(), PrxError> {
+fn verify_source_leg(
+    envelope: &PrxEnvelope,
+    source_pin: &LockDigest,
+    key: &str,
+) -> Result<(), PrxError> {
     // BOTH tiers reconstruct the source and bind it to the trusted source pin —
     // the floor from its stored raw complement, the graph-faithful tier from the
     // structured RDF/XML complement (`reconstruct_source` now regenerates CiTO's
@@ -858,7 +871,7 @@ fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Res
 
 /// Verify the **graph-identity (RDFC-1.0) leg**: the W3C RDF Dataset
 /// Canonicalization (REC-rdf-canon-20240521) serialized canonical N-Quads
-/// of the loaded source RDF graph must SHA-256 to the trusted
+/// of the loaded source RDF graph must hash to the trusted
 /// `canonical_pin` (`praxis.lock` `[canonical_signatures]`).
 ///
 /// This mirrors the source-bytes ([`verify_source_leg`]) and
@@ -884,7 +897,7 @@ fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Res
 /// identity leg is enforced for the byte-exact tier too, never skipped.
 fn verify_canonical_leg(
     envelope: &PrxEnvelope,
-    canonical_pin: &str,
+    canonical_pin: &LockDigest,
     key: &str,
 ) -> Result<(), PrxError> {
     // The RDFC-1.0 graph-identity leg runs for BOTH tiers — for a graph-faithful
@@ -926,9 +939,9 @@ fn verify_canonical_leg(
 fn admit_validated(
     rkyv_bytes: &[u8],
     envelope: PrxEnvelope,
-    archive_pin: &str,
-    source_pin: &str,
-    canonical_pin: &str,
+    archive_pin: &LockDigest,
+    source_pin: &LockDigest,
+    canonical_pin: &LockDigest,
 ) -> Result<LoadedOwlVocabulary, PrxError> {
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     verify_content_address(rkyv_bytes, archive_pin, &key)?;
@@ -959,9 +972,9 @@ fn admit_validated(
 /// unit-testable; [`load_prx_gz_from_lock`] does the lookups.
 pub fn load_prx_gz(
     prx_gz: &[u8],
-    archive_pin: &str,
-    source_pin: &str,
-    canonical_pin: &str,
+    archive_pin: &LockDigest,
+    source_pin: &LockDigest,
+    canonical_pin: &LockDigest,
 ) -> Result<LoadedOwlVocabulary, PrxError> {
     let rkyv_bytes = gunzip(prx_gz)?;
     let envelope = envelope_from_bytes(&rkyv_bytes)?;
@@ -991,22 +1004,19 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
     let envelope = envelope_from_bytes(&rkyv_bytes)?;
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
     let archive_pin = lock_archive_signature(&envelope.metadata.name, &envelope.metadata.version)
-        .ok_or_else(|| PrxError::NoArchivePin { key: key.clone() })?
-        .to_string();
+        .ok_or_else(|| PrxError::NoArchivePin { key: key.clone() })?;
     let source_pin = lock_hashes()
         .get(&key)
-        .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?
-        .clone();
+        .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?;
     let canonical_pin =
         lock_canonical_signature(&envelope.metadata.name, &envelope.metadata.version)
-            .ok_or_else(|| PrxError::NoCanonicalPin { key: key.clone() })?
-            .to_string();
+            .ok_or_else(|| PrxError::NoCanonicalPin { key: key.clone() })?;
     admit_validated(
         &rkyv_bytes,
         envelope,
-        &archive_pin,
-        &source_pin,
-        &canonical_pin,
+        archive_pin,
+        source_pin,
+        canonical_pin,
     )
 }
 
@@ -1047,8 +1057,8 @@ pub fn load_compact_prx_gz(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxErro
 /// hash)" (M4.ι / #186).
 ///
 /// - [`RoundTripFidelity::RawBytesComplementFloor`]: return the stored
-///   `raw.blob` after re-verifying `sha256(blob) == raw.content_address ==
-///   metadata.source_sha256` — fail-closed; a tampered blob is rejected.
+///   `raw.blob` after re-verifying `address(blob) == raw.content_address ==
+///   metadata.source_address` — fail-closed; a tampered blob is rejected.
 /// - [`RoundTripFidelity::ByteExactGraphFaithful`]: regenerate from `data`.
 ///   For OWL this is the deferred byte-exact `write_owl` + RDFC leg (#258);
 ///   no envelope is emitted in this mode today, so reaching it is a logic
@@ -1074,10 +1084,10 @@ pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
             }
             // … and that address must equal the envelope's source pin, so
             // the raw leaf cannot disagree with the load gate's anchor.
-            if computed != envelope.metadata.source_sha256 {
+            if computed != envelope.metadata.source_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (raw vs metadata)"),
-                    expected: envelope.metadata.source_sha256.clone(),
+                    expected: envelope.metadata.source_address.clone(),
                     found: computed,
                 });
             }
@@ -1109,10 +1119,10 @@ pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
             // drifts from the pinned source fails closed.
             let computed = ContentAddress::of(&bytes).to_hex();
             let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
-            if computed != envelope.metadata.source_sha256 {
+            if computed != envelope.metadata.source_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (graph-faithful reconstruction vs metadata)"),
-                    expected: envelope.metadata.source_sha256.clone(),
+                    expected: envelope.metadata.source_address.clone(),
                     found: computed,
                 });
             }
@@ -1130,9 +1140,10 @@ pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
 ///
 /// The presence of this value is itself a proof obligation discharged: the
 /// emitter returns it only after [`load_prx_gz_from_lock`] re-loaded the
-/// written file and the embedded `source_sha256` matched the `praxis.lock`
+/// written file and the embedded `source_address` matched the `praxis.lock`
 /// pin. A published artifact therefore is guaranteed loadable AND
-/// content-anchored (NIST FIPS 180-4 §6.2; Dolstra 2006 content-addressing)
+/// content-anchored (BLAKE3 — Aumasson, O'Connor, Neves & Wilcox-O'Hearn 2020;
+/// Dolstra 2006 content-addressing)
 /// before it is handed to the distribution layer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmittedArtifact {
@@ -1145,8 +1156,8 @@ pub struct EmittedArtifact {
     /// Size of the written `.prx.gz` in bytes.
     pub byte_len: u64,
     /// The content address of the written archive — for the envelope producers
-    /// the rkyv `MerkleRoot` (SHA-256 of the envelope bytes), for the compact
-    /// producers the SHA-256 of the uncompressed succinct bytes. The value to
+    /// the rkyv `MerkleRoot` (the digest of the envelope bytes), for the compact
+    /// producers the digest of the uncompressed succinct bytes. The value to
     /// pin in the corresponding `praxis.lock` signature space
     /// (`[archive_signatures]` for envelopes, `[compact_archive_signatures]` for
     /// compact archives) so the runtime load gate can verify it.
@@ -1221,7 +1232,7 @@ mod emit {
     /// `(name, version, url)`.
     ///
     /// `read_owl(source) → owl_to_builder → OwnedCodegenData`, then attach
-    /// the OMV/PROV-O metadata block: `source_sha256` is the SHA-256 of the
+    /// the OMV/PROV-O metadata block: `source_address` is the content address of the
     /// exact `source` bytes (the `prov:Entity` content address);
     /// `number_of_classes` / `number_of_properties` are the
     /// `omv:numberOf*` structural metrics counted from the builder's
@@ -1252,13 +1263,13 @@ mod emit {
             .count() as u64;
 
         let data = builder_to_owned(&builder);
-        let source_sha256 = ContentAddress::of(source).to_hex();
+        let source_address = ContentAddress::of(source).to_hex();
         let metadata = PrxMetadata {
             name: name.to_string(),
             version: version.to_string(),
             ontology_uri,
             source_url: url.to_string(),
-            source_sha256: source_sha256.clone(),
+            source_address: source_address.clone(),
             number_of_classes,
             number_of_properties,
         };
@@ -1309,7 +1320,7 @@ mod emit {
             mode: RoundTripFidelity::RawBytesComplementFloor,
             graph: None,
             raw: Some(RawSource {
-                content_address: source_sha256,
+                content_address: source_address,
                 blob: source.to_vec(),
             }),
         })
@@ -1356,7 +1367,7 @@ mod emit {
     /// 2. writes it to `<out_dir>/<name>-<version>.prx.gz`;
     /// 3. **round-trip-validates** by reading the file back and feeding it to
     ///    [`load_prx_gz_from_lock`] — which gunzips, bytecheck-validates the
-    ///    rkyv layer, and asserts the embedded `source_sha256` equals the
+    ///    rkyv layer, and asserts the embedded `source_address` equals the
     ///    `praxis.lock` pin (fail-closed). A success proves the published
     ///    artifact is both *loadable* and *content-anchored* to the lock.
     ///
@@ -1419,7 +1430,12 @@ mod emit {
                 .ok_or_else(|| PrxError::NoCanonicalPin { key: key.clone() })?;
             let read_back = std::fs::read(&path)
                 .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
-            load_prx_gz(&read_back, &archive_address, source_pin, canonical_pin)?;
+            load_prx_gz(
+                &read_back,
+                &LockDigest::address(archive_address.clone()),
+                source_pin,
+                canonical_pin,
+            )?;
 
             emitted.push(EmittedArtifact {
                 name: entry.name.clone(),
@@ -1470,12 +1486,12 @@ mod tests {
 
     // ── source anchor ────────────────────────────────────────────────
 
-    /// The SHA-256 of the bundled CiTO source equals the `praxis.lock`
+    /// The content address of the bundled CiTO source equals the `praxis.lock`
     /// pin for `cito@2.8.1`. This is the invariant the load gate enforces;
     /// if it ever breaks, every `.prx.gz` for CiTO must be rejected.
     #[test]
     fn source_anchor_cito_hash_matches_lock() {
-        let computed = ContentAddress::of(CITO_2_8_1_OWL.as_bytes()).to_hex();
+        let computed = LockDigest::address(ContentAddress::of(CITO_2_8_1_OWL.as_bytes()).to_hex());
         let pinned = lock_hashes()
             .get("cito@2.8.1")
             .expect("praxis.lock must pin cito@2.8.1");
@@ -1546,13 +1562,12 @@ mod tests {
         // Now the full gzip ∘ rkyv ∘ leak ∘ from_codegen round-trip of the
         // *same* envelope. GetPut law: it must reproduce `direct` exactly.
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
-        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let canonical_pin = lock_canonical_signature("cito", "2.8.1")
-            .expect("cito canonical pin")
-            .to_string();
-        let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
-            .expect("load + validate");
+        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin");
+        let archive_pin =
+            LockDigest::address(prx_archive_address(&prx_gz).expect("archive address"));
+        let canonical_pin = lock_canonical_signature("cito", "2.8.1").expect("cito canonical pin");
+        let loaded =
+            load_prx_gz(&prx_gz, &archive_pin, source_pin, canonical_pin).expect("load + validate");
 
         // It came from a real CiTO parse, so it is rich and carries the
         // citesAsEvidence is_a cites edge.
@@ -1601,7 +1616,7 @@ mod tests {
         // … so the operator's invariant holds: round-trip hash == source hash.
         assert_eq!(
             ContentAddress::of(&reconstructed).to_hex(),
-            envelope.metadata.source_sha256,
+            envelope.metadata.source_address,
             "reconstructed bytes must hash to the pinned source content address"
         );
     }
@@ -1703,7 +1718,7 @@ mod tests {
         assert_eq!(m.source_url, CITO_URL);
         // prov:wasDerivedFrom content address == praxis.lock pin.
         assert_eq!(
-            &m.source_sha256,
+            &LockDigest::address(m.source_address.clone()),
             lock_hashes().get("cito@2.8.1").expect("pin"),
         );
         // omv:URI — CiTO's ontology IRI is non-empty.
@@ -1744,7 +1759,7 @@ mod tests {
         let mut envelope =
             build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
                 .expect("build envelope");
-        envelope.metadata.source_sha256 =
+        envelope.metadata.source_address =
             "0000000000000000000000000000000000000000000000000000000000000000".to_string();
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
 
@@ -1780,7 +1795,7 @@ mod tests {
             .expect("emit");
         // gunzip / rkyv-bytecheck fail before the pin checks, so the pin
         // values are immaterial here.
-        let any_pin = "0".repeat(64);
+        let any_pin = LockDigest::address("0".repeat(64));
         // Truncate the gzip stream.
         let truncated = &prx_gz[..prx_gz.len() / 2];
         assert!(
@@ -1806,7 +1821,7 @@ mod tests {
                 .expect("build envelope");
         // Source identity stays genuine …
         assert_eq!(
-            &envelope.metadata.source_sha256,
+            &LockDigest::address(envelope.metadata.source_address.clone()),
             lock_hashes().get("cito@2.8.1").expect("pin")
         );
         // … only the installed data column is poisoned.
@@ -1830,22 +1845,21 @@ mod tests {
         let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
+        let archive_pin =
+            LockDigest::address(prx_archive_address(&prx_gz).expect("archive address"));
+        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin");
         // A wrong canonical pin (all-zero) — archive + source legs pass,
         // the canonical leg is what rejects.
-        let wrong_canonical = "0".repeat(64);
-        let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &wrong_canonical)
+        let wrong_canonical = LockDigest::address("0".repeat(64));
+        let err = load_prx_gz(&prx_gz, &archive_pin, source_pin, &wrong_canonical)
             .expect_err("wrong canonical pin must reject");
         assert!(
             matches!(err, PrxError::HashMismatch { .. }),
             "expected HashMismatch from the canonical (RDFC-1.0) leg, got {err:?}"
         );
         // The correct canonical pin (the lock's RDFC-1.0 signature) loads.
-        let good_canonical = lock_canonical_signature("cito", "2.8.1")
-            .expect("cito canonical pin")
-            .to_string();
-        load_prx_gz(&prx_gz, &archive_pin, &source_pin, &good_canonical)
+        let good_canonical = lock_canonical_signature("cito", "2.8.1").expect("cito canonical pin");
+        load_prx_gz(&prx_gz, &archive_pin, source_pin, good_canonical)
             .expect("correct canonical pin must load");
     }
 
@@ -1905,9 +1919,11 @@ mod tests {
                 )
             });
             assert_eq!(
-                a.archive_address, pinned,
+                &LockDigest::address(a.archive_address.clone()),
+                pinned,
                 "{}@{} .prx MerkleRoot must equal the [archive_signatures] pin",
-                a.name, a.version
+                a.name,
+                a.version
             );
         }
         // Load-bearing in both directions: every emitted archive is pinned
@@ -1962,15 +1978,14 @@ mod tests {
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
         // Genuine MerkleRoot for THIS (payload-less) envelope, so the archive
         // leg passes and the source leg is what rejects.
-        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
-        let canonical_pin = lock_canonical_signature("cito", "2.8.1")
-            .expect("cito canonical pin")
-            .to_string();
+        let archive_pin =
+            LockDigest::address(prx_archive_address(&prx_gz).expect("archive address"));
+        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin");
+        let canonical_pin = lock_canonical_signature("cito", "2.8.1").expect("cito canonical pin");
         // The source leg runs before the canonical leg, so a missing payload is
         // rejected by `reconstruct_source` there (canonical pin value is
         // immaterial — that leg is never reached).
-        let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
+        let err = load_prx_gz(&prx_gz, &archive_pin, source_pin, canonical_pin)
             .expect_err("missing reconstruction payload must reject");
         assert!(
             matches!(err, PrxError::SourceNotReconstructible { .. }),
@@ -2343,14 +2358,14 @@ mod tests {
         // A deterministic synthetic source (valid RDF/XML) whose hash we
         // control via name/version/entity_count.
         let source = synth_source_rdfxml(name, version, data.entity_count);
-        let source_sha256 = ContentAddress::of(source.as_bytes()).to_hex();
+        let source_address = ContentAddress::of(source.as_bytes()).to_hex();
         PrxEnvelope {
             metadata: PrxMetadata {
                 name: name.to_string(),
                 version: version.to_string(),
                 ontology_uri: format!("http://ex.org/{name}/{version}#"),
                 source_url: "http://ex.org/v".to_string(),
-                source_sha256: source_sha256.clone(),
+                source_address: source_address.clone(),
                 number_of_classes: n_cls,
                 number_of_properties: n_prop,
             },
@@ -2358,20 +2373,20 @@ mod tests {
             mode: RoundTripFidelity::RawBytesComplementFloor,
             graph: None,
             raw: Some(RawSource {
-                content_address: source_sha256,
+                content_address: source_address,
                 blob: source.into_bytes(),
             }),
         }
     }
 
-    /// The RDFC-1.0 canonical-form SHA-256 (hex) of a synthetic envelope's
+    /// The RDFC-1.0 canonical-form content digest (hex) of a synthetic envelope's
     /// carried source — the `[canonical_signatures]` pin the load gate's
     /// canonical leg checks against. Computed from the same `OwlLens`
     /// canonical form the gate re-derives.
-    fn synth_canonical_pin(envelope: &PrxEnvelope) -> String {
+    fn synth_canonical_pin(envelope: &PrxEnvelope) -> LockDigest {
         let blob = &envelope.raw.as_ref().expect("synth carries raw").blob;
         let sig = OwlLens::signature(blob).expect("synth source canonicalizes");
-        sig.iter().map(|b| format!("{b:02x}")).collect()
+        LockDigest::address(sig.iter().map(|b| format!("{b:02x}")).collect::<String>())
     }
 
     proptest! {
@@ -2381,10 +2396,10 @@ mod tests {
         #[test]
         fn prop_emit_load_preserves_entities_and_edges(s in arb_synth()) {
             let envelope = synth_envelope(&s, "synth", "1.0");
-            let source_pin = envelope.metadata.source_sha256.clone();
+            let source_pin = LockDigest::address(envelope.metadata.source_address.clone());
             let canonical_pin = synth_canonical_pin(&envelope);
             let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-            let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
+            let archive_pin = LockDigest::address(prx_archive_address(&prx_gz).expect("archive address"));
 
             let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
                 .expect("matching pins must load");
@@ -2408,17 +2423,17 @@ mod tests {
         #[test]
         fn prop_tampered_hash_always_rejected(s in arb_synth(), flip in 0u8..32) {
             let envelope = synth_envelope(&s, "synth", "1.0");
-            let real_pin = envelope.metadata.source_sha256.clone();
+            let real_pin = envelope.metadata.source_address.clone();
             // A wrong pin: flip one hex nibble of the real pin.
             let mut wrong: Vec<char> = real_pin.chars().collect();
             let idx = (flip as usize) % wrong.len();
             wrong[idx] = if wrong[idx] == '0' { '1' } else { '0' };
-            let wrong_pin: String = wrong.into_iter().collect();
-            prop_assume!(wrong_pin != real_pin);
+            let wrong_pin = LockDigest::address(wrong.into_iter().collect::<String>());
+            prop_assume!(wrong_pin.digest_hex != real_pin);
 
             let canonical_pin = synth_canonical_pin(&envelope);
             let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-            let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
+            let archive_pin = LockDigest::address(prx_archive_address(&prx_gz).expect("archive address"));
             // Genuine MerkleRoot + genuine canonical pin, but a tampered
             // SOURCE pin → the source leg (which runs before the canonical
             // leg) rejects fail-closed.

@@ -314,7 +314,7 @@ pr4xis::register_axiom!(PairOntologyRoundTrip, constructor);
 /// conscious GraphVersion bump (an address-preimage or rkyv-layout change), the
 /// desired property.
 ///
-/// The literal is the SHA-256 of the rkyv-serialized envelope bytes, portable
+/// The literal is the content digest (BLAKE3) of the rkyv-serialized envelope bytes, portable
 /// across every praxis target because rkyv runs with the default `FixedUsize`
 /// (u32, little-endian — `crates/domains/Cargo.toml` enables no
 /// `pointer_width_*` / `big_endian` feature, so the layout is identical on
@@ -322,7 +322,7 @@ pr4xis::register_axiom!(PairOntologyRoundTrip, constructor);
 /// would invalidate this literal on the affected target — surfaced precisely by
 /// this axiom failing there (the conscious bump).
 const GRAPH_SNAPSHOT_KAT_ROOT: &str =
-    "460e25d2bf7d077810987113c14f2cb80fd2d12ce32b77ebd7667ee3ebc6c8f7";
+    "96d1c8b09d35209f3f2108b26c7c8e73126ffa7437178918cf4fa22ad5fd1885";
 
 /// A whole-graph [`GraphSnapshot`](super::snapshot) round-trips reproducibly
 /// and fail-closed: a fixed, closed slice plus a behavioural binding emit to a
@@ -403,7 +403,7 @@ impl Axiom for GraphSnapshotReproducible {
     pr4xis::axiom_meta!(
         "GraphSnapshotReproducible",
         "a fixed graph slice emits to a stable MerkleRoot (known-answer), reloads through the fail-closed gate, and refuses a poisoned slice or an unbindable node",
-        "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Lamb & Zacchiroli (2021) Reproducible Builds, IEEE Software 39(2); NIST (2015) FIPS 180-4 §6.2"
+        "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Lamb & Zacchiroli (2021) Reproducible Builds, IEEE Software 39(2); Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3"
     );
 }
 

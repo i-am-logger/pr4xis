@@ -16,8 +16,10 @@
 //!    [`super::WellBehavedLens::assert_byte_exact_law`] (Foster,
 //!    Greenwald, Moore, Pierce & Schmitt 2007 *ACM TOPLAS* 29(3) §2.2
 //!    well-behaved lens laws).
-//! 4. Computes the SHA-256 — canonical-form for the FLOOR path, raw
-//!    bytes for the byte-exact path.
+//! 4. Computes the content digest — canonical-form for the FLOOR path,
+//!    raw bytes for the byte-exact path — under the algorithm the
+//!    `praxis.lock` pin names (the one verify leg,
+//!    `pr4xis_runtime::address::hash_hex`).
 //! 5. Compares against the pinned signature from
 //!    [`crate::applied::data_provisioning::registry`] —
 //!    `[canonical_signatures]` or `[byte_exact_signatures]` respectively.
@@ -68,7 +70,8 @@
 //! - Dolstra (2006). "The Purely Functional Software Deployment
 //!   Model", PhD thesis Utrecht §3 — content-addressed storage as
 //!   drift-detection vehicle.
-//! - NIST FIPS 180-4 (2015). *Secure Hash Standard* §6.2 (SHA-256).
+//! - Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020). *BLAKE3: one
+//!   function, fast everywhere* — the content-address hash.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
@@ -120,8 +123,14 @@ pub struct LensRegistration {
     /// (the strict byte-exact PutGet law — used for
     /// [`RoundTripFidelity::ByteExactGraphFaithful`] sources).
     pub assert_byte_exact: fn(&[u8]) -> Result<(), LensLawFailure>,
-    /// Compute the canonical-form SHA-256 of `bytes`.
-    pub signature: fn(&[u8]) -> Result<[u8; 32], String>,
+    /// Compute the canonical-form digest of `bytes` (lowercase hex) under a
+    /// NAMED algorithm — the verify-many leg
+    /// ([`super::WellBehavedLens::signature_hex`], dispatched through
+    /// `pr4xis_runtime::address::hash_hex`). The harness names the algorithm
+    /// the `praxis.lock` pin was taken under; an unpinned source is reported
+    /// under the emit algorithm
+    /// ([`pr4xis_runtime::address::ADDRESS_ALGORITHM`]).
+    pub signature: fn(&[u8], pr4xis_runtime::address::HashAlgorithm) -> Result<String, String>,
     /// The round-trip fidelity this lens guarantees — selects which
     /// PutGet law and which `praxis.lock` signature section the
     /// harness checks.
@@ -196,8 +205,8 @@ macro_rules! register_lens {
                     <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::assert_put_get_law,
                 assert_byte_exact:
                     <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::assert_byte_exact_law,
-                signature: |b| {
-                    <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::signature(b)
+                signature: |b, algorithm| {
+                    <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::signature_hex(b, algorithm)
                         .map_err(|e| alloc::format!("{}", e))
                 },
                 fidelity:
@@ -233,16 +242,18 @@ pub enum HarnessOutcome {
     /// hard failure.
     SourceNotOnDisk { path: String },
     /// Lens law holds, but no `canonical_signature` is pinned for
-    /// this source yet. The computed signature is included so the
-    /// human pinning the lock has the value ready.
-    LawHoldsSignatureUnpinned { computed_sha256_hex: String },
-    /// Lens law holds, but the computed canonical signature differs
-    /// from `praxis.lock`'s pinned value. Either the lens output
-    /// drifted, the canonical form drifted, or the source bytes are
-    /// stale.
+    /// this source yet. The computed signature (under the emit
+    /// algorithm) is included so the human pinning the lock has the
+    /// value ready.
+    LawHoldsSignatureUnpinned { computed_digest_hex: String },
+    /// Lens law holds, but the computed signature — re-derived under
+    /// the ALGORITHM the pin names — differs from `praxis.lock`'s
+    /// pinned value. Either the lens output drifted, the canonical
+    /// form drifted, or the source bytes are stale. `expected` is the
+    /// pin's tagged wire form (`<algorithm>:<hex>`).
     SignatureMismatch {
         expected: String,
-        computed_sha256_hex: String,
+        computed_digest_hex: String,
     },
     /// `put(get(bytes))` does not canonicalize to the same bytes as
     /// `bytes` — the ontology does not yet capture the full
@@ -333,11 +344,11 @@ pub fn dump_unpinned_signatures() {
     for r in run_round_trip_harness_including_oversize() {
         match &r.outcome {
             HarnessOutcome::LawHoldsSignatureUnpinned {
-                computed_sha256_hex,
+                computed_digest_hex,
             } => {
                 eprintln!(
                     "\"{}\" = \"{}\"  # pin in praxis.lock [canonical_signatures]",
-                    r.key, computed_sha256_hex
+                    r.key, computed_digest_hex
                 );
             }
             other => eprintln!("{}: {:?}", r.key, other),
@@ -407,13 +418,20 @@ fn verify_loaded_bytes(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
 /// path for sources with no published canonical form (PDF) and every
 /// lens not yet migrated to graph-faithful byte-exactness.
 fn verify_canonical(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
+    use pr4xis_runtime::address::ADDRESS_ALGORITHM;
     // Step 1: PutGet law (canonical-form equality).
     if let Err(failure) = (reg.assert_law)(bytes) {
         return HarnessOutcome::LawViolated(failure);
     }
-    // Step 2: canonical signature.
-    let computed = match (reg.signature)(bytes) {
-        Ok(sig) => sig,
+    // Step 2 + 3: canonical signature against praxis.lock
+    // [canonical_signatures] — re-derived under the ALGORITHM the pin
+    // names (verify-many; the closure dispatches through `hash_hex`). An
+    // unpinned source is reported under the emit algorithm so the value is
+    // ready to pin.
+    let pin = lock_canonical_signature(reg.source_name, reg.source_version);
+    let algorithm = pin.map(|p| p.algorithm).unwrap_or(ADDRESS_ALGORITHM);
+    let computed_hex = match (reg.signature)(bytes, algorithm) {
+        Ok(hex) => hex,
         Err(message) => {
             return HarnessOutcome::LoadError {
                 path: String::new(),
@@ -421,50 +439,49 @@ fn verify_canonical(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
             };
         }
     };
-    let computed_hex = hex_of(&computed);
-
-    // Step 3: compare against praxis.lock [canonical_signatures].
-    match lock_canonical_signature(reg.source_name, reg.source_version) {
+    match pin {
         None => HarnessOutcome::LawHoldsSignatureUnpinned {
-            computed_sha256_hex: computed_hex,
+            computed_digest_hex: computed_hex,
         },
-        Some(expected) if expected == computed_hex => HarnessOutcome::Verified,
+        Some(expected) if expected.digest_hex == computed_hex => HarnessOutcome::Verified,
         Some(expected) => HarnessOutcome::SignatureMismatch {
             expected: expected.to_string(),
-            computed_sha256_hex: computed_hex,
+            computed_digest_hex: computed_hex,
         },
     }
 }
 
 /// Strict byte-exact PutGet law + `[byte_exact_signatures]` pin — the
 /// graph-faithful path (no constant-complement). The pinned value is
-/// the SHA-256 of the *raw* source bytes; `put(get(b)) == b` makes the
+/// the digest of the *raw* source bytes; `put(get(b)) == b` makes the
 /// round-tripped output hash equal to it.
 fn verify_byte_exact(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
+    use pr4xis_runtime::address::hash_hex;
     // Step 1: byte-exact PutGet law (raw byte equality, no complement).
     if let Err(failure) = (reg.assert_byte_exact)(bytes) {
         return HarnessOutcome::ByteLawViolated(failure);
     }
-    // Step 2: raw-bytes signature. The law just proved the round-tripped
-    // output equals the input, so the raw-input hash IS the round-trip
-    // output hash — the byte-exact witness.
-    let computed_hex = raw_signature_hex(bytes);
-
-    // Step 3: compare against praxis.lock [byte_exact_signatures].
+    // Step 2 + 3: raw-bytes signature against praxis.lock
+    // [byte_exact_signatures]. The law just proved the round-tripped
+    // output equals the input, so the raw-input digest IS the round-trip
+    // output digest — the byte-exact witness. The pin verifies the bytes
+    // under ITS OWN named algorithm (the one verify leg,
+    // `LockDigest::verifies` → `hash_hex`).
     match lock_byte_exact_signature(reg.source_name, reg.source_version) {
         None => HarnessOutcome::LawHoldsSignatureUnpinned {
-            computed_sha256_hex: computed_hex,
+            computed_digest_hex: raw_signature_hex(bytes),
         },
-        Some(expected) if expected == computed_hex => HarnessOutcome::Verified,
+        Some(expected) if expected.verifies(bytes) => HarnessOutcome::Verified,
         Some(expected) => HarnessOutcome::SignatureMismatch {
             expected: expected.to_string(),
-            computed_sha256_hex: computed_hex,
+            computed_digest_hex: hash_hex(expected.algorithm, bytes),
         },
     }
 }
 
-/// SHA-256 of raw bytes as lowercase hex — the byte-exact signature
-/// (NIST FIPS 180-4 §6.2 SHA-256).
+/// Content address of raw bytes as lowercase hex — the byte-exact
+/// signature under the emit algorithm
+/// ([`pr4xis_runtime::address::ADDRESS_ALGORITHM`], BLAKE3).
 fn raw_signature_hex(bytes: &[u8]) -> String {
     ContentAddress::of(bytes).to_hex()
 }
@@ -489,14 +506,6 @@ fn resolve_abs_path(reg: &LensRegistration) -> Result<std::path::PathBuf, Source
     Ok(workspace_root
         .map(|root| root.join(&path_str))
         .unwrap_or_else(|| std::path::PathBuf::from(&path_str)))
-}
-
-fn hex_of(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push_str(&format!("{b:02x}"));
-    }
-    out
 }
 
 // =============================================================================

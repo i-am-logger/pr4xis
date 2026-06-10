@@ -1,10 +1,15 @@
 //! Content-addressing — the one primitive the runtime GROUNDS.
 //!
-//! A [`ContentAddress`] is the SHA-256 (NIST FIPS 180-4 §6.2) of a CANONICAL
-//! byte encoding of a definition. Everything else about the `.prx` format is
-//! learned from the meta-`.prx`; this is the bottom of the reflexive tower —
-//! it is what "reference" and "agreement" MEAN. Two peers agree a definition is
-//! the same iff they hash the same canonical bytes to the same address.
+//! A [`ContentAddress`] is the BLAKE3 hash (Aumasson, O'Connor, Neves &
+//! Wilcox-O'Hearn 2020, "BLAKE3: one function, fast everywhere") of a
+//! CANONICAL byte encoding of a definition. BLAKE3 is a sound tree-mode hash
+//! (Gunsing, CRYPTO 2022, under the Bertoni–Daemen sound-tree-hashing
+//! conditions), so the same function supports incrementally verified
+//! streaming (Bao — O'Connor) without changing what an address means.
+//! Everything else about the `.prx` format is learned from the meta-`.prx`;
+//! this is the bottom of the reflexive tower — it is what "reference" and
+//! "agreement" MEAN. Two peers agree a definition is the same iff they hash
+//! the same canonical bytes to the same address.
 //!
 //! The canonical ENCODING (which bytes are fed in) is the codec layer's concern
 //! — the target is a multihash-tagged DAG-CBOR canonical form — and the
@@ -17,19 +22,20 @@
 use sha2::{Digest, Sha256, Sha512};
 
 /// The hash functions a content address (or an integrity claim over one) may
-/// name. The enum admits only strong functions — SHA-256 / SHA-512 (NIST FIPS
-/// 180-4) and BLAKE3 (Aumasson et al. 2020) — so weak functions (MD5, SHA-1)
+/// name. The enum admits only strong functions — BLAKE3 (Aumasson, O'Connor,
+/// Neves & Wilcox-O'Hearn 2020) and SHA-256 / SHA-512 (NIST FIPS 180-4) — so
+/// weak functions (MD5, SHA-1)
 /// are *unrepresentable*: "refuse weak algorithms" is a type invariant, not a
 /// runtime branch. Praxis EMITS addresses under exactly one algorithm per
 /// format epoch ([`ADDRESS_ALGORITHM`]); it VERIFIES claims under any variant
 /// here (the W3C SRI verify-many discipline).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HashAlgorithm {
-    /// FIPS 180-4.
+    /// NIST FIPS 180-4 §6.2.
     Sha256,
-    /// FIPS 180-4.
+    /// NIST FIPS 180-4 §6.4.
     Sha512,
-    /// Aumasson et al. (2020).
+    /// Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020).
     Blake3,
 }
 
@@ -39,7 +45,7 @@ pub enum HashAlgorithm {
 /// fail-closed gates re-derive addresses from the bytes they admit, so the
 /// algorithm comes from verifier policy — a payload never selects its own
 /// verifier.
-pub const ADDRESS_ALGORITHM: HashAlgorithm = HashAlgorithm::Sha256;
+pub const ADDRESS_ALGORITHM: HashAlgorithm = HashAlgorithm::Blake3;
 
 /// Lowercase-hex digest of `bytes` under a named [`HashAlgorithm`] — the
 /// multi-algorithm verify leg. [`ContentAddress::of`] is the emit leg and
@@ -60,7 +66,8 @@ pub fn hash_hex(algorithm: HashAlgorithm, bytes: &[u8]) -> String {
     }
 }
 
-/// The content address of a canonical byte encoding: a SHA-256 digest.
+/// The content address of a canonical byte encoding: a BLAKE3 digest
+/// (Aumasson, O'Connor, Neves & Wilcox-O'Hearn 2020).
 ///
 /// The runtime never trusts a self-asserted address — it re-derives the address
 /// from the bytes it is about to admit and compares (the fail-closed load gate);
@@ -73,7 +80,7 @@ impl ContentAddress {
     /// Ground primitive: the content address of `canonical_bytes`. This is the
     /// ONE computation the runtime grounds — `.prx` identity bottoms out here.
     pub fn of(canonical_bytes: &[u8]) -> Self {
-        Self(Sha256::digest(canonical_bytes).into())
+        Self(*blake3::hash(canonical_bytes).as_bytes())
     }
 
     /// The raw 32-byte digest.
@@ -139,11 +146,12 @@ mod tests {
     }
 
     #[test]
-    fn matches_sha256_known_answer() {
-        // NIST KAT: SHA-256("") = e3b0c442...b855.
+    fn matches_blake3_known_answer() {
+        // Official BLAKE3 empty-input vector (BLAKE3 team test_vectors.json,
+        // input_len = 0): af1349b9...3262.
         assert_eq!(
             ContentAddress::of(b"").to_hex(),
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
         );
     }
 }

@@ -27,6 +27,10 @@ pr4xis-chat = { version = "0.22.0", path = "../chat" }
 # CLI is a native binary, so `codegen`'s `xsd-parser` (which can't build for
 # wasm32) is no constraint here.
 pr4xis-domains = { version = "0.22.0", path = "../domains", features = ["fetch", "codegen"] }
+# The content-address vocabulary (`ContentAddress`, `HashAlgorithm`,
+# `hash_hex`) — the emit leg for lock re-pins and the SHA-256 verify leg the
+# `decompile --fips` attestation speaks through.
+pr4xis-runtime = { version = "0.22.0", path = "../pr4xis-runtime", features = ["emit"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 

@@ -18,7 +18,8 @@
 //!   System" — the Merkle-DAG with cross-node dedup (IPLD).
 //! - **Hamano & Torvalds** — Git's content-addressed DAG of blob/tree
 //!   objects (identical content → identical object id → dedup).
-//! - **NIST (2015)** *FIPS PUB 180-4* §6.2 (SHA-256) — the content
+//! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** *BLAKE3: one
+//!   function, fast everywhere* — the content
 //!   address.
 //! - **Deutsch (1996)** *GZIP file format* RFC 1952 — the compressed form.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** ACM TOPLAS
@@ -33,7 +34,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "OntologyArchiveStorage",
-    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; NIST (2015) FIPS PUB 180-4 §6.2 (SHA-256); Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity",
+    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity",
 
     concepts: [
         ContentAddressableNode,
@@ -64,7 +65,7 @@ pr4xis::ontology! {
         CompressedForm: ("en", "Compressed form",
             "Deutsch (1996) RFC 1952: the gzip-wrapped serialization of a binary envelope; gunzip(gzip(x)) == x (lossless)."),
         SourcePin: ("en", "Source pin",
-            "NIST (2015) FIPS 180-4 §6.2; Dolstra (2006): the recorded SHA-256 content address of the authoritative source bytes an archive is derived from."),
+            "Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Dolstra (2006): the recorded content address of the authoritative source bytes an archive is derived from."),
         LoadGate: ("en", "Load gate",
             "Dolstra (2006); W3C (2016) SRI; Samuel et al. (2010) TUF: the fail-closed admission check that discharges an IntegrityClaim over the node it installs — it RE-DERIVES the content address from the node's own bytes and materializes only when that re-derived address equals the externally trusted recorded pin. It never trusts an embedded self-asserted label. On mismatch, an unverifiable claim, or an absent pin, nothing is installed."),
         Attestation: ("en", "Attestation",
@@ -116,13 +117,13 @@ impl Quality for ConceptDescription {
     fn get(&self, c: &OntologyArchiveStorageConcept) -> Option<&'static str> {
         use OntologyArchiveStorageConcept as C;
         Some(match c {
-            C::ContentAddressableNode => "node named by the SHA-256 of its bytes (Merkle 1987)",
+            C::ContentAddressableNode => "node named by the BLAKE3 hash of its bytes (Merkle 1987)",
             C::MerkleEdge => "link to a node by its content address (Benet 2014 IPLD)",
             C::MerkleDag => "content-addressed DAG with cross-node dedup",
             C::MerkleRoot => "top address that fixes the whole sub-DAG (Merkle 1987)",
             C::BinaryEnvelope => "deterministic rkyv container for archived data + metadata",
             C::CompressedForm => "gzip wrapper, gunzip(gzip(x)) == x (RFC 1952)",
-            C::SourcePin => "recorded SHA-256 of the authoritative source bytes",
+            C::SourcePin => "recorded content digest of the authoritative source bytes",
             C::LoadGate => {
                 "fail-closed admission: re-derive the node's content address and admit iff it equals the trusted pin"
             }

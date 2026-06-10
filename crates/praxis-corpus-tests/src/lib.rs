@@ -61,7 +61,7 @@ pub fn load_uslm_corpus(rel: &str) -> Option<UslmCorpus> {
 }
 
 /// One on-disk WN-LMF source, parsed once: the raw bytes (kept for gzip-size /
-/// sha256 / byte-exact comparisons and for the path-based codegen parser)
+/// digest / byte-exact comparisons and for the path-based codegen parser)
 /// alongside the parsed [`WordNet`].
 pub struct WnSource {
     /// The registry name (`"english_wordnet"` or `"us_legal_lexicon"`).

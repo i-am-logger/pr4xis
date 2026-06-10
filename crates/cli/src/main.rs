@@ -40,15 +40,28 @@ enum Command {
         #[arg(long)]
         list: bool,
         /// Refuse to touch the network; useful for air-gapped builds.
-        #[arg(long, conflicts_with = "lock")]
+        /// Combined with `--lock`, switches the lock rewrite to the
+        /// CUSTODY RE-PIN mode (see `--lock`).
+        #[arg(long)]
         offline: bool,
-        /// Regenerate `praxis.lock` from the authoritative sources.
-        /// Downloads every (or one) registered entry, bypasses identity
-        /// verification, writes bytes to disk, computes the SHA-256, and
-        /// rewrites the corresponding `[hashes]` line in `praxis.lock`
-        /// while preserving comments and key ordering. Mutually
-        /// exclusive with `--check` (read-only) and `--offline` (no
-        /// network) — `--lock` is the only write-only mode.
+        /// Regenerate `praxis.lock` pins, preserving comments and key
+        /// ordering. Two modes:
+        ///
+        /// Alone: downloads every (or one) registered entry, bypasses
+        /// identity verification, writes bytes to disk, computes the
+        /// content address, and rewrites the corresponding `[hashes]`
+        /// line — the operator is regenerating the pin from authoritative
+        /// bytes.
+        ///
+        /// With `--offline`: the CUSTODY RE-PIN — no network. Every
+        /// on-disk source must FIRST verify against its EXISTING pin
+        /// (under whatever algorithm the pin names); only then are the
+        /// `[hashes]`, `[byte_exact_signatures]`, and
+        /// `[canonical_signatures]` entries rewritten under the emit
+        /// algorithm. ANY custody mismatch aborts the entire run before
+        /// a single byte of `praxis.lock` is written.
+        ///
+        /// Mutually exclusive with `--check` (read-only).
         #[arg(long)]
         lock: bool,
     },
@@ -96,7 +109,7 @@ enum Command {
     /// achieved round-trip fidelity tier. Every registered `.prx`-consumer
     /// source reconstructs at the `ByteExactGraphFaithful` tier — the bytes
     /// regenerate from the typed ontology graph plus its recorded
-    /// concrete-syntax complement, gated by the sha256 honesty check.
+    /// concrete-syntax complement, gated by the content-address honesty check.
     Decompile {
         /// The registered source name to decompile (e.g. `cito`,
         /// `usc_title_18`, `english_wordnet`). Run `pr4xis update --list` to
@@ -112,6 +125,14 @@ enum Command {
         /// instead of decompiling. A non-failing report.
         #[arg(long, conflicts_with_all = ["out"])]
         meter: bool,
+        /// After the decompile (which verifies byte-exactness against the
+        /// source identity), additionally print a custody ATTESTATION for
+        /// compliance consumers: the SHA-256 (NIST FIPS 180-4) of the
+        /// decompiled bytes, the source identity, the blake3 archive
+        /// address it was decompiled from, and an RFC 3339 UTC timestamp.
+        /// Identity is intrinsic (BLAKE3); FIPS is the boundary speech-act.
+        #[arg(long, conflicts_with = "meter")]
+        fips: bool,
     },
 }
 
@@ -142,8 +163,13 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Command::Decompile { name, out, meter } => {
-            if let Err(e) = run_decompile(name.as_deref(), out.as_deref(), meter) {
+        Command::Decompile {
+            name,
+            out,
+            meter,
+            fips,
+        } => {
+            if let Err(e) = run_decompile(name.as_deref(), out.as_deref(), meter, fips) {
                 eprintln!("pr4xis decompile: {e}");
                 std::process::exit(1);
             }
@@ -192,28 +218,54 @@ fn run_update(
         }
     }
 
-    if lock {
-        apply_lock_outcomes(&outcomes, &workspace_root)?;
+    // Fail-closed ordering: a failed outcome (in the custody re-pin mode, a
+    // VerificationFailed = custody break) aborts BEFORE any lock write — a
+    // broken pin must surface, never be papered over by a fresh one.
+    if any_failed {
+        anyhow::bail!("one or more datasets failed to update; praxis.lock untouched");
     }
 
-    if any_failed {
-        anyhow::bail!("one or more datasets failed to update");
+    if lock {
+        apply_lock_outcomes(&outcomes, &workspace_root)?;
     }
     Ok(())
 }
 
 /// Walk the outcomes from a `--lock` run and rewrite `praxis.lock` so
-/// every `Locked { sha256, .. }` becomes the new pin for that source's
-/// `"name@version"` key. The lockfile is read once, mutated in-memory
-/// across all outcomes, then written once to keep the operation
-/// atomic-ish for the common case.
+/// every `Locked { address_hex, .. }` becomes the new pin for that source's
+/// `"name@version"` key, in every lock space derived from the source bytes:
+///
+/// - `[hashes]` — always (the raw-bytes pin);
+/// - `[byte_exact_signatures]` — when the key is already byte-exact-pinned:
+///   the byte-exact law (`put(get(b)) == b`) makes its value EQUAL the raw
+///   pin, so it moves in lockstep (the parser rejects divergence);
+/// - `[canonical_signatures]` — when the key is already canonical-pinned:
+///   the canonical form is re-derived from the SAME on-disk bytes, the OLD
+///   pin is custody-verified against it under the pin's own algorithm
+///   (fail-closed: a mismatch aborts before writing), and the fresh
+///   emit-algorithm address of the canonical bytes is written.
+///
+/// The lockfile is read once, mutated in-memory across all outcomes, then
+/// written once to keep the operation atomic-ish for the common case.
 fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyhow::Result<()> {
+    use pr4xis_domains::applied::data_provisioning::lockfile::{
+        set_byte_exact_signature, set_canonical_signature, set_hash,
+    };
+    use pr4xis_domains::applied::data_provisioning::registry::{
+        lock_byte_exact_signatures, lock_canonical_signature,
+    };
     let lock_path = workspace_root.join("praxis.lock");
     let original = std::fs::read_to_string(&lock_path)
         .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
     let mut text = original.clone();
     for outcome in outcomes {
-        if let FetchOutcome::Locked { name, sha256, .. } = outcome {
+        if let FetchOutcome::Locked {
+            name,
+            path,
+            address_hex,
+            ..
+        } = outcome
+        {
             // Resolve `name → version` by looking up the registry entry.
             // (The outcome carries `name` only; the version lives in
             // praxis.toml via the parsed `RegistryEntry`.)
@@ -222,9 +274,33 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
                 continue;
             };
             let key = format!("{}@{}", entry.name, entry.version);
-            text =
-                pr4xis_domains::applied::data_provisioning::lockfile::set_hash(&text, &key, sha256)
-                    .map_err(|e| anyhow::anyhow!("praxis.lock rewrite for {key}: {e}"))?;
+            text = set_hash(&text, &key, address_hex)
+                .map_err(|e| anyhow::anyhow!("praxis.lock rewrite for {key}: {e}"))?;
+            // Byte-exact pin: equal to the raw pin by the byte-exact law.
+            if lock_byte_exact_signatures().contains_key(&key) {
+                text = set_byte_exact_signature(&text, &key, address_hex).map_err(|e| {
+                    anyhow::anyhow!("praxis.lock [byte_exact_signatures] rewrite for {key}: {e}")
+                })?;
+            }
+            // Canonical pin: re-derive the canonical form from the same
+            // bytes, custody-verify the OLD pin, then re-pin.
+            if let Some(old_pin) = lock_canonical_signature(&entry.name, &entry.version) {
+                let bytes = std::fs::read(path)
+                    .map_err(|e| anyhow::anyhow!("read {}: {e}", path.display()))?;
+                let canonical = canonical_form_of(entry, &bytes)?;
+                if !old_pin.verifies(&canonical) {
+                    anyhow::bail!(
+                        "CUSTODY BREAK: {key}'s re-derived canonical form does not verify \
+                         against the existing [canonical_signatures] pin {old_pin} — refusing \
+                         to re-pin; praxis.lock untouched"
+                    );
+                }
+                let canonical_address =
+                    pr4xis_runtime::address::ContentAddress::of(&canonical).to_hex();
+                text = set_canonical_signature(&text, &key, &canonical_address).map_err(|e| {
+                    anyhow::anyhow!("praxis.lock [canonical_signatures] rewrite for {key}: {e}")
+                })?;
+            }
         }
     }
     if text != original {
@@ -235,6 +311,31 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
         println!("praxis.lock unchanged.");
     }
     Ok(())
+}
+
+/// The canonical-form bytes of `entry`'s source — the SAME derivation the
+/// `.prx` load gate's graph-identity leg uses. Today exactly the OWL
+/// vocabularies carry `[canonical_signatures]` pins, and their canonical
+/// form is the W3C RDFC-1.0 canonical N-Quads of the source RDF graph
+/// (`OwlLens::canonical`). A canonical-pinned source of any other content
+/// type has no wired derivation here — fail closed naming the key, never
+/// guess.
+fn canonical_form_of(
+    entry: &pr4xis_domains::applied::data_provisioning::ontology::RegistryEntry,
+    bytes: &[u8],
+) -> anyhow::Result<Vec<u8>> {
+    use pr4xis_domains::formal::meta::well_behaved_lens::{DecompileKind, WellBehavedLens};
+    use pr4xis_domains::social::software::markup::xml::owl::lens::OwlLens;
+    match DecompileKind::from_content_type(entry.content_type()) {
+        Some(DecompileKind::Owl) => OwlLens::canonical(bytes)
+            .map_err(|e| anyhow::anyhow!("{}: canonical form underivable: {e}", entry.name)),
+        other => anyhow::bail!(
+            "{}@{} carries a [canonical_signatures] pin but no canonical derivation is wired \
+             for its kind ({other:?}) — refusing to re-pin",
+            entry.name,
+            entry.version,
+        ),
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -398,12 +499,14 @@ fn verify_archives_against_lock(
     compact: &[EmittedArtifact],
 ) -> anyhow::Result<()> {
     use pr4xis_domains::applied::data_provisioning::registry::{
-        lock_archive_signature, lock_compact_archive_signature,
+        LockDigest, lock_archive_signature, lock_compact_archive_signature,
     };
     let mut drift: Vec<String> = Vec::new();
     let mut unpinned = 0usize;
-    let mut check = |a: &EmittedArtifact, pin: Option<&str>, space: &str| match pin {
-        Some(p) if p == a.archive_address => {}
+    // Typed comparison: the freshly emitted address (the emit leg) against
+    // the pinned LockDigest — same algorithm, same digest.
+    let mut check = |a: &EmittedArtifact, pin: Option<&LockDigest>, space: &str| match pin {
+        Some(p) if *p == LockDigest::address(a.archive_address.clone()) => {}
         Some(p) => drift.push(format!(
             "{}@{} {space}: emitted {} ≠ pinned {}",
             a.name, a.version, a.archive_address, p
@@ -517,7 +620,12 @@ fn apply_compact_archive_signature_lock(
 // `pr4xis decompile` — reconstruct source bytes from a compiled `.prx`
 // --------------------------------------------------------------------------
 
-fn run_decompile(name: Option<&str>, out: Option<&Path>, meter: bool) -> anyhow::Result<()> {
+fn run_decompile(
+    name: Option<&str>,
+    out: Option<&Path>,
+    meter: bool,
+    fips: bool,
+) -> anyhow::Result<()> {
     use pr4xis_domains::formal::meta::well_behaved_lens::{
         DecompileKind, decompile, print_completeness_meter,
     };
@@ -580,7 +688,65 @@ fn run_decompile(name: Option<&str>, out: Option<&Path>, meter: bool) -> anyhow:
     );
     // Print the achieved fidelity tier honestly — floor vs graph-faithful.
     println!("  round-trip fidelity: {}", fidelity_label(fidelity));
+
+    // `--fips`: the boundary attestation for compliance consumers. The
+    // decompile above already discharged the byte-exactness honesty gate
+    // against the source identity; this SPEAKS that custody in FIPS terms —
+    // identity stays intrinsic (the BLAKE3 content addresses), the SHA-256
+    // is the speech-act at the compliance boundary, computed through the
+    // same multi-algorithm verify leg (`hash_hex`) every claim uses.
+    if fips {
+        use pr4xis_domains::social::software::markup::xml::owl::prx::prx_archive_address;
+        use pr4xis_runtime::address::{HashAlgorithm, hash_hex};
+        let sha256_hex = hash_hex(HashAlgorithm::Sha256, &source_bytes);
+        let archive_address = prx_archive_address(&prx_gz)
+            .map_err(|e| anyhow::anyhow!("archive address of {}: {e}", prx_path.display()))?;
+        println!("  custody attestation (FIPS 180-4 boundary):");
+        println!(
+            "    source identity:        {}@{}",
+            entry.name, entry.version
+        );
+        println!("    decompiled-bytes SHA-256 (NIST FIPS 180-4): {sha256_hex}");
+        println!("    decompiled from archive (blake3 content address): {archive_address}");
+        println!("    attested at (RFC 3339, UTC): {}", rfc3339_utc_now());
+    }
     Ok(())
+}
+
+/// The current time as an RFC 3339 UTC timestamp (`YYYY-MM-DDThh:mm:ssZ`),
+/// from `SystemTime` through [`rfc3339_utc`].
+fn rfc3339_utc_now() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock is after the Unix epoch")
+        .as_secs() as i64;
+    rfc3339_utc(secs)
+}
+
+/// Seconds since the Unix epoch → RFC 3339 UTC timestamp
+/// (`YYYY-MM-DDThh:mm:ssZ`), via the proleptic-Gregorian civil-from-days
+/// conversion (Hinnant's algorithm; RFC 3339 §5.6 grammar).
+fn rfc3339_utc(secs: i64) -> String {
+    let days = secs.div_euclid(86_400);
+    let secs_of_day = secs.rem_euclid(86_400);
+    let (h, m, s) = (
+        secs_of_day / 3600,
+        (secs_of_day % 3600) / 60,
+        secs_of_day % 60,
+    );
+    // Civil-from-days (Howard Hinnant, "chrono-Compatible Low-Level Date
+    // Algorithms"): days since 1970-01-01 → (year, month, day).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097); // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let mo = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
+    let y = if mo <= 2 { y + 1 } else { y };
+    format!("{y:04}-{mo:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
 }
 
 /// The `.prx.gz` path `pr4xis compile` writes for a source of each
@@ -623,8 +789,8 @@ fn fidelity_label(
     use pr4xis_domains::formal::meta::well_behaved_lens::RoundTripFidelity;
     match fidelity {
         RoundTripFidelity::RawBytesComplementFloor => {
-            "RawBytesComplementFloor (byte-exact via the .prx's stored, sha256-gated source \
-             complement — not yet from the ontology graph alone)"
+            "RawBytesComplementFloor (byte-exact via the .prx's stored, content-address-gated \
+             source complement — not yet from the ontology graph alone)"
         }
         RoundTripFidelity::ByteExactGraphFaithful => {
             "ByteExactGraphFaithful (regenerated from the ontology graph alone)"
@@ -676,13 +842,13 @@ fn print_outcome(outcome: &FetchOutcome) {
             name,
             path,
             bytes,
-            sha256,
+            address_hex,
         } => {
             println!(
-                "  [locked]  {name}: {} ({} bytes) sha256={}",
+                "  [locked]  {name}: {} ({} bytes) address={}",
                 path.display(),
                 bytes,
-                sha256
+                address_hex
             );
         }
     }
@@ -854,4 +1020,19 @@ fn load_language(path: &str) -> Result<English, String> {
         language.word_count()
     );
     Ok(language)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rfc3339_utc;
+
+    /// Known answers cross-derived with GNU `date -u -d @<secs>`: the epoch,
+    /// a leap day (2000-02-29), a recent date, and an end-of-year boundary.
+    #[test]
+    fn rfc3339_utc_matches_known_answers() {
+        assert_eq!(rfc3339_utc(0), "1970-01-01T00:00:00Z");
+        assert_eq!(rfc3339_utc(951_782_400), "2000-02-29T00:00:00Z");
+        assert_eq!(rfc3339_utc(1_748_736_000), "2025-06-01T00:00:00Z");
+        assert_eq!(rfc3339_utc(4_102_444_799), "2099-12-31T23:59:59Z");
+    }
 }

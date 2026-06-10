@@ -110,7 +110,7 @@ The declarative registry of external sources praxis knows about. Lives at the wo
 
 ## Lock (`praxis.lock`)
 
-The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected sha256 for every registered source's on-disk bytes under `[hashes]`. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
+The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected content digest for every registered source's on-disk bytes under `[hashes]`, in the tagged grammar `<algorithm>:<64 lowercase hex>` — `blake3:` for every praxis-emitted pin (BLAKE3 is the one emit algorithm), `sha256:` / bare hex loadable as SHA-256. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
 
 ## PdfBuildExtraction
 
@@ -144,7 +144,7 @@ A content-addressed graph-*slice* primitive (`crates/domains/src/formal/meta/pra
 
 ## IntegrityClaim
 
-A typed, verifiable claim binding a resource to its expected content hash (W3C Subresource Integrity 2016) — a first-class concept in the [Archive](#archive) ontology, not a bare string compare. The underlying content hash is multi-algorithm: the `RawHash` leaf of the `ArtifactIdentity` taxonomy (`crates/domains/src/formal/meta/artifact_identity/`) covers SHA-256, SHA-512, and BLAKE3 (the archive's `SourcePin` records a SHA-256 content address). A claim is discharged — never merely trusted — by the [fail-closed load gate](#fail-closed-load-gate).
+A typed, verifiable claim binding a resource to its expected content hash (W3C Subresource Integrity 2016) — a first-class concept in the [Archive](#archive) ontology, not a bare string compare. The underlying content hash is multi-algorithm: the `RawHash` leaf of the `ArtifactIdentity` taxonomy (`crates/domains/src/formal/meta/artifact_identity/`) covers SHA-256, SHA-512, and BLAKE3 (the archive's `SourcePin` records a BLAKE3 content address — praxis emits under one algorithm and verifies claims under any). A claim is discharged — never merely trusted — by the [fail-closed load gate](#fail-closed-load-gate).
 
 ## Fail-closed load gate
 

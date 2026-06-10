@@ -663,7 +663,7 @@ impl WellBehavedLens for UslmXmlLens {
 // `(name, version)` entry in `praxis.toml`. The
 // [`crate::formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`]
 // axiom iterates these, runs the PutGet law, and verifies the
-// canonical-form SHA-256 against the matching
+// canonical-form content digest against the matching
 // `[canonical_signatures]` entry in `praxis.lock`.
 //
 // One invocation per registered USC title — the harness picks them
