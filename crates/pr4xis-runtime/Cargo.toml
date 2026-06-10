@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-runtime"
-version = "0.22.0"
+version = "0.23.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "The pr4xis runtime — load a .prx ontology as data, deserialize into the free category, rebind into the closed world; grounds only the hash primitive."

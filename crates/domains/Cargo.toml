@@ -50,7 +50,7 @@ hashbrown = "0.17"
 # feature-gating of the dependency is needed; the consuming `composed` module
 # is `std`-gated only because pr4xis-runtime is a std crate (and the WASM build
 # enables `std` via the `prx` feature anyway).
-pr4xis-runtime = { version = "0.22.0", path = "../pr4xis-runtime", features = ["emit"] }
+pr4xis-runtime = { version = "0.23.0", path = "../pr4xis-runtime", features = ["emit"] }
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate
