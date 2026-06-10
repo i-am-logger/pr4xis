@@ -411,7 +411,7 @@ pr4xis::register_axiom!(GraphSnapshotReproducible, constructor);
 
 /// Every persisted node's content address is DEFINITION-BEARING — derived,
 /// through the runtime's ONE typed lowering
-/// ([`definition_of`](pr4xis_runtime::emit::definition_of)), from what the
+/// ([`definition_of`]), from what the
 /// slice carries of the node (kind + name + in-slice morphisms + gloss),
 /// never from its bare name. Verified against the REAL emit/load loop: each
 /// rehydrated `ConceptNode`'s address equals an independently recomputed
