@@ -34,6 +34,7 @@
 //! top of it, per the consolidated build spine.
 
 pub mod address;
+pub mod apply;
 pub mod archive;
 pub mod codec;
 pub mod connection;
