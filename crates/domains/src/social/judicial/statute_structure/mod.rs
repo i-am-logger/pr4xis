@@ -70,6 +70,11 @@
 pub mod bridge;
 pub mod definition_scope;
 pub mod english_adjunction;
+/// The written-form `denotes` floor producer — statute prose → typed pointers
+/// into the English `ontolex:Form` atoms. Needs `std` (it reaches the
+/// `english::bridge` runtime projection).
+#[cfg(feature = "std")]
+pub mod grounding;
 pub mod invariants;
 pub mod parser;
 pub mod relation_extractor;
