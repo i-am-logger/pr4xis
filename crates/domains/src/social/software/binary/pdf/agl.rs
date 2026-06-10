@@ -74,7 +74,7 @@ pub fn glyph_name_to_unicode(name: &str) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sha2::{Digest, Sha256};
+    use pr4xis_runtime::address::ContentAddress;
 
     #[test]
     fn known_glyph_names_resolve() {
@@ -104,10 +104,7 @@ mod tests {
 
     #[test]
     fn embedded_sha256_matches_pinned_hash() {
-        let mut hasher = Sha256::new();
-        hasher.update(GLYPH_LIST_BYTES.as_bytes());
-        let digest = hasher.finalize();
-        let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+        let hex = ContentAddress::of(GLYPH_LIST_BYTES.as_bytes()).to_hex();
         assert_eq!(hex, PINNED_SHA256);
     }
 }

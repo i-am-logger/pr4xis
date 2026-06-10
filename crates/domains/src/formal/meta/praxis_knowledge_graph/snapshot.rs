@@ -6,7 +6,7 @@
 //! instance hands its ontologies to another, verifiably.
 //!
 //! This is the whole-graph generalisation of the archive storage substratum:
-//! it REUSES the prx primitives ([`source_content_hash`], gzip/rkyv, the
+//! it REUSES the prx primitives ([`ContentAddress`], gzip/rkyv, the
 //! `raw_hash::verify` typed-claim gate) and expresses selection
 //! ONTOLOGICALLY — as the **relational image** of a [`RootSet`] under an
 //! [`EdgeKindFilter`], computed through the category's own
@@ -31,6 +31,7 @@ use alloc::{format, string::String, string::ToString, vec::Vec};
 
 use pr4xis::category::{Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::axiom_by_name;
+use pr4xis_runtime::address::ContentAddress;
 
 use super::ontology::{
     PraxisKnowledgeGraphCategory, PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation,
@@ -41,9 +42,10 @@ use crate::formal::meta::artifact_identity::ontology::{
 };
 use crate::formal::meta::artifact_identity::schemes::raw_hash;
 use crate::formal::meta::well_behaved_lens::lens_by_name;
-// Shared `.prx` primitives — the SAME content-hash, gzip/rkyv codecs, and
-// typed-claim integrity gate the archive uses (never a parallel hash/codec).
-use crate::social::software::markup::xml::owl::prx::{gunzip, gzip, source_content_hash};
+// Shared `.prx` primitives — the SAME gzip/rkyv codecs and typed-claim
+// integrity gate the archive uses (never a parallel hash/codec); the
+// content-hash itself is the runtime [`ContentAddress`].
+use crate::social::software::markup::xml::owl::prx::{gunzip, gzip};
 
 // =============================================================================
 // Selection — RootSet / EdgeKindFilter / ReachableSubgraph / compute_reachable
@@ -188,7 +190,7 @@ fn node_address(node_kind: &str, identity: &str) -> String {
         !node_kind.contains('\u{1f}') && !identity.contains('\u{1f}'),
         "node identity must be control-char-free for the address separator to be unambiguous"
     );
-    source_content_hash(format!("{node_kind}\u{1f}{identity}").as_bytes())
+    ContentAddress::of(format!("{node_kind}\u{1f}{identity}").as_bytes()).to_hex()
 }
 
 /// One persisted node, name-keyed and per-node content-addressed (the Merkle
@@ -522,7 +524,7 @@ pub fn emit_snapshot(
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&envelope)
         .map(|v| v.to_vec())
         .map_err(|e| SnapshotError::Rkyv(e.to_string()))?;
-    let merkle_root = source_content_hash(&bytes);
+    let merkle_root = ContentAddress::of(&bytes).to_hex();
     let gz = gzip(&bytes).map_err(|e| SnapshotError::Gzip(e.to_string()))?;
     Ok((gz, merkle_root))
 }
@@ -733,7 +735,7 @@ mod tests {
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&env)
             .expect("serialize")
             .to_vec();
-        let root = source_content_hash(&bytes);
+        let root = ContentAddress::of(&bytes).to_hex();
         let gz = gzip(&bytes).expect("gzip");
         let err = load_snapshot(&gz, &root).expect_err("non-morphism edge must be refused");
         assert!(
@@ -762,7 +764,7 @@ mod tests {
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&env)
             .expect("serialize")
             .to_vec();
-        let root = source_content_hash(&bytes);
+        let root = ContentAddress::of(&bytes).to_hex();
         let gz = gzip(&bytes).expect("gzip");
         let err = load_snapshot(&gz, &root).expect_err("dangling edge must be refused");
         assert!(

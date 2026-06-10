@@ -20,12 +20,13 @@ use alloc::vec::Vec;
 
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
+use pr4xis_runtime::address::ContentAddress;
 
 use crate::formal::meta::well_behaved_lens::{RoundTripFidelity, WellBehavedLens};
 use crate::social::software::markup::xml::owl::lens::OwlLens;
 use crate::social::software::markup::xml::owl::prx::{
     OwnedCodegenData, PrxEnvelope, PrxError, PrxMetadata, RawSource, envelope_from_bytes,
-    envelope_to_bytes, gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
+    envelope_to_bytes, gunzip, gzip, load_prx_gz, reconstruct_source,
 };
 // The USC second consumer (#271): the SAME archive axioms verify against its
 // aux-carrying envelope too. Imported up-layer here exactly as the OWL `prx`
@@ -57,7 +58,7 @@ fn witness_sources() -> Vec<Vec<u8>> {
 /// — built directly (no `build_envelope`, which is codegen-gated) so the
 /// axioms run under `feature = "prx"` alone.
 fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
-    let hash = source_content_hash(source);
+    let hash = ContentAddress::of(source).to_hex();
     PrxEnvelope {
         metadata: PrxMetadata {
             name: name.to_string(),
@@ -101,7 +102,7 @@ fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
 /// consumer realises the SAME `OntologyArchiveStorage` axioms; this fixture is
 /// the witness they run against.
 fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
-    let hash = source_content_hash(source);
+    let hash = ContentAddress::of(source).to_hex();
     let sub_a1a = OwnedUscSubdivision {
         urn: "/us/usc/t18/s1514A/a/1/A".to_string(),
         kind: "subparagraph".to_string(),
@@ -201,7 +202,7 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
 /// `binary_search` + reproducible-`MerkleRoot` invariant the real
 /// `wn_builder_to_owned` upholds.
 fn witness_wordnet_envelope(name: &str, source: &[u8]) -> WordNetPrxEnvelope {
-    let hash = source_content_hash(source);
+    let hash = ContentAddress::of(source).to_hex();
     WordNetPrxEnvelope {
         metadata: WnPrxMetadata {
             name: name.to_string(),
@@ -276,7 +277,7 @@ impl Axiom for MerkleHashDeterministic {
             ),
         ];
         for (input, expected) in vectors {
-            if source_content_hash(input) != *expected {
+            if ContentAddress::of(input).to_hex() != *expected {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
                 )));
@@ -308,7 +309,7 @@ impl Axiom for MerkleDedupCorrect {
         let sources = witness_sources();
         for a in &sources {
             for b in &sources {
-                let same_address = source_content_hash(a) == source_content_hash(b);
+                let same_address = ContentAddress::of(a) == ContentAddress::of(b);
                 let same_bytes = a == b;
                 if same_address != same_bytes {
                     return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -544,7 +545,7 @@ impl Axiom for SourceHashFaithfulness {
                 )));
             };
             if &reconstructed != source
-                || source_content_hash(&reconstructed) != envelope.metadata.source_sha256
+                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_sha256
             {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
@@ -562,7 +563,7 @@ impl Axiom for SourceHashFaithfulness {
                 )));
             };
             if &reconstructed != source
-                || source_content_hash(&reconstructed) != envelope.metadata.source_sha256
+                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_sha256
             {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
@@ -580,7 +581,7 @@ impl Axiom for SourceHashFaithfulness {
                 )));
             };
             if &reconstructed != source
-                || source_content_hash(&reconstructed) != envelope.metadata.source_sha256
+                || ContentAddress::of(&reconstructed).to_hex() != envelope.metadata.source_sha256
             {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
@@ -637,7 +638,7 @@ impl Axiom for LoadGateFailsClosed {
         };
         // The genuine MerkleRoot (re-derived from the node's own bytes), the
         // genuine SourcePin, and the genuine RDFC-1.0 graph-identity pin.
-        let archive_pin = source_content_hash(&rkyv_bytes);
+        let archive_pin = ContentAddress::of(&rkyv_bytes).to_hex();
         let source_pin = envelope.metadata.source_sha256.clone();
         let Ok(canonical_sig) = OwlLens::signature(gated_source) else {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -718,7 +719,7 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        let usc_archive_pin = source_content_hash(&usc_bytes);
+        let usc_archive_pin = ContentAddress::of(&usc_bytes).to_hex();
         let usc_source_pin = usc.metadata.source_sha256.clone();
         // Accept-on-match.
         if load_usc_prx_gz(&usc_gz, &usc_archive_pin, &usc_source_pin).is_err() {
@@ -774,7 +775,7 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        let wn_archive_pin = source_content_hash(&wn_bytes);
+        let wn_archive_pin = ContentAddress::of(&wn_bytes).to_hex();
         let wn_source_pin = wn.metadata.source_sha256.clone();
         // Accept-on-match.
         if load_wordnet_prx_gz(&wn_gz, &wn_archive_pin, &wn_source_pin).is_err() {

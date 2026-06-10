@@ -233,11 +233,8 @@ mod tests {
         // file as-is. This test re-asserts the bytes haven't drifted
         // from what the lock declares — drift triggers
         // LockManifestAgreement failure separately.
-        use sha2::{Digest, Sha256};
-        let mut h = Sha256::new();
-        h.update(WN_LMF_1_3_DTD.as_bytes());
-        let digest = h.finalize();
-        let got: alloc::string::String = digest.iter().map(|b| format!("{b:02x}")).collect();
+        use pr4xis_runtime::address::ContentAddress;
+        let got = ContentAddress::of(WN_LMF_1_3_DTD.as_bytes()).to_hex();
         assert_eq!(
             got, "dba306298d63e33f243903edce15d180c018db1a6e2c7e836d52480eb5659796",
             "WN-LMF DTD bytes drifted from praxis.lock pinned hash"

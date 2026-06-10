@@ -78,7 +78,7 @@
 use alloc::{string::String, vec::Vec};
 use core::fmt;
 
-use sha2::{Digest, Sha256};
+use pr4xis_runtime::address::ContentAddress;
 
 /// The round-trip fidelity a [`WellBehavedLens`] guarantees — which
 /// PutGet law the harness holds it to (M4.ι / #186).
@@ -161,9 +161,7 @@ pub trait WellBehavedLens {
     /// SHA-256 of the canonical form. The *signature*.
     fn signature(bytes: &[u8]) -> Result<[u8; 32], Self::Error> {
         let c = Self::canonical(bytes)?;
-        let mut h = Sha256::new();
-        h.update(&c);
-        Ok(h.finalize().into())
+        Ok(*ContentAddress::of(&c).as_bytes())
     }
 
     /// Run the PutGet law (Foster et al. 2007 §2.2):
@@ -311,7 +309,5 @@ pub enum FailureStage {
 /// where the comparison is on the original byte stream rather than a
 /// canonical form.
 fn raw_digest(bytes: &[u8]) -> [u8; 32] {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    h.finalize().into()
+    *ContentAddress::of(bytes).as_bytes()
 }

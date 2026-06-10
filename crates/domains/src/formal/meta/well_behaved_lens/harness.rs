@@ -74,7 +74,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::ontology::Axiom;
-use sha2::{Digest, Sha256};
+use pr4xis_runtime::address::ContentAddress;
 
 use super::lens_trait::{LensLawFailure, RoundTripFidelity};
 use crate::applied::data_provisioning::registry::{
@@ -466,9 +466,7 @@ fn verify_byte_exact(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
 /// SHA-256 of raw bytes as lowercase hex — the byte-exact signature
 /// (NIST FIPS 180-4 §6.2 SHA-256).
 fn raw_signature_hex(bytes: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    hex_of(&h.finalize())
+    ContentAddress::of(bytes).to_hex()
 }
 
 enum SourceLookupError {

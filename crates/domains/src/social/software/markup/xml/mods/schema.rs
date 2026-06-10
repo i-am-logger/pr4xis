@@ -63,10 +63,9 @@ mod tests {
 
     #[test]
     fn mods_bytes_match_lock_hash() {
-        use sha2::{Digest, Sha256};
+        use pr4xis_runtime::address::ContentAddress;
         let bytes = loaded_mods_3_8();
-        let hash = Sha256::digest(bytes.as_bytes());
-        let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+        let hex = ContentAddress::of(bytes.as_bytes()).to_hex();
         // `mods_3_8@2018` pinned hash from praxis.lock.
         assert_eq!(
             hex, "ded45d61d3378d4bed750d8f80633bb0b37e1883afd3a106eef6225c54737a18",

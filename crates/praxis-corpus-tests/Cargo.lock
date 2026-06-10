@@ -573,6 +573,7 @@ dependencies = [
 name = "pr4xis-runtime"
 version = "0.22.0"
 dependencies = [
+ "blake3",
  "pr4xis",
  "serde",
  "serde_ipld_dagcbor",
@@ -586,7 +587,7 @@ dependencies = [
  "flate2",
  "pr4xis",
  "pr4xis-domains",
- "sha2",
+ "pr4xis-runtime",
 ]
 
 [[package]]

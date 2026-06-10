@@ -283,10 +283,8 @@ fn do_fetch(entry: &RegistryEntry, path: &Path, lock: bool) -> FetchOutcome {
     }
 
     if lock {
-        use sha2::{Digest, Sha256};
-        let mut h = Sha256::new();
-        h.update(&bytes);
-        let sha256 = hex::encode(h.finalize());
+        use pr4xis_runtime::address::ContentAddress;
+        let sha256 = ContentAddress::of(&bytes).to_hex();
         return FetchOutcome::Locked {
             name: entry.name.clone(),
             path: path.to_path_buf(),

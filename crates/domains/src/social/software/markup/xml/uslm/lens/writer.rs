@@ -1097,6 +1097,7 @@ crate::register_lens!(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis_runtime::address::ContentAddress;
 
     /// Workspace root — grandparent of `crates/domains` (mirrors the WordNet
     /// corpus gate's `workspace_root_for_test`).
@@ -1142,19 +1143,6 @@ mod tests {
         let end_rel = xml[start..].find(end_tag)? + end_tag.len();
         let section = &xml[start..start + end_rel];
         Some(alloc::format!("{XML_DECL}{section}"))
-    }
-
-    /// Lowercase-hex SHA-256 (NIST FIPS 180-4 §6.2) of `bytes` — mirrors the
-    /// WN-LMF corpus gate's headline hash, computed directly via the crate's
-    /// `sha2` dependency (no `prx`-feature coupling).
-    fn sha256_hex(bytes: &[u8]) -> String {
-        use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(bytes);
-        let mut s = String::with_capacity(64);
-        for byte in digest {
-            s.push_str(&alloc::format!("{byte:02x}"));
-        }
-        s
     }
 
     /// THE BYTE-EXACT GATE over one real section fragment, mirroring the WN-LMF
@@ -1211,8 +1199,8 @@ mod tests {
         // SHA-256 equality is the headline assertion. `out == source` already
         // implies it; the explicit pin guards against a silent corpus swap.
         assert_eq!(
-            sha256_hex(&out),
-            sha256_hex(source),
+            ContentAddress::of(&out).to_hex(),
+            ContentAddress::of(source).to_hex(),
             "reconstructed section must hash-equal the source fragment"
         );
     }
@@ -2151,7 +2139,7 @@ mod tests {
             // Sanity: the source's content address is the pinned value (else a
             // corpus swap silently weakened this gate).
             assert_eq!(
-                &sha256_hex(&bytes),
+                &ContentAddress::of(&bytes).to_hex(),
                 expected_sha,
                 "title {n} on-disk source must hash to its pinned content address"
             );
@@ -2193,7 +2181,7 @@ mod tests {
                 "title {n} must reconstruct byte-for-byte from the graph + complement"
             );
             assert_eq!(
-                &sha256_hex(&out),
+                &ContentAddress::of(&out).to_hex(),
                 expected_sha,
                 "title {n} round-trip output must hash to its pinned content address"
             );

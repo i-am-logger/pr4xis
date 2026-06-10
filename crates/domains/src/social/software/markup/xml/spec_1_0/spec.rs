@@ -168,10 +168,9 @@ mod tests {
 
     #[test]
     fn spec_bytes_match_lock_hash() {
-        use sha2::{Digest, Sha256};
+        use pr4xis_runtime::address::ContentAddress;
         let bytes = loaded_xml_1_0_fifth_edition();
-        let hash = Sha256::digest(bytes.as_bytes());
-        let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+        let hex = ContentAddress::of(bytes.as_bytes()).to_hex();
         assert_eq!(
             hex, "9f54011039f9a0e5f5629f4312c1e106ebe897707759a1d9ddee9dacf2fcc17a",
             "loaded XML 1.0 Fifth Edition bytes must match the praxis.lock pinned sha256"

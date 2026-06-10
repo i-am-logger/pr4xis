@@ -7,27 +7,17 @@
 
 use super::super::ontology::{ClaimData, HashAlgorithm, IdentityClaim, VerificationResult};
 use alloc::string::String;
-use sha2::{Digest, Sha256, Sha512};
 
 /// Hex digest of `bytes` under a named [`HashAlgorithm`] — the W3C SRI
-/// multi-algorithm integrity primitive. The enum admits only strong
-/// functions (SHA-256 / SHA-512 from FIPS 180-4, BLAKE3 from Aumasson et al.
-/// 2020); weak functions (MD5, SHA-1) are *unrepresentable*, so "refuse weak
-/// algorithms" is a type invariant, not a runtime branch.
+/// multi-algorithm integrity primitive, delegated to the runtime's grounded
+/// implementation ([`pr4xis_runtime::address::hash_hex`]) so the claim
+/// vocabulary and the content-address primitive share ONE computation. The
+/// enum admits only strong functions (SHA-256 / SHA-512 from FIPS 180-4,
+/// BLAKE3 from Aumasson et al. 2020); weak functions (MD5, SHA-1) are
+/// *unrepresentable*, so "refuse weak algorithms" is a type invariant, not a
+/// runtime branch.
 pub fn hash_hex(algorithm: HashAlgorithm, bytes: &[u8]) -> String {
-    match algorithm {
-        HashAlgorithm::Sha256 => {
-            let mut h = Sha256::new();
-            h.update(bytes);
-            hex::encode(h.finalize())
-        }
-        HashAlgorithm::Sha512 => {
-            let mut h = Sha512::new();
-            h.update(bytes);
-            hex::encode(h.finalize())
-        }
-        HashAlgorithm::Blake3 => hex::encode(blake3::hash(bytes).as_bytes()),
-    }
+    pr4xis_runtime::address::hash_hex(algorithm, bytes)
 }
 
 /// Verify a `RawHash` claim against a byte slice.

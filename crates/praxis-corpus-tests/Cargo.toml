@@ -18,7 +18,9 @@ pr4xis-domains = { path = "../domains", features = ["test-internals", "codegen",
 pr4xis = { path = "../pr4xis", features = ["codegen"] }
 
 [dev-dependencies]
-# Test-local helpers in the WordNet movers: `gz_len` (gzip size of an encoding)
-# and `sha256_hex` (byte-exact reconstruct hash). Versions match pr4xis-domains.
+# Test-local `gz_len` helper in the WordNet movers (gzip size of an encoding).
+# Version matches pr4xis-domains.
 flate2 = "1"
-sha2 = "0.11"
+# `ContentAddress` — the one content-addressing primitive; the byte-exact
+# reconstruct gates compute their hashes through it.
+pr4xis-runtime = { path = "../pr4xis-runtime" }

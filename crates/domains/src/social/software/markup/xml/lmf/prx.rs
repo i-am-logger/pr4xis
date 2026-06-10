@@ -11,7 +11,7 @@
 //! over a WN-LMF lexicon rather than over an OWL vocabulary or a USLM
 //! statute corpus — a parallel *realisation*, never a parallel envelope
 //! module. Every shared primitive ([`OwnedCodegenData`], [`RawSource`],
-//! [`PrxError`], [`gzip`] / [`gunzip`], [`source_content_hash`],
+//! [`PrxError`], [`gzip`] / [`gunzip`], [`ContentAddress`],
 //! [`prx_archive_address`], [`EmittedArtifact`], `raw_hash::verify`,
 //! [`RoundTripFidelity`]) is reused VERBATIM from the OWL leaf; only the two
 //! private monomorphic gate *legs* and a WordNet-specific metadata block are
@@ -117,6 +117,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use pr4xis::codegen_data::CodegenData;
+use pr4xis_runtime::address::ContentAddress;
 
 use super::ontology::WordNet;
 use super::reader::read_wordnet;
@@ -136,7 +137,6 @@ use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
 // typed and return `LoadedOwlVocabulary`.
 use crate::social::software::markup::xml::owl::prx::{
     EmittedArtifact, OwnedCodegenData, PrxError, RawSource, gunzip, gzip, prx_archive_address,
-    source_content_hash,
 };
 
 // =============================================================================
@@ -382,7 +382,7 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
                     reason: "RawBytesComplementFloor envelope is missing its raw source leaf"
                         .to_string(),
                 })?;
-            let computed = source_content_hash(&raw.blob);
+            let computed = ContentAddress::of(&raw.blob).to_hex();
             if computed != raw.content_address {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (raw content address)"),
@@ -423,7 +423,7 @@ pub fn wn_reconstruct_source(envelope: &WordNetPrxEnvelope) -> Result<Vec<u8>, P
             // The SAME honesty gate the floor arm enforces: the regenerated
             // bytes must hash to the pinned source content address. A
             // regeneration that drifts from the pinned source fails closed.
-            let computed = source_content_hash(&bytes);
+            let computed = ContentAddress::of(&bytes).to_hex();
             if computed != envelope.metadata.source_sha256 {
                 return Err(PrxError::HashMismatch {
                     key: format!("{key} (graph-faithful reconstruction vs metadata)"),
@@ -736,7 +736,7 @@ pub fn build_wordnet_envelope(
     let number_of_senses = wn.entries.iter().map(|e| e.senses.len()).sum::<usize>() as u64;
     let data = wn_builder_to_owned(&wn);
 
-    let source_sha256 = source_content_hash(source);
+    let source_sha256 = ContentAddress::of(source).to_hex();
     let metadata = WnPrxMetadata {
         name: name.to_string(),
         version: version.to_string(),
@@ -930,7 +930,7 @@ pub fn emit_compact_english_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
 /// the succinct codec is dependency-free bit-packing, stable across toolchains
 /// and targets (unlike the rkyv [`prx_archive_address`]).
 pub fn compact_english_archive_address(cprx_gz: &[u8]) -> Result<String, PrxError> {
-    Ok(source_content_hash(&gunzip(cprx_gz)?))
+    Ok(ContentAddress::of(&gunzip(cprx_gz)?).to_hex())
 }
 
 /// Load a compact English `.prx.gz` into a materialized [`English`] through the
@@ -1182,7 +1182,7 @@ mod tests {
         // The archived corpus: emit → load → from_codegen.
         let prx_gz = emit_wordnet_prx_gz(src, FX_NAME, FX_VERSION, FX_URL).expect("emit");
         let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
-        let source_pin = source_content_hash(src);
+        let source_pin = ContentAddress::of(src).to_hex();
         let loaded =
             load_wordnet_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
 
@@ -1259,7 +1259,7 @@ mod tests {
             "wn_reconstruct_source must regenerate the exact source bytes from the graph"
         );
         assert_eq!(
-            source_content_hash(&src),
+            ContentAddress::of(&src).to_hex(),
             envelope.metadata.source_sha256,
             "reconstructed bytes must hash to the pinned source content address"
         );
@@ -1314,7 +1314,8 @@ mod tests {
     fn wordnet_load_rejects_poisoned_word_index_under_honest_label() {
         let honest = build_wordnet_envelope(SAMPLE_WN_LMF.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
             .expect("build envelope");
-        let honest_archive_pin = source_content_hash(&wordnet_envelope_to_bytes(&honest).unwrap());
+        let honest_archive_pin =
+            ContentAddress::of(&wordnet_envelope_to_bytes(&honest).unwrap()).to_hex();
         let source_pin = honest.metadata.source_sha256.clone();
 
         // Same genuine source label + graph payload, only one word_index entry poisoned.

@@ -1559,6 +1559,7 @@ dependencies = [
 name = "pr4xis-runtime"
 version = "0.22.0"
 dependencies = [
+ "blake3",
  "pr4xis",
  "proptest",
  "serde",

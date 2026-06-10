@@ -748,6 +748,7 @@ pub fn reconstruct_owl_rdfxml_source(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis_runtime::address::ContentAddress;
 
     /// A minimal flat RDF/XML fragment in the cito shape: an `<rdf:RDF>` root
     /// with the four namespace declarations multi-line indented, two
@@ -915,19 +916,6 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
         );
     }
 
-    /// Lowercase-hex SHA-256 (NIST FIPS 180-4 §6.2) of `bytes` — the corpus
-    /// gate's headline hash, computed directly via the crate's `sha2`
-    /// dependency.
-    fn sha256_hex(bytes: &[u8]) -> String {
-        use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(bytes);
-        let mut s = String::with_capacity(64);
-        for byte in digest {
-            s.push_str(&format!("{byte:02x}"));
-        }
-        s
-    }
-
     /// THE HARD GATE: the REAL on-disk `crates/domains/data/ontologies/
     /// cito-2.8.1.owl` (83 836 bytes) reconstructs BYTE-FOR-BYTE from the typed
     /// [`OwlOntology`] graph + the captured concrete-syntax complement — with NO
@@ -996,10 +984,10 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
                 String::from_utf8_lossy(&out[lo..hi_out]),
             );
         }
-        let hash = sha256_hex(&out);
+        let hash = ContentAddress::of(&out).to_hex();
         assert_eq!(
             hash,
-            sha256_hex(&source),
+            ContentAddress::of(&source).to_hex(),
             "reconstructed CiTO must hash-equal the source"
         );
         assert_eq!(
@@ -1178,10 +1166,10 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
                 String::from_utf8_lossy(&out[lo..(first + 80).min(out.len())]),
             );
         }
-        let hash = sha256_hex(&out);
+        let hash = ContentAddress::of(&out).to_hex();
         assert_eq!(
             hash,
-            sha256_hex(&source),
+            ContentAddress::of(&source).to_hex(),
             "{file}: reconstructed must hash-equal the source"
         );
         assert_eq!(
@@ -1404,7 +1392,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
             );
         }
         assert_eq!(
-            sha256_hex(&out),
+            ContentAddress::of(&out).to_hex(),
             expect_hash,
             "{file}: reconstructed must hash to the pinned praxis.lock [hashes] source sha256"
         );

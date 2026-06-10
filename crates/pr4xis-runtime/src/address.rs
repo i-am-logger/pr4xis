@@ -14,7 +14,51 @@
 //! only the hash, so the codec and the definition-encoding can be chosen and
 //! evolved without changing what identity *means*.
 
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha512};
+
+/// The hash functions a content address (or an integrity claim over one) may
+/// name. The enum admits only strong functions — SHA-256 / SHA-512 (NIST FIPS
+/// 180-4) and BLAKE3 (Aumasson et al. 2020) — so weak functions (MD5, SHA-1)
+/// are *unrepresentable*: "refuse weak algorithms" is a type invariant, not a
+/// runtime branch. Praxis EMITS addresses under exactly one algorithm per
+/// format epoch ([`ADDRESS_ALGORITHM`]); it VERIFIES claims under any variant
+/// here (the W3C SRI verify-many discipline).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HashAlgorithm {
+    /// FIPS 180-4.
+    Sha256,
+    /// FIPS 180-4.
+    Sha512,
+    /// Aumasson et al. (2020).
+    Blake3,
+}
+
+/// The ONE algorithm praxis emits content addresses under in this format
+/// epoch. Changing it is a deliberate format-version event (every pin and
+/// known-answer constant re-blesses), never a per-address choice: the
+/// fail-closed gates re-derive addresses from the bytes they admit, so the
+/// algorithm comes from verifier policy — a payload never selects its own
+/// verifier.
+pub const ADDRESS_ALGORITHM: HashAlgorithm = HashAlgorithm::Sha256;
+
+/// Lowercase-hex digest of `bytes` under a named [`HashAlgorithm`] — the
+/// multi-algorithm verify leg. [`ContentAddress::of`] is the emit leg and
+/// always uses [`ADDRESS_ALGORITHM`].
+pub fn hash_hex(algorithm: HashAlgorithm, bytes: &[u8]) -> String {
+    fn hex(bytes: &[u8]) -> String {
+        use std::fmt::Write;
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for b in bytes {
+            write!(s, "{b:02x}").expect("writing to a String is infallible");
+        }
+        s
+    }
+    match algorithm {
+        HashAlgorithm::Sha256 => hex(&Sha256::digest(bytes)),
+        HashAlgorithm::Sha512 => hex(&Sha512::digest(bytes)),
+        HashAlgorithm::Blake3 => hex(blake3::hash(bytes).as_bytes()),
+    }
+}
 
 /// The content address of a canonical byte encoding: a SHA-256 digest.
 ///

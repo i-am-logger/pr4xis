@@ -55,7 +55,7 @@ use alloc::{
     vec::Vec,
 };
 
-use sha2::{Digest, Sha256};
+use pr4xis_runtime::address::ContentAddress;
 
 use super::ontology::{
     OwlAnnotation, OwlAnnotationValue, OwlClass, OwlClassExpression, OwlIndividual, OwlLiteral,
@@ -663,15 +663,10 @@ fn write_cardinality(
 /// distinctness-vs-collision discipline.
 fn content_addressed_label(expr: &OwlClassExpression) -> String {
     let canonical = canonical_expr_form(expr);
-    let mut h = Sha256::new();
-    h.update(canonical.as_bytes());
-    let digest = h.finalize();
-    let mut hex = String::with_capacity(2 + digest.len() * 2);
-    hex.push('c');
-    for b in digest {
-        hex.push_str(&format!("{b:02x}"));
-    }
-    hex
+    let mut label = String::with_capacity(65);
+    label.push('c');
+    label.push_str(&ContentAddress::of(canonical.as_bytes()).to_hex());
+    label
 }
 
 /// Stable, character-safe local name derived from an IRI. The XML
@@ -679,13 +674,7 @@ fn content_addressed_label(expr: &OwlClassExpression) -> String {
 /// the canonical writer uses a hex-encoded SHA-256 prefix to stay
 /// inside it without colliding for distinct IRIs.
 fn predicate_safe_local(iri: &str) -> String {
-    let mut h = Sha256::new();
-    h.update(iri.as_bytes());
-    let digest = h.finalize();
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for b in digest {
-        hex.push_str(&format!("{b:02x}"));
-    }
+    let mut hex = ContentAddress::of(iri.as_bytes()).to_hex();
     // Take the first 16 hex chars as a probabilistically-unique
     // identifier (W3C XML Name productions accept any alphanum).
     hex.truncate(16);

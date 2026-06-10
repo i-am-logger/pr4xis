@@ -60,7 +60,7 @@ use pr4xis_domains::formal::meta::well_behaved_lens::{
 use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_wordnet_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::prx::emit_prx_gz as emit_owl_prx_gz;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::emit_usc_prx_gz;
-use sha2::{Digest, Sha256};
+use pr4xis_runtime::address::ContentAddress;
 
 /// Workspace root — grandparent of `crates/domains/`, where registry
 /// `local_path()`s resolve. Mirrors the emitters + the corpus loader.
@@ -70,17 +70,6 @@ fn workspace_root() -> PathBuf {
         .and_then(|p| p.parent())
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    let d = h.finalize();
-    let mut s = String::with_capacity(64);
-    for b in d {
-        s.push_str(&format!("{b:02x}"));
-    }
-    s
 }
 
 /// Compile one source's bytes to a `.prx.gz` via the per-leaf emitter for its
@@ -152,8 +141,8 @@ fn all_sources_source_round_trip_byte_exact() {
 
         // The SOURCE round-trip law: hashes match (and bytes are byte-exact).
         assert_eq!(
-            sha256_hex(&reconstructed),
-            sha256_hex(&source),
+            ContentAddress::of(&reconstructed).to_hex(),
+            ContentAddress::of(&source).to_hex(),
             "{}@{}: hash(decompile(compile(source))) != hash(source)",
             entry.name,
             entry.version
