@@ -21,7 +21,7 @@ publish = false
 # Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
 # (this crate is a WASM default-feature dependency — see the fetch
 # gating notes below).
-pr4xis = { version = "0.22.1", path = "../pr4xis", default-features = false, features = ["std"] }
+pr4xis = { version = "0.23.0", path = "../pr4xis", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
@@ -142,7 +142,7 @@ test-internals = ["prx"]
 # emits Rust modules under $OUT_DIR/<name>_codegen.rs for every Statute-kind
 # source whose lock carries structural data. The crate's runtime tree then
 # `include!`s those modules under `social::compliance::law::<name>::`.
-pr4xis = { version = "0.22.1", path = "../pr4xis", default-features = false, features = ["codegen"] }
+pr4xis = { version = "0.23.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
 # BLAKE3 for the build-time mirror of the content-address identity gate
@@ -169,7 +169,7 @@ unreachable = "deny"
 # `pr4xis::codegen::wordnet::parse_wordnet_xml` directly. `codegen` is
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
-pr4xis = { version = "0.22.1", path = "../pr4xis", features = ["codegen"] }
+pr4xis = { version = "0.23.0", path = "../pr4xis", features = ["codegen"] }
 # The runtime, with `emit`, so an integration test can project a real domain
 # ontology into a `.prx` Archive and round-trip it through the runtime.
 pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }

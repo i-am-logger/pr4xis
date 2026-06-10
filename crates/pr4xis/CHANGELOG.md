@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.22.1...pr4xis-v0.23.0) - 2026-06-10
+
+### Added
+
+- `.prx` — praxis' knowledge, in a file ([#186](https://github.com/i-am-logger/pr4xis/pull/186))
+
 ## [0.22.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.22.0...pr4xis-v0.22.1) - 2026-06-02
 
 ### Other
