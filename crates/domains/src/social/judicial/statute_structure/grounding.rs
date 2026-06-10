@@ -15,15 +15,21 @@
 //! error (Halpin & Hayes 2010; the design's written-form-floor decision). Sense
 //! is licensed only by a statute's own definitions, a stronger kind deferred.
 //!
-//! This module COMPUTES the pointers (pure, no archive change). Persisting them
-//! into the USC `.prx` codec — and re-minting the archive pins that act re-mints
-//! — is the next, maintainer-coordinated slice; the source byte-exact path is
-//! untouched by it.
+//! # The ontological, general way
+//!
+//! `denotes` is ONE grounding lens. [`denotes_lens`] adapts the producer to the
+//! generic [`ground`](pr4xis_runtime::grounding::ground): any content
+//! [`Archive`](pr4xis_runtime::archive::Archive) — a USC title projected by
+//! `uslm::corpus::bridge`, English itself, anything — grounds the same way,
+//! gaining typed [`EdgeTarget::Grounded`] edges in the GENERIC substrate that
+//! resolve through the generic `AtomResolver`. English is confined to the lens;
+//! `cites` / `defines` are other lenses of the same shape. There is no bespoke
+//! string side-channel and no per-source codec.
 
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use pr4xis_runtime::definition::EdgeTarget;
+use pr4xis_runtime::definition::{Definition, EdgeTarget};
 
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::english::bridge::{ENGLISH_ONTOLOGY, form_atom};
@@ -65,6 +71,25 @@ pub fn denotes_pointers(text: &str, english: &English) -> Vec<DenotesPointer> {
             })
         })
         .collect()
+}
+
+/// The lexical `denotes` grounding LENS — the lens form of [`denotes_pointers`],
+/// for the generic [`ground`](pr4xis_runtime::grounding::ground).
+///
+/// It grounds ANY archive node (a statute provision, …) into the English
+/// `ontolex:Form` atoms its lexical prose denotes, producing typed
+/// `(denotes, `[`EdgeTarget::Grounded`]`)` edges resolved by the generic
+/// `AtomResolver`. English is confined to THIS lens — `ground` itself is
+/// source-agnostic, and `cites` / `defines` are other lenses of the same shape.
+pub fn denotes_lens(english: &English) -> impl Fn(&Definition) -> Vec<(String, EdgeTarget)> + '_ {
+    move |node| {
+        node.lexical.as_deref().map_or_else(Vec::new, |text| {
+            denotes_pointers(text, english)
+                .into_iter()
+                .map(|p| ("denotes".to_string(), p.target))
+                .collect()
+        })
+    }
 }
 
 #[cfg(test)]
@@ -135,5 +160,76 @@ mod tests {
             "the floor pointer resolves to an ontolex:Form, never a sense"
         );
         assert_eq!(resolved.name, "dog");
+    }
+
+    /// THE GENERIC LOOP: a content archive grounds via `ground(denotes_lens)` —
+    /// adding typed `EdgeTarget::Grounded` edges to its nodes — and those edges
+    /// resolve through the GENERIC `AtomResolver` to `ontolex:Form` atoms. No
+    /// English-hardcoding outside the lens; the same `ground` would carry a `cites`
+    /// lens over the same substrate. This is the ontological replacement for the
+    /// reverted string side-channel.
+    #[test]
+    fn a_content_archive_grounds_via_the_lens_and_resolves_to_forms() {
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::Definition;
+        use pr4xis_runtime::grounding::ground;
+
+        let english = English::sample();
+
+        // A content archive — e.g. a statute provision node carrying prose. (The
+        // USC bridge produces exactly such Definitions; here a bare one isolates
+        // the grounding loop.)
+        let content = Archive {
+            nodes: alloc::vec![Definition {
+                kind: "Provision".to_string(),
+                name: "/us/usc/t1/s1/a".to_string(),
+                edges: alloc::vec![],
+                axioms: alloc::vec![],
+                lexical: Some("the dog is an animal".to_string()),
+            }],
+            connections: alloc::vec![],
+        };
+
+        // Ground it with the lexical denotes lens — typed Grounded edges added.
+        let grounded = ground(&content, denotes_lens(&english));
+        let provision = &grounded.nodes[0];
+        let denotes: Vec<&str> = provision
+            .edges
+            .iter()
+            .filter(|(k, _)| k == "denotes")
+            .filter_map(|(_, t)| match t {
+                EdgeTarget::Grounded { .. } => Some("denotes"),
+                EdgeTarget::Local(_) => None,
+            })
+            .collect();
+        assert!(
+            !denotes.is_empty(),
+            "the provision grounds its content words"
+        );
+
+        // Resolve every grounded edge through the GENERIC resolver — each lands on
+        // a Form atom (never a sense).
+        let archive = project_archive_with_forms(&english);
+        let english_root = archive.root().unwrap();
+        let mut peers = BTreeMap::new();
+        peers.insert(ENGLISH_ONTOLOGY.to_string(), archive);
+        let manifest = ConnectedOntologies(alloc::vec![ConnectedOntology {
+            name: ENGLISH_ONTOLOGY.to_string(),
+            root: english_root,
+            role: "denotes".to_string(),
+        }]);
+        let resolver = AtomResolver::new(&manifest, &peers).unwrap();
+
+        let mut resolved_forms = Vec::new();
+        for (_, target) in provision.edges.iter().filter(|(k, _)| k == "denotes") {
+            let form = resolver.resolve(target).expect("a grounded edge resolves");
+            assert_eq!(
+                form.kind, FORM_KIND,
+                "grounds to an ontolex:Form, never a sense"
+            );
+            resolved_forms.push(form.name.clone());
+        }
+        assert!(resolved_forms.contains(&"dog".to_string()));
+        assert!(resolved_forms.contains(&"animal".to_string()));
     }
 }
