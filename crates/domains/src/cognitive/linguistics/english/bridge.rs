@@ -79,6 +79,11 @@ pub const SYNSET_KIND: &str = "Synset";
 /// archive — the schema generator the praxis functor maps to `Subsumption`.
 pub const HYPERNYM_REL: &str = "hypernym";
 
+/// The praxis kind of a written-form atom — an `ontolex:Form` (its `writtenRep`),
+/// carrying NO sense. The honest target of the lexical `denotes` floor: a span
+/// grounds into "this written form occurred", never into a meaning.
+pub const FORM_KIND: &str = "Form";
+
 /// Project the loaded [`English`] struct into a content-addressed source
 /// [`Archive`] — the functor `English → Archive`.
 ///
@@ -122,6 +127,42 @@ pub fn project_archive(english: &English) -> Archive {
         nodes,
         connections: Vec::new(),
     }
+}
+
+/// The `ontolex:Form` atom for a written representation — a bare surface-form
+/// node carrying its `writtenRep` as both `name` and `lexical`, and NOTHING
+/// else: no sense, no synset edge. Its content [`address`](Definition::address)
+/// is what a lexical `denotes` floor edge points AT.
+///
+/// Sense-deferral is STRUCTURAL: a Form has no senses, so a pointer that resolves
+/// to one cannot have over-committed to a meaning (the written-form floor's
+/// honesty tripwire — a `denotes` edge must land on a `Form`, never a synset).
+pub fn form_atom(written_rep: &str) -> Definition {
+    Definition {
+        kind: FORM_KIND.to_string(),
+        name: written_rep.to_string(),
+        edges: Vec::new(),
+        axioms: Vec::new(),
+        lexical: Some(written_rep.to_string()),
+    }
+}
+
+/// The `english_wordnet` archive a statute grounds INTO: the synset nodes (the
+/// is-a reasoning graph, [`project_archive`]) PLUS one [`form_atom`] per written
+/// form. ONE archive carries both — the reasoning graph AND the lexical surface a
+/// foreign `denotes` pointer resolves against (a Title-1 word → an `ontolex:Form`
+/// atom by content address).
+///
+/// The Form atoms are inert in the is-a closure (no edges), so reasoning over the
+/// synsets is unaffected; they exist purely as addressable written-form targets.
+/// (`project_archive` stays the lean synset-only reasoning projection; this is
+/// the grounding-target superset.)
+pub fn project_archive_with_forms(english: &English) -> Archive {
+    let mut archive = project_archive(english);
+    archive
+        .nodes
+        .extend(english.word_index.keys().map(|word| form_atom(word)));
+    archive
 }
 
 /// The WordNet → praxis projection, carried AS DATA — the [`Connection`] node a
@@ -464,5 +505,106 @@ mod tests {
             "the bridge must agree with English's is_a"
         );
         assert!(engine_says, "and both say dog is-a animal");
+    }
+
+    // --- G3b: the honest `denotes` floor — a span grounds into an ontolex:Form ---
+
+    use alloc::collections::BTreeMap;
+    use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
+
+    #[test]
+    fn the_grounding_archive_carries_form_atoms_beside_the_synsets() {
+        let english = English::sample();
+        let reasoning = project_archive(&english);
+        let grounding = project_archive_with_forms(&english);
+        assert!(
+            grounding.nodes.len() > reasoning.nodes.len(),
+            "the grounding archive adds Form atoms to the synset reasoning graph"
+        );
+        // The Form atoms are inert: they carry no edges (no sense), so the is-a
+        // closure is unchanged by their presence.
+        for n in grounding.nodes.iter().filter(|n| n.kind == FORM_KIND) {
+            assert!(
+                n.edges.is_empty(),
+                "a Form has no senses — it carries no edges"
+            );
+        }
+    }
+
+    /// THE HONEST DENOTES FLOOR: a statute-like span grounds into the written-form
+    /// atom "dog" by content address, resolves through the connected
+    /// `english_wordnet` archive (G3a), and the resolved target IS an `ontolex:Form`
+    /// — never a sense. The sense-deferral is structural and machine-checked.
+    #[test]
+    fn a_denotes_floor_edge_resolves_to_a_form_atom_never_a_sense() {
+        let english = English::sample();
+        let archive = project_archive_with_forms(&english);
+        let english_root = archive.root().unwrap();
+
+        // The Form atom for the written form "dog" — the honest floor target.
+        let dog_form_addr = form_atom("dog").address().unwrap();
+
+        // A statute-like provision that DENOTES the written form "dog" (in the full
+        // slice this is a USC subdivision; here a bare content node). The target is
+        // a Grounded foreign atom — a content address into english_wordnet.
+        let provision = Definition {
+            kind: "Provision".into(),
+            name: "title-1-§1-word".into(),
+            edges: alloc::vec![(
+                "denotes".to_string(),
+                EdgeTarget::Grounded {
+                    ontology: ENGLISH_ONTOLOGY.to_string(),
+                    atom: dog_form_addr,
+                },
+            )],
+            axioms: alloc::vec![],
+            lexical: None,
+        };
+
+        // Resolve the floor edge against the connected english_wordnet archive,
+        // pinned by its root (fail-closed if it drifts — G3a).
+        let mut peers = BTreeMap::new();
+        peers.insert(ENGLISH_ONTOLOGY.to_string(), archive);
+        let manifest = ConnectedOntologies(alloc::vec![ConnectedOntology {
+            name: ENGLISH_ONTOLOGY.to_string(),
+            root: english_root,
+            role: "denotes".to_string(),
+        }]);
+        let resolver = AtomResolver::new(&manifest, &peers).expect("the english pin agrees");
+
+        let (_, target) = &provision.edges[0];
+        let resolved = resolver
+            .resolve(target)
+            .expect("the floor edge resolves to its Form atom by content address");
+
+        // THE HONESTY TRIPWIRE (structural): the floor target IS a Form, and a Form
+        // has no senses — so the pointer asserts "this written form occurred",
+        // never a meaning. A synset (kind "Synset") would be the over-claim.
+        assert_eq!(
+            resolved.kind, FORM_KIND,
+            "a denotes floor edge must resolve to an ontolex:Form, never a sense"
+        );
+        assert_eq!(resolved.name, "dog");
+        assert!(
+            resolved.edges.is_empty(),
+            "the resolved Form carries no sense edge — sense-deferral is structural"
+        );
+    }
+
+    #[test]
+    fn a_synset_atom_is_not_a_written_form_floor_target() {
+        // Grounding a denotes floor into a SYNSET (a concept) would be a sense-level
+        // over-claim. The structural tripwire catches it: the synset's kind is not
+        // Form, so the floor's "resolved.kind == FORM_KIND" check rejects it.
+        let archive = project_archive_with_forms(&English::sample());
+        let dog_synset = archive
+            .nodes
+            .iter()
+            .find(|n| n.name == "s-dog")
+            .expect("the synset is present");
+        assert_ne!(
+            dog_synset.kind, FORM_KIND,
+            "a synset is a sense-bearing concept, not a written-form floor target"
+        );
     }
 }
