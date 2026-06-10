@@ -186,7 +186,6 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
             content_address: hash,
             blob: source.to_vec(),
         }),
-        grounded: Vec::new(),
     }
 }
 

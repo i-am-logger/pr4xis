@@ -83,7 +83,7 @@ fn compile_for_kind(
 ) -> Vec<u8> {
     let r = match kind {
         DecompileKind::Owl => emit_owl_prx_gz(source, name, version, url),
-        DecompileKind::UsCode => emit_usc_prx_gz(source, name, version, url, None),
+        DecompileKind::UsCode => emit_usc_prx_gz(source, name, version, url),
         DecompileKind::WordNet => emit_wordnet_prx_gz(source, name, version, url),
     };
     r.unwrap_or_else(|e| panic!("compile {kind:?} {name}@{version}: {e}"))
