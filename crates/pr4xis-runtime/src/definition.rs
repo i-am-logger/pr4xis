@@ -15,10 +15,129 @@
 //! handle cyclic graphs (e.g. symmetric `opposition`) via strongly-connected-
 //! component hashing. This module is the cycle-safe floor that layer builds on.
 
-use serde::{Deserialize, Serialize};
+use core::fmt;
+
+use serde::de::{self, MapAccess, Visitor};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::address::ContentAddress;
 use crate::codec::{self, CodecError};
+
+/// The endpoint of a typed edge.
+///
+/// Most edges are LOCAL: a name resolved within the node's OWN ontology, bound
+/// by that ontology's Merkle root (the form every `.prx` has carried so far). A
+/// GROUNDED edge is the foreign-atom slot — it crosses INTO another ontology,
+/// naming an atom by its content [`ContentAddress`] in a declared connected
+/// ontology. It is the typed cross-ontology morphism the grounding vocabulary
+/// rides (lexical `denotes` and the other kinds): a span endpoint resolved by
+/// content-address agreement across archives, not by name within one.
+///
+/// # Byte-exactness
+///
+/// `Local` serializes byte-IDENTICALLY to the bare string target it replaced, so
+/// every node minted before grounding existed keeps its exact content address —
+/// the codec migration is invisible to all-local archives (the committed pins
+/// re-verify unchanged). `Grounded` serializes as a CBOR map, which the decoder
+/// tells apart from a string by major type (`deserialize_any`); the common local
+/// case spends no discriminator byte.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum EdgeTarget {
+    /// A same-ontology target, by name — resolved within the node's ontology.
+    Local(String),
+    /// A cross-ontology target: an atom of `ontology` named by its content
+    /// `atom` address (the foreign-atom slot; resolved by address agreement).
+    Grounded {
+        /// The connected ontology the atom lives in.
+        ontology: String,
+        /// The content address of the foreign atom.
+        atom: ContentAddress,
+    },
+}
+
+impl EdgeTarget {
+    /// The local target name, or `None` if this edge grounds into another
+    /// ontology. Traversers of the LOCAL graph use this; it forces the foreign
+    /// case to be handled explicitly, never silently read as a local name.
+    pub fn local_name(&self) -> Option<&str> {
+        match self {
+            EdgeTarget::Local(name) => Some(name),
+            EdgeTarget::Grounded { .. } => None,
+        }
+    }
+}
+
+impl From<String> for EdgeTarget {
+    fn from(name: String) -> Self {
+        EdgeTarget::Local(name)
+    }
+}
+
+impl From<&str> for EdgeTarget {
+    fn from(name: &str) -> Self {
+        EdgeTarget::Local(name.to_string())
+    }
+}
+
+impl Serialize for EdgeTarget {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            // Byte-identical to the pre-grounding bare-string target.
+            EdgeTarget::Local(name) => serializer.serialize_str(name),
+            EdgeTarget::Grounded { ontology, atom } => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("atom", &atom.to_hex())?;
+                map.serialize_entry("ontology", ontology)?;
+                map.end()
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for EdgeTarget {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EdgeTargetVisitor;
+
+        impl<'de> Visitor<'de> for EdgeTargetVisitor {
+            type Value = EdgeTarget;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a local target name (string) or a grounded {ontology, atom} map")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<EdgeTarget, E> {
+                Ok(EdgeTarget::Local(v.to_string()))
+            }
+
+            fn visit_string<E: de::Error>(self, v: String) -> Result<EdgeTarget, E> {
+                Ok(EdgeTarget::Local(v))
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<EdgeTarget, A::Error> {
+                let mut ontology: Option<String> = None;
+                let mut atom_hex: Option<String> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "ontology" => ontology = Some(map.next_value()?),
+                        "atom" => atom_hex = Some(map.next_value()?),
+                        _ => {
+                            let _: de::IgnoredAny = map.next_value()?;
+                        }
+                    }
+                }
+                let ontology = ontology.ok_or_else(|| de::Error::missing_field("ontology"))?;
+                let atom_hex = atom_hex.ok_or_else(|| de::Error::missing_field("atom"))?;
+                let atom = ContentAddress::from_hex(&atom_hex).ok_or_else(|| {
+                    de::Error::custom("grounded edge atom is not a valid content address")
+                })?;
+                Ok(EdgeTarget::Grounded { ontology, atom })
+            }
+        }
+
+        deserializer.deserialize_any(EdgeTargetVisitor)
+    }
+}
 
 /// The canonical definition of a node — the structure its content-address is
 /// taken over. Field order is the serialized order; the `edges`/`axioms` rows
@@ -31,8 +150,12 @@ pub struct Definition {
     pub kind: String,
     /// The node's name within its ontology.
     pub name: String,
-    /// Outgoing typed edges, each `(relation-kind name, target name)`.
-    pub edges: Vec<(String, String)>,
+    /// Outgoing typed edges, each `(relation-kind name, target)`. The target is
+    /// usually [`EdgeTarget::Local`] (a name in this ontology); a
+    /// [`EdgeTarget::Grounded`] target crosses into a connected ontology by
+    /// content address. An all-local node's encoding — hence its address — is
+    /// unchanged from when targets were bare strings.
+    pub edges: Vec<(String, EdgeTarget)>,
     /// Names of the axioms that constrain this node.
     pub axioms: Vec<String>,
     /// The node's lexical grounding (canonical English form / Lemon entry), if
@@ -119,5 +242,83 @@ mod tests {
         ];
         b.axioms = vec!["A".into(), "B".into()];
         assert_eq!(a.address().unwrap(), b.address().unwrap());
+    }
+
+    // --- EdgeTarget: the byte-exact migration guarantee ---
+
+    #[test]
+    fn a_local_target_encodes_byte_identically_to_a_bare_string() {
+        // The crux of the codec migration: a Local target serializes to the SAME
+        // canonical DAG-CBOR bytes as the bare string it replaced. So every node
+        // minted before grounding existed keeps its exact content address.
+        let local = EdgeTarget::Local("Agent".to_string());
+        assert_eq!(
+            codec::canonical_encode(&local).unwrap(),
+            codec::canonical_encode(&"Agent".to_string()).unwrap(),
+            "EdgeTarget::Local must encode as a bare CBOR string"
+        );
+    }
+
+    #[test]
+    fn an_all_local_definition_address_is_unchanged_by_the_edge_target_type() {
+        // Concretely against the LEGACY shape: a node whose edges are Local
+        // targets has the exact address it had when edges were (String, String).
+        // This is the regression gate every committed pin relies on, proven at
+        // the unit level (the corpus pin tests confirm it at scale).
+        #[derive(serde::Serialize)]
+        struct LegacyDefinition {
+            kind: String,
+            name: String,
+            edges: Vec<(String, String)>,
+            axioms: Vec<String>,
+            lexical: Option<String>,
+        }
+        let legacy = LegacyDefinition {
+            kind: "Concept".into(),
+            name: "Employer".into(),
+            edges: vec![("Subsumption".into(), "Agent".into())],
+            axioms: vec!["EmployerIsAgent".into()],
+            lexical: Some("employer".into()),
+        };
+        assert_eq!(
+            base().address().unwrap(),
+            codec::address_of(&legacy).unwrap(),
+            "an all-Local Definition must address identically to the pre-migration shape"
+        );
+    }
+
+    #[test]
+    fn a_grounded_target_round_trips_and_is_distinct_from_a_local_one() {
+        // A foreign-atom target encodes as a CBOR map (not a string), so it is
+        // unambiguous on decode and never collides with a local name.
+        let atom = ContentAddress::of(b"a connected ontology's atom definition");
+        let grounded = EdgeTarget::Grounded {
+            ontology: "english_wordnet".to_string(),
+            atom,
+        };
+        let bytes = codec::canonical_encode(&grounded).unwrap();
+        let back: EdgeTarget = codec::canonical_decode(&bytes).unwrap();
+        assert_eq!(back, grounded, "a grounded target must round-trip");
+        assert_ne!(
+            bytes,
+            codec::canonical_encode(&EdgeTarget::Local("english_wordnet".to_string())).unwrap(),
+            "a grounded target must not encode like a local string of the same text"
+        );
+    }
+
+    #[test]
+    fn a_grounded_edge_changes_a_nodes_address() {
+        // Grounding is identity-bearing: adding a foreign-atom edge changes the
+        // node's content address (it asserts a new cross-ontology connection).
+        let atom = ContentAddress::of(b"some english form");
+        let mut b = base();
+        b.edges.push((
+            "denotes".to_string(),
+            EdgeTarget::Grounded {
+                ontology: "english_wordnet".to_string(),
+                atom,
+            },
+        ));
+        assert_ne!(base().address().unwrap(), b.address().unwrap());
     }
 }

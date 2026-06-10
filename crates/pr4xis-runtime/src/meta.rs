@@ -11,7 +11,7 @@
 
 use crate::archive::Archive;
 use crate::connection::{Connection, GeneratorAction};
-use crate::definition::Definition;
+use crate::definition::{Definition, EdgeTarget};
 
 /// One meta-concept node: `name` with its `(relation, target)` edges (all
 /// targets other meta-concepts), lexically grounded (in praxis "everything is
@@ -22,7 +22,7 @@ fn concept(name: &str, edges: &[(&str, &str)]) -> Definition {
         name: name.into(),
         edges: edges
             .iter()
-            .map(|(r, t)| ((*r).to_string(), (*t).to_string()))
+            .map(|(r, t)| ((*r).to_string(), EdgeTarget::Local((*t).to_string())))
             .collect(),
         axioms: vec![],
         lexical: Some(name.to_lowercase()),
@@ -149,10 +149,12 @@ mod tests {
         let names: BTreeSet<&str> = meta.nodes.iter().map(|n| n.name.as_str()).collect();
         for n in &meta.nodes {
             for (_, target) in &n.edges {
-                assert!(
-                    names.contains(target.as_str()),
-                    "edge target {target} undefined"
-                );
+                // The meta-ontology is entirely local; a Grounded target would be
+                // a foreign atom (resolved elsewhere), so only local names are
+                // checked for referential closure here.
+                if let Some(name) = target.local_name() {
+                    assert!(names.contains(name), "edge target {name} undefined");
+                }
             }
         }
         for c in &meta.connections {
@@ -185,7 +187,9 @@ mod tests {
         assert!(
             grounding
                 .edges
-                .contains(&("Subsumption".to_string(), "Connection".to_string())),
+                .iter()
+                .any(|(rel, target)| rel == "Subsumption"
+                    && target.local_name() == Some("Connection")),
             "Grounding must IS-A Connection; got {:?}",
             grounding.edges
         );

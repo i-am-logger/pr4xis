@@ -48,7 +48,7 @@ use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::{Connection, GeneratorAction};
-use pr4xis_runtime::definition::Definition;
+use pr4xis_runtime::definition::{Definition, EdgeTarget};
 use pr4xis_runtime::ontology::{ConceptRef, MaterializeError, RuntimeOntology, materialize};
 
 use super::ontology::English;
@@ -105,9 +105,12 @@ pub fn project_archive(english: &English) -> Archive {
                 .parents(concept.id)
                 .iter()
                 .filter_map(|&parent| {
-                    english
-                        .concept(parent)
-                        .map(|p| (HYPERNYM_REL.to_string(), p.original_id.clone()))
+                    english.concept(parent).map(|p| {
+                        (
+                            HYPERNYM_REL.to_string(),
+                            EdgeTarget::Local(p.original_id.clone()),
+                        )
+                    })
                 })
                 .collect(),
             axioms: Vec::new(),
@@ -216,6 +219,12 @@ mod tests {
             .unwrap_or_else(|| panic!("archive must declare synset {name:?}"))
     }
 
+    /// A local (same-ontology) edge target — what every projected hypernym edge
+    /// is (a synset id within `english_wordnet`).
+    fn local(name: &str) -> EdgeTarget {
+        EdgeTarget::Local(name.to_string())
+    }
+
     #[test]
     fn projects_every_synset_as_a_node() {
         // English::sample() = dog, cat, mammal, animal (nouns) + run, see (verbs)
@@ -237,7 +246,7 @@ mod tests {
         let dog = node(&archive, "s-dog");
         assert_eq!(
             dog.edges,
-            alloc::vec![(HYPERNYM_REL.to_string(), "s-mammal".to_string())],
+            alloc::vec![(HYPERNYM_REL.to_string(), local("s-mammal"))],
             "dog's only generating edge is the raw hypernym → its parent synset id"
         );
         assert_eq!(
@@ -270,9 +279,12 @@ mod tests {
         let declared: BTreeSet<&str> = archive.nodes.iter().map(|n| n.name.as_str()).collect();
         for n in &archive.nodes {
             for (kind, target) in &n.edges {
+                let name = target
+                    .local_name()
+                    .expect("B1 projects only local hypernym edges");
                 assert!(
-                    declared.contains(target.as_str()),
-                    "edge {}--{kind}-->{target} names an undeclared synset",
+                    declared.contains(name),
+                    "edge {}--{kind}-->{name} names an undeclared synset",
                     n.name
                 );
             }
@@ -286,11 +298,11 @@ mod tests {
         let archive = project_archive(&English::sample());
         assert_eq!(
             node(&archive, "s-dog").edges,
-            alloc::vec![(HYPERNYM_REL.to_string(), "s-mammal".to_string())]
+            alloc::vec![(HYPERNYM_REL.to_string(), local("s-mammal"))]
         );
         assert_eq!(
             node(&archive, "s-mammal").edges,
-            alloc::vec![(HYPERNYM_REL.to_string(), "s-animal".to_string())]
+            alloc::vec![(HYPERNYM_REL.to_string(), local("s-animal"))]
         );
     }
 
@@ -337,7 +349,7 @@ mod tests {
         );
         assert_eq!(
             dog.edges,
-            alloc::vec![(SUBSUMPTION_REL.to_string(), "s-mammal".to_string())],
+            alloc::vec![(SUBSUMPTION_REL.to_string(), local("s-mammal"))],
             "the raw hypernym edge is relabeled to Subsumption; its target (identity) is carried"
         );
         assert_eq!(
@@ -361,9 +373,10 @@ mod tests {
         let declared: BTreeSet<&str> = target.nodes.iter().map(|n| n.name.as_str()).collect();
         for n in &target.nodes {
             for (_, t) in &n.edges {
+                let name = t.local_name().expect("only local edges projected");
                 assert!(
-                    declared.contains(t.as_str()),
-                    "relabeled edge target {t} undeclared"
+                    declared.contains(name),
+                    "relabeled edge target {name} undeclared"
                 );
             }
         }

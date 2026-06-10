@@ -132,6 +132,7 @@ pub fn apply(action: &GeneratorAction, source: &Archive) -> Result<Archive, Appl
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::definition::EdgeTarget;
 
     fn synset(name: &str, hypernym: &str) -> Definition {
         Definition {
@@ -172,7 +173,10 @@ mod tests {
         assert_eq!(node.name, "dog", "name (identity) carried unchanged");
         assert_eq!(
             node.edges,
-            vec![("Subsumption".to_string(), "mammal".to_string())]
+            vec![(
+                "Subsumption".to_string(),
+                EdgeTarget::Local("mammal".to_string())
+            )]
         );
         assert_eq!(
             node.lexical.as_deref(),
@@ -200,7 +204,7 @@ mod tests {
         assert_eq!(target.nodes[0].kind, "ConceptNode");
         assert_eq!(
             target.nodes[0].edges,
-            vec![("antonym".to_string(), "cold".to_string())],
+            vec![("antonym".to_string(), EdgeTarget::Local("cold".to_string()))],
             "an unmapped relation is carried as-is (representable), not dropped"
         );
     }
@@ -221,7 +225,10 @@ mod tests {
         let target = apply(&remapped, &source).unwrap();
         assert_eq!(
             target.nodes[0].edges,
-            vec![("Parthood".to_string(), "mammal".to_string())]
+            vec![(
+                "Parthood".to_string(),
+                EdgeTarget::Local("mammal".to_string())
+            )]
         );
     }
 

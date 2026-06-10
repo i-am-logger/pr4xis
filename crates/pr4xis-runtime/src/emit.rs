@@ -36,6 +36,7 @@ use pr4xis::ontology::connection_constructors;
 use crate::archive::Archive;
 use crate::connection::{Connection, GeneratorAction};
 use crate::definition::Definition;
+use crate::definition::EdgeTarget;
 
 /// Translate a registry [`ConnectionGenerators`] (the `pr4xis`-native finite
 /// presentation) into the wire [`Connection`] the runtime serializes. The two
@@ -120,10 +121,15 @@ where
     O: Concept,
     M: Arrow<Object = O>,
 {
-    let mut edges: Vec<(String, String)> = morphisms
+    let mut edges: Vec<(String, EdgeTarget)> = morphisms
         .iter()
         .filter(|m| m.target() != *obj) // drop identity self-loops
-        .map(|m| (format!("{:?}", m.kind()), m.target().name().to_string()))
+        .map(|m| {
+            (
+                format!("{:?}", m.kind()),
+                EdgeTarget::Local(m.target().name().to_string()),
+            )
+        })
         .collect();
     edges.sort();
     edges.dedup();
@@ -411,7 +417,11 @@ mod tests {
     fn emits_the_subsumption_closure_as_edges() {
         let archive = emit::<OrgCategory>();
         let employer = archive.nodes.iter().find(|n| n.name == "Employer").unwrap();
-        let targets: BTreeSet<&str> = employer.edges.iter().map(|(_, t)| t.as_str()).collect();
+        let targets: BTreeSet<&str> = employer
+            .edges
+            .iter()
+            .filter_map(|(_, t)| t.local_name())
+            .collect();
         // direct: Employer is_a Person; closure: Employer is_a Agent.
         assert!(targets.contains("Person"), "Employer → Person missing");
         assert!(
@@ -491,7 +501,10 @@ mod tests {
         let with_axioms = Definition {
             kind: "Concept".to_string(),
             name: "Employer".to_string(),
-            edges: vec![("Subsumption".to_string(), "Agent".to_string())],
+            edges: vec![(
+                "Subsumption".to_string(),
+                EdgeTarget::Local("Agent".to_string()),
+            )],
             axioms: vec![
                 "EmployerIsAgent".to_string(),
                 "EmployerHiresEmployee".to_string(),
