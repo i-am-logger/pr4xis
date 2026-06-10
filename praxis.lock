@@ -403,15 +403,15 @@
 # usc_title_1/18/28/29/50 are byte-exact graph-faithful envelopes (typed
 # `UsCodeTitle` ontology + concrete-syntax complement, NOT a raw blob);
 # usc_title_5/15/42/49 are raw-floor envelopes.
-"usc_title_1@pl-119-90" = "blake3:eda3ab431109ee57f72d7ffbd65cd80025caf3dbc3c8c35381e38d8c516b39e2"
-"usc_title_15@pl-119-90" = "blake3:03e88a2ffbdca7921b7e6d030c485323eb7d7f22eb96311c62544f0ddf9eaf59"
-"usc_title_18@pl-119-90" = "blake3:b1950fd6a95b5386912bbb0cd12da59b6ce46e3dc12eb6c09d0e8a64ceb24520"
-"usc_title_28@pl-119-90" = "blake3:9cb803bb038d431f60987eb2c8c63e31a573d036efb5e82ed266c2fc0b8939a5"
-"usc_title_29@pl-119-90" = "blake3:0fb10ca1a89c592c5be779c1729682e08ddcd0dbc97de5fce980d3d1d0f41d78"
-"usc_title_42@pl-119-90" = "blake3:d1f49c711a3f099b1abadfd952cf6575bad4d6bf13cb6245c10b9abdc8868cab"
-"usc_title_49@pl-119-90" = "blake3:8c53cc6f75ac4cef759ccdfa4521aba44b9a70c879f097aa63394e4792160014"
-"usc_title_5@pl-119-90" = "blake3:115bee5b572a20a55d6fe7a4296e573de5f75254e0a66b82082f3bba547db418"
-"usc_title_50@pl-119-90" = "blake3:694403f74d76e46cb7b3da3489afde816346b1306f9446a16fd06a81fa1e8ead"
+"usc_title_1@pl-119-90" = "blake3:c6a62ddc6aac7443c4d82e597a6b81de3460c18210da9146521742770da01ecc"
+"usc_title_15@pl-119-90" = "blake3:5ac35631462b457e86846b3a09382a193d2f73002a53e87639824924789f1b2d"
+"usc_title_18@pl-119-90" = "blake3:7fb6710d3bf6d238dbc9897d961c92fbaeb366b21f1344df6fbc54d5ffd85138"
+"usc_title_28@pl-119-90" = "blake3:358ff055c6017f13dbac2592be0ec145886d5fc97b930b5e70976e2d1e5c4174"
+"usc_title_29@pl-119-90" = "blake3:5cdedf92e63b8e8894507ef6ca67d8ccdace590ea791a48fb9d3511118d8ffac"
+"usc_title_42@pl-119-90" = "blake3:fb850a5323b628e2a4182e840c7357658fce038908033458301b7cefaeff8ec9"
+"usc_title_49@pl-119-90" = "blake3:ba50ab615bde64024844da43ac943f6649c38842da8d9e23b70b48367f0a31a9"
+"usc_title_5@pl-119-90" = "blake3:a34e64decf6dce98dc68f9d33762b6c0cf806a387d565e677d1e619949abac4f"
+"usc_title_50@pl-119-90" = "blake3:0f0a2718ee635c9127032de7028800d3c390a5e92abc77421b5f55e0d63932e4"
 "english_wordnet@2025" = "blake3:8ceef7486b29c6e74862282ee8bd09c32d392f60c20a1b6c20f68ce234d69a87"
 
 # Byte-exact round-trip signatures — the content digest of the bytes a source's
