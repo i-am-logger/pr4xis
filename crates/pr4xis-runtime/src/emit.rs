@@ -74,6 +74,90 @@ fn to_connection(g: ConnectionGenerators) -> Connection {
     }
 }
 
+/// Lower ONE typed concept to its canonical wire [`Definition`] — THE
+/// typed→`Definition` boundary. Praxis code holds typed values ([`Concept`]s
+/// and [`Arrow`]s); the wire holds names. This function is the single place a
+/// node makes that crossing: `kind` and `obj` lower via [`Concept::name`],
+/// each morphism via its kind's canonical identifier and its target's name,
+/// and the lexical grounding via the concept's ONTOLEX-Lemon gloss
+/// ([`Concept::lexical`]). Because every serializer shares this one lowering,
+/// the same concept lowers to the same `Definition` wherever it appears — two
+/// call sites can never drift into different projections of the same node
+/// (which would split its content address and break rebind-by-agreement).
+pub fn definition_of<K, O, M>(kind: &K, obj: &O, morphisms: &[M]) -> Definition
+where
+    K: Concept,
+    O: Concept,
+    M: Arrow<Object = O>,
+{
+    lower(kind.name(), obj, morphisms)
+}
+
+/// The wire [`Definition`] of a behavioural BINDING — a node that is
+/// name-keyed BY DESIGN: it carries a registered name (an axiom / lens
+/// binding) the receiving binary re-binds through its OWN registries, where
+/// load is the gate. Its definition is exactly its typed kind + that name —
+/// no edges, no gloss — so its address commits to nothing the receiver does
+/// not re-derive. The name is an open-world key (the same `&str` surface as
+/// `axiom_by_name` and [`RebindTarget::address_of`](crate::rebind::RebindTarget::address_of)),
+/// not a typed concept.
+pub fn binding_definition<K: Concept>(kind: &K, name: &str) -> Definition {
+    Definition {
+        kind: kind.name().to_string(),
+        name: name.to_string(),
+        edges: Vec::new(),
+        axioms: Vec::new(),
+        lexical: None,
+    }
+}
+
+/// [`definition_of`] with the kind already lowered to its wire name — the
+/// kernel-internal leg [`emit`] uses for the meta-ontology kinds (`Concept`,
+/// `Axiom`), which exist as DATA in the bootstrap meta-`.prx`
+/// ([`crate::meta`]), not as a compile-time enum.
+fn lower<O, M>(kind: &str, obj: &O, morphisms: &[M]) -> Definition
+where
+    O: Concept,
+    M: Arrow<Object = O>,
+{
+    let mut edges: Vec<(String, String)> = morphisms
+        .iter()
+        .filter(|m| m.target() != *obj) // drop identity self-loops
+        .map(|m| (format!("{:?}", m.kind()), m.target().name().to_string()))
+        .collect();
+    edges.sort();
+    edges.dedup();
+    // Carry the concept's lexical grounding INTO the `.prx`: its
+    // ONTOLEX-Lemon gloss (the `Definition`/sense text). The runtime
+    // `Definition.lexical` is the serialized gloss string, so project
+    // the structured `Lexical` to its definition text here — sourced
+    // generically from `Concept::lexical()` (which the `ontology!`
+    // macro fills from its labels table), never a per-ontology hack.
+    // An ungrounded concept stays `None` (honest absence).
+    let lexical = obj.lexical().map(|lex| lex.definition.as_str().to_string());
+    Definition {
+        kind: kind.to_string(),
+        name: obj.name().to_string(),
+        edges,
+        // ## Axioms are per-ONTOLOGY, not per-concept (the model).
+        //
+        // Praxis declares axioms at the ontology level: the structural
+        // axioms are keyed by `Category`/relation-kind
+        // (`structural_axioms_for::<Cat>()` — e.g. `NoCycles[Subsumption]`
+        // constrains the WHOLE subsumption relation, not one concept),
+        // and domain axioms are declared in the `ontology!` `axioms:`
+        // clause. There is no mechanism for a single concept to declare
+        // its OWN axiom, so this per-NODE `axioms` field stays empty:
+        // populating it would FABRICATE a per-concept attachment praxis
+        // does not have. The meta's "Axiom Constrains Concept" claim is
+        // instead backed by emitting the ontology's structural axioms as
+        // first-class Axiom NODES (in [`emit`]), each content-addressed by
+        // their stable name — the same name `axiom_by_name` rebinds on load.
+        axioms: Vec::new(),
+        lexical,
+    }
+}
+
 /// Project the compiled ontology `Cat` into a `.prx` [`Archive`]: one node per
 /// `Concept` variant, edges from `morphisms_from` as `(relation-kind, target)`,
 /// identity self-loops dropped, edges sorted for a canonical address; plus every
@@ -92,44 +176,7 @@ where
 {
     let mut nodes: Vec<Definition> = <Cat::Object as FinitelyGenerated>::variants()
         .iter()
-        .map(|obj| {
-            let mut edges: Vec<(String, String)> = Cat::morphisms_from(obj)
-                .iter()
-                .filter(|m| m.target() != *obj) // drop identity self-loops
-                .map(|m| (format!("{:?}", m.kind()), m.target().name().to_string()))
-                .collect();
-            edges.sort();
-            edges.dedup();
-            // Carry the concept's lexical grounding INTO the `.prx`: its
-            // ONTOLEX-Lemon gloss (the `Definition`/sense text). The runtime
-            // `Definition.lexical` is the serialized gloss string, so project
-            // the structured `Lexical` to its definition text here — sourced
-            // generically from `Concept::lexical()` (which the `ontology!`
-            // macro fills from its labels table), never a per-ontology hack.
-            // An ungrounded concept stays `None` (honest absence).
-            let lexical = obj.lexical().map(|lex| lex.definition.as_str().to_string());
-            Definition {
-                kind: "Concept".to_string(),
-                name: obj.name().to_string(),
-                edges,
-                // ## Axioms are per-ONTOLOGY, not per-concept (the model).
-                //
-                // Praxis declares axioms at the ontology level: the structural
-                // axioms are keyed by `Category`/relation-kind
-                // (`structural_axioms_for::<Cat>()` — e.g. `NoCycles[Subsumption]`
-                // constrains the WHOLE subsumption relation, not one concept),
-                // and domain axioms are declared in the `ontology!` `axioms:`
-                // clause. There is no mechanism for a single concept to declare
-                // its OWN axiom, so this per-NODE `axioms` field stays empty:
-                // populating it would FABRICATE a per-concept attachment praxis
-                // does not have. The meta's "Axiom Constrains Concept" claim is
-                // instead backed by emitting the ontology's structural axioms as
-                // first-class Axiom NODES (below), each content-addressed by its
-                // stable name — the same name `axiom_by_name` rebinds on load.
-                axioms: Vec::new(),
-                lexical,
-            }
-        })
+        .map(|obj| lower("Concept", obj, &Cat::morphisms_from(obj)))
         .collect();
 
     // Structural axiom NODES — the per-ontology axioms the category's typed

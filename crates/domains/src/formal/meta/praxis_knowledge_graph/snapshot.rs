@@ -32,6 +32,7 @@ use alloc::{format, string::String, string::ToString, vec::Vec};
 use pr4xis::category::{Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::axiom_by_name;
 use pr4xis_runtime::address::ContentAddress;
+use pr4xis_runtime::emit::{binding_definition, definition_of};
 
 use super::ontology::{
     PraxisKnowledgeGraphCategory, PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation,
@@ -178,21 +179,6 @@ pub struct GraphNode {
     pub identity: String,
 }
 
-/// The content address of a node — the SHA-256 of its `(node-kind, identity)`
-/// name-pair, so two nodes share an address iff they share their ontological
-/// identity (the `MerkleDedupCorrect` iff, at graph scale). The `\u{1f}` unit
-/// separator is unambiguous (names carry no control chars).
-fn node_address(node_kind: &str, identity: &str) -> String {
-    // Precondition: node-kind + identity are ontology names / registry keys
-    // (`Concept::name`, axiom/lens binding names) — control-char-free — so the
-    // `\u{1f}` unit separator is unambiguous. Guarded in debug/test builds.
-    debug_assert!(
-        !node_kind.contains('\u{1f}') && !identity.contains('\u{1f}'),
-        "node identity must be control-char-free for the address separator to be unambiguous"
-    );
-    ContentAddress::of(format!("{node_kind}\u{1f}{identity}").as_bytes()).to_hex()
-}
-
 /// One persisted node, name-keyed and per-node content-addressed (the Merkle
 /// DAG's `ContentAddressableNode`).
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -202,7 +188,15 @@ pub struct SnapshotNode {
     pub node_kind: String,
     /// The stable identity — a concept name, or a registered binding name.
     pub identity: String,
-    /// Per-node content address = `node_address(node_kind, identity)`.
+    /// Per-node content address — DEFINITION-BEARING, via the runtime's one
+    /// typed lowering ([`definition_of`] /
+    /// [`Definition::address`](pr4xis_runtime::definition::Definition::address)):
+    /// the canonical DAG-CBOR encoding of `(kind, name, sorted edges, axioms,
+    /// lexical)`, hashed. Two nodes share an address iff they share their
+    /// definition as this slice carries it (the `MerkleDedupCorrect` iff, at
+    /// graph scale) — a same-name node with different edges addresses
+    /// differently, closing the wire gap where a bare name-pair silently
+    /// re-bound to a different meaning on the receiver (G5).
     pub address: String,
 }
 
@@ -230,6 +224,9 @@ pub struct SnapshotEnvelope {
 pub enum SnapshotError {
     /// rkyv serialization / (bytecheck-validated) deserialization failed.
     Rkyv(String),
+    /// The canonical DAG-CBOR encoding behind a node's definition-bearing
+    /// address failed.
+    Codec(String),
     /// gzip (RFC 1952) compression / decompression failed.
     Gzip(String),
     /// The selected slice is not closed — a filtered edge leaves it (an
@@ -269,6 +266,9 @@ impl core::fmt::Display for SnapshotError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SnapshotError::Rkyv(m) => write!(f, "snapshot rkyv error: {m}"),
+            SnapshotError::Codec(m) => {
+                write!(f, "snapshot definition-address codec error: {m}")
+            }
             SnapshotError::Gzip(m) => write!(f, "snapshot gzip error: {m}"),
             SnapshotError::SelectionLeftSlice { from, to, kind } => write!(
                 f,
@@ -456,10 +456,13 @@ pub fn load_snapshot(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, S
 ///
 /// 1. **SELECT guard** — refuse a slice that is not closed (`unbound`
 ///    non-empty), enforcing `SelectionClosedUnderEdgeKinds` on what is emitted.
-/// 2. **Name + content-address** every node: the slice's concepts as
+/// 2. **Name + definition-address** every node: the slice's concepts as
 ///    `ConceptNode`s (identity = [`Concept::name`]), plus the `bindings` (the
-///    behavioural `AxiomNode`/`LensNode`s by registered name); each addressed
-///    by `node_address`. Edges are the slice's `in_edges`, by name.
+///    behavioural `AxiomNode`/`LensNode`s by registered name). Each address is
+///    DEFINITION-BEARING through the runtime's one typed lowering
+///    ([`definition_of`] over the node's in-slice morphisms + gloss;
+///    [`binding_definition`] for the name-keyed behavioural nodes). Edges are
+///    the slice's `in_edges`, by name.
 /// 3. **Canonical order** nodes by `(node_kind, identity)` and edges by
 ///    `(kind, from, to)` — a total order (identities are unique) — and refuse
 ///    any shared identity ([`SnapshotError::AddressCollision`]).
@@ -478,24 +481,47 @@ pub fn emit_snapshot(
         });
     }
 
-    // 2. Name + address every node — structural concepts as ConceptNodes, then
-    // the behavioural bindings.
-    let structural = slice.nodes.iter().map(|c| GraphNode {
-        kind: PraxisKnowledgeGraphConcept::ConceptNode,
-        identity: c.name().to_string(),
+    // 2. Name + definition-address every node THROUGH the runtime's one typed
+    // lowering — the same boundary `.prx` emit crosses, so a concept lowers to
+    // the same `Definition` (hence the same address) here as anywhere else.
+    // A structural concept's definition is what this slice carries of it: its
+    // in-slice outgoing morphisms (typed, from `in_edges`) and its
+    // ONTOLEX-Lemon gloss. A behavioural binding is name-keyed BY DESIGN
+    // (`binding_definition`): the receiver re-binds it through its own
+    // registries, and load is the gate.
+    let structural = slice.nodes.iter().map(|c| {
+        let morphisms: Vec<PraxisKnowledgeGraphRelation> = slice
+            .in_edges
+            .iter()
+            .filter(|m| m.from == *c)
+            .cloned()
+            .collect();
+        (
+            GraphNode {
+                kind: PraxisKnowledgeGraphConcept::ConceptNode,
+                identity: c.name().to_string(),
+            },
+            definition_of(&PraxisKnowledgeGraphConcept::ConceptNode, c, &morphisms),
+        )
+    });
+    let behavioural = bindings.iter().cloned().map(|gn| {
+        let definition = binding_definition(&gn.kind, &gn.identity);
+        (gn, definition)
     });
     let mut nodes: Vec<SnapshotNode> = structural
-        .chain(bindings.iter().cloned())
-        .map(|gn| {
-            let node_kind = gn.kind.name().to_string();
-            let address = node_address(&node_kind, &gn.identity);
-            SnapshotNode {
-                node_kind,
+        .chain(behavioural)
+        .map(|(gn, definition)| {
+            let address = definition
+                .address()
+                .map(|a| a.to_hex())
+                .map_err(|e| SnapshotError::Codec(e.to_string()))?;
+            Ok(SnapshotNode {
+                node_kind: gn.kind.name().to_string(),
                 identity: gn.identity,
                 address,
-            }
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, SnapshotError>>()?;
     let mut edges: Vec<SnapshotEdge> = slice
         .in_edges
         .iter()

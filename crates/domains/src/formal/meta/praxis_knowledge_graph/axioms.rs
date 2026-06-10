@@ -34,6 +34,9 @@
 //!   been a stub).
 //! - [`LensBindingComplete`] — the lens analogue of [`AxiomBindingComplete`]
 //!   over `lens_by_name`.
+//! - [`NodeAddressIsDefinitionBearing`] — node addresses derive from each
+//!   node's DEFINITION through the runtime's one typed lowering, never from
+//!   its bare name (the G5 closure at graph scale).
 //!
 //! ## Deferred, deliberately NOT declared here (no-stub doctrine)
 //!
@@ -53,8 +56,12 @@ use pr4xis::category::laws::{fully_faithful_law_axioms, functor_law_axioms};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, axiom_by_name, axiom_constructors};
 
+use pr4xis_runtime::emit::definition_of;
+
 use super::functor::ArchiveIntoGraph;
-use super::ontology::{PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelationKind};
+use super::ontology::{
+    PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation, PraxisKnowledgeGraphRelationKind,
+};
 use super::snapshot::{
     EdgeKindFilter, GraphNode, RootSet, SnapshotError, compute_reachable, emit_snapshot,
     load_snapshot,
@@ -315,7 +322,7 @@ pr4xis::register_axiom!(PairOntologyRoundTrip, constructor);
 /// would invalidate this literal on the affected target — surfaced precisely by
 /// this axiom failing there (the conscious bump).
 const GRAPH_SNAPSHOT_KAT_ROOT: &str =
-    "d0d80c3af1a8dd0568af982f2c73bb49bd755569090812b3b93a077831583e0a";
+    "460e25d2bf7d077810987113c14f2cb80fd2d12ce32b77ebd7667ee3ebc6c8f7";
 
 /// A whole-graph [`GraphSnapshot`](super::snapshot) round-trips reproducibly
 /// and fail-closed: a fixed, closed slice plus a behavioural binding emit to a
@@ -402,6 +409,91 @@ impl Axiom for GraphSnapshotReproducible {
 
 pr4xis::register_axiom!(GraphSnapshotReproducible, constructor);
 
+/// Every persisted node's content address is DEFINITION-BEARING — derived,
+/// through the runtime's ONE typed lowering
+/// ([`definition_of`](pr4xis_runtime::emit::definition_of)), from what the
+/// slice carries of the node (kind + name + in-slice morphisms + gloss),
+/// never from its bare name. Verified against the REAL emit/load loop: each
+/// rehydrated `ConceptNode`'s address equals an independently recomputed
+/// lowering of its typed concept, and the same name over a different
+/// definition addresses differently — the G5 refutation leg a name-pair hash
+/// could not pass.
+pub struct NodeAddressIsDefinitionBearing;
+
+impl Axiom for NodeAddressIsDefinitionBearing {
+    fn verify(&self) -> Verdict {
+        use PraxisKnowledgeGraphConcept as C;
+        use PraxisKnowledgeGraphRelationKind as K;
+        let slice = compute_reachable(
+            &RootSet(vec![C::MerkleRoot]),
+            &EdgeKindFilter(vec![K::Subsumption]),
+        );
+        let Ok((gz, root)) = emit_snapshot(&slice, &[]) else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+        let Ok(env) = load_snapshot(&gz, &root) else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+
+        // Agreement leg: every emitted ConceptNode's address IS the typed
+        // lowering's address, recomputed here independently of the emit path.
+        for c in &slice.nodes {
+            let morphisms: Vec<PraxisKnowledgeGraphRelation> = slice
+                .in_edges
+                .iter()
+                .filter(|m| m.from == *c)
+                .cloned()
+                .collect();
+            let Ok(expected) = definition_of(&C::ConceptNode, c, &morphisms).address() else {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            };
+            let agrees = env
+                .nodes
+                .iter()
+                .any(|n| n.identity == c.name() && n.address == expected.to_hex());
+            if !agrees {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
+        // G5 refutation leg: the SAME name over a DIFFERENT definition (a
+        // node's full in-slice lowering vs its edge-less projection) must
+        // address differently.
+        let Some(edged) = slice
+            .nodes
+            .iter()
+            .find(|c| slice.in_edges.iter().any(|m| m.from == **c))
+        else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+        let morphisms: Vec<PraxisKnowledgeGraphRelation> = slice
+            .in_edges
+            .iter()
+            .filter(|m| m.from == *edged)
+            .cloned()
+            .collect();
+        let bare: [PraxisKnowledgeGraphRelation; 0] = [];
+        let (Ok(full), Ok(empty)) = (
+            definition_of(&C::ConceptNode, edged, &morphisms).address(),
+            definition_of(&C::ConceptNode, edged, &bare).address(),
+        ) else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+        if full == empty {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "NodeAddressIsDefinitionBearing",
+        "every persisted node's content address derives from its DEFINITION (kind + name + in-slice morphisms + gloss) through the runtime's one typed lowering — the same name over a different definition addresses differently, so address agreement is agreement on meaning, not on spelling",
+        "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Farrell, Kutscher & Dannewitz (2013) RFC 6920 Naming Things with Hashes; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System"
+    );
+}
+
+pr4xis::register_axiom!(NodeAddressIsDefinitionBearing, constructor);
+
 /// Every registered `LensNode` re-binds to its lens registration HANDLE by key
 /// (`lens_by_name`) — the lens analogue of [`AxiomBindingComplete`]. An
 /// asymmetric re-bind: a `LensNode` resolves to a `&'static LensRegistration`
@@ -470,6 +562,7 @@ pub fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         // Whole-graph snapshot axioms (#271 effort B) — unlocked now that the
         // GraphSnapshot emit/load/re-bind machinery exists.
         Box::new(GraphSnapshotReproducible),
+        Box::new(NodeAddressIsDefinitionBearing),
         Box::new(LensBindingComplete),
     ]
 }
@@ -500,5 +593,25 @@ mod tests {
             ax.verify()
                 .unwrap_or_else(|c| panic!("axiom failed: {}", c.meta().name.as_str()));
         }
+    }
+
+    /// Prints the [`GraphSnapshotReproducible`] fixture's MerkleRoot so a
+    /// conscious GraphVersion bump (an address-preimage or rkyv-layout
+    /// change) can re-bless [`GRAPH_SNAPSHOT_KAT_ROOT`].
+    #[test]
+    #[ignore = "prints the snapshot KAT root for re-pinning; not an assertion"]
+    fn print_graph_snapshot_kat_root() {
+        use PraxisKnowledgeGraphConcept as C;
+        use PraxisKnowledgeGraphRelationKind as K;
+        let slice = compute_reachable(
+            &RootSet(vec![C::MerkleRoot]),
+            &EdgeKindFilter(vec![K::Subsumption]),
+        );
+        let bindings = vec![GraphNode {
+            kind: C::AxiomNode,
+            identity: AxiomBindingComplete.name().as_str().to_string(),
+        }];
+        let (_gz, root) = emit_snapshot(&slice, &bindings).expect("the KAT fixture emits");
+        println!("GRAPH_SNAPSHOT_KAT_ROOT = {root}");
     }
 }
