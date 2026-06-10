@@ -63,7 +63,7 @@ fn write_header(out: &mut String, config: &GenerateConfig, builder: &OntologyBui
     writeln!(out, "// DO NOT EDIT — regenerate from source data").unwrap();
     writeln!(out).unwrap();
     writeln!(out, "use pr4xis::EntityRef;").unwrap();
-    writeln!(out, "use pr4xis::category::Concept;").unwrap();
+    writeln!(out, "use pr4xis::category::{{Concept, FinitelyGenerated}};").unwrap();
     if marker_needs_use(config) {
         writeln!(out, "use {};", config.entity_marker_path).unwrap();
     }
@@ -82,7 +82,9 @@ fn write_entity_type(
     writeln!(out, "#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]").unwrap();
     writeln!(out, "pub struct {ty}(pub u32);").unwrap();
     writeln!(out).unwrap();
-    writeln!(out, "impl Concept for {ty} {{").unwrap();
+    writeln!(out, "impl Concept for {ty} {{}}").unwrap();
+    writeln!(out).unwrap();
+    writeln!(out, "impl FinitelyGenerated for {ty} {{").unwrap();
     writeln!(out, "    fn variants() -> Vec<Self> {{").unwrap();
     writeln!(out, "        (0..{count}u32).map({ty}).collect()").unwrap();
     writeln!(out, "    }}").unwrap();

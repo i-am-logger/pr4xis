@@ -36,7 +36,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use pr4xis::ontology::compose::Staging;
+use pr4xis::ontology::Staging;
 
 use crate::applied::data_provisioning::registry::data_sources;
 use crate::formal::meta::source_taxonomy::ontology::concept_name;

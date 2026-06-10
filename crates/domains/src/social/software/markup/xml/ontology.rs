@@ -1,4 +1,4 @@
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -224,6 +224,23 @@ impl XmlSymbols {
     }
 }
 
+// # rkyv-serializability under `prx`
+//
+// The graph-faithful WordNet `.prx` envelope carries the SourceSyntax
+// COMPLEMENT ([`WnSyntaxComplement`](super::lmf::writer::WnSyntaxComplement)),
+// whose residue types ([`DocumentResidue`](super::parser::source_syntax::DocumentResidue),
+// [`ElementAttributes`](super::parser::source_syntax::ElementAttributes),
+// `NodeDecisions`, …) reference these concrete-syntax XML types directly —
+// [`XmlDoctype`] / [`XmlNamespace`] / [`XmlAttribute`] / [`XmlElement`] /
+// [`XmlNode`] / [`XmlName`] / [`XmlExternalId`] / [`XmlGeneralEntity`] /
+// [`XmlEntityKind`]. So each must be rkyv-serializable under the `prx` feature
+// where the archive consumes it. The derive is CFG-GATED
+// (`#[cfg_attr(feature = "prx", derive(rkyv::Archive, …))]`): rkyv is an
+// OPTIONAL dependency (`prx = ["dep:rkyv", …]`), so an unconditional derive
+// would break the default + wasm32 builds that do not link it. Gated, it is
+// present exactly where it is needed and absent everywhere else — the same
+// discipline the WN-LMF model types use.
+
 /// An XML element — the rich type (not just a string).
 ///
 /// `namespace` retains the first `xmlns` / `xmlns:prefix` declaration on
@@ -236,6 +253,31 @@ impl XmlSymbols {
 /// that only need a single representative declaration continue to read
 /// `namespace`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+// `XmlElement` and `XmlNode` are mutually recursive (`children: Vec<XmlNode>`,
+// `XmlNode::Element(XmlElement)`). rkyv's derive would otherwise recurse
+// infinitely when computing the `Archive`/`Serialize`/`Deserialize` where-bounds
+// (rustc E0275 overflow), so the recursive field carries `#[rkyv(omit_bounds)]`
+// and the container supplies the resolved serialize/deserialize/bytecheck bounds
+// explicitly — the canonical rkyv 0.8 recursive-type pattern (rkyv book,
+// "Derive macro features"). The attributes are CFG-GATED on `prx`: without rkyv
+// linked there is no `#[rkyv(…)]` helper to read, so the default + wasm32 builds
+// see a plain struct.
+#[cfg_attr(
+    feature = "prx",
+    rkyv(serialize_bounds(
+        __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+        __S::Error: rkyv::rancor::Source,
+    )),
+    rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)),
+    rkyv(bytecheck(bounds(
+        __C: rkyv::validation::ArchiveContext,
+        __C::Error: rkyv::rancor::Source,
+    )))
+)]
 pub struct XmlElement {
     pub name: XmlName,
     pub namespace: Option<XmlNamespace>,
@@ -244,11 +286,16 @@ pub struct XmlElement {
     /// element with no declarations has an empty `Vec`.
     pub namespaces: Vec<XmlNamespace>,
     pub attributes: Vec<XmlAttribute>,
+    #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
     pub children: Vec<XmlNode>,
 }
 
 /// An XML qualified name (optional prefix + local name).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct XmlName {
     pub prefix: Option<String>,
     pub local: String,
@@ -279,13 +326,21 @@ impl XmlName {
 
 /// An XML namespace declaration.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct XmlNamespace {
     pub prefix: Option<String>,
     pub uri: String,
 }
 
 /// An XML attribute.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct XmlAttribute {
     pub name: XmlName,
     pub value: String,
@@ -293,8 +348,28 @@ pub struct XmlAttribute {
 
 /// An XML node — the universal representation of XML content.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+// The other half of the `XmlElement` ↔ `XmlNode` mutual recursion — same rkyv
+// 0.8 recursive-type treatment as `XmlElement`: `omit_bounds` on the recursive
+// `Element(XmlElement)` variant field, explicit container bounds. CFG-gated on
+// `prx`.
+#[cfg_attr(
+    feature = "prx",
+    rkyv(serialize_bounds(
+        __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+        __S::Error: rkyv::rancor::Source,
+    )),
+    rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)),
+    rkyv(bytecheck(bounds(
+        __C: rkyv::validation::ArchiveContext,
+        __C::Error: rkyv::rancor::Source,
+    )))
+)]
 pub enum XmlNode {
-    Element(XmlElement),
+    Element(#[cfg_attr(feature = "prx", rkyv(omit_bounds))] XmlElement),
     Text(String),
     CData(String),
     Comment(String),
@@ -394,6 +469,10 @@ pub struct XmlDocument {
 /// typed values — they affect validity, not well-formedness, and
 /// can be added incrementally without breaking the document model.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct XmlDoctype {
     /// The root element name declared by `<!DOCTYPE name …>`.
     pub root_name: String,
@@ -413,6 +492,20 @@ pub struct XmlDoctype {
     /// references" — keys off this flag together with the external
     /// subset's presence and the `standalone` attribute.
     pub internal_subset_had_pe_references: bool,
+    /// The VERBATIM bytes of the WHOLE declaration `<!DOCTYPE … >`
+    /// (§2.8 \[28\] `doctypedecl`), after §2.11 end-of-line
+    /// normalization — concrete-syntax PROLOG residue captured so the
+    /// byte-exact serializer reproduces the declaration exactly (the
+    /// inter-token white-space, the `<!ENTITY>` internal-subset
+    /// layout, and any internal-subset comments the structured
+    /// projection erases). This is the prolog analogue of re-emitting
+    /// the `<?xml?>` declaration bytes — NOT a stored element-tree
+    /// DOM. `None` when the document has no DOCTYPE OR when a synthetic
+    /// doctype was built without capture (the structured
+    /// `write_doctype` re-projection path); `Some` only on the
+    /// capturing read path, so the field is purely additive — a flat
+    /// SPAR vocab / WordNet / USC document is unaffected.
+    pub verbatim: Option<String>,
 }
 
 /// One general-entity declaration from §4.2 \[71\] GEDecl. The
@@ -423,6 +516,10 @@ pub struct XmlDoctype {
 /// of entity it points at (WFC: Parsed Entity, WFC: No External
 /// Entity References, …).
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct XmlGeneralEntity {
     /// The entity name (§4.2 \[71\] Name).
     pub name: String,
@@ -439,6 +536,10 @@ pub struct XmlGeneralEntity {
 /// §4.2 \[73\] `EntityDef ::= EntityValue | (ExternalID NDataDecl?)`
 /// distinguishes three concrete shapes once `NDataDecl?` is split.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum XmlEntityKind {
     /// `<!ENTITY name "value">` — replacement text is the literal
     /// EntityValue. Internal parsed general entity.
@@ -459,6 +560,10 @@ pub enum XmlEntityKind {
 /// W3C XML 1.0 §4.2.2 production \[75\] `ExternalID`. Two shapes:
 /// `SYSTEM 'uri'` and `PUBLIC 'pubid' 'uri'`.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum XmlExternalId {
     System {
         system_literal: String,

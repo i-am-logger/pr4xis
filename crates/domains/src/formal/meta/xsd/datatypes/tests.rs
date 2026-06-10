@@ -10,7 +10,7 @@ use super::ontology::{
     is_derived, is_primitive, is_special, item_type, list_datatypes, primitive_datatypes,
     special_datatypes,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

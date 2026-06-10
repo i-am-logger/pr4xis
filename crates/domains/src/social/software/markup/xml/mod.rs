@@ -9,6 +9,11 @@ pub mod parser;
 pub mod rdf;
 pub mod reader;
 pub mod spec_1_0;
+// Source-agnostic succinct bit-packing primitives the compact `.prx` codecs
+// share (bit-packed columns, gap-coded offsets, front-coded dictionaries). `prx`-
+// only: the gzip wrapper needs std, and every codec that uses it is `prx`-gated.
+#[cfg(feature = "prx")]
+pub mod succinct;
 pub mod uslm;
 
 pub use ontology::*;

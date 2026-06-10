@@ -294,7 +294,7 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
 ///
 /// The identity claims are synthesized at load time from the manifest's
 /// declared `version` (used as the expected value for the XML-LMF version
-/// attribute on Lexicon kinds) and from `praxis.lock`'s pinned sha256 for
+/// attribute on Lexicon kinds) and from `praxis.lock`'s pinned digest for
 /// `name@version`. Drift between manifest and lock is caught by the
 /// `LockManifestAgreement` axiom.
 #[derive(Debug, Clone)]
@@ -829,20 +829,23 @@ impl Axiom for LockManifestAgreement {
         // loader fills in the hash.
         for entry in entries {
             let key = format!("{}@{}", entry.name, entry.version);
-            let lock_sha = lock.get(&key);
+            let lock_digest = lock.get(&key);
             let raw_hash_claim = entry
                 .identity
                 .0
                 .iter()
                 .find(|c| matches!(c.concept, IdentityConcept::RawHash));
-            let manifest_sha = raw_hash_claim.and_then(|c| match &c.data {
-                ClaimData::Sha256(hex) => Some(hex.as_str()),
+            // The manifest claim is synthesized FROM the lock digest at load
+            // time (`build_entry` -> `LockDigest::claim_data`), so agreement
+            // is the TYPED claim equality: same algorithm, same digest.
+            let manifest_claim = raw_hash_claim.and_then(|c| match &c.data {
+                d @ ClaimData::HashAlgorithm { .. } => Some(d),
                 _ => None,
             });
             let is_stub = raw_hash_claim
                 .map(|c| matches!(c.data, ClaimData::Stub { .. }))
                 .unwrap_or(false);
-            match (is_stub, manifest_sha, lock_sha) {
+            match (is_stub, manifest_claim, lock_digest) {
                 // Stub claim (loadable-pending) and no lock entry: OK.
                 (true, _, None) => {}
                 // Stub claim but lock has an entry: drift (manifest
@@ -850,8 +853,8 @@ impl Axiom for LockManifestAgreement {
                 (true, _, Some(_)) => {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
-                // Real hash on both sides, agree: OK.
-                (false, Some(m), Some(l)) if m.eq_ignore_ascii_case(l.as_str()) => {}
+                // Typed claim on both sides, agree: OK.
+                (false, Some(m), Some(l)) if *m == l.claim_data() => {}
                 // Any other state is drift.
                 _ => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
             }
@@ -864,6 +867,25 @@ impl Axiom for LockManifestAgreement {
             .collect();
         for lock_key in lock.keys() {
             if !manifest_keys.contains(lock_key) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
+        // praxis-way rule 10 (manifest agrees with lock): the same
+        // straggler invariant over the `[compact_archive_signatures]`
+        // space. The compact space is a SUBSET of `[hashes]` — only the
+        // OWL/USC/Language compilable sources publish a portable compact
+        // `.prx` content address — so the faithful assertion mirrors the
+        // reverse direction above: no compact pin may exist for a source
+        // `<name>@<version>` the manifest does not declare. (The forward
+        // direction is intentionally not asserted: a registered source
+        // having no compact pin is legitimate, just as a Stub has no
+        // `[hashes]` entry.) Without this check the compact pins are only
+        // parser-enforced and have no runnable Verdict.
+        let compact =
+            crate::applied::data_provisioning::registry::lock_compact_archive_signatures();
+        for compact_key in compact.keys() {
+            if !manifest_keys.contains(compact_key) {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -916,18 +938,18 @@ impl Axiom for RegistryLocalPathsExist {
             let is_stub = raw_hash
                 .map(|c| matches!(c.data, ClaimData::Stub { .. }))
                 .unwrap_or(true);
-            // Empty-content sha256 (sha256 of zero bytes) is the
+            // The empty-content digest (the digest of zero bytes UNDER THE
+            // PIN'S OWN ALGORITHM — the one verify leg, `hash_hex`) is the
             // conventional placeholder in praxis.lock for sources
-            // registered with deferred fetch — semantically a Stub
-            // even though the lock has a hash slot filled. Recognised
-            // by RFC 6234 (Eastlake & Hansen, 2011); the constant is
-            // stable across implementations.
-            let is_placeholder_hash = raw_hash
-                .and_then(|c| match &c.data {
-                    ClaimData::Sha256(hex) => Some(hex.as_str()),
-                    _ => None,
-                })
-                .is_some_and(|hex| hex.eq_ignore_ascii_case(EMPTY_CONTENT_SHA256));
+            // registered with deferred fetch — semantically a Stub even
+            // though the lock has a digest slot filled.
+            let is_placeholder_hash = raw_hash.is_some_and(|c| match &c.data {
+                ClaimData::HashAlgorithm {
+                    algorithm,
+                    digest_hex,
+                } => pr4xis_runtime::address::hash_hex(*algorithm, b"") == *digest_hex,
+                _ => false,
+            });
             if is_stub || is_placeholder_hash {
                 continue;
             }
@@ -951,14 +973,6 @@ pr4xis::register_axiom!(
     RegistryLocalPathsExist,
     "Wilkinson et al. (2016) FAIR Guiding Principles §F2 + §A1"
 );
-
-/// SHA-256 of the empty byte string, per RFC 6234 (Eastlake & Hansen,
-/// 2011) §6.1. Used in `praxis.lock` as a placeholder for sources
-/// registered with deferred fetch (a slot reserved by name + version
-/// but no bytes yet pulled). The [`RegistryLocalPathsExist`] axiom
-/// treats it as semantically Stub.
-const EMPTY_CONTENT_SHA256: &str =
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 /// Locate the workspace root from the praxis-domains crate manifest
 /// directory. The data tree lives at `<workspace-root>/crates/domains/data/`
@@ -992,7 +1006,7 @@ fn _concept_name_witness(_: SourceTaxonomyConcept) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
     #[test]

@@ -41,7 +41,7 @@
 #[allow(unused_imports)]
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 /// What kind of inflectional change the surface form represents.
 ///
@@ -63,7 +63,8 @@ pub enum IrregularKind {
     Superlative,
 }
 
-impl Concept for IrregularKind {
+impl Concept for IrregularKind {}
+impl FinitelyGenerated for IrregularKind {
     fn variants() -> Vec<Self> {
         vec![
             Self::PluralNoun,

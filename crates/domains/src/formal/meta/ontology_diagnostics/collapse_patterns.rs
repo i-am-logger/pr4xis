@@ -25,7 +25,7 @@ use core::fmt::Debug;
 use core::hash::Hash;
 use hashbrown::HashMap;
 
-use pr4xis::category::{Concept, Functor};
+use pr4xis::category::{Concept, FinitelyGenerated, Functor};
 
 use crate::natural::biomedical::acoustics::biophysics_functor::AcousticsToBiophysics;
 use crate::natural::biomedical::acoustics::ontology::AcousticsConcept as AcousticsEntity;

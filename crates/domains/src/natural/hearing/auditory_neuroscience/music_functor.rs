@@ -89,7 +89,7 @@ pr4xis::register_functor!(NeuroscienceToMusic);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
     #[test]

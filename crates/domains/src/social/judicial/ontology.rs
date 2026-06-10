@@ -7,7 +7,7 @@ use super::citation::PinpointCite;
 use super::lifecycle::PhaseTag;
 use super::source_text::SourceTextRef;
 use crate::formal::meta::identifier_format::Identifier;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -197,18 +197,38 @@ pub struct LegalTerm {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RelationType {
     Requires,
-    Precedes { max_days: Option<Duration> },
-    Implies { consequence: SourceTextRef },
+    Precedes {
+        max_days: Option<Duration>,
+    },
+    Implies {
+        consequence: SourceTextRef,
+    },
     Contradicts,
-    Composes { into: Identifier },
+    Composes {
+        into: Identifier,
+    },
     SubtypeOf,
-    Triggers { obligation: Identifier },
+    Triggers {
+        obligation: Identifier,
+    },
     Negates,
     AlternativeTo,
-    Rebuts { burden: SourceTextRef },
+    Rebuts {
+        burden: SourceTextRef,
+    },
     AffirmativeDefenseTo,
     SafeHarborFor,
     ExhaustionRequiredFor,
+    /// A definitional provision establishes the meaning of a term within its
+    /// scope — source is the defining provision, target is the defined term.
+    /// The statutory-definition morphism; resolution among competing
+    /// definitions is lex specialis (see
+    /// `statute_structure::definition_scope`). Scalia & Garner (2012) §28;
+    /// 1 U.S.C. §1.
+    Defines,
+    /// The inverse of [`RelationType::Defines`]: a use of a term is governed by
+    /// the definition that establishes its meaning in the use's scope.
+    DefinedIn,
 }
 
 /// A relation between two legal terms. `from` and `to` are typed
@@ -285,7 +305,8 @@ impl Default for OntologyRegistry {
 // =============================================================================
 
 /// Case phases as entities.
-impl Concept for PhaseTag {
+impl Concept for PhaseTag {}
+impl FinitelyGenerated for PhaseTag {
     fn variants() -> Vec<Self> {
         vec![
             PhaseTag::PreFiling,

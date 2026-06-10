@@ -5,36 +5,45 @@
 //! This is the Dolstra 2006 baseline scheme and the fallback for any source
 //! without self-description.
 
-use super::super::ontology::{ClaimData, IdentityClaim, VerificationResult};
-use sha2::{Digest, Sha256};
+use super::super::ontology::{ClaimData, HashAlgorithm, IdentityClaim, VerificationResult};
+use alloc::string::String;
+
+/// Hex digest of `bytes` under a named [`HashAlgorithm`] — the W3C SRI
+/// multi-algorithm integrity primitive, delegated to the runtime's grounded
+/// implementation ([`pr4xis_runtime::address::hash_hex`]) so the claim
+/// vocabulary and the content-address primitive share ONE computation. The
+/// enum admits only strong functions (SHA-256 / SHA-512 from FIPS 180-4,
+/// BLAKE3 from Aumasson et al. 2020); weak functions (MD5, SHA-1) are
+/// *unrepresentable*, so "refuse weak algorithms" is a type invariant, not a
+/// runtime branch.
+pub fn hash_hex(algorithm: HashAlgorithm, bytes: &[u8]) -> String {
+    pr4xis_runtime::address::hash_hex(algorithm, bytes)
+}
 
 /// Verify a `RawHash` claim against a byte slice.
 ///
-/// Expects `claim.data` to be `ClaimData::Sha256(_)`. Computes sha256 over
-/// `bytes` and compares the hex digest against the expected value.
-/// Case-insensitive comparison (hex is case-insensitive).
+/// Handles both the legacy [`ClaimData::Sha256`] shorthand and the
+/// multi-algorithm [`ClaimData::HashAlgorithm`]: it recomputes the digest
+/// under the claim's named algorithm via [`hash_hex`] and compares against
+/// the expected value (hex is case-insensitive).
 ///
 /// Returns `Verified` if they match, `Mismatch` if they don't,
-/// `Unverifiable` if the claim is not a `Sha256` variant.
+/// `Unverifiable` if the claim is not a hash variant.
 pub fn verify(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
-    let expected = match &claim.data {
-        ClaimData::Sha256(hex) => hex,
-        ClaimData::HashAlgorithm { .. } => {
-            return VerificationResult::Unverifiable {
-                reason: "HashAlgorithm variant not yet implemented; use Sha256 for now".into(),
-            };
-        }
+    let (algorithm, expected) = match &claim.data {
+        ClaimData::Sha256(hex) => (HashAlgorithm::Sha256, hex),
+        ClaimData::HashAlgorithm {
+            algorithm,
+            digest_hex,
+        } => (*algorithm, digest_hex),
         _ => {
             return VerificationResult::Unverifiable {
-                reason: "RawHash extractor expected Sha256 ClaimData".into(),
+                reason: "RawHash extractor expected Sha256 or HashAlgorithm ClaimData".into(),
             };
         }
     };
 
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let actual = hex::encode(hasher.finalize());
-
+    let actual = hash_hex(algorithm, bytes);
     if actual.eq_ignore_ascii_case(expected) {
         VerificationResult::Verified(claim.clone())
     } else {

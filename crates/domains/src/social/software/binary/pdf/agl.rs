@@ -31,10 +31,10 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-/// SHA-256 of [`GLYPH_LIST_BYTES`], pinned by an axiom in
+/// Content address (BLAKE3) of [`GLYPH_LIST_BYTES`], pinned by an axiom in
 /// `mod.rs` and verified at test time. Updating the file requires
-/// recomputing this hash.
-pub const PINNED_SHA256: &str = "a3b2f61ced9f3644cc0d4ecde5c59df34ca286c689d9484a43a710a81c466789";
+/// recomputing this address.
+pub const PINNED_ADDRESS: &str = "5a200d1e890dce2c1ce30e8063f241eea96c4ffadab39eb01259cb927bb1b67f";
 
 /// Verbatim glyph list bytes embedded at build time.
 pub const GLYPH_LIST_BYTES: &str = include_str!("../../../../../data/adobe/glyphlist.txt");
@@ -74,7 +74,7 @@ pub fn glyph_name_to_unicode(name: &str) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sha2::{Digest, Sha256};
+    use pr4xis_runtime::address::ContentAddress;
 
     #[test]
     fn known_glyph_names_resolve() {
@@ -103,11 +103,8 @@ mod tests {
     }
 
     #[test]
-    fn embedded_sha256_matches_pinned_hash() {
-        let mut hasher = Sha256::new();
-        hasher.update(GLYPH_LIST_BYTES.as_bytes());
-        let digest = hasher.finalize();
-        let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-        assert_eq!(hex, PINNED_SHA256);
+    fn embedded_address_matches_pinned_hash() {
+        let hex = ContentAddress::of(GLYPH_LIST_BYTES.as_bytes()).to_hex();
+        assert_eq!(hex, PINNED_ADDRESS);
     }
 }

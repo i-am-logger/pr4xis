@@ -8,7 +8,7 @@ use super::ontology::{
     RequirementLevelConcept, RequirementLevelOntology, Strictness, StrictnessIsTotalOrder, is_leaf,
     leaves, parse_rfc2119,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

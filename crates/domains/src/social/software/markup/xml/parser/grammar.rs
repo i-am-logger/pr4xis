@@ -20,6 +20,7 @@
 
 #[allow(unused_imports)]
 use alloc::{
+    collections::BTreeMap,
     format,
     string::{String, ToString},
     vec::Vec,
@@ -28,6 +29,11 @@ use alloc::{
 use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlEntityKind, XmlExternalId,
     XmlGeneralEntity, XmlName, XmlNamespace, XmlNode,
+};
+use super::source_syntax::{
+    CaptureCtx, EmptyForm, EndOfLineForm, EntityName, EntityReferenceForm, EolKind, ExtendedRef,
+    ExtendedRefKind, IntraTagWhitespace, NodeDecisions, PrologDecisions, StartTagToken,
+    SyntaxDecisions,
 };
 
 /// Failure modes when parsing XML 1.0 bytes.
@@ -175,11 +181,44 @@ impl std::error::Error for XmlParseError {}
 /// this normalization on input so that downstream productions never
 /// see CR.
 pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
+    parse_document_inner(input, &mut None)
+}
+
+/// Reader half of the serialized reverse lens — parse AND capture the
+/// concrete-syntax decisions ([`SyntaxDecisions`]) needed to reconstruct the
+/// exact source bytes with
+/// [`serialize_document_exact`](super::serializer::serialize_document_exact).
+///
+/// Identical to [`parse_document`] for the produced [`XmlDocument`]; it
+/// additionally threads a [`CaptureCtx`] through the element/content descent,
+/// assigning each element a pre-order index at entry and recording any
+/// non-canonical concrete-syntax decision against it (today: an explicit-empty
+/// `<a></a>` element). The returned `(doc, decisions)` satisfies the byte-exact
+/// round-trip law `serialize_document_exact(&doc, &decisions) == input` for any
+/// input whose only non-canonical feature is the empty-element form.
+pub fn parse_document_capturing(
+    input: &[u8],
+) -> Result<(XmlDocument, SyntaxDecisions), XmlParseError> {
+    let mut capture = Some(CaptureCtx::default());
+    let doc = parse_document_inner(input, &mut capture)?;
+    let decisions = capture.expect("capture was seeded with Some").decisions;
+    Ok((doc, decisions))
+}
+
+fn parse_document_inner(
+    input: &[u8],
+    capture: &mut Option<CaptureCtx>,
+) -> Result<XmlDocument, XmlParseError> {
     let (raw, detected_encoding) = decode_input(input)?;
-    let normalized = normalize_line_endings(&raw);
+    // §2.11 \[2.11\] End-of-Line Handling — collapse `#xD#xA`/`#xD` to `#xA`
+    // BEFORE the grammar descent, AND capture the erased EOL form (keyed by LF
+    // ordinal, robust against re-escaping) so the byte-exact serializer can put
+    // the `#xD` back. Empty for a pure-`#xA` source — the additive case.
+    let (normalized, eol_form) = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
 
-    let (version, encoding, standalone, doctype) = parse_prolog(&mut cursor)?;
+    let ((version, encoding, standalone, doctype), (after_xml_decl, after_doctype)) =
+        parse_prolog(&mut cursor)?;
     // W3C XML 1.0 §F + §4.3.3 "Character Encoding in Entities" —
     // if an XMLDecl carries an encoding declaration, that label
     // MUST be consistent with the encoding actually used. UTF-16
@@ -226,11 +265,43 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
         (None, _) => true,
         (Some(dt), _) => dt.external_id.is_none() && !dt.internal_subset_had_pe_references,
     };
-    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared)?;
+    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared, capture)?;
+    // §2.1 \[1\] `document ::= prolog element Misc*` — the trailing epilog
+    // `Misc*`. Capture the FULL verbatim run (§2.6 \[16\] PI / §2.5 \[15\] Comment
+    // / §2.3 \[3\] S) for byte-exact reconstruction; for a pure-`S` epilog this is
+    // the leading white-space, so documents with no epilog PI/Comment are
+    // unaffected. The explicit `skip_whitespace` is redundant after
+    // `parse_misc_star` (which already consumes leading `S`) but kept for the EOF
+    // assertion's clarity.
+    let after_root_start = cursor.pos;
     parse_misc_star(&mut cursor)?;
     cursor.skip_whitespace();
+    let after_root = cursor.misc_run_since(after_root_start).to_string();
     if !cursor.is_eof() {
         return Err(cursor.syntax_error("end of document", "trailing content"));
+    }
+
+    // Reader half of the serialized reverse lens: record the prolog/epilog
+    // white-space (§2.8 \[27\] `Misc` `S`) the Infoset DOM does not carry, so
+    // the byte-exact serializer can re-emit it. No-op for the canonical
+    // (whitespace-free) prolog, and skipped entirely when not capturing.
+    if let Some(ctx) = capture.as_mut() {
+        let prolog = PrologDecisions {
+            after_xml_decl,
+            after_doctype,
+            after_root,
+        };
+        if !prolog.is_empty() {
+            ctx.record_prolog(prolog);
+        }
+        // §2.11 \[2.11\] End-of-Line form — the `#xD#xA`/`#xD` source line
+        // breaks the §2.11 normalization above collapsed to `#xA`, keyed by LF
+        // ordinal so the byte-exact serializer re-expands them over the finished
+        // output. Empty (recorded as nothing) for a pure-`#xA` source, so a
+        // CRLF-free document is unaffected.
+        if !eol_form.is_empty() {
+            ctx.record_eol_form(eol_form);
+        }
     }
 
     Ok(XmlDocument {
@@ -331,25 +402,57 @@ fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError>
 /// behave as if it normalized all line breaks in external parsed
 /// entities (including the document entity) on input … to the single
 /// character #xA".
-fn normalize_line_endings(raw: &str) -> String {
+///
+/// Returns the normalized string AND the §2.11 \[2.11\] end-of-line FORM the
+/// normalization erased — for each collapsed line break, the LF ORDINAL of the
+/// produced `#xA` (its 0-based index among ALL `#xA` bytes in the normalized
+/// output, counting untouched literal `#xA`s too) and whether the source wrote
+/// `#xD#xA` (CRLF) or a lone `#xD` (CR). That ordinal is the
+/// re-escaping-robust key the byte-exact serializer re-expands by (see
+/// [`EndOfLineForm`]); a pure-`#xA` source collapses nothing, so the form is empty
+/// (the additive fast path).
+fn normalize_line_endings(raw: &str) -> (String, EndOfLineForm) {
     if !raw.contains('\r') {
-        // Fast path — no CR present, nothing to normalize.
-        return raw.to_string();
+        // Fast path — no `#xD` present, nothing to normalize and no §2.11 form
+        // to record (the form is empty, so serialization is a byte-identical
+        // no-op for pure-`#xA` input).
+        return (raw.to_string(), EndOfLineForm::default());
     }
     let mut out = String::with_capacity(raw.len());
+    let mut eols: Vec<(usize, EolKind)> = Vec::new();
+    // The 0-based index of the NEXT `#xA` to be written, among all `#xA` bytes in
+    // the normalized output — incremented for EVERY `#xA` (collapsed break OR
+    // source-literal `#xA`), so it stays in lockstep with the serializer's `#xA`
+    // count. A collapsed break records its kind at this ordinal; a literal `#xA`
+    // records nothing (there is nothing to put back) but still advances it.
+    let mut lf_ordinal = 0usize;
     let mut chars = raw.chars().peekable();
     while let Some(ch) = chars.next() {
-        if ch == '\r' {
-            // CRLF → LF (consume the following LF); lone CR → LF.
-            if chars.peek() == Some(&'\n') {
-                chars.next();
+        match ch {
+            '\r' => {
+                // CRLF → LF (consume the following LF); lone CR → LF. Record the
+                // erased form at this `#xA`'s ordinal.
+                let kind = if chars.peek() == Some(&'\n') {
+                    chars.next();
+                    EolKind::Crlf
+                } else {
+                    EolKind::Cr
+                };
+                eols.push((lf_ordinal, kind));
+                out.push('\n');
+                lf_ordinal += 1;
             }
-            out.push('\n');
-        } else {
-            out.push(ch);
+            '\n' => {
+                // A source literal `#xA` — passed through unchanged, records no
+                // form, but advances the ordinal so collapsed breaks AFTER it key
+                // correctly.
+                out.push('\n');
+                lf_ordinal += 1;
+            }
+            other => out.push(other),
         }
     }
-    out
+    (out, EndOfLineForm { eols })
 }
 
 /// Byte cursor with one-rune lookahead. Tracks position for error
@@ -399,6 +502,42 @@ impl<'a> Cursor<'a> {
         self.pos += n;
     }
 
+    /// W3C XML 1.0 §2.3 production \[3\] `S` — consume the white-space run at the
+    /// cursor AND return it, for the byte-exact serialized reverse lens to
+    /// re-emit (the intra-tag `S` layout the Infoset discards — §3.1
+    /// \[40\]/\[44\]). The returned slice is the exact consumed substring (after
+    /// the §2.11 end-of-line normalization already applied to the whole input);
+    /// empty when no white-space is present.
+    fn take_whitespace(&mut self) -> &'a str {
+        let rest = self.rest();
+        let n = rest
+            .bytes()
+            .take_while(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+            .count();
+        let run = &rest[..n];
+        self.pos += n;
+        run
+    }
+
+    /// The ENTIRE source span `[start, self.pos)` verbatim — the full §2.8 \[27\]
+    /// `Misc*` run (`Misc ::= Comment | PI | S`) the prolog/epilog consumed,
+    /// INCLUDING any Comment or processing-instruction the Information Set drops
+    /// at the document level (Cowan & Tobin 2004 §2.1 keeps document-level
+    /// *children* only for the root element). Used by the byte-exact serialized
+    /// reverse lens to re-emit a prolog/epilog `Misc*` that is NOT pure white-space
+    /// — e.g. the `<?xml-stylesheet ...?>` PI every USC USLM title carries (§2.6
+    /// \[16\] `PI`).
+    ///
+    /// For a pure-`S` `Misc*` (the WN-LMF case — XMLDecl, `S`, DOCTYPE, `S`, root)
+    /// this is byte-identical to the leading white-space, so a document with no
+    /// prolog/epilog PI or Comment is unaffected: the span IS its leading
+    /// white-space. The slice is taken from the §2.11-normalized input, so it
+    /// carries `#xA` line endings (the original `#xD#xA` form is a separate §2.11
+    /// concrete-syntax residue the byte kernel does not yet model).
+    fn misc_run_since(&self, start: usize) -> &'a str {
+        &self.input[start..self.pos]
+    }
+
     fn require_whitespace(&mut self, context: &str) -> Result<(), XmlParseError> {
         let before = self.pos;
         self.skip_whitespace();
@@ -428,19 +567,29 @@ impl<'a> Cursor<'a> {
     }
 }
 
-/// `(version, encoding, standalone, doctype)` parsed from the §2.8
-/// prolog. `version` is required; the rest are optional per the
-/// `XMLDecl?` / `doctypedecl?` productions.
+/// The Infoset-carried prolog projection — `(version, encoding, standalone,
+/// doctype)` parsed from the §2.8 prolog. `version` is required; the rest are
+/// optional per the `XMLDecl?` / `doctypedecl?` productions.
 type PrologParts = (String, Option<String>, Option<bool>, Option<XmlDoctype>);
+
+/// The §2.8 \[27\] `Misc` `S` white-space the prolog consumed OUTSIDE the
+/// Infoset — `(after_xml_decl, after_doctype)`. `after_xml_decl` is the `S`
+/// before the DOCTYPE-or-root; `after_doctype` the `S` before the root (empty
+/// when there is no DOCTYPE). The serialized reverse lens re-emits these for a
+/// byte-exact prolog.
+type PrologWhitespace = (String, String);
 
 /// W3C XML 1.0 §2.8 production \[22\] `prolog`:
 /// `prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?`.
 ///
-/// Returns `(version, encoding, standalone, doctype)`. The doctype, if
-/// present, is projected to a typed [`XmlDoctype`] carrying the
-/// root-element name, any `ExternalID`, and the inline general entity
-/// declarations parsed from the internal subset (§4.2 GEDecl).
-fn parse_prolog(c: &mut Cursor<'_>) -> Result<PrologParts, XmlParseError> {
+/// Returns `((version, encoding, standalone, doctype), (after_xml_decl,
+/// after_doctype))`. The doctype, if present, is projected to a typed
+/// [`XmlDoctype`] carrying the root-element name, any `ExternalID`, and the
+/// inline general entity declarations parsed from the internal subset (§4.2
+/// GEDecl). The second tuple is the §2.8 \[27\] `Misc` white-space (captured for
+/// the byte-exact serialized reverse lens — see
+/// [`PrologDecisions`](super::source_syntax::PrologDecisions)).
+fn parse_prolog(c: &mut Cursor<'_>) -> Result<(PrologParts, PrologWhitespace), XmlParseError> {
     // §2.8 — "The XML declaration MUST be the first thing in the
     // document." Whitespace, comments, or PIs before `<?xml ...?>`
     // are well-formedness errors. xmlconf xmltest/not-wf/sa/147
@@ -466,15 +615,31 @@ fn parse_prolog(c: &mut Cursor<'_>) -> Result<PrologParts, XmlParseError> {
         }
         ("1.0".into(), None, None)
     };
+    // §2.8 \[27\] Misc* after the XMLDecl, before the (optional) DOCTYPE or the
+    // root. Capture the FULL verbatim `Misc*` run (§2.6 \[16\] PI / §2.5 \[15\]
+    // Comment / §2.3 \[3\] S) for byte-exact prolog reconstruction — the
+    // `<?xml-stylesheet ...?>` PI every USC USLM title carries lives here. For a
+    // pure-`S` run (WN-LMF) this equals the leading white-space, so the prolog
+    // capture is unchanged for documents with no prolog PI/Comment.
+    let after_decl_start = c.pos;
     parse_misc_star(c)?;
+    let after_xml_decl = c.misc_run_since(after_decl_start).to_string();
     let doctype = if c.starts_with("<!DOCTYPE") {
         let dt = parse_doctype(c)?;
+        // §2.8 \[27\] Misc* after the DOCTYPE, before the root.
+        let after_doctype_start = c.pos;
         parse_misc_star(c)?;
-        Some(dt)
+        let after_doctype = c.misc_run_since(after_doctype_start).to_string();
+        (Some(dt), after_doctype)
     } else {
-        None
+        // No DOCTYPE — `after_doctype` is vacuously empty.
+        (None, String::new())
     };
-    Ok((version, encoding, standalone, doctype))
+    let (doctype, after_doctype) = doctype;
+    Ok((
+        (version, encoding, standalone, doctype),
+        (after_xml_decl, after_doctype),
+    ))
 }
 
 /// W3C XML 1.0 §2.8 production \[23\] `XMLDecl` and the productions
@@ -735,6 +900,13 @@ fn skip_pi(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 /// affect validity, not well-formedness, so the document still
 /// parses well-formedly without their typed representation.
 fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
+    // Capture the whole `<!DOCTYPE … >` declaration VERBATIM (after §2.11 EOL
+    // normalization) as PROLOG residue — the byte-exact serializer reproduces it
+    // exactly, the analogue of re-emitting the `<?xml?>` declaration bytes. The
+    // structured projection below STILL runs (it yields the typed entities used
+    // for entity-reference resolution and the PE-reference flag); this is a
+    // parallel verbatim slice, NOT a stored element-tree DOM.
+    let decl_start = c.pos;
     c.consume("<!DOCTYPE")?;
     c.require_whitespace("DOCTYPE name")?;
     let name = parse_name(c)?;
@@ -762,11 +934,16 @@ fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
     }
 
     c.consume(">")?;
+    // The whole declaration's verbatim bytes (`<!DOCTYPE … >`), captured only on
+    // the byte-exact reverse-lens read path; the serializer prefers it for
+    // byte-exact output and falls back to the structured re-projection otherwise.
+    let verbatim = Some(c.misc_run_since(decl_start).to_string());
     Ok(XmlDoctype {
         root_name: name.qualified(),
         external_id,
         general_entities,
         internal_subset_had_pe_references,
+        verbatim,
     })
 }
 
@@ -1103,6 +1280,10 @@ fn validate_attlist_default_values(
                 true,
                 AttValueTerminator::Eof,
                 &mut out,
+                // ATTLIST default-value validation discards `out`; no byte-exact
+                // capture is wanted here (the default-value bytes are inside the
+                // DOCTYPE internal subset, not on a live element).
+                &mut None,
             )
             .map_err(|e| match e {
                 XmlParseError::Syntax {
@@ -1620,6 +1801,73 @@ fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
     Ok(ch)
 }
 
+/// Parse a §4.1 \[66\] numeric character reference AND capture its exact source
+/// FORM as an [`ExtendedRefKind::Numeric`] (decimal vs hex, the hex letters' case,
+/// and the verbatim digit string incl. leading zeros) so the byte-exact serializer
+/// re-emits the reference spelling rather than the resolved literal char.
+///
+/// The form-aware sibling of [`parse_char_ref`]; the resolution rules (radix,
+/// §2.2 Char legality) are identical. Used only on the byte-exact capturing path —
+/// `parse_char_ref` stays the non-capturing default.
+fn parse_char_ref_capturing(c: &mut Cursor<'_>) -> Result<(char, ExtendedRefKind), XmlParseError> {
+    let start_pos = c.pos;
+    c.consume("&")?;
+    let (hex, upper_hex, digits, code_point) =
+        if c.rest().starts_with("#x") || c.rest().starts_with("#X") {
+            // Hex form `&#x…;` / `&#X…;` — preserve the `x`/`X` case AND the a–f
+            // digit case so e.g. `&#X2019;` round-trips.
+            let upper_x = c.rest().starts_with("#X");
+            c.consume(if upper_x { "#X" } else { "#x" })?;
+            let rest = c.rest();
+            let end = rest.find(';').ok_or_else(|| XmlParseError::UnexpectedEof {
+                context: "character reference".into(),
+            })?;
+            let digits = rest[..end].to_string();
+            let cp = u32::from_str_radix(&digits, 16).map_err(|_| XmlParseError::Syntax {
+                position: c.pos,
+                expected: "hex digits".into(),
+                found: digits.clone(),
+            })?;
+            c.pos += end + 1;
+            let upper_hex = upper_x || digits.chars().any(|ch| ch.is_ascii_uppercase());
+            (true, upper_hex, digits, cp)
+        } else if c.starts_with("#") {
+            c.consume("#")?;
+            let rest = c.rest();
+            let end = rest.find(';').ok_or_else(|| XmlParseError::UnexpectedEof {
+                context: "character reference".into(),
+            })?;
+            let digits = rest[..end].to_string();
+            let cp = digits.parse::<u32>().map_err(|_| XmlParseError::Syntax {
+                position: c.pos,
+                expected: "decimal digits".into(),
+                found: digits.clone(),
+            })?;
+            c.pos += end + 1;
+            (false, false, digits, cp)
+        } else {
+            return Err(c.syntax_error("character reference", &c.preview()));
+        };
+    let ch = char::from_u32(code_point).ok_or(XmlParseError::InvalidCharRef {
+        position: start_pos,
+        code_point,
+    })?;
+    if !is_xml_char(ch) {
+        return Err(XmlParseError::InvalidCharRef {
+            position: start_pos,
+            code_point,
+        });
+    }
+    Ok((
+        ch,
+        ExtendedRefKind::Numeric {
+            hex,
+            upper_hex,
+            digits,
+        },
+    ))
+}
+
 /// W3C XML 1.0 §3 production \[39\] `element`:
 /// `element ::= EmptyElemTag | STag content ETag`.
 ///
@@ -1631,7 +1879,20 @@ fn parse_element(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
+    capture: &mut Option<CaptureCtx>,
 ) -> Result<XmlElement, XmlParseError> {
+    // Claim this element's PRE-ORDER index AT ENTRY — before either the
+    // self-closing or the explicit branch, and before descending into any
+    // children — so the index ordering matches the byte-exact serializer's
+    // emit counter (root = 0, children strictly after their parent, document
+    // order within a level). The self-closing path consumes the index and
+    // records nothing (`SelfClosing` is the serializer default); the explicit
+    // path records `Explicit` for a childless `<a></a>`.
+    let my_index = capture.as_mut().map(|ctx| {
+        let idx = ctx.counter;
+        ctx.counter += 1;
+        idx
+    });
     c.consume("<")?;
     let name = parse_name(c)?;
     let mut attributes: Vec<XmlAttribute> = Vec::new();
@@ -1642,24 +1903,63 @@ fn parse_element(
     // compatibility with consumers that only need a representative.
     let mut namespaces: Vec<XmlNamespace> = Vec::new();
 
+    // Reader capture for the §3.1 [40]/[44] start-tag white-space LAYOUT (the
+    // `S` runs between the name, attributes, and the close — the real corpus's
+    // multi-line attribute indentation) and the §4.6 predefined-entity-reference
+    // FORM in each attribute value. Both ride the attribute-like SOURCE ORDER
+    // slot (every `xmlns` decl AND every regular attribute, the order the
+    // byte-exact serializer re-emits them for in-scope inputs). Only built when
+    // capturing.
+    let capturing = my_index.is_some();
+    let mut intra_ws = capturing.then(IntraTagWhitespace::default);
+    let mut attr_refs: BTreeMap<usize, EntityReferenceForm> = BTreeMap::new();
+    let mut attr_slot: usize = 0;
+    // The EXACT ordered start-tag token sequence (every `xmlns` decl AND every
+    // regular attribute, in source order) — recorded for the byte-exact
+    // serialized reverse lens so an INTERLEAVED start-tag (the USC `<uscDoc>`
+    // root: attributes before its `xmlns` decls) re-emits in source order. Only
+    // built when capturing; only retained when non-canonical (see
+    // `record_start_tag_decisions`).
+    let mut start_tag_tokens: Vec<StartTagToken> = Vec::new();
+
     loop {
-        let had_ws = {
-            let before = c.pos;
-            c.skip_whitespace();
-            c.pos != before
-        };
+        // §3.1 [40] `STag ::= '<' Name (S Attribute)* S? '>'` (and [44]
+        // EmptyElemTag) — the `S` run here is EITHER the leading `S` of the next
+        // `(S Attribute)` group OR the trailing `S?` before the close. Capture
+        // the exact run; classify it once the next token reveals which.
+        let ws_run = c.take_whitespace();
+        let had_ws = !ws_run.is_empty();
         if c.starts_with("/>") {
+            if let Some(iw) = intra_ws.as_mut() {
+                iw.before_close = ws_run.to_string();
+            }
             c.consume("/>")?;
             let namespace = namespaces.first().cloned();
-            return Ok(XmlElement {
+            let element = XmlElement {
                 name,
                 namespace,
                 namespaces,
                 attributes,
                 children: Vec::new(),
-            });
+            };
+            // A self-closing childless element keeps the canonical empty-element
+            // form (no `empty_form` decision), but it may still carry non-canonical
+            // intra-tag white-space, attribute entity-ref forms, and an interleaved
+            // start-tag token order — record those.
+            record_start_tag_decisions(
+                capture,
+                my_index,
+                &intra_ws,
+                &attr_refs,
+                &start_tag_tokens,
+                None,
+            );
+            return Ok(element);
         }
         if c.starts_with(">") {
+            if let Some(iw) = intra_ws.as_mut() {
+                iw.before_close = ws_run.to_string();
+            }
             c.consume(">")?;
             break;
         }
@@ -1669,11 +1969,31 @@ fn parse_element(
         // §3.1 production [41] `Attribute ::= Name Eq AttValue`.
         // Namespace declarations (Bray, Hollander, Layman & Tobin
         // 2009 §3) use the reserved `xmlns` / `xmlns:prefix` form.
+        // §3.1 [25] `Eq ::= S? '=' S?` — capture the two S? runs straddling `=`.
         let attr_name = parse_name(c)?;
-        c.skip_whitespace();
+        let name_to_eq = c.take_whitespace().to_string();
         c.consume("=")?;
-        c.skip_whitespace();
-        let value = parse_att_value(c, entities, strict_entity_declared)?;
+        let eq_to_value = c.take_whitespace().to_string();
+        // Per-attribute reference-form capture sink (only when capturing): the
+        // closed §4.6 predefined set PLUS the open §4.1 numeric/general-entity
+        // forms (the `&rdfs;seeAlso` reference prov_o writes in `rdf:resource`).
+        let mut value_ref_sink: Option<AttrRefSink> = capturing.then(AttrRefSink::default);
+        let value = parse_att_value(c, entities, strict_entity_declared, &mut value_ref_sink)?;
+
+        if let Some(iw) = intra_ws.as_mut() {
+            iw.before_attr.push(ws_run.to_string());
+            iw.around_eq.push((name_to_eq, eq_to_value));
+        }
+        if let Some(sink) = value_ref_sink.filter(|s| !s.is_empty()) {
+            attr_refs.insert(
+                attr_slot,
+                EntityReferenceForm {
+                    refs: sink.predefined,
+                    ext_refs: sink.ext,
+                },
+            );
+        }
+        attr_slot += 1;
 
         let is_ns_decl = attr_name.prefix.as_deref() == Some("xmlns")
             || (attr_name.prefix.is_none() && attr_name.local == "xmlns");
@@ -1683,7 +2003,11 @@ fn parse_element(
             } else {
                 None
             };
-            namespaces.push(XmlNamespace { prefix, uri: value });
+            let ns = XmlNamespace { prefix, uri: value };
+            if capturing {
+                start_tag_tokens.push(StartTagToken::Namespace(ns.clone()));
+            }
+            namespaces.push(ns);
         } else {
             // W3C XML 1.0 §3.1 well-formedness constraint Unique Att
             // Spec — the same attribute name (qualified) MUST NOT
@@ -1694,15 +2018,23 @@ fn parse_element(
                     name: attr_name.qualified(),
                 });
             }
-            attributes.push(XmlAttribute {
+            let attr = XmlAttribute {
                 name: attr_name,
                 value,
-            });
+            };
+            if capturing {
+                start_tag_tokens.push(StartTagToken::Attribute(attr.clone()));
+            }
+            attributes.push(attr);
         }
     }
 
-    // content + ETag
-    let children = parse_content(c, entities, strict_entity_declared)?;
+    // content + ETag — the EXPLICIT (`STag content ETag`) form. The cursor is
+    // PAST the start-tag `>`; children come from `parse_content`, which threads
+    // the same `capture` so descendant elements claim later pre-order indices.
+    // It also returns the per-text-child §4.6 predefined-entity-reference forms,
+    // which key into THIS element's decisions (the char-data third coordinate).
+    let (children, text_refs) = parse_content(c, entities, strict_entity_declared, capture)?;
     c.consume("</")?;
     let close_name = parse_name(c)?;
     c.skip_whitespace();
@@ -1715,6 +2047,22 @@ fn parse_element(
         });
     }
 
+    // Reader capture: a childless element written in the EXPLICIT `<a></a>`
+    // form is one non-canonical decision — the canonical serializer would
+    // self-close it, so without this the bytes would not round-trip. A childless
+    // self-closing `<a/>` reached the early return above. A non-empty element
+    // carries its form in its children and needs no `empty_form` decision.
+    let empty_form = (children.is_empty()).then_some(EmptyForm::Explicit);
+    let text_entity_refs: BTreeMap<usize, EntityReferenceForm> = text_refs.into_iter().collect();
+    record_start_tag_decisions(
+        capture,
+        my_index,
+        &intra_ws,
+        &attr_refs,
+        &start_tag_tokens,
+        Some((empty_form, text_entity_refs)),
+    );
+
     let namespace = namespaces.first().cloned();
     Ok(XmlElement {
         name,
@@ -1723,6 +2071,78 @@ fn parse_element(
         attributes,
         children,
     })
+}
+
+/// Fold the start-tag-position concrete-syntax captures (§3.1 [40]/[44]
+/// intra-tag white-space, §4.6 attribute-value entity-reference forms) and the
+/// content-position captures (the `empty_form` decision and §4.6 char-data
+/// entity-reference forms) into ONE [`NodeDecisions`] keyed by the element's
+/// pre-order index. Records nothing when not capturing or when every capture is
+/// the canonical default — preserving `SyntaxDecisions::default()` for a
+/// canonical document so existing callers are unaffected.
+///
+/// `content` is `None` for the self-closing early-return (no `empty_form`, no
+/// char-data refs yet), `Some((empty_form, text_entity_refs))` for the explicit
+/// `STag content ETag` exit.
+///
+/// `start_tag_tokens` is the start-tag's `(S Attribute)*` sequence in EXACT
+/// source order; it is recorded into [`NodeDecisions::start_tag_order`] ONLY when
+/// the order is NON-CANONICAL — i.e. an `xmlns` declaration does not strictly
+/// precede every regular attribute ([`start_tag_order_is_canonical`]). A
+/// canonically-ordered tag records nothing, so the byte-exact serializer's
+/// default ns-then-attr emit is unchanged (WordNet, most USC elements).
+fn record_start_tag_decisions(
+    capture: &mut Option<CaptureCtx>,
+    my_index: Option<usize>,
+    intra_ws: &Option<IntraTagWhitespace>,
+    attr_refs: &BTreeMap<usize, EntityReferenceForm>,
+    start_tag_tokens: &[StartTagToken],
+    content: Option<(Option<EmptyForm>, BTreeMap<usize, EntityReferenceForm>)>,
+) {
+    let (Some(ctx), Some(idx)) = (capture.as_mut(), my_index) else {
+        return;
+    };
+    let (empty_form, text_entity_refs) = content.unwrap_or((None, BTreeMap::new()));
+    // Only the non-canonical intra-tag layout is worth recording; a canonical
+    // single-space single-line tag matches the writer's default and is dropped.
+    let intra_tag_whitespace = intra_ws.as_ref().filter(|iw| !iw.is_canonical()).cloned();
+    // Only an INTERLEAVED start-tag (an `xmlns` decl after a regular attribute)
+    // needs its exact order recorded; a canonical ns-then-attr order matches the
+    // serializer's default and is dropped.
+    let start_tag_order =
+        (!start_tag_order_is_canonical(start_tag_tokens)).then(|| start_tag_tokens.to_vec());
+    let decisions = NodeDecisions {
+        empty_form,
+        intra_tag_whitespace,
+        attr_entity_refs: attr_refs.clone(),
+        text_entity_refs,
+        start_tag_order,
+    };
+    if decisions != NodeDecisions::default() {
+        ctx.decisions.set(idx, decisions);
+    }
+}
+
+/// Whether a start-tag's token sequence is in the CANONICAL ns-then-attr order
+/// the byte-exact serializer emits by default — every [`StartTagToken::Namespace`]
+/// precedes every [`StartTagToken::Attribute`]. When `true`, no
+/// [`NodeDecisions::start_tag_order`] is recorded (the default emit reproduces
+/// it). When `false` — an `xmlns` decl follows a regular attribute, as on the USC
+/// `<uscDoc>` root — the exact order must be carried so the serializer can
+/// interleave them faithfully.
+fn start_tag_order_is_canonical(tokens: &[StartTagToken]) -> bool {
+    let mut seen_attribute = false;
+    for token in tokens {
+        match token {
+            StartTagToken::Attribute(_) => seen_attribute = true,
+            StartTagToken::Namespace(_) => {
+                if seen_attribute {
+                    return false;
+                }
+            }
+        }
+    }
+    true
 }
 
 /// W3C XML 1.0 §2.3 production \[5\] `Name`:
@@ -1828,6 +2248,7 @@ fn parse_att_value(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
+    ref_capture: &mut Option<AttrRefSink>,
 ) -> Result<String, XmlParseError> {
     let quote = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
         context: "AttValue".into(),
@@ -1846,6 +2267,7 @@ fn parse_att_value(
         strict_entity_declared,
         AttValueTerminator::Quote(quote),
         &mut out,
+        ref_capture,
     )?;
     c.pos += quote.len_utf8();
     Ok(out)
@@ -1894,6 +2316,13 @@ fn parse_att_value_body_into(
     strict_entity_declared: bool,
     term: AttValueTerminator,
     out: &mut String,
+    // Reader-side capture sink for the reference FORM (the closed §4.6 predefined
+    // set AND the open §4.1 numeric `&#39;` / general-entity `&rdfs;` forms),
+    // keyed by char index into the resolved value. `None` on the non-capturing
+    // path (`parse_document`) and on the ATTLIST default-value validation path,
+    // which discard their output. See
+    // [`EntityReferenceForm`](super::source_syntax::EntityReferenceForm).
+    ref_capture: &mut Option<AttrRefSink>,
 ) -> Result<(), XmlParseError> {
     loop {
         match term {
@@ -1922,8 +2351,23 @@ fn parse_att_value_body_into(
         }
         if ch == '&' {
             if c.rest().starts_with("&#") {
-                let ch_val = parse_char_ref(c)?;
-                out.push(ch_val);
+                // §4.1 [66] CharRef `&#N;`/`&#xN;`. When capturing, record the
+                // exact numeric FORM (decimal/hex, case, verbatim digits) as an
+                // [`ExtendedRef`] keyed by the resolved char's index, so the
+                // byte-exact serializer re-emits the reference rather than the
+                // resolved literal char. The non-capturing path resolves to the
+                // char as before.
+                if let Some(sink) = ref_capture.as_mut() {
+                    let (ch_val, kind) = parse_char_ref_capturing(c)?;
+                    sink.ext.push(ExtendedRef {
+                        char_index: out.chars().count(),
+                        kind,
+                    });
+                    out.push(ch_val);
+                } else {
+                    let ch_val = parse_char_ref(c)?;
+                    out.push(ch_val);
+                }
             } else {
                 let ref_pos = c.pos;
                 c.consume("&")?;
@@ -1935,8 +2379,27 @@ fn parse_att_value_body_into(
                 // spec source's `<div2 id="sec-predefined-ent">` block
                 // (see `pr4xis::codegen::xml_grammar::extract_predefined_entities`).
                 if let Some(ch) = crate::social::software::markup::xml::spec_1_0::grammar::resolve_predefined_entity(&qualified) {
+                    // Reader capture: record that the char about to be pushed was
+                    // written as a §4.6 predefined entity reference, at its char
+                    // index in the resolved value (counted in chars, not bytes —
+                    // the serializer iterates `chars()` and refs sit next to
+                    // multibyte chars). `EntityName::for_resolved_char` is the
+                    // inverse of the resolution table for the closed §4.6 set.
+                    if let (Some(sink), Some(entity)) =
+                        (ref_capture.as_mut(), EntityName::for_resolved_char(ch))
+                    {
+                        sink.predefined.push((out.chars().count(), entity));
+                    }
                     out.push(ch);
                 } else {
+                    // §4.1 [68] reference to a DTD-declared general entity
+                    // (`&rdfs;seeAlso`). The inclusion EXPANDS the replacement
+                    // text into `out`; when capturing, record the reference FORM
+                    // (the entity name + the expansion's resolved-char length) as
+                    // an [`ExtendedRef`] so the byte-exact serializer re-emits the
+                    // `&name;` reference and skips the expanded run — reproducing
+                    // the internal-subset entity reference WITHOUT storing a DOM.
+                    let ref_char_index = out.chars().count();
                     include_user_general_entity_in_att_value(
                         &qualified,
                         ref_pos,
@@ -1945,6 +2408,16 @@ fn parse_att_value_body_into(
                         strict_entity_declared,
                         out,
                     )?;
+                    if let Some(sink) = ref_capture.as_mut() {
+                        let expansion_chars = out.chars().count() - ref_char_index;
+                        sink.ext.push(ExtendedRef {
+                            char_index: ref_char_index,
+                            kind: ExtendedRefKind::General {
+                                name: qualified,
+                                expansion_chars,
+                            },
+                        });
+                    }
                 }
             }
         } else if matches!(ch, '\t' | '\n' | '\r') {
@@ -2023,6 +2496,12 @@ fn include_user_general_entity_in_att_value(
             let value = entity.value.clone();
             let mut sub = Cursor::new(&value);
             visited.push(name.to_string());
+            // The replacement text is re-parsed with NO inner capture (`&mut
+            // None`): the `&name;` user-entity reference FORM is recorded ONCE at
+            // the OUTER call site (`parse_att_value_body_into`'s general-entity
+            // branch) as an `ExtendedRef::General` keyed by the reference's char
+            // index plus the expansion's char-length. Capturing the inner refs
+            // here would double-count and shift those char indices.
             let result = parse_att_value_body_into(
                 &mut sub,
                 entities,
@@ -2030,6 +2509,7 @@ fn include_user_general_entity_in_att_value(
                 strict_entity_declared,
                 AttValueTerminator::Eof,
                 out,
+                &mut None,
             );
             visited.pop();
             result
@@ -2051,13 +2531,26 @@ enum ContentTerminator {
     Eof,
 }
 
+/// The child nodes of an element plus — when capturing — the per-text-child
+/// §4.6 predefined-entity-reference forms: each `(text-child ordinal,
+/// EntityReferenceForm)` pair keys into the element's `NodeDecisions` to
+/// complete the char-data key `(element index, text-child ordinal, char index)`.
+/// Empty `Vec` of forms on the non-capturing path.
+type ContentWithRefs = (Vec<XmlNode>, Vec<(usize, EntityReferenceForm)>);
+
 /// W3C XML 1.0 §3 production \[43\] `content`:
 /// `content ::= CharData? ((element | Reference | CDSect | PI | Comment) CharData?)*`.
+///
+/// Returns the child nodes and — when `capture` is `Some` — the per-text-child
+/// §4.6 predefined-entity-reference forms (see [`ContentWithRefs`]). The caller
+/// ([`parse_element`]) folds those into the element's `NodeDecisions` under the
+/// element's own pre-order index.
 fn parse_content(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
-) -> Result<Vec<XmlNode>, XmlParseError> {
+    capture: &mut Option<CaptureCtx>,
+) -> Result<ContentWithRefs, XmlParseError> {
     let mut visited = Vec::new();
     parse_content_with_terminator(
         c,
@@ -2065,6 +2558,7 @@ fn parse_content(
         &mut visited,
         strict_entity_declared,
         ContentTerminator::Etag,
+        capture,
     )
 }
 
@@ -2084,9 +2578,13 @@ fn parse_content_with_terminator(
     visited: &mut Vec<String>,
     strict_entity_declared: bool,
     term: ContentTerminator,
-) -> Result<Vec<XmlNode>, XmlParseError> {
+    capture: &mut Option<CaptureCtx>,
+) -> Result<ContentWithRefs, XmlParseError> {
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut text_buf = String::new();
+    // Capture the §4.6 predefined-entity-reference form in char data only on the
+    // capturing path; `None` makes every `flush_text_capturing` a plain flush.
+    let mut text_ref: Option<TextRefCapture> = capture.as_ref().map(|_| TextRefCapture::default());
     parse_content_into_buffers(
         c,
         entities,
@@ -2095,9 +2593,12 @@ fn parse_content_with_terminator(
         term,
         &mut nodes,
         &mut text_buf,
+        capture,
+        &mut text_ref,
     )?;
-    flush_text(&mut nodes, &mut text_buf);
-    Ok(nodes)
+    flush_text_capturing(&mut nodes, &mut text_buf, &mut text_ref);
+    let text_refs = text_ref.map(|cap| cap.done).unwrap_or_default();
+    Ok((nodes, text_refs))
 }
 
 /// Inner content-loop sharing the parent's `nodes` and
@@ -2112,6 +2613,15 @@ fn parse_content_with_terminator(
 ///
 /// Returns on terminator without flushing `text_buf`; the
 /// outermost caller is responsible for flushing.
+///
+/// Each argument is a genuinely distinct threaded value of the
+/// content-loop (the cursor, the declared entities, the §4.1
+/// No-Recursion `visited` stack, the entity-declared strictness
+/// flag, the terminator, the two shared `nodes`/`text_buf`
+/// accumulators, the reader `capture`, and the `text_ref` §4.6
+/// reference-form sink riding alongside `text_buf`), so the count
+/// is intrinsic rather than a flag-bag to be folded into a struct.
+#[allow(clippy::too_many_arguments)]
 fn parse_content_into_buffers(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
@@ -2120,6 +2630,8 @@ fn parse_content_into_buffers(
     term: ContentTerminator,
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
+    capture: &mut Option<CaptureCtx>,
+    text_ref: &mut Option<TextRefCapture>,
 ) -> Result<(), XmlParseError> {
     use crate::social::software::markup::xml::spec_1_0::{
         ContentItemKind, loaded_content_dispatch_table,
@@ -2159,23 +2671,23 @@ fn parse_content_into_buffers(
         // grammar-extracted common prefix is "&".
         match dispatch.classify(c.rest()) {
             ContentItemKind::Comment => {
-                flush_text(nodes, text_buf);
+                flush_text_capturing(nodes, text_buf, text_ref);
                 nodes.push(parse_comment_node(c)?);
                 continue;
             }
             ContentItemKind::CDataSection => {
-                flush_text(nodes, text_buf);
+                flush_text_capturing(nodes, text_buf, text_ref);
                 nodes.push(parse_cdata_node(c)?);
                 continue;
             }
             ContentItemKind::ProcessingInstruction => {
-                flush_text(nodes, text_buf);
+                flush_text_capturing(nodes, text_buf, text_ref);
                 nodes.push(parse_pi_node(c)?);
                 continue;
             }
             ContentItemKind::Element => {
-                flush_text(nodes, text_buf);
-                let child = parse_element(c, entities, strict_entity_declared)?;
+                flush_text_capturing(nodes, text_buf, text_ref);
+                let child = parse_element(c, entities, strict_entity_declared, capture)?;
                 nodes.push(XmlNode::Element(child));
                 continue;
             }
@@ -2208,8 +2720,23 @@ fn parse_content_into_buffers(
             //      entity expansion that does NOT form a valid
             //      content fragment — are rejected here.
             if c.rest().starts_with("&#") {
-                let ch_val = parse_char_ref(c)?;
-                text_buf.push(ch_val);
+                // §4.1 [66] CharRef. When capturing, record the exact numeric FORM
+                // (decimal/hex, case, verbatim digits) as an [`ExtendedRef`] keyed
+                // by the resolved char's index, so the byte-exact serializer
+                // re-emits `&#39;`/`&#x27;` rather than the resolved literal char.
+                // The non-capturing `parse_document` path resolves to the char as
+                // before.
+                if let Some(cap) = text_ref.as_mut() {
+                    let (ch_val, kind) = parse_char_ref_capturing(c)?;
+                    cap.pending_ext.push(ExtendedRef {
+                        char_index: text_buf.chars().count(),
+                        kind,
+                    });
+                    text_buf.push(ch_val);
+                } else {
+                    let ch_val = parse_char_ref(c)?;
+                    text_buf.push(ch_val);
+                }
             } else {
                 let ref_pos = c.pos;
                 c.consume("&")?;
@@ -2221,8 +2748,33 @@ fn parse_content_into_buffers(
                 // spec source's `<div2 id="sec-predefined-ent">` block
                 // (see `pr4xis::codegen::xml_grammar::extract_predefined_entities`).
                 if let Some(ch) = crate::social::software::markup::xml::spec_1_0::grammar::resolve_predefined_entity(&qualified) {
+                    // Reader capture: record the §4.6 reference at its char index
+                    // in the CURRENT text buffer (chars, not bytes — the buffer
+                    // spans the entity-inclusion boundary and may abut multibyte
+                    // chars). Flushed to the text node's child ordinal by
+                    // `flush_text_capturing`.
+                    if let (Some(cap), Some(entity)) =
+                        (text_ref.as_mut(), EntityName::for_resolved_char(ch))
+                    {
+                        cap.pending.push((text_buf.chars().count(), entity));
+                    }
                     text_buf.push(ch);
                 } else {
+                    // §4.1 [68] general-entity reference in content. When
+                    // capturing, record the reference FORM (name + expansion
+                    // char-length) as an [`ExtendedRef`] so the byte-exact writer
+                    // re-emits `&name;`. The inclusion may splice further nodes
+                    // (the replacement text is re-parsed as content); the simple
+                    // char-index keying only works when the expansion is pure
+                    // text appended to `text_buf` (no spliced element/comment
+                    // nodes). If it spliced nodes, fail closed — the capture is
+                    // out of this slice's byte-exact scope rather than a silent
+                    // mismatch. (prov_o's general-entity refs are all in attribute
+                    // VALUES, so this content path is not exercised by it.)
+                    let nodes_before = nodes.len();
+                    let chars_before = text_buf.chars().count();
+                    let ext_before = text_ref.as_ref().map_or(0, |t| t.pending_ext.len());
+                    let pred_before = text_ref.as_ref().map_or(0, |t| t.pending.len());
                     include_user_general_entity_in_content(
                         &qualified,
                         ref_pos,
@@ -2231,7 +2783,37 @@ fn parse_content_into_buffers(
                         strict_entity_declared,
                         nodes,
                         text_buf,
+                        capture,
+                        text_ref,
                     )?;
+                    if let Some(cap) = text_ref.as_mut() {
+                        // Capture the §4.1 general-entity reference FORM ONLY when
+                        // the expansion is PURE TEXT appended to `text_buf` — no
+                        // spliced element/comment nodes, no nested refs captured
+                        // inside (which would shift the char-index keying the
+                        // single `&name;` slot relies on). A non-pure expansion
+                        // (an entity whose replacement text contains markup, as in
+                        // `<!ENTITY e "<m></m>">`) is NOT recorded: it remains the
+                        // existing §4.4.3 spliced-DOM behaviour, byte-INEXACT in
+                        // its reference syntax (a separate later slice) but a
+                        // well-formed PARSE — never a fail-closed error. The
+                        // bundled byte-exact OWL vocabs use general-entity refs
+                        // only in ATTRIBUTE values (pure-text URIs), so this
+                        // content path's non-capture does not affect them.
+                        let pure_text = nodes.len() == nodes_before
+                            && cap.pending_ext.len() == ext_before
+                            && cap.pending.len() == pred_before;
+                        if pure_text {
+                            let expansion_chars = text_buf.chars().count() - chars_before;
+                            cap.pending_ext.push(ExtendedRef {
+                                char_index: chars_before,
+                                kind: ExtendedRefKind::General {
+                                    name: qualified,
+                                    expansion_chars,
+                                },
+                            });
+                        }
+                    }
                 }
             }
         } else {
@@ -2266,6 +2848,12 @@ fn parse_content_into_buffers(
 /// EntityValue) as a `content` fragment at the reference
 /// position. The resulting nodes are spliced into the parent's
 /// node list.
+///
+/// Mirrors [`parse_content_into_buffers`]'s threaded state (it
+/// forwards the same `nodes`/`text_buf`/`capture`/`text_ref`
+/// accumulators into the §4.4.3 re-parse), so the argument count is
+/// intrinsic.
+#[allow(clippy::too_many_arguments)]
 fn include_user_general_entity_in_content(
     name: &str,
     ref_pos: usize,
@@ -2274,6 +2862,8 @@ fn include_user_general_entity_in_content(
     strict_entity_declared: bool,
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
+    capture: &mut Option<CaptureCtx>,
+    text_ref: &mut Option<TextRefCapture>,
 ) -> Result<(), XmlParseError> {
     if visited.iter().any(|n| n == name) {
         return Err(XmlParseError::Syntax {
@@ -2337,6 +2927,16 @@ fn include_user_general_entity_in_content(
                 ContentTerminator::Eof,
                 nodes,
                 text_buf,
+                // §4.4.3 inclusion re-parses the entity's replacement text on
+                // the SAME capture context, so an element materialized from an
+                // entity still claims its pre-order index at entry — the
+                // counter threads straight through the inclusion boundary.
+                capture,
+                // The §4.6 reference-form sink also threads through: char data
+                // straddling the inclusion boundary is one text node, so its
+                // refs accumulate into one `pending` run keyed by the eventual
+                // child ordinal.
+                text_ref,
             );
             visited.pop();
             result
@@ -2344,8 +2944,73 @@ fn include_user_general_entity_in_content(
     }
 }
 
-fn flush_text(nodes: &mut Vec<XmlNode>, buf: &mut String) {
+/// Reader-side accumulator for the §4.6 predefined-entity-reference FORM in
+/// CHAR DATA (which resolved chars of a text node were written as
+/// `&amp;`/`&lt;`/`&gt;`/`&apos;`/`&quot;`), keyed by the text node's child
+/// ordinal — the third coordinate of the char-data key
+/// `(element index, text-child ordinal, char index)`.
+///
+/// `pending` collects `(char_index, entity_name)` for the CURRENTLY buffered
+/// text run (char index into the running `text_buf`, counted in chars to match
+/// the serializer's `chars()` walk). `done` holds completed
+/// `(child_ordinal, EntityReferenceForm)` flushed when the text node is pushed.
+/// A text node spans the entity-inclusion boundary (§4.4.3) — its char indices
+/// and refs accumulate across the `text_buf` lifetime, so capture rides
+/// alongside `text_buf` and is flushed by [`flush_text_capturing`].
+/// Reader-side capture sink for the reference FORM inside ONE attribute value —
+/// the closed §4.6 predefined set ([`EntityName`], one resolved char each) plus
+/// the open §4.1 numeric / general-entity forms ([`ExtendedRef`]), both keyed by
+/// resolved-string char index. Flushed into one [`EntityReferenceForm`] per
+/// attribute slot. Empty for a canonical value (no resolved references), so the
+/// capture is purely additive.
+#[derive(Debug, Default)]
+struct AttrRefSink {
+    /// The §4.6 predefined references (`&amp;`/`&lt;`/`&gt;`/`&apos;`/`&quot;`).
+    predefined: Vec<(usize, EntityName)>,
+    /// The §4.1 numeric (`&#39;`) / general-entity (`&rdfs;`) references.
+    ext: Vec<ExtendedRef>,
+}
+
+impl AttrRefSink {
+    fn is_empty(&self) -> bool {
+        self.predefined.is_empty() && self.ext.is_empty()
+    }
+}
+
+#[derive(Debug, Default)]
+struct TextRefCapture {
+    pending: Vec<(usize, EntityName)>,
+    /// The §4.1 numeric/general reference forms in the CURRENTLY buffered text
+    /// run (char index into the running `text_buf`), the open-set sibling of
+    /// `pending`'s closed §4.6 predefined set — `&#39;` numeric refs and `&rdfs;`
+    /// general-entity refs. Flushed alongside `pending` by
+    /// [`flush_text_capturing`].
+    pending_ext: Vec<ExtendedRef>,
+    done: Vec<(usize, EntityReferenceForm)>,
+}
+
+/// Flush `text_buf` into a `Text` node AND, when capturing, key its pending
+/// §4.6 reference form by the ordinal the text node takes among the element's
+/// children. `nodes.len()` is that ordinal BEFORE the push, matching the
+/// serializer which counts the same child position as it walks `el.children`.
+fn flush_text_capturing(
+    nodes: &mut Vec<XmlNode>,
+    buf: &mut String,
+    text_ref: &mut Option<TextRefCapture>,
+) {
     if !buf.is_empty() {
+        if let Some(cap) = text_ref.as_mut()
+            && (!cap.pending.is_empty() || !cap.pending_ext.is_empty())
+        {
+            let child_ordinal = nodes.len();
+            cap.done.push((
+                child_ordinal,
+                EntityReferenceForm {
+                    refs: core::mem::take(&mut cap.pending),
+                    ext_refs: core::mem::take(&mut cap.pending_ext),
+                },
+            ));
+        }
         nodes.push(XmlNode::Text(core::mem::take(buf)));
     }
 }
@@ -2479,4 +3144,498 @@ fn check_chars_in_range(
         offset_within_body += ch.len_utf8();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod reverse_lens_roundtrip_tests {
+    //! The correctness gate for the serialized reverse lens: `parse_document_capturing`
+    //! records the concrete-syntax decisions so that
+    //! `serialize_document_exact(&doc, &decisions)` reproduces the input
+    //! BYTE-FOR-BYTE.
+    //!
+    //! Scope of the captured non-canonical concrete-syntax features:
+    //! - the empty-element form — `<a></a>` (explicit) vs the canonical `<a/>`
+    //!   (W3C XML 1.0 §3.1);
+    //! - prolog / epilog `Misc` white-space (§2.8 \[27\]);
+    //! - the intra-tag white-space LAYOUT (§3.1 \[40\]/\[44\] — the real corpus's
+    //!   multi-line attribute indentation);
+    //! - the §4.6 predefined-entity-reference FORM (`&amp; &lt; &gt; &apos;
+    //!   &quot;`) the source used in attribute values and char data (the parser
+    //!   resolves these to a literal char, so without the capture the serializer
+    //!   would emit the bare char — a byte mismatch).
+    //!
+    //! Still out of scope (a §4.1 numeric character reference `&#N;`, a
+    //! user-declared DTD general entity's reference syntax, the `standalone`
+    //! xml-decl attr, and an element co-locating an `xmlns` declaration with
+    //! non-`xmlns` attributes) — those are later slices; the reader fails LOUD
+    //! (a `debug_assert`) rather than silently dropping a numeric reference when
+    //! capturing.
+
+    use super::super::serializer::serialize_document_exact;
+    use super::super::source_syntax::{EmptyForm, EntityName, NodeDecisions};
+    use super::{XmlNode, parse_document_capturing};
+
+    /// Assert the full byte-exact round-trip law: `serialize_document_exact ∘
+    /// parse_document_capturing` is the identity on `input` (for inputs whose
+    /// non-canonical features are all in this slice's scope).
+    fn assert_byte_exact_roundtrip(input: &[u8]) {
+        let (doc, decisions) = parse_document_capturing(input).expect("input parses");
+        let out = serialize_document_exact(&doc, &decisions);
+        assert_eq!(
+            out,
+            input.to_vec(),
+            "round-trip mismatch\n  in : {:?}\n  out: {:?}",
+            core::str::from_utf8(input),
+            core::str::from_utf8(&out),
+        );
+    }
+
+    #[test]
+    fn roundtrip_mixed_empty_forms_and_text() {
+        // (a) `a` explicit-empty, `b` self-closing, `c` has text — the three
+        // forms side by side. Uses the exact XML decl the serializer emits.
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><a></a><b/><c>text</c></root>"#;
+        assert_byte_exact_roundtrip(input);
+    }
+
+    #[test]
+    fn roundtrip_indented_document_with_attributes() {
+        // Whitespace BETWEEN elements (indentation) is kept VERBATIM by
+        // `flush_text` as Text nodes and emitted unchanged, and attributes keep
+        // their source order — so an indented document round-trips byte-for-byte
+        // with only the empty-element form (`<a …></a>`) needing a decision.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><root>\n  <a x=\"1\" y=\"2\"></a>\n  <b/>\n  <c>text</c>\n</root>";
+        assert_byte_exact_roundtrip(input);
+    }
+
+    #[test]
+    fn roundtrip_wn_lmf_fragment() {
+        // A representative WN-LMF 1.3 document: XML decl + DOCTYPE (SYSTEM id) +
+        // an indented Lexicon with attributes, self-closing childless elements
+        // (`Lemma`, `Sense`), and text content (`Definition`). Every childless
+        // element is written self-closing (the canonical form), so the document
+        // needs NO per-element concrete-syntax decision. Its one residual is the
+        // §2.8 [27] `Misc` `S` in the prolog — the `\n` between the XML decl and
+        // the DOCTYPE, and the `\n` between the DOCTYPE and the root — which the
+        // reader now captures into `PrologDecisions` and the writer re-emits, so
+        // it round-trips byte-for-byte. This measures the real residual for
+        // WordNet-shaped input.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd\">\n<LexicalResource>\n  <Lexicon id=\"ewn\" label=\"English WordNet\">\n    <LexicalEntry id=\"w1\">\n      <Lemma writtenForm=\"dog\" partOfSpeech=\"n\"/>\n      <Sense id=\"s1\" synset=\"syn-1\"/>\n    </LexicalEntry>\n    <Synset id=\"syn-1\" partOfSpeech=\"n\">\n      <Definition>a domesticated carnivore</Definition>\n    </Synset>\n  </Lexicon>\n</LexicalResource>";
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the captured prolog white-space: a `\n` after the XML decl (before
+        // the DOCTYPE) and a `\n` after the DOCTYPE (before the root). No epilog.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let prolog = decisions.prolog();
+        assert_eq!(prolog.after_xml_decl, "\n");
+        assert_eq!(prolog.after_doctype, "\n");
+        assert_eq!(prolog.after_root, "");
+    }
+
+    #[test]
+    fn roundtrip_epilog_whitespace_after_root() {
+        // §2.1 [1] `document ::= prolog element Misc*` — the trailing `Misc*`.
+        // White-space AFTER the root element's end-tag is the epilog residual;
+        // the reader captures it into `PrologDecisions::after_root` and the
+        // writer re-emits it, so a document with a trailing newline (and a
+        // prolog newline) round-trips byte-for-byte.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n  <a/>\n</root>\n";
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the capture: the `\n` after the XML decl (no DOCTYPE here, so
+        // `after_doctype` is vacuously empty) and the trailing `\n` epilog.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let prolog = decisions.prolog();
+        assert_eq!(prolog.after_xml_decl, "\n");
+        assert_eq!(prolog.after_doctype, "");
+        assert_eq!(prolog.after_root, "\n");
+    }
+
+    #[test]
+    fn roundtrip_nested_explicit_empty() {
+        // (b) a NESTED explicit-empty: `y` (pre-order index 2) sits inside `x`
+        // (index 1) inside `root` (index 0).
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><x><y></y></x></root>"#;
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the pre-order index the decision lands on: only `y` is recorded
+        // explicit, at index 2.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        assert_eq!(
+            decisions.get(0),
+            None,
+            "root self-closes? no — it has children"
+        );
+        assert_eq!(decisions.get(1), None, "x has children, no decision");
+        assert_eq!(
+            decisions.get(2),
+            Some(&NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+                ..NodeDecisions::default()
+            }),
+            "nested y captured explicit at pre-order index 2",
+        );
+    }
+
+    #[test]
+    fn roundtrip_explicit_empty_after_sibling_element_and_text() {
+        // (c) the explicit-empty `<e></e>` is preceded by a sibling ELEMENT
+        // (`<s/>`, which itself contains a nested element so the pre-order index
+        // of `e` is non-trivial) AND text. Pre-order entry order:
+        //   root=0, s=1, n=2, e=3.
+        // A naive sibling-count or child-path scheme would mis-key `e`; the
+        // pre-order counter places it at 3.
+        let input =
+            br#"<?xml version="1.0" encoding="UTF-8"?><root><s><n/></s>between<e></e></root>"#;
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        assert_eq!(
+            decisions.get(3),
+            Some(&NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+                ..NodeDecisions::default()
+            }),
+            "e captured explicit at pre-order index 3 (root=0, s=1, n=2, e=3)",
+        );
+        // The self-closing siblings record nothing.
+        assert_eq!(decisions.get(1), None);
+        assert_eq!(decisions.get(2), None);
+    }
+
+    #[test]
+    fn entity_inclusion_threads_the_preorder_counter() {
+        // (d) a DOCTYPE-declared general entity whose replacement text contains
+        // an explicit-empty element, proving the §4.4.3 entity-inclusion path
+        // (`include_user_general_entity_in_content`) threads the pre-order
+        // counter: the element materialized FROM the entity still claims its
+        // index at entry and its `Explicit` form is captured.
+        //
+        // NOTE on scope: this is NOT a byte-exact round-trip. The parser
+        // RESOLVES the `&e;` reference (§4.4.3 "Included"), splicing the
+        // expanded `<m></m>` element into `root.children` — the reference is
+        // gone from the Infoset DOM. The serializer therefore re-emits the
+        // expanded element, never the `&e;` reference; preserving the
+        // entity-reference SYNTAX is a separate (later) concrete-syntax slice.
+        // What we DO assert here is the counter-threading invariant this slice
+        // owns: the entity-materialized element is captured at the correct
+        // pre-order index, and re-serializing the resulting DOM with those
+        // decisions reproduces the explicit `<m></m>` form (not the canonical
+        // `<m/>`).
+        let input =
+            br#"<?xml version="1.0"?><!DOCTYPE root [<!ENTITY e "<m></m>">]><root><a/>&e;</root>"#;
+        let (doc, decisions) = parse_document_capturing(input).expect("input parses");
+
+        // Expanded DOM: root has two element children — the self-closing `a`
+        // and the entity-materialized explicit-empty `m`.
+        assert_eq!(doc.root.children.len(), 2);
+        assert!(matches!(&doc.root.children[0], XmlNode::Element(el) if el.name.local == "a"));
+        assert!(matches!(&doc.root.children[1], XmlNode::Element(el) if el.name.local == "m"));
+
+        // Pre-order entry order: root=0, a=1, m=2. `a` self-closes (no
+        // decision); `m` (materialized through the entity-inclusion path) is
+        // captured explicit at index 2 — the counter threaded through the
+        // inclusion boundary.
+        assert_eq!(decisions.get(1), None, "self-closing a records nothing");
+        assert_eq!(
+            decisions.get(2),
+            Some(&NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+                ..NodeDecisions::default()
+            }),
+            "entity-materialized m captured explicit at pre-order index 2",
+        );
+
+        // Re-serializing the EXPANDED DOM with the captured decisions yields the
+        // explicit `<m></m>` form (the entity-inclusion counter landed on the
+        // right element); the canonical serializer would have self-closed it.
+        let out = serialize_document_exact(&doc, &decisions);
+        let out_str = core::str::from_utf8(&out).unwrap();
+        assert!(
+            out_str.contains("<m></m>"),
+            "expanded element re-serializes in explicit form: {out_str}",
+        );
+        assert!(
+            out_str.contains("<a/>"),
+            "self-closing sibling stays self-closing: {out_str}",
+        );
+    }
+
+    #[test]
+    fn roundtrip_multiline_start_tag_indented_attributes() {
+        // §3.1 [40] `STag ::= '<' Name (S Attribute)* S? '>'` — each attribute
+        // indented onto its own line (newline + spaces), the real OEWN-2025
+        // layout. The intra-tag white-space LAYOUT is captured and re-emitted;
+        // the canonical writer's single-space separation would not reproduce it.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Lexicon\n    id=\"oewn\"\n    label=\"English WordNet\"\n    version=\"2025\">text</Lexicon>";
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the captured layout on the root (pre-order index 0): three
+        // attributes, each preceded by `\n    `, no `S` around `=`, no trailing
+        // `S?` (the `>` abuts the last value's quote).
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let iw = decisions
+            .get(0)
+            .and_then(|d| d.intra_tag_whitespace.as_ref())
+            .expect("multi-line start-tag records an intra-tag layout");
+        assert_eq!(iw.before_attr, vec!["\n    ", "\n    ", "\n    "]);
+        assert_eq!(
+            iw.around_eq,
+            vec![
+                (String::new(), String::new()),
+                (String::new(), String::new()),
+                (String::new(), String::new()),
+            ]
+        );
+        assert_eq!(iw.before_close, "");
+    }
+
+    #[test]
+    fn roundtrip_predefined_entity_in_attribute_value() {
+        // §4.6 `&apos;` inside `writtenForm="&apos;hood"` — the parser RESOLVES
+        // it to a literal `'`, which the canonical escaper would emit bare. The
+        // captured reference form re-emits `&apos;` at its char index.
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><Lemma writtenForm="&apos;hood"/>"#;
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the capture: the root element (index 0) records one §4.6 reference
+        // in attribute slot 0 at char index 0 (the apostrophe is the first char
+        // of the resolved value `'hood`).
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let form = decisions
+            .get(0)
+            .and_then(|d| d.attr_entity_refs.get(&0))
+            .expect("attribute value records its §4.6 reference form");
+        assert_eq!(form.refs, vec![(0, EntityName::Apos)]);
+    }
+
+    #[test]
+    fn roundtrip_multiple_entity_refs_per_attribute_value() {
+        // Multiple §4.6 references in one attribute value, with intervening
+        // multibyte chars is covered separately; here two `&apos;` in a
+        // transliteration (`Dhu'l-Qa'dah`) prove ascending multi-ref capture.
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><Lemma writtenForm="Dhu&apos;l-Qa&apos;dah"/>"#;
+        assert_byte_exact_roundtrip(input);
+
+        // Resolved value is `Dhu'l-Qa'dah`: the apostrophes are at char indices
+        // 3 and 8.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let form = decisions
+            .get(0)
+            .and_then(|d| d.attr_entity_refs.get(&0))
+            .expect("attribute value records both §4.6 references");
+        assert_eq!(
+            form.refs,
+            vec![(3, EntityName::Apos), (8, EntityName::Apos)]
+        );
+    }
+
+    #[test]
+    fn roundtrip_entity_ref_adjacent_to_multibyte_char_in_char_data() {
+        // The char-index basis MUST be exact when a §4.6 reference sits next to a
+        // multibyte char: `&quot;` immediately before the curly quote U+2019
+        // (’, 3 UTF-8 bytes). A byte-offset basis would mis-place the reference;
+        // the char-index basis (the serializer iterates `chars()`) is exact.
+        // Resolved char-data is `say "’ello` → chars: s,a,y,space,",’,e,l,l,o;
+        // the `"` (from `&quot;`) is at char index 4 and the curly quote ’ at 5.
+        let input =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Example>say &quot;\u{2019}ello</Example>"
+                .as_bytes();
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        // The `Example` element is pre-order index 0; its only child is the text
+        // node at child ordinal 0, recording one §4.6 reference at char index 4.
+        let form = decisions
+            .get(0)
+            .and_then(|d| d.text_entity_refs.get(&0))
+            .expect("char data records its §4.6 reference form");
+        assert_eq!(form.refs, vec![(4, EntityName::Quot)]);
+    }
+
+    #[test]
+    fn roundtrip_oewn_2025_shaped_fragment() {
+        // THE GATE: a real OEWN-2025-shaped fragment combining every captured
+        // concrete-syntax feature this slice owns —
+        //   • a multi-line `<Lexicon …>` start-tag, each attribute on its own
+        //     indented line (§3.1 [40] intra-tag white-space);
+        //   • a `<LexicalEntry>` whose `<Lemma writtenForm="&apos;hood"/>`
+        //     carries a §4.6 reference in an attribute value, the parser would
+        //     otherwise resolve to a bare `'`;
+        //   • a `<Definition>` whose char data has `&quot;` adjacent to a curly
+        //     quote (U+2018 ‘), exercising the exact char-index basis;
+        //   • prolog `Misc` white-space (the `\n` after the XML decl);
+        //   • self-closing childless elements (`Lemma`, `Sense`) kept canonical.
+        // `serialize_document_exact(parse_document_capturing(frag)) == frag`
+        // byte-for-byte.
+        let input = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<LexicalResource>\n\
+  <Lexicon\n\
+      id=\"oewn\"\n\
+      label=\"English WordNet\"\n\
+      version=\"2025\">\n\
+    <LexicalEntry id=\"w1\">\n\
+      <Lemma writtenForm=\"&apos;hood\" partOfSpeech=\"n\"/>\n\
+      <Sense id=\"oewn-1-n\" synset=\"oewn-1-n\"/>\n\
+    </LexicalEntry>\n\
+    <Synset id=\"oewn-1-n\" partOfSpeech=\"n\">\n\
+      <Definition>a \u{2018}neighborhood&quot; sense</Definition>\n\
+    </Synset>\n\
+  </Lexicon>\n\
+</LexicalResource>"
+            .as_bytes();
+        assert_byte_exact_roundtrip(input);
+    }
+
+    #[test]
+    fn no_decision_recorded_for_fully_self_closing_document() {
+        // A document with only self-closing empties records NO decisions — the
+        // canonical serializer's default already reproduces it, so the exact
+        // serializer with empty decisions is byte-identical.
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><a/><b/></root>"#;
+        let (_doc, decisions) = parse_document_capturing(input).unwrap();
+        assert_eq!(
+            decisions,
+            super::super::source_syntax::SyntaxDecisions::new()
+        );
+        assert_byte_exact_roundtrip(input);
+    }
+
+    /// The generic content-residue diff fails CLOSED on dropped `#PCDATA`: a
+    /// non-white-space source `Text` run with no regenerated counterpart is real
+    /// character data a structural writer dropped, NOT inter-element white-space
+    /// residue (XML 1.0 §2.3 [3] `S` is `#x20 | #x9 | #xD | #xA` only). It must
+    /// surface as [`RegeneratedComplementError::UnmatchedContentText`], never be
+    /// silently re-inserted as concrete-syntax residue — so real content can never
+    /// masquerade as white-space when this generic carrier serves a future
+    /// `write_uslm` / `write_owl_exact`.
+    #[test]
+    fn diff_fails_closed_on_dropped_content_text() {
+        use super::super::source_syntax::{RegeneratedComplementError, diff_content_whitespace};
+        let (source, _) =
+            parse_document_capturing(b"<r><a>real content</a></r>").expect("source parses");
+        let (regenerated, _) =
+            parse_document_capturing(b"<r><a></a></r>").expect("regenerated parses");
+        let err = diff_content_whitespace(&source, &regenerated)
+            .expect_err("dropped #PCDATA must fail closed, not become white-space residue");
+        assert!(
+            matches!(err, RegeneratedComplementError::UnmatchedContentText { .. }),
+            "expected UnmatchedContentText, got {err:?}"
+        );
+    }
+
+    /// The positive control: genuine inter-element white-space the regenerated
+    /// tree lacks is ADMITTED as residue (not rejected), so the white-space-only
+    /// guard distinguishes §2.3 [3] `S` from character data rather than rejecting
+    /// all unmatched text.
+    #[test]
+    fn diff_admits_inter_element_white_space() {
+        use super::super::source_syntax::diff_content_whitespace;
+        let (source, _) = parse_document_capturing(b"<r>\n  <a/>\n</r>").expect("source parses");
+        let (regenerated, _) =
+            parse_document_capturing(b"<r><a/></r>").expect("regenerated parses");
+        assert!(
+            diff_content_whitespace(&source, &regenerated).is_ok(),
+            "inter-element white-space must be captured as residue, not fail closed"
+        );
+    }
+
+    // ── §2.11 [2.11] End-of-Line form (slice U5) ────────────────────────────
+
+    /// FOCUSED META-TEST (slice U5): a small CRLF-bearing document round-trips
+    /// byte-for-byte. The `#xD#xA` line breaks span the productions a real source
+    /// (the on-disk USC title, a CRLF-formatted corpus) emits VERBATIM — the prolog
+    /// `Misc*` `S` (between the XML decl and the root), the inter-element `S`
+    /// indentation, and char-data — proving the §2.11 \[2.11\] EOL form is FULLY
+    /// GENERIC, not a prolog-only special case. The char-data run also carries a
+    /// `&amp;` so the test pins the ROBUSTNESS of the LF-ordinal key: the `&`-escape
+    /// shifts byte offsets, but the CRLF after it still re-expands correctly.
+    /// (A `#xD#xA` INSIDE an attribute value is a distinct §3.3.3
+    /// attribute-value-normalization residue — the serializer escapes a literal
+    /// `#xA` there to `&#xA;` regardless — so it is out of this slice's scope.)
+    #[test]
+    fn roundtrip_crlf_document_byte_exact() {
+        // CRLF after the XML decl (prolog `Misc*` `S`), CRLF in the inter-element
+        // indentation, and CRLF in char-data AFTER a `&amp;` (so an escape shifts
+        // byte offsets before the break — the LF-ordinal key must still find it).
+        let input =
+            b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<r>\r\n  <c>a &amp; b\r\nc</c>\r\n</r>";
+        assert_byte_exact_roundtrip(input);
+
+        // The captured form lists four `Crlf` entries (additive proof that the
+        // round-trip is not vacuous): every line break was a CRLF.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let eol = decisions.eol_form();
+        assert_eq!(eol.eols.len(), 4, "four CRLF line breaks captured");
+        assert!(
+            eol.eols
+                .iter()
+                .all(|(_, k)| matches!(k, super::super::source_syntax::EolKind::Crlf)),
+            "every recorded break is a CRLF (#xD#xA)"
+        );
+    }
+
+    /// A lone `#xD` (CR not followed by `#xA`) is the third §2.11 \[2.11\] form —
+    /// the spec collapses it to `#xA` too. It round-trips byte-for-byte (the `#xA`
+    /// is rewritten back to a bare `#xD`, NOT a CRLF), proving the writer
+    /// dispatches on the captured [`EolKind`] rather than always inserting CRLF.
+    #[test]
+    fn roundtrip_lone_cr_document_byte_exact() {
+        // A bare `#xD` between the decl and the root (an old-Mac-style line break).
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r<r>x\ry</r>";
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let eol = decisions.eol_form();
+        assert_eq!(eol.eols.len(), 2, "two lone-CR line breaks captured");
+        assert!(
+            eol.eols
+                .iter()
+                .all(|(_, k)| matches!(k, super::super::source_syntax::EolKind::Cr)),
+            "every recorded break is a lone CR (#xD)"
+        );
+    }
+
+    /// A mixed `#xD#xA` / lone `#xD` / literal `#xA` document round-trips
+    /// byte-for-byte — the three §2.11 \[2.11\] forms side by side, each put back
+    /// to its exact source bytes.
+    #[test]
+    fn roundtrip_mixed_eol_forms_byte_exact() {
+        // `\r\n` (CRLF), then `\n` (already LF — records nothing), then `\r`
+        // (lone CR), in three char-data lines.
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?><r>a\r\nb\nc\rd</r>";
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        let eol = decisions.eol_form();
+        // Two recorded forms (the literal `#xA` records nothing): one CRLF, one CR.
+        assert_eq!(
+            eol.eols.len(),
+            2,
+            "CRLF + lone CR recorded; literal LF is not"
+        );
+        use super::super::source_syntax::EolKind;
+        assert_eq!(eol.eols[0].1, EolKind::Crlf);
+        assert_eq!(eol.eols[1].1, EolKind::Cr);
+    }
+
+    /// ADDITIVE PROOF (slice U5): a pure-`#xA` document records NO §2.11 EOL form
+    /// at all (the residue is empty), so `serialize_document_exact` is
+    /// byte-identical to the pre-EOL-form serializer for LF-only input. This is
+    /// the no-regression guarantee for the pure-LF WordNet 89 MB corpus and every
+    /// existing `reverse_lens` fixture: the EOL kernel addition is INERT when the
+    /// source carries no `#xD`.
+    #[test]
+    fn pure_lf_document_records_no_eol_form() {
+        let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<r>\n  <a/>\n</r>\n";
+        // Round-trips (it always did — covered by the other fixtures) AND records
+        // nothing new.
+        assert_byte_exact_roundtrip(input);
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        assert!(
+            decisions.eol_form().is_empty(),
+            "a pure-#xA source must record an EMPTY §2.11 EOL form (additive: the \
+             re-expansion is a no-op, so LF-only corpora are unaffected)"
+        );
+    }
 }

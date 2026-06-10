@@ -3,7 +3,7 @@
 //! Mirrors `social::software::markup::xml::mods::schema` (M4.ζ.3)
 //! and `lmf::dtd` (M4.ζ.1) — the bundled spec bytes for the
 //! `xml_1_0_fifth_edition@2008` source registered in `praxis.toml`;
-//! the pinned sha256 in `praxis.lock` certifies these bytes.
+//! the pinned digest in `praxis.lock` certifies these bytes.
 //!
 //! Downstream code (currently planned: M5.ε.2 codegen for §2.2 Char,
 //! M5.ε.3 codegen for §2.3 Name productions, M5.ε.4 well-formedness
@@ -19,7 +19,7 @@
 //!   1.0 (Fifth Edition)*, W3C Recommendation 26 November 2008,
 //!   the XML-format source. The bundled file is a byte-for-byte
 //!   copy; the `xml_1_0_fifth_edition@2008` hash in `praxis.lock`
-//!   is sha256 of those bytes.
+//!   is the content digest of those bytes.
 
 /// The bundled W3C XML 1.0 Fifth Edition XML-format bytes — the
 /// normative source the parser's grammar predicates derive from
@@ -168,13 +168,12 @@ mod tests {
 
     #[test]
     fn spec_bytes_match_lock_hash() {
-        use sha2::{Digest, Sha256};
+        use pr4xis_runtime::address::ContentAddress;
         let bytes = loaded_xml_1_0_fifth_edition();
-        let hash = Sha256::digest(bytes.as_bytes());
-        let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+        let hex = ContentAddress::of(bytes.as_bytes()).to_hex();
         assert_eq!(
-            hex, "9f54011039f9a0e5f5629f4312c1e106ebe897707759a1d9ddee9dacf2fcc17a",
-            "loaded XML 1.0 Fifth Edition bytes must match the praxis.lock pinned sha256"
+            hex, "af2259d1792179ec1a7a58f45f7fc69c588618e82d567b6bdd67636834b819bc",
+            "loaded XML 1.0 Fifth Edition bytes must match the praxis.lock pinned digest"
         );
     }
 }

@@ -12,6 +12,41 @@ use pr4xis::ontology::{Axiom, Vocabulary, describe_knowledge_base};
 // and the runtime system. Constructing this IS the self-observation
 // operator F from von Foerster. The result IS X = F(X).
 
+/// The system's canonical self-identity name — the single typed source for
+/// "what the system calls itself" (MAPE-K `Ksys` identity; von Foerster
+/// eigenform). Every surface that names the system reads this rather than
+/// re-spelling the literal.
+pub const SYSTEM_NAME: &str = "pr4xis";
+
+/// The surface forms that *denote the system itself* — its self-referents.
+///
+/// A reference is self-referential iff its surface form is in this set. The
+/// set is owned by the self-model layer (not enumerated at a call site): it is
+/// the system's identity name [`SYSTEM_NAME`] together with its conventional
+/// spelling variant, plus the second-person indexicals English resolves to the
+/// addressee. In a single-agent self-model the addressee of a question *is* the
+/// system, so "you"/"yourself" denote it (Kaplan 1989, *Demonstratives* — the
+/// indexical's referent is fixed by the utterance context, here the system as
+/// the sole conversational agent).
+///
+/// This is the smallest typed step toward a full self-model lexical bridge:
+/// the routing decision consults this self-model-owned set instead of bare
+/// word literals. The remaining work — resolving each token to a SelfModel
+/// `ConceptId`/`SenseId` and testing membership in the SelfModel reflexive
+/// closure — is tracked as a follow-up (no indexical→SelfModel sense
+/// resolution exists in the pipeline yet).
+pub fn self_referents() -> [&'static str; 4] {
+    // [identity name, spelling variant, 2nd-person indexical, reflexive form]
+    [SYSTEM_NAME, "praxis", "you", "yourself"]
+}
+
+/// Whether `surface` denotes the system itself — membership in
+/// [`self_referents`]. The typed self-reference predicate the conversational
+/// layer asks the self-model, rather than comparing word literals inline.
+pub fn is_self_referent(surface: &str) -> bool {
+    self_referents().contains(&surface)
+}
+
 /// Runtime instance of the self-model — the eigenform.
 ///
 /// `components` is the object-level the meta-level *monitors* (the loaded
@@ -38,7 +73,7 @@ impl SelfModelInstance {
         let total_concepts = components.iter().map(|v| v.concept_count()).sum();
         let total_morphisms = components.iter().map(|v| v.morphism_count()).sum();
         Self {
-            name: "pr4xis",
+            name: SYSTEM_NAME,
             version: env!("CARGO_PKG_VERSION"),
             awareness: AwarenessLevel::MetaSelf,
             components,
@@ -248,6 +283,38 @@ pr4xis::register_axiom!(
     KnowledgeIsRegistered,
     "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
 );
+
+#[cfg(test)]
+mod self_reference {
+    use super::*;
+
+    #[test]
+    fn the_system_identity_is_a_self_referent() {
+        // The system's own name denotes itself.
+        assert!(is_self_referent(SYSTEM_NAME));
+        assert!(is_self_referent("praxis"));
+    }
+
+    #[test]
+    fn second_person_indexicals_denote_the_addressee_system() {
+        // In a single-agent self-model the addressee IS the system, so the
+        // 2nd-person indexicals are self-referents (Kaplan 1989).
+        assert!(is_self_referent("you"));
+        assert!(is_self_referent("yourself"));
+    }
+
+    #[test]
+    fn an_unrelated_word_is_not_a_self_referent() {
+        assert!(!is_self_referent("dog"));
+        assert!(!is_self_referent(""));
+    }
+
+    #[test]
+    fn the_identity_name_is_in_the_self_referent_set() {
+        // The set is derived from the self-model identity, not re-spelled.
+        assert!(self_referents().contains(&SYSTEM_NAME));
+    }
+}
 
 // --------------------------------------------------------------------------
 // Wire-surface contract tests

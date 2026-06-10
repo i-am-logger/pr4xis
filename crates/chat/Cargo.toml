@@ -20,6 +20,11 @@ workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
+# The runtime, with `emit`, so the loaded-corpus demo test can project a real
+# compiled ontology into a `.prx` Archive, materialize it into a
+# `RuntimeOntology`, and drive the chat through a `ComposedReasoner` — proving
+# the with/without behavioral contrast end-to-end through `process_with_reasoner`.
+pr4xis-runtime = { version = "0.22.0", path = "../pr4xis-runtime", features = ["emit"] }
 
 [[bench]]
 name = "chat_benchmarks"

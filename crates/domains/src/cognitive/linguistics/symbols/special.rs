@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 /// A special symbol — a character whose meaning is defined
 /// by the language that uses it, not by universal convention.
@@ -34,7 +34,8 @@ pub enum SymbolDomain {
     General,
 }
 
-impl Concept for SymbolDomain {
+impl Concept for SymbolDomain {}
+impl FinitelyGenerated for SymbolDomain {
     fn variants() -> Vec<Self> {
         vec![
             Self::Mathematics,

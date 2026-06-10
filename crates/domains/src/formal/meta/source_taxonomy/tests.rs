@@ -10,7 +10,7 @@ use super::ontology::{
     is_leaf, is_legal_corpus, is_lexicon, parse_concept,
 };
 use pr4xis::category::laws::assert_category_laws;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 

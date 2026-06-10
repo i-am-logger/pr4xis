@@ -41,7 +41,7 @@ use super::from_uslm::from_uslm_section;
 use super::statute::{Statute, StatuteConstructError};
 use crate::formal::meta::lens_composition::{Compose, Lens, WellBehavedLensAdapter, get_put_holds};
 use crate::social::software::markup::xml::uslm::{
-    UsCodeSection, UsCodeTitle, UslmTreeViewLens, UslmXmlLens,
+    UsCodeMixed, UsCodeSection, UsCodeTitle, UslmTreeViewLens, UslmXmlLens,
 };
 
 // =============================================================================
@@ -336,13 +336,17 @@ pub fn sample_uslm_section() -> UsCodeSection {
     UsCodeSection {
         identifier: "/us/usc/t18/s1514A".to_string(),
         num: "1514A".to_string(),
+        num_text: String::new(),
         num_footnote: None,
         heading: "Civil action to protect against retaliation".to_string(),
         heading_runs: Vec::new(),
+        heading_mixed: UsCodeMixed::new(),
         chapeau: None,
         chapeau_runs: Vec::new(),
+        chapeau_mixed: None,
         content: None,
         content_runs: Vec::new(),
+        content_mixed: None,
         children: Vec::new(),
         refs: Vec::new(),
         notes_blocks: Vec::new(),
@@ -370,6 +374,7 @@ pub fn sample_uslm_title() -> UsCodeTitle {
         meta: None,
         tocs: Vec::new(),
         tables: Vec::new(),
+        uscdoc_mixed: None,
     }
 }
 
@@ -652,11 +657,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn axiom_bytes_to_statute_on_real_title_18() {
-        // Soft-passes if usc_title_18 bytes aren't on disk (the
-        // committer didn't `pr4xis update`); fails on any real
-        // lens-law or projection regression on present bytes.
-        assert!(BytesToStatuteOnRealTitle18.verify().is_ok());
-    }
+    // `BytesToStatuteOnRealTitle18` parses the real ~12 MB USC Title 18 USLM
+    // bytes, so its `#[test]` driver is a heavy-corpus producer: it lives in the
+    // heavy-corpus lane — see
+    // `crates/praxis-corpus-tests/tests/statute_axioms.rs::
+    // axiom_bytes_to_statute_on_real_title_18`. One process there parses the
+    // corpus once; the fast nextest lane no longer pays the parse per
+    // process-isolated test. The axiom itself (`pub` above) is unchanged.
 }

@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 /// A numeral system — how numbers are represented in writing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27,7 +27,8 @@ pub enum NumeralSystemKind {
     Additive,
 }
 
-impl Concept for NumeralSystemKind {
+impl Concept for NumeralSystemKind {}
+impl FinitelyGenerated for NumeralSystemKind {
     fn variants() -> Vec<Self> {
         vec![Self::Positional, Self::Additive]
     }

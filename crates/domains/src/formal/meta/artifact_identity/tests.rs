@@ -11,7 +11,7 @@ use super::ontology::{
     VerifiabilityOffline, VerificationResult, ancestors_of, is_family, is_leaf,
 };
 use super::schemes::{raw_hash, xml_element_attribute};
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
@@ -239,6 +239,53 @@ fn raw_hash_rejects_non_sha256_claim_data() {
         raw_hash::verify(&claim, b"hello pr4xis"),
         VerificationResult::Unverifiable { .. }
     ));
+}
+
+/// Known-answer test for the multi-algorithm `hash_hex` (Rung 1 — W3C SRI
+/// integrity). The empty-input digests are published, well-known vectors, so
+/// this checks each algorithm is wired correctly *independently* — it is not
+/// a self-referential round-trip through the function under test.
+#[test]
+fn hash_hex_known_answers_empty_input() {
+    use super::ontology::HashAlgorithm;
+    assert_eq!(
+        raw_hash::hash_hex(HashAlgorithm::Sha256, b""),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+    assert_eq!(
+        raw_hash::hash_hex(HashAlgorithm::Sha512, b""),
+        "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+    );
+    assert_eq!(
+        raw_hash::hash_hex(HashAlgorithm::Blake3, b""),
+        "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    );
+}
+
+/// The `HashAlgorithm` claim path verifies the true digest and rejects a
+/// mismatch for SHA-512 and BLAKE3 — the arms the legacy `ClaimData::Sha256`
+/// tests above do not exercise.
+#[test]
+fn raw_hash_multi_algorithm_verify_and_reject() {
+    use super::ontology::HashAlgorithm;
+    let bytes = b"praxis multi-algorithm integrity";
+    for alg in [HashAlgorithm::Sha512, HashAlgorithm::Blake3] {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::RawHash,
+            data: ClaimData::HashAlgorithm {
+                algorithm: alg,
+                digest_hex: raw_hash::hash_hex(alg, bytes),
+            },
+        };
+        assert!(matches!(
+            raw_hash::verify(&claim, bytes),
+            VerificationResult::Verified(_)
+        ));
+        assert!(matches!(
+            raw_hash::verify(&claim, b"different bytes"),
+            VerificationResult::Mismatch { .. }
+        ));
+    }
 }
 
 // =============================================================================

@@ -103,7 +103,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::entity::Concept as EntityTrait;
+    use crate::category::entity::{Concept as EntityTrait, FinitelyGenerated};
 
     // Reuse a simple test category
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -112,7 +112,8 @@ mod tests {
         B,
         C,
     }
-    impl EntityTrait for Obj {
+    impl EntityTrait for Obj {}
+    impl FinitelyGenerated for Obj {
         fn variants() -> Vec<Self> {
             vec![Self::A, Self::B, Self::C]
         }

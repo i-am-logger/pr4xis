@@ -15,7 +15,7 @@
 //!    form is a minimal RDF/XML projection of the triple set.
 //! 4. **Content-addressed blank-node labels.** An anonymous restriction
 //!    (or anonymous union / intersection / complement / RDF list) is
-//!    labelled `_:c<sha256-hex>` where the hash is computed over the
+//!    labelled `_:c<digest-hex>` where the hash is computed over the
 //!    canonical structural encoding of the expression. Two
 //!    structurally-identical blank nodes hash to the same label and
 //!    are emitted once. A hash collision between two structurally
@@ -43,9 +43,9 @@
 //!   RDF/XML's degrees of freedom (typed-node vs striped form,
 //!   property attributes vs predicate elements, list serialisation
 //!   shapes, …) are larger than what C14N normalises.
-//! - **National Institute of Standards and Technology (2015)** *FIPS
-//!   PUB 180-4 Secure Hash Standard* §6.2 (SHA-256) — the hash used
-//!   for content-addressed blank-node labels.
+//! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** *BLAKE3: one
+//!   function, fast everywhere* — the hash used for content-addressed
+//!   blank-node labels.
 
 #[allow(unused_imports)]
 use alloc::{
@@ -55,7 +55,7 @@ use alloc::{
     vec::Vec,
 };
 
-use sha2::{Digest, Sha256};
+use pr4xis_runtime::address::ContentAddress;
 
 use super::ontology::{
     OwlAnnotation, OwlAnnotationValue, OwlClass, OwlClassExpression, OwlIndividual, OwlLiteral,
@@ -658,34 +658,24 @@ fn write_cardinality(
 /// Compute the content-addressed blank-node label for an anonymous
 /// expression. Two structurally-identical expressions yield the same
 /// label; a hash collision between two structurally distinct
-/// expressions is reported as a panic on the assumption that SHA-256
-/// is collision-resistant (NIST FIPS 180-4 §6.2) — the praxis-
+/// expressions is reported as a panic on the assumption that BLAKE3
+/// is collision-resistant (Aumasson, O'Connor, Neves & Wilcox-O'Hearn
+/// 2020) — the praxis-
 /// distinctness-vs-collision discipline.
 fn content_addressed_label(expr: &OwlClassExpression) -> String {
     let canonical = canonical_expr_form(expr);
-    let mut h = Sha256::new();
-    h.update(canonical.as_bytes());
-    let digest = h.finalize();
-    let mut hex = String::with_capacity(2 + digest.len() * 2);
-    hex.push('c');
-    for b in digest {
-        hex.push_str(&format!("{b:02x}"));
-    }
-    hex
+    let mut label = String::with_capacity(65);
+    label.push('c');
+    label.push_str(&ContentAddress::of(canonical.as_bytes()).to_hex());
+    label
 }
 
 /// Stable, character-safe local name derived from an IRI. The XML
 /// `Name` production (W3C XML 1.0 §2.3) restricts the character set;
-/// the canonical writer uses a hex-encoded SHA-256 prefix to stay
+/// the canonical writer uses a hex-encoded content-digest prefix to stay
 /// inside it without colliding for distinct IRIs.
 fn predicate_safe_local(iri: &str) -> String {
-    let mut h = Sha256::new();
-    h.update(iri.as_bytes());
-    let digest = h.finalize();
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for b in digest {
-        hex.push_str(&format!("{b:02x}"));
-    }
+    let mut hex = ContentAddress::of(iri.as_bytes()).to_hex();
     // Take the first 16 hex chars as a probabilistically-unique
     // identifier (W3C XML Name productions accept any alphanum).
     hex.truncate(16);

@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::{Concept, FinitelyGenerated};
 use pr4xis::category::{Arrow, Category, Functor};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
@@ -36,7 +36,8 @@ pub enum ChessConcurrent {
     MoveNotation,
 }
 
-impl Concept for ChessConcurrent {
+impl Concept for ChessConcurrent {}
+impl FinitelyGenerated for ChessConcurrent {
     fn variants() -> Vec<Self> {
         vec![
             Self::Player,

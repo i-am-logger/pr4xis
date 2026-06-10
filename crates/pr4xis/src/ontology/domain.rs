@@ -1,5 +1,5 @@
-use crate::category::Category;
 use crate::category::laws::category_law_axioms;
+use crate::category::{Category, FinitelyGenerated};
 use crate::logic::Axiom;
 use crate::logic::proof::{Verdict, combine_verdicts};
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
@@ -71,6 +71,9 @@ pub trait Ontology {
     where
         Self::Cat: 'static,
         <Self::Cat as Category>::Morphism: PartialEq + 'static,
+        // The category identity law verifies by enumerating objects
+        // (closed-world); a domain ontology's concepts are finitely generated.
+        <Self::Cat as Category>::Object: FinitelyGenerated,
     {
         let mut subverdicts: Vec<Verdict> = Vec::new();
 

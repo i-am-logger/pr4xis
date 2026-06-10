@@ -1,30 +1,23 @@
-# Slow-test guard. Two profiles with different thresholds, because
-# `[profile.default]` (local `dev-test`) compiles in DEBUG and pays the
-# ~20s OnceLock init of `usc_loaded()` (parses ~85 MB of USC USLM
-# XML), whereas `[profile.ci]` runs `cargo nextest run --release` and
-# the same init finishes in ~1s. The strict thresholds need release
+# Slow-test guard. Two profiles, because `[profile.default]` (local
+# `dev-test`) compiles in DEBUG while `[profile.ci]` runs
+# `cargo nextest run --release`; the strict markers need release
 # semantics underneath them.
 #
-# `[profile.default]` — local debug mode (relaxed):
-#   period = 60s          — `SLOW [> 60s]` marker; visible in
-#                           `dev-test` output so a regression that
-#                           pushes a test past 60s surfaces in the
-#                           same log developers already read.
-#   terminate-after = 2   — 120s hard cap. Headroom for the OnceLock-
-#                           init parallel-blocking cluster (~38s on
-#                           this hardware) on slower runners.
+# `[profile.default]` — local debug (relaxed marker):
+#   period = 15s          — `SLOW [> 15s]` marker, visible in the
+#                           `dev-test` log developers already read.
+#   terminate-after = 2   — 30s hard cap.
 #
-# `[profile.ci]` — release mode (strict):
-#   period = 10s          — `SLOW [> 10s]` warning. Release-built
-#                           tests at this scale should finish well
-#                           under 10s; anything longer is worth a
-#                           second look.
-#   terminate-after = 3   — 30s hard fail. Catches genuine algorithmic
-#                           regressions immediately.
+# `[profile.ci]` — release (strict marker):
+#   period = 10s          — `SLOW [> 10s]` warning; release-built tests
+#                           at this scale should finish well under it.
+#   terminate-after = 3   — 30s hard cap; catches genuine regressions.
 #
-# When task #271 (M4.ι.6 — rkyv-archive USC corpus) lands, the debug
-# init drops to ~50ms and `[profile.default]` can match `[profile.ci]`'s
-# strict thresholds.
+# The compact `.prx` fast-load (#271) has landed: `usc_loaded()` now reads a
+# content-addressed compact archive (~1.4s for the whole USC corpus) instead of
+# parsing ~85 MB of USLM XML. The heavy-corpus parse-once tests therefore live
+# in `crates/praxis-corpus-tests` (run under `cargo test`, NOT nextest), so the
+# bulk nextest lane below stays fast.
 #
 # References: nextest-rs/nextest book §"Slow tests and timeouts"
 # (<https://nexte.st/book/slow-tests.html>).
@@ -41,3 +34,48 @@ terminate-after = 3
 
 [profile.ci.junit]
 path = "junit.xml"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Oversize byte-exact proofs (CI-A, #186). The always-run `ci_gate_passes` DEFERS
+# the > 16 MB byte-exact sources (WordNet ~86 MB, the giant USC titles 19–113 MB)
+# as `OversizeDeferred`; `ci_gate_passes_giants` — and, under
+# `--features "fetch codegen"`, `all_sources_source_round_trip_byte_exact` —
+# RECONSTRUCT them in full. That work legitimately exceeds the strict per-test cap
+# above, so these tests get a relaxed slow-timeout and run SERIALIZED (the
+# `usc-giants` group, max-threads = 1) so several > 100 MB reconstructions don't
+# run concurrently and exhaust the runner's memory. The fast lane keeps its strict
+# cap and still catches every small-source lens regression on every push.
+[test-groups.usc-giants]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = 'test(ci_gate_passes_giants) | test(all_sources_source_round_trip_byte_exact)'
+test-group = "usc-giants"
+slow-timeout = { period = "180s", terminate-after = 3 }
+
+[[profile.ci.overrides]]
+filter = 'test(ci_gate_passes_giants) | test(all_sources_source_round_trip_byte_exact)'
+test-group = "usc-giants"
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Corpus-heavy statute tests (sox_1514a, statute_understanding) materialize the
+# full USC corpus (`usc_loaded`) AND the full English WordNet (`english_loaded`
+# via `cached_english`), then run the per-term lexical-adjunction resolution over
+# every registered statute. Both corpora now load from the content-addressed
+# compact `.prx` cache in ~ms each when it is populated (CI emits it before the
+# run — see .github/workflows/ci.yml; `dev-ci` likewise), so the cost here is no
+# longer XML parsing but the lemma-resolution graph work itself. At very high core
+# counts (a 32-core box) ~30 of these run concurrently and memory-bandwidth
+# contention can still push a few past the strict cap; at a normal CI runner's
+# parallelism they pass comfortably. (A bare `dev-test` that has not populated the
+# `.prx-cache` falls back to the full XML parse and is slower still.) This headroom
+# keeps the suite green at ANY core count, with or without the cache — the SLOW
+# marker still surfaces the cost.
+[[profile.default.overrides]]
+filter = 'test(sox_1514a) | test(statute_understanding)'
+slow-timeout = { period = "30s", terminate-after = 2 }
+
+[[profile.ci.overrides]]
+filter = 'test(sox_1514a) | test(statute_understanding)'
+slow-timeout = { period = "30s", terminate-after = 2 }

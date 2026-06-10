@@ -10,7 +10,7 @@ use super::ontology::{
     VersionedArtifact, VersioningCategory, VersioningConcept, VersioningOntology,
     abstract_version_concept, localize_version_concept, sample_artifacts,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

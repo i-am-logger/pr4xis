@@ -11,38 +11,141 @@ use pr4xis::category::Concept;
 //
 // Reference: Global Wordnet Association, WN-LMF 1.3
 // https://globalwordnet.github.io/schemas/
+//
+// # rkyv-serializability under `prx`
+//
+// The graph-faithful `.prx` envelope
+// ([`WordNetPrxEnvelope`](super::prx::WordNetPrxEnvelope)) carries this typed
+// `WordNet` model — the ontology — directly, so it must be rkyv-serializable
+// under the `prx` feature (the same feature that links rkyv and compiles the
+// envelope). Every plain-data type here therefore carries a CFG-GATED rkyv
+// derive (`#[cfg_attr(feature = "prx", derive(rkyv::Archive, …))]`): present in
+// the `prx`/`fetch` build where the archive consumes it, ABSENT from the
+// default + wasm32 builds where rkyv is not linked (rkyv is an OPTIONAL dep,
+// `prx = ["dep:rkyv", …]`). An unconditional derive would fail those builds; a
+// gated one keeps them clean while making the model the archive's ontology
+// payload — the same `cfg_attr(feature = "prx")` discipline
+// [`RoundTripFidelity`](crate::formal::meta::well_behaved_lens::RoundTripFidelity)
+// already uses. No Owned mirror is needed: these are flat data structs the
+// derive handles directly.
 
 /// A synset — a set of words sharing the same meaning (a concept).
 /// This is the fundamental unit of WordNet: not a word, but a MEANING.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Content model `<!ELEMENT Synset (Definition*, ILIDefinition?,
+/// SynsetRelation*, Example*)>` (DTD line 98); attributes per
+/// `<!ATTLIST Synset>` (DTD lines 99-122).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Synset {
     pub id: String,
     pub ili: Option<String>,
     pub pos: LmfPos,
     pub members: Vec<String>,
     pub definitions: Vec<String>,
+    /// The single optional `<ILIDefinition>` — the Interlingual Index
+    /// gloss proposed for a not-yet-mapped synset (`ILIDefinition?` in
+    /// the content model, DTD line 98; element decl line 145). Present
+    /// ×3184 in Open English WordNet 2025; previously dropped.
+    pub ili_definition: Option<String>,
     pub examples: Vec<String>,
     pub relations: Vec<SynsetRelation>,
+    /// `<!ATTLIST Synset lexfile CDATA #IMPLIED>` (DTD line 122) — the
+    /// legacy WordNet lexicographer-file name (e.g. `noun.animal`).
+    pub lexfile: Option<String>,
+    /// `<!ATTLIST Synset dc:source CDATA #IMPLIED>` (DTD line 113).
+    pub dc_source: Option<String>,
+    /// `<!ATTLIST Synset confidenceScore CDATA #IMPLIED>` (DTD line 119).
+    pub confidence_score: Option<String>,
 }
 
 /// A lexical entry — a word with its senses (connections to synsets).
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Content model `<!ELEMENT LexicalEntry (Lemma, Form*, Sense*,
+/// SyntacticBehaviour*)>` (DTD line 33).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct LexicalEntry {
     pub id: String,
     pub lemma: Lemma,
     pub senses: Vec<Sense>,
     pub forms: Vec<Form>,
+    /// `<SyntacticBehaviour>` children declared on this entry — the
+    /// per-entry placement of subcategorization frames (the WN-LMF 1.3
+    /// content model allows them on `LexicalEntry` as well as on
+    /// `Lexicon`; DTD lines 33 + 228). Present ×39 in Open English
+    /// WordNet 2025 (lexicon-level there, but the reader/writer carry
+    /// them faithfully wherever the DTD permits them).
+    pub syntactic_behaviours: Vec<SyntacticBehaviour>,
 }
 
 /// A lemma — the canonical form of a word.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Content model `<!ELEMENT Lemma (Pronunciation*, Tag*)>` (DTD line
+/// 53); attributes `writtenForm`, `script`, `partOfSpeech` (DTD lines
+/// 54-57).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Lemma {
     pub written_form: String,
     pub pos: LmfPos,
+    /// `<!ATTLIST Lemma script CDATA #IMPLIED>` (DTD line 56) — the
+    /// ISO 15924 script code when the written form is non-Latin.
+    pub script: Option<String>,
+    /// `<Pronunciation>` children (`Pronunciation*` in the content
+    /// model, DTD line 53). Present ×43534 in Open English WordNet
+    /// 2025 — the single largest class of element the reader dropped.
+    pub pronunciations: Vec<Pronunciation>,
+}
+
+/// A pronunciation of a lemma or form.
+///
+/// `<!ELEMENT Pronunciation (#PCDATA)>` with `<!ATTLIST Pronunciation
+/// xml:space (default|preserve) "default" variety CDATA #IMPLIED
+/// notation CDATA #IMPLIED phonemic (true|false) "true" audio CDATA
+/// #IMPLIED>` (DTD lines 63-69). The text is the transcription itself
+/// (e.g. an IPA string).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct Pronunciation {
+    /// The `#PCDATA` transcription text (e.g. `/dɒɡ/`).
+    pub text: String,
+    /// `variety CDATA #IMPLIED` — the regional variety the
+    /// transcription is for (e.g. `GB`, `US`).
+    pub variety: Option<String>,
+    /// `notation CDATA #IMPLIED` — the transcription notation (e.g.
+    /// `ipa`).
+    pub notation: Option<String>,
+    /// `phonemic (true|false) "true"` — `true` iff the transcription is
+    /// phonemic (broad) rather than phonetic (narrow). `None` when the
+    /// attribute is absent (the reader does not synthesize the DTD
+    /// default, so an absent attribute round-trips as absent).
+    pub phonemic: Option<String>,
+    /// `audio CDATA #IMPLIED` — a reference to an audio rendering.
+    pub audio: Option<String>,
 }
 
 /// A sense — the connection between a word and a meaning (synset).
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Content model `<!ELEMENT Sense (SenseRelation*, Example*, Count*)>`
+/// (DTD line 74); attributes per `<!ATTLIST Sense>` (DTD lines 75-97).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Sense {
     pub id: String,
     pub synset: String,
@@ -50,12 +153,72 @@ pub struct Sense {
     /// Subcategorization frame IDs (verb frames for transitivity).
     /// From LMF `subcat` attribute. E.g., ["vtai", "vtaa"] for transitive.
     pub subcat: Vec<String>,
+    /// `<!ATTLIST Sense adjposition (a|ip|p) #IMPLIED>` (DTD line 96) —
+    /// adjective syntactic position (attributive / immediately
+    /// postnominal / predicative) for adjective senses.
+    pub adjposition: Option<String>,
+    /// `<!ATTLIST Sense dc:source CDATA #IMPLIED>` (DTD line 88).
+    pub dc_source: Option<String>,
+    /// `<Count>` children (`Count*` in the content model, DTD line 74;
+    /// element decl line 233) — corpus frequency counts for this sense.
+    pub counts: Vec<Count>,
+}
+
+/// A corpus frequency count for a sense.
+///
+/// `<!ELEMENT Count (#PCDATA)>` (DTD line 233) — the count value is the
+/// `#PCDATA` text; the dc:* / status / note attrs (DTD lines 234-252)
+/// are carried as a flat string→string map preserving their declared
+/// names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct Count {
+    /// The `#PCDATA` count value (a non-negative integer as text).
+    pub value: String,
+}
+
+/// A subcategorization-frame declaration.
+///
+/// `<!ELEMENT SyntacticBehaviour EMPTY>` with `<!ATTLIST
+/// SyntacticBehaviour id ID #IMPLIED subcategorizationFrame CDATA
+/// #REQUIRED senses IDREFS #IMPLIED>` (DTD lines 228-232). Present ×39
+/// in Open English WordNet 2025; previously dropped.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct SyntacticBehaviour {
+    /// `id ID #IMPLIED` — the frame's optional identifier.
+    pub id: Option<String>,
+    /// `subcategorizationFrame CDATA #REQUIRED` — the frame template
+    /// string (e.g. `Somebody ----s something`).
+    pub subcategorization_frame: String,
+    /// `senses IDREFS #IMPLIED` — the sense ids this frame applies to
+    /// (whitespace-separated IDREFS).
+    pub senses: Vec<String>,
 }
 
 /// A morphological form — an inflected variant of a word.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Content model `<!ELEMENT Form (Pronunciation*, Tag*)>` (DTD line
+/// 58); attributes `id`, `writtenForm`, `script` (DTD lines 59-62).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct Form {
     pub written_form: String,
+    /// `<!ATTLIST Form id ID #IMPLIED>` (DTD line 60).
+    pub id: Option<String>,
+    /// `<!ATTLIST Form script CDATA #IMPLIED>` (DTD line 62).
+    pub script: Option<String>,
+    /// `<Pronunciation>` children (`Pronunciation*`, DTD line 58).
+    pub pronunciations: Vec<Pronunciation>,
 }
 
 /// Synset-level relation (between concepts).
@@ -64,14 +227,22 @@ pub struct Form {
 /// - meronym → MereologyDef (whole has-a part)
 /// - antonym → OppositionDef
 /// - causes → CausalDef
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct SynsetRelation {
     pub rel_type: SynsetRelationType,
     pub target: String,
 }
 
 /// Sense-level relation (between word senses).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct SenseRelation {
     pub rel_type: SenseRelationType,
     pub target: String,
@@ -82,7 +253,11 @@ pub struct SenseRelation {
 /// Covers the Global WordNet Association LMF schema (Vossen et al.)
 /// — synset relations in WordNet 2025 fall into these categories.
 /// See <https://globalwordnet.github.io/schemas/>.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum SynsetRelationType {
     Hypernym,
     InstanceHypernym,
@@ -108,7 +283,16 @@ pub enum SynsetRelationType {
     Exemplifies,
     IsExemplifiedBy,
     Participle,
-    Other(u8),
+    /// Any WN-LMF 1.3 `relType` the typed model does not give a named
+    /// variant — the long tail of the ~70-value DTD enumeration
+    /// (`<!ATTLIST SynsetRelation relType (…) #REQUIRED>`, DTD lines
+    /// 188-189: `co_agent_instrument`, `holo_location`, `feminine`,
+    /// `antonym`, …). Carries the ACTUAL source string so
+    /// [`as_str`](Self::as_str) reproduces it byte-for-byte, making
+    /// `parse`/`as_str` a true inverse over the whole enumeration
+    /// (previously this was `Other(u8)`, which discarded the string and
+    /// re-emitted the placeholder `"other"` — a value loss).
+    Other(String),
 }
 
 impl SynsetRelationType {
@@ -138,7 +322,48 @@ impl SynsetRelationType {
             "exemplifies" => Self::Exemplifies,
             "is_exemplified_by" => Self::IsExemplifiedBy,
             "participle" => Self::Participle,
-            _ => Self::Other(0),
+            other => Self::Other(other.to_string()),
+        }
+    }
+
+    /// The WN-LMF `relType` string for this relation — the exact
+    /// inverse of [`parse`](Self::parse) for EVERY variant, named or
+    /// not (`parse(x.as_str()) == x`).
+    ///
+    /// The `Other(s)` arm now reproduces the original source string `s`
+    /// captured at `parse` time, so a long-tail `relType` the typed
+    /// model has no named variant for (e.g. `co_agent_instrument`,
+    /// `feminine`) survives the round-trip byte-for-byte. This makes
+    /// `as_str` a total inverse over the whole DTD enumeration.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Hypernym => "hypernym",
+            Self::InstanceHypernym => "instance_hypernym",
+            Self::Hyponym => "hyponym",
+            Self::InstanceHyponym => "instance_hyponym",
+            Self::HoloMember => "holo_member",
+            Self::HoloPart => "holo_part",
+            Self::HoloSubstance => "holo_substance",
+            Self::MeroMember => "mero_member",
+            Self::MeroPart => "mero_part",
+            Self::MeroSubstance => "mero_substance",
+            Self::Causes => "causes",
+            Self::IsCausedBy => "is_caused_by",
+            Self::Entails => "entails",
+            Self::IsEntailedBy => "is_entailed_by",
+            Self::Similar => "similar",
+            Self::Also => "also",
+            Self::Attribute => "attribute",
+            Self::DomainTopic => "domain_topic",
+            Self::HasDomainTopic => "has_domain_topic",
+            Self::DomainRegion => "domain_region",
+            Self::HasDomainRegion => "has_domain_region",
+            Self::Exemplifies => "exemplifies",
+            Self::IsExemplifiedBy => "is_exemplified_by",
+            Self::Participle => "participle",
+            // The original source string, captured at `parse` time —
+            // reproduced exactly so the long-tail relType round-trips.
+            Self::Other(s) => s.as_str(),
         }
     }
 
@@ -171,7 +396,11 @@ impl SynsetRelationType {
 /// Per Global WordNet Association LMF schema; documented in
 /// Fellbaum (1998) Ch. 1 + Ch. 5, Fellbaum-Osherson-Clark (2009)
 /// for `derivation` morphosemantic links.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum SenseRelationType {
     Antonym,
     Similar,
@@ -181,7 +410,13 @@ pub enum SenseRelationType {
     Exemplifies,
     IsExemplifiedBy,
     Participle,
-    Other(u8),
+    /// Any WN-LMF 1.3 `SenseRelation/relType` the typed model does not
+    /// name (`<!ATTLIST SenseRelation relType (…) #REQUIRED>`, DTD
+    /// lines 209-210: `domain_topic`, `simple_aspect_ip`, `feminine`,
+    /// …). Carries the ACTUAL source string so
+    /// [`as_str`](Self::as_str) reproduces it byte-for-byte (previously
+    /// `Other(u8)`, which discarded it).
+    Other(String),
 }
 
 impl SenseRelationType {
@@ -195,7 +430,28 @@ impl SenseRelationType {
             "exemplifies" => Self::Exemplifies,
             "is_exemplified_by" => Self::IsExemplifiedBy,
             "participle" => Self::Participle,
-            _ => Self::Other(0),
+            other => Self::Other(other.to_string()),
+        }
+    }
+
+    /// The WN-LMF `relType` string for this sense relation — the exact
+    /// inverse of [`parse`](Self::parse) for EVERY variant, named or
+    /// not (`parse(x.as_str()) == x`).
+    ///
+    /// As with [`SynsetRelationType::as_str`], the `Other(s)` arm now
+    /// reproduces the original source string captured at `parse` time,
+    /// so the long-tail `relType` round-trips byte-for-byte.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Antonym => "antonym",
+            Self::Similar => "similar",
+            Self::Pertainym => "pertainym",
+            Self::Derivation => "derivation",
+            Self::Also => "also",
+            Self::Exemplifies => "exemplifies",
+            Self::IsExemplifiedBy => "is_exemplified_by",
+            Self::Participle => "participle",
+            Self::Other(s) => s.as_str(),
         }
     }
 
@@ -215,11 +471,26 @@ impl SenseRelationType {
 /// - Universal Dependencies: DET, PRON, ADP, CCONJ, SCONJ, PART, AUX, INTJ
 /// - OLiA: Determiner, Pronoun, Copula, Auxiliary, Preposition, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum LmfPos {
     // Open class (WordNet)
     Noun,
     Verb,
     Adjective,
+    /// Satellite adjective — the WN-LMF `s` `partOfSpeech` value
+    /// (`<!ATTLIST Lemma partOfSpeech (n|v|a|r|s|t|c|p|x|u)>`, DTD
+    /// line 57). A satellite adjective is an adjective in a cluster
+    /// whose head is its `similar` adjective (Fellbaum 1998 §1.5);
+    /// it is semantically an adjective but the source tag is the
+    /// DISTINCT byte `s`, not `a`. Carrying it as its own variant
+    /// keeps [`parse`](Self::parse) / [`to_tag`](Self::to_tag) an
+    /// exact bijection on the DTD enumeration, so the source byte
+    /// round-trips losslessly (it previously collapsed into
+    /// `Adjective` and re-emitted as `a` — a byte loss).
+    SatelliteAdjective,
     Adverb,
     // Closed class (function words)
     Determiner,
@@ -236,12 +507,24 @@ pub enum LmfPos {
 
 impl LmfPos {
     /// Parse from LMF/Universal Dependencies POS tag string.
+    ///
+    /// On the WN-LMF 1.3 `partOfSpeech` enumeration
+    /// (`n|v|a|r|s|t|c|p|x|u`, DTD line 57) this is the exact inverse
+    /// of [`to_tag`](Self::to_tag) for every named WordNet tag — in
+    /// particular `s` (satellite adjective) maps to its own
+    /// [`SatelliteAdjective`](Self::SatelliteAdjective) variant rather
+    /// than collapsing into `Adjective`, so the source byte survives a
+    /// round-trip. The remaining WN-LMF-specific tags `t`/`c`/`p`/`x`/`u`
+    /// (terminology / closed-class compound / preposition / other /
+    /// unknown — narrow WN-LMF semantics the typed model does not yet
+    /// distinguish) project to [`Other`](Self::Other).
     pub fn parse(s: &str) -> Self {
         match s {
             // WordNet open class
             "n" => Self::Noun,
             "v" => Self::Verb,
-            "a" | "s" => Self::Adjective,
+            "a" => Self::Adjective,
+            "s" => Self::SatelliteAdjective,
             "r" => Self::Adverb,
             // Closed class (Universal Dependencies / OLiA tags)
             "det" | "d" => Self::Determiner,
@@ -257,11 +540,16 @@ impl LmfPos {
         }
     }
 
+    /// The WN-LMF `partOfSpeech` tag for this POS — the exact inverse
+    /// of [`parse`](Self::parse) on every WordNet tag, including the
+    /// satellite-adjective `s` (which previously re-emitted as `a`, a
+    /// byte loss). `Other` re-emits the DTD's `x` ("other") sentinel.
     pub fn to_tag(&self) -> &'static str {
         match self {
             Self::Noun => "n",
             Self::Verb => "v",
             Self::Adjective => "a",
+            Self::SatelliteAdjective => "s",
             Self::Adverb => "r",
             Self::Determiner => "det",
             Self::Pronoun => "pron",
@@ -280,7 +568,7 @@ impl LmfPos {
     pub fn is_open_class(&self) -> bool {
         matches!(
             self,
-            Self::Noun | Self::Verb | Self::Adjective | Self::Adverb
+            Self::Noun | Self::Verb | Self::Adjective | Self::SatelliteAdjective | Self::Adverb
         )
     }
 
@@ -333,11 +621,75 @@ impl VerbTransitivity {
     }
 }
 
+/// `<Lexicon>` metadata — the attributes declared on `<!ATTLIST
+/// Lexicon>` (DTD lines 6-32). All-`Option` so an absent `#IMPLIED`
+/// attribute round-trips as absent; the four `#REQUIRED` attrs
+/// (`id`/`label`/`language`/`email`/`license`/`version`) are still
+/// modelled as `Option` to keep the reader total over malformed input
+/// (a missing required attr reads as `None` rather than failing the
+/// whole parse). Only the corpus-confirmed attrs are surfaced as named
+/// fields; the full Dublin Core set lands in `dc`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct LexiconMetadata {
+    /// `id ID #REQUIRED` (DTD line 7).
+    pub id: Option<String>,
+    /// `label CDATA #REQUIRED` (DTD line 8).
+    pub label: Option<String>,
+    /// `language CDATA #REQUIRED` (DTD line 9) — a BCP-47 language tag.
+    pub language: Option<String>,
+    /// `email CDATA #REQUIRED` (DTD line 10).
+    pub email: Option<String>,
+    /// `license CDATA #REQUIRED` (DTD line 11).
+    pub license: Option<String>,
+    /// `version CDATA #REQUIRED` (DTD line 12).
+    pub version: Option<String>,
+    /// `url CDATA #IMPLIED` (DTD line 13).
+    pub url: Option<String>,
+    /// `citation CDATA #IMPLIED` (DTD line 14).
+    pub citation: Option<String>,
+    /// `logo CDATA #IMPLIED` (DTD line 15).
+    pub logo: Option<String>,
+    /// `status CDATA #IMPLIED` (DTD line 30).
+    pub status: Option<String>,
+    /// `confidenceScore CDATA "1.0"` (DTD line 32).
+    pub confidence_score: Option<String>,
+    /// The Dublin Core `dc:*` attributes (DTD lines 16-29), keyed by
+    /// their declared prefixed name (e.g. `"dc:source"`), in the order
+    /// the DTD declares them. A flat name→value map keeps the writer a
+    /// faithful inverse without enumerating fifteen near-identical
+    /// fields; the prefixed name is the DTD's, so it round-trips
+    /// verbatim.
+    pub dc: Vec<(String, String)>,
+}
+
 /// A complete WordNet lexicon loaded from LMF.
-#[derive(Debug, Clone)]
+///
+/// `PartialEq + Eq` so the graph-faithful `.prx` envelope
+/// ([`WordNetPrxEnvelope`](super::prx::WordNetPrxEnvelope)) — which carries this
+/// ontology directly — can derive the structural equality the rkyv round-trip
+/// tests assert (`assert_eq!(envelope, decoded)`); every field type is itself
+/// `Eq` (String/Vec/Option over the `Eq` LMF structs).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct WordNet {
+    /// `<Lexicon>` metadata attributes (DTD lines 6-32). `None` only if
+    /// no `<Lexicon>` element carried any attributes; otherwise the
+    /// captured attribute set (so the metadata survives a round-trip).
+    pub lexicon: LexiconMetadata,
     pub synsets: Vec<Synset>,
     pub entries: Vec<LexicalEntry>,
+    /// Lexicon-level `<SyntacticBehaviour>` children (`SyntacticBehaviour*`
+    /// in `<!ELEMENT Lexicon …>`, DTD line 5). In Open English WordNet
+    /// 2025 the 39 `<SyntacticBehaviour>` elements live here, at lexicon
+    /// scope, referencing senses by `senses` IDREFS.
+    pub syntactic_behaviours: Vec<SyntacticBehaviour>,
 }
 
 impl WordNet {
@@ -424,7 +776,7 @@ impl WordNet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     #[test]
     fn lmf_pos_entity_variants() {
@@ -489,13 +841,22 @@ mod tests {
             );
         }
         // The four WordNet open-class tags + the satellite-adjective
-        // `s` MUST project to named variants. This is the load-
-        // bearing chunk of the dispatch.
+        // `s` MUST project to DISTINCT named variants — the satellite
+        // tag is its own variant so the source byte `s` survives a
+        // round-trip (it no longer collapses into `Adjective`/`a`).
+        // This is the load-bearing chunk of the dispatch.
         assert_eq!(LmfPos::parse("n"), LmfPos::Noun);
         assert_eq!(LmfPos::parse("v"), LmfPos::Verb);
         assert_eq!(LmfPos::parse("a"), LmfPos::Adjective);
-        assert_eq!(LmfPos::parse("s"), LmfPos::Adjective);
+        assert_eq!(LmfPos::parse("s"), LmfPos::SatelliteAdjective);
         assert_eq!(LmfPos::parse("r"), LmfPos::Adverb);
+        // The satellite tag is an EXACT bijection: `s → SatelliteAdjective
+        // → "s"`, the byte-loss this slice closes.
+        assert_eq!(LmfPos::SatelliteAdjective.to_tag(), "s");
+        assert_eq!(
+            LmfPos::parse(LmfPos::SatelliteAdjective.to_tag()),
+            LmfPos::SatelliteAdjective
+        );
     }
 
     /// Every WN-LMF 1.3 DTD-declared `SynsetRelation/relType`
@@ -516,14 +877,127 @@ mod tests {
              extractor or DTD parse may be regressed",
             dtd_values.len()
         );
+        // Totality AND exact round-trip over the WHOLE enumeration: every
+        // DTD-declared relType parses deterministically, and `as_str` is
+        // now its exact inverse for EVERY value — the long tail routes to
+        // `Other(s)`, which reproduces the source string `s` byte-for-byte
+        // (the value loss this slice closes). So `parse(as_str(parse(v)))
+        // == parse(v)` AND `as_str(parse(v)) == v` for all declared `v`.
         for value in &dtd_values {
-            let _ = SynsetRelationType::parse(value);
+            let parsed = SynsetRelationType::parse(value);
+            assert_eq!(
+                parsed.as_str(),
+                value.as_str(),
+                "as_str must reproduce the source relType {value:?} exactly"
+            );
+            assert_eq!(
+                SynsetRelationType::parse(parsed.as_str()),
+                parsed,
+                "parse∘as_str must be identity for {value:?}"
+            );
         }
+    }
+
+    /// The typed model carries a field for every WN-LMF 1.3 ELEMENT the
+    /// reader previously dropped: `Pronunciation` (DTD line 63),
+    /// `ILIDefinition` (line 145), `SyntacticBehaviour` (line 228) and
+    /// `Count` (line 233) are all declared element types in the loaded
+    /// DTD, and each now has a typed home. Grounded against the loaded
+    /// DTD's element-decl set (`feedback_bottom_up_loaded_not_encoded`),
+    /// not a hardcoded name list.
+    #[test]
+    fn axiom_typed_model_covers_dropped_wn_lmf_elements() {
+        use super::super::dtd::is_wn_lmf_element;
+        // Each element the reader used to drop IS a declared WN-LMF 1.3
+        // element type — so dropping it WAS losing schema-declared content.
+        for elem in [
+            "Pronunciation",
+            "ILIDefinition",
+            "SyntacticBehaviour",
+            "Count",
+        ] {
+            assert!(
+                is_wn_lmf_element(elem),
+                "WN-LMF 1.3 must declare <!ELEMENT {elem} …> — DTD or extractor drifted"
+            );
+        }
+        // …and each now has a typed home (constructed here = it compiles
+        // with the field, the structural witness that the drop is closed).
+        let _pron = Pronunciation {
+            text: "/dɒɡ/".into(),
+            variety: Some("GB".into()),
+            notation: Some("ipa".into()),
+            phonemic: Some("true".into()),
+            audio: None,
+        };
+        let _count = Count { value: "42".into() };
+        let _sb = SyntacticBehaviour {
+            id: None,
+            subcategorization_frame: "Somebody ----s something".into(),
+            senses: vec!["s1".into()],
+        };
+        // ILIDefinition is carried as Synset::ili_definition (Option<String>).
+    }
+
+    /// The typed model carries a field for the corpus-confirmed WN-LMF 1.3
+    /// ATTRIBUTES the reader previously dropped — each is a declared
+    /// `<!ATTLIST>` attribute in the loaded DTD. We assert the DTD declares
+    /// each attribute (its enumeration extractor returns the declared
+    /// enumeration where the attr is enumerated, e.g. `Sense/adjposition`),
+    /// and that the typed struct has the field (it constructs).
+    #[test]
+    fn axiom_typed_model_covers_dropped_wn_lmf_attributes() {
+        use super::super::dtd::wn_lmf_attlist_enum_values;
+        // `Sense/adjposition` is an ENUMERATED attr `(a|ip|p)` (DTD line 96):
+        // the extractor returns exactly those three values.
+        let adjpos = wn_lmf_attlist_enum_values("Sense", "adjposition")
+            .expect("WN-LMF 1.3 declares <!ATTLIST Sense adjposition (a|ip|p)>");
+        assert_eq!(adjpos, vec!["a", "ip", "p"]);
+        // `Pronunciation/phonemic` is an enumerated `(true|false)` attr
+        // (DTD line 68).
+        let phonemic = wn_lmf_attlist_enum_values("Pronunciation", "phonemic")
+            .expect("WN-LMF 1.3 declares <!ATTLIST Pronunciation phonemic (true|false)>");
+        assert_eq!(phonemic, vec!["true", "false"]);
+        // The typed structs carry the corpus-confirmed CDATA attrs as fields
+        // (constructs ⇒ the field exists ⇒ the value has a home to survive in).
+        let _form = Form {
+            written_form: "dogs".into(),
+            id: Some("f1".into()),
+            script: None,
+            pronunciations: Vec::new(),
+        };
+        let _syn = Synset {
+            id: "s1".into(),
+            ili: Some("i1".into()),
+            pos: LmfPos::Noun,
+            members: Vec::new(),
+            definitions: Vec::new(),
+            ili_definition: Some("gloss".into()),
+            examples: Vec::new(),
+            relations: Vec::new(),
+            lexfile: Some("noun.animal".into()),
+            dc_source: Some("pwn".into()),
+            confidence_score: None,
+        };
+        let _meta = LexiconMetadata {
+            id: Some("oewn".into()),
+            label: Some("Open English WordNet".into()),
+            language: Some("en".into()),
+            email: Some("x@y".into()),
+            license: Some("CC".into()),
+            version: Some("2025".into()),
+            url: Some("https://…".into()),
+            citation: None,
+            logo: None,
+            status: Some("valid".into()),
+            confidence_score: Some("1.0".into()),
+            dc: vec![("dc:source".into(), "pwn".into())],
+        };
     }
 
     /// Symmetric coverage axiom for `SenseRelation/relType` — every
     /// DTD-declared value must parse deterministically (named
-    /// variant or `Other(0)`).
+    /// variant or `Other(s)`) and round-trip exactly.
     #[test]
     fn axiom_sense_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
         let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SenseRelation", "relType")
@@ -532,8 +1006,21 @@ mod tests {
             !dtd_values.is_empty(),
             "DTD's SenseRelation/relType enumeration must be non-empty"
         );
+        // Exact round-trip over the whole enumeration (see the SynsetRelation
+        // axiom): `as_str` reproduces every declared relType verbatim, the
+        // long tail via `Other(s)`.
         for value in &dtd_values {
-            let _ = SenseRelationType::parse(value);
+            let parsed = SenseRelationType::parse(value);
+            assert_eq!(
+                parsed.as_str(),
+                value.as_str(),
+                "as_str must reproduce the source relType {value:?} exactly"
+            );
+            assert_eq!(
+                SenseRelationType::parse(parsed.as_str()),
+                parsed,
+                "parse∘as_str must be identity for {value:?}"
+            );
         }
     }
 
@@ -658,6 +1145,46 @@ mod tests {
             assert!(
                 !matches!(parsed, SenseRelationType::Other(_)),
                 "documented sense relType `{s}` parsed to Other"
+            );
+        }
+    }
+
+    /// `as_str` is the exact inverse of `parse` for every NON-`Other`
+    /// `SynsetRelationType` variant: `parse(x.as_str()) == x`. This is
+    /// the law the WN-LMF structural writer relies on to emit the same
+    /// `relType` string the reader consumed. The `Other(_)` arm is
+    /// excluded — `parse` discarded the original string (an L1
+    /// limitation documented on `as_str`).
+    #[test]
+    fn synset_relation_type_as_str_inverts_parse() {
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let variant = SynsetRelationType::parse(s);
+            assert!(
+                !matches!(variant, SynsetRelationType::Other(_)),
+                "fixture `{s}` should be a named variant"
+            );
+            assert_eq!(
+                SynsetRelationType::parse(variant.as_str()),
+                variant,
+                "parse(as_str()) must be identity for {variant:?}"
+            );
+        }
+    }
+
+    /// Symmetric inverse law for every NON-`Other` `SenseRelationType`
+    /// variant: `parse(x.as_str()) == x`.
+    #[test]
+    fn sense_relation_type_as_str_inverts_parse() {
+        for s in KNOWN_SENSE_REL_TYPES {
+            let variant = SenseRelationType::parse(s);
+            assert!(
+                !matches!(variant, SenseRelationType::Other(_)),
+                "fixture `{s}` should be a named variant"
+            );
+            assert_eq!(
+                SenseRelationType::parse(variant.as_str()),
+                variant,
+                "parse(as_str()) must be identity for {variant:?}"
             );
         }
     }

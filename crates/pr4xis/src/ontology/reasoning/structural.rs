@@ -36,7 +36,7 @@
 //! - Smith et al. (2005) OBO Relation Ontology — which properties attach
 //!   to which relation types canonically
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -64,34 +64,37 @@ where
         .collect()
 }
 
-fn adjacency<E: Clone + Eq + Hash>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
-    let mut map: HashMap<E, Vec<E>> = HashMap::new();
-    for (from, to) in pairs {
-        map.entry(from.clone()).or_default().push(to.clone());
+/// A cycle on `kind` exists iff the category's **materialized closed**
+/// morphism set carries a self-edge `e --kind--> e` for some object `e`.
+///
+/// This is a closure-membership query, not a re-derived reachability walk:
+/// `ontology!` already materialises the per-kind transitive closure into
+/// `morphisms()` (Floyd–Warshall at macro expansion), so a cyclic kind path
+/// `e ⇒ … ⇒ e` has already been composed down to the self-edge `(e, e, kind)`.
+/// We read it off the same closed set via [`Category::morphisms_from`] and
+/// test for a self-target — never an adjacency map + BFS standing in for the
+/// closure the macro emits.
+fn has_kinded_self_edge<C>(kind: KindOf<C>) -> bool
+where
+    C: Category,
+    C::Object: Clone + Eq + Hash,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq + Copy,
+{
+    // The objects to probe are exactly the endpoints of `kind`-edges in the
+    // closed set; nothing else can host a `kind`-self-edge.
+    let mut objects: HashSet<C::Object> = HashSet::new();
+    for (from, to) in kinded_pairs::<C>(kind) {
+        objects.insert(from);
+        objects.insert(to);
     }
-    map
-}
-
-fn reachable_from<E: Clone + Eq + Hash>(start: &E, adj: &HashMap<E, Vec<E>>) -> HashSet<E> {
-    let mut visited: HashSet<E> = HashSet::new();
-    let mut queue: VecDeque<E> = VecDeque::new();
-    if let Some(neighbors) = adj.get(start) {
-        for n in neighbors {
-            if visited.insert(n.clone()) {
-                queue.push_back(n.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        if let Some(neighbors) = adj.get(&current) {
-            for n in neighbors {
-                if visited.insert(n.clone()) {
-                    queue.push_back(n.clone());
-                }
-            }
-        }
-    }
-    visited
+    objects.into_iter().any(|e| {
+        // The relational image of `e` under `kind` in the closed set —
+        // a closure query, read off `morphisms_from`, not re-walked.
+        C::morphisms_from(&e)
+            .into_iter()
+            .any(|m| m.kind() == kind && m.target() == e)
+    })
 }
 
 /// Build the `name()` override for an OnKind axiom, projecting the typed
@@ -141,12 +144,13 @@ where
     KindOf<C>: PartialEq,
 {
     fn verify(&self) -> Verdict {
-        let pairs = kinded_pairs::<C>(self.kind);
-        let adj = adjacency(&pairs);
-        if adj.keys().all(|e| !reachable_from(e, &adj).contains(e)) {
-            Ok(Box::new(SimpleProof::new(self.meta())))
-        } else {
+        // No cycle on this kind ⇔ no `e --kind--> e` self-edge survives in the
+        // materialized closed morphism set (the macro composed any cyclic path
+        // down to such a self-edge). A closure-membership read, not a BFS.
+        if has_kinded_self_edge::<C>(self.kind) {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
+        } else {
+            Ok(Box::new(SimpleProof::new(self.meta())))
         }
     }
 
@@ -408,7 +412,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::Concept;
+    use crate::category::{Concept, FinitelyGenerated};
 
     // A tiny test category with kinded morphisms.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -418,7 +422,8 @@ mod tests {
         C,
     }
 
-    impl Concept for TestObj {
+    impl Concept for TestObj {}
+    impl FinitelyGenerated for TestObj {
         fn variants() -> Vec<Self> {
             vec![TestObj::A, TestObj::B, TestObj::C]
         }
@@ -524,6 +529,62 @@ mod tests {
         }
     }
 
+    /// A category whose `Subsumption` edges form a cycle A ⊑ B ⊑ A. Its
+    /// `morphisms()` is the **materialized closed** set — exactly what the
+    /// `ontology!` macro emits: the closure of the cyclic kind has composed
+    /// the path down to the self-edges `(A, A, Subsumption)` / `(B, B,
+    /// Subsumption)`. `NoCyclesOnKind` reads those self-edges off the closure
+    /// rather than re-walking adjacency, so this is the refutation witness.
+    struct CyclicSubsumptionCat;
+    impl Category for CyclicSubsumptionCat {
+        type Object = TestObj;
+        type Morphism = TestMorph;
+        fn identity(obj: &TestObj) -> TestMorph {
+            TestMorph {
+                from: *obj,
+                to: *obj,
+                kind: TestKind::Identity,
+            }
+        }
+        fn compose(f: &TestMorph, g: &TestMorph) -> Option<TestMorph> {
+            if f.to != g.from {
+                return None;
+            }
+            Some(TestMorph {
+                from: f.from,
+                to: g.to,
+                kind: TestKind::Subsumption,
+            })
+        }
+        fn morphisms() -> Vec<TestMorph> {
+            let sub = |from, to| TestMorph {
+                from,
+                to,
+                kind: TestKind::Subsumption,
+            };
+            vec![
+                // Identities.
+                TestMorph {
+                    from: TestObj::A,
+                    to: TestObj::A,
+                    kind: TestKind::Identity,
+                },
+                TestMorph {
+                    from: TestObj::B,
+                    to: TestObj::B,
+                    kind: TestKind::Identity,
+                },
+                // Direct cyclic Subsumption edges A ⊑ B, B ⊑ A …
+                sub(TestObj::A, TestObj::B),
+                sub(TestObj::B, TestObj::A),
+                // … and the transitive-closure self-edges the macro materializes
+                // for a cyclic transitive kind.
+                sub(TestObj::A, TestObj::A),
+                sub(TestObj::B, TestObj::B),
+            ]
+        }
+    }
+
     /// Pattern-match helpers — the ontological test shape. The claim IS
     /// the Axiom; the test bridges the Verdict to Rust's panic-based test
     /// harness. No `.is_ok()`/`.is_err()` bool shortcuts (see
@@ -545,6 +606,15 @@ mod tests {
     #[test]
     fn no_cycles_holds_on_subsumption() {
         expect_proves(NoCyclesOnKind::<TestCat>::new(TestKind::Subsumption));
+    }
+
+    #[test]
+    fn no_cycles_refutes_on_cyclic_subsumption() {
+        // The cyclic kind's closure carries `(A, A, Subsumption)` — the axiom
+        // reads that materialized self-edge and refutes, no BFS needed.
+        expect_refutes(NoCyclesOnKind::<CyclicSubsumptionCat>::new(
+            TestKind::Subsumption,
+        ));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Registry-driven loaded OWL vocabularies + the corpus-wide audit.
 //!
 //! Every `[sources.X]` of kind
-//! [`SourceTaxonomyConcept::OntologyVocabulary`][ov] in `praxis.toml` (the
+//! [`SourceTaxonomyConcept::OntologyVocabulary`] in `praxis.toml` (the
 //! SPAR family — CiTO, DoCO, C4O, BiRO — plus W3C PROV-O) is a *loaded*
 //! runtime corpus here, materialised from its bundled RDF/XML the same way
 //! [`crate::social::software::markup::xml::uslm::corpus::loaded`] loads the
@@ -68,7 +68,6 @@
 //!   Vocabulary", *ISWC 2005* — `omv:numberOfClasses` /
 //!   `omv:numberOfProperties`, the structural metrics cross-checked here.
 //!
-//! [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
 //! [rec]: super::vocabulary::OwlEntityRecord
 //! [`read_owl`]: super::reader::read_owl
 //! [`build_envelope`]: super::prx::build_envelope

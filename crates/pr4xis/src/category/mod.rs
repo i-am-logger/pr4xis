@@ -8,6 +8,7 @@ pub mod arrow;
 pub mod category;
 pub mod category_theory;
 pub mod comonad;
+pub mod connection;
 pub mod endofunctor;
 pub mod entity;
 pub mod free;
@@ -21,6 +22,7 @@ pub mod monad;
 pub mod monoid;
 pub mod monoidal;
 pub mod morphism;
+pub mod named;
 pub mod op;
 pub mod optics;
 pub mod optics_theory;
@@ -40,6 +42,10 @@ pub use applicative::Ap;
 pub use arrow::Arrow;
 pub use category::Category;
 pub use comonad::{Cofree, Focused};
+pub use connection::{
+    ConnectionFamily, ConnectionGenerators, extract_adjunction, extract_functor,
+    extract_natural_transformation,
+};
 pub use endofunctor::Endofunctor;
 pub use entity::{Concept, ConceptMeta, FinitelyGenerated};
 pub use free::Chain;
@@ -52,6 +58,7 @@ pub use monad::Writer;
 pub use monoid::Monoid;
 pub use monoidal::{Coproduct, Product};
 pub use morphism::{Morphism, compose_all, direct_morphisms};
+pub use named::{DomainAxiomatized, NamedCategory};
 pub use op::{Op, OpMorphism};
 pub use optics::{Iso, Lens, Prism};
 #[doc(hidden)]

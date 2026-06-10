@@ -20,7 +20,7 @@ A directed map from one object to another inside a category. In pr4xis, a morphi
 
 ## Functor
 
-A **structure-preserving map between two categories**. If `F: A → B` is a functor, then every object `x` in category `A` has a corresponding object `F(x)` in category `B`, and every morphism `f: x → y` in `A` has a corresponding morphism `F(f): F(x) → F(y)` in `B`. Two laws hold: identities are preserved, and composition is preserved. In pr4xis, functors are how two ontologies are *proved* to share structure — when the functor laws hold, the source ontology faithfully embeds in the target. The current workspace has 61 functor implementations.
+A **structure-preserving map between two categories**. If `F: A → B` is a functor, then every object `x` in category `A` has a corresponding object `F(x)` in category `B`, and every morphism `f: x → y` in `A` has a corresponding morphism `F(f): F(x) → F(y)` in `B`. Two laws hold: identities are preserved, and composition is preserved. In pr4xis, functors are how two ontologies are *proved* to share structure — when the functor laws hold, the source ontology faithfully embeds in the target. The workspace has more than 95 functor implementations; run `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l` for the live count.
 
 ## Functor laws
 
@@ -29,7 +29,7 @@ The two conditions a functor must satisfy:
 1. **Identity preservation**: `F(id_x) = id_{F(x)}` — the identity morphism in the source maps to the identity morphism in the target.
 2. **Composition preservation**: `F(g ∘ f) = F(g) ∘ F(f)` — composing two morphisms before mapping gives the same result as mapping each then composing.
 
-Verified by `cargo test -p pr4xis category::validate::check_functor_laws`. Every functor in pr4xis must pass.
+Each law is an `Axiom` whose `verify()` returns a typed `Verdict` (proof or counterexample); they live at `crates/pr4xis/src/category/laws.rs` as `functor_law_axioms::<F>()` / `assert_functor_laws::<F>()`, run by `cargo test -p pr4xis category::laws`. Every functor in pr4xis must pass.
 
 ## Adjunction
 
@@ -78,7 +78,7 @@ A word the README uses for "the engineering layer that makes ontologies composab
 
 ## DOLCE
 
-A foundational ontology from Masolo et al. (2003) that classifies all of being into Endurants (physical objects, social objects, mental objects), Perdurants (events, processes), and Qualities. pr4xis uses DOLCE as the upper layer that every domain ontology classifies its concepts against, and there is an `OwnToDolce` functor that proves the workspace's own type system maps faithfully into DOLCE.
+A foundational ontology from Masolo et al. (2003) that classifies all of being into Endurants (physical objects, social objects, mental objects), Perdurants (events, processes), and Qualities. pr4xis uses DOLCE as the upper-layer classification that domain ontologies classify their concepts against.
 
 ## WordNet
 
@@ -110,7 +110,7 @@ The declarative registry of external sources praxis knows about. Lives at the wo
 
 ## Lock (`praxis.lock`)
 
-The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected sha256 for every registered source's on-disk bytes under `[hashes]`. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
+The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected content digest for every registered source's on-disk bytes under `[hashes]`, in the tagged grammar `<algorithm>:<64 lowercase hex>` — `blake3:` for every praxis-emitted pin (BLAKE3 is the one emit algorithm), `sha256:` / bare hex loadable as SHA-256. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
 
 ## PdfBuildExtraction
 
@@ -124,11 +124,31 @@ A `[sources.<name>]` entry in [`praxis.toml`](#manifest-praxistoml) plus its mat
 
 ## SourceTaxonomy
 
-The ontology behind a registered source's `type` field. Roots at `Source`, branches into `Lexicon` (with `Language`, `DomainLexicon`, `LegalLexicon` leaves) and `LegalCorpus` (with `Statute` / `UsFederalStatute`, `Regulation`, `ConstitutionalArticle`, `ProceduralRule`, `CaseLaw` leaves). The `is_a` chain drives the decoder family and the on-disk path convention; `Adjoins` edges connect families that interoperate at runtime. Hart 1961's primary/secondary rule distinction attaches as a quality. Defined at `crates/domains/src/formal/meta/source_taxonomy/`.
+The ontology behind a registered source's `type` field. Roots at `Source` and branches into several families — `Lexicon` (`Language`, `DomainLexicon`, `LegalLexicon`, `SchemaVocabulary` leaves), `LegalCorpus` (`Statute` / `UsFederalStatute`, `UsCodeTitle`, `Regulation`, `ConstitutionalArticle`, `ProceduralRule`, `CaseLaw` leaves), and schema/test families (`SchemaSpec` with leaves including `OntologyVocabulary`, plus `TestSuite`). The `is_a` chain drives the decoder family and the on-disk path convention; `Adjoins` edges connect families that interoperate at runtime. Hart 1961's primary/secondary rule distinction attaches as a quality. The full leaf set is the `concepts:` block in `crates/domains/src/formal/meta/source_taxonomy/ontology.rs`.
 
 ## Data provisioning
 
 The engine subsystem at `pr4xis_domains::applied::data_provisioning` that reads [`praxis.toml`](#manifest-praxistoml) and [`praxis.lock`](#lock-praxislock), exposes typed `RegistryEntry` values to the rest of the runtime, and enforces eight axioms over the registered set (`LockManifestAgreement`, `RegistryUniquenessByNameVersion`, `IdentityClaimsUseLeaves`, `DecoderTotalityPerKind`, …). Loaded once per process via `OnceLock`; new manifest entries are visible only after process restart. The [`pr4xis update`](../use/register-a-source.md#the-cli--pr4xis-update) CLI is the operator-side surface of the same subsystem.
+
+## `.prx`
+
+The self-contained archive format praxis packs a loaded source into. praxis reads a `.prx` back in milliseconds — instead of re-parsing the original source — after checking its fingerprint and refusing anything that has been altered, and it can still rebuild the original bytes exactly. Today praxis archives its own OWL ontologies, its U.S. Code (USLM) text, and the English dictionary (WordNet) this way; the English and U.S. Code archives are compact — smaller than the source download — for the fast read-back. The format is one realisation of the [Archive](#archive) ontology; the realisation lives at `crates/domains/src/social/software/markup/xml/owl/prx.rs` (gated on `feature = "prx"`).
+
+## Archive
+
+Content-addressed Merkle-DAG storage for an archived source, declared as the `OntologyArchiveStorage` ontology (`crates/domains/src/formal/meta/ontology_archive/`) rather than described only in prose — its concepts (`ContentAddressableNode`, `MerkleDag`, `MerkleRoot`, `BinaryEnvelope`, `CompressedForm`, `SourcePin`, `LoadGate`, `IntegrityClaim`) and its guarantees are runnable axioms. Each node is named by the cryptographic hash of its bytes (Merkle 1987; Benet 2014 IPFS), so identical content yields the identical address and the store deduplicates. The emit/load round-trip is a well-behaved lens (Foster et al. 2007): rebuilding from the archive reproduces the source bytes exactly.
+
+## Graph slice / GraphSnapshot
+
+A content-addressed graph-*slice* primitive (`crates/domains/src/formal/meta/praxis_knowledge_graph/snapshot.rs`): select a slice of the knowledge graph as the **relational image** of a `RootSet` under an `EdgeKindFilter` — computed through the category's own `morphisms_from` over the transitive closure the `ontology!` macro materializes, not a re-derived traversal — and content-address it as a Merkle DAG. The result is a `ReachableSubgraph`. Edges of a filtered kind that *leave* the slice (`from` inside, `to` outside) are its `UnboundReference`s; a slice with none is closed. The slice rehydrates through the same fail-closed admit gate the `.prx` archive uses, reusing the same content-hash and codec primitives — no parallel hash or codec.
+
+## IntegrityClaim
+
+A typed, verifiable claim binding a resource to its expected content hash (W3C Subresource Integrity 2016) — a first-class concept in the [Archive](#archive) ontology, not a bare string compare. The underlying content hash is multi-algorithm: the `RawHash` leaf of the `ArtifactIdentity` taxonomy (`crates/domains/src/formal/meta/artifact_identity/`) covers SHA-256, SHA-512, and BLAKE3 (the archive's `SourcePin` records a BLAKE3 content address — praxis emits under one algorithm and verifies claims under any). A claim is discharged — never merely trusted — by the [fail-closed load gate](#fail-closed-load-gate).
+
+## Fail-closed load gate
+
+The `LoadGate` concept (and the `LoadGateFailsClosed` axiom) of the [Archive](#archive) ontology. It admits a node only by *re-deriving* the content address from the node's own bytes and checking it equals the externally recorded pin; it never trusts an embedded self-asserted label. On a mismatch, an unverifiable claim, or an absent pin, nothing is installed. Grounded in Dolstra (2006) fixed-output derivations, W3C SRI (2016), and TUF (Samuel et al. 2010).
 
 ## Codegen / async loading / mmap
 

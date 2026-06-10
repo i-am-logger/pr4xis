@@ -74,7 +74,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 #[cfg(test)]
@@ -419,6 +419,12 @@ impl Category for XsdEnglishLabelCategory {
             out.push(XsdEnglishLabelMorphism::subsumption(child, parent));
         }
         out
+    }
+}
+
+impl pr4xis::category::NamedCategory for XsdEnglishLabelCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("XsdEnglishLabel")
     }
 }
 

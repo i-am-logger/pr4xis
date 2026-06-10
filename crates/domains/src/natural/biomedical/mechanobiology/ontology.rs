@@ -543,7 +543,7 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

@@ -81,7 +81,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::{AdjunctionKind, Arrow, Category, Concept};
+use pr4xis::category::{AdjunctionKind, Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
@@ -377,6 +377,12 @@ impl Category for CitoCitationTypeCategory {
             .into_iter()
             .map(CitoTypeMorphism::identity)
             .collect()
+    }
+}
+
+impl pr4xis::category::NamedCategory for CitoCitationTypeCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitoCitationType")
     }
 }
 
@@ -696,7 +702,8 @@ impl Arrow for CitoEnglishLabelMorphism {
     }
 }
 
-impl Concept for CitoEnglishLabel {
+impl Concept for CitoEnglishLabel {}
+impl FinitelyGenerated for CitoEnglishLabel {
     fn variants() -> Vec<Self> {
         CitoCitationType::variants()
             .into_iter()
@@ -733,6 +740,12 @@ impl Category for CitoEnglishLabelCategory {
             .into_iter()
             .map(CitoEnglishLabelMorphism::identity)
             .collect()
+    }
+}
+
+impl pr4xis::category::NamedCategory for CitoEnglishLabelCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitoEnglishLabel")
     }
 }
 
@@ -899,6 +912,12 @@ impl Category for CitoWitnessCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for CitoWitnessCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitoWitness")
+    }
+}
+
 /// Discrete category over [`ImageDimension`] (objects + identities).
 pub struct ImageDimensionCategory;
 
@@ -956,6 +975,12 @@ impl Category for ImageDimensionCategory {
                 kind: DiscreteKind::Identity,
             })
             .collect()
+    }
+}
+
+impl pr4xis::category::NamedCategory for ImageDimensionCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("ImageDimension")
     }
 }
 

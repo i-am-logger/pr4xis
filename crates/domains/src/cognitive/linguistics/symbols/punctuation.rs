@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 /// Punctuation — written marks that structure and modify meaning.
 ///
@@ -58,7 +58,8 @@ pub enum PunctuationFunction {
     Ellipsis,
 }
 
-impl Concept for PunctuationFunction {
+impl Concept for PunctuationFunction {}
+impl FinitelyGenerated for PunctuationFunction {
     fn variants() -> Vec<Self> {
         vec![
             Self::StatementTerminator,
@@ -89,7 +90,8 @@ pub enum Position {
     Wrapping,
 }
 
-impl Concept for Position {
+impl Concept for Position {}
+impl FinitelyGenerated for Position {
     fn variants() -> Vec<Self> {
         vec![Self::After, Self::Before, Self::Between, Self::Wrapping]
     }

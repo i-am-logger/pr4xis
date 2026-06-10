@@ -6,28 +6,32 @@ fn main() {
     let manifest_dir =
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set"));
 
-    // ---------- English / WordNet (Embedded staging — baked in) ----------
+    // ---------- English / WordNet (the compact `.prx.gz`, baked in) ------
+    // Emit the COMPLETE WordNet ontology as the size-reduced `.prx.gz` and bake
+    // it into the wasm via `include_bytes!`; the runtime gunzips and loads it
+    // (`load_prx_gz` → `English::from_wordnet`) into the full typed graph.
+    use pr4xis_domains::social::software::markup::xml::lmf::{compact_succinct, reader};
     let wordnet_path = "../../crates/domains/data/wordnet/english-wordnet-2025.xml";
+    let english_prx = out_dir.join("english.prx.gz");
     if Path::new(wordnet_path).exists() {
         println!("cargo:rerun-if-changed={}", wordnet_path);
-        let path = Path::new(wordnet_path);
-        let builder = pr4xis::codegen::wordnet::parse_wordnet_xml(path)
-            .expect("failed to parse WordNet XML at build time");
-        let config = pr4xis::codegen::GenerateConfig::with_marker(
-            "english_codegen",
-            "ConceptId",
-            "pr4xis_domains::cognitive::linguistics::english::English",
-        );
-        let code = builder.generate(&config);
-        std::fs::write(out_dir.join("english_codegen.rs"), code)
-            .expect("failed to write generated English module");
+        let xml = std::fs::read_to_string(wordnet_path).expect("read WordNet XML");
+        let wn = reader::read_wordnet(&xml).expect("parse WordNet XML at build time");
+        let prx_gz = compact_succinct::emit_prx_gz(&wn);
         eprintln!(
-            "Generated English: {} entities, {} relations",
-            builder.entity_count(),
-            builder.relation_count()
+            "Emitted english.prx.gz: {} bytes, {} synsets, {} entries",
+            prx_gz.len(),
+            wn.synsets.len(),
+            wn.entries.len()
         );
+        std::fs::write(&english_prx, prx_gz).expect("write english.prx.gz");
     } else {
         println!("cargo:warning=WordNet XML not found at build time. English will be empty.");
+        std::fs::write(
+            &english_prx,
+            compact_succinct::emit_prx_gz(&empty_wordnet()),
+        )
+        .expect("write empty english.prx.gz");
     }
 
     // ---------- On-demand sources (Async staging — downloaded XML) ------
@@ -49,12 +53,84 @@ fn main() {
     // praxis.lock from, so the `.prx.gz` source-hash gate validates against
     // this embedded pin. Registry-driven, never hardcoded.
     stage_ontology_vocabularies(&out_dir, &manifest_dir);
+
+    // ---------- The embedded new-format `.prx` demo ontology -------------
+    // Project a REAL compiled domain ontology — the Avizienis et al. (2004)
+    // Dependability taxonomy (`DependabilityCategory`, fully glossed) — into
+    // a content-addressed `.prx` Archive, emit its canonical bytes, and bake
+    // both the bytes and the archive's Merkle ROOT into the wasm. The browser
+    // loads these bytes fail-closed against the baked root (re-deriving the
+    // root and refusing on mismatch). This is the new content-addressed
+    // Archive format, NOT the legacy `.prx.gz` envelope. A network-fetched or
+    // user-uploaded `.prx` would flow through the SAME `load_ontology_prx`
+    // path; embedding just removes the network from the demo.
+    emit_embedded_demo_prx(&out_dir);
+}
+
+/// The compiled domain ontology projected into the embedded demo `.prx`.
+/// Its name is the runtime [`OntologyName`] the materialized ontology carries,
+/// and the const baked into `lib.rs` so the load method and the test agree on
+/// it without restating the string.
+const DEMO_ONTOLOGY_NAME: &str = "Dependability";
+
+/// Emit the embedded demo `.prx` (the Dependability ontology) and a generated
+/// `embedded_prx.rs` module carrying the bytes path + the trusted Merkle root
+/// hex + the ontology name. The runtime loads the bytes fail-closed against the
+/// root.
+///
+/// build.rs runs natively, so it can use the `emit` feature (which deps the
+/// compile-time `pr4xis` category model) to project the live `Category` —
+/// exactly the projection a `pr4xis compile` would perform, done here at build
+/// time and frozen into the binary.
+fn emit_embedded_demo_prx(out_dir: &Path) {
+    use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
+    use pr4xis_runtime::{emit::emit, load};
+
+    // Project the compiled ontology → Archive (content-addressed). emit()
+    // carries each concept's ONTOLEX-Lemon gloss INTO the `.prx` via
+    // `Concept::lexical`, so the browser — which has no compile-time labels
+    // table — still gets every concept's meaning.
+    let archive = emit::<DependabilityCategory>();
+    let root = archive
+        .root()
+        .expect("the emitted Dependability archive has a derivable Merkle root");
+    let bytes = load::emit(&archive).expect("the Dependability archive encodes to canonical .prx");
+
+    // Stage the bytes in OUT_DIR; `include_bytes!` bakes them into the wasm.
+    let prx_path = out_dir.join("dependability.prx");
+    std::fs::write(&prx_path, &bytes).expect("write embedded demo .prx");
+    eprintln!(
+        "Emitted embedded demo .prx: {} ({} nodes, {} bytes), root {}",
+        DEMO_ONTOLOGY_NAME,
+        archive.nodes.len(),
+        bytes.len(),
+        root.to_hex()
+    );
+
+    // Generate the module the wasm includes: the bytes (by path), the trusted
+    // root hex (the fail-closed pin), and the ontology name.
+    let module = format!(
+        "/// The embedded demo `.prx` — the Avizienis et al. (2004) Dependability\n\
+         /// taxonomy projected to a content-addressed Archive at build time.\n\
+         pub static EMBEDDED_DEMO_PRX: &[u8] = include_bytes!({prx_path:?});\n\
+         /// The trusted Merkle root of [`EMBEDDED_DEMO_PRX`] (lowercase hex). The\n\
+         /// runtime re-derives the root from the bytes and refuses to load on a\n\
+         /// mismatch — the fail-closed pin, derived from the SAME archive whose\n\
+         /// bytes are embedded above.\n\
+         pub const EMBEDDED_DEMO_PRX_ROOT_HEX: &str = {root_hex:?};\n\
+         /// The runtime ontology name the embedded `.prx` materializes under.\n\
+         pub const EMBEDDED_DEMO_ONTOLOGY_NAME: &str = {name:?};\n",
+        prx_path = prx_path,
+        root_hex = root.to_hex(),
+        name = DEMO_ONTOLOGY_NAME,
+    );
+    std::fs::write(out_dir.join("embedded_prx.rs"), module).expect("write embedded_prx module");
 }
 
 /// Stage each registered OWL `OntologyVocabulary`'s bundled `.owl` to
 /// `<crate>/sources/<name>-<version>.owl` (served at `/sources/<file>`) and
 /// emit `ontologies_manifest.rs` into `OUT_DIR`:
-/// `(name, version, prx_url, source_url, lock_pin_sha256)`.
+/// `(name, version, prx_url, source_url, lock_pin)`.
 ///
 /// The set + pins come from the live registry (`data_sources()` filtered to
 /// `SourceTaxonomyConcept::OntologyVocabulary`, paired with
@@ -107,7 +183,9 @@ fn stage_ontology_vocabularies(out_dir: &Path, manifest_dir: &Path) {
             entry.version.clone(),
             prx_url,
             source_url,
-            pin.clone(),
+            // The tagged wire form (`<algorithm>:<hex>`) — the same lowering
+            // praxis.lock itself carries.
+            pin.to_string(),
         ));
     }
 
@@ -204,4 +282,29 @@ fn write_sources_manifest(out_dir: &Path, manifest: &[(String, String, String, u
     }
     src.push_str("];\n");
     std::fs::write(out_dir.join("sources_manifest.rs"), src).expect("write sources manifest");
+}
+
+/// An empty WordNet, so an `english.prx.gz` always exists for `include_bytes!`
+/// even when the corpus is absent at build time.
+fn empty_wordnet() -> pr4xis_domains::social::software::markup::xml::lmf::ontology::WordNet {
+    use pr4xis_domains::social::software::markup::xml::lmf::ontology::{LexiconMetadata, WordNet};
+    WordNet {
+        lexicon: LexiconMetadata {
+            id: None,
+            label: None,
+            language: None,
+            email: None,
+            license: None,
+            version: None,
+            url: None,
+            citation: None,
+            logo: None,
+            status: None,
+            confidence_score: None,
+            dc: Vec::new(),
+        },
+        synsets: Vec::new(),
+        entries: Vec::new(),
+        syntactic_behaviours: Vec::new(),
+    }
 }

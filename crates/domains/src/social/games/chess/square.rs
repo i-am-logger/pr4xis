@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Square {
@@ -33,7 +33,8 @@ impl Square {
     }
 }
 
-impl Concept for Square {
+impl Concept for Square {}
+impl FinitelyGenerated for Square {
     fn variants() -> Vec<Self> {
         let mut v = Vec::with_capacity(64);
         for file in 0..8u8 {

@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 
 /// Fusion architecture taxonomy.
@@ -33,7 +33,8 @@ pub enum FusionArchitecture {
     Cascaded,
 }
 
-impl Concept for FusionArchitecture {
+impl Concept for FusionArchitecture {}
+impl FinitelyGenerated for FusionArchitecture {
     fn variants() -> Vec<Self> {
         vec![
             Self::Centralized,

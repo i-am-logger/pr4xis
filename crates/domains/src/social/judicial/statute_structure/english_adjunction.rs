@@ -126,11 +126,11 @@ fn senses_for_word(written_rep: &str, english: &English) -> Vec<Sense> {
     concept_ids
         .iter()
         .filter_map(|id| english.concept(*id))
-        .map(|c| Sense {
-            reference: ConceptRef {
+        .map(|c| {
+            Sense::new(ConceptRef {
                 ontology: "english_wordnet".to_string(),
                 concept: c.original_id.clone(),
-            },
+            })
         })
         .collect()
 }
@@ -209,25 +209,13 @@ pub fn resolve_term_name_to_senses(term_name: &str, english: &English) -> Vec<Le
 #[cfg(test)]
 pub mod test_helpers {
     use super::English;
-    use crate::social::software::markup::xml::lmf;
-    use std::sync::OnceLock;
+    use crate::cognitive::linguistics::english::english_loaded;
 
-    static ENGLISH: OnceLock<English> = OnceLock::new();
-
-    /// Returns the lazily-loaded bundled English WordNet. Loads the
-    /// 2025 release from `crates/domains/data/wordnet/`; subsequent
-    /// calls return the same `&'static` reference.
+    /// The shared full English WordNet, loaded ONCE per process via
+    /// [`english_loaded`]: the content-addressed compact `.prx` archive when
+    /// present (~ms), else the WN-LMF XML parse.
     pub fn cached_english() -> &'static English {
-        ENGLISH.get_or_init(|| {
-            let path = concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/data/wordnet/english-wordnet-2025.xml"
-            );
-            let xml = std::fs::read_to_string(path)
-                .expect("WordNet XML not found — ensure Git LFS is pulled");
-            let wn = lmf::reader::read_wordnet(&xml).expect("parse bundled WordNet");
-            English::from_wordnet(&wn)
-        })
+        english_loaded()
     }
 }
 

@@ -44,5 +44,12 @@ pub use lens::{
     UslmLensError, UslmTreeViewLens, UslmTypedTree, UslmXmlLens, read_section, read_uslm_title,
 };
 
+// USLM structural axiom validators — used by this crate's `#[cfg(test)]` modules
+// AND the workspace heavy-corpus test crate (via `test-internals`), so a full
+// title parsed once can be validated under `cargo test` instead of re-parsed per
+// process-isolated nextest test.
+#[cfg(any(test, feature = "test-internals"))]
+pub mod axioms;
+
 #[cfg(test)]
 mod tests;

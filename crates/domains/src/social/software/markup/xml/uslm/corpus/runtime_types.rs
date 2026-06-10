@@ -40,6 +40,10 @@ use super::kinds::{
 /// Subtitle > Part > Chapter > Subchapter > Section. The
 /// [`HierarchyNode`] enum keeps the model uniform across titles.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTitle {
     /// USLM identifier for the title, e.g. `/us/usc/t18`.
     pub identifier: String,
@@ -80,6 +84,23 @@ pub struct UsCodeTitle {
     /// tables, mostly "TableOfDisposition" entries cross-referencing
     /// former statute sections.
     pub tables: Vec<UsCodeTable>,
+    /// Slice U4 (the document-wrapper backbone): the EXACT ordered child
+    /// sequence of the `<uscDoc>` root element as a semantic mixed-content tree
+    /// (W3C XML 1.0 §3.2.2) — `<meta>` then `<main>` (→ `<title>` → its `<num>` /
+    /// `<heading>` / title-level notes / `<toc>` / the `<chapter>` hierarchy
+    /// containers → `<section>`s). Every node is a named [`UsCodeContentNode`]
+    /// ([`UsCodeContentNode::Generic`] keyed by qualified name for the elements
+    /// the typed projections above do not model as their own kind — `<meta>`,
+    /// `<main>`, `<title>`, `<chapter>`, `<toc>`, …; `<ref>` / `<date>` / inline
+    /// ornaments / `<p>` as their typed variants), with `#PCDATA` captured
+    /// VERBATIM — NOT an opaque Infoset blob. This is the backbone-faithful source
+    /// of truth from which [`write_uslm`](super::super::lens::writer::write_uslm)
+    /// regenerates the whole `<uscDoc>` document; the flat `sections` /
+    /// `hierarchy` / `meta` / `tocs` / … projections are its derived views.
+    ///
+    /// `None` for a bare-`<section>` slice document (no `<uscDoc>` wrapper), which
+    /// `write_uslm` regenerates from the single-section path instead.
+    pub uscdoc_mixed: Option<UsCodeMixed>,
 }
 
 impl UsCodeTitle {
@@ -125,7 +146,20 @@ fn walk_containers<'a>(node: &'a HierarchyNode, out: &mut Vec<&'a UsCodeContaine
 /// Both variants are boxed so the enum size remains small (one
 /// pointer) regardless of how many fields the underlying value
 /// types accumulate as the ontology grows.
+// `HierarchyNode` and `UsCodeContainer` form a mutual cycle
+// (`UsCodeContainer::children: Vec<HierarchyNode>`). The rkyv derive needs the
+// recursive bound cycle broken with `#[rkyv(omit_bounds)]` on the back-edge
+// field (`UsCodeContainer::children`) plus the manual non-recursive container
+// bounds the omitted derive would otherwise supply — the canonical rkyv 0.8
+// recursive-type pattern (rkyv `examples/json_like_schema.rs`), mirroring
+// `OwnedUscSubdivision` in `corpus::prx`. `HierarchyNode` itself carries no
+// recursive bound of its own (its boxed members are concrete `Archive` types),
+// so it takes the plain derive.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum HierarchyNode {
     Container(Box<UsCodeContainer>),
     Section(Box<UsCodeSection>),
@@ -136,6 +170,19 @@ pub enum HierarchyNode {
 /// structural shape (identifier, num, heading, children) and
 /// different semantic roles tracked by [`ContainerKind`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "prx", rkyv(serialize_bounds(
+    __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+    __S::Error: rkyv::rancor::Source,
+)))]
+#[cfg_attr(feature = "prx", rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)))]
+#[cfg_attr(feature = "prx", rkyv(bytecheck(bounds(
+    __C: rkyv::validation::ArchiveContext,
+    __C::Error: rkyv::rancor::Source,
+))))]
 pub struct UsCodeContainer {
     pub kind: ContainerKind,
     /// USLM identifier, e.g. `/us/usc/t18/ptI`.
@@ -144,7 +191,9 @@ pub struct UsCodeContainer {
     pub num: String,
     /// `<heading>` plain text.
     pub heading: String,
-    /// Nested children — further containers or leaf sections.
+    /// Nested children — further containers or leaf sections. `omit_bounds`
+    /// breaks the `HierarchyNode` ↔ `UsCodeContainer` recursive bound cycle.
+    #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
     pub children: Vec<HierarchyNode>,
     /// Container-level editorial notes blocks (chapter-level
     /// short titles, amendment history, etc.).
@@ -174,11 +223,23 @@ pub struct UsCodeContainer {
 /// `"uscNote"` (the dominant in-corpus value), `"statutoryNote"`,
 /// etc. See [`UsCodeNote`]'s `topic` field for finer-grained semantic kinds.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeNotesBlock {
     pub block_type: Option<String>,
     pub identifier: Option<String>,
     pub heading: Option<String>,
     pub notes: Vec<UsCodeNote>,
+    /// The `<notes>` block's OWN direct `<heading>` semantic mixed tree
+    /// (slice U3) — present only when the block carries a heading element
+    /// directly under `<notes>` (before its `<note>` children), as opposed
+    /// to the per-`<note>` headings the LRC Title 1 corpus uses. `None`
+    /// when the block has no direct heading (the dominant in-corpus form).
+    /// The backbone-faithful source of truth for the block heading; the
+    /// `heading` `String` projection is derived from it.
+    pub heading_mixed: Option<UsCodeMixed>,
 }
 
 /// A single USLM `<note>` element.
@@ -193,6 +254,10 @@ pub struct UsCodeNotesBlock {
 /// (`"crossHeading"` etc.); semantically informative but not
 /// part of the note's body.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeNote {
     pub topic: Option<String>,
     pub role: Option<String>,
@@ -218,6 +283,19 @@ pub struct UsCodeNote {
     /// `<date>` elements anywhere in the note body. Captured as
     /// typed values per ISO 8601.
     pub dates: Vec<UsCodeDate>,
+    /// The `<note>` element's EXACT ordered child sequence (slice U3) — the
+    /// note body as TRUE MIXED CONTENT (W3C XML 1.0 §3.2.2). A `<note>`
+    /// interleaves block-level children (`<heading>`, `<p>`, and — in other
+    /// titles — `<num>` / `<table>` / `<signature>` / `<quotedContent>`)
+    /// each of which is itself mixed content (a `<heading>` carries `<b>`; a
+    /// `<p>` interleaves literal text with `<ref>` / `<date>` / `<i>`). The
+    /// ordered tree is the backbone-faithful source of truth from which the
+    /// `heading` / `body` / `refs` / `dates` projections are derived, and the
+    /// writer regenerates the `<note>`'s child sequence from it node-for-node
+    /// (the `<heading>` lands as a [`UsCodeContentNode::Generic`] keyed by its
+    /// name, a `<p>` as a [`UsCodeContentNode::Para`], etc. — semantic named
+    /// nodes, never an opaque exact-bytes blob).
+    pub body_mixed: UsCodeMixed,
 }
 
 impl UsCodeNote {
@@ -236,19 +314,37 @@ impl UsCodeNote {
 /// the originating public-law URN (`/us/pl/107/204/...`) and the
 /// Stat. URN (`/us/stat/116/804`).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSourceCredit {
     pub identifier: Option<String>,
+    /// Whitespace-collapsed plain-text projection of `mixed` (DERIVED).
     pub text: String,
+    /// Cross-references — DERIVED from `mixed` (every `<ref href>` in
+    /// document order).
     pub refs: Vec<UsCodeRef>,
     /// `<date>` elements inside the credit (act dates, amendment
-    /// dates). Captured as typed ISO 8601 values.
+    /// dates). Captured as typed ISO 8601 values. DERIVED from `mixed`.
     pub dates: Vec<UsCodeDate>,
+    /// The `<sourceCredit>` semantic mixed-content tree (slice U1) —
+    /// the EXACT ordered sequence of literal punctuation (`"("`,
+    /// `", "`, `"; "`, `".)"`) interleaved with `<ref>` / `<date>`
+    /// children (W3C XML 1.0 §3.2.2). The backbone-faithful source of
+    /// truth; `text` / `refs` / `dates` are its lossy projections, and
+    /// the writer regenerates `<sourceCredit>`'s child sequence from it.
+    pub mixed: UsCodeMixed,
 }
 
 /// USLM `<continuation>` — text continuation across a
 /// subdivision boundary. Used when a section's body text continues
 /// past an enumerated paragraph back to the parent's flow.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeContinuation {
     pub body: String,
 }
@@ -258,6 +354,10 @@ pub struct UsCodeContinuation {
 /// it's a conditional / exception qualifier per long-standing
 /// statutory drafting convention.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeProviso {
     pub body: String,
 }
@@ -270,6 +370,10 @@ pub struct UsCodeProviso {
 /// discrimination is on the namespace URI per W3C XML Namespaces 1.0
 /// §6.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTable {
     /// `id` attribute.
     pub identifier: Option<String>,
@@ -285,6 +389,10 @@ pub struct UsCodeTable {
 
 /// One `<tr>` row of a [`UsCodeTable`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTableRow {
     /// `class` attribute, if any.
     pub class: Option<String>,
@@ -295,6 +403,10 @@ pub struct UsCodeTableRow {
 
 /// One `<th>` or `<td>` cell of a [`UsCodeTableRow`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTableCell {
     /// Header (`<th>`) vs data (`<td>`).
     pub kind: UsCodeTableCellKind,
@@ -315,6 +427,10 @@ pub struct UsCodeTableCell {
 /// uses `"threeColumnTOC"` for Part/Heading/Section three-column
 /// layout. The role is preserved verbatim for downstream renderers.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeToc {
     /// `id` attribute on `<toc>`, if any.
     pub identifier: Option<String>,
@@ -329,6 +445,10 @@ pub struct UsCodeToc {
 
 /// One row in a [`UsCodeToc`] — `<tocItem>` per LRC USLM Schema.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTocItem {
     /// USLM identifier of the *target* (not the TOC item itself).
     /// Derived from the first `<ref href="...">` inside the item if
@@ -355,6 +475,10 @@ pub struct UsCodeTocItem {
 /// documents (bills, public laws); this type carries them as
 /// `Option<String>` so an incomplete meta block doesn't fail.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMeta {
     /// `<dc:title>`. Typically `"Title 18"`, `"Title 49"`, etc.
     pub title: Option<String>,
@@ -421,6 +545,10 @@ pub struct UsCodeMeta {
 /// `<meta>`. LRC uses this for legally-significant doc-level facts
 /// (e.g. positive-law status). Per LRC USLM User Guide § "Metadata".
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMetaProperty {
     /// `role` attribute. Observed values: `"is-positive-law"`.
     /// Other values may appear in non-USC documents.
@@ -454,6 +582,10 @@ impl UsCodeMeta {
 /// carries the title's authoritative heading block and is a
 /// sibling of `<main>` under `<uscDoc>`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeHeader {
     pub text: String,
 }
@@ -474,6 +606,10 @@ pub struct UsCodeHeader {
 /// attribute is a URN pointing at the law being quoted (e.g.
 /// `/us/pl/107/204/s806`).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeQuotedContent {
     /// `origin="..."` — URN of the act being quoted.
     pub origin: Option<String>,
@@ -497,6 +633,10 @@ pub struct UsCodeQuotedContent {
 /// (`section`) but live in different ontological roles per the
 /// USLM Schema's quoted-content semantics.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSectionRef {
     pub identifier: Option<String>,
     pub num: String,
@@ -512,6 +652,10 @@ pub struct UsCodeSectionRef {
 /// string; the element body holds the human-readable form (e.g.
 /// "July 30, 2002").
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeDate {
     pub iso: String,
     pub text: String,
@@ -521,6 +665,10 @@ pub struct UsCodeDate {
 /// one or more `<name>` elements identifying the signatory and
 /// their role.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSignature {
     pub names: Vec<UsCodeName>,
 }
@@ -528,6 +676,10 @@ pub struct UsCodeSignature {
 /// USLM `<name>` — a person or entity name, typically inside a
 /// `<signature>` block.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeName {
     pub text: String,
 }
@@ -555,6 +707,10 @@ pub struct UsCodeName {
 
 /// A single inline-markup run within a text-bearing element.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeInlineRun {
     pub kind: InlineKind,
     pub text: String,
@@ -567,6 +723,314 @@ pub struct UsCodeInlineRun {
     pub href: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Semantic mixed-content tree (slice U1 — the graph-faithful backbone model).
+//
+// USLM text-bearing elements have TRUE MIXED CONTENT per W3C XML 1.0 Fifth
+// Edition §3.2.2 (Mixed Content): a `<sourceCredit>` / `<p>` / `<heading>`
+// interleaves literal `#PCDATA` runs (the punctuation `"("`, `", "`, `".)"`
+// that joins citations) with inline child elements (`<ref>`, `<date>`,
+// `<inline>`). The ORDER of that interleaving is load-bearing — it is the
+// statutory sentence, not a set — so a flat `Vec<UsCodeInlineRun>` (which
+// collapses whitespace, drops empty-text runs, and gathers `<ref>`s out of
+// position into a side list) cannot regenerate the element backbone.
+//
+// [`UsCodeContentNode`] is the backbone-faithful replacement: a semantic
+// ordered tree whose [`UsCodeContentNode::Text`] holds GENUINE `#PCDATA` runs
+// VERBATIM (no whitespace collapse) and whose element variants
+// (`Ref` / `Date` / `Inline` / `Para`) carry typed attributes plus their own
+// ordered children. It is NOT a DOM-in-disguise: there is no opaque
+// exact-bytes child vector — only semantic nodes, with exact-bytes strings
+// reserved strictly for `#PCDATA`. The byte residue the W3C Information Set
+// (Cowan & Tobin 2004) does not carry — attribute order, inter-element
+// white-space layout, entity form — lives in the GENERIC SourceSyntax
+// complement, never per node.
+//
+// The flat `*_runs` / plain-text / `refs` projections are KEPT and DERIVED
+// from this tree (see [`UsCodeContentNode::collect_inline_runs`],
+// [`UsCodeContentNode::plain_text`], [`UsCodeContentNode::collect_refs`]) so
+// every Stratum-B (`from_uslm_titles_owned`) and downstream consumer keeps
+// compiling and passing — the tree is the new source of truth, the flat views
+// are its lossy shadows.
+//
+// Citation: W3C XML 1.0 Fifth Edition §3.2.2 (Mixed Content); LRC USLM XML
+// User Guide § "Inline Elements"; U.S. House Office of the Law Revision
+// Counsel, USLM-1.0.18.xsd `<xsd:element name="ref"/>` / `"date"` / `"inline"`.
+// ---------------------------------------------------------------------------
+
+/// One node of a USLM mixed-content sequence (W3C XML 1.0 §3.2.2). Either a
+/// genuine `#PCDATA` text run captured VERBATIM, or a typed inline child
+/// element carrying its own ordered children.
+///
+/// This is a SEMANTIC tree, not an Infoset blob: `Text` is the only
+/// exact-bytes leaf and it holds *character data only*; every element kind is
+/// a named, typed variant. White-space layout, attribute order, and the
+/// `<!DOCTYPE>` / namespaces are byte residue carried by the generic
+/// SourceSyntax complement, not here.
+// `UsCodeContentNode` is recursive (`children: Vec<UsCodeContentNode>` in every
+// element variant), so the rkyv derive needs `#[rkyv(omit_bounds)]` on each
+// recursive field to break the `Self: Archive` bound cycle, plus the manual
+// non-recursive container bounds the omitted derive would otherwise supply — the
+// canonical rkyv 0.8 recursive-type pattern (rkyv `examples/json_like_schema.rs`),
+// mirroring `OwnedUscSubdivision` in `corpus::prx`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "prx", rkyv(serialize_bounds(
+    __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+    __S::Error: rkyv::rancor::Source,
+)))]
+#[cfg_attr(feature = "prx", rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)))]
+#[cfg_attr(feature = "prx", rkyv(bytecheck(bounds(
+    __C: rkyv::validation::ArchiveContext,
+    __C::Error: rkyv::rancor::Source,
+))))]
+pub enum UsCodeContentNode {
+    /// A genuine `#PCDATA` run (W3C XML 1.0 §2.4 \[14\] `CharData`), captured
+    /// VERBATIM — no whitespace collapse, no trim — so the writer reproduces
+    /// the exact text leaf the source carried (the `"("`, `", "`, `".)"`
+    /// punctuation between citations is part of this).
+    Text(String),
+    /// A `<ref href="…">…</ref>` cross-reference (USLM citation-graph edge).
+    /// `attrs` are the source attributes in order (only `href` is
+    /// semantically projected to [`UsCodeRef`]); `children` is the ref's own
+    /// mixed content (its visible text, possibly itself inline-marked).
+    Ref {
+        attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
+        children: Vec<UsCodeContentNode>,
+    },
+    /// A `<date date="YYYY-MM-DD">…</date>` typed-value element.
+    Date {
+        attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
+        children: Vec<UsCodeContentNode>,
+    },
+    /// A USLM/XHTML inline ornament (`<inline>` / `<i>` / `<b>` / `<sup>` /
+    /// `<sub>` / `<span>` / `<a>`) — [`InlineKind`] names which. `children`
+    /// is its mixed content.
+    Inline {
+        kind: InlineKind,
+        attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
+        children: Vec<UsCodeContentNode>,
+    },
+    /// A block-level `<p>` paragraph inside a `<content>` / `<chapeau>`.
+    /// `children` is its mixed content.
+    Para {
+        attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
+        children: Vec<UsCodeContentNode>,
+    },
+    /// Any other element the slice does not yet model as its own typed kind —
+    /// carried with its exact local NAME so the backbone writer reproduces it
+    /// faithfully (and no text is lost). This is a SEMANTIC named node, NOT an
+    /// opaque exact-bytes blob: its `children` are themselves
+    /// [`UsCodeContentNode`]s. Widening the typed vocabulary (promoting more
+    /// of USLM's ~50-element inline set out of `Generic`) is the next slice.
+    Generic {
+        /// The element's local name (e.g. an unmodeled inline ornament).
+        name: String,
+        attrs: Vec<UsCodeContentAttr>,
+        #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
+        children: Vec<UsCodeContentNode>,
+    },
+}
+
+/// One source attribute on a [`UsCodeContentNode`] element, captured in source
+/// order as a `(qualified-name, value)` pair. The qualified name keeps any
+/// prefix (`xml:lang`) so the writer reproduces it; the generic
+/// `AttributeOverrides` complement carries the EXACT byte sequence, so this
+/// only needs to be present, not byte-perfect, for the backbone diff.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct UsCodeContentAttr {
+    /// Qualified attribute name (e.g. `href`, `date`, `class`, `xml:lang`).
+    pub name: String,
+    /// Attribute value, verbatim.
+    pub value: String,
+}
+
+impl UsCodeContentNode {
+    /// The element's first attribute whose qualified name is `key`, if any.
+    #[must_use]
+    pub fn attr(&self, key: &str) -> Option<&str> {
+        let attrs = match self {
+            Self::Text(_) => return None,
+            Self::Ref { attrs, .. }
+            | Self::Date { attrs, .. }
+            | Self::Inline { attrs, .. }
+            | Self::Para { attrs, .. }
+            | Self::Generic { attrs, .. } => attrs,
+        };
+        attrs
+            .iter()
+            .find(|a| a.name == key)
+            .map(|a| a.value.as_str())
+    }
+
+    /// The element's children (empty for a [`Self::Text`] leaf).
+    #[must_use]
+    pub fn children(&self) -> &[UsCodeContentNode] {
+        match self {
+            Self::Text(_) => &[],
+            Self::Ref { children, .. }
+            | Self::Date { children, .. }
+            | Self::Inline { children, .. }
+            | Self::Para { children, .. }
+            | Self::Generic { children, .. } => children,
+        }
+    }
+
+    /// Append every descendant `#PCDATA` run to `buf` (pre-order) — the
+    /// un-normalized concatenation. The DERIVED plain-text / `*_runs`
+    /// projections normalize on top of this.
+    pub fn push_raw_text(&self, buf: &mut String) {
+        match self {
+            Self::Text(t) => buf.push_str(t),
+            other => {
+                for child in other.children() {
+                    child.push_raw_text(buf);
+                }
+            }
+        }
+    }
+
+    /// Append every descendant `#PCDATA` run that belongs to the element's
+    /// PROSE to `buf` (pre-order), SKIPPING editorial footnote annotation —
+    /// the typed `<note type="footnote">` the LRC nests inside a text-bearing
+    /// element (e.g. a `<heading>`) plus the superscript `<ref
+    /// class="footnoteRef">` marker that points at it.
+    ///
+    /// This is the discriminator the flat [`UsCodeMixed::plain_text`]
+    /// projection lacks: `plain_text` flattens the whole mixed tree, so the
+    /// footnote's own sentence ("Section catchline was not amended…") leaks
+    /// into the heading string and a reader of the prose sees the editor's
+    /// note as if it were part of the title. The typed model already
+    /// DISTINGUISHES these nodes (the footnote is a
+    /// [`Self::Generic`]`{ name: "note" }` carrying `type="footnote"`; the
+    /// marker is a [`Self::Ref`] carrying `class="footnoteRef"` — both per the
+    /// LRC USLM XML User Guide § "Notes" / XHTML footnote-reference idiom), so
+    /// the prose projection just declines to descend into them.
+    ///
+    /// CONSERVATIVE by construction: only those two annotation shapes are
+    /// skipped. A genuine `<ref href="…">` cross-reference in the prose is
+    /// kept (it has no `class="footnoteRef"`); a non-footnote `<note>` (e.g.
+    /// `type="uscNote"`) is kept (its `type` is not `"footnote"`); every other
+    /// node recurses exactly as [`Self::push_raw_text`] would.
+    pub fn push_prose_text(&self, buf: &mut String) {
+        match self {
+            Self::Text(t) => buf.push_str(t),
+            // The editorial footnote the LRC embeds inside a text-bearing
+            // element: a `<note type="footnote">`. Skip its WHOLE subtree —
+            // its `<num>` marker and its sentence are annotation, not prose.
+            Self::Generic { name, .. }
+                if name == "note" && self.attr("type") == Some("footnote") => {}
+            // The superscript marker that points at that footnote: a `<ref
+            // class="footnoteRef">`. Skip its subtree (the bare marker digit).
+            Self::Ref { .. } if self.attr("class") == Some("footnoteRef") => {}
+            other => {
+                for child in other.children() {
+                    child.push_prose_text(buf);
+                }
+            }
+        }
+    }
+}
+
+/// A USLM mixed-content sequence — the ordered child list of one text-bearing
+/// element (`<heading>` / `<content>` / `<chapeau>` / `<sourceCredit>` / `<p>`
+/// / `<ref>` …). The semantic source of truth from which the flat `*_runs` /
+/// plain-text / `refs` views are derived.
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct UsCodeMixed {
+    /// The element's children in EXACT source order (W3C XML 1.0 §3.2.2).
+    pub nodes: Vec<UsCodeContentNode>,
+}
+
+impl UsCodeMixed {
+    /// Empty sequence (the element had no children).
+    #[must_use]
+    pub fn new() -> Self {
+        Self { nodes: Vec::new() }
+    }
+
+    /// `true` when the sequence carries no nodes.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
+    /// The un-normalized concatenation of every descendant `#PCDATA` run.
+    #[must_use]
+    pub fn raw_text(&self) -> String {
+        let mut buf = String::new();
+        for node in &self.nodes {
+            node.push_raw_text(&mut buf);
+        }
+        buf
+    }
+
+    /// Whitespace-collapsed, trimmed plain text — the DERIVED projection that
+    /// the legacy `heading` / `content` / `chapeau` `String` fields hold
+    /// (W3C XML 1.0 §2.10 White Space Handling).
+    #[must_use]
+    pub fn plain_text(&self) -> String {
+        collapse_ws(&self.raw_text())
+    }
+
+    /// Whitespace-collapsed, trimmed PROSE text — `plain_text` minus the
+    /// editorial footnote annotation the LRC nests inside the element (the
+    /// typed `<note type="footnote">` and its `<ref class="footnoteRef">`
+    /// marker). See [`UsCodeContentNode::push_prose_text`].
+    ///
+    /// The lexical-understanding pipeline reads THIS, not `plain_text`: a
+    /// heading's prose is its title, and the editor's footnote ("Section
+    /// catchline was not amended…") is metadata about the title, not a word IN
+    /// the title — so resolving the heading's lemmas against WordNet should
+    /// never see "catchline". `plain_text` is deliberately left untouched
+    /// (the byte-exact writer + the `heading` flat projection depend on it),
+    /// so this is a strictly-narrower SIBLING projection, not a replacement.
+    #[must_use]
+    pub fn prose_text(&self) -> String {
+        let mut buf = String::new();
+        for node in &self.nodes {
+            node.push_prose_text(&mut buf);
+        }
+        collapse_ws(&buf)
+    }
+}
+
+/// Collapse internal whitespace runs to single spaces and trim — the W3C XML
+/// 1.0 §2.10 insignificant-white-space normalization the flat plain-text views
+/// apply on top of the verbatim mixed-content tree.
+fn collapse_ws(s: &str) -> String {
+    let trimmed = s.trim();
+    let mut out = String::with_capacity(trimmed.len());
+    let mut prev_space = false;
+    for ch in trimmed.chars() {
+        if ch.is_whitespace() {
+            if !prev_space {
+                out.push(' ');
+            }
+            prev_space = true;
+        } else {
+            out.push(ch);
+            prev_space = false;
+        }
+    }
+    out
+}
+
 /// Amendment markup — `<ins>` and `<del>` per LRC USLM User Guide
 /// § "Amendment Markup". These elements are populated in USLM
 /// sources representing amendments-in-progress (e.g. an enrolled
@@ -577,6 +1041,10 @@ pub struct UsCodeInlineRun {
 /// tooling can ask "show me the text as it stood before vs after
 /// this amendment" without re-parsing.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeAmendmentMarkup {
     pub kind: UsCodeAmendmentKind,
     /// Body text of the `<ins>` or `<del>` element (whitespace
@@ -617,6 +1085,10 @@ pub struct UsCodeAmendmentMarkup {
 /// A `<def>` block — a definitional clause introducing one or more
 /// `<term>` definitions. Per USLM Schema § "Lexical Elements".
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeDefBlock {
     /// USLM `id` if present (allows cross-references to land here).
     pub identifier: Option<String>,
@@ -634,6 +1106,10 @@ pub struct UsCodeDefBlock {
 /// term being either introduced (inside a `<def>`) or used (inside
 /// any text-bearing element). Per USLM Schema § "Lexical Elements".
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeTerm {
     /// The visible term text, e.g. `"covered employee"`. Whitespace
     /// is collapsed per W3C XML 1.0 §2.10.
@@ -649,6 +1125,10 @@ pub struct UsCodeTerm {
 /// the text. `<marker name="foo"/>` is referenced from elsewhere via
 /// `<ref href="#foo">`. Per USLM Schema § "Lexical Elements".
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeMarker {
     /// The marker's `name` attribute — its fragment identifier.
     /// Required by the schema; empty string if missing in source.
@@ -659,12 +1139,27 @@ pub struct UsCodeMarker {
 }
 
 /// One § of a U.S. Code title.
+///
+/// `UsCodeSection` carries a `Vec<UsCodeSubdivision>` (the self-recursive type);
+/// the recursion lives on `UsCodeSubdivision`, which holds the `omit_bounds` +
+/// manual bounds, so the section itself takes the plain derive.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeSection {
     /// USLM identifier, e.g. `/us/usc/t18/s1514A`.
     pub identifier: String,
     /// The `<num>` value, e.g. `"1514A"`.
     pub num: String,
+    /// The `<num>` element's VISIBLE text leaf, e.g. `"§ 2."` —
+    /// the `#PCDATA` the `value` attribute does NOT carry (`num` is
+    /// `"2"`, this is `"§ 2."`). Empty when the source `<num>` is
+    /// childless. Captured for slice U1 so the backbone writer
+    /// reproduces the `<num>` text node (W3C XML 1.0 §3.2.2); the
+    /// reader populates it from the mixed-content walk.
+    pub num_text: String,
     /// Cross-reference footnote the LRC embeds inside `<num>` to
     /// disambiguate a duplicated section number — e.g. "Another
     /// section 3598 is set out after this section." `None` for the
@@ -683,19 +1178,33 @@ pub struct UsCodeSection {
     /// from a genuine parse error without a hand-coded exceptions list.
     pub num_footnote: Option<String>,
     /// `<heading>` plain text, e.g. "Civil action to protect…".
-    /// Flat-text projection of `heading_runs`.
+    /// Flat-text projection of `heading_mixed` (DERIVED).
     pub heading: String,
     /// Typed inline-markup runs from `<heading>` — preserves
-    /// small-caps, italic, and other ornaments.
+    /// small-caps, italic, and other ornaments. DERIVED from
+    /// `heading_mixed`.
     pub heading_runs: Vec<UsCodeInlineRun>,
+    /// `<heading>` semantic mixed-content tree (slice U1) — the EXACT
+    /// ordered `#PCDATA` ↔ inline-element sequence (W3C XML 1.0
+    /// §3.2.2). The backbone-faithful source of truth; `heading` and
+    /// `heading_runs` are its lossy projections.
+    pub heading_mixed: UsCodeMixed,
     /// `<chapeau>` if the § opens with introductory text before
-    /// nested subdivisions. Flat-text projection of `chapeau_runs`.
+    /// nested subdivisions. Flat-text projection of `chapeau_mixed`.
     pub chapeau: Option<String>,
     pub chapeau_runs: Vec<UsCodeInlineRun>,
+    /// `<chapeau>` semantic mixed-content tree (slice U1). `None` when
+    /// the § has no `<chapeau>`.
+    pub chapeau_mixed: Option<UsCodeMixed>,
     /// `<content>` if the § is a flat (no-subdivision) section.
-    /// Flat-text projection of `content_runs`.
+    /// Flat-text projection of `content_mixed`.
     pub content: Option<String>,
     pub content_runs: Vec<UsCodeInlineRun>,
+    /// `<content>` semantic mixed-content tree (slice U1) — carries
+    /// any block-level `<p>` children plus interleaved text VERBATIM,
+    /// so the backbone writer reproduces `<content><p>…</p></content>`
+    /// exactly. `None` when the § has no `<content>`.
+    pub content_mixed: Option<UsCodeMixed>,
     /// Nested subdivisions — (a)/(b)/(c)… subsections, each of
     /// which may recurse into paragraphs, subparagraphs, etc.
     pub children: Vec<UsCodeSubdivision>,
@@ -738,27 +1247,69 @@ pub struct UsCodeSection {
 /// captures USLM's strictly-nested hierarchy: a subsection contains
 /// paragraphs, which contain subparagraphs, which contain clauses,
 /// and so on.
+// `UsCodeSubdivision` is self-recursive (`children: Vec<UsCodeSubdivision>`), so
+// the rkyv derive needs `#[rkyv(omit_bounds)]` on the recursive `children` field
+// to break the `Self: Archive` bound cycle, plus the manual non-recursive
+// container bounds — the canonical rkyv 0.8 recursive-type pattern (rkyv
+// `examples/json_like_schema.rs`), mirroring `OwnedUscSubdivision` in `corpus::prx`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "prx", rkyv(serialize_bounds(
+    __S: rkyv::ser::Writer + rkyv::ser::Allocator,
+    __S::Error: rkyv::rancor::Source,
+)))]
+#[cfg_attr(feature = "prx", rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source)))]
+#[cfg_attr(feature = "prx", rkyv(bytecheck(bounds(
+    __C: rkyv::validation::ArchiveContext,
+    __C::Error: rkyv::rancor::Source,
+))))]
 pub struct UsCodeSubdivision {
     /// USLM identifier, e.g. `/us/usc/t18/s1514A/a/1/A`.
     pub identifier: String,
     /// The `<num>` value, e.g. `"a"`, `"1"`, `"A"`, `"i"`.
     pub num: String,
+    /// The `<num>` element's VISIBLE text leaf, e.g. `"(a)"` / `"“(1)"`
+    /// — the `#PCDATA` the `value` attribute does NOT carry (`num` is
+    /// `"a"`, this is `"(a)"`). Empty when the source `<num>` is
+    /// childless. Captured for slice U2 so the backbone writer
+    /// reproduces the subdivision `<num>` text node (W3C XML 1.0
+    /// §3.2.2), exactly as [`UsCodeSection::num_text`] does for the §.
+    pub num_text: String,
     /// Which USLM hierarchy level this subdivision sits at.
     pub kind: SubdivisionKind,
-    /// `<heading>` text if any. Flat-text projection of `heading_runs`.
+    /// `<heading>` text if any. Flat-text projection of `heading_mixed`
+    /// (DERIVED). `None` when the subdivision carries no `<heading>`.
     pub heading: Option<String>,
+    /// Typed inline-markup runs from `<heading>` — DERIVED from
+    /// `heading_mixed`.
     pub heading_runs: Vec<UsCodeInlineRun>,
+    /// `<heading>` semantic mixed-content tree (slice U2) — the EXACT
+    /// ordered `#PCDATA` ↔ inline-element sequence (W3C XML 1.0
+    /// §3.2.2). The backbone-faithful source of truth; `heading` and
+    /// `heading_runs` are its lossy projections. `None` when the
+    /// subdivision has no `<heading>`.
+    pub heading_mixed: Option<UsCodeMixed>,
     /// `<chapeau>` if this subdivision introduces children.
-    /// Flat-text projection of `chapeau_runs`.
+    /// Flat-text projection of `chapeau_mixed` (DERIVED).
     pub chapeau: Option<String>,
     pub chapeau_runs: Vec<UsCodeInlineRun>,
+    /// `<chapeau>` semantic mixed-content tree (slice U2). `None` when
+    /// the subdivision has no `<chapeau>`.
+    pub chapeau_mixed: Option<UsCodeMixed>,
     /// `<content>` if this subdivision is a leaf. Flat-text
-    /// projection of `content_runs`.
+    /// projection of `content_mixed` (DERIVED).
     pub content: Option<String>,
     pub content_runs: Vec<UsCodeInlineRun>,
+    /// `<content>` semantic mixed-content tree (slice U2). `None` when
+    /// the subdivision is a branch (carries children, not content).
+    pub content_mixed: Option<UsCodeMixed>,
     /// Nested children — for a subsection these are paragraphs;
-    /// for a paragraph, subparagraphs; etc.
+    /// for a paragraph, subparagraphs; etc. `omit_bounds` breaks the
+    /// `UsCodeSubdivision` self-recursive bound cycle.
+    #[cfg_attr(feature = "prx", rkyv(omit_bounds))]
     pub children: Vec<UsCodeSubdivision>,
     /// Cross-references collected from this subdivision's body
     /// text (not from its children — they hold their own).
@@ -781,6 +1332,10 @@ pub struct UsCodeSubdivision {
 /// Securities Exchange Act § 78). Their resolution is the
 /// foundation of cross-statute reasoning in the legal layer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct UsCodeRef {
     /// The `href` attribute value — a USLM identifier URN.
     pub href: String,
@@ -824,3 +1379,127 @@ impl core::fmt::Display for UslmReadError {
 }
 
 impl std::error::Error for UslmReadError {}
+
+#[cfg(test)]
+mod prose_text_tests {
+    use super::{UsCodeContentAttr, UsCodeContentNode, UsCodeMixed};
+    use alloc::{string::ToString, vec};
+
+    fn attr(name: &str, value: &str) -> UsCodeContentAttr {
+        UsCodeContentAttr {
+            name: name.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    fn text(s: &str) -> UsCodeContentNode {
+        UsCodeContentNode::Text(s.to_string())
+    }
+
+    /// A `<heading>` shaped exactly like the LRC catchline cases
+    /// (18 U.S.C. § 1303): prose text, then a `<ref class="footnoteRef">`
+    /// superscript marker, then the `<note type="footnote">` whose sentence
+    /// carries "catchline".
+    fn heading_with_footnote() -> UsCodeMixed {
+        UsCodeMixed {
+            nodes: vec![
+                text(" Postmaster or employee as lottery agent "),
+                UsCodeContentNode::Ref {
+                    attrs: vec![attr("class", "footnoteRef"), attr("idref", "fn002105")],
+                    children: vec![text("1")],
+                },
+                UsCodeContentNode::Generic {
+                    name: "note".to_string(),
+                    attrs: vec![attr("type", "footnote"), attr("id", "fn002105")],
+                    children: vec![
+                        UsCodeContentNode::Generic {
+                            name: "num".to_string(),
+                            attrs: vec![],
+                            children: vec![text("1")],
+                        },
+                        text(
+                            " Section catchline was not amended to conform to change made in the text by ",
+                        ),
+                        UsCodeContentNode::Ref {
+                            attrs: vec![attr("href", "/us/pl/91/375")],
+                            children: vec![text("Pub. L. 91–375")],
+                        },
+                        text("."),
+                    ],
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn prose_text_excludes_footnote_note() {
+        let prose = heading_with_footnote().prose_text();
+        assert_eq!(prose, "Postmaster or employee as lottery agent");
+        // Neither the footnote's sentence ("catchline") nor the superscript
+        // marker digit survives the prose projection.
+        assert!(
+            !prose.contains("catchline"),
+            "prose must not carry the footnote sentence: {prose:?}"
+        );
+        assert!(
+            !prose.contains("Section catchline"),
+            "prose must not carry the footnote sentence: {prose:?}"
+        );
+        // The `<ref class=footnoteRef>` marker leaf ("1") is also gone — the
+        // prose ends at "agent", not "agent 1".
+        assert!(
+            !prose.contains('1'),
+            "prose must not carry the footnoteRef marker digit: {prose:?}"
+        );
+    }
+
+    #[test]
+    fn prose_text_keeps_genuine_href_ref() {
+        // A genuine `<ref href="…">` cross-reference in the prose (NOT a
+        // footnoteRef) is kept — only `class="footnoteRef"` is skipped.
+        let mixed = UsCodeMixed {
+            nodes: vec![
+                text("Civil action — see "),
+                UsCodeContentNode::Ref {
+                    attrs: vec![attr("href", "/us/usc/t18/s1514A")],
+                    children: vec![text("section 1514A")],
+                },
+            ],
+        };
+        assert_eq!(mixed.prose_text(), "Civil action — see section 1514A");
+    }
+
+    #[test]
+    fn prose_text_keeps_non_footnote_note() {
+        // A `<note>` whose `type` is NOT "footnote" (e.g. "uscNote") is kept:
+        // the skip predicate is `type == "footnote"`, conservatively narrow.
+        let mixed = UsCodeMixed {
+            nodes: vec![
+                text("Definitions "),
+                UsCodeContentNode::Generic {
+                    name: "note".to_string(),
+                    attrs: vec![attr("type", "uscNote")],
+                    children: vec![text("kept-note-prose")],
+                },
+            ],
+        };
+        assert_eq!(mixed.prose_text(), "Definitions kept-note-prose");
+    }
+
+    #[test]
+    fn plain_text_still_includes_annotations() {
+        // `plain_text` is UNTOUCHED — on the same synthetic heading it STILL
+        // flattens the footnote (so U6 byte-exactness + the flat `heading`
+        // projection that depends on it are unchanged).
+        let plain = heading_with_footnote().plain_text();
+        assert!(
+            plain.contains("catchline"),
+            "plain_text must still flatten the footnote: {plain:?}"
+        );
+        assert_eq!(
+            plain,
+            "Postmaster or employee as lottery agent 11 Section catchline \
+             was not amended to conform to change made in the text by Pub. L. 91–375."
+        );
+    }
+}

@@ -146,9 +146,9 @@ Questions from real competitions (Loebner Prize, Winograd Schema Challenge).
 | | LLMs | pr4xis |
 |---|---|---|
 | **How it knows** | Learned from training data | Derived from accepted axioms |
-| **Correctness** | Approximate — best guess from patterns | Proven — every claim verified by math |
-| **Hallucination** | Inherent — no ground truth | Impossible — every claim traces to a proof |
-| **Determinism** | Stochastic | Absolute — same input, same proof |
+| **Correctness** | Approximate — best guess from patterns | Checked — every claim verified against its axioms |
+| **Hallucination** | Inherent — no ground truth | Every claim traces to a proof; where the axioms don't reach, it abstains |
+| **Determinism** | Stochastic | Deterministic — same input, same derivation |
 | **Traceability** | Opaque weights | Full proof path back to axioms |
 | **When wrong** | Confidently wrong, hard to find why | The failing axiom is named |
 | **Cross-domain reasoning** | Implicit blending | Proven connections between domains |

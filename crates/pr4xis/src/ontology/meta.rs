@@ -348,7 +348,13 @@ impl fmt::Display for Morphism {
 ///
 /// Compile-time names are `Cow::Borrowed(&'static str)` — zero allocation.
 /// Runtime-composed names are `Cow::Owned(String)` — no leak, dropped with the Vocabulary.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// `Ord` so a typed name can key a deterministic `BTreeMap`/`BTreeSet` — the
+/// runtime's content-addressed structures (e.g. the materialized closure keyed
+/// by `(ontology, name)`) need a total order, and a string-backed identifier
+/// has the natural lexicographic one. Same rationale as the other identifier
+/// wrappers in this module (`Label`, `ConceptName`, `MorphismKind`).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OntologyName(Cow<'static, str>);
 
 impl OntologyName {
@@ -380,6 +386,23 @@ impl From<String> for OntologyName {
 impl AsRef<str> for OntologyName {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+/// Identity against a raw wire name without first unwrapping the typed name
+/// to `&str`. The comparison stays on the typed side — `a.name() == name` —
+/// so the rebind gate (`axiom_by_name`) decides axiom identity through this
+/// typed `eq`, never a bare `String == String`. `str` and `&str` cover both
+/// borrowed-slice and through-reference call sites.
+impl PartialEq<str> for OntologyName {
+    fn eq(&self, other: &str) -> bool {
+        self.0.as_ref() == other
+    }
+}
+
+impl PartialEq<&str> for OntologyName {
+    fn eq(&self, other: &&str) -> bool {
+        self.0.as_ref() == *other
     }
 }
 
@@ -469,7 +492,6 @@ impl fmt::Display for Year {
 /// Synkolation level (Heim's terminology) — depth in the Metroplex hierarchy.
 ///
 /// Level 0 = base ontology. Each Composer composition (Heim's *Korporator*) increments by 1.
-/// The runtime `Ontology` in compose.rs carries this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SynkolationLevel(usize);
 
@@ -725,7 +747,14 @@ impl Vocabulary {
     }
 
     /// Static Vocabulary — concepts/morphisms pulled from Category/Entity each call.
-    pub fn from_static<C: crate::category::Category, E: crate::category::entity::Concept>(
+    ///
+    /// `E` must be [`FinitelyGenerated`](crate::category::FinitelyGenerated):
+    /// the concepts closure enumerates `E::variants()` to list the vocabulary's
+    /// concepts (closed-world).
+    pub fn from_static<
+        C: crate::category::Category,
+        E: crate::category::entity::FinitelyGenerated,
+    >(
         name: impl Into<OntologyName>,
         module_path: impl Into<ModulePath>,
         source: impl Into<Citation>,
@@ -736,8 +765,8 @@ impl Vocabulary {
             source: source.into(),
             source_of_truth: Source::Static {
                 concepts: || {
-                    use crate::category::Concept;
-                    <E as Concept>::variants()
+                    use crate::category::FinitelyGenerated;
+                    <E as FinitelyGenerated>::variants()
                         .iter()
                         .map(|v| {
                             let name = v.name();
@@ -813,7 +842,14 @@ impl Vocabulary {
     }
 
     /// Compatibility shim for `manual::<C, E>()` calls in descriptor.rs.
-    pub fn from_ontology<C: crate::category::Category, E: crate::category::entity::Concept>(
+    ///
+    /// `E` must be [`FinitelyGenerated`](crate::category::FinitelyGenerated):
+    /// it delegates to [`from_static`](Self::from_static), which enumerates
+    /// `E::variants()`.
+    pub fn from_ontology<
+        C: crate::category::Category,
+        E: crate::category::entity::FinitelyGenerated,
+    >(
         name: impl Into<OntologyName>,
         module_path: impl Into<ModulePath>,
         source: impl Into<Citation>,

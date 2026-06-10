@@ -2,7 +2,7 @@
 //!
 //! Mirrors `social::software::markup::xml::lmf::dtd` — the bundled
 //! schema bytes for the `mods_3_8@2018` source registered in
-//! `praxis.toml`; the pinned sha256 in `praxis.lock` certifies these
+//! `praxis.toml`; the pinned digest in `praxis.lock` certifies these
 //! bytes. Downstream code (case-law structural-extraction) reads the
 //! XSD via [`loaded_mods_3_8`] and parses it via the existing
 //! [`XsdSchemaLens`](crate::formal::meta::xsd::lens::XsdSchemaLens)
@@ -16,7 +16,7 @@
 //!   Office** (2018) *MODS XML Schema Version 3.8*, the published XSD
 //!   at <https://www.loc.gov/standards/mods/v3/mods-3-8.xsd>. The
 //!   bundled file is a byte-for-byte copy; the `mods_3_8@2018` hash
-//!   in `praxis.lock` is sha256 of those bytes.
+//!   in `praxis.lock` is the content digest of those bytes.
 
 /// The bundled MODS 3.8 XSD bytes — the LC-published schema document
 /// the praxis runtime parses to anchor MODS concept identity (per
@@ -63,14 +63,13 @@ mod tests {
 
     #[test]
     fn mods_bytes_match_lock_hash() {
-        use sha2::{Digest, Sha256};
+        use pr4xis_runtime::address::ContentAddress;
         let bytes = loaded_mods_3_8();
-        let hash = Sha256::digest(bytes.as_bytes());
-        let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
-        // `mods_3_8@2018` pinned hash from praxis.lock.
+        let hex = ContentAddress::of(bytes.as_bytes()).to_hex();
+        // `mods_3_8@2018` pinned digest from praxis.lock.
         assert_eq!(
-            hex, "ded45d61d3378d4bed750d8f80633bb0b37e1883afd3a106eef6225c54737a18",
-            "loaded MODS 3.8 XSD bytes must match the praxis.lock pinned sha256"
+            hex, "f10d8db0297932a3b1ab37318aa3113b0bcc5c72dfc8b379e6c2e27854d21497",
+            "loaded MODS 3.8 XSD bytes must match the praxis.lock pinned digest"
         );
     }
 }

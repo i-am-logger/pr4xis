@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 /// A character — the atomic unit of written communication.
 ///
@@ -60,7 +60,8 @@ pub enum UnicodeCategory {
     Other,
 }
 
-impl Concept for UnicodeCategory {
+impl Concept for UnicodeCategory {}
+impl FinitelyGenerated for UnicodeCategory {
     fn variants() -> Vec<Self> {
         vec![
             Self::UppercaseLetter,
@@ -90,7 +91,8 @@ pub enum Direction {
     TopToBottom,
 }
 
-impl Concept for Direction {
+impl Concept for Direction {}
+impl FinitelyGenerated for Direction {
     fn variants() -> Vec<Self> {
         vec![Self::LeftToRight, Self::RightToLeft, Self::TopToBottom]
     }

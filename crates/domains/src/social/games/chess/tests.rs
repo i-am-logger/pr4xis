@@ -739,7 +739,7 @@ proptest! {
     /// 64 squares total
     #[test]
     fn prop_64_squares(_sq in arb_square()) {
-        use pr4xis::category::Concept;
+        use pr4xis::category::{FinitelyGenerated};
         prop_assert_eq!(Square::variants().len(), 64);
     }
 }

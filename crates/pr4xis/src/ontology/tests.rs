@@ -1,5 +1,5 @@
 use super::property::Quality;
-use crate::category::{Arrow, Category, Concept};
+use crate::category::{Arrow, Category, Concept, FinitelyGenerated};
 use crate::logic::Axiom;
 use crate::ontology::Ontology;
 use proptest::prelude::*;
@@ -20,7 +20,8 @@ enum Light {
     Green,
 }
 
-impl Concept for Light {
+impl Concept for Light {}
+impl FinitelyGenerated for Light {
     fn variants() -> Vec<Self> {
         vec![Light::Red, Light::Yellow, Light::Green]
     }
@@ -414,7 +415,7 @@ fn test_axiom_no_dead_states() {
 mod proc_macro_test {
     use crate as pr4xis;
     use crate::category::laws::assert_category_laws;
-    use crate::category::{Category, Concept};
+    use crate::category::{Category, Concept, FinitelyGenerated};
 
     pr4xis::ontology! {
         name: "Communication",
@@ -515,7 +516,7 @@ mod proc_macro_test {
 mod proc_macro_dense_test {
     use crate as pr4xis;
     use crate::category::laws::assert_category_laws;
-    use crate::category::{Category, Concept};
+    use crate::category::{Category, FinitelyGenerated};
 
     pr4xis::ontology! {
         name: "Biology",

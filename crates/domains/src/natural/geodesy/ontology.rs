@@ -22,7 +22,7 @@
 //!   Integrated Navigation Systems* (2nd ed.) — the canonical
 //!   navigation-frame taxonomy.
 
-use pr4xis::category::{Category, Concept, Endofunctor, Functor};
+use pr4xis::category::{Category, Endofunctor, FinitelyGenerated, Functor};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::natural::geodesy::conversion;

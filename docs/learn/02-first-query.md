@@ -22,7 +22,7 @@ Starting pr4xis-web with live reload...
 Watching crates/ for changes — WASM rebuilds automatically.
 ```
 
-Open the URL it serves (typically `http://localhost:8080` or similar). The page loads the English ontology (~107K WordNet concepts compiled into the WASM binary at build time) and gives you a chat input.
+Open the URL it serves — `dev-web` prints the address and port on startup (currently `http://localhost:4096`). The page loads the English ontology (~107K WordNet concepts compiled into the WASM binary at build time) and gives you a chat input.
 
 If you don't have `dev-web` on your path, you are not in the dev shell. Run `devenv shell` first if you use Nix, or fall back to Option B below.
 
@@ -54,7 +54,7 @@ If you cannot use `dev-web` for any reason, the same engine ships as a CLI:
 cargo run -p pr4xis-cli
 ```
 
-This starts a chat loop in your terminal. Same engine, same ontology, same answers — minus the browser sandbox and the live trace pane. Useful for headless servers, CI debugging, or anywhere a browser isn't available.
+This starts a chat loop in your terminal. It loads the English ontology from the WordNet XML you fetched in [01 — Install](01-install.md); if that file is missing it stops with a message pointing you at `pr4xis update wordnet`. With the data in place it runs the same engine on the same ontology and gives the same answers — it prints the response text for each query rather than the browser's live trace pane. Useful for headless servers, CI debugging, or anywhere a browser isn't available.
 
 ## Option C: The hosted demo
 
@@ -62,21 +62,7 @@ If you don't want to run anything locally at all, open **[pr4xis.dev](https://pr
 
 ## Inspecting the trace
 
-All three options produce the same structured trace for each query. The trace is a sequence of `PipelineTraceEntry` records, one per pipeline stage:
-
-1. **Tokenize** — input → `TypedToken[]`
-2. **Parse** — tokens → Lambek pregroup reduction
-3. **Interpret** — parse tree → Montague semantic form
-4. **Speech act classification** — what kind of thing the user said
-5. **Metacognition** — which response strategy fits
-6. **Entity lookup / taxonomy traversal / common ancestor / etc.** — the actual reasoning
-7. **Realization** — semantic answer → human-readable text
-
-When something goes wrong, the trace is where you look first. Every entry tells you which ontology produced it, which operation was performed, and whether it succeeded.
-
-## Inspecting the trace
-
-Both surfaces produce a structured trace for each query. The trace is a sequence of `PipelineTraceEntry` records, one per pipeline stage:
+The browser surfaces (Options A and C) render a structured trace for each query. The trace is a sequence of `PipelineTraceEntry` records, one per pipeline stage:
 
 1. **Tokenize** — input → `TypedToken[]`
 2. **Parse** — tokens → Lambek pregroup reduction

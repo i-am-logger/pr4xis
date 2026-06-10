@@ -22,7 +22,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
@@ -479,7 +479,7 @@ impl Ontology for AnatomyOntology {
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

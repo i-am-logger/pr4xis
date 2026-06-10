@@ -1,4 +1,4 @@
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 

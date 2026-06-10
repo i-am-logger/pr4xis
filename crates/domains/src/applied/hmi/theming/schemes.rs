@@ -14,7 +14,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// Vogix16 adds semantic names to Base16 slots.
 /// Ansi16 maps to terminal SGR codes (ECMA-48).
 use super::base16::ColorSlot;
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
@@ -34,7 +34,8 @@ pub enum SchemeType {
     Ansi16,
 }
 
-impl Concept for SchemeType {
+impl Concept for SchemeType {}
+impl FinitelyGenerated for SchemeType {
     fn variants() -> Vec<Self> {
         vec![Self::Base16, Self::Base24, Self::Vogix16, Self::Ansi16]
     }
@@ -99,7 +100,8 @@ pub enum Vogix16Semantic {
     Special,
 }
 
-impl Concept for Vogix16Semantic {
+impl Concept for Vogix16Semantic {}
+impl FinitelyGenerated for Vogix16Semantic {
     fn variants() -> Vec<Self> {
         vec![
             Self::Background,
@@ -212,7 +214,8 @@ pub enum Ansi16Color {
     BrightWhite,
 }
 
-impl Concept for Ansi16Color {
+impl Concept for Ansi16Color {}
+impl FinitelyGenerated for Ansi16Color {
     fn variants() -> Vec<Self> {
         vec![
             Self::Black,

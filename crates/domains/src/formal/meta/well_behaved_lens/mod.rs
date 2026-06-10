@@ -4,7 +4,7 @@
 //!
 //! A source `S` implementing [`WellBehavedLens`] proves Praxis can
 //! reconstruct it: `get → ontology → put` yields bytes whose
-//! canonical form has identical SHA-256 to the input's canonical
+//! canonical form has an identical content digest to the input's canonical
 //! form. Hash mismatch is concrete evidence of an ontology gap.
 //!
 //! ## Lens laws
@@ -26,7 +26,7 @@
 //! `WellBehavedLens` is the runtime witness of PutGet. For every byte
 //! stream `b`:
 //!
-//!   `sig(b) == sig(put(get(b)))`     where     `sig = SHA-256 ∘ canonical`
+//!   `sig(b) == sig(put(get(b)))`     where     `sig = address ∘ canonical`
 //!
 //! The [`canonical`] submodule supplies the per-source-kind
 //! canonicalization needed to compute `sig`.
@@ -42,8 +42,9 @@
 //!
 //! ## Module layout
 //!
-//! - [`lens_trait`] — the [`WellBehavedLens`] trait + the
-//!   [`LensLawFailure`] error.
+//! - [`lens_trait`] — the [`WellBehavedLens`] trait, the
+//!   [`RoundTripFidelity`] level (canonical FLOOR vs byte-exact
+//!   graph-faithful, M4.ι / #186), and the [`LensLawFailure`] error.
 //! - [`canonical`] — per-source-kind canonical forms (XML, JSON,
 //!   plain text, TOML; RDF stubbed).
 //!
@@ -73,18 +74,36 @@
 //!   GTM 5, 2nd ed. 1998.
 
 pub mod canonical;
+// The completeness meter reuses the harness verdict + `RoundTripFidelity` and
+// the decompile leaf's `DecompileKind`, so it is gated with `decompile` (which
+// links the `prx` load path).
+#[cfg(feature = "prx")]
+pub mod completeness;
+// The uniform `.prx → source` decompile op routes to the per-leaf reconstruct
+// in the `prx`-gated markup modules (rkyv + gzip), so it is `prx`-only — the
+// same gate the OWL/USC/WordNet `.prx` load paths carry.
+#[cfg(feature = "prx")]
+pub mod decompile;
 pub mod harness;
 pub mod lens_trait;
 
 pub use harness::{
-    HarnessOutcome, HarnessResult, LensRegistration, RoundTripHarnessAllVerified,
+    HarnessOutcome, HarnessResult, LensRegistration, RoundTripHarnessAllVerified, lens_by_name,
     lens_registrations, run_round_trip_harness,
 };
 // linkme's distributed_slice is native-only; the raw slice is absent on
 // wasm32. Use `lens_registrations()` for a target-portable accessor.
 #[cfg(not(target_arch = "wasm32"))]
 pub use harness::LENS_REGISTRATIONS;
-pub use lens_trait::{FailureStage, LensLawFailure, WellBehavedLens};
+pub use lens_trait::{FailureStage, LensLawFailure, RoundTripFidelity, WellBehavedLens};
+
+#[cfg(feature = "prx")]
+pub use completeness::{
+    CompletenessReport, completeness_meter, declared_matches_achieved, floor_source_count,
+    print_completeness_meter,
+};
+#[cfg(feature = "prx")]
+pub use decompile::{DecompileError, DecompileKind, decompile};
 
 #[cfg(test)]
 mod tests;

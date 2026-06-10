@@ -61,13 +61,23 @@ pub struct FetchOptions {
     /// Refuse to touch the network. Combined with `check=false`, this errors
     /// out on anything that would otherwise fetch.
     pub offline: bool,
-    /// Lockfile-writing mode. Bypasses identity verification and the
-    /// stub-only skip; downloads the entry, writes bytes to disk, and
-    /// reports the freshly computed SHA-256 via
-    /// [`FetchOutcome::Locked`] so the caller can rewrite the
-    /// corresponding `[hashes]` entry in `praxis.lock`. Mutually
-    /// exclusive with `check` and `offline` at the CLI surface — both
-    /// are read-only, this is write-only.
+    /// Lockfile-writing mode. Two sub-modes, selected by `offline`:
+    ///
+    /// - `lock` alone: bypasses identity verification and the stub-only
+    ///   skip; downloads the entry, writes bytes to disk, and reports the
+    ///   freshly computed content address via [`FetchOutcome::Locked`] so
+    ///   the caller can rewrite the corresponding `[hashes]` entry in
+    ///   `praxis.lock`. The operator is regenerating the pin from
+    ///   authoritative bytes.
+    /// - `lock` + `offline`: the CUSTODY RE-PIN — no network. The on-disk
+    ///   bytes must FIRST verify against the entry's existing identity
+    ///   claims (the pinned digest, under whatever algorithm the pin
+    ///   names); only then is the fresh emit-algorithm address reported
+    ///   via [`FetchOutcome::Locked`]. A verification failure is a custody
+    ///   break and surfaces as [`FetchOutcome::VerificationFailed`] — the
+    ///   caller must refuse to write anything.
+    ///
+    /// Mutually exclusive with `check` at the CLI surface (read-only).
     pub lock: bool,
 }
 
@@ -104,17 +114,19 @@ pub enum FetchOutcome {
     /// machinery. Reported as success so CI doesn't block on the
     /// existence of a documented-but-deferred entry.
     Skipped { name: String, reason: String },
-    /// Lockfile-writing outcome: bytes were fetched, written to disk,
-    /// and hashed; the SHA-256 hex is suitable for writing into
-    /// `praxis.lock`'s `[hashes]` section via
-    /// [`crate::applied::data_provisioning::lockfile::set_hash`]. No
-    /// identity verification was performed — the operator is
-    /// regenerating the pin from authoritative bytes.
+    /// Lockfile-writing outcome: the bytes on disk were hashed under the
+    /// emit algorithm; `address_hex` is the `ContentAddress::to_hex()`
+    /// value suitable for writing into `praxis.lock`'s `[hashes]` section
+    /// via [`crate::applied::data_provisioning::lockfile::set_hash`]
+    /// (which tags it `blake3:`). In the network mode the bytes were
+    /// freshly fetched without identity verification (the operator is
+    /// regenerating the pin from authoritative bytes); in the offline
+    /// custody mode they verified against the EXISTING pin first.
     Locked {
         name: String,
         path: PathBuf,
         bytes: usize,
-        sha256: String,
+        address_hex: String,
     },
 }
 
@@ -149,11 +161,58 @@ pub fn fetch_entry(
     opts: FetchOptions,
     workspace_root: &Path,
 ) -> FetchOutcome {
-    // `--lock` mode bypasses every short-circuit: it is the *primary*
-    // path for both new sources (no lock entry yet → Stub identity)
-    // and refreshing the pin on existing sources. Always download,
-    // never verify identity, emit a `Locked` outcome carrying the
-    // freshly computed SHA-256.
+    // `--lock --offline` is the CUSTODY RE-PIN: no network. The on-disk
+    // bytes must FIRST verify against the entry's EXISTING identity claims
+    // (the pinned digest, dispatched under whatever algorithm the pin
+    // names — the one verify leg); only then is the fresh emit-algorithm
+    // content address reported for the lock rewrite. A mismatch is a
+    // custody break (`VerificationFailed`) the caller must refuse to
+    // paper over. Stub-only entries have no pin to re-derive, so they are
+    // skipped exactly as in the verify modes.
+    if opts.lock && opts.offline {
+        if entry.identity.is_stub_only() {
+            return FetchOutcome::Skipped {
+                name: entry.name.clone(),
+                reason: "stub identity — registered in praxis.toml, no lock hash yet".into(),
+            };
+        }
+        let path = workspace_root.join(entry.local_path());
+        if !path.exists() {
+            return FetchOutcome::MissingAndOffline {
+                name: entry.name.clone(),
+                path,
+            };
+        }
+        let bytes = match fs::read(&path) {
+            Ok(b) => b,
+            Err(e) => {
+                return FetchOutcome::FetchError {
+                    name: entry.name.clone(),
+                    reason: format!("read {}: {e}", path.display()),
+                };
+            }
+        };
+        if let Err(reason) = verify_bytes(entry, &bytes) {
+            return FetchOutcome::VerificationFailed {
+                name: entry.name.clone(),
+                path,
+                reason,
+            };
+        }
+        use pr4xis_runtime::address::ContentAddress;
+        return FetchOutcome::Locked {
+            name: entry.name.clone(),
+            bytes: bytes.len(),
+            address_hex: ContentAddress::of(&bytes).to_hex(),
+            path,
+        };
+    }
+
+    // `--lock` (network mode) bypasses every short-circuit: it is the
+    // *primary* path for both new sources (no lock entry yet → Stub
+    // identity) and refreshing the pin on existing sources. Always
+    // download, never verify identity, emit a `Locked` outcome carrying
+    // the freshly computed content address.
     if opts.lock {
         return do_fetch(entry, &workspace_root.join(entry.local_path()), true);
     }
@@ -283,15 +342,13 @@ fn do_fetch(entry: &RegistryEntry, path: &Path, lock: bool) -> FetchOutcome {
     }
 
     if lock {
-        use sha2::{Digest, Sha256};
-        let mut h = Sha256::new();
-        h.update(&bytes);
-        let sha256 = hex::encode(h.finalize());
+        use pr4xis_runtime::address::ContentAddress;
+        let address_hex = ContentAddress::of(&bytes).to_hex();
         return FetchOutcome::Locked {
             name: entry.name.clone(),
             path: path.to_path_buf(),
             bytes: bytes.len(),
-            sha256,
+            address_hex,
         };
     }
 
@@ -613,9 +670,15 @@ fn verify_bytes(entry: &RegistryEntry, bytes: &[u8]) -> Result<(), String> {
 fn run_extractor(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
     match claim.concept {
         IdentityConcept::RawHash => match &claim.data {
-            ClaimData::Sha256(_) => raw_hash::verify(claim, bytes),
+            // Both hash-bearing carriers — the legacy Sha256 shorthand and
+            // the multi-algorithm HashAlgorithm claim — discharge through
+            // the one verify leg (`raw_hash::verify` → `hash_hex`).
+            ClaimData::Sha256(_) | ClaimData::HashAlgorithm { .. } => {
+                raw_hash::verify(claim, bytes)
+            }
             _ => VerificationResult::Unverifiable {
-                reason: "RawHash claim requires ClaimData::Sha256".into(),
+                reason: "RawHash claim requires a hash-bearing ClaimData (Sha256 or HashAlgorithm)"
+                    .into(),
             },
         },
         IdentityConcept::XmlElementAttribute => match &claim.data {

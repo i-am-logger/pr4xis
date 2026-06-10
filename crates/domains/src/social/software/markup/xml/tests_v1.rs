@@ -16,7 +16,7 @@ use super::loader_v1::{
     is_xml_namespace_attribute, reserved_attribute_names,
 };
 use super::ontology_v1::{Xml10Category, Xml10Concept, Xml10Ontology, Xml10RelationKind};
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::Ontology;
 use proptest::prelude::*;

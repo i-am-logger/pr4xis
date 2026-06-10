@@ -1,4 +1,4 @@
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 // Spelling Error Ontology — the science of misspelling.
@@ -46,7 +46,8 @@ pub enum ErrorEtiology {
     Performance,
 }
 
-impl Concept for ErrorEtiology {
+impl Concept for ErrorEtiology {}
+impl FinitelyGenerated for ErrorEtiology {
     fn variants() -> Vec<Self> {
         vec![Self::Competence, Self::Performance]
     }
@@ -65,7 +66,8 @@ pub enum CompetenceSource {
     Analogy,
 }
 
-impl Concept for CompetenceSource {
+impl Concept for CompetenceSource {}
+impl FinitelyGenerated for CompetenceSource {
     fn variants() -> Vec<Self> {
         vec![
             Self::L1Transfer,
@@ -91,7 +93,8 @@ pub enum PerformanceMechanism {
     Speed,
 }
 
-impl Concept for PerformanceMechanism {
+impl Concept for PerformanceMechanism {}
+impl FinitelyGenerated for PerformanceMechanism {
     fn variants() -> Vec<Self> {
         vec![
             Self::Motor,
@@ -125,7 +128,8 @@ pub enum LinguisticLevel {
     Visual,
 }
 
-impl Concept for LinguisticLevel {
+impl Concept for LinguisticLevel {}
+impl FinitelyGenerated for LinguisticLevel {
     fn variants() -> Vec<Self> {
         vec![
             Self::Phonological,
@@ -159,7 +163,8 @@ pub enum EditOperation {
     Split,
 }
 
-impl Concept for EditOperation {
+impl Concept for EditOperation {}
+impl FinitelyGenerated for EditOperation {
     fn variants() -> Vec<Self> {
         vec![
             Self::Substitution,
@@ -190,7 +195,8 @@ pub enum OrthographicDepth {
     Deep,
 }
 
-impl Concept for OrthographicDepth {
+impl Concept for OrthographicDepth {}
+impl FinitelyGenerated for OrthographicDepth {
     fn variants() -> Vec<Self> {
         vec![Self::Shallow, Self::Intermediate, Self::Deep]
     }
@@ -215,7 +221,8 @@ pub enum SpellingErrorConcept {
     Correction,
 }
 
-impl Concept for SpellingErrorConcept {
+impl Concept for SpellingErrorConcept {}
+impl FinitelyGenerated for SpellingErrorConcept {
     fn variants() -> Vec<Self> {
         vec![
             Self::Etiology,

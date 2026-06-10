@@ -1,4 +1,4 @@
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 // Tense/Aspect ontology — the temporal structure of events in language.
@@ -24,7 +24,8 @@ pub enum TemporalTense {
     Future,
 }
 
-impl Concept for TemporalTense {
+impl Concept for TemporalTense {}
+impl FinitelyGenerated for TemporalTense {
     fn variants() -> Vec<Self> {
         vec![Self::Past, Self::Present, Self::Future]
     }
@@ -44,7 +45,8 @@ pub enum Aspect {
     PerfectProgressive,
 }
 
-impl Concept for Aspect {
+impl Concept for Aspect {}
+impl FinitelyGenerated for Aspect {
     fn variants() -> Vec<Self> {
         vec![
             Self::Simple,
@@ -63,7 +65,8 @@ pub struct TenseAspect {
     pub aspect: Aspect,
 }
 
-impl Concept for TenseAspect {
+impl Concept for TenseAspect {}
+impl FinitelyGenerated for TenseAspect {
     fn variants() -> Vec<Self> {
         let mut v = Vec::new();
         for tense in TemporalTense::variants() {

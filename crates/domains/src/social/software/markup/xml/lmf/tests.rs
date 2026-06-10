@@ -190,7 +190,7 @@ fn lmf_pos_roundtrip() {
 
 mod prop {
     use super::*;
-    use pr4xis::category::entity::Concept;
+    use pr4xis::category::entity::FinitelyGenerated;
     use proptest::prelude::*;
 
     fn arb_pos() -> impl Strategy<Value = LmfPos> {
@@ -234,60 +234,6 @@ mod prop {
             prop_assert!(LmfPos::variants().contains(&pos));
         }
     }
-}
-
-// =============================================================================
-// Full WordNet load test (only runs if data file exists)
-// =============================================================================
-
-#[test]
-fn load_full_wordnet() {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/wordnet/english-wordnet-2025.xml"
-    );
-
-    if !std::path::Path::new(path).exists() {
-        eprintln!("SKIP: WordNet data file not found at {}", path);
-        return;
-    }
-
-    let xml = std::fs::read_to_string(path).unwrap();
-
-    let start = std::time::Instant::now();
-    let wn = reader::read_wordnet(&xml).unwrap();
-    let load_time = start.elapsed();
-
-    let taxonomy = wn.taxonomy_relations();
-    let opposition = wn.opposition_relations();
-    let mereology = wn.mereology_relations();
-    let causal = wn.causal_relations();
-
-    eprintln!("=== WordNet Load Performance ===");
-    eprintln!("  Load time:     {:?}", load_time);
-    eprintln!("  Synsets:       {}", wn.synset_count());
-    eprintln!("  Entries:       {}", wn.entry_count());
-    eprintln!("  Taxonomy:      {} relations", taxonomy.len());
-    eprintln!("  Opposition:    {} relations", opposition.len());
-    eprintln!("  Mereology:     {} relations", mereology.len());
-    eprintln!("  Causation:     {} relations", causal.len());
-    eprintln!("  Memory (est):  ~{} MB", (xml.len() * 2) / (1024 * 1024));
-
-    // Verify reasonable counts
-    assert!(wn.synset_count() > 100_000, "expected 100k+ synsets");
-    assert!(wn.entry_count() > 100_000, "expected 100k+ entries");
-    assert!(taxonomy.len() > 80_000, "expected 80k+ taxonomy relations");
-    assert!(
-        opposition.len() > 5_000,
-        "expected 5k+ opposition relations"
-    );
-
-    // Test specific lookups
-    let dog = wn.lookup_word("dog");
-    assert!(!dog.is_empty(), "should find 'dog'");
-
-    let entity = wn.lookup_word("entity");
-    assert!(!entity.is_empty(), "should find 'entity'");
 }
 
 // =============================================================================
@@ -479,44 +425,6 @@ fn sense_relation_unknown_collapses_to_other() {
 }
 
 // =============================================================================
-// Codegen ↔ runtime equivalence (uniform-depth uplift vs USLM)
-//
-// pr4xis::codegen::wordnet::parse_wordnet_xml (build-time, stream-parsed
-// quick-xml) and xml::lmf::reader::read_wordnet (runtime, XmlDocument
-// tree) walk the same WordNet XML through different paths. For the same
-// input the synset and entry counts must agree.
-// =============================================================================
-
-#[test]
-fn codegen_and_runtime_paths_agree_on_synset_count() {
-    let xml_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/wordnet/english-wordnet-2025.xml"
-    );
-    if !std::path::Path::new(xml_path).exists() {
-        eprintln!("SKIP: WordNet data file not found");
-        return;
-    }
-    let xml = std::fs::read_to_string(xml_path).unwrap();
-
-    // Runtime path.
-    let runtime_wn = reader::read_wordnet(&xml).unwrap();
-
-    // Build-time path.
-    let codegen_builder =
-        pr4xis::codegen::wordnet::parse_wordnet_xml(std::path::Path::new(xml_path))
-            .expect("codegen parse");
-
-    // The runtime synset_count maps to codegen's entity_count
-    // (each synset becomes an EntityDef in codegen).
-    assert_eq!(
-        runtime_wn.synset_count(),
-        codegen_builder.entity_count(),
-        "synset_count mismatch between runtime and codegen"
-    );
-}
-
-// =============================================================================
 // Generated arbitrary LMF proptest (uniform-depth uplift)
 // =============================================================================
 
@@ -628,7 +536,10 @@ proptest! {
                 orig.relations.iter().zip(parsed.relations.iter())
             {
                 let expected = SynsetRelationType::parse(orig_rel);
-                prop_assert_eq!(parsed_rel.rel_type, expected);
+                // `rel_type` is no longer `Copy` (it carries the source
+                // string in `Other(String)`), so clone for the by-value
+                // assertion.
+                prop_assert_eq!(parsed_rel.rel_type.clone(), expected);
             }
         }
     }

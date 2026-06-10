@@ -60,9 +60,9 @@ use crate::formal::information::diagnostics::trace_functors::PipelineStep;
 /// right source is a Heim `Composer` composition of the 13 participating
 /// ontologies (Lemon, Lambek, Montague, WordNet, Planning, Response,
 /// Nlg, Discourse, Production, MetaCognition, Epistemic, Pipeline).
-/// Replacing this wrapper requires `compose::Ontology` to implement
-/// `Category` — a runtime-vs-compile-time bridge that deserves its own
-/// PR. Tracked in #148.
+/// Replacing this wrapper requires composing those ontologies at runtime,
+/// now expressible via `pr4xis-runtime`'s `RuntimeOntology` — the
+/// runtime-vs-compile-time bridge — which deserves its own PR. Tracked in #148.
 pub struct PipelineStepCategory;
 
 /// Identity-only wrapper morphism for `PipelineStep`.
@@ -145,11 +145,17 @@ impl Category for PipelineStepCategory {
     }
 
     fn morphisms() -> Vec<PipelineStepMorphism> {
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         PipelineStep::variants()
             .into_iter()
             .map(PipelineStepMorphism::identity)
             .collect()
+    }
+}
+
+impl pr4xis::category::NamedCategory for PipelineStepCategory {
+    fn ontology_name() -> pr4xis::ontology::meta::OntologyName {
+        pr4xis::ontology::meta::OntologyName::new_static("PipelineStep")
     }
 }
 

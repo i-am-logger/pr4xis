@@ -3,6 +3,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use hashbrown::HashMap;
 
+use pr4xis::category::quiver::ReachabilityClosure;
+
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
 use crate::cognitive::linguistics::morphology::MorphologicalRule;
@@ -54,6 +56,17 @@ pub struct English {
     taxonomy_children: HashMap<ConceptId, Vec<ConceptId>>,
     /// Pre-computed taxonomy: child → parents.
     taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>>,
+    /// The MATERIALIZED hypernym (Subsumption) closure — the reflexive-
+    /// transitive is-a image of every concept, folded ONCE from the
+    /// `taxonomy_parents` generators (the free-functor image into the thin
+    /// reachability category, the SAME [`ReachabilityClosure`] construct
+    /// `pr4xis-runtime`'s `MaterializedClosure` and the `ontology!` macro use).
+    ///
+    /// `is_a` / `ancestors` / `common_ancestor` are O(1) membership / lattice-
+    /// meet lookups into this set — never a per-query breadth-first ascent. The
+    /// reasoner OWNS the closure; queries read its image, they do not re-derive
+    /// reachability.
+    hypernym_closure: ReachabilityClosure<ConceptId>,
     /// Pre-computed opposition: sense → opposite senses.
     opposition: HashMap<SenseId, Vec<SenseId>>,
     /// Pre-computed mereology: whole → parts.
@@ -168,6 +181,77 @@ pub struct Concept {
     pub examples: Vec<String>,
 }
 
+/// The lexical-reasoning surface the chat pipeline queries — the closed set of
+/// English operations it actually uses. Re-typing the pipeline onto this trait
+/// (instead of the concrete `English`) is what lets a COMPOSED ontology
+/// (English ⊕ a loaded corpus) later satisfy the same interface. English is the
+/// canonical implementor; the methods mirror its inherent query API 1:1.
+pub trait LexicalReasoner {
+    fn lookup(&self, word: &str) -> &[ConceptId];
+    fn concept(&self, id: ConceptId) -> Option<&Concept>;
+    fn concept_by_synset(&self, synset_id: &str) -> Option<&Concept>;
+    fn parents(&self, id: ConceptId) -> &[ConceptId];
+    fn children(&self, id: ConceptId) -> &[ConceptId];
+    fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool;
+    /// The reflexive-transitive is-a image of `id` — every ancestor (hypernym)
+    /// reachable up the taxonomy, including `id` itself, ordered nearest-first.
+    ///
+    /// This is a REQUIRED method, not a defaulted breadth-first ascent: every
+    /// implementor must answer it from its OWN materialized reachability closure
+    /// (the reasoner owns the closure; reachability is never re-derived per
+    /// query). The previous per-query BFS default has been eliminated — there is
+    /// no hand-walk fallback anywhere on this surface.
+    fn ancestors(&self, id: ConceptId) -> Vec<ConceptId>;
+    /// The lowest common ancestor of `a` and `b` — the nearest shared hypernym,
+    /// or `None` if they share none. The LATTICE MEET over the implementor's
+    /// materialized closure (`strict_ancestors(b) ∩ ancestors(a)`, nearest-
+    /// first), a categorical op over the materialized set — REQUIRED, never a
+    /// hand-BFS.
+    fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId>;
+    /// The ORDERED hypernym chain from `child` up to and including `ancestor` —
+    /// `[child, …intermediate hypernyms…, ancestor]`, nearest-first — when
+    /// `child` is-a `ancestor`, else `None`. This is the is-a EVIDENCE/
+    /// justification path, owned by the reasoner's closure rather than
+    /// hand-walked by a consumer. Read off the materialized closure (the chain is
+    /// the ancestors of `child` that are themselves at-or-below `ancestor`,
+    /// ordered by is-a distance), never a `0..N` parent loop.
+    fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>>;
+    fn concept_count(&self) -> usize;
+}
+
+impl LexicalReasoner for English {
+    fn lookup(&self, word: &str) -> &[ConceptId] {
+        English::lookup(self, word)
+    }
+    fn concept(&self, id: ConceptId) -> Option<&Concept> {
+        English::concept(self, id)
+    }
+    fn concept_by_synset(&self, s: &str) -> Option<&Concept> {
+        English::concept_by_synset(self, s)
+    }
+    fn parents(&self, id: ConceptId) -> &[ConceptId] {
+        English::parents(self, id)
+    }
+    fn children(&self, id: ConceptId) -> &[ConceptId] {
+        English::children(self, id)
+    }
+    fn is_a(&self, c: ConceptId, a: ConceptId) -> bool {
+        English::is_a(self, c, a)
+    }
+    fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
+        English::ancestors(self, id)
+    }
+    fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
+        English::common_ancestor(self, a, b)
+    }
+    fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
+        English::ancestor_chain(self, child, ancestor)
+    }
+    fn concept_count(&self) -> usize {
+        English::concept_count(self)
+    }
+}
+
 impl English {
     /// Construct an English ontology from pre-computed parts.
     /// Used by the Language module's deployment functors (codegen, mmap, async).
@@ -187,11 +271,13 @@ impl English {
         writing: WritingSystem,
         morphology: Vec<MorphologicalRule>,
     ) -> Self {
+        let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
         Self {
             concepts,
             word_index,
             taxonomy_children,
             taxonomy_parents,
+            hypernym_closure,
             opposition,
             mereology_parts,
             relations: WordnetRelations::default(),
@@ -203,6 +289,36 @@ impl English {
             writing,
             morphology,
         }
+    }
+
+    /// Fold the materialized hypernym (Subsumption) closure ONCE from the direct
+    /// child→parent taxonomy generators. This is the free-functor image into the
+    /// thin reachability category (Mac Lane 1971 CWM II.7) — the SAME
+    /// [`ReachabilityClosure`] fold `pr4xis-runtime`'s `MaterializedClosure` and
+    /// the `ontology!` macro's Floyd-Warshall use, applied to WordNet's hypernym
+    /// relation over `ConceptId`s.
+    ///
+    /// # Eager materialization is the right call here
+    ///
+    /// English WordNet 2025 is ~120k synsets, but the hypernym relation is a
+    /// SPARSE DAG: each synset has ~1-2 direct hypernyms and a reflexive ancestor
+    /// chain of ~10-18 up to the unique root (`entity`). The total closure is
+    /// therefore on the order of (synsets × avg-depth) ≈ 1-2M `(child, ancestor)`
+    /// pairs — built once at load and reused for every query, paid at the same
+    /// `from_wordnet` initialization phase that already pre-computes every
+    /// adjacency map. Eager folding is the discipline's preferred "materialized
+    /// closure"; we do NOT keep a per-query BFS. (Were the relation dense enough
+    /// to make eager folding too costly for WASM startup, the construct would be
+    /// folded lazily on first use and cached — still reasoner-owned, never
+    /// re-derived per query — but the sparsity makes that unnecessary here.)
+    fn fold_hypernym_closure(
+        taxonomy_parents: &HashMap<ConceptId, Vec<ConceptId>>,
+    ) -> ReachabilityClosure<ConceptId> {
+        ReachabilityClosure::fold(
+            taxonomy_parents
+                .iter()
+                .flat_map(|(&child, parents)| parents.iter().map(move |&parent| (child, parent))),
+        )
     }
 
     /// Replace the SKOS-style cross-reference map (synset-level
@@ -449,7 +565,7 @@ impl English {
                     continue;
                 };
                 use lmf::SynsetRelationType as SR;
-                let bucket = match rel.rel_type {
+                let bucket = match &rel.rel_type {
                     SR::Similar => &mut relations.similar_synset,
                     SR::Also => &mut relations.also_synset,
                     SR::Causes => &mut relations.causes,
@@ -490,7 +606,7 @@ impl English {
                         continue;
                     };
                     use lmf::SenseRelationType as SnR;
-                    let bucket = match rel.rel_type {
+                    let bucket = match &rel.rel_type {
                         SnR::Derivation => &mut relations.derivation,
                         SnR::Pertainym => &mut relations.pertainym,
                         SnR::Similar => &mut relations.similar_sense,
@@ -515,11 +631,17 @@ impl English {
         let writing = crate::cognitive::linguistics::orthography::english_writing_system();
         let morphology = crate::cognitive::linguistics::morphology::english::english_rules();
 
+        // Materialize the hypernym closure ONCE from the direct taxonomy
+        // generators just built (Phase 3) — the same initialization phase that
+        // pre-computes every other adjacency map.
+        let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
+
         English {
             concepts,
             word_index,
             taxonomy_children,
             taxonomy_parents,
+            hypernym_closure,
             opposition,
             mereology_parts,
             relations,
@@ -571,30 +693,62 @@ impl English {
             .unwrap_or(&[])
     }
 
-    /// Check if child is-a ancestor (transitively).
+    /// Check if `child` is-a `ancestor` (reflexive-transitively) — an O(1)
+    /// membership lookup into the MATERIALIZED hypernym closure, never a
+    /// per-query ascent. `ancestor` is in `child`'s reflexive Subsumption image
+    /// iff the is-a relation holds (reflexive: every concept is-a itself).
     pub fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool {
-        if child == ancestor {
-            return true;
+        self.hypernym_closure.reaches(&child, &ancestor)
+    }
+
+    /// The reflexive-transitive hypernym image of `id` — `id` itself plus every
+    /// ancestor reachable up the taxonomy, ordered nearest-first (by minimal
+    /// is-a distance). A lookup over the materialized closure, never a BFS.
+    pub fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
+        let mut image = self.hypernym_closure.reflexive_image(&id);
+        // Deterministic, nearest-first order: by distance, then by id so the
+        // result is stable across runs (the closure's map order is not).
+        image.sort_unstable_by(|(a, da), (b, db)| {
+            da.cmp(db).then_with(|| a.value().cmp(&b.value()))
+        });
+        image.into_iter().map(|(v, _)| v).collect()
+    }
+
+    /// The lowest common ancestor of `a` and `b` — the nearest shared hypernym,
+    /// computed as the LATTICE MEET over the materialized closure (the argmin,
+    /// by distance from `b`, of `strict_ancestors(b) ∩ ancestors(a)`). A
+    /// categorical meet over the materialized set, never a hand-BFS. Ties are
+    /// broken by the smaller `ConceptId` for a deterministic result.
+    pub fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
+        self.hypernym_closure.meet_by(&a, &b, |id| id.value())
+    }
+
+    /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first) when
+    /// `child` is-a `ancestor`, else `None`. The is-a evidence path, read off
+    /// the materialized closure — never a `0..N` parent hand-walk.
+    ///
+    /// The chain is exactly those reflexive ancestors `x` of `child` from which
+    /// `ancestor` is itself reachable (so `x` lies on a `child ⇝ ancestor`
+    /// path), ordered by is-a distance from `child`. `child` (distance 0) and
+    /// `ancestor` are the chain's endpoints; on a tree taxonomy this is the
+    /// unique path, and on a DAG it is the distance-ordered set of intermediate
+    /// hypernyms on a shortest witnessing path.
+    pub fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
+        if !self.hypernym_closure.reaches(&child, &ancestor) {
+            return None;
         }
-        // BFS up the taxonomy
-        let mut visited = hashbrown::HashSet::new();
-        let mut queue = alloc::collections::VecDeque::new();
-        for &parent in self.parents(child) {
-            if visited.insert(parent) {
-                queue.push_back(parent);
-            }
-        }
-        while let Some(current) = queue.pop_front() {
-            if current == ancestor {
-                return true;
-            }
-            for &parent in self.parents(current) {
-                if visited.insert(parent) {
-                    queue.push_back(parent);
-                }
-            }
-        }
-        false
+        // Reflexive ancestors of `child` that still reach `ancestor` lie on a
+        // child⇝ancestor path; order them nearest-first by is-a distance.
+        let mut chain: Vec<(ConceptId, u32)> = self
+            .hypernym_closure
+            .reflexive_image(&child)
+            .into_iter()
+            .filter(|(x, _)| self.hypernym_closure.reaches(x, &ancestor))
+            .collect();
+        chain.sort_unstable_by(|(a, da), (b, db)| {
+            da.cmp(db).then_with(|| a.value().cmp(&b.value()))
+        });
+        Some(chain.into_iter().map(|(v, _)| v).collect())
     }
 
     /// Direct parts (meronyms) of a concept.
@@ -640,6 +794,80 @@ impl English {
             .map(|v| v.as_slice())
             .unwrap_or(&[])
     }
+}
+
+/// The canonical full English (Open English WordNet) ontology, loaded ONCE per
+/// process behind a `OnceLock`.
+///
+/// Reads the content-addressed compact `.prx` archive
+/// ([`english_compact_prx_cache_dir`][cd]) when one is present — gunzip +
+/// fail-closed content gate + succinct decode + `from_wordnet` materialization,
+/// far cheaper than the 89 MB WN-LMF XML parse it does otherwise. The English
+/// analogue of [`uslm::corpus::loaded`][usc]: the shared fast path for every
+/// full-English consumer (the `pr4xis chat` CLI, the lambek/adjunction test
+/// fixtures), so each `OnceLock` re-init under nextest's process-per-test model
+/// loads the compact archive instead of re-parsing the giant.
+///
+/// [cd]: crate::social::software::markup::xml::lmf::prx::english_compact_prx_cache_dir
+/// [usc]: crate::social::software::markup::xml::uslm::corpus::loaded
+pub fn english_loaded() -> &'static English {
+    use std::sync::OnceLock;
+    static INSTANCE: OnceLock<English> = OnceLock::new();
+    INSTANCE.get_or_init(|| {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        use crate::social::software::markup::xml::lmf::reader::read_wordnet;
+
+        let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        // THE canonical English: the single registered `Language`-kind source
+        // (English is the sole Language implementor today). Selected by kind —
+        // exactly as every emit/anchor path filters Language — not by a name
+        // literal, so a registry rename can never silently desync the loader from
+        // the emitter that produced its archive.
+        let entry = data_sources()
+            .iter()
+            .find(|e| e.kind == SourceTaxonomyConcept::Language)
+            .expect("english_loaded(): no Language-kind source registered");
+
+        // Fastest path: the content-addressed COMPACT archive, admitted through
+        // the fail-closed `[compact_archive_signatures]` gate — gunzip +
+        // hash-check + succinct decode, with NO XML re-parse. Tried first; an
+        // absent or unpinned compact archive falls through to the XML parse.
+        #[cfg(feature = "prx")]
+        {
+            use crate::applied::data_provisioning::registry::lock_compact_archive_signature;
+            use crate::social::software::markup::xml::lmf::prx;
+            let cprx_path = prx::english_compact_prx_cache_dir(&workspace_root)
+                .join(format!("{}-{}.cprx.gz", entry.name, entry.version));
+            if let Ok(cprx_gz) = std::fs::read(&cprx_path)
+                && let Some(pin) = lock_compact_archive_signature(&entry.name, &entry.version)
+            {
+                let key = format!("{}@{}", entry.name, entry.version);
+                match prx::load_compact_english_prx_gz_gated(&cprx_gz, pin, &key) {
+                    Ok(en) => return en,
+                    // Pinned but the compact archive failed the content gate — the
+                    // committed pin and emitted bytes disagree. Fail LOUD.
+                    Err(e) => panic!(
+                        "english_loaded(): compact archive {} is pinned but failed the \
+                         content gate: {e}",
+                        cprx_path.display()
+                    ),
+                }
+            }
+        }
+
+        // Fallback: parse the WN-LMF XML (a fresh checkout with no compiled
+        // archive pays the ~89 MB parse, the same graceful path the emitters use).
+        let src_path = workspace_root.join(entry.local_path());
+        let xml = std::fs::read_to_string(&src_path)
+            .expect("english_loaded(): WordNet XML not on disk — run `pr4xis update`");
+        let wn = read_wordnet(&xml).expect("english_loaded(): parse WordNet");
+        English::from_wordnet(&wn)
+    })
 }
 
 impl crate::cognitive::linguistics::language::Language for English {

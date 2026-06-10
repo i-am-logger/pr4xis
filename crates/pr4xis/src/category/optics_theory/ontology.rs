@@ -246,7 +246,7 @@ impl Ontology for OpticsOntology {
 mod tests {
     use super::*;
     use crate::category::laws::assert_category_laws;
-    use crate::category::{Arrow, Category, Concept};
+    use crate::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

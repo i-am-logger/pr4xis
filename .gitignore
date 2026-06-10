@@ -33,6 +33,11 @@ dist/
 # E2E click-to-load staging: same `.prx.gz` artifacts, emitted into the
 # pr4xis-web tree so the local/CI dual-load test has them at /ontologies/.
 crates/wasm/ontologies/
+# Parse-once corpus cache: `.prx.gz` archives emitted by `pr4xis compile`
+# and read by the corpus loader instead of re-parsing source XML per
+# process. Build output, never committed; CI restores it from the
+# praxis.lock-keyed data cache.
+.prx-cache/
 
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml

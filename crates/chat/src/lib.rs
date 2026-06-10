@@ -3,7 +3,7 @@ use pr4xis::ontology::Vocabulary;
 pub use pr4xis::ontology::meta::Provenance;
 pub use pr4xis::ontology::meta::Provenance as RelationshipMeta;
 use pr4xis_domains::cognitive::cognition::epistemics;
-use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::english::{English, LexicalReasoner};
 use pr4xis_domains::cognitive::linguistics::lambek::{
     ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize, tokenize_ontological,
 };
@@ -14,7 +14,9 @@ use pr4xis_domains::formal::information::diagnostics::trace_functors::{
     PipelineTrace, TracedPipeline,
 };
 use pr4xis_domains::formal::information::diagnostics::trace_impls;
-use pr4xis_domains::formal::information::knowledge::{SelfModelInstance, describe_knowledge_base};
+use pr4xis_domains::formal::information::knowledge::{
+    SelfModelInstance, describe_knowledge_base, is_self_referent,
+};
 
 /// The Diagnostics ontology governs the trace — every PipelineTraceEntry is
 /// a Diagnostic concept. `trace_meta()` is pulled from `ontology!`-generated
@@ -80,7 +82,34 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 /// The linguistic pipeline stages (tokenize/parse/interpret/respond)
 /// reason over `lang` only. Self-referential queries route through the
 /// self-model (see `self_describe`); loaded corpora live in its catalog.
+///
+/// The lexical-reasoning surface (`lookup` / `is_a` / `concept` / define)
+/// is threaded through a `&dyn LexicalReasoner` — `English` itself by
+/// default. A caller that has loaded corpora can inject a
+/// [`process_with_reasoner`] reasoner that grounds those corpora into the
+/// same lexical surface (see `ComposedReasoner` in `pr4xis-domains`).
 pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
+    // Default reasoner = the embedded English model itself (behavior-
+    // preserving: English is both the linguistic substrate and the lexical
+    // reasoner when no corpus is loaded).
+    process_with_reasoner(lang, lang, input)
+}
+
+/// Process with an explicit lexical reasoner injected.
+///
+/// `lang` is the linguistic substrate (tokenize / parse / Montague lexicon /
+/// self-model); `reasoner` is the lexical-reasoning surface the answer stages
+/// query (`lookup` / `is_a` / `concept` / `parents` / `children`). For the
+/// embedded-only case `reasoner == lang`. When a corpus is loaded, `reasoner`
+/// is a `ComposedReasoner` whose grounded lexicon UNIONs the loaded ontology's
+/// glossed concepts into the same surface — so a "what is X" over a loaded
+/// concept reads its loaded gloss, and an unloaded concept abstains exactly as
+/// the embedded model already does.
+pub fn process_with_reasoner(
+    lang: &English,
+    reasoner: &dyn LexicalReasoner,
+    input: &str,
+) -> ProcessResult {
     let start = WasmSafeTimer::now();
 
     // Stage 1: Tokenize through the Language ontology.
@@ -133,7 +162,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     } else {
         &tokens
     };
-    let meaning = montague::interpret(montague_tokens, lang);
+    let meaning = montague::interpret(montague_tokens, reasoner);
 
     // Stage 4: Classify the speech act through pragmatics.
     let user_act = if meaning.is_question() {
@@ -162,12 +191,12 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             montague::Sem::Question {
                 predicate,
                 arguments,
-            } => answer_question(lang, predicate, arguments),
+            } => answer_question(reasoner, predicate, arguments),
             montague::Sem::Prop {
                 predicate,
                 arguments,
-            } => answer_statement(lang, predicate, arguments),
-            _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
+            } => answer_statement(reasoner, predicate, arguments),
+            _ => attempt_partial_understanding(reasoner, lang, &tokens, &reduction, &meaning),
         }
     };
 
@@ -216,7 +245,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
 }
 
 fn attempt_partial_understanding(
-    en: &English,
+    en: &dyn LexicalReasoner,
+    lang: &dyn Language,
     tokens: &[TypedToken],
     reduction: &ReductionResult,
     _meaning: &montague::Sem,
@@ -225,13 +255,13 @@ fn attempt_partial_understanding(
     // function words (closed class) AND WordNet concepts (open class).
     let known_words: Vec<&str> = tokens
         .iter()
-        .filter(|t| en.lexical_lookup(&t.word).is_some())
+        .filter(|t| lang.lexical_lookup(&t.word).is_some())
         .map(|t| t.word.as_str())
         .collect();
 
     let unknown_words: Vec<&str> = tokens
         .iter()
-        .filter(|t| en.lexical_lookup(&t.word).is_none())
+        .filter(|t| lang.lexical_lookup(&t.word).is_none())
         .map(|t| t.word.as_str())
         .collect();
 
@@ -292,13 +322,20 @@ fn attempt_partial_understanding(
 }
 
 /// Check if the tokens reference the system itself.
-/// Routes through the self-model ontology via token senses:
-/// if any token's sense references a self-model concept, the
-/// question is self-referential.
+///
+/// The self-reference decision is owned by the self-model layer: a token is
+/// self-referential iff its surface form is one of the self-model's typed
+/// self-referents ([`is_self_referent`] — the system's identity name and the
+/// indexicals English resolves to the addressee). The routing body asks the
+/// self-model rather than enumerating word literals here.
+///
+/// SMALLEST TYPED STEP (#186): the membership test is against the self-model's
+/// self-referent *surface* set. The fully typed form — resolve each token to a
+/// SelfModel `ConceptId`/`SenseId` and test membership in the SelfModel
+/// reflexive closure — needs an indexical→SelfModel sense bridge that the
+/// pipeline does not yet have; tracked as a follow-up.
 fn is_self_referential(tokens: &[pr4xis_domains::cognitive::linguistics::text::Token]) -> bool {
-    tokens.iter().any(|t| {
-        t.word == "you" || t.word == "yourself" || t.word == "praxis" || t.word == "pr4xis"
-    })
+    tokens.iter().any(|t| is_self_referent(&t.word))
 }
 
 /// Answer a self-referential question through the eigenform.
@@ -322,7 +359,7 @@ fn answer_self_referential(lang: &English) -> trace_impls::ResponseResult {
 }
 
 pub fn answer_question(
-    en: &English,
+    en: &dyn LexicalReasoner,
     predicate: &str,
     arguments: &[montague::Sem],
 ) -> trace_impls::ResponseResult {
@@ -417,7 +454,7 @@ pub fn answer_question(
 }
 
 pub fn answer_statement(
-    en: &English,
+    en: &dyn LexicalReasoner,
     _predicate: &str,
     arguments: &[montague::Sem],
 ) -> trace_impls::ResponseResult {
@@ -451,7 +488,7 @@ pub fn answer_statement(
     }
 }
 
-pub fn define_word(en: &English, word: &str) -> String {
+pub fn define_word(en: &dyn LexicalReasoner, word: &str) -> String {
     use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
     use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
 
@@ -480,7 +517,7 @@ pub fn define_word(en: &English, word: &str) -> String {
 /// 3. Microplanning — referring expressions
 /// 4. Realization — compose through grammar
 fn build_taxonomy_response(
-    en: &English,
+    en: &dyn LexicalReasoner,
     child_word: &str,
     parent_word: &str,
     child_id: pr4xis_domains::cognitive::linguistics::english::ConceptId,
@@ -491,27 +528,41 @@ fn build_taxonomy_response(
     // ---- Stage 1: Content Determination ----
     // Gather all relevant knowledge from the ontology.
 
-    // The taxonomy chain: how child relates to parent
-    let mut chain_ids = vec![(child_word.to_string(), child_id)];
-    let mut current = child_id;
-    for _ in 0..10 {
-        if current == parent_id {
-            break;
-        }
-        if let Some(&p) = en.parents(current).first() {
-            if let Some(c) = en.concept(p) {
-                let label = c
-                    .lemmas
-                    .first()
-                    .map(|l| l.as_str())
-                    .unwrap_or(&c.original_id);
-                chain_ids.push((label.to_string(), p));
-            }
-            current = p;
-        } else {
-            break;
-        }
-    }
+    // The taxonomy chain: how child relates to parent. The ORDERED is-a evidence
+    // path is owned by the reasoner's MATERIALIZED hypernym closure — we ask for
+    // `ancestor_chain` rather than hand-walking `parents()` in a bounded loop, so
+    // even the justification is closure-derived, not re-walked. This function is
+    // only reached after `is_a(child, parent)` already proved (see the caller),
+    // so the chain is always present; an absent chain degrades to the endpoints
+    // rather than re-deriving anything.
+    let chain_ids: Vec<(
+        String,
+        pr4xis_domains::cognitive::linguistics::english::ConceptId,
+    )> = en
+        .ancestor_chain(child_id, parent_id)
+        .unwrap_or_else(|| vec![child_id, parent_id])
+        .into_iter()
+        .enumerate()
+        .map(|(i, id)| {
+            // The chain's first element is `child`; render it with the caller's
+            // surface word, not the lemma, so the evidence reads in the user's
+            // term. Every other rung uses its concept's primary lemma.
+            let label = if i == 0 {
+                child_word.to_string()
+            } else {
+                en.concept(id)
+                    .map(|c| {
+                        c.lemmas
+                            .first()
+                            .map(|l| l.as_str())
+                            .unwrap_or(&c.original_id)
+                            .to_string()
+                    })
+                    .unwrap_or_else(|| parent_word.to_string())
+            };
+            (label, id)
+        })
+        .collect();
 
     // Definitions for each concept in the chain
     let chain_defs: Vec<(&str, &str)> = chain_ids
@@ -581,7 +632,7 @@ fn build_taxonomy_response(
 /// relationships between concepts — common ancestors, is-a chains,
 /// shared properties. This is metacognition: instead of guessing
 /// "did you mean is X a Y?", explore and report what we actually know.
-fn explore_concepts(en: &English, words: &[&str]) -> String {
+fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
     use pr4xis_domains::cognitive::linguistics::pragmatics::realize;
 
     let mut lines = Vec::new();
@@ -598,24 +649,25 @@ fn explore_concepts(en: &English, words: &[&str]) -> String {
                 lines.push(format!("{word}: {def}"));
             }
 
-            // Trace taxonomy chain through the ontology
-            let mut chain = Vec::new();
-            let mut current = id;
-            for _ in 0..5 {
-                if let Some(&parent) = en.parents(current).first()
-                    && let Some(pc) = en.concept(parent)
-                {
-                    let label = pc
-                        .lemmas
-                        .first()
-                        .map(|l| l.as_str())
-                        .unwrap_or(&pc.original_id);
-                    chain.push(label.to_string());
-                    current = parent;
-                } else {
-                    break;
-                }
-            }
+            // Trace the taxonomy chain off the reasoner's MATERIALIZED hypernym
+            // closure: `ancestors(id)` is the reflexive is-a image, nearest-
+            // first, owned by the closure — never a hand-walk of `parents()`. We
+            // drop the reflexive head (`id` itself, distance 0) to render the
+            // STRICT ancestor lineage "word is a X → Y → Z".
+            let chain: Vec<String> = en
+                .ancestors(id)
+                .into_iter()
+                .skip(1)
+                .filter_map(|anc| {
+                    en.concept(anc).map(|pc| {
+                        pc.lemmas
+                            .first()
+                            .map(|l| l.as_str())
+                            .unwrap_or(&pc.original_id)
+                            .to_string()
+                    })
+                })
+                .collect();
             if !chain.is_empty() {
                 // Generate "word is a X → Y → Z" through grammar
                 let first = &chain[0];
@@ -640,7 +692,7 @@ fn explore_concepts(en: &English, words: &[&str]) -> String {
                         lines.push(realize::sentence_copula(w1, w2));
                     } else if en.is_a(id2, id1) {
                         lines.push(realize::sentence_copula(w2, w1));
-                    } else if let Some(lca) = find_common_ancestor(en, id1, id2)
+                    } else if let Some(lca) = en.common_ancestor(id1, id2)
                         && let Some(c) = en.concept(lca)
                     {
                         let label = c
@@ -664,49 +716,6 @@ fn explore_concepts(en: &English, words: &[&str]) -> String {
     } else {
         lines.join("\n")
     }
-}
-
-/// Find the lowest common ancestor of two concepts in the taxonomy.
-fn find_common_ancestor(
-    en: &English,
-    a: pr4xis_domains::cognitive::linguistics::english::ConceptId,
-    b: pr4xis_domains::cognitive::linguistics::english::ConceptId,
-) -> Option<pr4xis_domains::cognitive::linguistics::english::ConceptId> {
-    use std::collections::HashSet;
-
-    // Collect all ancestors of A
-    let mut ancestors_a = HashSet::new();
-    let mut queue = std::collections::VecDeque::new();
-    ancestors_a.insert(a);
-    for &p in en.parents(a) {
-        queue.push_back(p);
-    }
-    while let Some(current) = queue.pop_front() {
-        if ancestors_a.insert(current) {
-            for &p in en.parents(current) {
-                queue.push_back(p);
-            }
-        }
-    }
-
-    // BFS up from B, first hit in ancestors_a is the LCA
-    let mut visited = HashSet::new();
-    let mut queue = std::collections::VecDeque::new();
-    for &p in en.parents(b) {
-        queue.push_back(p);
-    }
-    while let Some(current) = queue.pop_front() {
-        if ancestors_a.contains(&current) {
-            return Some(current);
-        }
-        if visited.insert(current) {
-            for &p in en.parents(current) {
-                queue.push_back(p);
-            }
-        }
-    }
-
-    None
 }
 
 pub fn extract_entity_name(sem: &montague::Sem) -> String {
@@ -1020,5 +1029,160 @@ mod tests {
         assert_eq!(pipeline.log.entries[0].step, PipelineStep::TOKENIZE);
         assert_eq!(pipeline.log.entries[1].step, PipelineStep::PARSE);
         assert_eq!(pipeline.log.entries[2].step, PipelineStep::INTERPRET);
+    }
+}
+
+// =========================================================================
+// Loaded-corpus demo — the with/without behavioral contrast
+// =========================================================================
+//
+// The heart of the runtime demo: a chat that answers a question about the
+// CONTENT of a LOADED ontology, grounded through English, and abstains when
+// that ontology is not loaded. The same question, the same chat code — only
+// the reasoner differs:
+//
+//   - WITHOUT the corpus  →  `process(english, …)`            →  abstains
+//   - WITH the corpus     →  `process_with_reasoner(english, composed, …)`
+//                                                              →  answers from
+//                                                                 the loaded gloss
+//
+// The corpus is a REAL compiled praxis ontology projected to a `.prx` Archive
+// via `emit::<Cat>()`, materialized into a `RuntimeOntology`, and grounded into
+// the English lexicon by the `ComposedReasoner` (the Lemon functor). Nothing is
+// hardcoded: the answer text the WITH case asserts is the ontology's OWN gloss,
+// read back through `RuntimeOntology::lexical`.
+#[cfg(test)]
+mod loaded_corpus_demo {
+    use super::*;
+    use pr4xis::ontology::meta::OntologyName;
+    use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
+    use pr4xis_runtime::emit::emit;
+    use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
+
+    // A small REAL legal-corpus ontology: a statute is divided into Titles,
+    // which are divided into Sections. Compiled by the same `ontology!` macro
+    // every domain ontology uses — labels (the lexical glosses) and the
+    // materialized Subsumption taxonomy and all.
+    pr4xis::ontology! {
+        name: "Statute",
+        source: "loaded-corpus demo fixture (US Code structural skeleton: Title → Section)",
+        concepts: [Statute, Title, Section],
+        labels: {
+            Statute: ("en", "Statute",
+                "A written law enacted by a legislature."),
+            Title: ("en", "Title",
+                "A formal top-level subdivision of a statute, grouping related sections."),
+            Section: ("en", "Section",
+                "The smallest numbered unit of a statute, stating a single rule."),
+        },
+        is_a: [
+            // A Section is part of the statute's structure; a Title is too. For
+            // the demo we only need the lexical grounding, but a real taxonomy
+            // edge keeps the fixture honest (Title and Section are Statute
+            // structural units).
+            (Title, Statute),
+            (Section, Statute),
+        ],
+    }
+
+    /// Materialize the Statute ontology into a `RuntimeOntology`.
+    ///
+    /// `emit::<StatuteCategory>()` now carries each concept's gloss INTO the
+    /// `.prx` itself (via `Concept::lexical`, filled from the `ontology!` labels
+    /// table) — so the demo no longer post-processes the archive to attach
+    /// glosses from `labels()`. The gloss travels with the projected ontology,
+    /// exactly as it must for a `.prx` loaded with no compile-time labels table
+    /// (e.g. in the browser).
+    fn statute_corpus() -> RuntimeOntology {
+        let archive = emit::<StatuteCategory>();
+        materialize(archive, OntologyName::new_static("Statute"))
+            .expect("Statute corpus materializes")
+    }
+
+    /// The gloss the loaded ontology carries for `Title` — the exact text the
+    /// WITH case must surface, read back from the materialized ontology's own
+    /// `lexical` (i.e. from what `emit` carried into the `.prx`), never from a
+    /// compile-time side table.
+    fn title_gloss() -> String {
+        let corpus = statute_corpus();
+        corpus
+            .lexical(&corpus.concept("Title"))
+            .expect("the emitted Statute ontology carries Title's gloss")
+            .to_string()
+    }
+
+    #[test]
+    fn what_is_a_title_answers_from_the_loaded_gloss_with_the_corpus_and_abstains_without() {
+        let english = English::sample();
+        let question = "what is a title";
+        let gloss = title_gloss();
+
+        // --- WITHOUT the corpus: english-only. "title" is not an English word
+        //     the sample model knows, so the chat abstains. ---
+        let (without, _, _) = process(&english, question);
+        assert!(
+            without.to_lowercase().contains("do not")
+                || without.to_lowercase().contains("don't")
+                || without.to_lowercase().contains("not know"),
+            "english-only must abstain on an unloaded concept; got: {without:?}"
+        );
+        assert!(
+            !without.contains(gloss.as_str()),
+            "english-only must NOT surface the loaded gloss (it isn't loaded); got: {without:?}"
+        );
+
+        // --- WITH the corpus: ground the loaded Statute ontology into English
+        //     via the ComposedReasoner, then ask the SAME question through the
+        //     SAME pipeline. The answer is the loaded gloss. ---
+        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+        let with = process_with_reasoner(&english, &composed, question).response;
+        assert!(
+            with.contains(gloss.as_str()),
+            "with the corpus loaded, the chat must answer from the loaded Title gloss \
+             ({gloss:?}); got: {with:?}"
+        );
+        assert!(
+            with.to_lowercase().contains("title"),
+            "the answer must name the queried concept; got: {with:?}"
+        );
+
+        // The contrast is the whole demo: same question, same code, opposite
+        // epistemic outcome — grounded entirely through the lexicon, never a
+        // hardcoded branch.
+        assert_ne!(without, with, "loading the corpus must change the answer");
+    }
+
+    #[test]
+    fn grounding_unions_the_loaded_surface_into_the_lexicon() {
+        // The Lemon grounding is what makes "title" resolvable at all: english
+        // alone returns nothing for it; the composed reasoner returns the loaded
+        // concept id (typed-disjoint from English's), and `define_word` reads
+        // its gloss straight from the materialized ontology.
+        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+
+        assert!(
+            English::sample().lookup("title").is_empty(),
+            "precondition: the embedded model does not know 'title'"
+        );
+        let ids = composed.lookup("title");
+        assert!(
+            !ids.is_empty(),
+            "the grounded lexicon must resolve the loaded surface 'title'"
+        );
+
+        // `define_word` over the composed reasoner reads the loaded gloss.
+        let defined = define_word(&composed, "title");
+        assert!(
+            defined.contains(title_gloss().as_str()),
+            "define_word must surface the loaded gloss; got: {defined:?}"
+        );
+
+        // And the Lemon lexicon carries the typed reference (ontology + name).
+        let label = composed.lexicon().label_for("Statute", "Title");
+        assert_eq!(
+            label,
+            Some("title"),
+            "the grounded entry's surface form is the lowercased node name"
+        );
     }
 }

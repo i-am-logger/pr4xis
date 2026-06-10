@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
@@ -23,7 +23,8 @@ pub enum RadarMeasurement {
     Doppler,
 }
 
-impl Concept for RadarMeasurement {
+impl Concept for RadarMeasurement {}
+impl FinitelyGenerated for RadarMeasurement {
     fn variants() -> Vec<Self> {
         vec![Self::Range, Self::Azimuth, Self::Elevation, Self::Doppler]
     }

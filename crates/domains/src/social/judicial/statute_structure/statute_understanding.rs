@@ -212,7 +212,10 @@ pub fn lmf_pos_to_pos_tag(lmf: LmfPos) -> Option<PosTag> {
     Some(match lmf {
         LmfPos::Noun => PosTag::Noun,
         LmfPos::Verb => PosTag::Verb,
-        LmfPos::Adjective => PosTag::Adjective,
+        // OLiA (Chiarcos & Sukhareva 2015) has one Adjective leaf — the
+        // WN satellite/head distinction is a WordNet-cluster role, not an
+        // OLiA category — so both adjective tags project to it.
+        LmfPos::Adjective | LmfPos::SatelliteAdjective => PosTag::Adjective,
         LmfPos::Adverb => PosTag::Adverb,
         LmfPos::Determiner => PosTag::Determiner,
         LmfPos::Pronoun => PosTag::Pronoun,
@@ -747,9 +750,18 @@ mod tests {
     use crate::social::judicial::statute_structure::english_adjunction::resolve_term_name_to_senses;
 
     /// Walk every section in the loaded `UsCode`, run the lexical
-    /// pipeline on its heading text, and report every lemma whose
+    /// pipeline on its heading PROSE, and report every lemma whose
     /// resolution lands in `Unresolved` (neither in WordNet nor a
     /// statutory term-of-art).
+    ///
+    /// `section.heading` is the runtime corpus's heading prose —
+    /// `heading_mixed.prose_text()`, the title text MINUS the editorial
+    /// footnote annotation the LRC nests inside a few `<heading>`s (the typed
+    /// `<note type="footnote">` + its `<ref class="footnoteRef">` marker, e.g.
+    /// "Section catchline was not amended…" on 18 U.S.C. §§ 1303/3402/4351/
+    /// 4352). That note is metadata ABOUT the title, not a word IN it, so the
+    /// understanding pipeline must not see its lemmas (the whole point of the
+    /// typed prose projection — no lexicon entry, no allowlist).
     ///
     /// Runs against the full build-time codegen-loaded corpus when
     /// USC title XML is on disk (~2770 sections across Titles 18 +

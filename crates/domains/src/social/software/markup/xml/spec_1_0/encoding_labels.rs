@@ -9,7 +9,7 @@
 //! This module loads the canonical encoding-label vocabulary from the
 //! bundled W3C XML 1.0 Fifth Edition spec — the same bytes the parser
 //! grammar predicates derive from (`xml_1_0_fifth_edition@2008` in
-//! `praxis.toml`, sha256-pinned in `praxis.lock`). The §F BOM-detection
+//! `praxis.toml`, digest-pinned in `praxis.lock`). The §F BOM-detection
 //! table cells and the §4.3.3 SHOULD-name list are walked at first
 //! call and the resulting label sets cached via `OnceLock`.
 //!

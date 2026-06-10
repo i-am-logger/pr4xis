@@ -26,6 +26,13 @@ in
     pkgs.mdbook
     pkgs.miniserve
     pkgs.cargo-edit
+    # Rust-native search tooling. The host shell's grep/rg/find wrappers are
+    # broken in this environment ("-G: error while loading shared libraries"),
+    # so make the canonical Rust replacements first-class in the devenv:
+    # ripgrep = rg, fd = fd-find. Used by tooling + agents instead of the
+    # broken host binaries.
+    pkgs.ripgrep
+    pkgs.fd
     # Mutation testing — operational error-rate measurement
     # (Daubert prong 3). Each mutant alters one expression; if the
     # tests still pass, that's a blind spot in coverage.
@@ -66,6 +73,8 @@ in
     }
     echo "Running tests via nextest --release (mirrors CI)..."
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release
+    echo "Running heavy-corpus tests (cargo test — parse each giant once)..."
+    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release
     echo "Running doc tests --release (nextest excludes them)..."
     RUSTFLAGS="-D warnings" cargo test --doc --workspace --release
   '';
@@ -92,6 +101,8 @@ in
     treefmt --fail-on-change || { echo "FAILED: fmt"; exit 1; }
     echo "=== fetch external data ==="
     cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
+    echo "=== compile compact .prx cache (parse-once fast load, matches CI) ==="
+    cargo run -p pr4xis-cli --release --quiet -- compile --compact || { echo "FAILED: pr4xis compile"; exit 1; }
     echo "=== clippy (release) ==="
     cargo clippy --workspace --all-targets --release --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
     echo "=== docs (rustdoc, same flags as CI) ==="
@@ -103,8 +114,12 @@ in
     mdbook test docs/ || { echo "FAILED: mdbook test"; exit 1; }
     echo "=== test (nextest --release, strict [profile.ci]) ==="
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
+    echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
+    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release || { echo "FAILED: corpus tests"; exit 1; }
     echo "=== clippy (wasm, release) ==="
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --release --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
+    echo "=== wasm native acceptance tests ==="
+    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/wasm/Cargo.toml --release || { echo "FAILED: wasm native acceptance tests"; exit 1; }
     echo "=== wasm browser tests ==="
     dev-test-wasm || { echo "FAILED: wasm browser tests"; exit 1; }
     echo "=== e2e (Rust WebDriver) ==="

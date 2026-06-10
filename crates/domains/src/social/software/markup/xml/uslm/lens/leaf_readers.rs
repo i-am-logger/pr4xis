@@ -34,6 +34,7 @@ use super::super::corpus::*;
 use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
 use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
+use crate::social::software::markup::xml::parser::grammar as xml_grammar;
 use crate::social::software::markup::xml::reader as xml_reader;
 
 /// The XSD ontology instance projected from the bundled USLM-1.0.18
@@ -170,6 +171,10 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
                 meta: None,
                 tocs: Vec::new(),
                 tables: Vec::new(),
+                // A bare `<section>` slice has no `<uscDoc>` wrapper — `write_uslm`
+                // regenerates it from the single-section path, not the wrapper
+                // backbone.
+                uscdoc_mixed: None,
             });
         }
         return Err(UslmReadError::NoUsCodeRoot);
@@ -200,6 +205,28 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
     let mut tables = Vec::new();
     collect_tables_in(title_elem, &mut tables);
 
+    // Slice U4: the document-wrapper backbone. When the document root IS the
+    // `<uscDoc>` wrapper, capture its EXACT ordered child sequence as a semantic
+    // mixed-content tree (W3C XML 1.0 §3.2.2) so `write_uslm` can regenerate the
+    // whole `<meta>` / `<main>` / `<title>` / hierarchy / sections document
+    // node-for-node. A `<title>`-rooted slice (no `<uscDoc>`) leaves this `None`;
+    // the writer regenerates that shape from `sections` instead.
+    //
+    // The backbone is read from the FAITHFUL W3C XML 1.0 grammar parser
+    // (`parse_document`), NOT from `read_xml`: `read_xml` drops a §2.4 \[14\]
+    // `CharData` run that is whitespace-only per Unicode (a `<p>` whose only
+    // content is U+00A0 NO-BREAK SPACE in the title TOC tables), but the
+    // byte-exact `capture_uslm_complement` path diffs against the faithful DOM, so
+    // the backbone must preserve every genuine `#PCDATA` leaf verbatim. The two
+    // parsers agree on the element backbone; only `read_xml`'s whitespace-only
+    // trimming differs, which the faithful parse avoids.
+    let uscdoc_mixed = match xml_grammar::parse_document(xml_text.as_bytes()) {
+        Ok(faithful) if faithful.root.name.local == "uscDoc" => {
+            Some(read_mixed_content(&faithful.root))
+        }
+        _ => None,
+    };
+
     Ok(UsCodeTitle {
         identifier,
         number,
@@ -213,6 +240,7 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
         meta,
         tocs,
         tables,
+        uscdoc_mixed,
     })
 }
 
@@ -627,11 +655,19 @@ fn read_notes_block(elem: &XmlElement) -> UsCodeNotesBlock {
             notes.push(read_note(e));
         }
     }
+    // Slice U3: the `<notes>` block's OWN direct `<heading>` (when present —
+    // absent throughout LRC Title 1, whose headings are per-`<note>`) is built
+    // as a semantic mixed tree FIRST, then projected to the legacy `heading`
+    // `String` so the backbone writer can regenerate the block heading in
+    // position. `first_child_mixed` keys on the local name `"heading"`, so a
+    // per-note heading (a descendant of a `<note>` child) is NOT captured here.
+    let heading_mixed = first_child_mixed(elem, "heading");
     UsCodeNotesBlock {
         block_type,
         identifier,
         heading,
         notes,
+        heading_mixed,
     }
 }
 
@@ -640,6 +676,14 @@ fn read_note(elem: &XmlElement) -> UsCodeNote {
     let role = attr(elem, "role");
     let note_type = attr(elem, "type");
     let identifier = attr(elem, "id");
+    // Slice U3: build the `<note>` body as a semantic mixed-content tree FIRST
+    // (the EXACT ordered child sequence — `<heading>` / `<p>` / … — each itself
+    // mixed content, W3C XML 1.0 §3.2.2), then derive the legacy flat `heading`
+    // / `body` / `refs` / `dates` projections so the backbone writer regenerates
+    // the note's child sequence node-for-node. Mirrors `read_source_credit`'s
+    // de-flattened build-then-derive pattern (slice U1) and the
+    // `read_section` / `read_subdivision` mixed-tree builds (U1 / U2).
+    let body_mixed = read_mixed_content(elem);
     let heading = first_child_text(elem, "heading");
     // Body text: flatten everything except the heading.
     let mut body = String::new();
@@ -672,6 +716,7 @@ fn read_note(elem: &XmlElement) -> UsCodeNote {
         refs,
         quoted_contents,
         dates,
+        body_mixed,
     }
 }
 
@@ -697,16 +742,74 @@ fn read_quoted_contents_recursive(elem: &XmlElement) -> Vec<UsCodeQuotedContent>
 
 fn read_source_credit(elem: &XmlElement) -> UsCodeSourceCredit {
     let identifier = attr(elem, "id");
-    let text = element_text(elem);
-    let mut refs = Vec::new();
-    collect_refs_in(elem, &mut refs);
-    let mut dates = Vec::new();
-    collect_dates_in(elem, &mut dates);
+    // Slice U1: the `<sourceCredit>` is TRUE MIXED CONTENT — literal
+    // punctuation (`"("`, `", "`, `"; "`, `".)"`) interleaved with `<ref>` /
+    // `<date>` children, in load-bearing order (W3C XML 1.0 §3.2.2). Build the
+    // semantic tree FIRST, then derive the flat `text` / `refs` / `dates`
+    // views from it so the backbone writer can regenerate the exact child
+    // sequence.
+    let mixed = read_mixed_content(elem);
+    let text = mixed.plain_text();
+    let refs = refs_from_mixed(&mixed);
+    let dates = dates_from_mixed(&mixed);
     UsCodeSourceCredit {
         identifier,
         text,
         refs,
         dates,
+        mixed,
+    }
+}
+
+/// Derive the cross-reference list from a mixed-content tree — every
+/// `<ref href="…">` in document order whose `href` is non-empty (footnote
+/// backlinks using `idref` carry no `href` and are filtered, matching
+/// `read_ref`). The DERIVED replacement for the old out-of-position
+/// `collect_refs_in` walk.
+fn refs_from_mixed(mixed: &UsCodeMixed) -> Vec<UsCodeRef> {
+    let mut out = Vec::new();
+    collect_refs_from_nodes(&mixed.nodes, &mut out);
+    out
+}
+
+fn collect_refs_from_nodes(nodes: &[UsCodeContentNode], out: &mut Vec<UsCodeRef>) {
+    for node in nodes {
+        match node {
+            UsCodeContentNode::Ref { attrs, children } => {
+                if let Some(href) = attr_value(attrs, "href")
+                    && !href.is_empty()
+                {
+                    out.push(UsCodeRef {
+                        href,
+                        text: collapse_whitespace(&node_raw_text(children)),
+                    });
+                }
+            }
+            other => collect_refs_from_nodes(other.children(), out),
+        }
+    }
+}
+
+/// Derive the typed `<date>` list from a mixed-content tree — every `<date
+/// date="…">` in document order. The DERIVED replacement for the old
+/// `collect_dates_in` walk.
+fn dates_from_mixed(mixed: &UsCodeMixed) -> Vec<UsCodeDate> {
+    let mut out = Vec::new();
+    collect_dates_from_nodes(&mixed.nodes, &mut out);
+    out
+}
+
+fn collect_dates_from_nodes(nodes: &[UsCodeContentNode], out: &mut Vec<UsCodeDate>) {
+    for node in nodes {
+        match node {
+            UsCodeContentNode::Date { attrs, children } => {
+                out.push(UsCodeDate {
+                    iso: attr_value(attrs, "date").unwrap_or_default(),
+                    text: collapse_whitespace(&node_raw_text(children)),
+                });
+            }
+            other => collect_dates_from_nodes(other.children(), out),
+        }
     }
 }
 
@@ -828,13 +931,26 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
     }
     let identifier = attr(elem, "identifier").unwrap_or_default();
     let num = first_child_attr(elem, "num", "value").unwrap_or_default();
+    let num_text = first_child_num_text(elem);
     let num_footnote = first_child_num_footnote(elem);
-    let heading = first_child_text(elem, "heading").unwrap_or_default();
-    let heading_runs = first_child_inline_runs(elem, "heading");
-    let chapeau = first_child_text(elem, "chapeau");
-    let chapeau_runs = first_child_inline_runs(elem, "chapeau");
-    let content = first_child_text(elem, "content");
-    let content_runs = first_child_inline_runs(elem, "content");
+    // Slice U1: build the semantic mixed-content trees FIRST, then derive the
+    // legacy flat `*_runs` / plain-text views from them so the backbone tree
+    // is the single source of truth (W3C XML 1.0 §3.2.2).
+    let heading_mixed = first_child_mixed(elem, "heading").unwrap_or_default();
+    let heading = heading_mixed.plain_text();
+    let heading_runs = inline_runs_from_mixed(&heading_mixed);
+    let chapeau_mixed = first_child_mixed(elem, "chapeau");
+    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let chapeau_runs = chapeau_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
+    let content_mixed = first_child_mixed(elem, "content");
+    let content = content_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let content_runs = content_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
 
     let mut children = Vec::new();
     let mut refs = Vec::new();
@@ -890,13 +1006,17 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
     Ok(UsCodeSection {
         identifier,
         num,
+        num_text,
         num_footnote,
         heading,
         heading_runs,
+        heading_mixed,
         chapeau,
         chapeau_runs,
+        chapeau_mixed,
         content,
         content_runs,
+        content_mixed,
         children,
         refs,
         notes_blocks,
@@ -989,12 +1109,32 @@ fn read_subdivision(
     let xsd = loaded_uslm_xsd();
     let identifier = attr(elem, "identifier").unwrap_or_default();
     let num = first_child_attr(elem, "num", "value").unwrap_or_default();
-    let heading = first_child_text(elem, "heading");
-    let heading_runs = first_child_inline_runs(elem, "heading");
-    let chapeau = first_child_text(elem, "chapeau");
-    let chapeau_runs = first_child_inline_runs(elem, "chapeau");
-    let content = first_child_text(elem, "content");
-    let content_runs = first_child_inline_runs(elem, "content");
+    let num_text = first_child_num_text(elem);
+    // Slice U2: build the subdivision's semantic mixed-content trees FIRST
+    // (exactly as `read_section` does for the §), then derive the legacy flat
+    // `*` / `*_runs` views from them so the backbone tree is the single source
+    // of truth (W3C XML 1.0 §3.2.2). The `heading` / `chapeau` / `content`
+    // children are themselves true mixed content (a `<heading>` carries
+    // `<inline class="small-caps">…</inline>` ornaments; a `<chapeau>` carries
+    // an interleaved `<date>`).
+    let heading_mixed = first_child_mixed(elem, "heading");
+    let heading = heading_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let heading_runs = heading_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
+    let chapeau_mixed = first_child_mixed(elem, "chapeau");
+    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let chapeau_runs = chapeau_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
+    let content_mixed = first_child_mixed(elem, "content");
+    let content = content_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let content_runs = content_mixed
+        .as_ref()
+        .map(inline_runs_from_mixed)
+        .unwrap_or_default();
 
     let mut children = Vec::new();
     let mut refs = Vec::new();
@@ -1029,13 +1169,17 @@ fn read_subdivision(
     Ok(UsCodeSubdivision {
         identifier,
         num,
+        num_text,
         kind,
         heading,
         heading_runs,
+        heading_mixed,
         chapeau,
         chapeau_runs,
+        chapeau_mixed,
         content,
         content_runs,
+        content_mixed,
         children,
         refs,
         def_blocks,
@@ -1082,35 +1226,123 @@ fn read_marker(elem: &XmlElement) -> UsCodeMarker {
     }
 }
 
-/// First direct child of `elem` with the given local name,
-/// converted to a Vec of typed inline runs. Returns empty Vec if
-/// the child doesn't exist.
-fn first_child_inline_runs(elem: &XmlElement, name: &str) -> Vec<UsCodeInlineRun> {
-    for child in &elem.children {
-        if let XmlNode::Element(e) = child
-            && e.name.local == name
-        {
-            return read_inline_runs(e);
-        }
-    }
-    Vec::new()
+// ---------------------------------------------------------------------------
+// Semantic mixed-content walk (slice U1) — the backbone-faithful reader.
+//
+// `read_mixed_content` is the de-flattened counterpart of
+// `read_inline_runs`: it preserves the EXACT ordered child sequence (W3C XML
+// 1.0 §3.2.2) — every `#PCDATA` run VERBATIM (no collapse, no drop of
+// "empty"/whitespace text), every `<ref>` / `<date>` / `<inline>`-family /
+// `<p>` child as a typed `UsCodeContentNode` in position. This is what the
+// `write_uslm` backbone writer regenerates the child sequence from.
+//
+// Dispatch mirrors the legacy `read_inline_runs` so the derived `*_runs` views
+// are byte-identical to before: `<ref>` / `<date>` / `<p>` are confirmed via
+// `xsd_declares` (W3C XSD 1.1 Part 1 §3.3 Element Declarations — the sites the
+// reader IS grounded), and inline ornaments route through `InlineKind::parse`
+// (the USLM/XHTML inline vocabulary, so XHTML `<a>` / `<span>` — absent from
+// the USLM XSD — are still recognised exactly as the reader did). Any other
+// element is carried as a `Generic` node KEYED BY ITS NAME so nothing is
+// dropped or mis-named and the backbone stays faithful.
+// ---------------------------------------------------------------------------
+
+/// Project an element's source attributes (in document order) into the typed
+/// [`UsCodeContentAttr`] sequence the mixed-content tree carries. The
+/// qualified name keeps any prefix so the writer reproduces it.
+fn content_attrs(elem: &XmlElement) -> Vec<UsCodeContentAttr> {
+    elem.attributes
+        .iter()
+        .map(|a| UsCodeContentAttr {
+            name: a.name.qualified(),
+            value: a.value.clone(),
+        })
+        .collect()
 }
 
-/// Walk a text-bearing element's children and emit a typed
-/// inline-run sequence per W3C XHTML inline-element semantics +
-/// USLM Schema § "Inline Elements".
-///
-/// Plain-text nodes become `InlineKind::PlainText` runs;
-/// recognized inline tags (`<i>`, `<b>`, `<sup>`, `<sub>`,
-/// `<span>`, `<a>`, `<inline>`) become their typed kind. Unknown
-/// inline-like elements fall through to recursive flattening so
-/// no text content is lost — the type information is lost only
-/// for the unrecognized wrapper.
-fn read_inline_runs(elem: &XmlElement) -> Vec<UsCodeInlineRun> {
-    let mut out = Vec::new();
+/// Build the semantic [`UsCodeMixed`] sequence for one text-bearing element —
+/// its children in EXACT source order, `#PCDATA` captured VERBATIM (W3C XML
+/// 1.0 §2.4 \[14\] / §3.2.2). Recurses into element children.
+fn read_mixed_content(elem: &XmlElement) -> UsCodeMixed {
+    let mut nodes = Vec::new();
     for child in &elem.children {
         match child {
             XmlNode::Text(s) | XmlNode::CData(s) => {
+                // Genuine #PCDATA — kept VERBATIM (no collapse, no trim, no
+                // empty-drop). The byte residue (whether it was a literal
+                // char or an entity reference) is the generic SourceSyntax
+                // complement's concern, not this tree's.
+                nodes.push(UsCodeContentNode::Text(s.clone()));
+            }
+            XmlNode::Element(e) => {
+                nodes.push(read_mixed_element(e));
+            }
+            // Comments / PIs carry no normative content (W3C XML 1.0
+            // §2.5/§2.6); they are not part of the mixed-content backbone the
+            // writer reproduces (the generic complement handles any such
+            // residue). The covered slice-U1 families carry none.
+            _ => {}
+        }
+    }
+    UsCodeMixed { nodes }
+}
+
+/// Classify one element child of a mixed-content sequence into a typed
+/// [`UsCodeContentNode`], preserving its exact NAME so the backbone writer is
+/// faithful.
+///
+/// Dispatch mirrors the legacy `read_inline_runs` exactly: `<ref>` / `<date>`
+/// / `<p>` are confirmed against the loaded USLM XSD's element declarations
+/// (W3C XSD 1.1 Part 1 §3.3 — the sites where the reader IS XSD-grounded);
+/// inline ornaments route through [`InlineKind::parse`] (the USLM/XHTML inline
+/// vocabulary the reader projected un-grounded, so XHTML `<a>` / `<span>` —
+/// which the USLM XSD does NOT declare — are still recognised exactly as
+/// before). Any other element is carried as a [`UsCodeContentNode::Generic`]
+/// with its local name so nothing is dropped or mis-named.
+fn read_mixed_element(e: &XmlElement) -> UsCodeContentNode {
+    let attrs = content_attrs(e);
+    let children = read_mixed_content(e).nodes;
+    if e.name.local == "ref" && xsd_declares("ref") {
+        UsCodeContentNode::Ref { attrs, children }
+    } else if e.name.local == "date" && xsd_declares("date") {
+        UsCodeContentNode::Date { attrs, children }
+    } else if let Some(kind) = InlineKind::parse(&e.name.local) {
+        UsCodeContentNode::Inline {
+            kind,
+            attrs,
+            children,
+        }
+    } else if e.name.local == "p" && xsd_declares("p") {
+        UsCodeContentNode::Para { attrs, children }
+    } else {
+        // An element the slice does not yet model as its own node kind. Carry it
+        // as a `Generic` node keyed by its EXACT QUALIFIED name (prefix kept, so
+        // a `<dc:title>` / `<dcterms:created>` in the `<meta>` block regenerates
+        // with its prefix, not a bare `<title>`) so its children stay in position,
+        // no text is lost, and the writer reproduces the right element. (Promoting
+        // more of USLM's ~50-element vocabulary to typed kinds is the next slice.)
+        UsCodeContentNode::Generic {
+            name: e.name.qualified(),
+            attrs,
+            children,
+        }
+    }
+}
+
+/// Derive the flat [`UsCodeInlineRun`] sequence from a semantic mixed-content
+/// tree — the lossy projection the legacy `*_runs` fields hold. Mirrors the
+/// old `read_inline_runs` shape: `#PCDATA` → collapsed `PlainText` runs (empty
+/// dropped); `<ref>` / `<num>`-style nodes → `PlainText` carrying their text;
+/// inline ornaments → their typed kind; structural wrappers flattened.
+fn inline_runs_from_mixed(mixed: &UsCodeMixed) -> Vec<UsCodeInlineRun> {
+    let mut out = Vec::new();
+    push_inline_runs(&mixed.nodes, &mut out);
+    out
+}
+
+fn push_inline_runs(nodes: &[UsCodeContentNode], out: &mut Vec<UsCodeInlineRun>) {
+    for node in nodes {
+        match node {
+            UsCodeContentNode::Text(s) => {
                 let trimmed = collapse_whitespace(s);
                 if !trimmed.is_empty() {
                     out.push(UsCodeInlineRun {
@@ -1121,44 +1353,115 @@ fn read_inline_runs(elem: &XmlElement) -> Vec<UsCodeInlineRun> {
                     });
                 }
             }
-            XmlNode::Element(e) => {
-                if let Some(kind) = InlineKind::parse(&e.name.local) {
-                    let text = element_text(e);
-                    if text.is_empty() {
-                        continue;
-                    }
-                    let class = attr(e, "class");
-                    let href = attr(e, "href");
+            UsCodeContentNode::Inline {
+                kind,
+                attrs,
+                children,
+            } => {
+                let text = collapse_whitespace(&node_raw_text(children));
+                if text.is_empty() {
+                    continue;
+                }
+                out.push(UsCodeInlineRun {
+                    kind: *kind,
+                    text,
+                    class: attr_value(attrs, "class"),
+                    href: attr_value(attrs, "href"),
+                });
+            }
+            UsCodeContentNode::Ref { attrs, children } => {
+                // <ref> contributes its visible text as plain text (the legacy
+                // shape), carrying its href — it is a citation edge, not an
+                // inline ornament.
+                let text = collapse_whitespace(&node_raw_text(children));
+                if !text.is_empty() {
                     out.push(UsCodeInlineRun {
-                        kind,
+                        kind: InlineKind::PlainText,
                         text,
-                        class,
-                        href,
+                        class: None,
+                        href: attr_value(attrs, "href"),
                     });
-                } else if matches!(e.name.local.as_str(), "ref" | "num") {
-                    // <ref> and <num> contribute their visible
-                    // text but aren't inline-style ornaments —
-                    // emit as plain text to keep the visible
-                    // sequence intact.
-                    let text = element_text(e);
-                    if !text.is_empty() {
-                        out.push(UsCodeInlineRun {
-                            kind: InlineKind::PlainText,
-                            text,
-                            class: None,
-                            href: attr(e, "href"),
-                        });
-                    }
-                } else if !matches!(e.name.local.as_str(), "note" | "footnote") {
-                    // Unknown wrapper element — recurse and
-                    // flatten its content so no text is lost.
-                    out.extend(read_inline_runs(e));
                 }
             }
-            _ => {}
+            UsCodeContentNode::Date { children, .. } => {
+                let text = collapse_whitespace(&node_raw_text(children));
+                if !text.is_empty() {
+                    out.push(UsCodeInlineRun {
+                        kind: InlineKind::PlainText,
+                        text,
+                        class: None,
+                        href: None,
+                    });
+                }
+            }
+            UsCodeContentNode::Para { children, .. }
+            | UsCodeContentNode::Generic { children, .. } => {
+                // A structural wrapper (`<p>` or an unmodeled element) —
+                // flatten its content so no text is lost, exactly as the
+                // legacy reader recursed through unknown wrappers.
+                push_inline_runs(children, out);
+            }
         }
     }
-    out
+}
+
+/// The un-normalized concatenation of every descendant `#PCDATA` run of a node
+/// list (the input to the §2.10 whitespace collapse the flat views apply).
+fn node_raw_text(nodes: &[UsCodeContentNode]) -> String {
+    let mut buf = String::new();
+    for n in nodes {
+        n.push_raw_text(&mut buf);
+    }
+    buf
+}
+
+fn attr_value(attrs: &[UsCodeContentAttr], key: &str) -> Option<String> {
+    attrs
+        .iter()
+        .find(|a| a.name == key)
+        .map(|a| a.value.clone())
+}
+
+/// The first direct child of `elem` with local name `name`, as a semantic
+/// mixed-content tree. `None` when the child is absent.
+fn first_child_mixed(elem: &XmlElement, name: &str) -> Option<UsCodeMixed> {
+    for child in &elem.children {
+        if let XmlNode::Element(e) = child
+            && e.name.local == name
+        {
+            return Some(read_mixed_content(e));
+        }
+    }
+    None
+}
+
+/// The VISIBLE `#PCDATA` text leaf of the first `<num>` child — e.g. `"§ 2."`
+/// — captured VERBATIM (the slice-U1 `<num>` backbone leaf the `value`
+/// attribute does not carry). Empty when there is no `<num>` or it is
+/// childless. The `<note>` / `<footnote>` disambiguation child (recovered
+/// separately by `first_child_num_footnote`) is excluded so the visible
+/// number text is clean.
+fn first_child_num_text(elem: &XmlElement) -> String {
+    for child in &elem.children {
+        if let XmlNode::Element(num) = child
+            && num.name.local == "num"
+        {
+            let mut buf = String::new();
+            for node in &num.children {
+                match node {
+                    XmlNode::Text(s) | XmlNode::CData(s) => buf.push_str(s),
+                    XmlNode::Element(e)
+                        if !matches!(e.name.local.as_str(), "note" | "footnote") =>
+                    {
+                        push_text(e, &mut buf);
+                    }
+                    _ => {}
+                }
+            }
+            return buf;
+        }
+    }
+    String::new()
 }
 
 /// Collapse internal whitespace runs to single spaces and trim.

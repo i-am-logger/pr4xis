@@ -26,9 +26,31 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
 sha2 = "0.11"
+# BLAKE3 (Aumasson et al. 2020) — the third strong digest the
+# `artifact_identity::HashAlgorithm` enum declares, alongside SHA-256/512
+# from `sha2`. `default-features = false` drops std + rayon; `pure` forces
+# the portable pure-Rust implementation (no `cc`/assembly build script), so
+# it builds in restricted environments (pre-commit hooks, wasm32) without a
+# C toolchain and stays crates.io-publishable.
+blake3 = { version = "1", default-features = false, features = ["pure"] }
 hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"
+
+# The runtime, with `emit`, so a loaded `.prx` ontology can be projected
+# from a compiled praxis `Category` and materialized into a queryable
+# `RuntimeOntology`. The `ComposedReasoner`
+# (cognitive/linguistics/composed.rs) grounds each loaded RuntimeOntology's
+# nodes into the English lexicon via the Lemon functor and answers
+# "what is X" from the loaded gloss.
+#
+# WASM-safe: pr4xis-runtime + its deps (sha2, serde_ipld_dagcbor → cbor4ii,
+# cid, ipld-core) all build for wasm32-unknown-unknown (verified: `cargo build
+# -p pr4xis-runtime --features emit --target wasm32-unknown-unknown`). No
+# feature-gating of the dependency is needed; the consuming `composed` module
+# is `std`-gated only because pr4xis-runtime is a std crate (and the WASM build
+# enables `std` via the `prx` feature anyway).
+pr4xis-runtime = { version = "0.22.0", path = "../pr4xis-runtime", features = ["emit"] }
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate
@@ -107,6 +129,13 @@ codegen = ["std", "pr4xis/codegen"]
 # `rustls` (which do not compile to wasm32) off that build.
 prx = ["std", "dep:rkyv", "dep:flate2"]
 fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
+# Exposes parse/codec/axiom internals (otherwise `#[cfg(test)]`- or
+# crate-private) to the workspace's own heavy-corpus test crate
+# (`crates/praxis-corpus-tests`) and benches, so they can load a giant source
+# ONCE under `cargo test`/`cargo bench` instead of re-parsing it per
+# process-isolated nextest test. NOT a public API surface — it is gated on
+# this feature precisely so it never reaches the normal/published build.
+test-internals = ["prx"]
 
 [build-dependencies]
 # Statute codegen at build time. Reads workspace-root praxis.toml + praxis.lock,
@@ -116,8 +145,9 @@ fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
 pr4xis = { version = "0.22.1", path = "../pr4xis", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
-# SHA-256 for build-time source hashing.
-sha2 = "0.11"
+# BLAKE3 for the build-time mirror of the content-address identity gate
+# (`build_helpers/agl.rs`) — same pure-Rust config as the main dependency.
+blake3 = { version = "1", default-features = false, features = ["pure"] }
 
 # Lints are inlined here (not inherited from `[workspace.lints]`) so the
 # crate parses cleanly when unpacked standalone — e.g. crate2nix vendors
@@ -140,6 +170,9 @@ unreachable = "deny"
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
 pr4xis = { version = "0.22.1", path = "../pr4xis", features = ["codegen"] }
+# The runtime, with `emit`, so an integration test can project a real domain
+# ontology into a `.prx` Archive and round-trip it through the runtime.
+pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1.11"
 tempfile = "3"
@@ -148,6 +181,14 @@ tempfile = "3"
 name = "ontology_benchmarks"
 harness = false
 
+# `.prx` two-layer compactness-breakdown measurement (was a `#[cfg(test)]`
+# measurement in `uslm::corpus::prx`). Needs `prx` for the graph-faithful emit +
+# rkyv layer serialization. Run with `cargo bench -p pr4xis-domains --features prx`.
+[[bench]]
+name = "prx_compactness"
+harness = false
+required-features = ["prx"]
+
 # Distribution-artifact emitter (#256). Writes a `.prx.gz` per registered
 # OWL vocabulary, round-trip-validating each through the fail-closed load
 # gate. The release-gated CI `pages` job runs it into `pages/ontologies/`,
@@ -155,4 +196,15 @@ harness = false
 # `fetch` (rkyv + gzip + load gate) and `codegen` (the read_owl emit path).
 [[example]]
 name = "emit_prx"
+required-features = ["fetch", "codegen"]
+
+# The ALL-SOURCES SOURCE round-trip (issue #15, STAGE 1): for every registered
+# OWL/USC/WordNet source on disk, `hash(decompile(compile(source))) ==
+# hash(source)`, plus the completeness-meter declared-vs-achieved cross-check.
+# Needs `fetch` (the `.prx` load + decompile op) and `codegen` (the OWL
+# `read_owl` emit path; USC + WordNet emit need only `prx`, pulled by `fetch`).
+# Run it explicitly with `--features "fetch codegen"`; the same way CI exercises
+# the `.prx` emit surface via the `emit_prx` example.
+[[test]]
+name = "prx_source_round_trip"
 required-features = ["fetch", "codegen"]

@@ -155,6 +155,7 @@ use super::corpus::{HierarchyNode, USLM_NAMESPACE_URI, UsCodeSection, UsCodeTitl
 
 pub mod leaf_readers;
 pub mod structural_audit;
+pub mod writer;
 
 use leaf_readers::{
     attr, derive_title_identifier, find_first_descendant, first_child_text, is_section_leaf,
@@ -163,6 +164,7 @@ use leaf_readers::{
 };
 
 pub use leaf_readers::{read_section, read_uslm_title};
+pub use writer::{UslmWriteError, write_uslm};
 
 /// The lens's *target* — the typed-view value plus its complement
 /// (the source bytes), per Bancilhon & Spyratos 1981 constant-
@@ -441,6 +443,10 @@ fn build_uslm_title(
             meta: None,
             tocs: Vec::new(),
             tables: Vec::new(),
+            // The XSD-grounded `XmlLens` path does not target byte-exact wrapper
+            // regeneration (that is the `read_uslm_title` /
+            // `capture_uslm_complement` path's job); no `<uscDoc>` backbone here.
+            uscdoc_mixed: None,
         });
     }
 
@@ -505,6 +511,9 @@ fn build_uslm_title(
         meta,
         tocs,
         tables,
+        // The XSD-grounded `XmlLens` path does not target byte-exact wrapper
+        // regeneration; that is the `read_uslm_title` path's job.
+        uscdoc_mixed: None,
     })
 }
 
@@ -654,7 +663,7 @@ impl WellBehavedLens for UslmXmlLens {
 // `(name, version)` entry in `praxis.toml`. The
 // [`crate::formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`]
 // axiom iterates these, runs the PutGet law, and verifies the
-// canonical-form SHA-256 against the matching
+// canonical-form content digest against the matching
 // `[canonical_signatures]` entry in `praxis.lock`.
 //
 // One invocation per registered USC title — the harness picks them
@@ -662,8 +671,16 @@ impl WellBehavedLens for UslmXmlLens {
 // list to keep in sync.
 // =============================================================================
 
-crate::register_lens!(USC_TITLE_18_LENS, "usc_title_18", "pl-119-90", UslmXmlLens);
-crate::register_lens!(USC_TITLE_49_LENS, "usc_title_49", "pl-119-90", UslmXmlLens);
+// ALL nine USC titles are now byte-exact graph-faithful, bound to
+// `UslmGraphFaithfulLens` in `lens/writer.rs`: titles 1 (U6), 28/18/29/50 (U7),
+// and the giants 5/15/42/49 (U8). NONE is floor-registered here anymore — the
+// double-registration lesson (one source, one lens, one tier): a source bound to
+// both the floor-canonical AND the byte-exact lens would run both laws and pin
+// both a `[canonical_signatures]` and a `[byte_exact_signatures]` for the same
+// key. The giants' > 16 MB reconstruction is deferred from the always-run harness
+// by the CI-A oversize split (`OVERSIZE_BYTE_EXACT_CAP_BYTES`) to the slow
+// `ci_gate_passes_giants` lane, so the fast lane stays under the nextest budget
+// while every title is still proven byte-exact on every push.
 
 // =============================================================================
 // UslmTreeViewLens — the field-focus general [`Lens`] from

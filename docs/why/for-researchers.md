@@ -9,10 +9,10 @@ pr4xis is, **to our knowledge, the first executable, test-verified instance of a
 That is a careful sentence. Each clause matters:
 
 - **Executable.** The substrate runs as a Rust workspace, not a paper or a Coq library. Every concept, every functor, every axiom corresponds to compilable code.
-- **Test-verified.** Category laws and functor laws are checked at test time via `cargo test --workspace`. There are 4,855 tests in the workspace today.
+- **Test-verified.** Category laws and functor laws are checked at test time via `cargo test --workspace` — more than 7,000 tests in the workspace today. To count them, run `grep -rn "#\[test\]" --include='*.rs' crates | wc -l`.
 - **Categorical substrate.** Domains are categories in the formal mathematical sense. Compositions between domains are functors with verified laws. Adjunctions detect missing distinctions.
 - **For composing scientific ontologies.** The intent is not pure-math theorem proving (Coq/Lean/Agda do that). It is putting WordNet, BioPortal, the Gene Ontology, DOLCE, and the rest into a substrate where they can be combined with proof.
-- **Across many domains.** Currently 106 ontologies covering biomedical, sensor fusion, navigation, linguistics, formal mathematics, music, colors, judicial workflow, and more.
+- **Across many domains.** More than 160 ontologies today covering biomedical, sensor fusion, navigation, linguistics, formal mathematics, music, colors, judicial workflow, and more (`find crates/domains/src -name ontology.rs | wc -l`).
 
 The full novelty argument with comparisons to prior art lives in [Novelty](../research/novelty.md).
 
@@ -45,9 +45,10 @@ What pr4xis explicitly does **not** inherit: Heim's twelve-dimensional spacetime
 
 | Result | Re-derivation |
 |---|---|
-| 4,855 machine-verified tests | `cargo test --workspace` |
-| 106 ontologies | `find crates/domains/src -name ontology.rs \| wc -l` |
-| 61 cross-domain functor implementations | `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/` |
+| Machine-verified tests (more than 7,000) | `cargo test --workspace`; count with `grep -rn "#\[test\]" --include='*.rs' crates \| wc -l` |
+| Domain ontologies (more than 160) | `find crates/domains/src -name ontology.rs \| wc -l` |
+| Cross-domain functor implementations, laws checked at test time | `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ \| wc -l` (the laws are asserted by `pr4xis::category::laws::assert_functor_laws`) |
+| Content-addressed `.prx` archive with a fail-closed load gate — reads a packed source back in milliseconds (and can rebuild it byte-for-byte), refusing to load if altered; realised today over OWL ontologies, U.S. Code (USLM) text, and the English dictionary (WordNet), the latter two compact (smaller than the source download) | `crates/domains/src/formal/meta/ontology_archive/`; grounded in Merkle (1987) hash trees, Benet (2014) IPFS content addressing, FIPS 180-4 (SHA-2), and the Foster et al. (2007) well-behaved-lens laws |
 | 85.2% molecular-bioelectric round-trip collapse (the Kv discovery) | `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture` |
 | Kv channel split by `ContextDef` resolution | `cargo test -p pr4xis-domains test_kv_gap_is_resolved_by_context` |
 | Engine state navigability (back/forward/branch) | `cargo test -p pr4xis test_back_forward_roundtrip test_next_after_back_clears_future` |

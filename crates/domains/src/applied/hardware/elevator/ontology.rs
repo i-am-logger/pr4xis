@@ -15,7 +15,7 @@
 //!   and Control* (Peter Peregrinus / IEE) — the standard text on
 //!   elevator dynamics, arrival processes, and the floor topology.
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -127,7 +127,8 @@ impl FloorIndex {
 /// is only the enumeration of indexed `FloorIndex` values for the ontology.
 const MAX_FLOORS: usize = 10;
 
-impl Concept for FloorIndex {
+impl Concept for FloorIndex {}
+impl FinitelyGenerated for FloorIndex {
     fn variants() -> Vec<Self> {
         (0..MAX_FLOORS).map(FloorIndex).collect()
     }
@@ -211,7 +212,7 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

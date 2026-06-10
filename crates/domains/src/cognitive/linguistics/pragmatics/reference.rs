@@ -92,8 +92,8 @@ pub enum CenteringTransition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
     use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Category, FinitelyGenerated};
 
     #[test]
     fn category_laws() {

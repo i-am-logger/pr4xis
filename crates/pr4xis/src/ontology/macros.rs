@@ -120,6 +120,14 @@ macro_rules! functor {
             #[linkme(crate = $crate::linkme)]
             static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Functor>::meta;
+            // Connection constructor — the finite action-on-generators this
+            // functor induces, the 1-cell analogue of `register_axiom!`'s
+            // `AXIOM_CONSTRUCTORS` arm. A projection reads it to serialize the
+            // functor as a content-addressed cross-ontology `Connection`.
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTOR_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_functor::<$name>;
         }
     };
 }
@@ -202,6 +210,12 @@ macro_rules! adjunction {
             #[linkme(crate = $crate::linkme)]
             static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Adjunction>::meta;
+            // Connection constructor — the four finite tables (both functors'
+            // object maps + unit/counit families) this adjunction induces.
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTION_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_adjunction::<$name>;
         }
     };
 }
@@ -269,6 +283,11 @@ macro_rules! natural_transformation {
             #[linkme(crate = $crate::linkme)]
             static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::NaturalTransformation>::meta;
+            // Connection constructor — the component family `η_A : F(A) → G(A)`.
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATION_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_natural_transformation::<$name>;
         }
     };
 }
@@ -319,9 +338,31 @@ macro_rules! register_axiom {
                 || <$name as $crate::logic::axiom::Axiom>::meta(&$instance);
         }
     };
+    // Constructor arm — registers the metadata (from the axiom's `meta()`)
+    // AND a re-bind constructor into AXIOM_CONSTRUCTORS, so a persisted
+    // `AxiomNode` can re-bind to a freshly-built predicate by its stable
+    // name on load. `$name` must be a unit-struct axiom (constructible from
+    // its identifier). The metadata name and the reconstructed axiom's
+    // `name()` are the same value, so `axiom_by_name` round-trips.
+    ($name:ident, constructor) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
+                || <$name as $crate::logic::axiom::Axiom>::meta(&$name);
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOM_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_CTOR_ $name:snake:upper>]: fn() -> $crate::ontology::BoxedAxiom =
+                || $crate::ontology::boxed_axiom($name);
+        }
+    };
 }
 
-/// Register a hand-written `impl Functor for X` into the FUNCTORS slice.
+/// Register a hand-written `impl Functor for X` into the FUNCTORS slice — and
+/// its connection constructor into FUNCTOR_CONSTRUCTORS, so the functor is
+/// serialized as a content-addressed `Connection` (mirrors `register_axiom!`'s
+/// constructor arm).
 #[macro_export]
 macro_rules! register_functor {
     ($name:ident) => {
@@ -331,6 +372,10 @@ macro_rules! register_functor {
             #[linkme(crate = $crate::linkme)]
             static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Functor>::meta;
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTOR_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_functor::<$name>;
         }
     };
     ($name:ident, $citation:literal) => {
@@ -345,11 +390,16 @@ macro_rules! register_functor {
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
                     module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
                 };
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTOR_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_functor::<$name>;
         }
     };
 }
 
-/// Register a hand-written `impl Adjunction for X` into the ADJUNCTIONS slice.
+/// Register a hand-written `impl Adjunction for X` into the ADJUNCTIONS slice —
+/// and its connection constructor into ADJUNCTION_CONSTRUCTORS.
 #[macro_export]
 macro_rules! register_adjunction {
     ($name:ident) => {
@@ -359,6 +409,10 @@ macro_rules! register_adjunction {
             #[linkme(crate = $crate::linkme)]
             static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Adjunction>::meta;
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTION_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_adjunction::<$name>;
         }
     };
     ($name:ident, $citation:literal) => {
@@ -373,11 +427,16 @@ macro_rules! register_adjunction {
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
                     module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
                 };
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTION_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_adjunction::<$name>;
         }
     };
 }
 
-/// Register a hand-written `impl NaturalTransformation for X` into the slice.
+/// Register a hand-written `impl NaturalTransformation for X` into the slice —
+/// and its connection constructor into NATURAL_TRANSFORMATION_CONSTRUCTORS.
 #[macro_export]
 macro_rules! register_natural_transformation {
     ($name:ident) => {
@@ -387,6 +446,10 @@ macro_rules! register_natural_transformation {
             #[linkme(crate = $crate::linkme)]
             static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::NaturalTransformation>::meta;
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATION_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_natural_transformation::<$name>;
         }
     };
     ($name:ident, $citation:literal) => {
@@ -401,6 +464,10 @@ macro_rules! register_natural_transformation {
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
                     module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
                 };
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATION_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_CTOR_ $name:snake:upper>]: fn() -> $crate::category::ConnectionGenerators =
+                $crate::category::extract_natural_transformation::<$name>;
         }
     };
 }

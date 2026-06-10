@@ -5,7 +5,7 @@ use super::citation::PinpointCite;
 use super::*;
 use crate::formal::meta::identifier_format::Identifier;
 use chrono::{NaiveDate, Utc};
-use pr4xis::category::{Category, Concept as CategoryEntity};
+use pr4xis::category::{Category as CategoryEntity, FinitelyGenerated};
 use pr4xis::engine::{EngineError, Precondition};
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
@@ -2497,7 +2497,7 @@ fn test_legal_category_with_relations() {
 
 #[test]
 fn test_phase_tag_entity_variants() {
-    let variants = <PhaseTag as CategoryEntity>::variants();
+    let variants = <PhaseTag as FinitelyGenerated>::variants();
     assert_eq!(variants.len(), 9);
     assert!(variants.contains(&PhaseTag::PreFiling));
     assert!(variants.contains(&PhaseTag::Closed));
@@ -2563,7 +2563,7 @@ fn test_case_lifecycle_category_compose_invalid() {
 fn test_case_lifecycle_category_morphisms_include_identities() {
     let morphisms = CaseLifecycleCategory::morphisms();
     // Every phase should have an identity morphism
-    for phase in <PhaseTag as CategoryEntity>::variants() {
+    for phase in <PhaseTag as FinitelyGenerated>::variants() {
         assert!(morphisms.contains(&PhaseTransitionRel {
             from: phase,
             to: phase,
@@ -3386,7 +3386,7 @@ proptest! {
     /// Category identity law: compose(id, f) == f
     #[test]
     fn prop_category_left_identity(from_idx in 0..8usize, to_idx in 0..9usize) {
-        let phases = <PhaseTag as CategoryEntity>::variants();
+        let phases = <PhaseTag as FinitelyGenerated>::variants();
         let from = phases[from_idx];
         let to = phases[to_idx];
         let f = PhaseTransitionRel { from, to };
@@ -3402,7 +3402,7 @@ proptest! {
     /// Category identity law: compose(f, id) == f
     #[test]
     fn prop_category_right_identity(from_idx in 0..9usize, to_idx in 0..9usize) {
-        let phases = <PhaseTag as CategoryEntity>::variants();
+        let phases = <PhaseTag as FinitelyGenerated>::variants();
         let from = phases[from_idx];
         let to = phases[to_idx];
         let f = PhaseTransitionRel { from, to };

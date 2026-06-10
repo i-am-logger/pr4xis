@@ -8,7 +8,7 @@ use super::ontology::{
     ValenceCategory, ValenceConcept, ValenceOntology, is_leaf, leaves,
 };
 use pr4xis::category::laws::assert_category_laws;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 

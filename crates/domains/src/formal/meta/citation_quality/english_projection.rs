@@ -32,7 +32,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::ontology::{CitationQualityCategory, CitationQualityConcept, CitationQualityRelation};
@@ -200,6 +200,12 @@ impl Category for CitationQualityEnglishLabelCategory {
             ));
         }
         out
+    }
+}
+
+impl pr4xis::category::NamedCategory for CitationQualityEnglishLabelCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitationQualityEnglishLabel")
     }
 }
 

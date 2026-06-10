@@ -1,4 +1,4 @@
-//! OWL vocabulary → praxis [`CodegenData`] codegen.
+//! OWL vocabulary → praxis [`CodegenData`](pr4xis::codegen_data::CodegenData) codegen.
 //!
 //! Turns a loaded [`OwlOntology`] (the output of
 //! [`super::reader::read_owl`]) into a populated
@@ -12,7 +12,7 @@
 //! ## Where this lives, and why
 //!
 //! The OWL reader ([`super::reader::read_owl`]) and its loaded types
-//! ([`OwlOntology`], [`OwlClass`], [`OwlObjectProperty`]) live in this
+//! ([`OwlOntology`], [`OwlClass`](super::ontology::OwlClass), [`OwlObjectProperty`](super::ontology::OwlObjectProperty)) live in this
 //! crate (`pr4xis-domains`). The codegen machinery
 //! ([`pr4xis::codegen::OntologyBuilder`] / `generate_rust` /
 //! `GenerateConfig`) lives in `pr4xis` core, behind its `codegen`

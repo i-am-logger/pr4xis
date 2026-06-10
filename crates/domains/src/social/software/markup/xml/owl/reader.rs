@@ -58,7 +58,7 @@ use super::ontology::{
     OwlObjectProperty, OwlOntology, OwlRestriction, OwlRestrictionKind, OwlVocabulary,
 };
 use crate::social::software::markup::xml::rdf::{
-    RdfReadError, RdfTerm, RdfVocabulary, Triple, read_rdf_xml,
+    Quad, RdfReadError, RdfTerm, RdfVocabulary, Triple, read_rdf_xml,
 };
 use crate::social::software::markup::xml::reader as xml_reader;
 use hashbrown::HashMap;
@@ -92,6 +92,58 @@ pub fn read_owl(xml_text: &str) -> Result<OwlOntology, OwlReadError> {
 
     // 4. OWL 2 RDF Mapping (Patel-Schneider & Motik 2012).
     Ok(project_triples_to_owl(&triples, &base_iri))
+}
+
+/// Read an OWL/RDF ontology serialised as RDF/XML into the **raw RDF
+/// graph** — the [`Triple`] stream `read_rdf_xml` (Gandon & Schreiber
+/// 2014) emits, lifted to the RDF 1.1 dataset model as [`Quad`]s in the
+/// default graph — *below* the [`OwlOntology`] typed projection.
+///
+/// This is the true source graph the OWL 2 RDF Mapping
+/// ([`read_owl`]/`project_triples_to_owl`) projects from. Where
+/// [`read_owl`] keeps only the typed view (classes, properties,
+/// individuals, the restriction/cardinality shapes it recognises),
+/// `read_owl_to_quads` keeps **every** triple the document denotes —
+/// the input to W3C RDF Dataset Canonicalization (RDFC-1.0,
+/// REC-rdf-canon-20240521), which is the OWL lens's graph-identity
+/// canonical form.
+///
+/// An RDF/XML document serialises a single RDF *graph*, not a dataset
+/// (RDF/XML §6 has no syntax for named graphs); every triple therefore
+/// belongs to the default graph. We lift each [`Triple`] into a
+/// default-graph [`Quad`] (`graph = None`). The invariant is enforced
+/// structurally: [`Triple`] (W3C RDF 1.1 §3.1) carries no graph-name
+/// component, so a graph name *cannot* be present — `read_owl_to_quads`
+/// can only ever produce default-graph quads, which RDFC-1.0 §4.4.3
+/// treats as the dataset's default graph.
+///
+/// ## Citations
+///
+/// - **Cyganiak, Wood & Lanthaler (2014)** *RDF 1.1 Concepts and
+///   Abstract Syntax*, §4 (RDF datasets: a default graph plus zero or
+///   more named graphs). The default graph is the one a single RDF/XML
+///   document denotes.
+/// - **Longley, Kellogg & Yamamoto (2024)** *RDF Dataset
+///   Canonicalization* (REC-rdf-canon-20240521), §4.4.3 — the
+///   canonicalization algorithm over a dataset's quads.
+///
+/// [`Quad`]: crate::social::software::markup::xml::rdf::Quad
+pub fn read_owl_to_quads(xml_text: &str) -> Result<Vec<Quad>, OwlReadError> {
+    // 1. XML 1.0 well-formedness.
+    let doc = xml_reader::read_xml(xml_text).map_err(|e| OwlReadError::Xml(e.message))?;
+
+    // 2. Document base IRI (same resolution as `read_owl`).
+    let base_iri = extract_base_iri(&doc.root);
+
+    // 3. RDF/XML → triples (Gandon & Schreiber 2014).
+    let triples = read_rdf_xml(&doc.root, &base_iri).map_err(OwlReadError::Rdf)?;
+
+    // 4. Lift each triple into a default-graph quad. The `graph = None`
+    //    is the only admissible value for a single-document RDF/XML
+    //    graph (RDF 1.1 §4): `Triple` carries no graph-name component,
+    //    so no triple can claim membership of a named graph. RDFC-1.0
+    //    canonicalises this default-graph dataset.
+    Ok(triples.into_iter().map(Quad::from_default_graph).collect())
 }
 
 /// Extract the document-level base IRI for relative `rdf:about` /

@@ -183,7 +183,7 @@ impl Ontology for ReasoningOntology {
 mod ontology_tests {
     use super::*;
     use crate::category::laws::assert_category_laws;
-    use crate::category::{Arrow, Category, Concept};
+    use crate::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     // ---------- Standard suite: laws + validation ----------

@@ -1,5 +1,5 @@
 use super::category::Category;
-use super::entity::Concept;
+use super::entity::FinitelyGenerated;
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
@@ -122,9 +122,13 @@ where
 }
 
 /// Compute the Yoneda profile for every object in a category.
+///
+/// Enumerates every object, so this requires the object concept to be finitely
+/// generated (closed-world). [`YonedaProfile::of`] for a single object needs no
+/// enumeration and stays open-world.
 pub fn full_yoneda<C: Category>() -> Vec<YonedaProfile<C>>
 where
-    C::Object: Clone + PartialEq,
+    C::Object: Clone + PartialEq + FinitelyGenerated,
     C::Morphism: Clone,
 {
     C::Object::variants()
@@ -137,7 +141,7 @@ where
 mod tests {
     use super::*;
     use crate::category::arrow::Arrow;
-    use crate::category::entity::Concept as EntityTrait;
+    use crate::category::entity::{Concept as EntityTrait, FinitelyGenerated};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Node {
@@ -145,7 +149,8 @@ mod tests {
         B,
         C,
     }
-    impl EntityTrait for Node {
+    impl EntityTrait for Node {}
+    impl FinitelyGenerated for Node {
         fn variants() -> Vec<Self> {
             vec![Self::A, Self::B, Self::C]
         }

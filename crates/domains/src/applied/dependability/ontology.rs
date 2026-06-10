@@ -592,7 +592,7 @@ impl Ontology for DependabilityOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
     #[test]

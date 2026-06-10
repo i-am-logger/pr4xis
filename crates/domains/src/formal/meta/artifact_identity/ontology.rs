@@ -177,15 +177,11 @@ pub enum ClaimData {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum HashAlgorithm {
-    /// FIPS 180-4.
-    Sha256,
-    /// FIPS 180-4.
-    Sha512,
-    /// Aumasson et al. (2020).
-    Blake3,
-}
+// The ONE multi-algorithm hash vocabulary, grounded where content addressing
+// itself is grounded: `pr4xis_runtime::address` (the bottom of the reflexive
+// tower). Re-exported here so this ontology's cited identity claims and the
+// runtime's addresses speak the SAME carrier type — never a parallel enum.
+pub use pr4xis_runtime::address::HashAlgorithm;
 
 /// Multiple claims that must all verify — weakest-link semantics.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -366,7 +362,7 @@ pub struct EverySchemeHasAnExtractor;
 
 impl Axiom for EverySchemeHasAnExtractor {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let all = IdentityConcept::variants()
             .into_iter()

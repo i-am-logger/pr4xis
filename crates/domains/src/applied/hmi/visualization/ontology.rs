@@ -12,7 +12,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Munzner, "Visualization Analysis and Design" (2014): channel effectiveness
 /// - Shneiderman, "The Eyes Have It" (1996): overview-zoom-filter-detail mantra
 /// - Wickham, "Layered Grammar of Graphics" (2010): compositional pipeline
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
@@ -34,7 +34,8 @@ pub enum VisualVariable {
     Texture,
 }
 
-impl Concept for VisualVariable {
+impl Concept for VisualVariable {}
+impl FinitelyGenerated for VisualVariable {
     fn variants() -> Vec<Self> {
         vec![
             Self::Position,
@@ -143,7 +144,8 @@ pub enum PerceptualTask {
     ShadingColorSaturation,
 }
 
-impl Concept for PerceptualTask {
+impl Concept for PerceptualTask {}
+impl FinitelyGenerated for PerceptualTask {
     fn variants() -> Vec<Self> {
         vec![
             Self::PositionCommonScale,
@@ -193,7 +195,8 @@ pub enum DataLevel {
     Ratio,
 }
 
-impl Concept for DataLevel {
+impl Concept for DataLevel {}
+impl FinitelyGenerated for DataLevel {
     fn variants() -> Vec<Self> {
         vec![Self::Nominal, Self::Ordinal, Self::Interval, Self::Ratio]
     }
@@ -237,7 +240,8 @@ pub enum GeomType {
     Boxplot,
 }
 
-impl Concept for GeomType {
+impl Concept for GeomType {}
+impl FinitelyGenerated for GeomType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Point,
@@ -316,7 +320,8 @@ pub enum InteractionLevel {
     DetailsOnDemand,
 }
 
-impl Concept for InteractionLevel {
+impl Concept for InteractionLevel {}
+impl FinitelyGenerated for InteractionLevel {
     fn variants() -> Vec<Self> {
         vec![Self::Overview, Self::ZoomAndFilter, Self::DetailsOnDemand]
     }
@@ -364,7 +369,8 @@ pub enum GrammarLayer {
     Facet,
 }
 
-impl Concept for GrammarLayer {
+impl Concept for GrammarLayer {}
+impl FinitelyGenerated for GrammarLayer {
     fn variants() -> Vec<Self> {
         vec![
             Self::Data,

@@ -103,7 +103,7 @@ impl Ontology for KnowledgeOntology {
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Category, Concept};
+    use pr4xis::category::{Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

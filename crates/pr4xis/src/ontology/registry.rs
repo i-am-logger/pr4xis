@@ -13,8 +13,20 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 // On wasm32, linkme is unsupported — all slices are empty. Wasm consumers
 // build a registry via domain-specific fallback instead.
 
+use crate::category::ConnectionGenerators;
+use crate::logic::axiom::Axiom;
 use crate::ontology::Vocabulary;
 use crate::ontology::meta::Provenance;
+
+/// The re-bind handler-table value type: a boxed runnable axiom.
+pub type BoxedAxiom = Box<dyn Axiom>;
+
+/// Box an axiom for the constructor registry — called by
+/// `register_axiom!`'s constructor arm so the `Box` is allocated inside
+/// this crate rather than the (possibly differently-configured) caller.
+pub fn boxed_axiom<A: Axiom + 'static>(a: A) -> BoxedAxiom {
+    Box::new(a)
+}
 
 /// All registered ontology vocabularies (native only).
 ///
@@ -29,6 +41,16 @@ pub static VOCABULARIES: [fn() -> Vocabulary];
 #[cfg(not(target_arch = "wasm32"))]
 #[linkme::distributed_slice]
 pub static AXIOMS: [fn() -> Provenance];
+
+/// Axiom *constructors* (native only) — the re-bind handler table.
+/// Populated by `register_axiom!(Name, constructor)`. Unlike [`AXIOMS`]
+/// (metadata only), each entry RECONSTRUCTS a runnable axiom, so a
+/// deserialized `AxiomNode` can re-bind to its predicate by stable name
+/// ([`axiom_by_name`]) — the load-time rebind the knowledge-graph wire
+/// protocol depends on.
+#[cfg(not(target_arch = "wasm32"))]
+#[linkme::distributed_slice]
+pub static AXIOM_CONSTRUCTORS: [fn() -> BoxedAxiom];
 
 /// All registered functor metadata (native only). Populated by
 /// `pr4xis::functor!` declarations.
@@ -47,6 +69,35 @@ pub static ADJUNCTIONS: [fn() -> Provenance];
 #[cfg(not(target_arch = "wasm32"))]
 #[linkme::distributed_slice]
 pub static NATURAL_TRANSFORMATIONS: [fn() -> Provenance];
+
+/// Functor *constructors* (native only) — the connection-extraction table, the
+/// 1-cell analogue of [`AXIOM_CONSTRUCTORS`]. Each entry runs
+/// [`crate::category::extract_functor`] for one registered functor, recovering
+/// its source/target ontology names and finite action-on-generators (the
+/// finite-presentation theorem). A projection (`pr4xis-runtime::emit`) reads
+/// these to serialize every functor touching a given ontology as a
+/// content-addressed `Connection`. Populated by `functor!` /
+/// `register_functor!`.
+#[cfg(not(target_arch = "wasm32"))]
+#[linkme::distributed_slice]
+pub static FUNCTOR_CONSTRUCTORS: [fn() -> ConnectionGenerators];
+
+/// Adjunction constructors (native only) — the structured-2-cell-pair analogue
+/// of [`FUNCTOR_CONSTRUCTORS`]. Each runs
+/// [`crate::category::extract_adjunction`], recovering both functors' object
+/// maps plus the unit/counit families. Populated by `adjunction!` /
+/// `register_adjunction!`.
+#[cfg(not(target_arch = "wasm32"))]
+#[linkme::distributed_slice]
+pub static ADJUNCTION_CONSTRUCTORS: [fn() -> ConnectionGenerators];
+
+/// Natural-transformation constructors (native only) — the 2-cell analogue.
+/// Each runs [`crate::category::extract_natural_transformation`], recovering the
+/// component family. Populated by `natural_transformation!` /
+/// `register_natural_transformation!`.
+#[cfg(not(target_arch = "wasm32"))]
+#[linkme::distributed_slice]
+pub static NATURAL_TRANSFORMATION_CONSTRUCTORS: [fn() -> ConnectionGenerators];
 
 /// Describe the entire knowledge base — all registered ontologies.
 ///
@@ -74,6 +125,39 @@ pub fn describe_axioms() -> Vec<Provenance> {
 #[cfg(target_arch = "wasm32")]
 pub fn describe_axioms() -> Vec<Provenance> {
     Vec::new()
+}
+
+/// Every registered axiom constructor, each reconstructed into a runnable
+/// [`BoxedAxiom`] (native only — empty on wasm32, where linkme is
+/// unsupported, which is the correct fail-closed "every binding unbound").
+#[cfg(not(target_arch = "wasm32"))]
+pub fn axiom_constructors() -> Vec<BoxedAxiom> {
+    AXIOM_CONSTRUCTORS.iter().map(|f| f()).collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn axiom_constructors() -> Vec<BoxedAxiom> {
+    Vec::new()
+}
+
+/// Re-bind a persisted axiom binding by its stable name: reconstruct the
+/// registered axiom whose [`Axiom::name`] matches `name`. `None` if no
+/// constructor is registered under that name — fail-closed for the load
+/// gate. Native only; always `None` on wasm32.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn axiom_by_name(name: &str) -> Option<BoxedAxiom> {
+    // Identity flows through the typed name: `OntologyName: PartialEq<str>`
+    // decides the match, so the rebind gate compares typed axiom names — it
+    // never unwraps to `&str` for a bare `String ==`.
+    AXIOM_CONSTRUCTORS
+        .iter()
+        .map(|f| f())
+        .find(|a| a.name() == *name)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn axiom_by_name(_name: &str) -> Option<BoxedAxiom> {
+    None
 }
 
 /// All declared functors with structured metadata.
@@ -106,6 +190,28 @@ pub fn describe_natural_transformations() -> Vec<Provenance> {
 
 #[cfg(target_arch = "wasm32")]
 pub fn describe_natural_transformations() -> Vec<Provenance> {
+    Vec::new()
+}
+
+/// Every registered connection (functor + adjunction + natural transformation),
+/// each reconstructed into its [`ConnectionGenerators`] — the typed
+/// source/target ontology names plus the finite action-on-generators a
+/// projection serializes. Native only; empty on wasm32 (linkme unsupported —
+/// the fail-closed "no connections extractable" the wasm path expects).
+///
+/// This is the connection-layer mirror of [`axiom_constructors`]: where that
+/// reconstructs runnable axioms by name, this reconstructs each morphism's
+/// finite presentation so the emit projection can content-address it.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn connection_constructors() -> Vec<ConnectionGenerators> {
+    let mut all: Vec<ConnectionGenerators> = FUNCTOR_CONSTRUCTORS.iter().map(|f| f()).collect();
+    all.extend(ADJUNCTION_CONSTRUCTORS.iter().map(|f| f()));
+    all.extend(NATURAL_TRANSFORMATION_CONSTRUCTORS.iter().map(|f| f()));
+    all
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn connection_constructors() -> Vec<ConnectionGenerators> {
     Vec::new()
 }
 

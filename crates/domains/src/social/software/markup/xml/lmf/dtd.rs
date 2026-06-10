@@ -26,7 +26,7 @@
 /// The raw bytes of the bundled WN-LMF 1.3 DTD, embedded at build
 /// time via `include_str!` so the runtime path is hermetic. Matches
 /// the `wn_lmf_dtd@1.3` source registered in `praxis.toml`; the
-/// pinned sha256 in `praxis.lock` certifies these bytes.
+/// pinned digest in `praxis.lock` certifies these bytes.
 pub const WN_LMF_1_3_DTD: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd"
@@ -229,18 +229,15 @@ mod tests {
 
     #[test]
     fn loaded_dtd_matches_praxis_lock_hash() {
-        // The hash in praxis.lock is the SHA-256 of the bundled
+        // The pin in praxis.lock is the content digest of the bundled
         // file as-is. This test re-asserts the bytes haven't drifted
         // from what the lock declares — drift triggers
         // LockManifestAgreement failure separately.
-        use sha2::{Digest, Sha256};
-        let mut h = Sha256::new();
-        h.update(WN_LMF_1_3_DTD.as_bytes());
-        let digest = h.finalize();
-        let got: alloc::string::String = digest.iter().map(|b| format!("{b:02x}")).collect();
+        use pr4xis_runtime::address::ContentAddress;
+        let got = ContentAddress::of(WN_LMF_1_3_DTD.as_bytes()).to_hex();
         assert_eq!(
-            got, "dba306298d63e33f243903edce15d180c018db1a6e2c7e836d52480eb5659796",
-            "WN-LMF DTD bytes drifted from praxis.lock pinned hash"
+            got, "c1dc8156ce433bbb75e533af345d392ed6ea908dfa04e86d249ca68f987a1a12",
+            "WN-LMF DTD bytes drifted from praxis.lock pinned digest"
         );
     }
 

@@ -1,0 +1,45 @@
+[package]
+name = "pr4xis-runtime"
+version = "0.22.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "The pr4xis runtime — load a .prx ontology as data, deserialize into the free category, rebind into the closed world; grounds only the hash primitive."
+license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://github.com/i-am-logger/pr4xis"
+keywords = ["ontology", "runtime", "content-addressing", "prx", "category-theory"]
+
+[features]
+# `emit` bridges a compiled praxis ontology (a `Category`) into an `Archive` —
+# the COMPILER half of the chrysalis. It deps `pr4xis` (the category model); the
+# runtime KERNEL stays free of any compile-time coupling by default.
+emit = ["dep:pr4xis"]
+
+[dependencies]
+sha2 = "0.11"
+blake3 = { version = "1", default-features = false, features = ["pure"] }
+pr4xis = { version = "0.22.0", path = "../pr4xis", optional = true }
+serde = { version = "1", features = ["derive"] }
+# DAG-CBOR — the deterministic, language-agnostic canonical encoding the content
+# address is computed over (IPLD content-addressing requires a single canonical
+# form; rkyv's layout is toolchain-bound and stays a local cache, never the
+# address). Pure-Rust; builds for wasm32.
+serde_ipld_dagcbor = "0.6"
+
+# Lints inlined (not inherited from `[workspace.lints]`) so the crate parses
+# cleanly when unpacked standalone — crate2nix vendors each member into its own
+# /nix/store path without the workspace root, and `cargo publish --verify` does
+# the same in `target/package/`. Same convention as the other pr4xis crates.
+[lints.rust]
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_must_use = "deny"
+
+[lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+
+[dev-dependencies]
+proptest = "1.11"

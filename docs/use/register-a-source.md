@@ -5,7 +5,7 @@ This page is the operator's guide for telling praxis about an **external source*
 A registered source has three pieces, all at the workspace root:
 
 - A **manifest entry** in `praxis.toml` that names the source, its version, its [`SourceTaxonomy`](../reference/glossary.md#sourcetaxonomy) type, and the authoritative URL.
-- A **lock entry** in `praxis.lock` that pins the source's sha256 so any drift between the registered identity and the on-disk bytes is detected at startup by the `LockManifestAgreement` axiom.
+- A **lock entry** in `praxis.lock` that pins the source's content digest so any drift between the registered identity and the on-disk bytes is detected at startup by the `LockManifestAgreement` axiom.
 - The **on-disk artifact** at the path `RegistryEntry::local_path()` derives from the type — e.g. `crates/domains/data/wordnet/english-wordnet-2025.xml` for the registered Language source.
 
 The runtime side is the engine's data-provisioning subsystem (`pr4xis_domains::applied::data_provisioning`); the operator side is the `pr4xis update` CLI.
@@ -40,7 +40,7 @@ url     = "https://github.com/globalwordnet/english-wordnet/releases/download/20
 
 Two layers of pinning:
 
-- **`[hashes]`** — `<name>@<version> = "<sha256>"`. The hash of the bytes praxis expects on disk at `local_path()`. `LockManifestAgreement` verifies every manifest entry has a matching hash and that the local file (when present) matches.
+- **`[hashes]`** — `<name>@<version> = "blake3:<hex>"`. The content digest of the bytes praxis expects on disk at `local_path()`. This pin is the persisted form of a typed [`IntegrityClaim`](../reference/glossary.md#integrityclaim) (W3C Subresource Integrity): it binds the source to its expected content hash rather than trusting any self-asserted label. `LockManifestAgreement` verifies every manifest entry has a matching hash and that the local file (when present) re-derives to it.
 - **`[canonical_text."<name>@<version>"]`** *(optional, source-specific)* — for sources whose authoritative format praxis cannot yet read end-to-end (e.g. case-law PDFs whose figures or non-text content require future image-understanding work), a hand-transcribed plain-text approximation lives under `data/canonical_text/`, with `sha256` + `provenance` flags. `provenance = "training_reconstructed_<date>"` marks the file as a transcription pending verification against the authoritative source; `provenance = "verified"` marks it as a fetched-and-confirmed copy. This is an explicit, machine-readable record of the gap — not a workaround. **Statutes don't need this**: USLM XML reads end-to-end through the loaded W3C XML 1.0 parser + USLM lens.
 
 The `[structural."<name>@<version>"]` block is a legacy codegen input retained for sources whose loader hasn't yet been wired into the build-time codegen path. For statutes, M4.δ.2.b wired the USLM XML loader into `build.rs`, so the source-driven path consumes USLM XML directly — `[structural.*]` is being deleted for statutes per task M4.δ.2.e. See [Build an Ontology from a Paper](build-ontology-from-paper.md) for the declarative authoring path that's parallel to source-driven ingestion.
@@ -62,7 +62,7 @@ Output is one line per source:
 ```text
   [ok]      english_wordnet: already verified
   [fetched] english_wordnet: 47 MB written to crates/domains/data/wordnet/...
-  [fail]    foo_source: verification failed — sha256 mismatch
+  [fail]    foo_source: verification failed — content-digest mismatch
 ```
 
 ### `pr4xis update <name>`
@@ -99,7 +99,7 @@ Print every registered source with its current state. Includes the schema-derive
 Registered datasets:
   english_wordnet@2025 [Language] An open lexical database of English.
     remote: https://github.com/globalwordnet/english-wordnet/releases/...
-    local:  crates/domains/data/lexicons/languages/english_wordnet/...
+    local:  crates/domains/data/wordnet/english-wordnet-2025.xml
     content-type: XmlLmf
   usc_title_18@pl-119-90 [UsCodeTitle] Crimes and Criminal Procedure.
     remote: https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc18@119-90.zip
@@ -120,6 +120,22 @@ pr4xis update --offline
 
 Flag precedence: `--check` (read-only) always wins over `--force`. `--offline` blocks network access; if a local file exists it is still verified, and verification failure is reported as `VerificationFailed` (not `MissingAndOffline`, which is reserved for actually-absent files).
 
+### `pr4xis update --lock`
+
+Regenerate `praxis.lock` pins, preserving comments and key ordering; values are written in the tagged `blake3:<hex>` form. Two modes:
+
+- `--lock` alone: downloads every (or one named) registered entry, **bypasses** identity verification, writes the bytes to disk, computes the content address, and rewrites the corresponding `[hashes]` line — the path to pin a source for the first time, or to re-pin after the upstream bytes legitimately change.
+- `--lock --offline`: the **custody re-pin** — no network. Every on-disk source must first verify against its *existing* pin (under whatever algorithm that pin names); only then are the `[hashes]`, `[byte_exact_signatures]`, and `[canonical_signatures]` entries rewritten under the emit algorithm. Any mismatch aborts the whole run before `praxis.lock` is touched.
+
+`--lock` is mutually exclusive with `--check` (read-only).
+
+```bash
+pr4xis update --lock                 # re-pin every registered source
+pr4xis update english_wordnet --lock # re-pin one source
+```
+
+Use `--lock` deliberately — it trusts the freshly fetched bytes rather than checking them against an existing pin, so it should run only when you intend to update the recorded identity.
+
 ### Planned: `pr4xis source add / remove / list` (M6)
 
 A separate `source` subcommand for *mutating* the registry — adding a new entry, removing an existing one, or listing without going through `update` — is task **M6** in the milestone plan, not yet implemented. Today the registry is read-only from the CLI's perspective; `pr4xis update --list` prints it but cannot edit it, and new entries are added by hand-editing `praxis.toml`. When M6 lands, hand edits will remain valid (the file is the source of truth either way) and `pr4xis source add <name> --version <v> --type <leaf> --url <url>` will automate the common case.
@@ -130,7 +146,7 @@ End-to-end. The current workflow is hand-edit-then-verify; mutating subcommands 
 
 1. **Choose a leaf in `SourceTaxonomy`** under `crates/domains/src/formal/meta/source_taxonomy/ontology.rs`. If no existing leaf fits the jurisdictional or genre specificity of your source, **add a new leaf first** — the taxonomy is closed-world and unknown types fail registration at startup.
 2. **Append a `[sources.<name>]` block to `praxis.toml`** with the four required fields. Use the authoritative URL. (M6 will let `pr4xis source add <name> --version <v> --type <leaf> --url <url>` do this; today it's a hand edit.)
-3. **Compute the sha256** of the bytes you expect on disk and add the entry to `praxis.lock`'s `[hashes]` block.
+3. **Pin the digest** in `praxis.lock`'s `[hashes]` block — run `pr4xis update <name> --lock` to fetch the bytes and write the tagged `blake3:` pin for you.
 4. **Run `pr4xis update <name>`** to fetch and verify. The CLI writes the verified bytes to `local_path()`. Subsequent runs are no-ops unless you pass `--force`.
 5. **Verify with `cargo test`** — the data-provisioning ontology runs `LockManifestAgreement` (along with seven other axioms) over the registered set; any drift fails.
 

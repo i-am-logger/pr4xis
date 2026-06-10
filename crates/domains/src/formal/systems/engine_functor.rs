@@ -1,5 +1,5 @@
 use pr4xis::category::Arrow;
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::{Concept, FinitelyGenerated};
 use pr4xis::category::{Category, Functor};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
@@ -49,7 +49,8 @@ pub enum EngineElement {
     EngineCycle,
 }
 
-impl Concept for EngineElement {
+impl Concept for EngineElement {}
+impl FinitelyGenerated for EngineElement {
     fn variants() -> Vec<Self> {
         vec![
             Self::Situation,
@@ -232,6 +233,12 @@ impl Category for EngineCategory {
         }
 
         m
+    }
+}
+
+impl pr4xis::category::NamedCategory for EngineCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("Engine")
     }
 }
 

@@ -27,13 +27,15 @@
 //!   Forms (Davis & Whistler 2024, Unicode Consortium,
 //!   <https://www.unicode.org/reports/tr15/>), specifically NFKC
 //!   per §6, plus LF normalization (CRLF/CR → LF) and BOM strip.
-//! - [`rdf`] — Stub. W3C Recommendation REC-rdf-canon-20240521
-//!   "RDF Dataset Canonicalization" (Longley, Kellogg & Yamamoto
-//!   2024, <https://www.w3.org/TR/rdf-canon/>) is registered but
-//!   not implemented. No maintained Rust crate yet; the M4.θ.0
-//!   foundation lands the citation and trait surface, and the
-//!   implementation will land when a viable crate appears or we
-//!   write our own.
+//! - [`rdf`] — W3C Recommendation REC-rdf-canon-20240521 "RDF Dataset
+//!   Canonicalization" (RDFC-1.0; Longley, Kellogg & Yamamoto 2024,
+//!   <https://www.w3.org/TR/rdf-canon/>). Routes RDF/XML bytes through
+//!   the in-house, W3C-suite-conformant implementation at
+//!   [`crate::social::software::markup::xml::rdf::canon`]
+//!   (`bytes → read_owl_to_quads → rdf::canonicalize → canonical
+//!   N-Quads`). Two RDF graphs canonicalize to byte-identical output iff
+//!   they are RDF-isomorphic (RDF 1.1 §3.6) — graph identity, the OWL
+//!   lens's `[canonical_signatures]` form.
 //! - [`toml`] — TOML has no canonical-form RFC. We document our
 //!   canonical form: parse into [`::toml::Value`], walk with
 //!   sorted-table-keys + consistent quoting (always double-quoted

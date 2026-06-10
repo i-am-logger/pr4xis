@@ -3,17 +3,29 @@ resolver = "3"
 members = [
     "crates/pr4xis-derive",
     "crates/pr4xis",
+    "crates/pr4xis-runtime",
     "crates/domains",
     "crates/examples",
     "crates/cli",
     "crates/chat",
     "crates/web",
 ]
-# pr4xis-wasm excluded from default workspace (needs wasm target).
+# pr4xis-wasm excluded from default workspace (its lib builds for the
+# wasm32 target). Its NATIVE `mod acceptance` tests (host-target
+# #[test]s gated to non-wasm32) therefore do NOT run under
+# `cargo test --workspace`; CI + dev-ci run them explicitly via
+# `cargo test --manifest-path crates/wasm/Cargo.toml`. The wasm32
+# browser tests run separately via `wasm-pack test` (dev-test-wasm).
 # pr4xis-e2e excluded too — it drives a real browser via WebDriver and
 # needs a running web server + geckodriver, so it must not run under
 # `cargo test --workspace`. CI invokes it explicitly (see ci.yml `e2e`).
-exclude = ["crates/wasm", "crates/e2e"]
+# praxis-corpus-tests excluded so the default nextest run never re-parses the
+# multi-hundred-MB USC titles / WordNet per process-isolated test. It depends on
+# pr4xis-domains with `test-internals` (+ `codegen`); keeping it a non-member
+# stops that feature from unifying into the normal workspace build. It runs
+# under `cargo test` (one process → a LazyLock fixture parses each giant once),
+# invoked explicitly via `--manifest-path crates/praxis-corpus-tests/Cargo.toml`.
+exclude = ["crates/wasm", "crates/e2e", "crates/praxis-corpus-tests"]
 
 [workspace.lints.rust]
 dead_code = "deny"

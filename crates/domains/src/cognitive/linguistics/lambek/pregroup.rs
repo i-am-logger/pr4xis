@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::{Concept, FinitelyGenerated};
 use pr4xis::logic::Axiom;
 
 // Pregroup Grammar Ontology — parsing as group algebra.
@@ -39,7 +39,8 @@ pub enum BasicType {
     PP,
 }
 
-impl Concept for BasicType {
+impl Concept for BasicType {}
+impl FinitelyGenerated for BasicType {
     fn variants() -> Vec<Self> {
         vec![Self::S, Self::NP, Self::N, Self::PP]
     }

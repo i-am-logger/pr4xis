@@ -21,24 +21,42 @@ An axiom in pr4xis is a Rust type that implements the `Axiom` trait:
 
 ```text
 use pr4xis::logic::Axiom;
+use pr4xis::logic::proof::{SimpleProof, SimpleCounterexample, Verdict};
 
 pub struct MyAxiom;
 
 impl Axiom for MyAxiom {
-    fn name(&self) -> &'static str {
-        "MyAxiom"
+    // `verify` returns a typed Verdict, never a bool:
+    //   Verdict = Result<Box<dyn Proof>, Box<dyn Counterexample>>
+    // Ok carries a proof witness; Err carries a counterexample. The two
+    // are structurally distinct kinds of evidence — core never collapses
+    // them into a boolean.
+    fn verify(&self) -> Verdict {
+        if /* the axiom holds */ true {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn description(&self) -> &'static str {
-        "What the axiom says, in one sentence. Cite the source."
+    // Citation is required — every axiom must trace to published work.
+    fn citation(&self) -> pr4xis::ontology::meta::Citation {
+        pr4xis::ontology::meta::Citation::parse_static("Smith (1999) J. Foo")
     }
 
-    fn check(&self) -> bool {
-        // Return true if the axiom holds, false otherwise.
-        // For axioms that depend on a situation, take the situation as a parameter
-        // (the actual signature is per-domain — look at existing axioms for the right shape).
-        true
-    }
+    // `name` and `description` have defaults derived from the type name
+    // and return OntologyName / Label; override them only when the Rust
+    // identifier differs from the human-readable axiom label.
+}
+```
+
+When `name`, `description`, and `citation` are all string literals, the
+`pr4xis::axiom_meta!` macro emits the three override methods in one line:
+
+```text
+impl Axiom for MyAxiom {
+    fn verify(&self) -> Verdict { /* … */ }
+    pr4xis::axiom_meta!("MyAxiom", "What the axiom says, in one sentence.", "Smith (1999) J. Foo");
 }
 ```
 
@@ -51,33 +69,24 @@ Most domain axioms are state-dependent — they live as `Precondition` implement
 
 ## The Precondition pattern (state-dependent axioms)
 
-If your axiom needs to know the current situation to be checked, implement `Precondition` instead of (or in addition to) `Axiom`:
+If your axiom needs to know the current situation to be checked, implement `Precondition` instead of (or in addition to) `Axiom`. The trait has one type parameter — the `Action` — and the situation type comes from `Action::Sit`. `check` returns the same typed `Verdict` an axiom does:
 
 ```text
-use pr4xis::engine::{Precondition, PreconditionResult, Situation, Action};
+use pr4xis::engine::Precondition;
+use pr4xis::logic::proof::{SimpleProof, SimpleCounterexample, Verdict};
 
 pub struct EnergyConservation;
 
-impl Precondition<MySituation, MyAction> for EnergyConservation {
-    fn check(&self, situation: &MySituation, action: &MyAction) -> PreconditionResult {
+impl Precondition<MyAction> for EnergyConservation {
+    fn check(&self, situation: &<MyAction as pr4xis::engine::Action>::Sit, action: &MyAction) -> Verdict {
+        let meta = /* a Provenance carrying name + description + citation */;
         let energy_before = situation.total_energy();
         let energy_after = situation.simulate_action(action).total_energy();
 
         if (energy_before - energy_after).abs() < EPSILON {
-            PreconditionResult::Satisfied {
-                rule: "EnergyConservation",
-                reason: "Total energy is preserved by the action",
-            }
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::Violated {
-                rule: "EnergyConservation",
-                reason: format!(
-                    "Action would change total energy by {}",
-                    energy_after - energy_before
-                ),
-                situation: situation.clone(),
-                attempted_action: action.clone(),
-            }
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
     }
 }
@@ -85,8 +94,8 @@ impl Precondition<MySituation, MyAction> for EnergyConservation {
 
 Two things to note:
 
-1. **The result carries context.** `Satisfied` carries the rule name and a reason. `Violated` carries the rule name, a reason, the situation, and the attempted action. Both can be inspected by the caller — the trace shows exactly which rule passed and why.
-2. **The check is total.** Every possible (situation, action) pair must produce one result or the other. There is no "I don't know" — if the axiom depends on something the situation doesn't carry, the situation needs to be enriched, not the precondition.
+1. **The result is a typed witness.** `Ok` carries a `Proof`, `Err` carries a `Counterexample`; each carries its own `meta()` (name, description, citation, module path), so the trace shows exactly which rule passed or failed and where it comes from — no separate rule/reason string fields are needed.
+2. **The check is total.** Every possible (situation, action) pair must produce a proof or a counterexample. There is no "I don't know" — if the axiom depends on something the situation doesn't carry, the situation needs to be enriched, not the precondition.
 
 ## Wiring the axiom into the engine
 
@@ -121,7 +130,7 @@ proptest! {
         let situation = MySituation::new_at_rest(initial_height);
         let action = MyAction::Drop;
         let result = EnergyConservation.check(&situation, &action);
-        prop_assert!(matches!(result, PreconditionResult::Satisfied { .. }));
+        prop_assert!(result.is_ok()); // Ok(proof) — the precondition holds
     }
 }
 ```
@@ -157,7 +166,7 @@ The doc comment becomes part of the axiom's public documentation and is what the
 
 - `crates/domains/src/natural/physics/relativity.rs` — the `SpeedLimit` axiom enforcing `v < c`
 - `crates/domains/src/natural/physics/energy.rs` — `EnergyConservation` and `PhysicalConstraints` for KE↔PE transformations
-- `crates/domains/src/social/games/chess/preconditions.rs` — `GameNotOver`, `PieceExists`, `OwnPiece`, `LegalMove`
+- `crates/domains/src/social/games/chess/engine.rs` — `GameNotOver`, `PieceExists`, `OwnPiece`, `LegalMove`
 - `crates/pr4xis/src/logic/axiom.rs` — the `Axiom` trait
 - `crates/pr4xis/src/engine/precondition.rs` — the `Precondition` trait
 

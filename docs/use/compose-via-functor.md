@@ -60,18 +60,19 @@ impl Functor for AToB {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::laws::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn test_a_to_b_functor_laws() {
-        check_functor_laws::<AToB>().unwrap();
+        // Panics with the failing law's name if any law breaks.
+        assert_functor_laws::<AToB>();
     }
 }
 ```
 
-That's it. The validator iterates through every source concept, maps it, maps the identity morphism, and checks that `F(id_x) == id_{F(x)}`. Then it iterates through every morphism, maps it, and checks that the source and target of the mapped morphism match the mapped source and mapped target.
+That's it. `assert_functor_laws` iterates the functor laws as `Axiom` impls: for every source concept it maps the identity morphism and checks `F(id_x) == id_{F(x)}`, and for every composable morphism pair it checks `F(g ∘ f) == F(g) ∘ F(f)`. Each law's `verify()` returns a typed `Verdict` (a proof or a counterexample, never a bool); the `assert_*` helper pattern-matches it and panics on the first counterexample.
 
-If the test passes, the functor is verified. If it fails, the error message names the specific concept or morphism where the laws break, and you fix the `map_object` arm that's wrong.
+If the test passes, the functor is verified. If it fails, the panic names the specific law that broke (e.g. `FunctorIdentityLaw`), and you fix the `map_object` arm that's wrong. When you'd rather inspect each result yourself instead of panicking, iterate `pr4xis::category::laws::functor_law_axioms::<AToB>()` and match each `Verdict`.
 
 ## Three things to know
 
@@ -87,7 +88,7 @@ If you want to detect collapses, pair your forward functor with a reverse functo
 
 ### 3. The functor is a *theorem*, not a translation
 
-A functor is not just "convert objects from A to B". It is the claim that the conversion preserves structure. If you can write `map_object` correctly but `check_functor_laws` fails, you have not proven the functor — the conversion does not actually preserve composition or identity, which means the source domain's structure is *not* faithfully present in the target. The failing test is telling you the proposed embedding doesn't hold.
+A functor is not just "convert objects from A to B". It is the claim that the conversion preserves structure. If you can write `map_object` correctly but `assert_functor_laws` fails, you have not proven the functor — the conversion does not actually preserve composition or identity, which means the source domain's structure is *not* faithfully present in the target. The failing test is telling you the proposed embedding doesn't hold.
 
 When that happens, two paths forward:
 
@@ -131,7 +132,7 @@ Then run the gap-analysis pattern from `crates/domains/src/formal/meta/gap_analy
 
 - `crates/domains/src/natural/biomedical/adjunctions.rs` — the three biomedical adjunctions, with `unit` and `counit` implementations and the full law-checking test suite
 - `crates/domains/src/natural/biomedical/biochemistry/bioelectricity_functor.rs` — a clean single-functor example, no adjunction
-- `crates/pr4xis/src/category/validate/check_functor_laws.rs` — the validator
+- `crates/pr4xis/src/category/laws.rs` — the functor laws as `Axiom` impls (`functor_law_axioms` / `assert_functor_laws`)
 - `crates/domains/src/formal/meta/gap_analysis.rs` — the gap-analysis pattern that uses the adjunctions
 
 ## Related

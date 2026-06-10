@@ -8,35 +8,47 @@
 //! `praxis.lock` carries that commentary by convention — it is
 //! editor-visible documentation, not just data. The writer therefore
 //! operates on the text representation directly: it walks the file
-//! line-by-line, locates the `"<key>" = "<sha>"` line for the requested
-//! key, and replaces just the SHA hex while leaving every other byte
+//! line-by-line, locates the `"<key>" = "<digest>"` line for the requested
+//! key, and replaces just the digest value while leaving every other byte
 //! (comments, ordering, whitespace) untouched. New keys are appended at
 //! the end of the `[hashes]` section, before the next `[section]` header
 //! if any, otherwise at end-of-file.
+//!
+//! Written values use the tagged digest grammar the parser
+//! ([`super::registry::LockDigest`]) loads: praxis-emitted pins are written
+//! `blake3:<64 lowercase hex>` — the one emit algorithm per format epoch
+//! ([`pr4xis_runtime::address::ADDRESS_ALGORITHM`], BLAKE3 — Aumasson,
+//! O'Connor, Neves & Wilcox-O'Hearn 2020).
 //!
 //! Citation: Tom Preston-Werner et al. (2024) *TOML: Tom's Obvious
 //! Minimal Language* v1.0.0, §2 (comments are syntactically significant
 //! to humans). RFC 1952 / 5234 ABNF-style "leave bytes alone unless they
 //! match the production" rewriting principle. Dolstra (2006) §5.1
-//! (content-addressed pinning) — the value being rewritten is a SHA-256
-//! per FIPS 180-4 §6.2.
+//! (content-addressed pinning).
 
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
-/// Errors returned by [`set_hash`].
+use pr4xis_runtime::address::ADDRESS_ALGORITHM;
+
+use super::registry::algorithm_tag;
+
+/// Errors returned by the `set_*` writers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LockfileWriteError {
     /// The lockfile text has no `[hashes]` section. A praxis.lock without
     /// `[hashes]` is malformed — refuse to write blind.
     MissingHashesSection,
-    /// The provided SHA-256 hex is not 64 lowercase hex characters.
-    /// Mirrors `registry::is_lowercase_hex_sha256` so we never write a
-    /// malformed value (FIPS 180-4 §6.2: SHA-256 output is 256 bits → 64
-    /// hex chars; TOML doesn't care about case but the load-time
-    /// parser rejects mixed-case for canonical signatures, and we keep
-    /// raw hashes consistent).
-    InvalidSha256(String),
+    /// The provided digest is not 64 lowercase hex characters (the hex
+    /// form of one 256-bit digest). Mirrors the parse-side shape check
+    /// (`registry::LockDigest::parse`) so we never write a value the
+    /// loader would reject.
+    InvalidDigest(String),
+    /// The lockfile text has no section by the requested name (e.g.
+    /// `[archive_signatures]`). Same fail-closed stance as
+    /// [`Self::MissingHashesSection`] — refuse to write blind into a
+    /// lockfile missing the section the value belongs in.
+    MissingSection(String),
 }
 
 impl core::fmt::Display for LockfileWriteError {
@@ -45,8 +57,11 @@ impl core::fmt::Display for LockfileWriteError {
             LockfileWriteError::MissingHashesSection => {
                 write!(f, "praxis.lock has no `[hashes]` section")
             }
-            LockfileWriteError::InvalidSha256(s) => {
-                write!(f, "not a 64-char lowercase hex SHA-256: {s:?}")
+            LockfileWriteError::InvalidDigest(s) => {
+                write!(f, "not a 64-char lowercase hex digest: {s:?}")
+            }
+            LockfileWriteError::MissingSection(name) => {
+                write!(f, "praxis.lock has no `[{name}]` section")
             }
         }
     }
@@ -55,52 +70,160 @@ impl core::fmt::Display for LockfileWriteError {
 #[cfg(feature = "std")]
 impl std::error::Error for LockfileWriteError {}
 
-/// Set the SHA-256 for `key` (a `"name@version"` string, without quotes)
-/// to `sha` in the `[hashes]` section of `lockfile_text`, returning the
-/// rewritten text.
+/// Set the content digest for `key` (a `"name@version"` string, without
+/// quotes) to `digest_hex` in the `[hashes]` section of `lockfile_text`,
+/// returning the rewritten text. The value is written in the tagged
+/// emit form (`blake3:<digest_hex>`).
 ///
-/// - If `key` already has a line in `[hashes]`, only the hex value is
+/// - If `key` already has a line in `[hashes]`, only the value is
 ///   replaced; the line's comments, whitespace, and surrounding lines
 ///   are preserved byte-for-byte.
-/// - If `key` is absent, a new `"key" = "sha"` line is appended at the
-///   end of the `[hashes]` section (immediately before the next
+/// - If `key` is absent, a new `"key" = "blake3:digest"` line is appended
+///   at the end of the `[hashes]` section (immediately before the next
 ///   `[section]` header, or at end-of-file if `[hashes]` is the last).
 /// - If the lockfile has no `[hashes]` section, returns
 ///   [`LockfileWriteError::MissingHashesSection`] — writing blind to a
 ///   malformed lockfile would silently corrupt it.
 ///
-/// `sha` must be 64 lowercase hex characters (one SHA-256 per
-/// FIPS 180-4 §6.2). Mixed-case or off-length inputs are rejected with
-/// [`LockfileWriteError::InvalidSha256`].
-pub fn set_hash(lockfile_text: &str, key: &str, sha: &str) -> Result<String, LockfileWriteError> {
-    if !is_lowercase_hex_sha256(sha) {
-        return Err(LockfileWriteError::InvalidSha256(sha.to_string()));
+/// `digest_hex` must be 64 lowercase hex characters (the emit-leg
+/// `ContentAddress::to_hex()` form). Mixed-case or off-length inputs are
+/// rejected with [`LockfileWriteError::InvalidDigest`].
+pub fn set_hash(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    // Preserve `set_hash`'s specific error contract: a `[hashes]`-less
+    // lockfile reports the specific `MissingHashesSection`, not the
+    // generic `MissingSection`.
+    set_in_section(lockfile_text, "hashes", key, digest_hex).map_err(|e| match e {
+        LockfileWriteError::MissingSection(_) => LockfileWriteError::MissingHashesSection,
+        other => other,
+    })
+}
+
+/// Set the archive `MerkleRoot` signature for `key` (a `"name@version"`
+/// string, without quotes) to `digest_hex` in the `[archive_signatures]`
+/// section of `lockfile_text`, returning the rewritten text. Written in the
+/// tagged emit form (`blake3:<digest_hex>`).
+///
+/// This is the write-side companion to the fail-closed `.prx.gz` load
+/// gate: a loaded archive's re-derived `MerkleRoot` is checked against
+/// this pin (`owl::prx::load_prx_gz_from_lock` /
+/// `uslm::corpus::prx::load_usc_prx_gz_from_lock`). `pr4xis compile
+/// --lock` records the pin here once the archive has been emitted.
+///
+/// Identical comment-/order-preserving rewrite to [`set_hash`], only
+/// targeting `[archive_signatures]`. `digest_hex` must be 64 lowercase hex
+/// characters; off-length/mixed-case inputs return
+/// [`LockfileWriteError::InvalidDigest`], a missing section returns
+/// [`LockfileWriteError::MissingSection`].
+pub fn set_archive_signature(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "archive_signatures", key, digest_hex)
+}
+
+/// Set the COMPACT archive content address for `key` (a `"name@version"`
+/// string) to `digest_hex` in the `[compact_archive_signatures]` section of
+/// `lockfile_text`, returning the rewritten text. Written in the tagged emit
+/// form (`blake3:<digest_hex>`).
+///
+/// The write-side companion to the compact runtime load gate
+/// (`uslm::corpus::prx::load_compact_usc_prx_gz_gated`): a loaded compact
+/// archive's re-hashed content address is checked against this pin. Unlike
+/// [`set_archive_signature`] the pinned address is portable across toolchains
+/// (the compact codec is dependency-free bit-packing, not rkyv). Same
+/// comment-/order-preserving rewrite; `digest_hex` must be 64 lowercase hex
+/// chars.
+pub fn set_compact_archive_signature(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "compact_archive_signatures", key, digest_hex)
+}
+
+/// Set the canonical-form signature for `key` (a `"name@version"` string)
+/// to `digest_hex` in the `[canonical_signatures]` section of
+/// `lockfile_text`, returning the rewritten text. Written in the tagged
+/// emit form (`blake3:<digest_hex>`).
+///
+/// The write-side companion to the canonical-form verification legs (the
+/// round-trip harness and the `.prx` load gate's graph-identity leg):
+/// `digest_hex` is the content address of the bytes the source's registered
+/// `WellBehavedLens` emits as canonical form. Same comment-/order-preserving
+/// rewrite as [`set_hash`].
+pub fn set_canonical_signature(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "canonical_signatures", key, digest_hex)
+}
+
+/// Set the byte-exact round-trip signature for `key` (a `"name@version"`
+/// string) to `digest_hex` in the `[byte_exact_signatures]` section of
+/// `lockfile_text`, returning the rewritten text. Written in the tagged
+/// emit form (`blake3:<digest_hex>`).
+///
+/// Because byte-exactness means `put(get(b)) == b`, the value MUST equal the
+/// source's `[hashes]` pin — the parse side (`registry::parse_praxis_lock`)
+/// enforces that equality on load, so a divergent write surfaces immediately.
+/// Same comment-/order-preserving rewrite as [`set_hash`].
+pub fn set_byte_exact_signature(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "byte_exact_signatures", key, digest_hex)
+}
+
+/// Comment-/order-preserving rewrite of a `"key" = "value"` line within a
+/// named TOML section — the shared core of the `set_*` writers. Validates
+/// `digest_hex` (64 lowercase hex), lowers it to the tagged emit form
+/// (`<tag(ADDRESS_ALGORITHM)>:<digest_hex>` — the ONE wire lowering, shared
+/// with the parser via [`algorithm_tag`]), then locates `[section]`, replaces
+/// the value on an existing `"key"` line byte-for-byte, or appends a new line
+/// at the section's end (before its trailing blank, or at EOF). Returns
+/// [`LockfileWriteError::MissingSection`] if `[section]` is absent.
+fn set_in_section(
+    lockfile_text: &str,
+    section: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    if !is_lowercase_hex_digest(digest_hex) {
+        return Err(LockfileWriteError::InvalidDigest(digest_hex.to_string()));
     }
+    let value = format!("{}:{}", algorithm_tag(ADDRESS_ALGORITHM), digest_hex);
 
     let lines: Vec<&str> = lockfile_text.split_inclusive('\n').collect();
 
-    // Locate the [hashes] section's bounds. `hashes_start` is the line
-    // index immediately after the `[hashes]` header; `hashes_end` is the
-    // line index of the next `[section]` header, or `lines.len()` if
-    // `[hashes]` runs to end-of-file.
-    let Some(hashes_header_idx) = lines.iter().position(|l| is_section_header(l, "hashes")) else {
-        return Err(LockfileWriteError::MissingHashesSection);
+    // Locate the section's bounds. `section_start` is the line index
+    // immediately after the `[section]` header; `section_end` is the line
+    // index of the next `[section]` header, or `lines.len()` if the
+    // section runs to end-of-file.
+    let Some(header_idx) = lines.iter().position(|l| is_section_header(l, section)) else {
+        return Err(LockfileWriteError::MissingSection(section.to_string()));
     };
-    let hashes_start = hashes_header_idx + 1;
-    let hashes_end = lines[hashes_start..]
+    let section_start = header_idx + 1;
+    let section_end = lines[section_start..]
         .iter()
         .position(is_any_section_header)
-        .map(|offset| hashes_start + offset)
+        .map(|offset| section_start + offset)
         .unwrap_or(lines.len());
 
     // Scan the section for an existing `"key" = "..."` line. The TOML
     // spec allows arbitrary whitespace around `=`; we accept the same.
-    if let Some(existing_idx) = lines[hashes_start..hashes_end]
+    if let Some(existing_idx) = lines[section_start..section_end]
         .iter()
         .position(|l| line_assigns_key_to(l, key))
     {
-        let absolute = hashes_start + existing_idx;
-        let new_line = replace_value_on_line(lines[absolute], sha);
+        let absolute = section_start + existing_idx;
+        let new_line = replace_value_on_line(lines[absolute], &value);
         let mut out = String::with_capacity(lockfile_text.len());
         for (i, line) in lines.iter().enumerate() {
             if i == absolute {
@@ -112,15 +235,15 @@ pub fn set_hash(lockfile_text: &str, key: &str, sha: &str) -> Result<String, Loc
         return Ok(out);
     }
 
-    // No existing line — append `"key" = "sha"` at the end of the
-    // `[hashes]` section, immediately before any trailing blank line
-    // that separates `[hashes]` from the next `[section]` header. This
-    // keeps the visual structure intact.
-    let mut insert_idx = hashes_end;
-    while insert_idx > hashes_start && lines[insert_idx - 1].trim().is_empty() {
+    // No existing line — append `"key" = "value"` at the end of the
+    // section, immediately before any trailing blank line that separates
+    // it from the next `[section]` header. Keeps the visual structure
+    // intact.
+    let mut insert_idx = section_end;
+    while insert_idx > section_start && lines[insert_idx - 1].trim().is_empty() {
         insert_idx -= 1;
     }
-    let new_line = format!("\"{key}\" = \"{sha}\"\n");
+    let new_line = format!("\"{key}\" = \"{value}\"\n");
     let mut out = String::with_capacity(lockfile_text.len() + new_line.len());
     for (i, line) in lines.iter().enumerate() {
         if i == insert_idx {
@@ -192,11 +315,11 @@ fn replace_value_on_line(line: &str, new_value: &str) -> String {
     out
 }
 
-/// True iff `s` is exactly 64 lowercase hex characters — the canonical
-/// form of a SHA-256 per FIPS 180-4 §6.2 (256 bits → 64 hex) using the
-/// ASCII subset `[0-9a-f]`. Mirrors the parser's validity check so we
-/// never write a value that would fail to load.
-fn is_lowercase_hex_sha256(s: &str) -> bool {
+/// True iff `s` is exactly 64 lowercase hex characters — the hex form of
+/// one 256-bit digest (the emit-leg `ContentAddress::to_hex()` shape),
+/// using the ASCII subset `[0-9a-f]`. Mirrors the parser's shape check so
+/// we never write a value that would fail to load.
+fn is_lowercase_hex_digest(s: &str) -> bool {
     s.len() == 64
         && s.bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
@@ -204,7 +327,7 @@ fn is_lowercase_hex_sha256(s: &str) -> bool {
 
 /// Strip a `# comment` suffix from a line, returning everything before
 /// the first un-quoted `#`. For our purposes (section headers and
-/// hash lines), the `#` always starts a comment because hashes and
+/// digest lines), the `#` always starts a comment because digests and
 /// section names cannot contain `#`. This is intentionally a simple
 /// approximation, not a full TOML lexer.
 fn strip_trailing_comment(line: &str) -> &str {
@@ -222,42 +345,50 @@ mod tests {
 # header comment
 [hashes]
 # wordnet header
-\"english_wordnet@2025\" = \"0000000000000000000000000000000000000000000000000000000000000000\"
+\"english_wordnet@2025\" = \"blake3:0000000000000000000000000000000000000000000000000000000000000000\"
 \"another@1.0\"          = \"1111111111111111111111111111111111111111111111111111111111111111\"
 
 [canonical_signatures]
-\"english_wordnet@2025\" = \"2222222222222222222222222222222222222222222222222222222222222222\"
+\"english_wordnet@2025\" = \"blake3:2222222222222222222222222222222222222222222222222222222222222222\"
 ";
 
-    const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const SHA_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const HEX_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const HEX_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
     #[test]
     fn replaces_existing_hash_preserving_comments() {
-        let out = set_hash(SAMPLE, "english_wordnet@2025", SHA_A).unwrap();
+        let out = set_hash(SAMPLE, "english_wordnet@2025", HEX_A).unwrap();
         // Preamble preserved
         assert!(out.starts_with("# header comment\n[hashes]\n# wordnet header\n"));
-        // Existing line was rewritten to the new sha
-        assert!(out.contains(&format!("\"english_wordnet@2025\" = \"{SHA_A}\"")));
-        // Other key untouched
+        // Existing line was rewritten to the new tagged digest
+        assert!(out.contains(&format!("\"english_wordnet@2025\" = \"blake3:{HEX_A}\"")));
+        // Other key untouched (still the bare legacy value)
         assert!(out.contains("\"another@1.0\"          = \"1111111111"));
         // [canonical_signatures] preserved unchanged
-        assert!(out.contains("[canonical_signatures]\n\"english_wordnet@2025\" = \"222222"));
+        assert!(out.contains("[canonical_signatures]\n\"english_wordnet@2025\" = \"blake3:222222"));
         // No accidental duplication
         assert_eq!(
-            out.matches("english_wordnet@2025\" = \"a").count(),
+            out.matches("english_wordnet@2025\" = \"blake3:a").count(),
             1,
             "rewritten key must appear exactly once in [hashes]"
         );
     }
 
     #[test]
+    fn rewrites_bare_legacy_value_to_tagged_form() {
+        // A pre-tagged-grammar line (bare hex) is re-pinned in the tagged
+        // emit form — the writer always writes `blake3:<hex>`.
+        let out = set_hash(SAMPLE, "another@1.0", HEX_B).unwrap();
+        assert!(out.contains(&format!("\"another@1.0\"          = \"blake3:{HEX_B}\"")));
+    }
+
+    #[test]
     fn appends_new_hash_under_hashes_section_before_canonical_section() {
-        let out = set_hash(SAMPLE, "fresh_source@v1", SHA_A).unwrap();
+        let out = set_hash(SAMPLE, "fresh_source@v1", HEX_A).unwrap();
         // New line lives after the existing [hashes] entries but before
         // [canonical_signatures] — that is, inside the [hashes] section.
         let new_pos = out
-            .find(&format!("\"fresh_source@v1\" = \"{SHA_A}\""))
+            .find(&format!("\"fresh_source@v1\" = \"blake3:{HEX_A}\""))
             .expect("new line must be present");
         let canon_pos = out
             .find("[canonical_signatures]")
@@ -267,17 +398,17 @@ mod tests {
             "new key must be inside [hashes] (before [canonical_signatures])"
         );
         // Pre-existing keys untouched
-        assert!(out.contains("\"english_wordnet@2025\" = \"0000000"));
+        assert!(out.contains("\"english_wordnet@2025\" = \"blake3:0000000"));
         assert!(out.contains("\"another@1.0\"          = \"111111111"));
     }
 
     #[test]
     fn appends_at_end_when_hashes_is_last_section() {
-        let single = "[hashes]\n\"k@1\" = \"0000000000000000000000000000000000000000000000000000000000000000\"\n";
-        let out = set_hash(single, "new@v1", SHA_B).unwrap();
-        assert!(out.contains("\"new@v1\" = \"bbbbbbbbb"));
+        let single = "[hashes]\n\"k@1\" = \"blake3:0000000000000000000000000000000000000000000000000000000000000000\"\n";
+        let out = set_hash(single, "new@v1", HEX_B).unwrap();
+        assert!(out.contains("\"new@v1\" = \"blake3:bbbbbbbbb"));
         assert!(out.ends_with(
-            "\"new@v1\" = \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n"
+            "\"new@v1\" = \"blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n"
         ));
     }
 
@@ -285,22 +416,27 @@ mod tests {
     fn missing_hashes_section_returns_error() {
         let no_hashes = "[other]\nfoo = \"bar\"\n";
         assert_eq!(
-            set_hash(no_hashes, "k@1", SHA_A).unwrap_err(),
+            set_hash(no_hashes, "k@1", HEX_A).unwrap_err(),
             LockfileWriteError::MissingHashesSection
         );
     }
 
     #[test]
-    fn rejects_non_lowercase_hex_sha256() {
+    fn rejects_non_lowercase_hex_digest() {
         // Wrong length
         let err = set_hash(SAMPLE, "k@1", "abc").unwrap_err();
-        assert!(matches!(err, LockfileWriteError::InvalidSha256(_)));
+        assert!(matches!(err, LockfileWriteError::InvalidDigest(_)));
         // Uppercase hex
         let err = set_hash(SAMPLE, "k@1", &"A".repeat(64)).unwrap_err();
-        assert!(matches!(err, LockfileWriteError::InvalidSha256(_)));
+        assert!(matches!(err, LockfileWriteError::InvalidDigest(_)));
         // Non-hex character
         let err = set_hash(SAMPLE, "k@1", &"g".repeat(64)).unwrap_err();
-        assert!(matches!(err, LockfileWriteError::InvalidSha256(_)));
+        assert!(matches!(err, LockfileWriteError::InvalidDigest(_)));
+        // Already-tagged input: the writer takes the bare emit-leg hex and
+        // adds the tag itself — a pre-tagged value is rejected, not
+        // double-tagged.
+        let err = set_hash(SAMPLE, "k@1", &format!("blake3:{HEX_A}")).unwrap_err();
+        assert!(matches!(err, LockfileWriteError::InvalidDigest(_)));
     }
 
     #[test]
@@ -315,12 +451,34 @@ mod tests {
 
     #[test]
     fn preserves_inline_comment_after_value() {
-        let input = "[hashes]\n\"k@1\" = \"0000000000000000000000000000000000000000000000000000000000000000\"  # inline note\n";
-        let out = set_hash(input, "k@1", SHA_A).unwrap();
+        let input = "[hashes]\n\"k@1\" = \"blake3:0000000000000000000000000000000000000000000000000000000000000000\"  # inline note\n";
+        let out = set_hash(input, "k@1", HEX_A).unwrap();
         assert!(
-            out.contains(&format!("\"k@1\" = \"{SHA_A}\"  # inline note\n")),
+            out.contains(&format!("\"k@1\" = \"blake3:{HEX_A}\"  # inline note\n")),
             "inline comment must survive rewrite; got: {out:?}"
         );
+    }
+
+    #[test]
+    fn set_canonical_signature_targets_its_section() {
+        let out = set_canonical_signature(SAMPLE, "english_wordnet@2025", HEX_A).unwrap();
+        // The [hashes] line is untouched; the [canonical_signatures] line moved.
+        assert!(out.contains("\"english_wordnet@2025\" = \"blake3:0000000"));
+        assert!(out.contains(&format!(
+            "[canonical_signatures]\n\"english_wordnet@2025\" = \"blake3:{HEX_A}\""
+        )));
+    }
+
+    #[test]
+    fn set_byte_exact_signature_requires_its_section() {
+        // SAMPLE has no [byte_exact_signatures] section — fail closed.
+        assert_eq!(
+            set_byte_exact_signature(SAMPLE, "k@1", HEX_A).unwrap_err(),
+            LockfileWriteError::MissingSection("byte_exact_signatures".into())
+        );
+        let with_section = format!("{SAMPLE}\n[byte_exact_signatures]\n");
+        let out = set_byte_exact_signature(&with_section, "k@1", HEX_A).unwrap();
+        assert!(out.contains(&format!("\"k@1\" = \"blake3:{HEX_A}\"")));
     }
 
     #[test]

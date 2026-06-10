@@ -24,7 +24,7 @@ Two laws govern these:
 - **Associativity:** `(h ∘ g) ∘ f = h ∘ (g ∘ f)` — the order of grouping does not matter.
 - **Identity:** `id_B ∘ f = f = f ∘ id_A` — composing with identity changes nothing.
 
-These laws sound trivial but they have a consequence pr4xis exploits everywhere: **if your domain model satisfies them, it has no dead states, no unreachable objects, and no broken compositions.** The compiler and `cargo test -p pr4xis category::validate::check_category_laws` verify the math for every category in the workspace.
+These laws sound trivial but they have a consequence pr4xis exploits everywhere: **if your domain model satisfies them, it has no dead states, no unreachable objects, and no broken compositions.** The laws are themselves first-class axioms: `category::laws::assert_category_laws` verifies them for every category in the workspace, and each underlying axiom's `verify()` returns a typed `Verdict` — a `Proof` when the law holds or a `Counterexample` that names what broke, never a bare boolean or an error string.
 
 ## Reasoning systems
 
@@ -47,9 +47,9 @@ A **functor** is a structure-preserving map between two categories. If `F: Sourc
 - Identities are preserved: `F(id_A) = id_{F(A)}`.
 - Composition is preserved: `F(g ∘ f) = F(g) ∘ F(f)`.
 
-The third and fourth conditions are the **functor laws**. If a Rust `impl Functor for X` passes `cargo test -p pr4xis category::validate::check_functor_laws`, the laws hold and the functor is a categorically valid claim that the source domain's structure embeds into the target.
+The third and fourth conditions are the **functor laws**. If a Rust `impl Functor for X` passes `category::laws::assert_functor_laws`, the laws hold and the functor is a categorically valid claim that the source domain's structure embeds into the target. Like the category laws, each functor law is an axiom whose `verify()` returns a typed `Verdict` — a `Proof` or a `Counterexample`, not a boolean.
 
-This is what pr4xis means when it says "domains compose with proof". A functor from `Pharmacology → Molecular` is not an analogy or a heuristic mapping — it is a verified theorem that pharmacological structure faithfully embeds in molecular structure. The current workspace has 61 such functor implementations (`grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l`).
+This is what pr4xis means when it says "domains compose with proof". A functor from `Pharmacology → Molecular` is not an analogy or a heuristic mapping — it is a verified theorem that pharmacological structure faithfully embeds in molecular structure. The workspace ships more than 95 such functor implementations; to count the current total, run `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l`.
 
 ## Adjunctions and gap detection
 
@@ -63,17 +63,50 @@ For the live percentages of how much information is lost in each round-trip acro
 
 ## Composition is the point
 
-Categories are the substrate. Functors are the maps between them. Adjunctions are the paired functors that detect what's missing. Together they answer the question that no other ontology system can: **does this composition preserve structure, with proof?**
+Categories are the substrate. Functors are the maps between them. Adjunctions are the paired functors that detect what's missing. Together they answer one question directly: **does this composition preserve structure, with proof?**
 
-A functor between WordNet's lexical taxonomy and BioPortal's biomedical mereology is not just an alignment exercise. If the functor laws hold, the composition is a theorem. If they don't hold, you cannot pretend the two ontologies are saying the same thing — the system tells you exactly which morphism breaks.
+The functor from pharmacology to the molecular ontology is not just an alignment exercise. If the functor laws hold, the composition is a theorem. If they don't hold, you cannot pretend the two ontologies are saying the same thing — the system tells you exactly which morphism breaks. The biomedical adjunctions go further: a round-trip through the paired functors surfaces a distinction the target ontology cannot represent — the Kv-channel gap detection above is exactly such a case.
 
 This is what pr4xis adds to the existing landscape of formal ontologies. The ontologies have been there for decades; the categorical substrate that makes their composition machine-checkable is the missing piece.
 
 ## The Self-Model — categories all the way down
 
-Because pr4xis describes its own structure with the same machinery it uses for any other domain, there is a `Self-Model` ontology in `crates/domains/src/cognitive/cognition/` that describes pr4xis's own architectural concepts as objects in a category. The system can ask itself questions like "which ontologies are loaded?" and "what reasoning systems does each ontology implement?" through exactly the same `Ontology` trait it uses for biology or chess. Self-reference is modeled categorically as a natural transformation, not as a special case in the runtime.
+Because pr4xis describes its own structure with the same machinery it uses for any other domain, there is a self-model ontology (`crates/domains/src/cognitive/cognition/self_model.rs`) that models pr4xis's own architectural concepts — what an ontology is, what a reasoning system is, how they relate — as objects in a category, through exactly the same `Ontology` trait it uses for biology or chess. Self-reference is modeled categorically as a natural transformation, not as a special case in the runtime.
 
 This is a small but load-bearing detail: it is the reason pr4xis can extend itself without bolting on metaprogramming. Every new capability is just another ontology, and every new capability is automatically composable with everything that came before.
+
+## Reading legal text
+
+Legal text is English, but it does not read like English. A statute can redefine a word for its own purposes, and when it does, the redefinition is law, not lexicography: in ordinary English a "person" is a human being, but 1 U.S.C. §1 — the **Dictionary Act** — provides that throughout the U.S. Code "person" includes corporations, companies, associations, firms, partnerships, societies, and joint stock companies as well as individuals. A reader that brings only a dictionary's senses to a statute gets the law wrong. pr4xis models this with two pieces: a lexicon in which one word carries many senses, and a precedence order that decides which definition governs a given use.
+
+**One word, many senses.** The lexicon (`crates/domains/src/cognitive/linguistics/lemon/lexicon.rs`) follows the W3C OntoLex-Lemon model (2016; McCrae et al. 2017): each written word has exactly one `LexicalEntry`, and that entry carries many `Sense`s, each pointing at an ontology concept. `Lexicon::add_sense` *appends* to the one shared entry — so when the legal layer teaches the lexicon a legal meaning of "person", the word is not duplicated and its ordinary meaning is not overwritten; both senses live side by side. A sense may carry a domain marker (OntoLex's `dct:subject`, e.g. `"legal"`), and which sense is *predominant* depends on the domain of the question being asked — Koeling, McCarthy & Carroll (2005) showed the predominant sense of a polysemous word is domain-dependent. The ranking is simple: a sense whose domain matches the query is most salient, a general unmarked sense is the default fall-through, and a sense from some other domain ranks last. `Lexicon::resolve(word, domain)` returns the winner, and the ordering is not merely asserted: the `SenseOrderIsStrictPartialOrder` axiom verifies it is irreflexive, asymmetric, and transitive, so "the predominant sense" is always well-defined.
+
+**A defined term is a first-class sense.** When a statute defines a term, pr4xis records a `LegalDefinition` (`crates/domains/src/social/judicial/statute_structure/definition_scope.rs`): the term, the scope it applies to, and the concept it binds the term to. The load-bearing modeling choice is that the defined term's *identity anchors in the legal definition, not in the English word*: legal "person" references a concept of its own (`usc_title_1:person`), distinct from WordNet's `person.n.01`. `DefinitionLexicon::mint_into` then mints each defined term into the shared lexicon as a `"legal"`-domain sense — alongside, never instead of, the general sense.
+
+**The precedence ladder.** A term like "person" may be defined at several scopes at once, captured by `DefinitionScope`:
+
+- **Enacted** — a definition with stated applicability ("In this section …", "For purposes of this title …" — 26 U.S.C. §7701). It governs every use inside the subtree its citation names, and its specificity rises with the scope's depth: a section-level definition is more specific than a title-level one.
+- **DictionaryAct** — 1 U.S.C. §1, the default for the entire U.S. Code.
+- **OrdinaryMeaning** — no statutory definition; the word means what English says it means.
+
+When more than one scope governs a use, the more specific displaces the more general — the general/specific canon from the statutory-interpretation literature (Scalia & Garner 2012, *Reading Law* §28, *lex specialis*). So the ladder reads: enacting section > title-wide definitions > the Dictionary Act > ordinary English. pr4xis models this as a *priority ordering*, not as disjoint namespaces, because resolution is a fall-through — when a rung does not apply, the use falls to the next — and a fall-through is an ordering (Reiter 1980 on default reasoning; Prakken & Sartor 1996 on defeasible rule priorities in legal reasoning). The `DefinitionScopePrecedenceIsStrictPartialOrder` axiom verifies the ladder is a strict partial order, so a well-defined governing definition always exists.
+
+The ladder is also **defeasible — it yields**. The Dictionary Act applies "unless the context indicates otherwise", and §7701 yields where its definition would be "manifestly incompatible" with the provision at hand — the Supreme Court treated exactly this clause as a soft, contextual escape in *Rowland v. California Men's Colony*, 506 U.S. 194 (1993). `resolve_definition` therefore takes a contextual-defeater predicate alongside the candidate definitions: a defeated definition does not abort resolution, it falls through to the next-most-specific governing definition.
+
+**"person", resolved twice.** `dictionary_act_definitions()` ships the twelve Dictionary Act terms — "person", "whoever", "officer", "signature", "subscription", "oath", "sworn", "writing" (1 U.S.C. §1), "vessel" (§3), "vehicle" (§4), "company" and "association" (§5) — each bound at code-wide scope. Mint them into a lexicon that already knows WordNet's "person", and the same word resolves differently per register:
+
+```rust,ignore
+let mut lex = Lexicon::new("en");
+lex.add_sense("person", "english_wordnet", "person.n.01", None);
+dictionary_act_definitions().mint_into(&mut lex);
+
+lex.resolve("person", Some("legal")); // → usc_title_1:person  (the Title-1 sense)
+lex.resolve("person", None);          // → english_wordnet:person.n.01
+```
+
+One entry, two senses, both reachable: the legal register elevates the statutory meaning, the default stays WordNet's.
+
+This is the *definitional* layer — which sense a word resolves to, and which definition governs where. The Dictionary Act layer is a hand-coded prototype of what the Title 1 corpus loader will produce, and typed statute-to-statute cross-references ("as defined in section 3(a)" resolving to the cited provision as a first-class edge) are future work.
 
 ## Related
 
@@ -86,4 +119,4 @@ This is a small but load-bearing detail: it is the reason pr4xis can extend itse
 ---
 
 - **Document date:** 2026-04-14
-- **Verification:** every claim about the codebase is verifiable by `cargo test -p pr4xis category::validate::check_category_laws`, `cargo test -p pr4xis category::validate::check_functor_laws`, `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/`, or `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`.
+- **Verification:** the category and functor law axioms (`category::laws::assert_category_laws` / `assert_functor_laws`) are exercised by `cargo test -p pr4xis category`; the functor count comes from `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/`; the round-trip collapse measurement from `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`; and the legal-text resolution behavior (sense elevation, lex-specialis precedence, the contextual defeater, the "person" example) from `cargo test -p pr4xis-domains definition_scope` and `cargo test -p pr4xis-domains lexicon`.

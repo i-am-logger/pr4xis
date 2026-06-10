@@ -108,7 +108,7 @@ pr4xis::register_functor!(AcousticsToBiophysics);
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]

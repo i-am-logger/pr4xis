@@ -1,4 +1,4 @@
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};

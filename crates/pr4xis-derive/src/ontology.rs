@@ -514,6 +514,34 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         })
         .collect();
 
+    // Per-concept `Concept::lexical()` override arms — the same labels table,
+    // surfaced through the trait so each concept carries its ONTOLEX-Lemon
+    // entry (label + gloss + language) WITH it (e.g. into an emitted `.prx`),
+    // not only in the compile-time `labels()` side table. A concept with no
+    // label entry falls through to `None` (honest absence). Sourced from the
+    // macro's labels — never hardcoded.
+    let lexical_arms: Vec<TokenStream> = def
+        .labels
+        .iter()
+        .map(|l| {
+            let concept = &l.concept;
+            let lang = &l.lang;
+            let label = &l.label;
+            let def_str = l
+                .definition
+                .as_ref()
+                .map(|d| quote! { #d })
+                .unwrap_or(quote! { "" });
+            quote! {
+                #entity_name::#concept => Some(#pr4xis::ontology::meta::Lexical::new(
+                    #pr4xis::ontology::meta::Label::new_static(#label),
+                    #pr4xis::ontology::meta::Definition::new_static(#def_str),
+                    #pr4xis::ontology::meta::LanguageCode::new_static(#lang),
+                )),
+            }
+        })
+        .collect();
+
     // Source
     let source_tokens = def
         .source
@@ -718,6 +746,34 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 #(#unique_kinds,)*
             }
 
+            impl #kind_name {
+                /// Every relation-kind variant — the closed-world enumeration
+                /// of this ontology's morphism kinds (the kind-level parallel
+                /// of [`Concept::variants`](#pr4xis::category::Concept::variants)).
+                pub fn variants() -> Vec<Self> {
+                    vec![#kind_name::Identity, #(#kind_name::#unique_kinds,)*]
+                }
+
+                /// The variant's canonical name — the morphism kind's lexical
+                /// grounding (the kind-level parallel of
+                /// [`Concept::name`](#pr4xis::category::Concept::name)), so a
+                /// kind is carried/compared by stable name, never a positional
+                /// discriminant.
+                pub fn name(&self) -> &'static str {
+                    match self {
+                        #kind_name::Identity => "Identity",
+                        #(#kind_name::#unique_kinds => stringify!(#unique_kinds),)*
+                    }
+                }
+
+                /// Re-resolve a kind from its canonical [`name`](Self::name) —
+                /// the typed inverse, over `variants()`; fail-closed `None` for
+                /// an unknown name.
+                pub fn from_name(name: &str) -> Option<Self> {
+                    #kind_name::variants().into_iter().find(|k| k.name() == name)
+                }
+            }
+
             #[derive(Debug, Clone, PartialEq, Eq, Hash)]
             pub struct #relation_name {
                 pub from: #entity_name,
@@ -771,7 +827,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
 
                 fn morphisms() -> Vec<#relation_name> {
-                    use #pr4xis::category::Concept;
+                    use #pr4xis::category::FinitelyGenerated;
                     let mut m = Vec::new();
                     // Identity morphisms
                     for c in #entity_name::variants() {
@@ -871,8 +927,16 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         })
         .collect();
 
-    // Per-axiom auto-registration into the global AXIOMS distributed slice
-    // so the Lemon lexicon includes every declared axiom.
+    // Per-axiom auto-registration. Each declared domain axiom is a unit struct
+    // (constructible from its identifier), so we register it the same way
+    // `register_axiom!(Name, constructor)` does — into BOTH slices:
+    //
+    //  * AXIOMS (metadata) — so the Lemon lexicon includes every declared axiom.
+    //  * AXIOM_CONSTRUCTORS (the re-bind table) — so a serialized domain-axiom
+    //    node (emitted by `pr4xis-runtime::emit` keyed by `Axiom::name`)
+    //    re-binds to a freshly-built predicate by that same stable name through
+    //    `axiom_by_name` on load. The metadata `name` and the reconstructed
+    //    axiom's `name()` are the SAME value, so the round-trip closes.
     let axiom_registrations: Vec<TokenStream> = def
         .axioms
         .iter()
@@ -885,18 +949,79 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                     #[linkme(crate = #pr4xis::linkme)]
                     static [<_REGISTER_AXIOM_ #name_ident:snake:upper>]: fn() -> #pr4xis::ontology::meta::Provenance =
                         || <#name_ident as #pr4xis::logic::axiom::Axiom>::meta(&#name_ident);
+                    #[#pr4xis::linkme::distributed_slice(#pr4xis::ontology::AXIOM_CONSTRUCTORS)]
+                    #[linkme(crate = #pr4xis::linkme)]
+                    static [<_REGISTER_AXIOM_CTOR_ #name_ident:snake:upper>]: fn() -> #pr4xis::ontology::BoxedAxiom =
+                        || #pr4xis::ontology::boxed_axiom(#name_ident);
                 }
             }
         })
         .collect();
 
-    quote! {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Concept)]
+    // The concept enum + its `Concept`/`FinitelyGenerated` impls. We emit these
+    // by hand rather than via `#[derive(Concept)]` because the ontology carries
+    // label data the bare derive cannot see: the generated `Concept::lexical()`
+    // returns each concept's ONTOLEX-Lemon entry from the labels table above.
+    // `name()` (variant identifier) and `variants()` (finite enumeration) match
+    // the derive exactly, so a macro-built enum stays interchangeable with a
+    // `#[derive(Concept)]` one.
+    let concept_enum_and_impls = quote! {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum #entity_name {
             #(#concept_idents,)*
         }
 
+        impl #pr4xis::category::Concept for #entity_name {
+            fn name(&self) -> &'static str {
+                match self {
+                    #(#entity_name::#concept_idents => #concept_names,)*
+                }
+            }
+
+            fn lexical(&self) -> ::core::option::Option<#pr4xis::ontology::meta::Lexical> {
+                match self {
+                    #(#lexical_arms)*
+                    #[allow(unreachable_patterns)]
+                    _ => None,
+                }
+            }
+        }
+
+        impl #pr4xis::category::FinitelyGenerated for #entity_name {
+            fn variants() -> Vec<Self> {
+                vec![#(#entity_name::#concept_idents,)*]
+            }
+        }
+    };
+
+    quote! {
+        #concept_enum_and_impls
+
         #category_impl
+
+        // The category knows its declared ontology name — the same `name_lit`
+        // its `Vocabulary` registers under. This is what lets a functor
+        // between two `ontology!` categories serialize each endpoint's
+        // ontology name into a cross-ontology, content-addressed `Connection`.
+        impl #pr4xis::category::NamedCategory for #cat_name {
+            fn ontology_name() -> #pr4xis::ontology::meta::OntologyName {
+                #pr4xis::ontology::meta::OntologyName::new_static(#name_lit)
+            }
+        }
+
+        // The category can reach its ontology's DOMAIN axioms — the typed
+        // bridge from `Cat` to the per-`axioms:`-clause claims declared above,
+        // mirroring how `NamedCategory` bridges `Cat` to its declared name.
+        // Delegates to the generated `domain_axioms()` accessor, so a
+        // projection (`pr4xis-runtime::emit`) serializes them as
+        // content-addressed `Axiom` nodes WITHOUT reaching into the
+        // `<Name>Ontology` struct. An ontology with no `axioms:` clause yields
+        // an empty Vec (honest absence — never a fabricated axiom).
+        impl #pr4xis::category::DomainAxiomatized for #cat_name {
+            fn domain_axioms() -> Vec<Box<dyn #pr4xis::ontology::Axiom>> {
+                #ont_name::generated_domain_axioms()
+            }
+        }
 
         #taxonomy_impl
         #mereology_impl

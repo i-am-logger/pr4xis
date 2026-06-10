@@ -39,8 +39,8 @@ use std::collections::VecDeque;
 
 use pr4xis::category::laws::functor_law_axioms;
 use pr4xis::category::{
-    Arrow, Category, Concept, FreeCategory, FreeExtension, FullyConnected, Functor, Path, Quiver,
-    QuiverInterpretation, TerminalObject, TerminalTarget,
+    Arrow, Category, Concept, FinitelyGenerated, FreeCategory, FreeExtension, FullyConnected,
+    Functor, Path, Quiver, QuiverInterpretation, TerminalObject, TerminalTarget,
 };
 use pr4xis::logic::Axiom;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
@@ -59,16 +59,6 @@ pub enum Mode {
 }
 
 impl Concept for Mode {
-    fn variants() -> Vec<Self> {
-        vec![
-            Mode::App,
-            Mode::Desktop,
-            Mode::Move,
-            Mode::Resize,
-            Mode::Console,
-        ]
-    }
-
     fn name(&self) -> &'static str {
         match self {
             Mode::App => "app",
@@ -77,6 +67,17 @@ impl Concept for Mode {
             Mode::Resize => "resize",
             Mode::Console => "console",
         }
+    }
+}
+impl FinitelyGenerated for Mode {
+    fn variants() -> Vec<Self> {
+        vec![
+            Mode::App,
+            Mode::Desktop,
+            Mode::Move,
+            Mode::Resize,
+            Mode::Console,
+        ]
     }
 }
 
@@ -359,12 +360,13 @@ pub enum Runtime {
 }
 
 impl Concept for Runtime {
-    fn variants() -> Vec<Self> {
-        vec![Runtime::State]
-    }
-
     fn name(&self) -> &'static str {
         "runtime"
+    }
+}
+impl FinitelyGenerated for Runtime {
+    fn variants() -> Vec<Self> {
+        vec![Runtime::State]
     }
 }
 

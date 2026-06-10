@@ -29,7 +29,7 @@
 //!   23(1):149–157 — PPI heals erosive esophagitis via acid removal and
 //!   basal-cell turnover (GJ-independent repair pathway).
 
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -670,7 +670,7 @@ impl Ontology for MorphospaceOntology {
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

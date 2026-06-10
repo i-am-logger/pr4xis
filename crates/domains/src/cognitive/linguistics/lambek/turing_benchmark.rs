@@ -13,18 +13,13 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::cognitive::linguistics::english::English;
-    use crate::social::software::markup::xml::lmf;
+    use crate::cognitive::linguistics::english::{English, english_loaded};
 
-    fn english() -> English {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/data/wordnet/english-wordnet-2025.xml"
-        );
-        let xml = std::fs::read_to_string(path)
-            .expect("WordNet XML not found — ensure Git LFS is pulled");
-        let wn = lmf::reader::read_wordnet(&xml).unwrap();
-        English::from_wordnet(&wn)
+    /// Full English via the shared `english_loaded()` fast path (the compact
+    /// `.prx` archive when present, else the WN-LMF parse) — parsed once per
+    /// process rather than re-read fresh on every call.
+    fn english() -> &'static English {
+        english_loaded()
     }
 
     #[test]

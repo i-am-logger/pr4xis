@@ -54,6 +54,16 @@ pub mod namespaces;
 pub mod runtime_types;
 pub mod section_aux;
 
+// The self-describing, load-validated `.prx.gz` distribution envelope for
+// the loaded U.S. Code corpus — the USC second consumer of the
+// `OntologyArchiveStorage` ontology, the legislative twin of `owl::prx`.
+// Gated on `feature = "prx"` (rkyv archival + RFC 1952 gzip), prx-gated and
+// NOT codegen-gated: USC emit parses via `read_uslm_title` (quick-xml only,
+// the path `loaded()` already uses), so it needs no `pr4xis/codegen`
+// `xsd-parser` substrate, unlike `owl::prx`'s `owl_to_builder`.
+#[cfg(feature = "prx")]
+pub mod prx;
+
 pub use identifiers::{UsCodeTitleId, UsCodeTitleIdError};
 pub use kinds::{
     ContainerKind, InlineKind, SubdivisionKind, UsCodeAdditionalContainer, UsCodeAmendmentKind,
@@ -62,12 +72,12 @@ pub use kinds::{
 };
 pub use namespaces::{DUBLIN_CORE_NAMESPACE_URI, USLM_NAMESPACE_URI, XHTML_NAMESPACE_URI};
 pub use runtime_types::{
-    HierarchyNode, UsCodeAmendmentMarkup, UsCodeContainer, UsCodeContinuation, UsCodeDate,
-    UsCodeDefBlock, UsCodeHeader, UsCodeInlineRun, UsCodeMarker, UsCodeMeta, UsCodeMetaProperty,
-    UsCodeName, UsCodeNote, UsCodeNotesBlock, UsCodeProviso, UsCodeQuotedContent, UsCodeRef,
-    UsCodeSection, UsCodeSectionRef, UsCodeSignature, UsCodeSourceCredit, UsCodeSubdivision,
-    UsCodeTable, UsCodeTableCell, UsCodeTableRow, UsCodeTerm, UsCodeTitle, UsCodeToc,
-    UsCodeTocItem, UslmReadError,
+    HierarchyNode, UsCodeAmendmentMarkup, UsCodeContainer, UsCodeContentAttr, UsCodeContentNode,
+    UsCodeContinuation, UsCodeDate, UsCodeDefBlock, UsCodeHeader, UsCodeInlineRun, UsCodeMarker,
+    UsCodeMeta, UsCodeMetaProperty, UsCodeMixed, UsCodeName, UsCodeNote, UsCodeNotesBlock,
+    UsCodeProviso, UsCodeQuotedContent, UsCodeRef, UsCodeSection, UsCodeSectionRef,
+    UsCodeSignature, UsCodeSourceCredit, UsCodeSubdivision, UsCodeTable, UsCodeTableCell,
+    UsCodeTableRow, UsCodeTerm, UsCodeTitle, UsCodeToc, UsCodeTocItem, UslmReadError,
 };
 pub use section_aux::{UscComposesEdge, UscSectionAux, UscSubdivision};
 
@@ -103,15 +113,20 @@ pub fn loaded() -> &'static UsCode {
     use std::sync::OnceLock;
     static INSTANCE: OnceLock<UsCode> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        // M4.δ.7.a: runtime XML loading replaces the build-time
-        // aggregate static that hit rustc's compile-time memory
-        // ceiling (~85 MB of XML across registered titles). Walks
-        // every UsCodeTitle source registered in `praxis.toml`, reads
-        // its `local_path()` from disk, parses via `read_uslm_title`,
-        // and assembles the unified corpus via
-        // `UsCode::from_uslm_titles_owned`. Mirrors the WordNet
-        // pattern (`English::cached`): first call pays the parse
-        // cost; OnceLock amortizes over process lifetime.
+        // Parse-once corpus load. Each registered USC title is loaded
+        // from its compiled `.prx` archive when one is present — the
+        // fast rkyv path `pr4xis compile` produces, admitted through the
+        // fail-closed `praxis.lock` gate — and parsed from USLM XML
+        // otherwise. Per-title corpora compose via `UsCode::concat`.
+        //
+        // On a fresh checkout no archive exists, so the XML path runs
+        // and pays the ~85 MB parse — the cost the build-time aggregate
+        // static once paid before it hit rustc's compile-time memory
+        // ceiling (M4.δ.7.a). `pr4xis compile` turns that into an
+        // O(rkyv) load: CI compiles once up front so each nextest
+        // process loads in ~ms instead of re-parsing the XML per
+        // process (nextest is process-per-test, so the OnceLock only
+        // amortizes within a single test).
         use crate::applied::data_provisioning::registry::data_sources;
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
         use crate::social::software::markup::xml::uslm::lens::read_uslm_title;
@@ -121,10 +136,84 @@ pub fn loaded() -> &'static UsCode {
                 .and_then(|p| p.parent())
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
-        let mut titles: Vec<UsCodeTitle> = Vec::new();
+        let mut parts: alloc::vec::Vec<UsCode> = alloc::vec::Vec::new();
         for entry in data_sources() {
             if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
                 continue;
+            }
+            // Fastest path: a content-addressed COMPACT archive (portable
+            // dependency-free succinct bytes), admitted through the fail-closed
+            // `[compact_archive_signatures]` gate — gunzip + hash-check + decode,
+            // with NO source reconstruction (the cost the rkyv-envelope gate pays
+            // on giant titles). Tried before the envelope; an absent or unpinned
+            // compact archive falls through to it.
+            #[cfg(feature = "prx")]
+            {
+                use crate::applied::data_provisioning::registry::lock_compact_archive_signature;
+                let cprx_path = prx::usc_compact_prx_cache_dir(&workspace_root)
+                    .join(alloc::format!("{}-{}.cprx.gz", entry.name, entry.version));
+                if let Ok(cprx_gz) = std::fs::read(&cprx_path)
+                    && let Some(pin) = lock_compact_archive_signature(&entry.name, &entry.version)
+                {
+                    let key = alloc::format!("{}@{}", entry.name, entry.version);
+                    match prx::load_compact_usc_prx_gz_gated(&cprx_gz, pin, &key) {
+                        Ok(corpus) => {
+                            parts.push(corpus);
+                            continue;
+                        }
+                        // Pinned but the compact archive failed the content gate —
+                        // the committed pin and emitted bytes disagree (a stale
+                        // source or tampering). Fail LOUD; silently falling
+                        // through would mask the contract violation.
+                        Err(e) => panic!(
+                            "loaded(): compact archive {} is pinned but failed the \
+                             content gate: {e}",
+                            cprx_path.display()
+                        ),
+                    }
+                }
+            }
+            // Fast path: a compiled `.prx` archive carries the
+            // already-parsed corpus (rkyv), admitted through the
+            // fail-closed lock gate. A present-but-bad archive is a hard
+            // error — never a silent fall back to XML, which would mask
+            // tampering. Only an ABSENT archive falls through to XML.
+            #[cfg(feature = "prx")]
+            {
+                let prx_path = prx::usc_prx_cache_dir(&workspace_root).join(alloc::format!(
+                    "{}-{}.prx.gz",
+                    entry.name,
+                    entry.version
+                ));
+                if let Ok(prx_gz) = std::fs::read(&prx_path) {
+                    use crate::social::software::markup::xml::owl::prx::PrxError;
+                    match prx::load_usc_prx_gz_from_lock(&prx_gz) {
+                        Ok(corpus) => {
+                            parts.push(corpus);
+                            continue;
+                        }
+                        // Archive present but NOT pinned in `praxis.lock` — it
+                        // is not a trust anchor yet, so fall through to the
+                        // authoritative (`[hashes]`-verified) XML source. Run
+                        // `pr4xis compile --lock` to pin it and take the fast
+                        // path. (Native only: the source XML is the truth and
+                        // the archive is an optimization. The browser, with no
+                        // source to fall back to, has no such graceful path —
+                        // its gate is the only anchor.)
+                        Err(PrxError::NoArchivePin { .. } | PrxError::NoLockPin { .. }) => {}
+                        // Pinned, but the gate rejected it: the committed pin
+                        // and the emitted archive disagree (toolchain drift, a
+                        // stale source, or tampering). Fail LOUD — silently
+                        // parsing XML would mask a real contract violation and
+                        // re-create the per-process parse cost the cache exists
+                        // to remove. Re-run `pr4xis compile`.
+                        Err(e) => panic!(
+                            "loaded(): compiled archive {} is pinned but failed \
+                             the load gate: {e}",
+                            prx_path.display()
+                        ),
+                    }
+                }
             }
             let path = workspace_root.join(entry.local_path());
             let Ok(xml) = std::fs::read_to_string(&path) else {
@@ -134,14 +223,14 @@ pub fn loaded() -> &'static UsCode {
                 continue;
             };
             match read_uslm_title(&xml) {
-                Ok(title) => titles.push(title),
+                Ok(title) => parts.push(UsCode::from_uslm_titles_owned(alloc::vec![title])),
                 Err(e) => panic!(
                     "loaded() failed parsing registered title {}: {e}",
                     entry.name
                 ),
             }
         }
-        UsCode::from_uslm_titles_owned(titles)
+        UsCode::concat(parts)
     })
 }
 
@@ -481,7 +570,18 @@ impl UsCode {
                     alloc::boxed::Box::leak(section.identifier.clone().into_boxed_str());
                 let urn =
                     Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, urn_str);
-                let heading = section.heading.clone();
+                // The section's PROSE heading — the title text minus the
+                // editorial footnote annotation the LRC nests inside the
+                // `<heading>` (a typed `<note type="footnote">` plus its
+                // `<ref class="footnoteRef">` marker). The flat
+                // `section.heading` (`heading_mixed.plain_text()`) flattens
+                // that footnote's own sentence INTO the title; the runtime
+                // vocabulary entry — and the lexical-understanding pipeline
+                // that reads it — wants the title, not the editor's note, so
+                // it projects from the typed tree via `prose_text()`. The
+                // corpus `section.heading` field itself stays untouched (the
+                // byte-exact writer path depends on it).
+                let heading = section.heading_mixed.prose_text();
                 let text = section_body_text(&section);
                 let (sub_vec, rel_vec) = subdivisions_to_static(&section.children, urn_str);
                 let subdivisions: &'static [UscSubdivision] =
@@ -497,6 +597,30 @@ impl UsCode {
                     relations,
                 });
             }
+        }
+        Self { sections, by_urn }
+    }
+
+    /// Compose per-title corpora into the unified corpus. Each part is a
+    /// single title materialised either from its compiled `.prx` archive
+    /// (rkyv, via the fail-closed lock gate) or from parsed USLM XML;
+    /// [`loaded`] picks the source per title and feeds the parts here.
+    ///
+    /// Section order is preserved (title-then-section, the order
+    /// [`data_sources`][crate::applied::data_provisioning::registry::data_sources]
+    /// yields registered titles); `by_urn` is re-indexed into the
+    /// concatenated `sections`. Composition — not a third corpus walker —
+    /// so an archive-loaded title and an XML-parsed title land in exactly
+    /// the same shape.
+    fn concat(parts: alloc::vec::Vec<UsCode>) -> Self {
+        let mut sections: Vec<UscSection> = Vec::new();
+        let mut by_urn: HashMap<String, usize> = HashMap::new();
+        for part in parts {
+            let base = sections.len();
+            for (urn, idx) in part.by_urn {
+                by_urn.insert(urn, base + idx);
+            }
+            sections.extend(part.sections);
         }
         Self { sections, by_urn }
     }

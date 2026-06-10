@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 
 use super::ontology::*;

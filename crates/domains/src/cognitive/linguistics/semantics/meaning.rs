@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 /// Semantic role — the function an entity plays in a proposition.
 /// "The dog chased the cat" → dog=Agent, cat=Patient, chased=Predicate.
@@ -17,7 +17,8 @@ pub enum SemanticRole {
     Source,
 }
 
-impl Concept for SemanticRole {
+impl Concept for SemanticRole {}
+impl FinitelyGenerated for SemanticRole {
     fn variants() -> Vec<Self> {
         vec![
             Self::Agent,

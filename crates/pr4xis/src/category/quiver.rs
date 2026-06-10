@@ -14,7 +14,7 @@
 //! Under a cycle (e.g. `a → b → a`) the set of paths is infinite, which praxis's
 //! closed-world [`Category::morphisms`] (a finite enumeration) cannot list. So,
 //! consistent with praxis's finitely-generated stance (see
-//! [`FinitelyGenerated`](super::entity::FinitelyGenerated)), [`FreeCategory`]
+//! [`FinitelyGenerated`]), [`FreeCategory`]
 //! represents itself by its finite **generating set** — identities plus the
 //! single edges — returned from [`Category::morphisms`]. This is sound for the
 //! one thing we verify on a free category: a functor out of it is determined by,
@@ -36,11 +36,14 @@
 
 #[allow(unused_imports)]
 use alloc::{vec, vec::Vec};
+use core::hash::Hash;
 use core::marker::PhantomData;
+
+use hashbrown::{HashMap, HashSet};
 
 use super::arrow::Arrow;
 use super::category::Category;
-use super::entity::Concept;
+use super::entity::{Concept, FinitelyGenerated};
 use super::functor::Functor;
 use super::kinds::FunctorKind;
 
@@ -153,7 +156,15 @@ impl<Q: Quiver> Arrow for Path<Q> {
 /// is represented by its finite generating set.
 pub struct FreeCategory<Q>(PhantomData<Q>);
 
-impl<Q: Quiver> Category for FreeCategory<Q> {
+impl<Q: Quiver> Category for FreeCategory<Q>
+where
+    // The free category lists its generating set (identities at each vertex plus
+    // the single edges) — `morphisms()` enumerates the vertices, which requires
+    // the vertex concept to be finitely generated (closed-world). The quiver's
+    // `Vertex: Concept` stays open-world (identities/composition need no
+    // enumeration); only the generating-set listing needs this.
+    Q::Vertex: FinitelyGenerated,
+{
     type Object = Q::Vertex;
     type Morphism = Path<Q>;
 
@@ -208,7 +219,13 @@ pub trait QuiverInterpretation {
 /// folding its edge images through the target's composition.
 pub struct FreeExtension<I>(PhantomData<I>);
 
-impl<I: QuiverInterpretation> Functor for FreeExtension<I> {
+impl<I: QuiverInterpretation> Functor for FreeExtension<I>
+where
+    // `Source = FreeCategory<I::Quiver>` is only a `Category` when the quiver's
+    // vertices are finitely generated (it lists its generating set). The functor
+    // out of the free category inherits that requirement.
+    <I::Quiver as Quiver>::Vertex: FinitelyGenerated,
+{
     type Source = FreeCategory<I::Quiver>;
     type Target = I::Target;
 
@@ -235,6 +252,221 @@ impl<I: QuiverInterpretation> Functor for FreeExtension<I> {
     );
 }
 
+/// The **materialized** reachability image of a directed relation over a vertex
+/// type `V` — the data-structure realization of the `FreeCategory<Q> → ReachCat`
+/// reflection ([`Collapse`](self) in the tests above): every generating path
+/// collapses to its `(source, target)` reachability arrow, and the whole
+/// reflexive-transitive image is folded ONCE, here, so that every later query is
+/// an O(1) membership lookup rather than a per-query traversal.
+///
+/// This is the runtime/loaded analogue of the `ontology!` macro's compile-time
+/// Floyd-Warshall and the shared engine behind
+/// `pr4xis-runtime`'s `MaterializedClosure` (which folds it per
+/// [`RelationKind`](../../../pr4xis_runtime/ontology/index.html) over
+/// `ConceptRef`) and the English hypernym closure (which folds it over WordNet
+/// `ConceptId`s). It is keyed by `Hash + Eq` so dense index vertices (a
+/// `Reference<4>` synset id) and open-world named vertices (a `(ontology, name)`
+/// pair) reuse the SAME construct without either paying for the other's identity
+/// scheme.
+///
+/// # What is stored
+///
+/// For each vertex `v`, the set of vertices reachable from `v` along the relation
+/// (its strict descendants under the closure), each tagged with the **minimal**
+/// number of generating edges on a path to it. The grading is the path-length of
+/// the free category collapsed into `ReachCat`; it is what makes a *nearest*
+/// query (a lattice meet) answerable from the materialized set without re-walking
+/// the generators. The reflexive arrow `v → v` (distance 0) is implicit — every
+/// vertex reaches itself — and is added by [`reaches`](Self::reaches) /
+/// [`reflexive_image`](Self::reflexive_image) rather than stored.
+///
+/// Literature:
+/// - Mac Lane (1971) *CWM* II.7 — the free category on a quiver and the unique
+///   functor into the thin reachability category; this closure IS that functor's
+///   image, made concrete.
+/// - Warshall (1962) "A Theorem on Boolean Matrices" — transitive closure as the
+///   least fixpoint of "compose one more generator"; the fold below is that
+///   fixpoint, carrying the shortest-path grading (Floyd 1962).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReachabilityClosure<V: Eq + Hash + Clone> {
+    /// `source → {target → min edges on a source⇝target path}`. The reflexive
+    /// `source → source` (distance 0) arrow is implicit, never stored.
+    reachable: HashMap<V, HashMap<V, u32>>,
+}
+
+// Hand-written so the empty closure is `Default` for ANY vertex type `V`, not
+// only `V: Default` (a derived `Default` would wrongly require `V: Default`).
+impl<V: Eq + Hash + Clone> Default for ReachabilityClosure<V> {
+    fn default() -> Self {
+        Self {
+            reachable: HashMap::new(),
+        }
+    }
+}
+
+impl<V: Eq + Hash + Clone> ReachabilityClosure<V> {
+    /// Fold the reflexive-transitive reachability image from the GENERATING edges
+    /// `(source, target)` — the categorical free-functor image into the thin
+    /// reachability category. This is **materialization**, not query: the
+    /// transitive closure is saturated here, once, so every later query is an
+    /// O(1) lookup. We always fold from the generators; a pre-closed input is
+    /// idempotent (the closure of a closure is the same closure), so the fold is
+    /// correct regardless of whether `edges` is already transitively closed.
+    ///
+    /// The fold is a least-fixpoint of "compose one more generator" (Warshall
+    /// 1962), carrying the shortest path length to each reachable vertex (Floyd
+    /// 1962) so a *nearest* query is answerable from the materialized set.
+    pub fn fold(edges: impl IntoIterator<Item = (V, V)>) -> Self {
+        // Direct generating image: source → {direct target: 1 edge}.
+        let mut reachable: HashMap<V, HashMap<V, u32>> = HashMap::new();
+        for (source, target) in edges {
+            // A direct generator is one edge; a self-loop generator carries no
+            // information beyond the implicit reflexive arrow, so skip it.
+            if source == target {
+                continue;
+            }
+            reachable
+                .entry(source)
+                .or_default()
+                .entry(target)
+                .or_insert(1);
+        }
+
+        // Saturate to the transitive closure. The functor's action on a composite
+        // path is the composition of the targets' images; folding to a fixpoint
+        // recovers the whole closure. Distances combine additively and we keep the
+        // minimum (shortest path). We re-fold over a snapshot to extend the map
+        // while iterating it.
+        loop {
+            let mut grew = false;
+            let sources: Vec<V> = reachable.keys().cloned().collect();
+            for source in &sources {
+                // The mids reachable from `source` so far, with their distances.
+                let mids: Vec<(V, u32)> = reachable
+                    .get(source)
+                    .map(|m| m.iter().map(|(t, &d)| (t.clone(), d)).collect())
+                    .unwrap_or_default();
+                for (mid, d_source_mid) in mids {
+                    // One composition step further: mid's own reachable set.
+                    let mid_targets: Vec<(V, u32)> = reachable
+                        .get(&mid)
+                        .map(|m| m.iter().map(|(t, &d)| (t.clone(), d)).collect())
+                        .unwrap_or_default();
+                    if mid_targets.is_empty() {
+                        continue;
+                    }
+                    let set = reachable.entry(source.clone()).or_default();
+                    for (t, d_mid_t) in mid_targets {
+                        // Skip the trivial self-loop the fold would otherwise
+                        // introduce; reachability here is the strict-descendant
+                        // set (the reflexive arrow is implicit).
+                        if &t == source {
+                            continue;
+                        }
+                        let dist = d_source_mid.saturating_add(d_mid_t);
+                        match set.get(&t) {
+                            Some(&existing) if existing <= dist => {}
+                            Some(_) => {
+                                set.insert(t, dist);
+                                grew = true;
+                            }
+                            None => {
+                                set.insert(t, dist);
+                                grew = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
+
+        Self { reachable }
+    }
+
+    /// Does `source` reach `target` along the closure? Reflexive: every vertex
+    /// reaches itself. An O(1) membership lookup, never a traversal.
+    pub fn reaches(&self, source: &V, target: &V) -> bool {
+        source == target
+            || self
+                .reachable
+                .get(source)
+                .is_some_and(|m| m.contains_key(target))
+    }
+
+    /// The minimal number of generating edges on a `source ⇝ target` path, or
+    /// `None` if `target` is not reachable from `source`. Zero for the reflexive
+    /// `source == target` case.
+    pub fn distance(&self, source: &V, target: &V) -> Option<u32> {
+        if source == target {
+            return Some(0);
+        }
+        self.reachable
+            .get(source)
+            .and_then(|m| m.get(target))
+            .copied()
+    }
+
+    /// The reflexive reachability image of `source` — `source` itself plus every
+    /// strict descendant, each paired with its minimal distance (0 for `source`).
+    /// A lookup over the materialized set, never a re-derivation. Order is
+    /// unspecified; callers that need a deterministic order sort by the returned
+    /// distance.
+    pub fn reflexive_image(&self, source: &V) -> Vec<(V, u32)> {
+        let mut out = vec![(source.clone(), 0u32)];
+        if let Some(m) = self.reachable.get(source) {
+            out.extend(m.iter().map(|(t, &d)| (t.clone(), d)));
+        }
+        out
+    }
+
+    /// The strict reachability image of `source` — its descendants under the
+    /// closure (excluding `source`), each with its minimal distance.
+    pub fn strict_image(&self, source: &V) -> Vec<(V, u32)> {
+        self.reachable
+            .get(source)
+            .map(|m| m.iter().map(|(t, &d)| (t.clone(), d)).collect())
+            .unwrap_or_default()
+    }
+
+    /// Every materialized `(source, target)` reachability pair — the closed edge
+    /// set. Folding this back is idempotent (closure of a closure), so it is the
+    /// canonical way to UNION two closures: chain the pairs and re-`fold`.
+    pub fn edges_iter(&self) -> impl Iterator<Item = (V, V)> + '_ {
+        self.reachable.iter().flat_map(|(source, targets)| {
+            targets
+                .keys()
+                .map(move |target| (source.clone(), target.clone()))
+        })
+    }
+
+    /// The **lattice meet** of `a` and `b` over this closure — the nearest vertex
+    /// `m` in `strict_image(b) ∩ reflexive_image(a)`, ranked by distance from `b`
+    /// (nearest first), with ties broken by `tie_key`. This is the categorical
+    /// "nearest common upper bound under the relation" (a greatest-lower-bound in
+    /// the dual order of the is-a poset), computed as an argmin over the
+    /// materialized image — NOT a re-derivation.
+    ///
+    /// `b`'s strict image is used (a common ancestor sits strictly above `b`'s
+    /// own level), while `a`'s reflexive image is used (so when `a` is itself an
+    /// ancestor of `b`, `a` is a valid meet). This reproduces a nearest-from-`b`
+    /// ascent tested against the ancestor set of `a`, without the ascent.
+    pub fn meet_by<K: Ord>(&self, a: &V, b: &V, tie_key: impl Fn(&V) -> K) -> Option<V> {
+        let anc_a: HashSet<V> = self
+            .reflexive_image(a)
+            .into_iter()
+            .map(|(v, _)| v)
+            .collect();
+        self.strict_image(b)
+            .into_iter()
+            .filter(|(v, _)| anc_a.contains(v))
+            .min_by(|(v1, d1), (v2, d2)| d1.cmp(d2).then_with(|| tie_key(v1).cmp(&tie_key(v2))))
+            .map(|(v, _)| v)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,7 +477,8 @@ mod tests {
         A,
         B,
     }
-    impl Concept for V {
+    impl Concept for V {}
+    impl FinitelyGenerated for V {
         fn variants() -> Vec<Self> {
             vec![V::A, V::B]
         }
@@ -418,5 +651,77 @@ mod tests {
                 to: V::A
             }
         );
+    }
+
+    // ---- ReachabilityClosure: the materialized reflection, as data ----
+
+    #[test]
+    fn closure_materializes_the_transitive_image_once() {
+        // A linear taxonomy: dog → mammal → animal (is-a chain). The closure
+        // folds dog ⇝ {mammal(1), animal(2)} ONCE; querying is a lookup.
+        let c = ReachabilityClosure::fold([(0u32, 1u32), (1, 2)]);
+        // Direct generator.
+        assert!(c.reaches(&0, &1));
+        // Transitive — the fold composed dog→mammal→animal into dog⇝animal.
+        assert!(c.reaches(&0, &2));
+        assert_eq!(c.distance(&0, &2), Some(2));
+        assert_eq!(c.distance(&0, &1), Some(1));
+        // Reflexive arrow is implicit, distance 0.
+        assert!(c.reaches(&0, &0));
+        assert_eq!(c.distance(&0, &0), Some(0));
+        // Not reachable upward.
+        assert!(!c.reaches(&2, &0));
+        assert_eq!(c.distance(&2, &0), None);
+    }
+
+    #[test]
+    fn closure_reflexive_image_includes_self_and_descendants() {
+        let c = ReachabilityClosure::fold([(0u32, 1u32), (1, 2)]);
+        let mut img: Vec<u32> = c.reflexive_image(&0).into_iter().map(|(v, _)| v).collect();
+        img.sort_unstable();
+        assert_eq!(img, vec![0, 1, 2]); // self + mammal + animal
+        // A sibling/unrelated vertex is not in the image.
+        assert!(!c.reflexive_image(&0).iter().any(|(v, _)| *v == 9));
+    }
+
+    #[test]
+    fn closure_meet_is_the_nearest_shared_target() {
+        // dog(0)→mammal(2)→animal(3); cat(1)→mammal(2)→animal(3). The meet of
+        // dog and cat is mammal (distance 1 from cat), not animal (distance 2).
+        let c = ReachabilityClosure::fold([(0u32, 2u32), (2, 3), (1, 2)]);
+        assert_eq!(c.meet_by(&0, &1, |v| *v), Some(2));
+        // When a is itself an ancestor of b, a's reflexive image makes a the meet.
+        assert_eq!(c.meet_by(&2, &1, |v| *v), Some(2));
+        // No shared ancestor → None.
+        let d = ReachabilityClosure::fold([(0u32, 1u32), (5u32, 6u32)]);
+        assert_eq!(d.meet_by(&0, &5, |v| *v), None);
+    }
+
+    #[test]
+    fn closure_of_a_closure_is_set_idempotent() {
+        // Folding an already-transitively-closed edge set yields the SAME
+        // reachability SET as folding only the generators (closure of a closure
+        // = closure). This is the idempotence law materialization relies on: a
+        // `.prx` whose stored edges are already a closure re-folds to the same
+        // reachable set.
+        let closed = [(0u32, 1u32), (1, 2), (0, 2)];
+        let c = ReachabilityClosure::fold(closed);
+        let generators = [(0u32, 1u32), (1, 2)];
+        let g = ReachabilityClosure::fold(generators);
+        // Same reachable set, regardless of pre-closure.
+        let mut cs: Vec<u32> = c.strict_image(&0).into_iter().map(|(v, _)| v).collect();
+        let mut gs: Vec<u32> = g.strict_image(&0).into_iter().map(|(v, _)| v).collect();
+        cs.sort_unstable();
+        gs.sort_unstable();
+        assert_eq!(cs, gs, "the reachable set is idempotent under re-fold");
+        assert!(c.reaches(&0, &2) && g.reaches(&0, &2));
+
+        // The shortest-path GRADING is, by definition, the shortest path in the
+        // GIVEN edge set — so a pre-closure that presents the transitive edge
+        // (0,2) as a length-1 generator grades it 1, while folding only the
+        // generators grades the same pair 2 (via 0→1→2). The grading tracks the
+        // generators it was given; only the reachable set is closure-invariant.
+        assert_eq!(c.distance(&0, &2), Some(1)); // (0,2) given directly
+        assert_eq!(g.distance(&0, &2), Some(2)); // (0,2) only via the path
     }
 }

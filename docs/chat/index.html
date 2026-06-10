@@ -502,6 +502,39 @@
       }
     }
 
+    // Load the built-in new-format `.prx` (no network). The wasm load gate
+    // re-derives the archive's Merkle root and refuses on mismatch; on success
+    // the chat reasons over the loaded ontology. One visible phase
+    // (Materializing) — the bytes already ship in the wasm, nothing downloads.
+    async function loadEmbeddedPrx(card, topRow, btn) {
+      btn.remove();
+      const prog = document.createElement('div');
+      prog.className = 'progress';
+      prog.innerHTML =
+        '<div class="progress-head"><span class="progress-phase">Materializing…</span>' +
+        '<span class="progress-detail">verifying root · folding the closure</span></div>' +
+        '<div class="progress-track"><div class="progress-fill indeterminate"></div></div>';
+      card.appendChild(prog);
+      const phase = prog.querySelector('.progress-phase');
+      const detail = prog.querySelector('.progress-detail');
+      try {
+        const loadedName = await call('load_embedded_demo_prx');
+        prog.classList.add('done');
+        phase.textContent = 'Loaded';
+        detail.textContent = `${loadedName} — ask the chat "what is a correctservice"`;
+        await new Promise(r => setTimeout(r, 280));
+        await renderDashboard();   // re-observe: the .prx is now loaded
+      } catch (e) {
+        // Fail-closed: a refused root surfaces here verbatim.
+        prog.classList.add('progress-err');
+        phase.textContent = 'Refused';
+        detail.classList.add('progress-err');
+        detail.textContent = String(e).slice(0, 140);
+        console.error('load_embedded_demo_prx failed:', e);
+        topRow.appendChild(btn);
+      }
+    }
+
     // The self-model page: a flat catalog of every registered source
     // (Loaded vs Available) + the substrate ontologies. Rendered purely
     // from what the runtime reports — no source-specific knowledge here.
@@ -563,6 +596,60 @@
         summary.appendChild(stat);
       });
       dash.appendChild(summary);
+
+      // ---- Built-in .prx (new content-addressed Archive) ----
+      // The wasm ships ONE new-format `.prx` — a real compiled domain ontology
+      // (Avizienis et al. 2004 Dependability) projected to a content-addressed
+      // Archive at build time. Loading it is a one-click, no-network action: the
+      // wasm re-derives the archive's Merkle root and refuses on mismatch
+      // (fail-closed). Once loaded, the chat answers "what is a <concept>" from
+      // the loaded gloss. A fetched/uploaded `.prx` would take the SAME path.
+      try {
+        const demo = JSON.parse(await call('embedded_demo_prx'));
+        const demoTitle = document.createElement('div');
+        demoTitle.className = 'section-title';
+        demoTitle.textContent = 'Built-in .prx — load it, then ask the chat';
+        dash.appendChild(demoTitle);
+
+        const card = document.createElement('div');
+        card.className = `source-card ${demo.loaded ? 'loaded' : 'available'}`;
+        card.dataset.embeddedPrx = demo.name;
+        const top = document.createElement('div');
+        top.className = 'row';
+        const nm = document.createElement('span');
+        nm.className = 'name';
+        nm.textContent = demo.name;
+        top.appendChild(nm);
+        const badge = document.createElement('span');
+        badge.className = `badge ${demo.loaded ? 'badge-loaded' : 'badge-available'}`;
+        badge.textContent = demo.loaded ? 'loaded' : 'embedded';
+        top.appendChild(badge);
+        if (!demo.loaded) {
+          const btn = document.createElement('button');
+          btn.className = 'load-btn';
+          btn.dataset.loadEmbeddedPrx = demo.name;
+          btn.textContent = 'Load .prx';
+          btn.title = `content-addressed Archive · root ${demo.root.slice(0, 12)}… · ${demo.bytes} bytes (embedded, no network)`;
+          btn.addEventListener('click', () => loadEmbeddedPrx(card, top, btn));
+          top.appendChild(btn);
+        }
+        card.appendChild(top);
+
+        const kind = document.createElement('div');
+        kind.className = 'kind';
+        kind.textContent = `new-format .prx · ${demo.bytes} bytes · root ${demo.root.slice(0, 12)}…`;
+        card.appendChild(kind);
+
+        const cite = document.createElement('div');
+        cite.className = 'cite';
+        cite.textContent = demo.loaded
+          ? 'Loaded — the chat now answers from this ontology\'s glosses (try "what is a correctservice").'
+          : 'Fail-closed: the wasm re-derives the Merkle root and refuses a tampered/wrong archive.';
+        card.appendChild(cite);
+        dash.appendChild(card);
+      } catch (e) {
+        console.error('embedded_demo_prx render failed:', e);
+      }
 
       // ---- Sources catalog (the knowledge boundary) ----
       const srcTitle = document.createElement('div');

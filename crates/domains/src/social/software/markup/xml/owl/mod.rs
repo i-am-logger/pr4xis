@@ -3,6 +3,24 @@ pub mod ontology;
 pub mod reader;
 pub mod writer;
 
+// The byte-exact graph-faithful RDF/XML structural writer — the OWL leaf of
+// #186's graph-faithful tier (sibling of `lmf::writer` / `uslm::writer`). Builds
+// the source element backbone from a structured RDF/XML serialization striping
+// (`RdfXmlStructure`) and closes byte-exact via the generic residue machinery
+// (`serialize_document_exact` + `SourceSyntax`/`RegeneratedComplement`). Always
+// present (the structural fold is feature-free); the carried-in-`.prx` residue
+// types are `prx`-gated for their rkyv derives, like the parser residue.
+pub mod rdfxml_writer;
+
+// The byte-exact graph-faithful OWL lens (`bytes ↔ OWL graph + structured RDF/XML
+// complement`, FIDELITY = ByteExactGraphFaithful) and the registrations that flip
+// EVERY bundled OWL vocab off the floor (the sibling of
+// `lmf::lens::WordNetLmfLens`) — the FLAT SPAR family `cito@2.8.1`, `biro@1.1.1`,
+// `c4o@1.2`, `doco@1.3` AND the STRIPED `prov_o@2013-04-30`, `olia@2026-04-09`
+// (the L3 byte kernel: verbatim DOCTYPE, numeric/general references, interspersed
+// comments). Native register_lens! is wasm32-skipped inside the macro.
+pub mod graph_faithful_lens;
+
 // Runtime corpus + praxis `Category` over a loaded OWL vocabulary —
 // the hydration target a later rkyv `.prx` archive loads into, and the
 // `from_codegen` functor analogous to `UsCode::from_codegen`. Consumes

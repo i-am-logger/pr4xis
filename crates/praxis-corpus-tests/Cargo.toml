@@ -1,0 +1,26 @@
+[package]
+name = "praxis-corpus-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Heavy-corpus producer/round-trip tests for praxis. These parse the multi-hundred-MB USC titles / WordNet corpora that are too large to re-parse per test. Run under `cargo test` (NOT nextest): all `#[test]`s in one test binary are threads in ONE process, so a `LazyLock` fixture parses each giant ONCE and every assertion shares it — the parse-once-immutable principle the .prx itself embodies. Excluded from the default workspace so this heavy lane never runs under `cargo test --workspace` / nextest; CI invokes it explicitly via `--manifest-path`."
+
+[dependencies]
+# The fixtures parse USLM/WN-LMF with the domains readers and validate with the
+# `uslm::axioms` structural validators (exposed by `test-internals`). The
+# codegen-vs-runtime tests reach `pr4xis::codegen::{uslm,wordnet}`, so `codegen`
+# is on too. The WordNet `.prx` round-trip + compact-codec movers live behind the
+# `prx` feature (lmf::prx / lmf::compact / lmf::compact_succinct are all
+# `#[cfg(feature = "prx")]`), so enable it.
+pr4xis-domains = { path = "../domains", features = ["test-internals", "codegen", "prx"] }
+# Direct access to the build-time codegen parse (`parse_uslm_str` /
+# `parse_wordnet_xml`) the runtime/codegen-agreement tests compare against.
+pr4xis = { path = "../pr4xis", features = ["codegen"] }
+
+[dev-dependencies]
+# Test-local `gz_len` helper in the WordNet movers (gzip size of an encoding).
+# Version matches pr4xis-domains.
+flate2 = "1"
+# `ContentAddress` — the one content-addressing primitive; the byte-exact
+# reconstruct gates compute their hashes through it.
+pr4xis-runtime = { path = "../pr4xis-runtime" }
