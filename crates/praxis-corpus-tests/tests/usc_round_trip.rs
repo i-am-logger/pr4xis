@@ -60,7 +60,7 @@ fn usc_title1_graph_faithful_prx_round_trip_over_real_corpus() {
 
     // Emit the graph-faithful envelope: typed ontology + concrete-syntax
     // complement, NO raw blob.
-    let envelope = build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL, None)
+    let envelope = build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL)
         .expect("build graph-faithful envelope over the literal Title 1 source");
     assert_eq!(
         envelope.mode,
