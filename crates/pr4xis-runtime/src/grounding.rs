@@ -27,6 +27,36 @@ use crate::archive::Archive;
 use crate::codec::CodecError;
 use crate::definition::{Definition, EdgeTarget};
 
+/// Add typed cross-ontology grounding edges to an [`Archive`]'s nodes — the
+/// PRODUCE side of grounding, GENERAL over the lens (the [`resolve`](AtomResolver::resolve)
+/// counterpart).
+///
+/// `lens(node)` maps a node to the `(kind, `[`EdgeTarget::Grounded`]`)` edges its
+/// content points along — a node's lexical prose grounding into a connected
+/// ontology's atoms, say. The lexical `denotes` floor is ONE lens; `cites` /
+/// `defines` are others, the same shape. The lens is the only place a specific
+/// ontology (English, a cited title, …) enters; `ground` itself is
+/// source-agnostic, so any content archive (USC, English, …) grounds the same way
+/// — the returned archive's grounded edges resolve through [`AtomResolver`].
+pub fn ground(
+    archive: &Archive,
+    lens: impl Fn(&Definition) -> Vec<(String, EdgeTarget)>,
+) -> Archive {
+    let nodes = archive
+        .nodes
+        .iter()
+        .map(|node| {
+            let mut grounded = node.clone();
+            grounded.edges.extend(lens(node));
+            grounded
+        })
+        .collect();
+    Archive {
+        nodes,
+        connections: archive.connections.clone(),
+    }
+}
+
 /// One declared connection: a connected ontology, the `root` its lock pins, and
 /// the `role` the grounding edges into it carry (the kind — `denotes` for the
 /// lexical floor; carried here so the floor spends no per-edge kind tag).
@@ -230,6 +260,43 @@ mod tests {
             .expect("the atom resolves");
         assert_eq!(node.name, "s-dog");
         assert_eq!(node.lexical.as_deref(), Some("a domesticated canine"));
+    }
+
+    #[test]
+    fn ground_adds_lens_edges_that_then_resolve() {
+        // The produce side: a content archive grounds via a lens (here, a node
+        // named "provision" grounds into the english atom), and the added typed
+        // Grounded edge resolves through the resolver — produce ∘ resolve, all
+        // source-agnostic.
+        let (peers, manifest, atom) = fixture();
+        let content = Archive {
+            nodes: vec![Definition {
+                kind: "Provision".into(),
+                name: "title-1-§1".into(),
+                edges: vec![],
+                axioms: vec![],
+                lexical: Some("a domesticated canine occurs here".into()),
+            }],
+            connections: vec![],
+        };
+        // A lens that grounds any node into the fixture's atom (a stand-in for a
+        // real denotes producer).
+        let grounded = ground(&content, |_node| {
+            vec![(
+                "denotes".to_string(),
+                EdgeTarget::Grounded {
+                    ontology: "english_wordnet".to_string(),
+                    atom,
+                },
+            )]
+        });
+        let edge = &grounded.nodes[0].edges[0];
+        assert_eq!(edge.0, "denotes");
+        let resolver = AtomResolver::new(&manifest, &peers).unwrap();
+        let resolved = resolver
+            .resolve(&edge.1)
+            .expect("the grounded edge resolves");
+        assert_eq!(resolved.name, "s-dog");
     }
 
     #[test]
