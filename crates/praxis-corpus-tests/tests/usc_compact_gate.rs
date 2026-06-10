@@ -31,7 +31,12 @@
 use std::time::Instant;
 
 use pr4xis_domains::applied::data_provisioning::registry::data_sources;
+use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis_domains::formal::meta::well_behaved_lens::DecompileKind;
+use pr4xis_domains::social::software::markup::xml::owl::prx::gzip;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::test_internals::{
+    compact_usc_from_succinct, compact_usc_to_succinct, title_to_owned,
+};
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
     emit_compact_usc_prx_gz, load_compact_usc_prx_gz,
 };
@@ -128,4 +133,87 @@ fn compact_usc_prx_beats_source_download_and_loads_faster_than_xml_over_every_ti
         tot_prx_ms,
         tot_xml_ms / tot_prx_ms.max(1.0),
     );
+}
+
+/// COMPACTNESS GATE — for every registered, on-disk USC title small enough for
+/// the per-test budget, the succinct `(data, aux)` codec round-trips losslessly
+/// over the REAL corpus (`compact_usc_from_succinct(compact_usc_to_succinct(d,a))
+/// == (d,a)`), the compact runtime `.prx.gz` is smaller than fetching its source
+/// (`gzip(source)`), and it materializes to a corpus with the same section count.
+/// Registry-driven (no hardcoded title set); a title not on disk is skipped
+/// gracefully (USC titles are externally provisioned, not git-committed).
+///
+/// The succinct `(data, aux)` byte-exactness over REAL corpus bytes is the UNIQUE
+/// assertion here: the sibling
+/// `compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent`
+/// (uslm/corpus/prx.rs, fast lane) covers the codec only over SYNTHETIC fixture
+/// data, and the corpus-scale gate above checks compactness + section_count, not
+/// the succinct `(data, aux)` byte-exactness. Lifted into this heavy-corpus lane
+/// because it parses real USC titles (≤ 16 MB cap); under nextest that parse was
+/// paid per process-isolated test.
+#[test]
+fn compact_usc_prx_gz_smaller_than_source() {
+    // Same proven-CI-safe cap the archive-anchor test uses — covers the small
+    // + mid titles (1/28/18/29/50) while staying well under the lane budget.
+    const CAP: u64 = 16 * 1024 * 1024;
+
+    let root = workspace_root();
+    let mut measured = 0usize;
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let path = root.join(entry.local_path());
+        let Ok(meta) = std::fs::metadata(&path) else {
+            continue;
+        };
+        if meta.len() > CAP {
+            continue;
+        }
+        let source = std::fs::read(&path).expect("read USC title");
+        let text = core::str::from_utf8(&source).expect("UTF-8");
+        let title = read_uslm_title(text).expect("parse title");
+        let (data, aux) = title_to_owned(&title);
+
+        let succ = compact_usc_to_succinct(&data, &aux);
+        let (data_back, aux_back) = compact_usc_from_succinct(&succ);
+        assert_eq!(data_back, data, "{}: data not lossless", entry.name);
+        assert_eq!(aux_back, aux, "{}: aux not lossless", entry.name);
+
+        let prx_gz = gzip(&succ).expect("gzip");
+        let source_dl = gzip(&source).expect("gzip source").len();
+        eprintln!(
+            "USC-COMPACT {}@{}: .prx = {:.2}MB ({:.2}MB gz)  vs  SOURCE = {:.2}MB xml \
+             ({:.2}MB .xml.gz)  ->  .prx.gz is {:.2}x the download",
+            entry.name,
+            entry.version,
+            succ.len() as f64 / 1e6,
+            prx_gz.len() as f64 / 1e6,
+            source.len() as f64 / 1e6,
+            source_dl as f64 / 1e6,
+            prx_gz.len() as f64 / source_dl.max(1) as f64,
+        );
+        assert!(
+            prx_gz.len() < source_dl,
+            "{}: compact .prx.gz ({} B) NOT smaller than gzip(source) ({} B)",
+            entry.name,
+            prx_gz.len(),
+            source_dl,
+        );
+
+        let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
+        assert_eq!(
+            usc.section_count(),
+            data.entity_count as usize,
+            "{}: compact-loaded section count differs",
+            entry.name
+        );
+        measured += 1;
+    }
+    // No on-disk title within the cap (a plain checkout) — the succinct codec's
+    // correctness is still covered by the inline-fixture sibling
+    // `compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent` (fast lane).
+    if measured == 0 {
+        eprintln!("compact_usc gate: no on-disk USC title within the cap — skipped");
+    }
 }

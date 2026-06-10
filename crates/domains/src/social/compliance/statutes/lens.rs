@@ -657,11 +657,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn axiom_bytes_to_statute_on_real_title_18() {
-        // Soft-passes if usc_title_18 bytes aren't on disk (the
-        // committer didn't `pr4xis update`); fails on any real
-        // lens-law or projection regression on present bytes.
-        assert!(BytesToStatuteOnRealTitle18.verify().is_ok());
-    }
+    // `BytesToStatuteOnRealTitle18` parses the real ~12 MB USC Title 18 USLM
+    // bytes, so its `#[test]` driver is a heavy-corpus producer: it lives in the
+    // heavy-corpus lane — see
+    // `crates/praxis-corpus-tests/tests/statute_axioms.rs::
+    // axiom_bytes_to_statute_on_real_title_18`. One process there parses the
+    // corpus once; the fast nextest lane no longer pays the parse per
+    // process-isolated test. The axiom itself (`pub` above) is unchanged.
 }

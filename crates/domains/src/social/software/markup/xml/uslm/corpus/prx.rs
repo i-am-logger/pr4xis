@@ -693,7 +693,7 @@ pub fn load_usc_prx_gz_from_lock(prx_gz: &[u8]) -> Result<UsCode, PrxError> {
 /// `section_body_text` the runtime corpus loader uses, and the aux mirrors
 /// `subdivisions_to_static`'s document-order DFS — so an archive-materialized
 /// corpus matches the parse-materialized one.
-fn title_to_owned(title: &UsCodeTitle) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
+pub(crate) fn title_to_owned(title: &UsCodeTitle) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
     let mut entity_ids = Vec::with_capacity(title.sections.len());
     let mut entity_kind = Vec::with_capacity(title.sections.len());
     let mut entity_labels = Vec::with_capacity(title.sections.len());
@@ -1124,7 +1124,10 @@ fn aux_from_succinct(buf: &[u8], pos: &mut usize) -> Vec<OwnedUscSectionAux> {
 /// length-prefixed flat-section codec ([`OwnedCodegenData::to_succinct`], the
 /// SAME source-agnostic codec OWL uses) followed by the aux subdivision-tree
 /// columns. `compact_usc_from_succinct(&compact_usc_to_succinct(d, a)) == (d, a)`.
-fn compact_usc_to_succinct(data: &OwnedCodegenData, aux: &[OwnedUscSectionAux]) -> Vec<u8> {
+pub(crate) fn compact_usc_to_succinct(
+    data: &OwnedCodegenData,
+    aux: &[OwnedUscSectionAux],
+) -> Vec<u8> {
     let mut out = Vec::new();
     put_blob(&mut out, &data.to_succinct());
     aux_to_succinct(&mut out, aux);
@@ -1132,11 +1135,41 @@ fn compact_usc_to_succinct(data: &OwnedCodegenData, aux: &[OwnedUscSectionAux]) 
 }
 
 /// Decode the compact reasoning view (inverse of [`compact_usc_to_succinct`]).
-fn compact_usc_from_succinct(buf: &[u8]) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
+pub(crate) fn compact_usc_from_succinct(buf: &[u8]) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
     let mut pos = 0usize;
     let data = OwnedCodegenData::from_succinct(get_blob(buf, &mut pos));
     let aux = aux_from_succinct(buf, &mut pos);
     (data, aux)
+}
+
+/// Heavy-corpus-test access to the compact `(data, aux)` projection + succinct
+/// codec internals ([`title_to_owned`], [`compact_usc_to_succinct`],
+/// [`compact_usc_from_succinct`]), which are `pub(crate)` — private to the
+/// published crate. The workspace heavy-corpus test crate
+/// (`crates/praxis-corpus-tests`) re-uses them to assert the succinct codec is
+/// `(data, aux)` byte-exact over the REAL USC corpus in ONE process. This module
+/// exists ONLY under `test-internals` (the same gate `uslm::axioms` uses), so the
+/// internals never reach the normal/published build.
+#[cfg(any(test, feature = "test-internals"))]
+pub mod test_internals {
+    use alloc::vec::Vec;
+
+    use super::{OwnedCodegenData, OwnedUscSectionAux, UsCodeTitle};
+
+    /// See [`super::title_to_owned`].
+    pub fn title_to_owned(title: &UsCodeTitle) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
+        super::title_to_owned(title)
+    }
+
+    /// See [`super::compact_usc_to_succinct`].
+    pub fn compact_usc_to_succinct(data: &OwnedCodegenData, aux: &[OwnedUscSectionAux]) -> Vec<u8> {
+        super::compact_usc_to_succinct(data, aux)
+    }
+
+    /// See [`super::compact_usc_from_succinct`].
+    pub fn compact_usc_from_succinct(buf: &[u8]) -> (OwnedCodegenData, Vec<OwnedUscSectionAux>) {
+        super::compact_usc_from_succinct(buf)
+    }
 }
 
 /// Emit the COMPACT runtime `.prx.gz` from USLM source — the small artifact the
@@ -1757,80 +1790,19 @@ mod tests {
         );
     }
 
-    /// COMPACTNESS GATE — for every registered, on-disk USC title small enough
-    /// for the per-test CI budget, the compact runtime `.prx.gz` is smaller than
-    /// fetching its source (`gzip(source)`), the codec round-trips `(data, aux)`
-    /// losslessly, and it materializes to a corpus with the same section count.
-    /// Registry-driven (no hardcoded title set); a title not on disk is skipped
-    /// gracefully (USC titles are externally provisioned, not git-committed). The
-    /// giants (> the cap) are measured by the ignored `deep_dive_all_usc_titles`.
-    #[test]
-    fn compact_usc_prx_gz_smaller_than_source() {
-        use crate::applied::data_provisioning::registry::data_sources;
-        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
-        // Same proven-CI-safe cap the archive-anchor test uses — covers the small
-        // + mid titles (1/28/18/29/50) while staying well under the 30 s lane.
-        const CAP: u64 = 16 * 1024 * 1024;
-
-        let root = workspace_root();
-        let mut measured = 0usize;
-        for entry in data_sources() {
-            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
-                continue;
-            }
-            let path = root.join(entry.local_path());
-            let Ok(meta) = std::fs::metadata(&path) else {
-                continue;
-            };
-            if meta.len() > CAP {
-                continue;
-            }
-            let source = std::fs::read(&path).expect("read USC title");
-            let text = core::str::from_utf8(&source).expect("UTF-8");
-            let title = read_uslm_title(text).expect("parse title");
-            let (data, aux) = title_to_owned(&title);
-
-            let succ = compact_usc_to_succinct(&data, &aux);
-            let (data_back, aux_back) = compact_usc_from_succinct(&succ);
-            assert_eq!(data_back, data, "{}: data not lossless", entry.name);
-            assert_eq!(aux_back, aux, "{}: aux not lossless", entry.name);
-
-            let prx_gz = gzip(&succ).expect("gzip");
-            let source_dl = gzip(&source).expect("gzip source").len();
-            eprintln!(
-                "USC-COMPACT {}@{}: .prx = {:.2}MB ({:.2}MB gz)  vs  SOURCE = {:.2}MB xml \
-                 ({:.2}MB .xml.gz)  ->  .prx.gz is {:.2}x the download",
-                entry.name,
-                entry.version,
-                succ.len() as f64 / 1e6,
-                prx_gz.len() as f64 / 1e6,
-                source.len() as f64 / 1e6,
-                source_dl as f64 / 1e6,
-                prx_gz.len() as f64 / source_dl.max(1) as f64,
-            );
-            assert!(
-                prx_gz.len() < source_dl,
-                "{}: compact .prx.gz ({} B) NOT smaller than gzip(source) ({} B)",
-                entry.name,
-                prx_gz.len(),
-                source_dl,
-            );
-
-            let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
-            assert_eq!(
-                usc.section_count(),
-                data.entity_count as usize,
-                "{}: compact-loaded section count differs",
-                entry.name
-            );
-            measured += 1;
-        }
-        // No on-disk title within the cap (a plain checkout) — correctness is
-        // still covered by the inline-fixture test above.
-        if measured == 0 {
-            eprintln!("compact_usc gate: no on-disk USC title within the CI cap — skipped");
-        }
-    }
+    // COMPACTNESS GATE over every on-disk USC title within the CI budget — the
+    // succinct `(data, aux)` codec is byte-exact over the REAL corpus, the compact
+    // `.prx.gz` is smaller than fetching the source, and it materializes to a
+    // corpus with the same section count. This reads + parses real USC titles
+    // (≤ 16 MB cap), so it is a heavy-corpus producer: lifted into the
+    // heavy-corpus lane — see
+    // `crates/praxis-corpus-tests/tests/usc_compact_gate.rs::
+    // compact_usc_prx_gz_smaller_than_source`. The synthetic-fixture cousin
+    // (`compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent`) stays in
+    // the fast lane above. The compact `(data, aux)` codec internals it drives
+    // (`title_to_owned`, `compact_usc_to_succinct`, `compact_usc_from_succinct`)
+    // are re-exported for the heavy lane under `test-internals` (see the
+    // re-export near the top of this module).
 
     /// The OMV/PROV-O metadata's USC structural metrics are computed
     /// FAITHFULLY from the projection — `number_of_sections` = the section
