@@ -15,7 +15,7 @@
 //!
 //! The projection emits each synset edge under its RAW WordNet relation name
 //! (`hypernym`), NOT a praxis kind. Mapping `hypernym → Subsumption`,
-//! `Synset → ConceptNode` is a separate FUNCTOR carried as `.prx` data
+//! `Synset → Concept` is a separate FUNCTOR carried as `.prx` data
 //! ([`wordnet_to_praxis_functor`]) and interpreted by the one runtime primitive
 //! [`apply`](pr4xis_runtime::apply::apply). So the relation-kind table is data
 //! that re-emits to update — never the hardcoded `match rel_type`
@@ -41,12 +41,24 @@
 //!   the relation→kind table is carried as data and applied by a table lookup.
 
 use alloc::string::ToString;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use pr4xis_runtime::archive::Archive;
+use pr4xis_runtime::connection::{Connection, GeneratorAction};
 use pr4xis_runtime::definition::Definition;
 
 use super::ontology::English;
+
+/// The praxis concept kind a relabeled `Synset` becomes — the SAME node kind
+/// [`emit`](pr4xis_runtime::emit) writes for a compiled `ontology!` concept, so
+/// the functor's image is structurally a praxis-shaped archive.
+pub const CONCEPT_KIND: &str = "Concept";
+
+/// The praxis relation kind a relabeled `hypernym` edge becomes — one of the
+/// canonically transitive kinds [`materialize`](pr4xis_runtime::ontology) folds
+/// into its is-a closure.
+pub const SUBSUMPTION_REL: &str = "Subsumption";
 
 /// The node kind every projected synset carries in the SOURCE archive — the raw
 /// WordNet schema generator, before the praxis functor relabels it. Held as one
@@ -97,6 +109,44 @@ pub fn project_archive(english: &English) -> Archive {
     Archive {
         nodes,
         connections: Vec::new(),
+    }
+}
+
+/// The WordNet → praxis projection, carried AS DATA — the [`Connection`] node a
+/// `.prx` ships so the relabeling re-emits to update with no recompile.
+///
+/// The whole content of a functor is its finite action on the schema's
+/// generators (the finite-presentation theorem), and praxis already serializes
+/// exactly that as [`GeneratorAction::Functor`]. So the map
+/// `Synset ↦ Concept`, `hypernym ↦ Subsumption` is not a compiled `match` — it
+/// is this data, interpreted by [`apply`](pr4xis_runtime::apply::apply) over a
+/// [`project_archive`] source. Re-emitting this node with a different table
+/// (say `hypernym ↦ Parthood`) re-aims the projection without touching code —
+/// the directive "projections live in `.prx`, not code" realized.
+///
+/// It is faithful by construction: distinct source generators map to distinct
+/// praxis generators (an injective relabeling — an inclusion of the WordNet
+/// is-a schema into the praxis schema), so it preserves the hom-set structure.
+/// The [`laws`](Connection::laws) it must satisfy are carried as NAMES (data);
+/// resolving those to runnable axioms at materialize time is the documented
+/// deferral in [`materialize`](pr4xis_runtime::ontology), not done here.
+///
+/// Scope tracks [`project_archive`]: the is-a generator only. As the projection
+/// grows the full GWN relation vocabulary (the meronymy / antonymy follow-up),
+/// this table grows the corresponding rows — additively, still as data.
+pub fn wordnet_to_praxis_functor() -> Connection {
+    Connection {
+        kind: "Faithful".to_string(),
+        source: "EnglishWordNet".to_string(),
+        target: "PraxisOntology".to_string(),
+        action: GeneratorAction::Functor {
+            map_object: vec![(SYNSET_KIND.to_string(), CONCEPT_KIND.to_string())],
+            map_morphism: vec![(HYPERNYM_REL.to_string(), SUBSUMPTION_REL.to_string())],
+        },
+        laws: vec![
+            "PreservesIdentity".to_string(),
+            "PreservesComposition".to_string(),
+        ],
     }
 }
 
@@ -189,5 +239,82 @@ mod tests {
             node(&archive, "s-mammal").edges,
             alloc::vec![(HYPERNYM_REL.to_string(), "s-animal".to_string())]
         );
+    }
+
+    // --- piece 3: the functor carried as data, applied ---
+
+    use pr4xis_runtime::apply::apply;
+
+    #[test]
+    fn the_functor_is_the_relabeling_table_as_data() {
+        let functor = wordnet_to_praxis_functor();
+        match &functor.action {
+            GeneratorAction::Functor {
+                map_object,
+                map_morphism,
+            } => {
+                assert_eq!(
+                    map_object,
+                    &alloc::vec![(SYNSET_KIND.to_string(), CONCEPT_KIND.to_string())],
+                    "the object generator Synset maps to the praxis Concept kind"
+                );
+                assert_eq!(
+                    map_morphism,
+                    &alloc::vec![(HYPERNYM_REL.to_string(), SUBSUMPTION_REL.to_string())],
+                    "the morphism generator hypernym maps to Subsumption"
+                );
+            }
+            other => panic!("the WordNet projection is a Functor action; got {other:?}"),
+        }
+        // It is content-addressable data — a `.prx` node, not code.
+        assert!(functor.address().is_ok());
+    }
+
+    #[test]
+    fn applying_the_functor_relabels_synset_kinds_into_praxis_kinds() {
+        let source = project_archive(&English::sample());
+        let target =
+            apply(&wordnet_to_praxis_functor().action, &source).expect("a Functor action applies");
+
+        // Same cardinality — the functor relabels, never drops.
+        assert_eq!(target.nodes.len(), source.nodes.len());
+
+        let dog = node(&target, "s-dog");
+        assert_eq!(
+            dog.kind, CONCEPT_KIND,
+            "Synset relabeled to the praxis Concept kind"
+        );
+        assert_eq!(
+            dog.edges,
+            alloc::vec![(SUBSUMPTION_REL.to_string(), "s-mammal".to_string())],
+            "the raw hypernym edge is relabeled to Subsumption; its target (identity) is carried"
+        );
+        assert_eq!(
+            dog.lexical.as_deref(),
+            Some("a domesticated canine"),
+            "the gloss — identity-bearing content — is carried unchanged"
+        );
+        assert_eq!(
+            dog.name, "s-dog",
+            "the synset id (identity) is carried unchanged"
+        );
+    }
+
+    #[test]
+    fn the_relabeled_archive_is_still_referentially_closed() {
+        // apply carries edge targets unchanged, so the functor's image is closed
+        // exactly when its source is — the precondition materialize needs holds
+        // after relabeling, not only before.
+        let source = project_archive(&English::sample());
+        let target = apply(&wordnet_to_praxis_functor().action, &source).unwrap();
+        let declared: BTreeSet<&str> = target.nodes.iter().map(|n| n.name.as_str()).collect();
+        for n in &target.nodes {
+            for (_, t) in &n.edges {
+                assert!(
+                    declared.contains(t.as_str()),
+                    "relabeled edge target {t} undeclared"
+                );
+            }
+        }
     }
 }
