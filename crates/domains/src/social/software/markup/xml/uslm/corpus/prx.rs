@@ -1853,112 +1853,13 @@ mod tests {
 
     // ── emit-all + lock gate ────────────────────────────────────────────
 
-    /// Every on-disk pinned USC title small enough to emit within CI's per-test
-    /// budget reproduces the exact `MerkleRoot` pinned for it in `praxis.lock`
-    /// `[archive_signatures]` — the emit→address→lock anchor the fail-closed load
-    /// gate relies on. Checking EVERY (not just the smallest) pinned title means
-    /// a stale or wrong pin is caught for that title — including the titles whose
-    /// archive shifts when a section heading carries a footnote (`prose_text`).
-    ///
-    /// Titles larger than [`ANCHOR_EMIT_SIZE_CAP`] are skipped here so the test
-    /// stays WELL under the nextest `ci` profile's 30 s terminate-after — re-
-    /// emitting the whole corpus (Title 42 ≈ 108 MB) is what tipped it over
-    /// before. The cap covers the small + mid pinned titles, including the
-    /// footnote-heading titles 18 and 28 whose `[archive_signatures]` shift with
-    /// the `prose_text` heading projection — so that regression class is self-
-    /// verified in-suite (not just the smallest, unaffected, title). The larger
-    /// titles (5/49/15/42) are anchored by the full-corpus `pr4xis compile` CI
-    /// step (see issue tracker: wire `compile --verify` to re-derive EVERY pin)
-    /// and by `loaded()`'s fail-closed prx gate; each title's emit→load round-
-    /// trip is exercised by `usc_emit_then_load_equals_corpus`.
-    ///
-    /// USC titles are externally provisioned (fetched via `pr4xis update`, NOT
-    /// git-committed), so in a plain checkout none are on disk and the test skips
-    /// gracefully — the same graceful-skip doctrine `loaded()` and the emitter use.
-    #[test]
-    fn usc_archive_anchors_match_lock() {
-        use crate::applied::data_provisioning::registry::{data_sources, lock_archive_signature};
-        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
-        /// Skip titles whose XML exceeds this — keeps the per-test emit WELL
-        /// under CI's 30 s terminate-after while still covering the footnote-
-        /// heading titles (18 ≈ 12 MB, 28 ≈ 8 MB) whose archive shifts.
-        const ANCHOR_EMIT_SIZE_CAP: u64 = 16 * 1024 * 1024;
-        let root = workspace_root();
-        for entry in data_sources() {
-            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
-                continue;
-            }
-            let Some(pinned) = lock_archive_signature(&entry.name, &entry.version) else {
-                continue; // not pinned — nothing to anchor
-            };
-            let path = root.join(entry.local_path());
-            let Ok(meta) = std::fs::metadata(&path) else {
-                continue; // not provisioned on disk — skip gracefully
-            };
-            if meta.len() > ANCHOR_EMIT_SIZE_CAP {
-                continue; // too large for the per-test CI budget — see doc
-            }
-            let src = std::fs::read(&path).expect("read pinned USC title");
-            let prx_gz = emit_usc_prx_gz(&src, &entry.name, &entry.version, &entry.url)
-                .expect("emit pinned USC title");
-            let addr = prx_archive_address(&prx_gz).expect("derive MerkleRoot");
-            assert_eq!(
-                &LockDigest::address(addr),
-                pinned,
-                "{}@{} .prx MerkleRoot must equal its [archive_signatures] pin",
-                entry.name,
-                entry.version
-            );
-        }
-    }
-
-    /// COMPACT ARCHIVE ANCHOR — for every on-disk title within the CI budget
-    /// that has a `[compact_archive_signatures]` pin, a fresh
-    /// `emit_compact_usc_prx_gz` re-derives EXACTLY that pin. The portable
-    /// (toolchain-independent) compact sibling of `usc_archive_anchors_match_lock`;
-    /// keeps the committed compact pins honest — a stale or wrong pin (or a codec
-    /// change that shifts the bytes) fails closed here. Skips titles > the cap and
-    /// titles not on disk (USC is externally provisioned).
-    #[test]
-    fn compact_usc_archive_anchors_match_lock() {
-        use crate::applied::data_provisioning::registry::{
-            data_sources, lock_compact_archive_signature,
-        };
-        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
-        const CAP: u64 = 16 * 1024 * 1024;
-        let root = workspace_root();
-        let mut checked = 0usize;
-        for entry in data_sources() {
-            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
-                continue;
-            }
-            let Some(pinned) = lock_compact_archive_signature(&entry.name, &entry.version) else {
-                continue;
-            };
-            let path = root.join(entry.local_path());
-            let Ok(meta) = std::fs::metadata(&path) else {
-                continue;
-            };
-            if meta.len() > CAP {
-                continue;
-            }
-            let src = std::fs::read(&path).expect("read pinned USC title");
-            let cprx_gz = emit_compact_usc_prx_gz(&src).expect("emit compact");
-            let addr = compact_prx_archive_address(&cprx_gz).expect("derive compact address");
-            assert_eq!(
-                &LockDigest::address(addr),
-                pinned,
-                "{}@{} compact .prx address must equal its \
-                 [compact_archive_signatures] pin (codec or source drift?)",
-                entry.name,
-                entry.version
-            );
-            checked += 1;
-        }
-        if checked == 0 {
-            eprintln!("compact anchor: no pinned on-disk USC title within the cap — skipped");
-        }
-    }
+    // The USC `.prx` archive-anchor gates (every on-disk pinned title within the
+    // 16 MB emit budget reproduces its `praxis.lock` `[archive_signatures]` /
+    // `[compact_archive_signatures]` pin) are heavy producers — they re-emit each
+    // title's `.prx` — so they live in the heavy-corpus lane: see
+    // `crates/praxis-corpus-tests/tests/usc_anchors.rs::{usc_archive_anchors_match_lock,
+    // compact_usc_archive_anchors_match_lock}`. The 16 MB `ANCHOR_EMIT_SIZE_CAP`
+    // budget logic moves with them.
 
     /// The content gate is a well-behaved lens: a compact archive loads under its
     /// genuine address, and a SINGLE flipped byte is rejected (the fail-closed
@@ -2019,80 +1920,12 @@ mod tests {
         std::fs::read(&path).ok()
     }
 
-    /// MEASUREMENT (not a gate yet) — the go/no-go for the generative-serialization
-    /// redesign (retro 2026-06-06). For each provisioned USC title, split the
-    /// graph-faithful `.prx` into its two layers and gzip each:
-    ///
-    /// - SEMANTIC graph = `UsCodeTitle` (the meaning — the master ~compact path).
-    /// - COMPLEMENT = `UslmSyntaxComplement` (the per-element concrete-syntax
-    ///   residue — the byte-exact tax that bloated the artifact).
-    ///
-    /// It then reports the per-element residue POPULATION (whitespace /
-    /// attribute-order / child-order entries) — the exception-rate proxy. The
-    /// hypothesis the bidi-transform literature endorses: the semantic graph is
-    /// compact (< gzip(source)) and the complement is dominated by REGULAR
-    /// per-element residue (whitespace = f(depth), attr order = schema order)
-    /// that a generative serialization ontology regenerates — so moving it out
-    /// reclaims the size. This test prints the numbers that decide whether to
-    /// build that; it asserts only non-vacuity + the semantic layer being
-    /// compact. Kept small (titles ≤ ~20 MB) to stay resource-light.
-    #[test]
-    fn prx_compactness_breakdown_measurement() {
-        use std::io::Write as _;
-        fn gz_len(bytes: &[u8]) -> usize {
-            let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-            e.write_all(bytes).expect("gz write");
-            e.finish().expect("gz finish").len()
-        }
-
-        // Small → moderate titles only (skip the >20 MB giants for CI budget).
-        let titles = ["usc_title_1", "usc_title_28", "usc_title_5"];
-        let mut measured = 0usize;
-        for name in titles {
-            let path = workspace_root().join(format!(
-                "crates/domains/data/legal/uscode/{name}/{name}-pl-119-90.xml"
-            ));
-            let Ok(source) = std::fs::read(&path) else {
-                continue;
-            };
-            let envelope = build_usc_envelope(&source, name, "pl-119-90", T1_URL)
-                .unwrap_or_else(|e| panic!("build {name}: {e}"));
-            let g = envelope
-                .graph
-                .as_ref()
-                .unwrap_or_else(|| panic!("{name} must be graph-faithful for this measurement"));
-
-            let source_gz = gz_len(&source);
-            let total_gz = gz_len(&usc_envelope_to_bytes(&envelope).expect("envelope bytes"));
-            let semantic_gz =
-                gz_len(&rkyv::to_bytes::<rkyv::rancor::Error>(&g.title).expect("rkyv title"));
-            let complement_gz = gz_len(
-                &rkyv::to_bytes::<rkyv::rancor::Error>(&g.complement).expect("rkyv complement"),
-            );
-            let ws = g.complement.regenerated.content_whitespace.len();
-            let ao = g.complement.regenerated.attribute_overrides.len();
-            let co = g.complement.regenerated.child_order.len();
-
-            eprintln!(
-                "COMPACTNESS {name}: source.xml={:.2}MB | gzip(source)={:.2}MB \
-                 total.prx.gz={:.2}MB || semantic(graph)={:.2}MB  complement(residue)={:.2}MB \
-                 || residue entries: whitespace={ws} attr_overrides={ao} child_order={co} sections={} \
-                 || semantic<gzip(source)? {}",
-                source.len() as f64 / 1e6,
-                source_gz as f64 / 1e6,
-                total_gz as f64 / 1e6,
-                semantic_gz as f64 / 1e6,
-                complement_gz as f64 / 1e6,
-                envelope.aux.len(),
-                semantic_gz < source_gz,
-            );
-            measured += 1;
-        }
-        assert!(
-            measured >= 1,
-            "no USC title provisioned on disk — cannot measure .prx compactness"
-        );
-    }
+    // The `.prx` two-layer compactness-breakdown MEASUREMENT (split each title's
+    // graph-faithful `.prx` into its SEMANTIC graph + COMPLEMENT, gzip each, and
+    // report the per-element residue population) is a performance/size measurement,
+    // so it lives as a criterion bench — see `crates/domains/benches/prx_compactness.rs`
+    // — not as a `#[cfg(test)]` gate (it carried no real assertion beyond
+    // non-vacuity, which the bench's own graceful skip subsumes).
 
     /// The graph-faithful build over the literal Title 1 source carries the typed
     /// ontology + concrete-syntax complement (NO raw blob), and
@@ -2163,115 +1996,10 @@ mod tests {
         assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
     }
 
-    /// THE SLICE-U6 HARD GATE. The LITERAL on-disk `usc_title_1-pl-119-90.xml`
-    /// (CRLFs included) emits as a `ByteExactGraphFaithful` envelope, serializes
-    /// to rkyv bytes, loads back THROUGH the bytecheck-validated rkyv decode
-    /// ([`usc_envelope_from_bytes`]), reconstructs via [`usc_reconstruct_source`]
-    /// (the graph-faithful arm — typed [`UsCodeTitle`] ontology + concrete-syntax
-    /// complement, NO stored raw blob), and the regenerated bytes equal the source
-    /// BYTE-FOR-BYTE. This is the only non-vacuous proof that `usc_title_1`'s
-    /// `.prx` is graph-faithful end-to-end: the source bytes survive the FULL
-    /// serialize → bytecheck → reconstruct path, not just the in-memory
-    /// capture/reconstruct of slices U1–U5.
-    ///
-    /// AND the completeness meter reports THIS title (`usc_title_1`, the test's
-    /// own subject) graph-faithful: its declared tier is `ByteExactGraphFaithful`
-    /// via the registered `UslmGraphFaithfulLens`, and it carries NO `write_uslm`
-    /// gap. The cross-source consistency of EVERY other title's tier is the
-    /// source-agnostic concern of the `prx_source_round_trip` meta-tests (read from
-    /// the lens registry, enumerating no title), not this focused unit test —
-    /// which asserts only its own subject so it never churns as other titles flip.
-    /// Gated behind the on-disk file with a graceful skip — a plain checkout that
-    /// hasn't provisioned Title 1 skips, the same doctrine the emitters use.
-    #[test]
-    fn usc_title1_graph_faithful_prx_round_trip_over_real_corpus() {
-        use crate::formal::meta::well_behaved_lens::{
-            CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
-        };
-
-        let Some(source) = real_title1_source() else {
-            return; // not provisioned on disk — skip gracefully
-        };
-
-        // Emit the graph-faithful envelope: typed ontology + concrete-syntax
-        // complement, NO raw blob.
-        let envelope = build_usc_envelope(&source, T1_NAME, T1_VERSION, T1_URL)
-            .expect("build graph-faithful envelope over the literal Title 1 source");
-        assert_eq!(
-            envelope.mode,
-            Tier::ByteExactGraphFaithful,
-            "the literal Title 1 source emits the graph-faithful tier"
-        );
-        assert!(envelope.graph.is_some(), "graph payload present");
-        assert!(envelope.raw.is_none(), "NO stored raw blob in this tier");
-
-        // Serialize → rkyv bytes → bytecheck-validated decode (the full path, not
-        // just the in-memory capture/reconstruct of slices U1–U5).
-        let rkyv_bytes = usc_envelope_to_bytes(&envelope).expect("serialize envelope to rkyv");
-        let decoded =
-            usc_envelope_from_bytes(&rkyv_bytes).expect("bytecheck-validated rkyv decode");
-
-        // Reconstruct from the DECODED envelope's graph + complement.
-        let out = usc_reconstruct_source(&decoded).expect("graph-faithful reconstruct");
-
-        // BYTE-FOR-BYTE over the whole literal file. Report the EXACT first
-        // byte-diff for an honest failure (a bounded 80-byte window).
-        if out != source {
-            let first = out
-                .iter()
-                .zip(source.iter())
-                .position(|(a, b)| a != b)
-                .unwrap_or(out.len().min(source.len()));
-            let lo = first.saturating_sub(40);
-            let hi_out = (first + 40).min(out.len());
-            let hi_src = (first + 40).min(source.len());
-            panic!(
-                "graph-faithful .prx round-trip is NOT byte-exact: out.len()={}, \
-                 source.len()={}, first diff at byte {first}\n  out[..]: {:?}\n  src[..]: {:?}",
-                out.len(),
-                source.len(),
-                String::from_utf8_lossy(&out[lo..hi_out]),
-                String::from_utf8_lossy(&source[lo..hi_src]),
-            );
-        }
-        assert_eq!(
-            ContentAddress::of(&out).to_hex(),
-            decoded.metadata.source_address,
-            "the regenerated bytes must hash to the pinned source content address"
-        );
-
-        // The completeness meter reports usc_title_1 graph-faithful: declared tier
-        // == ByteExactGraphFaithful and NO write_uslm gap remains.
-        let meter = completeness_meter();
-        let t1_row: &CompletenessReport = meter
-            .iter()
-            .find(|r| r.source == "usc_title_1@pl-119-90")
-            .expect("usc_title_1 must have a completeness row");
-        assert_eq!(
-            t1_row.kind,
-            DecompileKind::UsCode,
-            "usc_title_1 routes through the USC decompile leaf"
-        );
-        assert_eq!(
-            t1_row.declared,
-            Tier::ByteExactGraphFaithful,
-            "usc_title_1 DECLARES graph-faithful (via the registered UslmGraphFaithfulLens)"
-        );
-        assert!(
-            t1_row.graph_faithful_gap.is_none(),
-            "usc_title_1 carries NO write_uslm gap — it IS graph-faithful, got gap {:?}",
-            t1_row.graph_faithful_gap
-        );
-        // With the title provisioned the harness MEASURES the achieved tier by
-        // running the byte-exact law; it must agree with the declaration (the
-        // anti-lie cross-check), never silently fall to the floor.
-        assert_eq!(
-            t1_row.achieved,
-            Some(Tier::ByteExactGraphFaithful),
-            "with the title on disk the harness must MEASURE graph-faithful (achieved == declared)"
-        );
-        // Every OTHER title's declared tier is the source-agnostic concern of the
-        // `prx_source_round_trip` meta-tests (registry-derived, no title named);
-        // this focused unit test deliberately asserts only its own subject.
-    }
+    // THE SLICE-U6 HARD GATE — the full serialize → bytecheck → reconstruct path
+    // over the real Title 1 corpus — is heavy, so it lives in the heavy-corpus
+    // lane: see `crates/praxis-corpus-tests/tests/usc_round_trip.rs::
+    // usc_title1_graph_faithful_prx_round_trip_over_real_corpus`. The cheap
+    // in-memory cousin (`usc_title1_graph_faithful_reconstructs_source_byte_exact`)
+    // stays in the fast lane above.
 }

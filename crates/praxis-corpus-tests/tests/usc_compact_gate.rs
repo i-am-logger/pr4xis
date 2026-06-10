@@ -18,11 +18,12 @@
 //! `usc_envelope_bytes_round_trip_and_deterministic` (uslm/corpus/prx.rs) asserts
 //! `decode(encode(envelope)) == envelope`, lossless over that projection but NOT
 //! over the source bytes. Full byte-exact source losslessness is proven
-//! separately, by the per-source reconstruct gates in uslm/corpus/prx.rs
-//! (`usc_raw_leaf_reconstructs_source_byte_exact`,
-//! `usc_title1_graph_faithful_reconstructs_source_byte_exact`,
-//! `usc_title1_graph_faithful_prx_round_trip_over_real_corpus`) — this gate adds
-//! only the cheap corpus-scale parity check.
+//! separately, by the per-source reconstruct gates — the in-memory cousins in
+//! uslm/corpus/prx.rs (`usc_raw_leaf_reconstructs_source_byte_exact`,
+//! `usc_title1_graph_faithful_reconstructs_source_byte_exact`) and the
+//! full-path corpus round-trip in this heavy-corpus lane
+//! (`usc_round_trip.rs::usc_title1_graph_faithful_prx_round_trip_over_real_corpus`)
+//! — this gate adds only the cheap corpus-scale parity check.
 //!
 //! Run under `cargo test` in the heavy-corpus lane; each title is read once in
 //! this binary. Replaces the old `#[ignore]` `deep_dive_all_usc_titles` report.

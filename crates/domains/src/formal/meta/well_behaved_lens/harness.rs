@@ -320,12 +320,33 @@ pub fn run_round_trip_harness_including_oversize() -> Vec<HarnessResult> {
 }
 
 fn run_round_trip_harness_scoped(include_oversize: bool) -> Vec<HarnessResult> {
-    let mut out: Vec<HarnessResult> = lens_registrations()
+    run_harness_over(lens_registrations(), include_oversize)
+}
+
+/// Run the harness over an EXPLICIT slice of registrations — the same
+/// `map(check_one) → sort_by(key)` machinery [`run_round_trip_harness_scoped`]
+/// drives over the global [`LENS_REGISTRATIONS`], factored out so a test can
+/// exercise the structural post-conditions (one result per registration,
+/// ordered by key) over a controlled witness slice without parsing the real
+/// on-disk sources.
+fn run_harness_over(regs: &[LensRegistration], include_oversize: bool) -> Vec<HarnessResult> {
+    let mut out: Vec<HarnessResult> = regs
         .iter()
         .map(|r| check_one(r, include_oversize))
         .collect();
     out.sort_by(|a, b| a.key.cmp(&b.key));
     out
+}
+
+/// Test-only: run the harness's structural machinery over an explicit slice of
+/// witness registrations. The witnesses name `(source_name, source_version)`
+/// pairs absent from the praxis registry, so each resolves to
+/// [`HarnessOutcome::SourceNotRegistered`] with NO disk read or source parse —
+/// letting the structural post-conditions (one result per registration, sorted
+/// by key) be asserted fast, independent of corpus provisioning.
+#[cfg(test)]
+pub(super) fn run_harness_over_witnesses(regs: &[LensRegistration]) -> Vec<HarnessResult> {
+    run_harness_over(regs, false)
 }
 
 /// Print one line per registration to stderr — TOML-formatted for the

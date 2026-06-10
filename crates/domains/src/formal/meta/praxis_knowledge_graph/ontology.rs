@@ -253,10 +253,59 @@ mod tests {
         assert_category_laws::<PraxisKnowledgeGraphCategory>();
     }
 
+    /// The ontology validates: every category law and every domain axiom
+    /// discharges.
+    ///
+    /// `Ontology::validate()` would re-run the whole axiom set, including
+    /// `LensLawPreservation` — which delegates to the round-trip lens harness over
+    /// every registered lens (parsing every small on-disk source). That identical
+    /// pass is already run, on every push, by its dedicated owner
+    /// `well_behaved_lens::harness::tests::ci_gate_passes`, so re-running it inside
+    /// this validation is pure duplication. This test therefore validates the SAME
+    /// claim test-only — the category laws (already independently discharged by the
+    /// sibling `category_laws` test) plus every axiom EXCEPT that one lens leg —
+    /// while still asserting the lens leg is PRESENT in the axiom set (the cheap
+    /// non-vacuity check). Production `validate()` is unchanged; the costly pass
+    /// runs exactly once, by its owner.
     #[test]
     fn ontology_validates() {
-        PraxisKnowledgeGraphOntology::validate()
-            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+        use pr4xis::category::laws::category_law_axioms;
+
+        // The category-law leg of validate(). (Also discharged structurally by the
+        // sibling `category_laws` test; run here so this test covers the same
+        // surface validate() does.)
+        for law in category_law_axioms::<PraxisKnowledgeGraphCategory>() {
+            law.verify()
+                .unwrap_or_else(|c| panic!("category law failed: {}", c.meta().name.as_str()));
+        }
+
+        // The axiom leg of validate(). Under `feature = "prx"` the domain axioms
+        // include the heavy lens harness leg (`LensLawPreservation`) owned by
+        // ci_gate_passes; assert that leg is PRESENT (non-vacuity), then skip it.
+        // Without `prx`, the set is the structural axioms only (no lens leg).
+        let axioms = PraxisKnowledgeGraphOntology::axioms();
+        #[cfg(feature = "prx")]
+        {
+            let lens_law = super::super::axioms::LensLawPreservation.name();
+            assert!(
+                axioms.iter().any(|ax| ax.name() == lens_law),
+                "LensLawPreservation must remain in the ontology's axiom set — its presence \
+                 (not a re-run of its harness pass) is what this validation asserts for that \
+                 leg; ci_gate_passes runs the pass"
+            );
+            for ax in &axioms {
+                if ax.name() == lens_law {
+                    continue; // owned by ci_gate_passes — see the doc comment above
+                }
+                ax.verify()
+                    .unwrap_or_else(|c| panic!("axiom failed: {}", c.meta().name.as_str()));
+            }
+        }
+        #[cfg(not(feature = "prx"))]
+        for ax in &axioms {
+            ax.verify()
+                .unwrap_or_else(|c| panic!("axiom failed: {}", c.meta().name.as_str()));
+        }
     }
 
     #[test]

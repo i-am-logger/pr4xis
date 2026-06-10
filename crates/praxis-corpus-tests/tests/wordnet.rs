@@ -18,13 +18,15 @@
 
 use std::sync::LazyLock;
 
-use praxis_corpus_tests::{WnCorpus, load_wordnet_corpus};
+use praxis_corpus_tests::{WnCorpus, load_wordnet_corpus, workspace_root};
 
 use pr4xis::codegen::wordnet::parse_wordnet_xml;
 use pr4xis_domains::applied::data_provisioning::registry::{
-    LockDigest, lock_compact_archive_signature,
+    LockDigest, data_sources, lock_archive_signature, lock_archive_signatures,
+    lock_compact_archive_signature,
 };
 use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, english_loaded};
+use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis_domains::formal::meta::well_behaved_lens::{
     CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
 };
@@ -33,9 +35,10 @@ use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::{
     emit_prx_gz, from_succinct, load_prx_gz, to_succinct,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::prx::{
-    build_wordnet_envelope, compact_english_archive_address, emit_compact_english_prx_gz,
-    emit_wordnet_prx_gz, load_compact_english_prx_gz_gated, load_wordnet_prx_gz,
-    wn_reconstruct_source, wordnet_envelope_from_bytes, wordnet_envelope_to_bytes,
+    build_wordnet_envelope, compact_english_archive_address, emit_all_wordnet_prx_gz,
+    emit_compact_english_prx_gz, emit_wordnet_prx_gz, load_compact_english_prx_gz_gated,
+    load_wordnet_prx_gz, wn_reconstruct_source, wordnet_envelope_from_bytes,
+    wordnet_envelope_to_bytes,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::reader::read_wordnet;
 use pr4xis_domains::social::software::markup::xml::lmf::writer::{
@@ -699,4 +702,72 @@ fn codegen_and_runtime_paths_agree_on_synset_count() {
         codegen_builder.entity_count(),
         "synset_count mismatch between runtime and codegen"
     );
+}
+
+/// Every emitted WordNet `.prx` archive's MerkleRoot content address equals its
+/// `praxis.lock` `[archive_signatures]` pin — the invariant the lock-driven load
+/// gate enforces for every loadable lexicon. If this breaks because the rkyv
+/// layout changed (e.g. the graph-faithful payload), re-pin the computed values
+/// (see `dump_wordnet_archive_addresses` in `lmf::prx`).
+///
+/// `[archive_signatures]` is a SHARED keyspace (OWL + USC + WordNet pin
+/// alongside each other), so this anchor test owns ONLY the `Language`
+/// partition — exactly as the OWL anchor owns `OntologyVocabulary` and the USC
+/// anchor owns `UsCodeTitle`. Gated on the bundled XML with a graceful skip: a
+/// checkout that hasn't provisioned a lexicon emits nothing for it.
+///
+/// Heavy producer (re-emits the 89 MB English lexicon `.prx`): lifted out of the
+/// `pr4xis-domains` `#[cfg(test)]` module into this heavy-corpus lane so the fast
+/// nextest lane no longer pays the re-emit per process-isolated test.
+#[test]
+fn wordnet_archive_anchors_match_lock() {
+    let dir = std::env::temp_dir().join(format!("prx_wn_archive_anchor_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let arts = emit_all_wordnet_prx_gz(&dir).expect("emit all WordNet archives");
+
+    // Every emitted archive's MerkleRoot equals its [archive_signatures] pin.
+    for a in &arts {
+        let pinned = lock_archive_signature(&a.name, &a.version).unwrap_or_else(|| {
+            panic!(
+                "praxis.lock [archive_signatures] must pin {}@{}",
+                a.name, a.version
+            )
+        });
+        assert_eq!(
+            &LockDigest::address(a.archive_address.clone()),
+            pinned,
+            "{}@{} .prx MerkleRoot must equal the [archive_signatures] pin",
+            a.name,
+            a.version
+        );
+    }
+
+    // Load-bearing in both directions over the `Language` partition: every
+    // emitted lexicon is pinned (above) AND every pinned, on-disk lexicon was
+    // emitted — so a stale pin for a vanished lexicon, or a missing pin, is
+    // caught. Only count Language sources whose XML is actually on disk (the
+    // graceful-skip set `emit_all_wordnet_prx_gz` walks).
+    let root = workspace_root();
+    let lang_keys: std::collections::BTreeSet<String> = data_sources()
+        .iter()
+        .filter(|e| e.kind == SourceTaxonomyConcept::Language)
+        .filter(|e| root.join(e.local_path()).exists())
+        .map(|e| format!("{}@{}", e.name, e.version))
+        .collect();
+    let emitted: std::collections::BTreeSet<String> = arts
+        .iter()
+        .map(|a| format!("{}@{}", a.name, a.version))
+        .collect();
+    assert_eq!(
+        emitted, lang_keys,
+        "emitted WordNet archives must match the on-disk Language sources exactly"
+    );
+    // Every emitted Language archive carries a pin (the anchor above already
+    // asserts equality; this confirms the pin EXISTS in the shared keyspace).
+    for key in &emitted {
+        assert!(
+            lock_archive_signatures().contains_key(key),
+            "{key} must have an [archive_signatures] pin"
+        );
+    }
 }

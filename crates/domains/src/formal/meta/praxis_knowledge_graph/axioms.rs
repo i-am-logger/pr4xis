@@ -573,6 +573,15 @@ mod tests {
 
     /// Every domain axiom holds against the real machinery (the `.prx`
     /// realisation, the ArchiveIntoGraph functor, and the registries).
+    ///
+    /// `LensLawPreservation` delegates to the full round-trip lens harness over
+    /// every registered lens (parsing every small on-disk source). Its dedicated
+    /// owner — `ci_gate_passes` (well_behaved_lens::harness::tests) — runs that
+    /// IDENTICAL pass on every push, so re-running it here is pure duplication.
+    /// This test therefore SKIPS that one leg's `verify()` (matched by its stable
+    /// axiom name) while still asserting it is PRESENT in `domain_axioms()` (the
+    /// cheap non-vacuity check), so the axiom set stays complete and the costly
+    /// pass is run exactly once, by its owner. All other legs run in full.
     #[test]
     fn all_domain_axioms_hold() {
         // Guard against a future vacuous AxiomBindingComplete: the re-bind
@@ -589,7 +598,18 @@ mod tests {
             !lens_registrations().is_empty(),
             "LENS_REGISTRATIONS must be populated for LensBindingComplete to have teeth"
         );
+        // The leg whose heavy pass `ci_gate_passes` already owns. Verified PRESENT
+        // below (non-vacuity), then skipped in the verify loop.
+        let lens_law = LensLawPreservation.name();
+        assert!(
+            domain_axioms().iter().any(|ax| ax.name() == lens_law),
+            "LensLawPreservation must remain in domain_axioms() — its presence (not a \
+             re-run of its harness pass) is what this set asserts; ci_gate_passes runs the pass"
+        );
         for ax in domain_axioms() {
+            if ax.name() == lens_law {
+                continue; // owned by ci_gate_passes — see the doc comment above
+            }
             ax.verify()
                 .unwrap_or_else(|c| panic!("axiom failed: {}", c.meta().name.as_str()));
         }

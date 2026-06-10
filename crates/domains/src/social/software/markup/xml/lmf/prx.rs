@@ -1379,75 +1379,13 @@ mod tests {
 
     // ── archive anchor: every emitted WordNet .prx matches its lock pin ─
 
-    /// Every emitted WordNet `.prx` archive's MerkleRoot content address equals
-    /// its `praxis.lock` `[archive_signatures]` pin — the invariant the
-    /// lock-driven load gate enforces for every loadable lexicon. If this breaks
-    /// because the rkyv layout changed (e.g. the graph-faithful
-    /// payload), re-pin the computed values (see `dump_wordnet_archive_addresses`).
-    ///
-    /// `[archive_signatures]` is a SHARED keyspace (OWL + USC + WordNet pin
-    /// alongside each other), so this anchor test owns ONLY the `Language`
-    /// partition — exactly as the OWL anchor owns `OntologyVocabulary` and the
-    /// USC anchor owns `UsCodeTitle`. Gated on the bundled XML with a graceful
-    /// skip: a checkout that hasn't provisioned a lexicon emits nothing for it.
-    #[test]
-    fn wordnet_archive_anchors_match_lock() {
-        use crate::applied::data_provisioning::registry::{
-            data_sources, lock_archive_signature, lock_archive_signatures,
-        };
-        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
-
-        let dir =
-            std::env::temp_dir().join(format!("prx_wn_archive_anchor_{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        let arts = emit_all_wordnet_prx_gz(&dir).expect("emit all WordNet archives");
-
-        // Every emitted archive's MerkleRoot equals its [archive_signatures] pin.
-        for a in &arts {
-            let pinned = lock_archive_signature(&a.name, &a.version).unwrap_or_else(|| {
-                panic!(
-                    "praxis.lock [archive_signatures] must pin {}@{}",
-                    a.name, a.version
-                )
-            });
-            assert_eq!(
-                &LockDigest::address(a.archive_address.clone()),
-                pinned,
-                "{}@{} .prx MerkleRoot must equal the [archive_signatures] pin",
-                a.name,
-                a.version
-            );
-        }
-
-        // Load-bearing in both directions over the `Language` partition: every
-        // emitted lexicon is pinned (above) AND every pinned, on-disk lexicon was
-        // emitted — so a stale pin for a vanished lexicon, or a missing pin, is
-        // caught. Only count Language sources whose XML is actually on disk (the
-        // graceful-skip set `emit_all_wordnet_prx_gz` walks).
-        let root = workspace_root();
-        let lang_keys: std::collections::BTreeSet<String> = data_sources()
-            .iter()
-            .filter(|e| e.kind == SourceTaxonomyConcept::Language)
-            .filter(|e| root.join(e.local_path()).exists())
-            .map(|e| format!("{}@{}", e.name, e.version))
-            .collect();
-        let emitted: std::collections::BTreeSet<String> = arts
-            .iter()
-            .map(|a| format!("{}@{}", a.name, a.version))
-            .collect();
-        assert_eq!(
-            emitted, lang_keys,
-            "emitted WordNet archives must match the on-disk Language sources exactly"
-        );
-        // Every emitted Language archive carries a pin (the anchor above already
-        // asserts equality; this confirms the pin EXISTS in the shared keyspace).
-        for key in &emitted {
-            assert!(
-                lock_archive_signatures().contains_key(key),
-                "{key} must have an [archive_signatures] pin"
-            );
-        }
-    }
+    // The WordNet `.prx` archive-anchor gate (every emitted archive's MerkleRoot
+    // equals its `praxis.lock` `[archive_signatures]` pin, over the `Language`
+    // partition) is a heavy producer — it re-emits the 89 MB English lexicon
+    // `.prx` — so it lives in the heavy-corpus lane: see
+    // `crates/praxis-corpus-tests/tests/wordnet.rs::wordnet_archive_anchors_match_lock`.
+    // One process there parses the corpus once; the fast nextest lane no longer
+    // pays the re-emit per process-isolated test. The pinning helper below stays.
 
     /// One-shot helper: print the MerkleRoot of every emitted WordNet archive so
     /// `[archive_signatures]` can be (re-)pinned after a layout change. Run with

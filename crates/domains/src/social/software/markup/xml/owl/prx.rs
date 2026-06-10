@@ -1683,26 +1683,17 @@ mod tests {
         assert!(LoadGateFailsClosed.verify().is_ok());
     }
 
-    /// Through the fully-faithful `ArchiveIntoGraph` functor, this same
-    /// realisation is the storage substratum of the whole-graph
-    /// `PraxisKnowledgeGraph` (#272). Binding the realisation to the graph
-    /// spec: the graph ontology validates (its storage-subset axioms run
-    /// against THIS code), and the functor that carries the archive into the
-    /// graph is genuinely full-and-faithful.
-    #[test]
-    fn realisation_witnesses_the_graph_storage_substratum() {
-        use crate::formal::meta::praxis_knowledge_graph::functor::ArchiveIntoGraph;
-        use crate::formal::meta::praxis_knowledge_graph::ontology::PraxisKnowledgeGraphOntology;
-        use pr4xis::category::laws::{assert_functor_laws, fully_faithful_law_axioms};
-        use pr4xis::ontology::Ontology;
-
-        PraxisKnowledgeGraphOntology::validate()
-            .unwrap_or_else(|c| panic!("graph validation failed: {}", c.meta().name.as_str()));
-        assert_functor_laws::<ArchiveIntoGraph>();
-        for law in fully_faithful_law_axioms::<ArchiveIntoGraph>() {
-            assert!(law.verify().is_ok());
-        }
-    }
+    // Through the fully-faithful `ArchiveIntoGraph` functor, this same OWL/USC/
+    // WordNet `.prx` realisation is the storage substratum of the whole-graph
+    // `PraxisKnowledgeGraph` (#272). `PraxisKnowledgeGraphOntology::validate()`
+    // runs the full domain axiom set, including `LensLawPreservation` (the
+    // round-trip harness over every registered lens — heavy), so it lives in the
+    // heavy-corpus lane: see `crates/praxis-corpus-tests/tests/
+    // praxis_knowledge_graph.rs::realisation_witnesses_the_graph_storage_substratum`.
+    // The functor-law legs (`ArchiveIntoGraph` is a functor AND fully faithful)
+    // are cheap and stay in the fast lane, owned by
+    // `praxis_knowledge_graph::functor::tests::{archive_into_graph_is_a_functor,
+    // archive_into_graph_is_fully_faithful}`.
 
     // ── metadata grounding: OMV/PROV-O fields are populated correctly ─
 

@@ -181,6 +181,14 @@ tempfile = "3"
 name = "ontology_benchmarks"
 harness = false
 
+# `.prx` two-layer compactness-breakdown measurement (was a `#[cfg(test)]`
+# measurement in `uslm::corpus::prx`). Needs `prx` for the graph-faithful emit +
+# rkyv layer serialization. Run with `cargo bench -p pr4xis-domains --features prx`.
+[[bench]]
+name = "prx_compactness"
+harness = false
+required-features = ["prx"]
+
 # Distribution-artifact emitter (#256). Writes a `.prx.gz` per registered
 # OWL vocabulary, round-trip-validating each through the fail-closed load
 # gate. The release-gated CI `pages` job runs it into `pages/ontologies/`,

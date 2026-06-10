@@ -80,18 +80,46 @@ fn oversize_deferred_is_not_a_failure() {
     );
 }
 
+/// Three witness registrations whose keys are deliberately OUT of sorted order
+/// (`"z…"`, `"a…"`, `"m…"`), so the harness's `sort_by(key)` has genuine work to
+/// do — and whose `(source_name, source_version)` pairs are absent from the
+/// praxis registry, so each resolves to `SourceNotRegistered` with NO disk read
+/// or source parse. This drives the harness's STRUCTURAL post-conditions (one
+/// result per registration; results ordered by key) over a controlled,
+/// fast-to-resolve slice, instead of paying the real-source parse the global
+/// `run_round_trip_harness()` would.
+fn structural_witness_registrations() -> [LensRegistration; 3] {
+    [
+        witness_registration::<ByteExactWitnessLens>("z_witness@1", "z_witness", "1"),
+        witness_registration::<ByteExactWitnessLens>("a_witness@1", "a_witness", "1"),
+        witness_registration::<ByteExactWitnessLens>("m_witness@1", "m_witness", "1"),
+    ]
+}
+
 #[test]
 fn harness_returns_one_entry_per_registration() {
-    let results = run_round_trip_harness();
-    assert_eq!(results.len(), LENS_REGISTRATIONS.len());
+    // STRUCTURAL post-condition: the harness emits exactly one result per
+    // registration. Driven over the witness slice so it is fast (no real-source
+    // parse); the real registrations are exercised end-to-end by `ci_gate_passes`.
+    let regs = structural_witness_registrations();
+    let results = run_harness_over_witnesses(&regs);
+    assert_eq!(results.len(), regs.len());
 }
 
 #[test]
 fn harness_results_sorted_by_key() {
-    let results = run_round_trip_harness();
+    // STRUCTURAL post-condition: the harness orders its results by key. The
+    // witness keys are registered out of order ("z","a","m"), so a missing or
+    // broken `sort_by` would leave them unsorted here.
+    let regs = structural_witness_registrations();
+    let results = run_harness_over_witnesses(&regs);
     for w in results.windows(2) {
         assert!(w[0].key <= w[1].key, "results not sorted by key");
     }
+    // Non-vacuity: the witnesses really were registered out of sorted order, so
+    // the assertion above had genuine ordering work to verify.
+    assert_eq!(regs[0].key, "z_witness@1");
+    assert_eq!(regs[1].key, "a_witness@1");
 }
 
 #[test]
