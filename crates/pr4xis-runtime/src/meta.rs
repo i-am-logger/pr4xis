@@ -47,6 +47,15 @@ pub fn ontology() -> Archive {
             concept("Adjunction", &[("Subsumption", "Connection")]),
             concept("Lens", &[("Subsumption", "Connection")]),
             concept("NaturalTransformation", &[("Subsumption", "Connection")]),
+            // Grounding — a Connection refined to the ATOM level: a typed,
+            // content-addressed morphism from a node in one archive INTO an
+            // addressable atom of ANOTHER (a span A ←π— G —π→ B, partial +
+            // many-to-one; Spivak ologs). It is the same content-addressed
+            // connection wire, narrowed so endpoints are atoms (a `Definition`'s
+            // address), not ontology names — the substrate for "which ontologies
+            // our content is connected to, and how" (the lexical `denotes` floor
+            // being the first, most universal kind).
+            concept("Grounding", &[("Subsumption", "Connection")]),
             // The container + the open-world presentation.
             concept(
                 "Archive",
@@ -158,6 +167,28 @@ mod tests {
                 c.target
             );
         }
+    }
+
+    #[test]
+    fn grounding_is_a_connection_in_the_meta() {
+        // The grounding vocabulary enters the self-describing format as a refined
+        // Connection — so a peer that loads the meta-`.prx` learns what a
+        // grounding IS (a kind of connection) the same way it learns Functor /
+        // Lens, by reference, never by compiled-in code.
+        let meta = ontology();
+        let grounding = meta
+            .nodes
+            .iter()
+            .find(|n| n.name == "Grounding")
+            .expect("the meta-ontology defines Grounding");
+        assert_eq!(grounding.kind, "Concept");
+        assert!(
+            grounding
+                .edges
+                .contains(&("Subsumption".to_string(), "Connection".to_string())),
+            "Grounding must IS-A Connection; got {:?}",
+            grounding.edges
+        );
     }
 
     #[test]
