@@ -25,6 +25,9 @@ use pr4xis_domains::applied::data_provisioning::registry::{
     LockDigest, data_sources, lock_archive_signature, lock_archive_signatures,
     lock_compact_archive_signature,
 };
+use pr4xis_domains::cognitive::linguistics::english::bridge::{
+    concept_refs_for_word, english_runtime_ontology,
+};
 use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, english_loaded};
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis_domains::formal::meta::well_behaved_lens::{
@@ -769,5 +772,71 @@ fn wordnet_archive_anchors_match_lock() {
             lock_archive_signatures().contains_key(key),
             "{key} must have an [archive_signatures] pin"
         );
+    }
+}
+
+/// THE B1 GROUNDING GATE — "is a dog an animal" answered over the REAL loaded
+/// English `.prx`, through the GENERIC engine.
+///
+/// This is the acceptance for the engine bridge (#87): the whole pipeline
+/// (`bridge::project_archive` → `apply`(the WordNet→praxis functor as data) →
+/// `materialize`) over the ~100k+-synset corpus that `english_loaded()` loads,
+/// producing a source-agnostic [`RuntimeOntology`]. The is-a question is then
+/// decided over THAT ontology's materialized Subsumption closure (via typed
+/// `ConceptRef`s the English lexicon resolves) — not English's bespoke
+/// `hypernym_closure`. The SUBSTRATE SPLIT is gone: a loaded `.prx` is now an
+/// addressable, traversable graph a generic engine reasons over. Graceful skip
+/// when the 89 MB corpus is not provisioned.
+#[test]
+fn b1_gate_is_a_dog_an_animal_over_the_real_loaded_english_prx() {
+    let Some(_en) = WORDNET.english() else {
+        eprintln!("SKIP: WordNet not on disk");
+        return;
+    };
+
+    // The real loaded English — the same one the chat grounds over.
+    let english = english_loaded();
+
+    // The whole B1 bridge over the full corpus.
+    let onto = english_runtime_ontology(english).expect("the real English corpus materializes");
+    assert!(
+        onto.archive().nodes.len() > 100_000,
+        "the runtime ontology must carry the whole loaded corpus; got {} nodes",
+        onto.archive().nodes.len()
+    );
+
+    let dogs = concept_refs_for_word(&onto, english, "dog");
+    let animals = concept_refs_for_word(&onto, english, "animal");
+    assert!(
+        !dogs.is_empty() && !animals.is_empty(),
+        "English's lexicon must resolve both 'dog' and 'animal'"
+    );
+
+    // THE GATE: some sense of dog is-a some sense of animal, over the generic
+    // engine's closure. The claim IS the Verdict (pattern-matched, with proof).
+    let witness = dogs
+        .iter()
+        .flat_map(|d| animals.iter().map(move |a| (d, a)))
+        .find_map(|(d, a)| {
+            onto.is_a(d, a)
+                .ok()
+                .map(|proof| (d.clone(), a.clone(), proof))
+        });
+
+    match witness {
+        Some((dog_ref, animal_ref, proof)) => {
+            let claim = proof.meta().name;
+            assert!(
+                claim.as_str().contains(&dog_ref.name) && claim.as_str().contains(&animal_ref.name),
+                "the proof must name the witnessed dog ⊑ animal claim; got {claim}"
+            );
+            eprintln!(
+                "B1 GATE PASS: {} ⊑ {} witnessed over the loaded English .prx ({} nodes)",
+                dog_ref.name,
+                animal_ref.name,
+                onto.archive().nodes.len()
+            );
+        }
+        None => panic!("'a dog is an animal' must hold over the real loaded English ontology"),
     }
 }

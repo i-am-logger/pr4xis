@@ -44,11 +44,20 @@ use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use pr4xis::ontology::meta::OntologyName;
+use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::{Connection, GeneratorAction};
 use pr4xis_runtime::definition::Definition;
+use pr4xis_runtime::ontology::{ConceptRef, MaterializeError, RuntimeOntology, materialize};
 
 use super::ontology::English;
+
+/// The ontology name the projected English `.prx` materializes under — the same
+/// `OntologyName` the existing English-grounding path (`english_adjunction`)
+/// stamps onto its `ConceptRef`s, so a synset's runtime identity is stable
+/// across the bridge.
+pub const ENGLISH_ONTOLOGY: &str = "english_wordnet";
 
 /// The praxis concept kind a relabeled `Synset` becomes — the SAME node kind
 /// [`emit`](pr4xis_runtime::emit) writes for a compiled `ontology!` concept, so
@@ -150,6 +159,50 @@ pub fn wordnet_to_praxis_functor() -> Connection {
     }
 }
 
+/// Bridge the loaded [`English`] struct into a generic [`RuntimeOntology`] — the
+/// whole B1 pipeline in one call: `English` → [`project_archive`] →
+/// [`apply`]`(`[`wordnet_to_praxis_functor`]`)` → [`materialize`].
+///
+/// The result is a source-agnostic runtime ontology a generic engine reasons
+/// over (`is_a` → `Verdict`, `reachable_from`, `lexical`), exactly as it would
+/// over a `.prx` loaded from disk — the SUBSTRATE SPLIT dissolved. English's
+/// hypernym taxonomy is now an addressable, traversable graph of content-
+/// addressed atoms, not a closed domain struct.
+///
+/// `apply` cannot fail here: [`wordnet_to_praxis_functor`] is always a
+/// `Functor` action (the only action `apply` interprets), so the sole
+/// [`ApplyError`](pr4xis_runtime::apply::ApplyError) is unreachable — treated as
+/// a structural invariant. Materialization can still fail closed (a codec error
+/// on the root); that error is propagated typed.
+pub fn english_runtime_ontology(english: &English) -> Result<RuntimeOntology, MaterializeError> {
+    let source = project_archive(english);
+    let praxis = apply(&wordnet_to_praxis_functor().action, &source)
+        .expect("wordnet_to_praxis_functor is a Functor action, which apply always interprets");
+    materialize(praxis, OntologyName::new_static(ENGLISH_ONTOLOGY))
+}
+
+/// The runtime [`ConceptRef`]s the English senses of `word` denote in `onto` —
+/// the Lemon ground (word → synset, via English's lexicon) composed with the
+/// runtime identity (a synset's `original_id` IS its node name in `onto`).
+///
+/// This is the thin lexical VIEW onto the generic ontology: the lexicon stays
+/// English (the only thing that knows "dog" denotes synset `s-dog`), while the
+/// REASONING substrate is the source-agnostic `onto`. One word yields many refs
+/// (polysemy); the caller decides over them (e.g. "is a dog an animal" holds if
+/// SOME sense pair does).
+pub fn concept_refs_for_word(
+    onto: &RuntimeOntology,
+    english: &English,
+    word: &str,
+) -> Vec<ConceptRef> {
+    english
+        .lookup(word)
+        .iter()
+        .filter_map(|&id| english.concept(id))
+        .map(|concept| onto.concept(concept.original_id.clone()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,8 +296,6 @@ mod tests {
 
     // --- piece 3: the functor carried as data, applied ---
 
-    use pr4xis_runtime::apply::apply;
-
     #[test]
     fn the_functor_is_the_relabeling_table_as_data() {
         let functor = wordnet_to_praxis_functor();
@@ -316,5 +367,89 @@ mod tests {
                 );
             }
         }
+    }
+
+    // --- piece 4: the bridge to a RuntimeOntology + the grounding gate ---
+
+    #[test]
+    fn the_bridge_materializes_a_runtime_ontology() {
+        let onto = english_runtime_ontology(&English::sample()).expect("English materializes");
+        assert_eq!(onto.id().as_str(), ENGLISH_ONTOLOGY);
+        // The is-a generators folded into the Subsumption closure: dog ⊑ mammal
+        // ⊑ animal collapses, so dog reaches animal.
+        let dog = onto.concept("s-dog");
+        let animal = onto.concept("s-animal");
+        assert!(
+            onto.reachable_from(&dog, pr4xis_runtime::ontology::RelationKind::Subsumption)
+                .contains(&animal),
+            "the transitive is-a closure must put animal in dog's Subsumption image"
+        );
+        // The gloss rode the whole pipeline (projection → apply → materialize).
+        assert_eq!(onto.lexical(&dog), Some("a domesticated canine"));
+    }
+
+    /// THE GATE (fast lane, miniature corpus): "is a dog an animal" answered over
+    /// the GENERIC RuntimeOntology — its materialized Subsumption closure, via
+    /// typed `ConceptRef`s resolved through English's lexicon. The claim IS the
+    /// Verdict (pattern-matched, never `.is_ok()`).
+    #[test]
+    fn gate_is_a_dog_an_animal_over_the_runtime_ontology() {
+        let english = English::sample();
+        let onto = english_runtime_ontology(&english).expect("English materializes");
+
+        let dog = concept_refs_for_word(&onto, &english, "dog");
+        let animal = concept_refs_for_word(&onto, &english, "animal");
+        assert!(
+            !dog.is_empty() && !animal.is_empty(),
+            "lexicon resolves both words"
+        );
+
+        // Some (dog sense, animal sense) pair must witness the is-a relation.
+        let witness = dog
+            .iter()
+            .flat_map(|d| animal.iter().map(move |a| (d, a)))
+            .find_map(|(d, a)| onto.is_a(d, a).ok().map(|proof| (a.clone(), proof)));
+        match witness {
+            Some((animal_ref, proof)) => {
+                let claim = proof.meta().name;
+                assert!(
+                    claim.as_str().contains("s-dog") && claim.as_str().contains(&animal_ref.name),
+                    "the proof must name the witnessed dog ⊑ animal claim; got {claim}"
+                );
+            }
+            None => panic!("the engine must witness 'a dog is an animal' over the loaded ontology"),
+        }
+
+        // And it does NOT over-claim the converse: an animal is not a dog. The
+        // generic engine refutes (honest counterexample), like English itself.
+        let any_animal_is_a_dog = animal
+            .iter()
+            .flat_map(|a| dog.iter().map(move |d| (a, d)))
+            .any(|(a, d)| onto.is_a(a, d).is_ok());
+        assert!(!any_animal_is_a_dog, "animal is-a dog must refute");
+    }
+
+    #[test]
+    fn the_runtime_answer_agrees_with_english_is_a() {
+        // The bridge is FAITHFUL: the generic engine's verdict matches English's
+        // own bespoke hypernym closure for the same pair — same answer, different
+        // (source-agnostic) substrate.
+        use crate::cognitive::linguistics::english::LexicalReasoner;
+        let english = English::sample();
+        let onto = english_runtime_ontology(&english).expect("materializes");
+
+        let dog_id = english.lookup("dog")[0];
+        let animal_id = english.lookup("animal")[0];
+        let english_says = LexicalReasoner::is_a(&english, dog_id, animal_id);
+
+        let dog_ref = onto.concept(english.concept(dog_id).unwrap().original_id.clone());
+        let animal_ref = onto.concept(english.concept(animal_id).unwrap().original_id.clone());
+        let engine_says = onto.is_a(&dog_ref, &animal_ref).is_ok();
+
+        assert_eq!(
+            english_says, engine_says,
+            "the bridge must agree with English's is_a"
+        );
+        assert!(engine_says, "and both say dog is-a animal");
     }
 }
