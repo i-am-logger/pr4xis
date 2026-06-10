@@ -48,6 +48,10 @@ use pr4xis::codegen_data::CodegenData;
 use crate::formal::meta::identifier_format::Identifier;
 use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
 
+/// The USC → generic [`Archive`](pr4xis_runtime::archive::Archive) projection —
+/// statute provisions as content-addressed `Definition` nodes carrying typed
+/// `Parthood` / grounding edges (the analog of the English bridge).
+pub mod bridge;
 pub mod identifiers;
 pub mod kinds;
 pub mod namespaces;
