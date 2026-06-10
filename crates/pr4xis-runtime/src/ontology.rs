@@ -73,6 +73,7 @@ use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenan
 use crate::address::ContentAddress;
 use crate::archive::Archive;
 use crate::codec::CodecError;
+use crate::definition::EdgeTarget;
 
 extern crate alloc;
 #[allow(unused_imports)]
@@ -432,10 +433,14 @@ impl RuntimeOntology {
             .filter(|n| n.name == c.name)
             .flat_map(|n| {
                 n.edges.iter().filter_map(move |(kind_name, target)| {
+                    // Only LOCAL edges are morphisms within this ontology; a
+                    // Grounded target is a cross-ontology atom, resolved by the
+                    // ContainsAtom step, not a generator of this graph.
+                    let name = target.local_name()?;
                     RelationKind::from_edge_kind(kind_name).map(|kind| RuntimeEdge {
                         source: c.clone(),
                         kind,
-                        target: ConceptRef::new(self.id.clone(), target.clone()),
+                        target: ConceptRef::new(self.id.clone(), name.to_string()),
                     })
                 })
             })
@@ -542,11 +547,22 @@ pub fn materialize(
     let mut edges: Vec<RuntimeEdge> = Vec::new();
     for node in &archive.nodes {
         for (kind_name, target) in &node.edges {
-            if !declared.contains(target.as_str()) {
+            let local = match target {
+                // A LOCAL target must name a declared node — referential closure.
+                EdgeTarget::Local(name) => name,
+                // A GROUNDED target is a foreign atom (by content address) in a
+                // connected ontology — it is HELD as a cross-ontology edge, not
+                // validated against this archive's names and not folded into the
+                // local closure. Resolution against the connected ontology is the
+                // ContainsAtom step (fail-closed there); carrying it unresolved
+                // here is the open-world span endpoint.
+                EdgeTarget::Grounded { .. } => continue,
+            };
+            if !declared.contains(local.as_str()) {
                 return Err(MaterializeError::DanglingEdge(DanglingEdge {
                     source: node.name.clone(),
                     kind: kind_name.clone(),
-                    orphan: target.clone(),
+                    orphan: local.clone(),
                 }));
             }
             // Only the canonically transitive kinds participate in the closure;
@@ -556,7 +572,7 @@ pub fn materialize(
                 edges.push(RuntimeEdge {
                     source: ConceptRef::new(id.clone(), node.name.clone()),
                     kind,
-                    target: ConceptRef::new(id.clone(), target.clone()),
+                    target: ConceptRef::new(id.clone(), local.clone()),
                 });
             }
         }
