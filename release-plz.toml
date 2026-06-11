@@ -59,9 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # a changelog entry, and open a redundant "chore: release" PR (e.g. #196).
 # Left unfiltered this self-feeds: merging that PR creates another release
 # commit, which spawns the next empty PR. Filtering breaks the loop.
+#
+# Release-plz emits these commits in TWO forms — the unscoped aggregate
+# `chore: release` and the per-package `chore(<package>): release v<x>`
+# (e.g. `chore(pr4xis-runtime): release v0.23.0`). One optional-scope regex
+# catches both; matching only the unscoped form (the earlier rule) let a
+# scoped release commit slip through and spawn a redundant release PR (#199).
 commit_parsers = [
-    { message = "^chore: release", skip = true },
-    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore(\\(.+\\))?: release", skip = true },
 ]
 
 # Full workspace version sync — every workspace member shares a single
