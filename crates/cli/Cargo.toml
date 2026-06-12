@@ -19,7 +19,7 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-pr4xis = { version = "0.23.0", path = "../pr4xis" }
+pr4xis = { version = "0.23.1", path = "../pr4xis" }
 pr4xis-chat = { version = "0.22.0", path = "../chat" }
 # `fetch` brings the `.prx` load gate + network substrate; `codegen` brings the
 # OWL `read_owl → CodegenData` emit path so `pr4xis compile` can write OWL
@@ -30,7 +30,7 @@ pr4xis-domains = { version = "0.22.0", path = "../domains", features = ["fetch",
 # The content-address vocabulary (`ContentAddress`, `HashAlgorithm`,
 # `hash_hex`) — the emit leg for lock re-pins and the SHA-256 verify leg the
 # `decompile --fips` attestation speaks through.
-pr4xis-runtime = { version = "0.23.0", path = "../pr4xis-runtime", features = ["emit"] }
+pr4xis-runtime = { version = "0.23.1", path = "../pr4xis-runtime", features = ["emit"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 
