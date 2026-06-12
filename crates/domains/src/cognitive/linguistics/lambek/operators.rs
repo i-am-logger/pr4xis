@@ -223,6 +223,17 @@ pub fn load() -> OperatorVocabulary {
     OperatorVocabulary(map)
 }
 
+/// The process-cached operator vocabulary (`std`): [`load`] parses
+/// `math-operators.xml` once behind a `OnceLock`, so the tokenizer reuses it
+/// instead of re-parsing the XML on every call (a chat-pipeline hot path). On
+/// `no_std` there is no global `OnceLock`, so callers use [`load`] by value.
+#[cfg(feature = "std")]
+pub fn vocabulary() -> &'static OperatorVocabulary {
+    use std::sync::OnceLock;
+    static VOCAB: OnceLock<OperatorVocabulary> = OnceLock::new();
+    VOCAB.get_or_init(load)
+}
+
 /// Decode the OpenMath STS signature carried in a Sense `subcat`
 /// (`"ROLE ARITY RESULTSORT NOTATION"`) once, at the codec boundary, into typed
 /// values. The 4th token is the CCG category in standard notation, lowered to a

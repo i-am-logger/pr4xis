@@ -295,6 +295,34 @@ mod tests {
     // =========================================================================
 
     #[test]
+    fn hyphenated_and_slashed_words_are_not_split_by_operator_glyphs() {
+        // `-` and `/` are operator glyphs, but a glyph BETWEEN two letters is
+        // internal punctuation, not a math operator: `well-being` / `and/or` /
+        // `x-ray` stay single tokens, while `10+10` still splits (Copilot #2).
+        let en = english();
+        for (input, kept) in [
+            ("the well-being of dogs", "well-being"),
+            ("cats and/or dogs", "and/or"),
+            ("an x-ray", "x-ray"),
+        ] {
+            let words: Vec<String> = tokenize::tokenize(input, en)
+                .iter()
+                .map(|t| t.word.clone())
+                .collect();
+            assert!(
+                words.iter().any(|w| w == kept),
+                "{kept:?} must survive as one token in {input:?}; got {words:?}"
+            );
+        }
+        // ...but a math glyph between digits still splits.
+        let math: Vec<String> = tokenize::tokenize("10+10", en)
+            .iter()
+            .map(|t| t.word.clone())
+            .collect();
+        assert_eq!(math, vec!["10", "+", "10"]);
+    }
+
+    #[test]
     fn operator_glyph_survives_tokenization() {
         // The bug: `+` was stripped as punctuation, leaving "what is 10 10".
         // Now `+` is a token carrying its loaded type `(NP\NP)/NP`.
