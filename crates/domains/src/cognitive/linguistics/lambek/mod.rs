@@ -1,6 +1,7 @@
 pub mod integration_tests;
 pub mod montague;
 pub mod ontology;
+pub mod operators;
 pub mod pregroup;
 pub mod reduce;
 pub mod tokenize;

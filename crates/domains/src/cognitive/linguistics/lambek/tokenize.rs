@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use super::operators::{self, OperatorVocabulary};
 use super::reduce::TypedToken;
 use super::types::LambekType;
 use super::types::svo as svo_types;
@@ -19,26 +20,17 @@ use pr4xis::category::entity::Concept;
 /// Unknown words go through the noisy channel adjunction:
 /// Observation → closest_matches → corrected word's type.
 pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
-    let cleaned = text
-        .trim()
-        .trim_end_matches(|c: char| c.is_ascii_punctuation());
-
-    let words: Vec<&str> = cleaned.split_whitespace().collect();
-
-    let mut tokens: Vec<TypedToken> = words
+    let vocab = operators::load();
+    let mut tokens: Vec<TypedToken> = surface_tokens(text, &vocab)
         .iter()
         .enumerate()
-        .filter_map(|(i, word)| {
-            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
-            if word_clean.is_empty() {
-                return None;
-            }
-            let lower = word_clean.to_lowercase();
-            let lambek_type = assign_type(&lower, i, language);
-            Some(TypedToken {
+        .map(|(i, word)| {
+            let lower = word.to_lowercase();
+            let lambek_type = assign_type(&lower, i, language, &vocab);
+            TypedToken {
                 word: lower,
                 lambek_type,
-            })
+            }
         })
         .collect();
 
@@ -48,40 +40,80 @@ pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
     tokens
 }
 
+/// Split surface text into tokens, KEEPING loaded math-operator glyphs as their
+/// own tokens instead of stripping them as punctuation (#169).
+///
+/// An operator glyph is recognized from the loaded `math_operators` vocabulary
+/// — never a hardcoded `"+-*/=<>"` set — so `"10+10"` splits into
+/// `["10", "+", "10"]` and a standalone `"+"` survives, while non-operator
+/// trailing punctuation (`"dog?"` → `"dog"`, `"10."` → `"10"`) still trims, so
+/// the question path is preserved.
+fn surface_tokens(text: &str, vocab: &OperatorVocabulary) -> Vec<String> {
+    let mut out = Vec::new();
+    for word in text.split_whitespace() {
+        let mut buf = String::new();
+        for c in word.chars() {
+            if vocab.is_operator_glyph(c) {
+                flush_word(&mut buf, vocab, &mut out);
+                out.push(c.to_string());
+            } else {
+                buf.push(c);
+            }
+        }
+        flush_word(&mut buf, vocab, &mut out);
+    }
+    out
+}
+
+/// Trim non-operator ASCII punctuation off an accumulated word and push it if
+/// non-empty. A loaded operator glyph is never trimmed here — it is emitted as
+/// its own token by [`surface_tokens`]; other punctuation (`"dog?"` → `"dog"`)
+/// trims exactly as the tokenizer did before #169.
+fn flush_word(buf: &mut String, vocab: &OperatorVocabulary, out: &mut Vec<String>) {
+    let trimmed =
+        buf.trim_matches(|c: char| c.is_ascii_punctuation() && !vocab.is_operator_glyph(c));
+    if !trimmed.is_empty() {
+        out.push(trimmed.to_string());
+    }
+    buf.clear();
+}
+
 /// Tokenize with alternatives — returns tokens AND all possible types for each.
 /// Used by the ambiguity-aware reducer to try multiple type assignments.
 pub fn tokenize_with_alternatives(
     text: &str,
     language: &dyn Language,
 ) -> (Vec<TypedToken>, Vec<Vec<LambekType>>) {
-    let cleaned = text
-        .trim()
-        .trim_end_matches(|c: char| c.is_ascii_punctuation());
-
-    let words: Vec<&str> = cleaned.split_whitespace().collect();
+    let vocab = operators::load();
+    let words = surface_tokens(text, &vocab);
 
     let mut tokens = Vec::new();
     let mut alternatives = Vec::new();
 
     for (i, word) in words.iter().enumerate() {
-        let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
-        if word_clean.is_empty() {
-            continue;
-        }
-        let lower = word_clean.to_lowercase();
+        let lower = word.to_lowercase();
 
         // Get ALL entries from the language
         let all_entries = language.lexical_lookup_all(&lower);
 
         // Primary type assignment
-        let primary_type = assign_type(&lower, i, language);
+        let primary_type = assign_type(&lower, i, language, &vocab);
 
         // Alternative types from all entries
-        let alt_types: Vec<LambekType> = all_entries
+        let mut alt_types: Vec<LambekType> = all_entries
             .iter()
             .map(pos_to_lambek)
             .filter(|t| *t != primary_type)
             .collect();
+
+        // An operator glyph carries its full set of derived readings (e.g. `-`
+        // is both binary subtraction and unary negation); the chart explores
+        // all so the one that reduces wins (#169).
+        for t in vocab.lambek_types_for(&lower) {
+            if t != primary_type && !alt_types.contains(&t) {
+                alt_types.push(t);
+            }
+        }
 
         tokens.push(TypedToken {
             word: lower,
@@ -102,22 +134,13 @@ pub fn tokenize_with_alternatives(
 /// Each token carries its lexical sense (which ontology concept the word
 /// references) and its POS tag, in addition to the Lambek type.
 pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
-    let cleaned = text
-        .trim()
-        .trim_end_matches(|c: char| c.is_ascii_punctuation());
-
-    let words: Vec<&str> = cleaned.split_whitespace().collect();
-
-    let mut tokens: Vec<Token> = words
+    let vocab = operators::load();
+    let mut tokens: Vec<Token> = surface_tokens(text, &vocab)
         .iter()
         .enumerate()
-        .filter_map(|(i, word)| {
-            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
-            if word_clean.is_empty() {
-                return None;
-            }
-            let lower = word_clean.to_lowercase();
-            let lambek_type = assign_type(&lower, i, language);
+        .map(|(i, word)| {
+            let lower = word.to_lowercase();
+            let lambek_type = assign_type(&lower, i, language, &vocab);
 
             let entry = language.lexical_lookup(&lower);
             let pos = entry.as_ref().map(|e| e.pos_tag());
@@ -126,12 +149,12 @@ pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
                 concept: p.name().to_string(),
             });
 
-            Some(Token {
+            Token {
                 word: lower,
                 lambek_type,
                 sense,
                 pos,
-            })
+            }
         })
         .collect();
 
@@ -155,7 +178,27 @@ fn assign_predicate_adjectives_typed(tokens: &mut [Token]) {
 /// Position-sensitive: copulas/auxiliaries at sentence start get question types.
 /// For ambiguous words (e.g. verbs with unknown transitivity), all entries
 /// are considered and the best fit for the position is selected.
-fn assign_type(word: &str, position: usize, language: &dyn Language) -> LambekType {
+fn assign_type(
+    word: &str,
+    position: usize,
+    language: &dyn Language,
+    vocab: &OperatorVocabulary,
+) -> LambekType {
+    // A loaded mathematical operator glyph → its DERIVED categorial type
+    // (math_operators vocabulary; the type comes from the loaded arity +
+    // result-sort, never a per-symbol constant). Checked before the lexicon /
+    // spelling-correction path so an operator is never mis-corrected to a
+    // content word (#169).
+    if let Some(op_type) = vocab.primary_type(word) {
+        return op_type;
+    }
+
+    // A decimal number literal → a saturated noun phrase (NP), so it composes
+    // with an operator's NP argument and a copula's NP complement.
+    if operators::is_number_literal(word) {
+        return operators::operand_atom();
+    }
+
     // Look up ALL entries — a word can have multiple types
     let entries = language.lexical_lookup_all(word);
     let first = entries.first();
