@@ -289,6 +289,93 @@ mod tests {
     }
 
     // =========================================================================
+    // Math operators (#169) — the tokenizer must KEEP loaded operator glyphs,
+    // and the loaded type must reduce the whole sentence. Co-authored-by:
+    // awfmilton (the #169 bug report + research framed this).
+    // =========================================================================
+
+    #[test]
+    fn operator_glyph_survives_tokenization() {
+        // The bug: `+` was stripped as punctuation, leaving "what is 10 10".
+        // Now `+` is a token carrying its loaded type `(NP\NP)/NP`.
+        let en = english();
+        let words: Vec<String> = tokenize::tokenize("what is 10 + 10", en)
+            .iter()
+            .map(|t| t.word.clone())
+            .collect();
+        assert!(
+            words.iter().any(|w| w == "+"),
+            "the operator glyph must survive tokenization; got {words:?}"
+        );
+        assert_eq!(
+            words,
+            vec!["what", "is", "10", "+", "10"],
+            "operator and numbers are all preserved"
+        );
+    }
+
+    #[test]
+    fn what_is_10_plus_10() {
+        // The headline #169 case: a wh-question whose complement is an
+        // arithmetic expression reduces to S[wq].
+        let en = english();
+        assert!(
+            parses_as_question(en, "what is 10 + 10"),
+            "FAILED: {}",
+            tokens_debug(en, "what is 10 + 10")
+        );
+    }
+
+    #[test]
+    fn what_is_10_plus_10_glued() {
+        // Glued form: the tokenizer splits "10+10" at the loaded glyph.
+        let en = english();
+        assert!(
+            parses_as_question(en, "what is 10+10"),
+            "FAILED: {}",
+            tokens_debug(en, "what is 10+10")
+        );
+    }
+
+    #[test]
+    fn a_relation_reduces_to_a_sentence() {
+        // A relational operator's result sort is `truth` → `(NP\S)/NP`, so
+        // "10 < 20" reduces to a sentence (a proposition), not a noun phrase.
+        // Spaced and glued both split at the loaded glyph.
+        let en = english();
+        for s in ["10 < 20", "10<20"] {
+            assert!(parses(en, s), "FAILED: {}", tokens_debug(en, s));
+        }
+    }
+
+    #[test]
+    fn iso_unicode_operators_parse() {
+        // The full vocabulary the bundle loads includes the ISO 80000-2 glyphs
+        // (× ÷ − ≤ ≥ ≠), recognized exactly like the ASCII forms — end-to-end,
+        // not merely loaded.
+        let en = english();
+        for s in ["what is 10 × 10", "what is 10 ÷ 2"] {
+            assert!(parses_as_question(en, s), "FAILED: {}", tokens_debug(en, s));
+        }
+        for s in ["10 ≤ 20", "10 ≥ 5", "10 ≠ 20"] {
+            assert!(parses(en, s), "FAILED: {}", tokens_debug(en, s));
+        }
+    }
+
+    #[test]
+    fn a_trailing_question_mark_still_trims() {
+        // The tokenizer gate is "is this a LOADED operator glyph?", not
+        // is_ascii_punctuation — so a trailing "?" is NOT mistaken for an
+        // operator: it still trims, and the arithmetic question still parses.
+        let en = english();
+        assert!(
+            parses_as_question(en, "what is 10 + 10?"),
+            "FAILED: {}",
+            tokens_debug(en, "what is 10 + 10?")
+        );
+    }
+
+    // =========================================================================
     // Debug: show what types the tokenizer assigns with full WordNet
     // =========================================================================
 

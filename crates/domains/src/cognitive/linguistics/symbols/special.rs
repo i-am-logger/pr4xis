@@ -22,10 +22,16 @@ pub struct SpecialSymbol {
 
 /// The domain in which a special symbol has meaning.
 /// A symbol can belong to multiple domains with different meanings.
+///
+/// Note: there is no `Mathematics` domain here. The grammar of mathematical
+/// OPERATORS (`+`, `<`, …) — their OpenMath symbol, arity, and Lambek type —
+/// is a LOADED vocabulary (`cognitive::linguistics::lambek::operators`,
+/// `data/operators/math-operators.xml`), not a Rust tag. This catalog names
+/// characters by typographic identity; an operator glyph's mathematical role
+/// lives in the loaded vocabulary, so `+`/`=`/`%` are `General` here (their
+/// meaning, like `<`, depends on context).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SymbolDomain {
-    /// Mathematical operators and relations.
-    Mathematics,
     /// Programming and markup.
     Computing,
     /// Currency and commerce.
@@ -37,12 +43,7 @@ pub enum SymbolDomain {
 impl Concept for SymbolDomain {}
 impl FinitelyGenerated for SymbolDomain {
     fn variants() -> Vec<Self> {
-        vec![
-            Self::Mathematics,
-            Self::Computing,
-            Self::Currency,
-            Self::General,
-        ]
+        vec![Self::Computing, Self::Currency, Self::General]
     }
 }
 
@@ -59,12 +60,14 @@ impl SpecialSymbol {
 /// Special symbols commonly used across languages.
 pub fn common_symbols() -> Vec<SpecialSymbol> {
     vec![
-        // Mathematical
-        SpecialSymbol::new('+', "plus", SymbolDomain::Mathematics),
+        // Arithmetic / relational glyphs — typographic identity only; their
+        // operator grammar (arity, OpenMath symbol, Lambek type) is loaded from
+        // data/operators/math-operators.xml, not tagged here (#169).
+        SpecialSymbol::new('+', "plus", SymbolDomain::General),
         SpecialSymbol::new('-', "minus/hyphen", SymbolDomain::General),
         SpecialSymbol::new('*', "asterisk", SymbolDomain::General),
         SpecialSymbol::new('/', "slash", SymbolDomain::General),
-        SpecialSymbol::new('=', "equals", SymbolDomain::Mathematics),
+        SpecialSymbol::new('=', "equals", SymbolDomain::General),
         SpecialSymbol::new('<', "less-than/angle-open", SymbolDomain::General),
         SpecialSymbol::new('>', "greater-than/angle-close", SymbolDomain::General),
         // Computing
@@ -82,6 +85,6 @@ pub fn common_symbols() -> Vec<SpecialSymbol> {
         SpecialSymbol::new(']', "close bracket", SymbolDomain::General),
         // Currency
         SpecialSymbol::new('$', "dollar", SymbolDomain::Currency),
-        SpecialSymbol::new('%', "percent", SymbolDomain::Mathematics),
+        SpecialSymbol::new('%', "percent", SymbolDomain::General),
     ]
 }
