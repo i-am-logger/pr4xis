@@ -367,4 +367,42 @@ pub mod svo {
             LambekType::left_div(LambekType::np(), LambekType::s()),
         )
     }
+
+    // ---- Interrogative wh-word categories (derived per OLiA class) ----
+    //
+    // Each is the category an OLiA interrogative class derives
+    // ([`interrogatives::derive_wh_type`](crate::cognitive::linguistics::lambek::interrogatives::derive_wh_type)).
+    // They are STRUCTURALLY DISTINCT (different slashes/atoms), not relabels of
+    // one constant — the anti-fudge the wh redesign exists for.
+
+    /// Interrogative determiner: `(S[wq]/(NP\S))/N` — "which"/"what" + N.
+    /// Selects a noun, then questions the resulting NP like an interrogative
+    /// pronoun. CCGbank (Hockenmaier & Steedman 2007).
+    pub fn wh_determiner() -> LambekType {
+        LambekType::right_div(wh_what(), LambekType::n())
+    }
+
+    /// Interrogative adverb: `S[wq]/(S[q]/PP)` — "where"/"when"/"why"/"how".
+    /// Questions an ADJUNCT (a PP-typed gap) of a complete inverted clause —
+    /// genuinely distinct from the pronoun's NP gap. CCGbank wh-adverb. Reduces
+    /// only against an `S[q]/PP` clause, which [`question_copula_pp`] supplies.
+    pub fn wh_adverb() -> LambekType {
+        LambekType::right_div(
+            LambekType::wq(),
+            LambekType::right_div(LambekType::q(), LambekType::pp()),
+        )
+    }
+
+    /// PP-gap question copula: `(S[q]/PP)/NP` — sentence-medial "is"/"are" in a
+    /// wh-adverb question ("where IS the dog"): takes the subject NP, yielding a
+    /// yes/no-question clause still missing its locative PP. Pairs with
+    /// [`wh_adverb`] so "where is the dog" → `S[wq]`. The PP-complement analogue of
+    /// [`question_copula`] (`(S[q]/NP)/NP`); subject-aux inversion is licensed by
+    /// a fronted wh-adverb (Huddleston & Pullum 2002 Ch.11).
+    pub fn question_copula_pp() -> LambekType {
+        LambekType::right_div(
+            LambekType::right_div(LambekType::q(), LambekType::pp()),
+            LambekType::np(),
+        )
+    }
 }

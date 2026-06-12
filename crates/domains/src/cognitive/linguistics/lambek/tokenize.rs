@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use super::category_projection;
 use super::operators::{self, OperatorVocabulary};
 use super::reduce::TypedToken;
 use super::types::LambekType;
@@ -87,6 +88,16 @@ pub fn tokenize_with_alternatives(
     let vocab = operators::load();
     let words = surface_tokens(text, &vocab);
 
+    // A fronted interrogative ADVERB (where/when/why/how) licenses subject-aux
+    // inversion, so the copula can derive S[q]/PP (question_copula_pp) and the
+    // wh-adverb category reduces (Huddleston & Pullum 2002 Ch.11).
+    let leads_with_wh_adverb = words.first().is_some_and(|w| {
+        language
+            .lexical_lookup_all(&w.to_lowercase())
+            .iter()
+            .any(|e| e.olia_class() == Some("InterrogativeAdverb"))
+    });
+
     let mut tokens = Vec::new();
     let mut alternatives = Vec::new();
 
@@ -112,6 +123,32 @@ pub fn tokenize_with_alternatives(
         for t in vocab.lambek_types_for(&lower) {
             if t != primary_type && !alt_types.contains(&t) {
                 alt_types.push(t);
+            }
+        }
+
+        // Interrogative words carry their CCG category via the loaded OLiA→CCG
+        // functor; the chart explores every reading (e.g. "which" as both
+        // pronoun and determiner).
+        for entry in &all_entries {
+            if let Some(olia) = entry.olia_class() {
+                for t in category_projection::categories_for_class(olia) {
+                    if t != primary_type && !alt_types.contains(&t) {
+                        alt_types.push(t);
+                    }
+                }
+            }
+        }
+
+        // Under wh-adverb fronting, a copula/auxiliary also offers the inverted
+        // PP-gap reading (S[q]/PP)/NP, so "where is the dog" reduces.
+        if leads_with_wh_adverb
+            && all_entries
+                .iter()
+                .any(|e| e.pos_tag().is_copula() || e.pos_tag().is_question_forming())
+        {
+            let qpp = svo_types::question_copula_pp();
+            if qpp != primary_type && !alt_types.contains(&qpp) {
+                alt_types.push(qpp);
             }
         }
 
@@ -210,9 +247,16 @@ fn assign_type(
             return svo_types::question_copula();
         }
 
-        // Interrogative pronouns at sentence start → wh-question type
-        if first.is_some_and(|e| e.is_interrogative()) {
-            return svo_types::wh_what();
+        // Sentence-initial interrogative → its CCG category from the loaded
+        // OLiA→CCG functor (the word's OLiA class projects to a category),
+        // never a `wh_what()` constant. The chart explores the other readings.
+        if let Some(category) = entries
+            .iter()
+            .filter_map(|e| e.olia_class())
+            .flat_map(category_projection::categories_for_class)
+            .next()
+        {
+            return category;
         }
     }
 

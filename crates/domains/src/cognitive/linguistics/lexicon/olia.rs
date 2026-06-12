@@ -23,8 +23,77 @@ pub fn olia_to_pos(iri: &str) -> Option<PosTag> {
     from_fragment(fragment)
 }
 
+/// The full OLiA Reference-Model IRI of a class fragment (e.g.
+/// `InterrogativeAdverb` → `http://purl.org/olia/olia.owl#InterrogativeAdverb`).
+/// The wire identity of a loaded OLiA class.
+pub fn class_iri(fragment: &str) -> String {
+    format!("{OLIA_NS}{fragment}")
+}
+
+/// The OLiA Reference Model itself, loaded as an ontology from the bundled OWL
+/// (`data/ontologies/olia-2026-04-09.owl`) and cached for the process.
+///
+/// This is the LOADED grammatical-class vocabulary — `find` / `is_a` /
+/// `subsumes` (`LoadedOwlVocabulary`) query it by IRI. A class identity is
+/// "an OLiA Concept that resolves here", never a Rust enum mirroring the
+/// ontology nor a bare string compared by `==`. Parse failure is a build-time
+/// invariant (the OWL ships with praxis) and panics rather than degrading.
+///
+/// `std`-only: loading the 1.2 MB Reference Model needs `OnceLock` + the OWL
+/// reader. On `no_std`/wasm the coarse [`from_fragment`] map remains the
+/// fallback (a tracked transitional residue).
+#[cfg(feature = "std")]
+pub fn reference_model()
+-> &'static crate::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary {
+    use crate::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
+    use std::sync::OnceLock;
+
+    static MODEL: OnceLock<LoadedOwlVocabulary> = OnceLock::new();
+    MODEL.get_or_init(|| {
+        // Fast path (feature `prx`): the bundled compact `.prx.gz` — gunzip +
+        // succinct decode, NO 1.2 MB OWL re-parse. The OWL sibling of
+        // `english_loaded()`'s compact-archive fast load. A corrupt artifact is
+        // rejected by rkyv validation and falls through to the OWL parse;
+        // `bundled_prx_matches_the_owl` guards against a stale artifact.
+        #[cfg(feature = "prx")]
+        {
+            const PRX_GZ: &[u8] = include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/data/ontologies/olia-2026-04-09.prx.gz"
+            ));
+            if let Ok(vocab) =
+                crate::social::software::markup::xml::owl::prx::load_compact_prx_gz(PRX_GZ)
+            {
+                return vocab;
+            }
+        }
+        // Authoritative path: parse the bundled OWL (always correct; the only
+        // path without the `prx` feature).
+        const OWL: &str = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/ontologies/olia-2026-04-09.owl"
+        ));
+        let ont = crate::social::software::markup::xml::owl::reader::read_owl(OWL).expect(
+            "bundled crates/domains/data/ontologies/olia-2026-04-09.owl failed to \
+             parse — build-time invariant violated",
+        );
+        LoadedOwlVocabulary::from_owl_ontology(&ont)
+    })
+}
+
+/// True iff `fragment` names a class that resolves in the loaded OLiA Reference
+/// Model — the runtime grounding check that a class identity is a real loaded
+/// OLiA Concept, not an arbitrary string.
+#[cfg(feature = "std")]
+pub fn is_loaded_class(fragment: &str) -> bool {
+    reference_model().find(&class_iri(fragment)).is_some()
+}
+
 /// Map an OLiA class fragment (the part after #) to a PosTag.
-fn from_fragment(fragment: &str) -> Option<PosTag> {
+///
+/// The single authority on which OLiA class fragments praxis recognizes;
+/// the loaded [`reference_model`] is the ontology these fragments name.
+pub fn from_fragment(fragment: &str) -> Option<PosTag> {
     match fragment {
         // Noun hierarchy
         "Noun"
@@ -376,5 +445,71 @@ mod tests {
             let unique: alloc::collections::BTreeSet<&&str> = frags.iter().collect();
             prop_assert_eq!(unique.len(), frags.len());
         }
+    }
+}
+
+#[cfg(all(test, feature = "prx"))]
+mod prx_fast_load {
+    use super::*;
+    use crate::social::software::markup::xml::owl::prx::{build_envelope, emit_compact_prx_gz};
+
+    const OLIA_OWL: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/ontologies/olia-2026-04-09.owl"
+    ));
+
+    /// Regenerate the bundled compact `.prx.gz` from the authoritative OWL.
+    /// `#[ignore]` — run manually (`cargo test -p pr4xis-domains -- --ignored
+    /// regenerate_olia_compact_prx`) when the OWL changes; the committed
+    /// artifact is what `reference_model` loads at runtime.
+    #[test]
+    #[ignore]
+    fn regenerate_olia_compact_prx() {
+        let env = build_envelope(
+            OLIA_OWL.as_bytes(),
+            "olia",
+            "2026-04-09",
+            "http://purl.org/olia/olia.owl",
+        )
+        .expect("build OLiA envelope");
+        let prx_gz = emit_compact_prx_gz(&env.data).expect("emit compact OLiA .prx.gz");
+        let out = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/ontologies/olia-2026-04-09.prx.gz"
+        );
+        std::fs::write(out, &prx_gz).expect("write bundled OLiA .prx.gz");
+    }
+
+    /// The runtime loads OLiA and resolves the interrogative classes the
+    /// OLiA→CCG functor keys on (fast path once the `.prx.gz` is wired in).
+    #[test]
+    fn resolves_the_interrogative_classes() {
+        for fragment in [
+            "InterrogativePronoun",
+            "InterrogativeAdverb",
+            "InterrogativeDeterminer",
+        ] {
+            assert!(
+                is_loaded_class(fragment),
+                "{fragment} must resolve in the loaded OLiA Reference Model"
+            );
+        }
+    }
+
+    /// The bundled compact `.prx.gz` is faithful to the authoritative OWL — the
+    /// class set the fast path loads equals what parsing the OWL yields, so a
+    /// stale artifact (OWL changed, `.prx.gz` not regenerated) is caught. Loads
+    /// both ONCE in this test only; every other consumer uses the fast path.
+    #[test]
+    fn bundled_prx_matches_the_owl() {
+        use crate::social::software::markup::xml::owl::reader::read_owl;
+        use crate::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
+        let from_owl =
+            LoadedOwlVocabulary::from_owl_ontology(&read_owl(OLIA_OWL).expect("parse OWL"));
+        assert_eq!(
+            reference_model().entity_count(),
+            from_owl.entity_count(),
+            "bundled OLiA .prx.gz is stale — regenerate with `--ignored regenerate_olia_compact_prx`"
+        );
     }
 }

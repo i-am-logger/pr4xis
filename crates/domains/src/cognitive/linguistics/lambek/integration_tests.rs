@@ -376,6 +376,58 @@ mod tests {
     }
 
     // =========================================================================
+    // Wh-questions via the loaded OLiA→CCG functor (no Rust wh-word list, no
+    // wh_what() constant): the word→OLiA-class binding is loaded data, the
+    // class→category projection is the loaded Connection functor, and the
+    // category reduces the sentence. Pronoun / determiner / adverb each.
+    // =========================================================================
+
+    #[test]
+    fn what_is_a_dog_via_the_functor() {
+        // Pronoun: "what" → InterrogativePronoun → S[wq]/(NP\S), through the
+        // loaded functor (this is the same surface as what_is_a_dog, asserted
+        // here as the functor path's pronoun case).
+        let en = english();
+        assert!(
+            parses_as_question(en, "what is a dog"),
+            "FAILED: {}",
+            tokens_debug(en, "what is a dog")
+        );
+    }
+
+    #[test]
+    fn which_dog_is_a_mammal() {
+        // Determiner: "which" → InterrogativeDeterminer → (S[wq]/(NP\S))/N.
+        let en = english();
+        assert!(
+            parses_as_question(en, "which dog is a mammal"),
+            "FAILED: {}",
+            tokens_debug(en, "which dog is a mammal")
+        );
+    }
+
+    #[test]
+    fn where_is_the_dog() {
+        // Adverb: "where" → InterrogativeAdverb → S[wq]/(S[q]/PP); the fronted
+        // adverb licenses the inverted PP-gap copula (S[q]/PP)/NP so it reduces.
+        let en = english();
+        assert!(
+            parses_as_question(en, "where is the dog"),
+            "FAILED: {}",
+            tokens_debug(en, "where is the dog")
+        );
+    }
+
+    #[test]
+    fn when_why_how_questions_reduce() {
+        // The rest of the interrogative adverbs, same mechanism (#169 follow-on).
+        let en = english();
+        for s in ["when is the game", "why is the dog", "how is the cat"] {
+            assert!(parses_as_question(en, s), "FAILED: {}", tokens_debug(en, s));
+        }
+    }
+
+    // =========================================================================
     // Debug: show what types the tokenizer assigns with full WordNet
     // =========================================================================
 

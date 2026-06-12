@@ -84,6 +84,11 @@ pub struct Determiner {
     pub text: String,
     pub definiteness: Definiteness,
     pub number: Option<Number>,
+    /// The loaded OLiA class fragment (e.g. `InterrogativeDeterminer`), if this
+    /// determiner carries one — the universal grammatical-class identity the
+    /// OLiA→CCG functor projects to a category. `None` for an ordinary
+    /// determiner. Decoded once from the LMF `Sense.subcat`.
+    pub olia_class: Option<String>,
 }
 
 /// An adjective: "big", "red", "happy".
@@ -96,6 +101,11 @@ pub struct Adjective {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Adverb {
     pub text: String,
+    /// The loaded OLiA class fragment (e.g. `InterrogativeAdverb`), if this
+    /// adverb carries one — the slot a plain adverb lacked, so an interrogative
+    /// adverb (`where`/`when`/`why`/`how`) is no longer dropped or mistyped.
+    /// `None` for an ordinary adverb. Decoded once from the LMF `Sense.subcat`.
+    pub olia_class: Option<String>,
 }
 
 /// A preposition: "in", "on", "with".
@@ -135,6 +145,11 @@ pub struct Pronoun {
     pub number: Number,
     pub person: Person,
     pub kind: PronounKind,
+    /// The loaded OLiA class fragment (e.g. `InterrogativePronoun`), if this
+    /// pronoun carries one — the universal grammatical-class identity the
+    /// OLiA→CCG functor projects to a category. `None` for an ordinary pronoun.
+    /// Decoded once from the LMF `Sense.subcat`.
+    pub olia_class: Option<String>,
 }
 
 /// A copula: "is", "are", "was", "were".
@@ -271,13 +286,25 @@ impl LexicalEntry {
         }
     }
 
-    /// Is this an interrogative pronoun?
-    /// Determined by the OLiA classification, not by the word itself.
-    pub fn is_interrogative(&self) -> bool {
+    /// The loaded OLiA class fragment this entry carries, if any — the
+    /// universal grammatical-class identity (e.g. `InterrogativeAdverb`) the
+    /// OLiA→CCG functor projects to a category. Carried on the Pronoun /
+    /// Adverb / Determiner carriers, decoded once from the LMF `Sense.subcat`.
+    pub fn olia_class(&self) -> Option<&str> {
         match self {
-            Self::Pronoun(p) => p.kind == PronounKind::Interrogative,
-            _ => false,
+            Self::Pronoun(p) => p.olia_class.as_deref(),
+            Self::Adverb(a) => a.olia_class.as_deref(),
+            Self::Determiner(d) => d.olia_class.as_deref(),
+            _ => None,
         }
+    }
+
+    /// Is this an interrogative word? A typed query over the loaded OLiA class
+    /// (any `Interrogative*` fragment), across pronouns, adverbs, AND
+    /// determiners — not a Pronoun-only enum-flag compare.
+    pub fn is_interrogative(&self) -> bool {
+        self.olia_class()
+            .is_some_and(|c| c.starts_with("Interrogative"))
     }
 
     pub fn pos_tag(&self) -> PosTag {

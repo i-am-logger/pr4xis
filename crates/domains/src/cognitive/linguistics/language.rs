@@ -254,12 +254,16 @@ pub fn lmf_pos_to_lexical_entries(
         lmf::LmfPos::Adjective | lmf::LmfPos::SatelliteAdjective => {
             vec![LexicalEntry::Adjective(Adjective { text: word.into() })]
         }
-        lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb { text: word.into() })],
+        lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb {
+            text: word.into(),
+            olia_class: None,
+        })],
         lmf::LmfPos::Determiner | lmf::LmfPos::Numeral => {
             vec![LexicalEntry::Determiner(Determiner {
                 text: word.into(),
                 definiteness: Definiteness::Indefinite,
                 number: None,
+                olia_class: None,
             })]
         }
         lmf::LmfPos::Pronoun => vec![LexicalEntry::Pronoun(Pronoun {
@@ -267,6 +271,7 @@ pub fn lmf_pos_to_lexical_entries(
             kind: PronounKind::Personal,
             number: Number::Singular,
             person: Person::Third,
+            olia_class: None,
         })],
         lmf::LmfPos::Preposition => {
             vec![LexicalEntry::Preposition(Preposition { text: word.into() })]
@@ -408,35 +413,23 @@ pub fn build_verb_transitivity(
     result
 }
 
-/// Build function words from LMF data file.
-///
-/// Parses the same LMF format as WordNet — function words are DATA,
-/// not hardcoded Rust. The synset IDs encode linguistic features
-/// (OLiA categories: definite-det, personal-pron, greeting, etc.).
-///
-/// Falls back to embedded XML if the data file is not found.
+/// Build the English function-word lexicon from the bundled LMF data
+/// (`data/function-words/english.xml`), `include_str!`'d so there is ONE loaded
+/// source — no disk-path probing, no stale embedded duplicate (the
+/// `["what","who","which"]` hand-list that drifted from the 9-word file). Same
+/// idiom as [`operators::load`](crate::cognitive::linguistics::lambek::operators::load):
+/// the bundle ships with praxis, so a parse failure is a build-time invariant.
+/// Function words are DATA; the interrogative class rides each `Sense.subcat`.
 pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
-    // Try loading from data file first
-    #[cfg(feature = "std")]
-    {
-        let data_paths = [
-            "crates/domains/data/function-words/english.xml",
-            "data/function-words/english.xml",
-            "../domains/data/function-words/english.xml",
-        ];
-
-        for path in &data_paths {
-            if let Ok(xml) = std::fs::read_to_string(path)
-                && let Ok(wn) =
-                    crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml)
-            {
-                return function_words_from_lmf(&wn);
-            }
-        }
-    }
-
-    // Fallback: embedded minimal LMF for when data file isn't available (tests, WASM)
-    build_english_function_words_embedded()
+    const XML: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/function-words/english.xml"
+    ));
+    let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML).expect(
+        "bundled crates/domains/data/function-words/english.xml failed to parse — \
+         build-time invariant violated",
+    );
+    function_words_from_lmf(&wn)
 }
 
 /// Parse function words from an LMF WordNet instance.
@@ -462,6 +455,12 @@ fn function_words_from_lmf(
             .map(|s| s.synset.as_str())
             .unwrap_or("");
 
+        // The loaded OLiA class fragment, decoded ONCE from the Sense `subcat`
+        // (the universal grammatical-class identity); the OLiA→CCG functor
+        // projects it to a category. The interrogative dispatch is this typed
+        // value, not a `synset_id.contains("interrogative")` substring test.
+        let olia_class = entry.senses.first().and_then(|s| s.subcat.first()).cloned();
+
         let lexical_entry = match entry.lemma.pos {
             lmf::LmfPos::Determiner => {
                 let definiteness =
@@ -478,6 +477,7 @@ fn function_words_from_lmf(
                     text: word.clone(),
                     definiteness,
                     number: None,
+                    olia_class: olia_class.clone(),
                 })
             }
             lmf::LmfPos::Copula => LexicalEntry::Copula(Copula {
@@ -492,7 +492,9 @@ fn function_words_from_lmf(
                 tense: None,
             }),
             lmf::LmfPos::Pronoun => {
-                let kind = if synset_id.contains("interrogative") {
+                // Interrogative-ness is the loaded OLiA class, not a synset
+                // substring test.
+                let kind = if olia_class.as_deref() == Some("InterrogativePronoun") {
                     PronounKind::Interrogative
                 } else {
                     PronounKind::Personal
@@ -502,8 +504,16 @@ fn function_words_from_lmf(
                     number: Number::Singular,
                     person: Person::Third,
                     kind,
+                    olia_class: olia_class.clone(),
                 })
             }
+            // Interrogative adverbs (where/when/why/how) are closed-class
+            // function words carrying an OLiA class — retained, not dropped by
+            // the `_ => continue` below (the silent-drop the redesign removes).
+            lmf::LmfPos::Adverb => LexicalEntry::Adverb(Adverb {
+                text: word.clone(),
+                olia_class: olia_class.clone(),
+            }),
             lmf::LmfPos::Preposition => {
                 LexicalEntry::Preposition(Preposition { text: word.clone() })
             }
@@ -533,145 +543,6 @@ fn function_words_from_lmf(
 
         let _ = synset_ids; // used for future feature expansion
         map.entry(word).or_default().push(lexical_entry);
-    }
-
-    map
-}
-
-/// Embedded function words — used when data file is not available.
-/// Same content as data/function-words/english.xml, but inline.
-fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>> {
-    let mut map: HashMap<String, Vec<LexicalEntry>> = HashMap::new();
-
-    let mut add = |entry: LexicalEntry| {
-        let text = entry.text().to_string();
-        map.entry(text).or_default().push(entry);
-    };
-
-    // ---- Determiners (OLiA: Determiner) ----
-    for (text, def, num) in [
-        ("the", Definiteness::Definite, None),
-        ("a", Definiteness::Indefinite, Some(Number::Singular)),
-        ("an", Definiteness::Indefinite, Some(Number::Singular)),
-        ("this", Definiteness::Demonstrative, Some(Number::Singular)),
-        ("that", Definiteness::Demonstrative, Some(Number::Singular)),
-        ("these", Definiteness::Demonstrative, Some(Number::Plural)),
-        ("those", Definiteness::Demonstrative, Some(Number::Plural)),
-        ("every", Definiteness::Quantifier, Some(Number::Singular)),
-        ("some", Definiteness::Quantifier, None),
-        ("no", Definiteness::Quantifier, None),
-        ("all", Definiteness::Quantifier, Some(Number::Plural)),
-        ("any", Definiteness::Quantifier, None),
-        ("each", Definiteness::Quantifier, Some(Number::Singular)),
-    ] {
-        add(LexicalEntry::Determiner(Determiner {
-            text: text.into(),
-            definiteness: def,
-            number: num,
-        }));
-    }
-
-    // ---- Copulas (OLiA: Copula) ----
-    for (text, num, per, tense) in [
-        ("is", Number::Singular, Person::Third, Tense::Present),
-        ("are", Number::Plural, Person::Third, Tense::Present),
-        ("am", Number::Singular, Person::First, Tense::Present),
-        ("was", Number::Singular, Person::Third, Tense::Past),
-        ("were", Number::Plural, Person::Third, Tense::Past),
-    ] {
-        add(LexicalEntry::Copula(Copula {
-            text: text.into(),
-            number: num,
-            person: per,
-            tense,
-        }));
-    }
-
-    // ---- Auxiliaries (OLiA: AuxiliaryVerb) ----
-    for text in [
-        "has", "have", "had", "do", "does", "did", "will", "would", "can", "could", "shall",
-        "should", "may", "might", "must",
-    ] {
-        add(LexicalEntry::Auxiliary(Auxiliary {
-            text: text.into(),
-            number: None,
-            tense: None,
-        }));
-    }
-
-    // ---- Personal Pronouns (OLiA: PersonalPronoun) ----
-    for (text, num, per) in [
-        ("i", Number::Singular, Person::First),
-        ("you", Number::Singular, Person::Second),
-        ("he", Number::Singular, Person::Third),
-        ("she", Number::Singular, Person::Third),
-        ("it", Number::Singular, Person::Third),
-        ("we", Number::Plural, Person::First),
-        ("they", Number::Plural, Person::Third),
-        ("me", Number::Singular, Person::First),
-        ("him", Number::Singular, Person::Third),
-        ("her", Number::Singular, Person::Third),
-        ("us", Number::Plural, Person::First),
-        ("them", Number::Plural, Person::Third),
-    ] {
-        add(LexicalEntry::Pronoun(Pronoun {
-            text: text.into(),
-            number: num,
-            person: per,
-            kind: PronounKind::Personal,
-        }));
-    }
-
-    // ---- Interrogative Pronouns (OLiA: InterrogativePronoun) ----
-    for text in ["what", "who", "which"] {
-        add(LexicalEntry::Pronoun(Pronoun {
-            text: text.into(),
-            number: Number::Singular,
-            person: Person::Third,
-            kind: PronounKind::Interrogative,
-        }));
-    }
-
-    // ---- Prepositions (OLiA: Preposition) ----
-    for text in [
-        "in", "on", "at", "with", "to", "from", "by", "for", "of", "about", "into", "through",
-        "during", "before", "after", "above", "below", "between", "under", "over",
-    ] {
-        add(LexicalEntry::Preposition(Preposition { text: text.into() }));
-    }
-
-    // ---- Conjunctions (OLiA: Conjunction) ----
-    for text in [
-        "and", "but", "or", "so", "yet", "nor", "because", "although", "if", "when",
-    ] {
-        add(LexicalEntry::Conjunction(Conjunction { text: text.into() }));
-    }
-
-    // ---- Particles (OLiA: Particle) ----
-    for text in ["not", "to"] {
-        add(LexicalEntry::Particle(Particle { text: text.into() }));
-    }
-
-    // ---- Interjections (OLiA: Interjection) — classified by function ----
-    for (text, kind) in [
-        ("hello", InterjectionKind::Greeting),
-        ("hi", InterjectionKind::Greeting),
-        ("hey", InterjectionKind::Greeting),
-        ("goodbye", InterjectionKind::Farewell),
-        ("bye", InterjectionKind::Farewell),
-        ("quit", InterjectionKind::Farewell),
-        ("exit", InterjectionKind::Farewell),
-        ("oh", InterjectionKind::Expressive),
-        ("wow", InterjectionKind::Expressive),
-        ("yes", InterjectionKind::Response),
-        ("no", InterjectionKind::Response),
-        ("please", InterjectionKind::Politeness),
-        ("thanks", InterjectionKind::Politeness),
-    ] {
-        add(LexicalEntry::Interjection(Interjection {
-            text: text.into(),
-            kind,
-        }));
     }
 
     map

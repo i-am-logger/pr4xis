@@ -1,5 +1,7 @@
+pub mod category_projection;
 pub mod integration_tests;
 pub mod montague;
+pub mod notation_parser;
 pub mod ontology;
 pub mod operators;
 pub mod pregroup;
