@@ -5,25 +5,62 @@
 # Each row is one generator of the functor: an OLiA Reference-Model class
 # (universal, cross-linguistic; the KEY) ↦ its CCG category in standard CCGbank
 # notation (the VALUE; parsed to a LambekType by the notation parser). Only the
-# word→class binding is language-specific (data/function-words/english.xml); this
-# class→category map is language-agnostic in its key and CCGbank-grounded in its
-# value.
+# word→class binding is language-specific (data/function-words/english.xml +
+# WordNet POS); this class→category map is language-agnostic in its key and
+# CCGbank-grounded in its value.
+#
+# Format: <OLiA-class-fragment> <TAB> <CCG-notation> [<TAB> <OLiA-valency-class>]
+#   The optional third column is a second OLiA coordinate (a ValencyFeature
+#   class — Transitive/Intransitive/Ditransitive) for categories fixed by the
+#   PRODUCT MorphosyntacticCategory × ValencyFeature (verbs). Both coordinates
+#   are loaded OLiA classes (validated at load); the value is CCGbank-grounded.
+#   This is the `operators::derive_lambek(arity, result)` pattern — a second
+#   loaded coordinate, not a hidden match.
 #
 # Sources:
 #   • Classes: OLiA Reference Model (Chiarcos & Sukhareva 2015, Semantic Web
 #     6(4), doi:10.3233/SW-140167), bundled data/ontologies/olia-2026-04-09.owl;
-#     each fragment must resolve in that ontology (asserted at load).
+#     each fragment resolves in that ontology (asserted at load). Valency:
+#     Transitive/Intransitive/Ditransitive ⊑ olia.owl#ValencyFeature.
 #   • Categories: CCGbank (Hockenmaier & Steedman 2007, Computational
-#     Linguistics 33(3)) + the C&C `markedup` category inventory; wh categories
-#     are the standard subject-extraction / determiner / adjunct-extraction forms.
+#     Linguistics 33(3)) + the C&C `markedup` category inventory.
 #
-# This is the interrogative vertical slice (the first generators). The remaining
-# POS rows that pos_to_lambek still hardcodes migrate here additively — exactly
-# as wordnet_to_praxis_functor began with the is-a generator only (issue: full
-# pos_to_lambek migration + full markedup).
-#
-# Format: <OLiA-class-fragment> <TAB> <CCG-category-notation>   (# = comment)
+# Notation uses BARE `S` (not S[dcl]) to match the existing svo:: constructors
+# (verified by the round-trip oracle test parse_category(row) == svo::x()).
 
+# ── Open class (content words; keyed via PosTag → pos_to_olia_fragments[0]) ──
+Noun	N
+Verb	NP\S	Intransitive
+Verb	(NP\S)/NP	Transitive
+Verb	((NP\S)/NP)/NP	Ditransitive
+Adjective	N/N
+Adverb	(NP\S)\(NP\S)
+Pronoun	NP
+
+# ── Closed class ──
+Determiner	NP/N
+Numeral	NP/N
+Preposition	(NP\NP)/NP
+
+# ── Interrogatives (the wh slice; function-word `subcat` keys these) ──
 InterrogativePronoun	S[wq]/(NP\S)
 InterrogativeDeterminer	S[wq]/(NP\S)/N
 InterrogativeAdverb	S[wq]/(S[q]/PP)
+
+# ── Relative pro-forms (OLiA Relative*; who/which/that — CCGbank §relative).
+# Subject relative `(NP\NP)/(NP\S)` reduces by plain application ("the dog that
+# runs" → NP). The OBJECT relative `(NP\NP)/(S/NP)` is a tracked follow-up: its
+# `S/NP` gap needs forward composition + subject type-raising, a core-reducer
+# extension not in this slice — so its row is omitted rather than loaded inert. ──
+RelativePronoun	(NP\NP)/(NP\S)
+
+# ── PROVISIONAL ──────────────────────────────────────────────────────────────
+# Coarse placeholders preserving the pre-migration `pos_to_lambek` defaults.
+# NOT CCGbank-faithful (the citation above does NOT cover these four) — carried
+# as DATA so they are fixable without code, and tracked for refinement. Auxiliary
+# is a VP-taker, Conjunction is schematic (X\X)/X (not a fixed-atom row),
+# Interjection/Particle are coarse; refining them is a follow-up, not a Rust arm.
+AuxiliaryVerb	NP\S
+Conjunction	N
+Interjection	N
+Particle	(NP\S)\(NP\S)

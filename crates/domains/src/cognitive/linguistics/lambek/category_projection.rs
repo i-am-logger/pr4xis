@@ -34,56 +34,77 @@ use alloc::{
 use super::notation_parser::parse_category;
 use super::types::LambekType;
 
-#[cfg(feature = "std")]
 use crate::cognitive::linguistics::lexicon::olia;
-#[cfg(feature = "std")]
 use pr4xis_runtime::connection::{Connection, GeneratorAction};
 
-/// The loaded OLiA→CCG lexical-category functor, cached for the process.
+/// Build the loaded OLiA→CCG functor from the bundled cited TSV.
 ///
-/// Each row is validated at load (a build-time invariant — the artifact ships
-/// with praxis): the OLiA class must resolve in the loaded Reference Model
-/// ([`olia::is_loaded_class`]) and the CCG category must parse. A failure panics
-/// rather than silently dropping a generator.
-#[cfg(feature = "std")]
-pub fn olia_ccg_functor() -> &'static Connection {
-    use std::sync::OnceLock;
-    static FUNCTOR: OnceLock<Connection> = OnceLock::new();
-    FUNCTOR.get_or_init(|| {
-        const TSV: &str = include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/data/grammar/olia-ccg-categories.tsv"
-        ));
-        let mut map_object: Vec<(String, String)> = Vec::new();
-        for line in TSV.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let mut cols = line.split('\t').map(str::trim);
-            let fragment = cols.next().expect("a row carries an OLiA class fragment");
-            let notation = cols.next().expect("a row carries a CCG category notation");
+/// `no_std`-capable: the functor's LOOKUP (fragment → category) needs no OLiA —
+/// only its build-time VALIDATION does (that each key is a real loaded OLiA
+/// class, the O1 grounding), which is gated to `std`. Under `no_std` the
+/// fragment is carried as a wire string, unvalidated — a tracked degradation,
+/// the same one the rest of the `std`-only OLiA path has. The CCG category must
+/// always parse (a build invariant on both paths).
+fn build_functor() -> Connection {
+    const TSV: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/grammar/olia-ccg-categories.tsv"
+    ));
+    let mut map_object: Vec<(String, String)> = Vec::new();
+    for line in TSV.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut cols = line.split('\t').map(str::trim);
+        let fragment = cols.next().expect("a row carries an OLiA class fragment");
+        let notation = cols.next().expect("a row carries a CCG category notation");
+        // Optional 2nd OLiA coordinate (a ValencyFeature class) for
+        // product-keyed categories (verbs).
+        let valency = cols.next().filter(|v| !v.is_empty());
+        assert!(
+            parse_category(notation).is_some(),
+            "CCG category {notation:?} for {fragment:?} does not parse"
+        );
+        #[cfg(feature = "std")]
+        {
             assert!(
                 olia::is_loaded_class(fragment),
                 "OLiA class {fragment:?} does not resolve in the loaded Reference Model"
             );
-            assert!(
-                parse_category(notation).is_some(),
-                "CCG category {notation:?} for {fragment:?} does not parse"
-            );
-            map_object.push((olia::class_iri(fragment), notation.to_string()));
+            if let Some(v) = valency {
+                assert!(
+                    olia::is_loaded_class(v),
+                    "OLiA valency class {v:?} does not resolve in the loaded Reference Model"
+                );
+            }
         }
-        Connection {
-            kind: "LexicalAssignment".to_string(),
-            source: "OLiA".to_string(),
-            target: "CCG".to_string(),
-            action: GeneratorAction::Functor {
-                map_object,
-                map_morphism: Vec::new(),
-            },
-            laws: vec!["functor".to_string()],
-        }
-    })
+        // The functor key is the conjunction of OLiA coordinate IRIs,
+        // space-joined (the wire form of the product key).
+        let key = match valency {
+            Some(v) => alloc::format!("{} {}", olia::class_iri(fragment), olia::class_iri(v)),
+            None => olia::class_iri(fragment),
+        };
+        map_object.push((key, notation.to_string()));
+    }
+    Connection {
+        kind: "LexicalAssignment".to_string(),
+        source: "OLiA".to_string(),
+        target: "CCG".to_string(),
+        action: GeneratorAction::Functor {
+            map_object,
+            map_morphism: Vec::new(),
+        },
+        laws: vec!["functor".to_string()],
+    }
+}
+
+/// The loaded OLiA→CCG lexical-category functor, cached for the process (`std`).
+#[cfg(feature = "std")]
+pub fn olia_ccg_functor() -> &'static Connection {
+    use std::sync::OnceLock;
+    static FUNCTOR: OnceLock<Connection> = OnceLock::new();
+    FUNCTOR.get_or_init(build_functor)
 }
 
 /// Interpret the functor: the CCG categories a loaded OLiA class IRI projects
@@ -91,7 +112,6 @@ pub fn olia_ccg_functor() -> &'static Connection {
 /// generator) and lowers each target notation through the parser. A class with
 /// several rows yields several readings (the chart explores them); an unmapped
 /// class yields none.
-#[cfg(feature = "std")]
 pub fn assign_categories(olia_iri: &str, functor: &Connection) -> Vec<LambekType> {
     let GeneratorAction::Functor { map_object, .. } = &functor.action else {
         return Vec::new();
@@ -108,14 +128,27 @@ pub fn assign_categories(olia_iri: &str, functor: &Connection) -> Vec<LambekType
 /// `no_std` (the loaded functor is `std`-only; wh-words degrade to the default
 /// type, a tracked transitional residue).
 pub fn categories_for_class(fragment: &str) -> Vec<LambekType> {
+    categories_for_class_valency(fragment, None)
+}
+
+/// The CCG categories an OLiA class projects to, optionally refined by a second
+/// OLiA coordinate (a ValencyFeature class — `Transitive`/`Intransitive`/
+/// `Ditransitive` for verbs), via the loaded functor. The product key is the
+/// space-joined conjunction of the coordinate IRIs (the `derive_lambek(arity,
+/// result)` pattern as loaded data). Works on `no_std` (rebuilds the small
+/// functor by value, uncached, since there is no global `OnceLock`).
+pub fn categories_for_class_valency(fragment: &str, valency: Option<&str>) -> Vec<LambekType> {
+    let key = match valency {
+        Some(v) => alloc::format!("{} {}", olia::class_iri(fragment), olia::class_iri(v)),
+        None => olia::class_iri(fragment),
+    };
     #[cfg(feature = "std")]
     {
-        assign_categories(&olia::class_iri(fragment), olia_ccg_functor())
+        assign_categories(&key, olia_ccg_functor())
     }
     #[cfg(not(feature = "std"))]
     {
-        let _ = fragment;
-        Vec::new()
+        assign_categories(&key, &build_functor())
     }
 }
 
@@ -133,10 +166,19 @@ mod tests {
         let GeneratorAction::Functor { map_object, .. } = &f.action else {
             panic!("a lexical-assignment functor is a GeneratorAction::Functor");
         };
-        assert_eq!(
-            map_object.len(),
-            3,
-            "the interrogative slice has three generators"
+        // The functor carries the WHOLE lexical-category projection (open +
+        // closed class + interrogatives). Spot-check representative generators
+        // across the classes rather than a brittle count (rule 5).
+        let keys: alloc::vec::Vec<&str> = map_object.iter().map(|(k, _)| k.as_str()).collect();
+        assert!(keys.iter().any(|k| k.ends_with("#Noun")), "open-class noun");
+        assert!(
+            keys.iter()
+                .any(|k| k.contains("#Verb") && k.contains("#Transitive")),
+            "verb × valency product key"
+        );
+        assert!(
+            keys.iter().any(|k| k.ends_with("#InterrogativeAdverb")),
+            "interrogative generator"
         );
         // Keys are full OLiA Reference-Model IRIs, not bare fragments.
         assert!(
@@ -144,6 +186,45 @@ mod tests {
                 .iter()
                 .all(|(k, _)| k.starts_with("http://purl.org/olia/olia.owl#"))
         );
+    }
+
+    /// THE ORACLE: every loaded POS row projects to exactly the `svo::`
+    /// constructor the old `pos_to_lambek` match produced — pinning the TSV
+    /// notation strings to the categories, so a wrong-notation row fails HERE
+    /// (before any sentence test) and the `pos_to_lambek` migration is proven
+    /// behavior-preserving. Bare-`S` (not `S[dcl]`) is the trap this guards.
+    #[test]
+    fn the_pos_rows_recover_the_svo_categories() {
+        assert_eq!(categories_for_class("Noun"), vec![svo::noun()]);
+        assert_eq!(
+            categories_for_class_valency("Verb", Some("Intransitive")),
+            vec![svo::intransitive_verb()]
+        );
+        assert_eq!(
+            categories_for_class_valency("Verb", Some("Transitive")),
+            vec![svo::transitive_verb()]
+        );
+        assert_eq!(
+            categories_for_class_valency("Verb", Some("Ditransitive")),
+            vec![svo::ditransitive_verb()]
+        );
+        assert_eq!(categories_for_class("Determiner"), vec![svo::determiner()]);
+        assert_eq!(categories_for_class("Numeral"), vec![svo::determiner()]);
+        assert_eq!(categories_for_class("Adjective"), vec![svo::adjective()]);
+        assert_eq!(categories_for_class("Adverb"), vec![svo::adverb()]);
+        assert_eq!(
+            categories_for_class("Preposition"),
+            vec![svo::preposition()]
+        );
+        assert_eq!(categories_for_class("Pronoun"), vec![svo::proper_noun()]);
+        // PROVISIONAL rows preserve the pre-migration defaults.
+        assert_eq!(
+            categories_for_class("AuxiliaryVerb"),
+            vec![svo::intransitive_verb()]
+        );
+        assert_eq!(categories_for_class("Conjunction"), vec![svo::noun()]);
+        assert_eq!(categories_for_class("Interjection"), vec![svo::noun()]);
+        assert_eq!(categories_for_class("Particle"), vec![svo::adverb()]);
     }
 
     #[test]

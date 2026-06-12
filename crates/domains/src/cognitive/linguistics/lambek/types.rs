@@ -237,6 +237,14 @@ pub fn types_match(a: &LambekType, b: &LambekType) -> bool {
 /// Uses feature unification: S(None) matches any S(Some(_)).
 ///
 /// Returns the result type if reduction succeeds, None if types don't combine.
+///
+/// Application only — NO composition / type-raising. SUBJECT relative clauses
+/// reduce here by plain application (`the dog that runs` → NP). OBJECT relatives
+/// need forward composition (`>B`) AND subject type-raising to build the `S/NP`
+/// gap; adding `>B` alone both over-generates (regressed a taxonomy answer) and
+/// is insufficient without type-raising, so the combinator extension is a
+/// tracked grammar slice, not bundled here (the object-relative category loads
+/// but does not yet reduce).
 pub fn reduce(left: &LambekType, right: &LambekType) -> Option<LambekType> {
     // Forward application: (A/B) + B → A
     if let LambekType::RightDiv(a, b) = left

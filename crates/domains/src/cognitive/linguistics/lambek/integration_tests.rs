@@ -428,6 +428,25 @@ mod tests {
     }
 
     // =========================================================================
+    // Relative clauses (loaded RelativePronoun categories + forward composition).
+    // Subject relatives reduce by application; the relative pronoun's category
+    // comes from the loaded OLiA→CCG functor, same as everything else.
+    // =========================================================================
+
+    #[test]
+    fn a_subject_relative_clause_reduces() {
+        // "the dog that runs" : the(NP/N) dog(N) that((NP\NP)/(NP\S)) runs(NP\S)
+        //   → "the dog":NP, "that runs":NP\NP, "the dog that runs":NP, then the
+        //   object of a transitive verb → a full sentence S.
+        let en = english();
+        assert!(
+            parses(en, "she sees the dog that runs"),
+            "FAILED: {}",
+            tokens_debug(en, "she sees the dog that runs")
+        );
+    }
+
+    // =========================================================================
     // Debug: show what types the tokenizer assigns with full WordNet
     // =========================================================================
 
