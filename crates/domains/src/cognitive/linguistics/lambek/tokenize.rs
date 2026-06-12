@@ -21,13 +21,18 @@ use pr4xis::category::entity::Concept;
 /// Unknown words go through the noisy channel adjunction:
 /// Observation → closest_matches → corrected word's type.
 pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
-    let vocab = operators::load();
-    let mut tokens: Vec<TypedToken> = surface_tokens(text, &vocab)
+    #[cfg(feature = "std")]
+    let vocab = operators::vocabulary();
+    #[cfg(not(feature = "std"))]
+    let owned_vocab = operators::load();
+    #[cfg(not(feature = "std"))]
+    let vocab = &owned_vocab;
+    let mut tokens: Vec<TypedToken> = surface_tokens(text, vocab)
         .iter()
         .enumerate()
         .map(|(i, word)| {
             let lower = word.to_lowercase();
-            let lambek_type = assign_type(&lower, i, language, &vocab);
+            let lambek_type = assign_type(&lower, i, language, vocab);
             TypedToken {
                 word: lower,
                 lambek_type,
@@ -52,9 +57,19 @@ pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
 fn surface_tokens(text: &str, vocab: &OperatorVocabulary) -> Vec<String> {
     let mut out = Vec::new();
     for word in text.split_whitespace() {
+        let chars: Vec<char> = word.chars().collect();
         let mut buf = String::new();
-        for c in word.chars() {
-            if vocab.is_operator_glyph(c) {
+        for (i, &c) in chars.iter().enumerate() {
+            // A loaded operator glyph splits out ONLY in a math/standalone
+            // context, NEVER when it sits BETWEEN two letters — `-` and `/` are
+            // operators, but `well-being` / `and/or` / `x-ray` are single words.
+            // So `10+10`, `10-10`, and a standalone `+` split; internal
+            // letter-flanked punctuation stays in the word.
+            let between_letters = i > 0
+                && chars[i - 1].is_alphabetic()
+                && i + 1 < chars.len()
+                && chars[i + 1].is_alphabetic();
+            if vocab.is_operator_glyph(c) && !between_letters {
                 flush_word(&mut buf, vocab, &mut out);
                 out.push(c.to_string());
             } else {
@@ -85,8 +100,13 @@ pub fn tokenize_with_alternatives(
     text: &str,
     language: &dyn Language,
 ) -> (Vec<TypedToken>, Vec<Vec<LambekType>>) {
-    let vocab = operators::load();
-    let words = surface_tokens(text, &vocab);
+    #[cfg(feature = "std")]
+    let vocab = operators::vocabulary();
+    #[cfg(not(feature = "std"))]
+    let owned_vocab = operators::load();
+    #[cfg(not(feature = "std"))]
+    let vocab = &owned_vocab;
+    let words = surface_tokens(text, vocab);
 
     // A fronted interrogative ADVERB (where/when/why/how) licenses subject-aux
     // inversion, so the copula can derive S[q]/PP (question_copula_pp) and the
@@ -108,7 +128,7 @@ pub fn tokenize_with_alternatives(
         let all_entries = language.lexical_lookup_all(&lower);
 
         // Primary type assignment
-        let primary_type = assign_type(&lower, i, language, &vocab);
+        let primary_type = assign_type(&lower, i, language, vocab);
 
         // Alternative types from all entries
         let mut alt_types: Vec<LambekType> = all_entries
@@ -171,13 +191,18 @@ pub fn tokenize_with_alternatives(
 /// Each token carries its lexical sense (which ontology concept the word
 /// references) and its POS tag, in addition to the Lambek type.
 pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
-    let vocab = operators::load();
-    let mut tokens: Vec<Token> = surface_tokens(text, &vocab)
+    #[cfg(feature = "std")]
+    let vocab = operators::vocabulary();
+    #[cfg(not(feature = "std"))]
+    let owned_vocab = operators::load();
+    #[cfg(not(feature = "std"))]
+    let vocab = &owned_vocab;
+    let mut tokens: Vec<Token> = surface_tokens(text, vocab)
         .iter()
         .enumerate()
         .map(|(i, word)| {
             let lower = word.to_lowercase();
-            let lambek_type = assign_type(&lower, i, language, &vocab);
+            let lambek_type = assign_type(&lower, i, language, vocab);
 
             let entry = language.lexical_lookup(&lower);
             let pos = entry.as_ref().map(|e| e.pos_tag());
