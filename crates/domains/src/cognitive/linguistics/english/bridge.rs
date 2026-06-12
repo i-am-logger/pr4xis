@@ -1,22 +1,25 @@
 //! The WordNet → `.prx` bridge — project the loaded [`English`] domain struct
-//! into a content-addressed runtime [`Archive`], then relabel it into the
-//! praxis schema with a projection carried AS DATA.
+//! into a content-addressed runtime [`Archive`](pr4xis_runtime::archive::Archive),
+//! then relabel it into the praxis schema with a projection carried AS DATA.
 //!
 //! This is the domains half of the B1 engine bridge (#87): it dissolves the
 //! SUBSTRATE SPLIT. `english_loaded()` hands back an [`English`] — a closed
 //! domain struct whose synsets are positional `Reference<4>` indices and whose
-//! relations are typed `HashMap`s. That is NOT a runtime [`Archive`], so a
-//! generic engine has no addressable atom to point at and no traverser to
-//! follow. [`project_archive`] is the functor `English → Archive` that gives
-//! each synset a definition-bearing [`ContentAddress`](pr4xis_runtime::address)
-//! and re-expresses its hypernym links as runtime edges.
+//! relations are typed `HashMap`s. That is NOT a runtime
+//! [`Archive`](pr4xis_runtime::archive::Archive), so a generic engine has no
+//! addressable atom to point at and no traverser to follow.
+//! [`project_archive`](crate::cognitive::linguistics::english::bridge::project_archive) is the functor `English → Archive`
+//! that gives each synset a definition-bearing
+//! [`ContentAddress`](pr4xis_runtime::address) and re-expresses its hypernym
+//! links as runtime edges.
 //!
 //! # The relabeling is data, not code
 //!
 //! The projection emits each synset edge under its RAW WordNet relation name
 //! (`hypernym`), NOT a praxis kind. Mapping `hypernym → Subsumption`,
 //! `Synset → Concept` is a separate FUNCTOR carried as `.prx` data
-//! ([`wordnet_to_praxis_functor`]) and interpreted by the one runtime primitive
+//! ([`wordnet_to_praxis_functor`](crate::cognitive::linguistics::english::bridge::wordnet_to_praxis_functor)) and
+//! interpreted by the one runtime primitive
 //! [`apply`](pr4xis_runtime::apply::apply). So the relation-kind table is data
 //! that re-emits to update — never the hardcoded `match rel_type`
 //! (`pr4xis::codegen::wordnet`) the old codegen path baked in.
@@ -172,7 +175,7 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
 /// generators (the finite-presentation theorem), and praxis already serializes
 /// exactly that as [`GeneratorAction::Functor`]. So the map
 /// `Synset ↦ Concept`, `hypernym ↦ Subsumption` is not a compiled `match` — it
-/// is this data, interpreted by [`apply`](pr4xis_runtime::apply::apply) over a
+/// is this data, interpreted by [`apply`] over a
 /// [`project_archive`] source. Re-emitting this node with a different table
 /// (say `hypernym ↦ Parthood`) re-aims the projection without touching code —
 /// the directive "projections live in `.prx`, not code" realized.

@@ -75,7 +75,7 @@ fn a_real_statute_provision_grounds_into_an_english_form_atom() {
         })
         .expect("some statute provision grounds a known English word");
     assert!(
-        matches!(denotes_edge, EdgeTarget::Grounded { .. }),
+        matches!(&denotes_edge, EdgeTarget::Grounded { .. }),
         "the grounding edge is a typed foreign-atom edge"
     );
 

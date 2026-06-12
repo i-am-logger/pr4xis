@@ -1,20 +1,24 @@
-//! USC → [`Archive`] — project a loaded [`UsCode`] into the GENERIC runtime
-//! substrate, the analog of the English bridge
-//! ([`english::bridge`](crate::cognitive::linguistics::english::bridge)).
+//! USC → [`Archive`](pr4xis_runtime::archive::Archive) — project a loaded
+//! [`UsCode`] into the GENERIC runtime substrate, the analog of the English
+//! bridge ([`english::bridge`](crate::cognitive::linguistics::english::bridge)).
 //!
 //! This dissolves the same SUBSTRATE SPLIT B1 dissolved for English: a loaded
 //! `UsCode` is a closed domain struct (`&'static` sections + subdivisions), not a
-//! runtime [`Archive`], so a generic engine has no addressable atom for a statute
-//! provision and no traverser over its structure. [`project_archive`] makes each
-//! section and subdivision a definition-bearing [`Definition`] node (its URN is
-//! its name, its USLM kind its kind, its prose its lexical), and the USLM
-//! Composes hierarchy a [`Parthood`] closure (a subdivision is PART-OF its
-//! parent; Casati & Varzi 1999).
+//! runtime [`Archive`](pr4xis_runtime::archive::Archive), so a generic engine has
+//! no addressable atom for a statute provision and no traverser over its
+//! structure. [`project_archive`](crate::social::software::markup::xml::uslm::corpus::bridge::project_archive) makes each section and
+//! subdivision a definition-bearing
+//! [`Definition`](pr4xis_runtime::definition::Definition) node (its URN is its
+//! name, its USLM kind its kind, its prose its lexical), and the USLM Composes
+//! hierarchy a `Parthood` closure (a subdivision is PART-OF its parent; Casati &
+//! Varzi 1999).
 //!
 //! It is the SUBSTRATE grounding rides: a statute provision is now a `Definition`
-//! that can carry a typed [`EdgeTarget::Grounded`] edge into a connected ontology
-//! (the lexical `denotes` floor, and later `cites` / `defines`), resolved by the
-//! generic `AtomResolver` — never a bespoke string side-channel.
+//! that can carry a typed
+//! [`EdgeTarget::Grounded`](pr4xis_runtime::definition::EdgeTarget::Grounded) edge
+//! into a connected ontology (the lexical `denotes` floor, and later `cites` /
+//! `defines`), resolved by the generic `AtomResolver` — never a bespoke string
+//! side-channel.
 
 use alloc::string::ToString;
 use alloc::vec::Vec;
@@ -40,7 +44,8 @@ pub const COMPOSES_REL: &str = "Parthood";
 /// heading}`; each subdivision → `{kind: its USLM tag (`subsection` / `paragraph`
 /// / …), name: urn, lexical: heading∣chapeau∣content, edges: [(Parthood,
 /// parent_urn)]}`. Every Composes target is a declared section/subdivision node,
-/// so the archive is referentially closed and [`materialize`]s.
+/// so the archive is referentially closed and
+/// [`materialize`](pr4xis_runtime::ontology::materialize)s.
 pub fn project_archive(usc: &UsCode) -> Archive {
     // Project one subdivision (and its descendants) — each composes INTO its
     // parent, so the Composes hierarchy is read straight off the tree (the

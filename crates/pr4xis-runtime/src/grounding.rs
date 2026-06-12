@@ -86,8 +86,13 @@ impl ConnectedOntologies {
 /// Why a grounded edge could not be resolved — fail-closed, never a silent bind.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LinkError {
-    /// The edge grounds into an ontology the manifest does not declare.
+    /// The edge grounds into an ontology the manifest does not declare (a
+    /// resolve-time fault).
     UnknownOntology { ontology: String },
+    /// A manifest-DECLARED ontology has no supplied peer archive, so the resolver
+    /// cannot be built (a build-time fault — distinct from [`UnknownOntology`](Self::UnknownOntology),
+    /// which is an edge into an ontology the manifest never declared).
+    MissingPeerArchive { ontology: String },
     /// A declared ontology was supplied, but its archive's actual root disagrees
     /// with the pinned root — a version/content skew. Refused.
     RootMismatch {
@@ -113,6 +118,10 @@ impl core::fmt::Display for LinkError {
             LinkError::UnknownOntology { ontology } => {
                 write!(f, "grounding: edge into undeclared ontology {ontology:?}")
             }
+            LinkError::MissingPeerArchive { ontology } => write!(
+                f,
+                "grounding: declared ontology {ontology:?} has no supplied peer archive"
+            ),
             LinkError::RootMismatch {
                 ontology,
                 pinned,
@@ -153,8 +162,8 @@ impl<'a> AtomResolver<'a> {
     /// Build the resolver from the `manifest` and the loaded `peers` (by name).
     ///
     /// Fail-closed: a declared ontology with no supplied archive is
-    /// [`UnknownOntology`](LinkError::UnknownOntology); a supplied archive whose
-    /// root disagrees with the pinned root is [`RootMismatch`](LinkError::RootMismatch).
+    /// [`MissingPeerArchive`](LinkError::MissingPeerArchive); a supplied archive
+    /// whose root disagrees with the pinned root is [`RootMismatch`](LinkError::RootMismatch).
     /// Only after every pin agrees is any atom index built.
     pub fn new(
         manifest: &ConnectedOntologies,
@@ -164,7 +173,7 @@ impl<'a> AtomResolver<'a> {
         for decl in &manifest.0 {
             let archive = peers
                 .get(&decl.name)
-                .ok_or_else(|| LinkError::UnknownOntology {
+                .ok_or_else(|| LinkError::MissingPeerArchive {
                     ontology: decl.name.clone(),
                 })?;
             let actual = archive.root().map_err(LinkError::Codec)?;
@@ -356,7 +365,7 @@ mod tests {
         let empty: BTreeMap<String, Archive> = BTreeMap::new();
         assert_eq!(
             AtomResolver::new(&manifest, &empty).map(|_| ()),
-            Err(LinkError::UnknownOntology {
+            Err(LinkError::MissingPeerArchive {
                 ontology: "english_wordnet".to_string(),
             })
         );
