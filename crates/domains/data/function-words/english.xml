@@ -112,6 +112,12 @@
     <LexicalEntry id="fw-why"><Lemma writtenForm="why" partOfSpeech="r"/><Sense id="fw-why-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
     <LexicalEntry id="fw-when-adv"><Lemma writtenForm="when" partOfSpeech="r"/><Sense id="fw-when-adv-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
     <LexicalEntry id="fw-whether"><Lemma writtenForm="whether" partOfSpeech="conj"/><Sense id="fw-whether-1" synset="fw-conjunction"/></LexicalEntry>
+    <!-- Relative pronouns (OLiA: RelativePronoun) — "the dog that runs", "the
+         one who runs", "the book which sells". Additional senses; who/which keep
+         their interrogative senses above (the chart explores all). H&P Ch.12. -->
+    <LexicalEntry id="fw-that-rel"><Lemma writtenForm="that" partOfSpeech="pron"/><Sense id="fw-that-rel-1" synset="fw-relative-pron" subcat="RelativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-who-rel"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-rel-1" synset="fw-relative-pron" subcat="RelativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-which-rel"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-rel-1" synset="fw-relative-pron" subcat="RelativePronoun"/></LexicalEntry>
 
     <!-- Possessive Pronouns (OLiA: PossessivePronoun)
          Per Huddleston & Pullum (2002) Ch. 5 §10 — closed set of English

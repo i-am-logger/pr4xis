@@ -317,26 +317,52 @@ fn assign_predicate_adjectives(tokens: &mut [TypedToken]) {
     }
 }
 
-/// Map a lexical entry's POS to its Lambek type.
-/// Uses SVO type assignments — standard for Subject-Verb-Object languages.
-fn pos_to_lambek(entry: &crate::cognitive::linguistics::lexicon::pos::LexicalEntry) -> LambekType {
+/// The loaded OLiA key for a lexical entry — its OLiA class fragment plus an
+/// optional valency coordinate (verbs). This yields a functor KEY, never a
+/// category.
+///
+/// Content words (from WordNet) carry no OLiA class, so they canonicalize
+/// through [`olia::pos_to_olia_fragments`] — the irreducible PosTag → OLiA-class
+/// bridge (a closed coarse enum mapping to canonical OLiA fragment names). Verbs
+/// add their valency (a loaded OLiA `ValencyFeature` class) as the second
+/// coordinate — the `operators::derive_lambek(arity, …)` parameter pattern.
+fn olia_key(
+    entry: &crate::cognitive::linguistics::lexicon::pos::LexicalEntry,
+) -> (&'static str, Option<&'static str>) {
+    use crate::cognitive::linguistics::lexicon::olia;
     use crate::cognitive::linguistics::lexicon::pos::{LexicalEntry, Transitivity};
-    match entry {
-        LexicalEntry::Noun(_) => svo_types::noun(),
-        LexicalEntry::Verb(v) => match v.transitivity {
-            Transitivity::Intransitive => svo_types::intransitive_verb(),
-            Transitivity::Transitive => svo_types::transitive_verb(),
-            Transitivity::Ditransitive => svo_types::ditransitive_verb(),
-        },
-        LexicalEntry::Determiner(_) | LexicalEntry::Numeral(_) => svo_types::determiner(),
-        LexicalEntry::Adjective(_) => svo_types::adjective(),
-        LexicalEntry::Adverb(_) => svo_types::adverb(),
-        LexicalEntry::Preposition(_) => svo_types::preposition(),
-        LexicalEntry::Pronoun(_) => svo_types::proper_noun(),
-        LexicalEntry::Conjunction(_) => svo_types::noun(),
-        LexicalEntry::Copula(_) => svo_types::copula(),
-        LexicalEntry::Auxiliary(_) => svo_types::intransitive_verb(),
-        LexicalEntry::Interjection(_) => svo_types::noun(),
-        LexicalEntry::Particle(_) => svo_types::adverb(),
+    let fragment = olia::pos_to_olia_fragments(entry.pos_tag())
+        .first()
+        .copied()
+        .unwrap_or("Noun");
+    let valency = match entry {
+        LexicalEntry::Verb(v) => Some(match v.transitivity {
+            // Transitivity (a closed enum) → its OLiA ValencyFeature class.
+            Transitivity::Transitive => "Transitive",
+            Transitivity::Intransitive => "Intransitive",
+            Transitivity::Ditransitive => "Ditransitive",
+        }),
+        _ => None,
+    };
+    (fragment, valency)
+}
+
+/// A lexical entry's Lambek category — from the loaded OLiA→CCG functor, NOT a
+/// Rust `match`. The entry's OLiA key ([`olia_key`]) selects the cited category
+/// row; the notation parser lowers it to a [`LambekType`].
+///
+/// Copula is the one irreducible exception: its category is position-dependent
+/// (sentence-initial question vs medial copula vs pre-adjective), resolved by
+/// [`assign_type`]; its default medial reading `copula()` is grammar logic, not
+/// a class→category map, so it stays here rather than as a functor row.
+fn pos_to_lambek(entry: &crate::cognitive::linguistics::lexicon::pos::LexicalEntry) -> LambekType {
+    use crate::cognitive::linguistics::lexicon::pos::LexicalEntry;
+    if let LexicalEntry::Copula(_) = entry {
+        return svo_types::copula();
     }
+    let (fragment, valency) = olia_key(entry);
+    category_projection::categories_for_class_valency(fragment, valency)
+        .into_iter()
+        .next()
+        .unwrap_or_else(svo_types::noun)
 }

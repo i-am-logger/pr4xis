@@ -94,107 +94,45 @@ pub fn is_loaded_class(fragment: &str) -> bool {
 /// The single authority on which OLiA class fragments praxis recognizes;
 /// the loaded [`reference_model`] is the ontology these fragments name.
 pub fn from_fragment(fragment: &str) -> Option<PosTag> {
-    match fragment {
-        // Noun hierarchy
-        "Noun"
-        | "CommonNoun"
-        | "ProperNoun"
-        | "ClassifierNoun"
-        | "PartitiveNoun"
-        | "QuantifierNoun"
-        | "NominalizedAdjective"
-        | "VerbalNoun"
-        | "Gerund" => Some(PosTag::Noun),
-
-        // Verb hierarchy
-        "Verb" | "MainVerb" | "FiniteVerb" | "NonFiniteVerb" | "Infinitive" | "Participle"
-        | "PresentParticiple" | "PastParticiple" | "LightVerb" => Some(PosTag::Verb),
-
-        // Copula (OLiA distinguishes this from MainVerb)
-        "Copula" => Some(PosTag::Copula),
-
-        // Auxiliary verb hierarchy
-        "AuxiliaryVerb"
-        | "StrictAuxiliaryVerb"
-        | "HaveAuxiliary"
-        | "BeAuxiliary"
-        | "ModalVerb"
-        | "AspectMarkingAuxiliary"
-        | "TenseMarkingAuxiliary" => Some(PosTag::Auxiliary),
-
-        // Determiner hierarchy
-        "Determiner"
-        | "PossessiveDeterminer"
-        | "DemonstrativeDeterminer"
-        | "ReflexiveDeterminer"
-        | "PronounOrDeterminer"
-        | "WHDeterminer"
-        | "InterrogativeDeterminer"
-        | "RelativeDeterminer" => Some(PosTag::Determiner),
-
-        // Article (subclass of Determiner in OLiA)
-        "Article"
-        | "DefiniteArticle"
-        | "IndefiniteArticle"
-        | "PartitiveArticle"
-        | "IndefinitenessMarker" => Some(PosTag::Article),
-
-        // Adjective hierarchy
-        "Adjective" | "QualifierAdjective" | "RelativeAdjective" | "OrdinalAdjective"
-        | "CardinalAdjective" => Some(PosTag::Adjective),
-
-        // Adverb hierarchy
-        "Adverb"
-        | "RelativeAdverb"
-        | "InterrogativeAdverb"
-        | "DegreeAdverb"
-        | "MannerAdverb"
-        | "NegativeAdverb" => Some(PosTag::Adverb),
-
-        // Pronoun hierarchy
-        "Pronoun"
-        | "PersonalPronoun"
-        | "PossessivePronoun"
-        | "ReflexivePronoun"
-        | "DemonstrativePronoun"
-        | "RelativePronoun"
-        | "InterrogativePronoun"
-        | "ReciprocalPronoun"
-        | "IndefinitePronoun"
-        | "WHPronoun" => Some(PosTag::Pronoun),
-
-        // Preposition/Adposition hierarchy
-        "Preposition" | "Adposition" | "Postposition" | "Circumposition" => {
-            Some(PosTag::Preposition)
+    // The top MorphosyntacticCategory subclasses → PosTag (OLiA Reference Model;
+    // Chiarcos & Sukhareva 2015). The ONLY OLiA fragments named in Rust — every
+    // one of OLiA's ~1300 subclasses (CommonNoun, InterrogativePronoun,
+    // DefiniteArticle, …) resolves to the same PosTag by `rdfs:subClassOf`
+    // closure over the loaded ontology, never by a hand-enumerated arm.
+    //
+    // Ordered MOST-SPECIFIC-FIRST: Copula / AuxiliaryVerb (⊑ Verb) before Verb,
+    // Article (⊑ Determiner) before Determiner — else the general class would
+    // shadow the specific PosTag.
+    const BASE: &[(&str, PosTag)] = &[
+        ("Copula", PosTag::Copula),
+        ("AuxiliaryVerb", PosTag::Auxiliary),
+        ("Article", PosTag::Article),
+        ("Numeral", PosTag::Numeral),
+        ("Verb", PosTag::Verb),
+        ("Determiner", PosTag::Determiner),
+        ("Pronoun", PosTag::Pronoun),
+        ("Adjective", PosTag::Adjective),
+        ("Adverb", PosTag::Adverb),
+        ("Preposition", PosTag::Preposition),
+        ("Conjunction", PosTag::Conjunction),
+        ("Interjection", PosTag::Interjection),
+        ("Particle", PosTag::Particle),
+        ("Noun", PosTag::Noun),
+    ];
+    for (top, pos) in BASE {
+        // `is_a` is false for self (subsumes returns false when child==parent),
+        // so the exact-match check is required, not just the closure.
+        if fragment == *top {
+            return Some(*pos);
         }
-
-        // Conjunction hierarchy
-        "Conjunction" | "CoordinatingConjunction" | "SubordinatingConjunction" => {
-            Some(PosTag::Conjunction)
+        #[cfg(feature = "std")]
+        {
+            if reference_model().is_a(&class_iri(fragment), &class_iri(top)) {
+                return Some(*pos);
+            }
         }
-
-        // Interjection
-        "Interjection" => Some(PosTag::Interjection),
-
-        // Particle hierarchy
-        "Particle"
-        | "NegativeParticle"
-        | "InfinitiveParticle"
-        | "ComparativeParticle"
-        | "VerbalParticle"
-        | "QuestionParticle"
-        | "FocusParticle" => Some(PosTag::Particle),
-
-        // Numeral hierarchy
-        "Numeral"
-        | "CardinalNumber"
-        | "OrdinalNumber"
-        | "FractionNumber"
-        | "MultiplicativeNumeral"
-        | "CollectiveNumeral" => Some(PosTag::Numeral),
-
-        _ => None,
     }
+    None
 }
 
 /// Extract the fragment (after #) from an IRI.
@@ -511,5 +449,53 @@ mod prx_fast_load {
             from_owl.entity_count(),
             "bundled OLiA .prx.gz is stale — regenerate with `--ignored regenerate_olia_compact_prx`"
         );
+    }
+}
+
+#[cfg(all(test, feature = "prx"))]
+mod from_fragment_subsumption {
+    use super::*;
+
+    /// `from_fragment` derives the PosTag from the loaded OWL subsumption
+    /// hierarchy: top classes match exactly, and ~1300 subclasses resolve by
+    /// `rdfs:subClassOf` closure — none enumerated in Rust. Ordering (Copula/
+    /// AuxiliaryVerb before Verb, Article before Determiner) must hold.
+    #[test]
+    fn subclasses_resolve_by_owl_closure() {
+        // Top classes (exact match, no OWL needed).
+        for (frag, pos) in [
+            ("Noun", PosTag::Noun),
+            ("Verb", PosTag::Verb),
+            ("Copula", PosTag::Copula),
+            ("AuxiliaryVerb", PosTag::Auxiliary),
+            ("Determiner", PosTag::Determiner),
+            ("Article", PosTag::Article),
+            ("Pronoun", PosTag::Pronoun),
+            ("Adjective", PosTag::Adjective),
+            ("Adverb", PosTag::Adverb),
+            ("Numeral", PosTag::Numeral),
+        ] {
+            assert_eq!(from_fragment(frag), Some(pos), "top class {frag}");
+        }
+        // Subclasses derived by subClassOf closure — NOT in the Rust base map.
+        for (frag, pos) in [
+            ("CommonNoun", PosTag::Noun),
+            ("ProperNoun", PosTag::Noun),
+            ("InterrogativePronoun", PosTag::Pronoun),
+            ("InterrogativeAdverb", PosTag::Adverb),
+            ("InterrogativeDeterminer", PosTag::Determiner),
+            ("DefiniteArticle", PosTag::Article),
+            ("ModalVerb", PosTag::Auxiliary),
+        ] {
+            assert_eq!(
+                from_fragment(frag),
+                Some(pos),
+                "subclass {frag} via closure"
+            );
+        }
+        // Ordering: a Copula must NOT resolve to Verb even though Copula ⊑ Verb.
+        assert_eq!(from_fragment("Copula"), Some(PosTag::Copula));
+        // Unknown fragment fails closed.
+        assert_eq!(from_fragment("NotAnOliaClass"), None);
     }
 }

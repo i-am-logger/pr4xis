@@ -9,16 +9,17 @@
 //! Adding an operator (`^` / `power`, `≤` / `leq`, …) is one data line with
 //! zero new Rust.
 //!
-//! # The type is DERIVED, never a magic constant
+//! # The category is LOADED, never a Rust-computed schema
 //!
-//! A token's Lambek type is read off the loaded `(arity, result_sort)` by
-//! [`derive_lambek`], built from the existing constructors in
-//! [`super::types`]. An infix binary/n-ary operator gets the **coordination
-//! schema** `(X\X)/X` (Steedman 2000; Partee & Rooth 1983): it coordinates two
-//! like-typed operands into one. Reduction is forward then backward function
-//! application — `A/B + B → A`, `A + A\B → B` — i.e. Lambek (1958) residuation
-//! (Moortgat 1997). So the type is a derivation with a citation, not a
-//! per-symbol `match`.
+//! Each operator's CCG category is loaded as notation from
+//! `math-operators.xml` and lowered to a [`LambekType`] by the
+//! [`notation parser`](super::notation_parser) — the same loaded-data path as
+//! the wh / POS categories, not a Rust `match`. An infix binary/n-ary operator
+//! is the **coordination schema** `(X\X)/X` (Steedman 2000; Partee & Rooth
+//! 1983) — it coordinates two like-typed operands into one; a relation is
+//! `(NP\S)/NP`; a prefix unary is `NP/NP`. Reduction is forward then backward
+//! function application — `A/B + B → A`, `A + A\B → B` — i.e. Lambek (1958)
+//! residuation (Moortgat 1997).
 //!
 //! The operand atom is [`operand_atom`] (NP): a saturated numeric literal is a
 //! referring expression — a noun *phrase*, like a proper noun or pronoun
@@ -76,9 +77,8 @@ pub enum ResultSort {
     Truth,
 }
 
-/// One loaded operator: a glyph bound to an OpenMath symbol and its STS
-/// signature. The grammatical type is derived ([`LoadedOperator::lambek_type`]),
-/// never stored.
+/// One loaded operator: a glyph bound to an OpenMath symbol, its STS signature,
+/// and its loaded CCG category.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedOperator {
     /// The surface glyph (e.g. `+`, `<`, `×`).
@@ -91,14 +91,18 @@ pub struct LoadedOperator {
     pub arity: Arity,
     /// The result sort — the categorial codomain.
     pub result_sort: ResultSort,
+    /// The CCG category, LOADED as notation from `math-operators.xml` and parsed
+    /// by [`notation_parser`](super::notation_parser) — the category is DATA,
+    /// not a Rust-computed schema. The infix coordination shape `(X\X)/X`
+    /// (number) / relation shape `(NP\S)/NP` (truth) / prefix `NP/NP` (unary)
+    /// per CCGbank (Steedman's coordination schema; Lambek 1958).
+    pub category: LambekType,
 }
 
 impl LoadedOperator {
-    /// The derived Lambek type for this operator — [`derive_lambek`] over the
-    /// loaded `(arity, result_sort)`. `role` is the application precondition of
-    /// that schema (asserted by the loader); it does not branch the type.
+    /// This operator's loaded CCG category.
     pub fn lambek_type(&self) -> LambekType {
-        derive_lambek(self.arity, self.result_sort)
+        self.category.clone()
     }
 }
 
@@ -107,35 +111,11 @@ impl LoadedOperator {
 /// A number literal is a referring expression — a noun *phrase*, not a bare
 /// common noun N (CCGbank types proper nouns / pronouns / bare referring
 /// numerals as NP; Hockenmaier & Steedman 2007). This single helper is shared
-/// by the number-literal recognizer AND [`derive_lambek`], so operand and
-/// operator-argument atoms agree by construction rather than by a cross-site
-/// convention.
+/// by the number-literal recognizer AND the loaded operator categories, so
+/// operand and operator-argument atoms agree by construction rather than by a
+/// cross-site convention.
 pub fn operand_atom() -> LambekType {
     LambekType::np()
-}
-
-/// Derive the Lambek type of an operator from its loaded `(arity, result_sort)`.
-///
-/// - infix **binary / n-ary**: `(operand \ result) / operand` — Steedman's
-///   coordination schema `(X\X)/X` for `number`, the relation shape `(NP\S)/NP`
-///   for `truth` (the same constructor as a transitive verb). Reduces by
-///   forward then backward application (Lambek 1958; Moortgat 1997).
-/// - prefix **unary**: `result / operand` — takes one operand on the right
-///   (e.g. `unary_minus`: `NP/NP`).
-///
-/// n-ary folds to the binary infix shape categorially (left-associative binary
-/// application), so `Binary` and `Nary` share a type.
-pub fn derive_lambek(arity: Arity, result_sort: ResultSort) -> LambekType {
-    let result = match result_sort {
-        ResultSort::Number => operand_atom(),
-        ResultSort::Truth => LambekType::s(),
-    };
-    match arity {
-        Arity::Unary => LambekType::right_div(result, operand_atom()),
-        Arity::Binary | Arity::Nary => {
-            LambekType::right_div(LambekType::left_div(operand_atom(), result), operand_atom())
-        }
-    }
 }
 
 /// A loaded mathematical-operator vocabulary — glyph → its operator readings
@@ -228,23 +208,28 @@ pub fn load() -> OperatorVocabulary {
             .senses
             .first()
             .expect("operator LexicalEntry carries a Sense — build-time invariant");
-        let (role, arity, result_sort) = decode_signature(&sense.subcat)
-            .expect("operator Sense subcat encodes 'ROLE ARITY RESULTSORT' — build-time invariant");
+        let (role, arity, result_sort, category) = decode_signature(&sense.subcat).expect(
+            "operator Sense subcat encodes 'ROLE ARITY RESULTSORT NOTATION' — build-time invariant",
+        );
         map.entry(glyph).or_default().push(LoadedOperator {
             glyph,
             openmath_symbol: sense.synset.clone(),
             role,
             arity,
             result_sort,
+            category,
         });
     }
     OperatorVocabulary(map)
 }
 
 /// Decode the OpenMath STS signature carried in a Sense `subcat`
-/// (`"ROLE ARITY RESULTSORT"`) once, at the codec boundary, into typed values.
-/// `None` on any unknown token (fails closed).
-fn decode_signature(subcat: &[String]) -> Option<(OperatorRole, Arity, ResultSort)> {
+/// (`"ROLE ARITY RESULTSORT NOTATION"`) once, at the codec boundary, into typed
+/// values. The 4th token is the CCG category in standard notation, lowered to a
+/// [`LambekType`] by the notation parser — so the category is LOADED data, not
+/// a Rust-computed schema. `None` on any unknown/unparseable token (fails
+/// closed).
+fn decode_signature(subcat: &[String]) -> Option<(OperatorRole, Arity, ResultSort, LambekType)> {
     let role = match subcat.first()?.as_str() {
         "application" => OperatorRole::Application,
         _ => return None,
@@ -260,7 +245,8 @@ fn decode_signature(subcat: &[String]) -> Option<(OperatorRole, Arity, ResultSor
         "truth" => ResultSort::Truth,
         _ => return None,
     };
-    Some((role, arity, result_sort))
+    let category = super::notation_parser::parse_category(subcat.get(3)?)?;
+    Some((role, arity, result_sort, category))
 }
 
 /// True iff `word` is a decimal number literal — a non-empty run of ASCII
@@ -327,8 +313,13 @@ mod tests {
 
     #[test]
     fn arithmetic_infix_is_the_coordination_schema_and_reduces_to_np() {
-        // (arity n-ary, result number) → (NP\NP)/NP — Steedman's (X\X)/X.
-        let plus = derive_lambek(Arity::Nary, ResultSort::Number);
+        // The LOADED category for '+' (n-ary number) is (NP\NP)/NP — Steedman's
+        // (X\X)/X — parsed from math-operators.xml, not Rust-computed.
+        let plus = load()
+            .operators_for('+')
+            .first()
+            .expect("+ loads")
+            .lambek_type();
         assert_eq!(plus.notation(), "(NP\\NP)/NP");
         // 10 + 10 : NP (NP\NP)/NP NP → forward then backward application → NP.
         let after_forward = reduce(&plus, &operand_atom()).expect("forward: (NP\\NP)/NP + NP");
@@ -343,8 +334,12 @@ mod tests {
 
     #[test]
     fn relation_infix_reduces_to_a_sentence() {
-        // (arity binary, result truth) → (NP\S)/NP — a proposition.
-        let lt = derive_lambek(Arity::Binary, ResultSort::Truth);
+        // The LOADED category for '<' (binary truth) is (NP\S)/NP — a proposition.
+        let lt = load()
+            .operators_for('<')
+            .first()
+            .expect("< loads")
+            .lambek_type();
         assert_eq!(lt.notation(), "(NP\\S)/NP");
         let after_forward = reduce(&lt, &operand_atom()).expect("forward: (NP\\S)/NP + NP");
         assert_eq!(after_forward.notation(), "NP\\S");
@@ -397,8 +392,13 @@ mod tests {
 
     #[test]
     fn unary_prefix_takes_one_operand() {
-        // (arity unary, result number) → NP/NP — prefix, e.g. unary minus.
-        let neg = derive_lambek(Arity::Unary, ResultSort::Number);
+        // The LOADED unary reading of '-' is NP/NP — prefix unary minus.
+        let neg = load()
+            .operators_for('-')
+            .iter()
+            .find(|o| o.arity == Arity::Unary)
+            .expect("- has a unary reading")
+            .lambek_type();
         assert_eq!(neg.notation(), "NP/NP");
         let result = reduce(&neg, &operand_atom()).expect("forward: NP/NP + NP");
         assert_eq!(result, operand_atom(), "-5 is a number");

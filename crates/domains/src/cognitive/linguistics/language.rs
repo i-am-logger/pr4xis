@@ -309,6 +309,15 @@ pub fn lmf_pos_to_lexical_entries(
 
 /// Map a lexical entry to its pregroup type.
 /// This is the bridge between the lexicon ontology and the grammar ontology.
+///
+/// TRACKED-LEGACY (Batch K): pregroup is a SECOND grammar formalism (Lambek
+/// adjoints, not CCG slashes); the live parse path is `chart_reduce` over the
+/// loaded-functor Lambek categories (`pregroup_types` has no non-test callers).
+/// This match is NOT migrated into the OLiA→CCG functor because that functor's
+/// values are CCG notation, not pregroup types — feeding pregroup from it would
+/// need a separate `notation → PregroupType` interpreter, not built for dead
+/// code. If pregroup parity is ever wanted, add a `pregroup-notation` column +
+/// that interpreter; until then this stays as the formalism's own map.
 pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
     use pregroup::{BasicType, PregroupElement};
 
