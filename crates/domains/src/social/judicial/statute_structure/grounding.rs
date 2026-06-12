@@ -1,9 +1,11 @@
 //! Grounding statute prose into the English lexicon — the honest written-form
-//! `denotes` floor at the statute level (the producer the USC codec will store).
+//! `denotes` floor at the statute level, as a grounding lens over the generic
+//! substrate.
 //!
 //! A span of statute text is scanned for content-word lemmas
-//! ([`extract_lemmas`](super::term_extractor::extract_lemmas) — stopwords and
-//! numerals filtered, deduped); each lemma that English knows as a written form
+//! ([`extract_lemmas`](crate::social::judicial::statute_structure::term_extractor::extract_lemmas)
+//! — stopwords and numerals filtered, deduped); each lemma that English knows as
+//! a written form
 //! becomes a typed `denotes` pointer into the `english_wordnet` archive: a
 //! [`Grounded`](pr4xis_runtime::definition::EdgeTarget::Grounded) edge targeting
 //! the word's [`ontolex:Form`](crate::cognitive::linguistics::english::bridge::form_atom)
@@ -17,11 +19,13 @@
 //!
 //! # The ontological, general way
 //!
-//! `denotes` is ONE grounding lens. [`denotes_lens`] adapts the producer to the
-//! generic [`ground`](pr4xis_runtime::grounding::ground): any content
-//! [`Archive`](pr4xis_runtime::archive::Archive) — a USC title projected by
-//! `uslm::corpus::bridge`, English itself, anything — grounds the same way,
-//! gaining typed [`EdgeTarget::Grounded`] edges in the GENERIC substrate that
+//! `denotes` is ONE grounding lens. [`denotes_lens`](crate::social::judicial::statute_structure::grounding::denotes_lens) adapts
+//! the producer to the generic [`ground`](pr4xis_runtime::grounding::ground): any
+//! content [`Archive`](pr4xis_runtime::archive::Archive) — a USC title projected
+//! by `uslm::corpus::bridge`, English itself, anything — grounds the same way,
+//! gaining typed
+//! [`EdgeTarget::Grounded`](pr4xis_runtime::definition::EdgeTarget::Grounded)
+//! edges in the GENERIC substrate that
 //! resolve through the generic `AtomResolver`. English is confined to the lens;
 //! `cites` / `defines` are other lenses of the same shape. There is no bespoke
 //! string side-channel and no per-source codec.
