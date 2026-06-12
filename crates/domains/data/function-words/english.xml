@@ -90,15 +90,28 @@
          Per Huddleston & Pullum (2002) *Cambridge Grammar of the English
          Language* §5.5 — the closed set of wh-interrogative pronouns
          in English. -->
-    <LexicalEntry id="fw-what"><Lemma writtenForm="what" partOfSpeech="pron"/><Sense id="fw-what-1" synset="fw-interrogative-pron"/></LexicalEntry>
-    <LexicalEntry id="fw-who"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-1" synset="fw-interrogative-pron"/></LexicalEntry>
-    <LexicalEntry id="fw-which"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-1" synset="fw-interrogative-pron"/></LexicalEntry>
-    <LexicalEntry id="fw-whom"><Lemma writtenForm="whom" partOfSpeech="pron"/><Sense id="fw-whom-1" synset="fw-interrogative-pron"/></LexicalEntry>
-    <LexicalEntry id="fw-whose"><Lemma writtenForm="whose" partOfSpeech="pron"/><Sense id="fw-whose-1" synset="fw-interrogative-pron"/></LexicalEntry>
-    <LexicalEntry id="fw-where"><Lemma writtenForm="where" partOfSpeech="pron"/><Sense id="fw-where-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <!-- The interrogative class rides each Sense's `subcat` as its OLiA
+         Reference-Model fragment (the universal grammatical-class identity); the
+         category is DERIVED from that class by the loaded OLiA→CCG functor
+         (lambek::category_projection), never per word here. Ambiguous wh-words
+         carry multiple entries (which/what are pronoun AND determiner; when is
+         this interrogative adverb AND the subordinator below) — the chart
+         explores all. H&P (2002) Ch.5 §5 (pronouns/determiners) + Ch.7 (adverbs). -->
+    <!-- Interrogative pronouns (OLiA: InterrogativePronoun) -->
+    <LexicalEntry id="fw-what"><Lemma writtenForm="what" partOfSpeech="pron"/><Sense id="fw-what-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-who"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-which"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-whom"><Lemma writtenForm="whom" partOfSpeech="pron"/><Sense id="fw-whom-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
+    <!-- Interrogative determiners (OLiA: InterrogativeDeterminer) — "which dog", "what time", "whose book" -->
+    <LexicalEntry id="fw-which-det"><Lemma writtenForm="which" partOfSpeech="det"/><Sense id="fw-which-det-1" synset="fw-interrogative-det" subcat="InterrogativeDeterminer"/></LexicalEntry>
+    <LexicalEntry id="fw-what-det"><Lemma writtenForm="what" partOfSpeech="det"/><Sense id="fw-what-det-1" synset="fw-interrogative-det" subcat="InterrogativeDeterminer"/></LexicalEntry>
+    <LexicalEntry id="fw-whose"><Lemma writtenForm="whose" partOfSpeech="det"/><Sense id="fw-whose-1" synset="fw-interrogative-det" subcat="InterrogativeDeterminer"/></LexicalEntry>
+    <!-- Interrogative adverbs (OLiA: InterrogativeAdverb) — re-classed from the `pron` mis-tag; `when` also keeps its subordinator entry below -->
+    <LexicalEntry id="fw-where"><Lemma writtenForm="where" partOfSpeech="r"/><Sense id="fw-where-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <LexicalEntry id="fw-how"><Lemma writtenForm="how" partOfSpeech="r"/><Sense id="fw-how-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <LexicalEntry id="fw-why"><Lemma writtenForm="why" partOfSpeech="r"/><Sense id="fw-why-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <LexicalEntry id="fw-when-adv"><Lemma writtenForm="when" partOfSpeech="r"/><Sense id="fw-when-adv-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
     <LexicalEntry id="fw-whether"><Lemma writtenForm="whether" partOfSpeech="conj"/><Sense id="fw-whether-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-how"><Lemma writtenForm="how" partOfSpeech="pron"/><Sense id="fw-how-1" synset="fw-interrogative-pron"/></LexicalEntry>
-    <LexicalEntry id="fw-why"><Lemma writtenForm="why" partOfSpeech="pron"/><Sense id="fw-why-1" synset="fw-interrogative-pron"/></LexicalEntry>
 
     <!-- Possessive Pronouns (OLiA: PossessivePronoun)
          Per Huddleston & Pullum (2002) Ch. 5 §10 — closed set of English
