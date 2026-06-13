@@ -175,6 +175,39 @@ pr4xis::ontology! {
         // Dependence subsumes more-specific Causation cases (every cause is depended-on
         // for the effect to occur, but not every dependence is a causal relation).
         (Causation, Dependence, SpecialisationOf),
+
+        // HasProperty — each relation type's definitional structural properties as
+        // LOADED typed edges (audit 2026-06-12 D-7), not a hand-authored Rust
+        // `match` in `RelationProperty::get`. Canonical catalog: Tarski (1941) +
+        // OBO-RO + SKOS. Both endpoints are concepts in this ontology, so the
+        // relation→property assignment is an ordinary kinded morphism, queryable
+        // like every other edge.
+        (Subsumption, Antisymmetric, HasProperty),
+        (Subsumption, Transitive, HasProperty),
+        (Subsumption, Reflexive, HasProperty),
+        (Parthood, Antisymmetric, HasProperty),
+        (Parthood, Transitive, HasProperty),
+        (Parthood, Irreflexive, HasProperty),
+        (Causation, Irreflexive, HasProperty),
+        (Causation, Transitive, HasProperty),
+        (Opposition, Symmetric, HasProperty),
+        (Opposition, Irreflexive, HasProperty),
+        (Opposition, Involutive, HasProperty),
+        (Similarity, Symmetric, HasProperty),
+        (Similarity, Reflexive, HasProperty),
+        (Precedence, Irreflexive, HasProperty),
+        (Precedence, Transitive, HasProperty),
+        (Precedence, Antisymmetric, HasProperty),
+        (Equivalence, Symmetric, HasProperty),
+        (Equivalence, Reflexive, HasProperty),
+        (Equivalence, Transitive, HasProperty),
+        (Specialisation, Antisymmetric, HasProperty),
+        (Specialisation, Transitive, HasProperty),
+        (Specialisation, Irreflexive, HasProperty),
+        (Dependence, Irreflexive, HasProperty),
+        (Dependence, Transitive, HasProperty),
+        (Dependence, Antisymmetric, HasProperty),
+        (Association, Symmetric, HasProperty),
     ],
 
 }
@@ -197,21 +230,18 @@ impl Quality for RelationProperty {
     type Value = Vec<RelationsConcept>;
 
     fn get(&self, c: &RelationsConcept) -> Option<Vec<RelationsConcept>> {
-        use RelationsConcept as R;
-        match c {
-            R::Subsumption => Some(vec![R::Antisymmetric, R::Transitive, R::Reflexive]),
-            R::Parthood => Some(vec![R::Antisymmetric, R::Transitive, R::Irreflexive]),
-            R::Causation => Some(vec![R::Irreflexive, R::Transitive]),
-            R::Opposition => Some(vec![R::Symmetric, R::Irreflexive, R::Involutive]),
-            R::Similarity => Some(vec![R::Symmetric, R::Reflexive]),
-            R::Precedence => Some(vec![R::Irreflexive, R::Transitive, R::Antisymmetric]),
-            R::Equivalence => Some(vec![R::Symmetric, R::Reflexive, R::Transitive]),
-            R::Specialisation => Some(vec![R::Antisymmetric, R::Transitive, R::Irreflexive]),
-            R::Dependence => Some(vec![R::Irreflexive, R::Transitive, R::Antisymmetric]),
-            R::Association => Some(vec![R::Symmetric]),
-            // Structural-property concepts themselves have no properties-of-relations.
-            _ => None,
-        }
+        use pr4xis::category::{Arrow, Category};
+        // DERIVED by querying the loaded `HasProperty` morphisms out of `c` (audit
+        // 2026-06-12 D-7) — the relation→structural-property assignment is loaded
+        // typed-edge DATA, not a hand-authored Rust match. A relation type with no
+        // `HasProperty` edge (e.g. a structural-property concept itself) returns
+        // `None`, preserving the prior contract.
+        let props: Vec<RelationsConcept> = RelationsCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == RelationsRelationKind::HasProperty && &m.source() == c)
+            .map(|m| m.target())
+            .collect();
+        if props.is_empty() { None } else { Some(props) }
     }
 }
 
