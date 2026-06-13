@@ -396,6 +396,19 @@ pub fn build_verb_transitivity(
 ) -> HashMap<String, Vec<Transitivity>> {
     let mut result: HashMap<String, Vec<Transitivity>> = HashMap::new();
 
+    // The frame id → frame-TEXT index from the LOADED inventory (audit D-15):
+    // a sense's `subcat` is an IDREF into the lexicon's `<SyntacticBehaviour>`
+    // definitions; transitivity is read from the frame text, not the id prefix.
+    let frame_text: HashMap<&str, &str> = wn
+        .syntactic_behaviours
+        .iter()
+        .filter_map(|sb| {
+            sb.id
+                .as_deref()
+                .map(|id| (id, sb.subcategorization_frame.as_str()))
+        })
+        .collect();
+
     for entry in &wn.entries {
         if entry.lemma.pos != lmf::LmfPos::Verb {
             continue;
@@ -404,7 +417,13 @@ pub fn build_verb_transitivity(
 
         for sense in &entry.senses {
             for frame_id in &sense.subcat {
-                if let Some(vt) = lmf::VerbTransitivity::from_frame_id(frame_id) {
+                // Prefer the loaded frame text; fall back to the id-prefix only
+                // for an orphan id with no SyntacticBehaviour (never on OEWN 2025).
+                let vt = frame_text
+                    .get(frame_id.as_str())
+                    .and_then(|text| lmf::VerbTransitivity::from_frame(text))
+                    .or_else(|| lmf::VerbTransitivity::from_frame_id(frame_id));
+                if let Some(vt) = vt {
                     let transitivity = match vt {
                         lmf::VerbTransitivity::Intransitive => Transitivity::Intransitive,
                         lmf::VerbTransitivity::Transitive => Transitivity::Transitive,
