@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-derive"
-version = "0.23.1"
+version.workspace = true
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Derive macros for pr4xis ontology traits"

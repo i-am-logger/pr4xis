@@ -27,6 +27,21 @@ members = [
 # invoked explicitly via `--manifest-path crates/praxis-corpus-tests/Cargo.toml`.
 exclude = ["crates/wasm", "crates/e2e", "crates/praxis-corpus-tests"]
 
+# Single workspace version — every member inherits it via
+# `version.workspace = true`, so all praxis crates move in lockstep
+# (the Bevy / Tauri / SeaORM convention the config always intended).
+# This REPLACES release-plz's `version_group`, which silently stopped
+# syncing once the publish=false crates (pr4xis-domains/cli/chat/
+# examples) drifted behind the published ones — release-plz reads each
+# crate's baseline from crates.io, and those aren't there. With one
+# inherited field, drift is structurally impossible, and a change to ANY
+# member (including the publish=false domains crate, where nearly all
+# work lands) bumps this single number — so release-plz opens a Release
+# PR for it. Baseline kept at the latest published version; release-plz
+# computes the next bump (feat → 0.24.0).
+[workspace.package]
+version = "0.23.1"
+
 [workspace.lints.rust]
 dead_code = "deny"
 unused_imports = "deny"
