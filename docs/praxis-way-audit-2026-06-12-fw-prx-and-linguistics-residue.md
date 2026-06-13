@@ -16,6 +16,26 @@ projections or the new `.prx`/functor substrate. This is new ground.
 
 ---
 
+## STATUS (updated 2026-06-12) — branch `feat/fw-prx-and-praxis-residue`
+
+| Batch | State | Commit |
+|---|---|---|
+| **FW-A** function-words `.prx` + `ClosedClassLexicon` + D-8 `local_path` | ✅ done, verified | `e41237e` |
+| **FW-B** `DeterminerKind` rename + `InterjectionKind`+`Conative` + cite fixes + D-14 | ✅ done, verified | `e6ae796` |
+| **D-18** derive `is_leaf` from the loaded graph (+ D-21 leaf-count → structural) | ✅ done, verified | `df6f3ec` |
+| **D-10** theme `polarity` → `Option<Polarity>` | ✅ done, verified | `df6f3ec` |
+| **D-11** delete dead `legacy` discourse module | ⏸ ON HOLD — it is test-covered runtime code; the "superseded by discourse/ontology.rs" claim is shaky (that is a discourse *ontology*, not a runtime conversation model). Needs explicit confirm-to-delete. |
+| **MORPH** D-1 (AGID) + D-2 (CatVar) + D-12 | ▫ pending — user chose *fetch + vendor the real data*. Needs network fetch of AGID/CatVar + a vendored data file + praxis.toml/lock registration. |
+| **META-DERIVE** D-5, D-6, D-16, D-19, D-20 + D-21 (scattered counts) | ▫ pending — derive-from-loaded-morphisms refactors (XSD datatype groups/base-type, ContentHash leaves, DomainOrder rank). |
+| **REGISTRY** D-9, D-22 | ▫ pending — `family_dir_for` per-name arms → registry data; `has_decoder_for` derivation. |
+| **CLEANUP** D-3, D-4, D-7, D-13, D-15, D-17 | ▫ pending — canonical_phrase functor, SynsetRelationType predicates, RelationProperty edges, pos_to_olia_fragments, VerbTransitivity frames, magic-46. |
+| **Track C** projection-as-data lift | ⏸ PARKED per user — file a tracked issue to lift `function_words_from_lmf` + `wn_builder_to_owned` together on the #87 engine-bridge (`f920898`/`9e59bb0`). The audit's own verifiers ruled these codec-floor, not residue — do both together or neither. |
+
+All commits are unsigned (`--no-gpg-sign`); user re-signs on YubiKey. `fa9f154` (the
+synset-codec fix) was cherry-picked forward — it never made it into the merged #201.
+
+---
+
 ## 1. The function-words → `.prx` design (Track A)
 
 **Goal:** give `crates/domains/data/function-words/english.xml` an OLiA-style committed
