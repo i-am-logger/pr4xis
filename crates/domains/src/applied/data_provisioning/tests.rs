@@ -97,9 +97,10 @@ fn by_name_version_matches_pair() {
 fn english_wordnet_local_path_matches_disk() {
     // WordNet predates the Lexicon-family taxonomy and lives at the
     // historical `data/wordnet/english-wordnet-2025.xml` path that the
-    // LMF reader's `include_str!` site references. `local_path_override`
-    // returns this canonical disk location so `pr4xis update --check`
-    // and the `RegistryLocalPathsExist` axiom both see the real bytes.
+    // LMF reader's `include_str!` site references. Its explicit `local_path`
+    // in praxis.toml (audit D-9) returns this canonical disk location so
+    // `pr4xis update --check` and the `RegistryLocalPathsExist` axiom both
+    // see the real bytes.
     let entry = by_name("english_wordnet").unwrap();
     let path = entry.local_path();
     assert_eq!(
@@ -270,6 +271,33 @@ fn no_decoder_for_unimplemented_content_types() {
     assert!(!has_decoder_for(ContentType::Pdf));
     assert!(!has_decoder_for(ContentType::Video));
     assert!(!has_decoder_for(ContentType::Audio));
+}
+
+#[test]
+fn has_decoder_for_agrees_with_each_module_const() {
+    // Each in-directory decoder declares the ContentType it realizes as its own
+    // `DECODES` const; `has_decoder_for` must answer `true` for every one (audit
+    // 2026-06-12 D-22). This ties each `true` arm to the module that owns it, so
+    // a mis-cited arm trips the test (the exhaustive match already forces a new
+    // ContentType variant to be decided here at compile time).
+    use super::decoders::{
+        adobe_glyph_list, owl, tar_gz_archive, xhtml, xml_dtd, xml_xsd, zip_archive,
+    };
+    for ct in [
+        xml_lmf::DECODES,
+        owl::DECODES,
+        xml_xsd::DECODES,
+        xhtml::DECODES,
+        adobe_glyph_list::DECODES,
+        xml_dtd::DECODES,
+        tar_gz_archive::DECODES,
+        zip_archive::DECODES,
+    ] {
+        assert!(
+            has_decoder_for(ct),
+            "module DECODES {ct:?} not in has_decoder_for"
+        );
+    }
 }
 
 // =============================================================================

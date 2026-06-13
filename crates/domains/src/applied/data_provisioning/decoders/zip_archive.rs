@@ -24,6 +24,12 @@
 //! - **ISO/IEC 21320-1:2015** *Document container file — Part 1:
 //!   Core* — the OOXML / EPUB / OPC subset of PKZIP.
 
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::ZipArchive;
+
 /// True iff `bytes` begin with the PKWARE APPNOTE.TXT §4.3.7
 /// local-file-header signature `0x04034b50` (little-endian:
 /// bytes `50 4B 03 04`).

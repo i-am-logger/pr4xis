@@ -18,6 +18,12 @@
 //! - **Deutsch, P.** (1996) *GZIP file format specification version
 //!   4.3*, IETF RFC 1952. §2.3.1 defines the `1f 8b` magic.
 
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::TarGzArchive;
+
 /// True iff `bytes` begin with the RFC 1952 gzip magic number
 /// (`1f 8b`).
 #[must_use]

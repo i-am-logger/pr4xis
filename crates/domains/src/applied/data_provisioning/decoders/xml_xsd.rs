@@ -52,6 +52,12 @@ use crate::social::software::markup::xml::reader::read_xml;
 /// Returns a [`DecodeError`] if the bytes are not valid UTF-8, the
 /// XML reader rejects the document as malformed, or the root element
 /// is not an `xsd:schema` declaration.
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::XmlXsd;
+
 pub fn decode(bytes: &[u8]) -> Result<XsdOntologyInstance, DecodeError> {
     let text = core::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
 

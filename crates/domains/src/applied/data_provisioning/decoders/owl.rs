@@ -43,6 +43,12 @@ use crate::social::software::markup::xml::owl::reader::read_owl;
 ///
 /// Returns a [`DecodeError`] if the bytes are not valid UTF-8 or the OWL
 /// reader rejects the document as malformed.
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::Owl;
+
 pub fn decode(bytes: &[u8]) -> Result<OwlOntology, DecodeError> {
     let text = core::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
