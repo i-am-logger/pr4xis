@@ -30,7 +30,7 @@ projections or the new `.prx`/functor substrate. This is new ground.
 | **D-7** relation→structural-property as loaded `HasProperty` edges | ✅ done, verified | `3ae5f61` |
 | **D-11** delete dead `legacy` discourse module | ⏸ ON HOLD — it is test-covered runtime code; the "superseded by discourse/ontology.rs" claim is shaky (that is a discourse *ontology*, not a runtime conversation model). Needs explicit confirm-to-delete. |
 | **MORPH D-1** irregular forms LOADED from the registered AGID source | ✅ done, verified | `94d7705` |
-| **MORPH D-2 / D-12** (english_rules from CatVar + the len==13 count) | ▫ pending — the SECOND morphology source (CatVar / WordNet morphosemantic, Habash & Dorr 2003). The 13 productive affix rules map less directly to CatVar's derivational word-pairs than AGID's inflections did to irregulars; a focused follow-up. |
+| **MORPH D-2 / D-12** productive rules grounded in registered CatVar + structural count | ✅ done, verified | `f443bf7` |
 | **D-16 / D-6 / D-5** XSD `base_type` + groups derived; dual-source axiom deleted | ✅ done, verified | `ea7e255` |
 | **D-13** `pos_to_olia_fragments` → `canonical_olia_fragment` anchor | ✅ done, verified | `72db400` |
 | **D-9** (`family_dir_for` per-name arms) | ▫ pending — tangled across three interacting path layers (`local_path` field / legacy `local_path_override` / `family_dir_for`); a full registry-path migration with regression risk on every source. Best as a focused REGISTRY pass. |
