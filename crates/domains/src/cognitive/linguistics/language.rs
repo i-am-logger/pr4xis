@@ -449,7 +449,7 @@ pub fn build_verb_transitivity(
 /// committed `english-function-words-2026.prx.gz` (a graph-faithful rkyv
 /// `WordNetPrxEnvelope`) via [`function_words_wordnet_from_prx`], reconstructing
 /// the parsed `WordNet` with its human-meaningful `fw-*` synset ids intact, then
-/// projects it through the unchanged [`function_words_from_lmf`]. The committed
+/// projects it through the unchanged `function_words_from_lmf`. The committed
 /// `.prx.gz` is content-addressed and (with the registered `WordNetLmfLens`)
 /// pinned in `praxis.lock` — the loaded-not-`include_str!` path that closes the
 /// asymmetry with OLiA.
