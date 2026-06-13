@@ -261,7 +261,7 @@ pub fn lmf_pos_to_lexical_entries(
         lmf::LmfPos::Determiner | lmf::LmfPos::Numeral => {
             vec![LexicalEntry::Determiner(Determiner {
                 text: word.into(),
-                definiteness: Definiteness::Indefinite,
+                kind: DeterminerKind::Indefinite,
                 number: None,
                 olia_class: None,
             })]
@@ -500,13 +500,13 @@ fn function_words_from_lmf(
 
         let lexical_entry = match entry.lemma.pos {
             lmf::LmfPos::Determiner => {
-                // Definiteness decoded ONCE from the loaded synset (the wire form
+                // DeterminerKind decoded ONCE from the loaded synset (the wire form
                 // of the feature), not a scattered `synset_id.contains(...)`
-                // dispatch — the codec lowering, like `wh_from_fragment`.
-                let definiteness = definiteness_from_synset(synset_id);
+                // dispatch — the codec lowering, like the OLiA fragment resolver.
+                let kind = determiner_kind_from_synset(synset_id);
                 LexicalEntry::Determiner(Determiner {
                     text: word.clone(),
-                    definiteness,
+                    kind,
                     number: None,
                     olia_class: olia_class.clone(),
                 })
@@ -571,34 +571,41 @@ fn function_words_from_lmf(
     map
 }
 
-/// Decode a determiner's [`Definiteness`] from its loaded synset id — the ONE
-/// codec lowering (wire → typed feature), the sibling of
-/// [`wh::wh_from_fragment`](super::lexicon::wh) for the determiner-feature axis.
-/// Replaces the scattered `synset_id.contains(...)` dispatch. The synset is the
-/// loaded feature encoding (from `function-words/english.xml`); an unknown synset
-/// fails to the open-class default (Indefinite), per Huddleston & Pullum 2002 Ch.5.
-fn definiteness_from_synset(synset_id: &str) -> Definiteness {
+/// Decode a determiner's [`DeterminerKind`] from its loaded synset id — the ONE
+/// codec lowering (wire → typed feature) on the determiner-feature axis, the
+/// sibling of [`interjection_kind_from_synset`]. Replaces the scattered
+/// `synset_id.contains(...)` dispatch. The synset is the loaded feature encoding
+/// (from `function-words/english.xml`).
+///
+/// Definite/Indefinite is the core definiteness contrast (Lyons 1999,
+/// DOI 10.1017/CBO9780511605789); Demonstrative/Quantifier are determiner
+/// subclasses on a different axis (Abbott 2010) — see the PRAXIS-HONESTY FLAG on
+/// [`DeterminerKind`]. An unknown synset fails to the unmarked default
+/// (Indefinite), per Huddleston & Pullum 2002 Ch.5.
+fn determiner_kind_from_synset(synset_id: &str) -> DeterminerKind {
     match synset_id {
-        "fw-definite-det" => Definiteness::Definite,
-        "fw-demonstrative-det" => Definiteness::Demonstrative,
-        "fw-universal-det" | "fw-negative-det" => Definiteness::Quantifier,
+        "fw-definite-det" => DeterminerKind::Definite,
+        "fw-demonstrative-det" => DeterminerKind::Demonstrative,
+        "fw-universal-det" | "fw-negative-det" => DeterminerKind::Quantifier,
         // fw-indefinite-det, fw-interrogative-det, and any unknown → Indefinite.
-        _ => Definiteness::Indefinite,
+        _ => DeterminerKind::Indefinite,
     }
 }
 
 /// Decode an interjection's [`InterjectionKind`] from its loaded synset id — the
 /// ONE codec lowering, replacing the scattered `synset_id.contains(...)`
-/// dispatch. OLiA has only a single `Interjection` class (no greeting/farewell
+/// dispatch. OLiA has only a single `Interjection` class (no functional
 /// subclasses), so the communicative-function kind is a praxis feature decoded
-/// from the loaded synset (Huddleston & Pullum 2002 Ch.16 §5), not an OLiA
-/// fragment.
+/// from the loaded synset, grounded in Ameka 1992's expressive/conative/phatic
+/// typology (DOI 10.1016/0378-2166(92)90048-G), not an OLiA fragment. An unknown
+/// synset fails to the prototypical default (Expressive).
 fn interjection_kind_from_synset(synset_id: &str) -> InterjectionKind {
     match synset_id {
         "fw-greeting" => InterjectionKind::Greeting,
         "fw-farewell" => InterjectionKind::Farewell,
         "fw-politeness" => InterjectionKind::Politeness,
         "fw-response" => InterjectionKind::Response,
+        "fw-conative" => InterjectionKind::Conative,
         // fw-expressive and any unknown → Expressive.
         _ => InterjectionKind::Expressive,
     }
@@ -611,29 +618,29 @@ mod feature_decoders {
     #[test]
     fn definiteness_decodes_from_the_loaded_synset() {
         assert_eq!(
-            definiteness_from_synset("fw-definite-det"),
-            Definiteness::Definite
+            determiner_kind_from_synset("fw-definite-det"),
+            DeterminerKind::Definite
         );
         assert_eq!(
-            definiteness_from_synset("fw-demonstrative-det"),
-            Definiteness::Demonstrative
+            determiner_kind_from_synset("fw-demonstrative-det"),
+            DeterminerKind::Demonstrative
         );
         assert_eq!(
-            definiteness_from_synset("fw-universal-det"),
-            Definiteness::Quantifier
+            determiner_kind_from_synset("fw-universal-det"),
+            DeterminerKind::Quantifier
         );
         assert_eq!(
-            definiteness_from_synset("fw-negative-det"),
-            Definiteness::Quantifier
+            determiner_kind_from_synset("fw-negative-det"),
+            DeterminerKind::Quantifier
         );
         assert_eq!(
-            definiteness_from_synset("fw-indefinite-det"),
-            Definiteness::Indefinite
+            determiner_kind_from_synset("fw-indefinite-det"),
+            DeterminerKind::Indefinite
         );
         // Unknown / interrogative-det → the open-class default.
         assert_eq!(
-            definiteness_from_synset("fw-interrogative-det"),
-            Definiteness::Indefinite
+            determiner_kind_from_synset("fw-interrogative-det"),
+            DeterminerKind::Indefinite
         );
     }
 
@@ -654,6 +661,10 @@ mod feature_decoders {
         assert_eq!(
             interjection_kind_from_synset("fw-response"),
             InterjectionKind::Response
+        );
+        assert_eq!(
+            interjection_kind_from_synset("fw-conative"),
+            InterjectionKind::Conative
         );
         assert_eq!(
             interjection_kind_from_synset("fw-expressive"),
@@ -1048,15 +1059,15 @@ mod function_words_prx {
     #[test]
     fn decoders_survive_the_prx_roundtrip() {
         let map = build_english_function_words();
-        let definiteness = |w: &str| match map.get(w).and_then(|v| v.first()) {
-            Some(LexicalEntry::Determiner(d)) => Some(d.definiteness),
+        let det_kind = |w: &str| match map.get(w).and_then(|v| v.first()) {
+            Some(LexicalEntry::Determiner(d)) => Some(d.kind),
             _ => None,
         };
-        assert_eq!(definiteness("the"), Some(Definiteness::Definite));
-        assert_eq!(definiteness("this"), Some(Definiteness::Demonstrative));
-        assert_eq!(definiteness("every"), Some(Definiteness::Quantifier));
-        assert_eq!(definiteness("no"), Some(Definiteness::Quantifier));
-        assert_eq!(definiteness("a"), Some(Definiteness::Indefinite));
+        assert_eq!(det_kind("the"), Some(DeterminerKind::Definite));
+        assert_eq!(det_kind("this"), Some(DeterminerKind::Demonstrative));
+        assert_eq!(det_kind("every"), Some(DeterminerKind::Quantifier));
+        assert_eq!(det_kind("no"), Some(DeterminerKind::Quantifier));
+        assert_eq!(det_kind("a"), Some(DeterminerKind::Indefinite));
 
         let kind = |w: &str| match map.get(w).and_then(|v| v.first()) {
             Some(LexicalEntry::Interjection(i)) => Some(i.kind),
