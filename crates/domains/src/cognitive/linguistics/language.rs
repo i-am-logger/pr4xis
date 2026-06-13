@@ -472,16 +472,10 @@ fn function_words_from_lmf(
 
         let lexical_entry = match entry.lemma.pos {
             lmf::LmfPos::Determiner => {
-                let definiteness =
-                    if synset_id.contains("definite") && !synset_id.contains("indefinite") {
-                        Definiteness::Definite
-                    } else if synset_id.contains("demonstrative") {
-                        Definiteness::Demonstrative
-                    } else if synset_id.contains("universal") || synset_id.contains("negative") {
-                        Definiteness::Quantifier
-                    } else {
-                        Definiteness::Indefinite
-                    };
+                // Definiteness decoded ONCE from the loaded synset (the wire form
+                // of the feature), not a scattered `synset_id.contains(...)`
+                // dispatch — the codec lowering, like `wh_from_fragment`.
+                let definiteness = definiteness_from_synset(synset_id);
                 LexicalEntry::Determiner(Determiner {
                     text: word.clone(),
                     definiteness,
@@ -531,17 +525,9 @@ fn function_words_from_lmf(
             }
             lmf::LmfPos::Particle => LexicalEntry::Particle(Particle { text: word.clone() }),
             lmf::LmfPos::Interjection => {
-                let kind = if synset_id.contains("greeting") {
-                    InterjectionKind::Greeting
-                } else if synset_id.contains("farewell") {
-                    InterjectionKind::Farewell
-                } else if synset_id.contains("politeness") {
-                    InterjectionKind::Politeness
-                } else if synset_id.contains("response") {
-                    InterjectionKind::Response
-                } else {
-                    InterjectionKind::Expressive
-                };
+                // Interjection kind decoded ONCE from the loaded synset (the
+                // codec lowering), not scattered `synset_id.contains(...)`.
+                let kind = interjection_kind_from_synset(synset_id);
                 LexicalEntry::Interjection(Interjection {
                     text: word.clone(),
                     kind,
@@ -555,6 +541,97 @@ fn function_words_from_lmf(
     }
 
     map
+}
+
+/// Decode a determiner's [`Definiteness`] from its loaded synset id — the ONE
+/// codec lowering (wire → typed feature), the sibling of
+/// [`wh::wh_from_fragment`](super::lexicon::wh) for the determiner-feature axis.
+/// Replaces the scattered `synset_id.contains(...)` dispatch. The synset is the
+/// loaded feature encoding (from `function-words/english.xml`); an unknown synset
+/// fails to the open-class default (Indefinite), per Huddleston & Pullum 2002 Ch.5.
+fn definiteness_from_synset(synset_id: &str) -> Definiteness {
+    match synset_id {
+        "fw-definite-det" => Definiteness::Definite,
+        "fw-demonstrative-det" => Definiteness::Demonstrative,
+        "fw-universal-det" | "fw-negative-det" => Definiteness::Quantifier,
+        // fw-indefinite-det, fw-interrogative-det, and any unknown → Indefinite.
+        _ => Definiteness::Indefinite,
+    }
+}
+
+/// Decode an interjection's [`InterjectionKind`] from its loaded synset id — the
+/// ONE codec lowering, replacing the scattered `synset_id.contains(...)`
+/// dispatch. OLiA has only a single `Interjection` class (no greeting/farewell
+/// subclasses), so the communicative-function kind is a praxis feature decoded
+/// from the loaded synset (Huddleston & Pullum 2002 Ch.16 §5), not an OLiA
+/// fragment.
+fn interjection_kind_from_synset(synset_id: &str) -> InterjectionKind {
+    match synset_id {
+        "fw-greeting" => InterjectionKind::Greeting,
+        "fw-farewell" => InterjectionKind::Farewell,
+        "fw-politeness" => InterjectionKind::Politeness,
+        "fw-response" => InterjectionKind::Response,
+        // fw-expressive and any unknown → Expressive.
+        _ => InterjectionKind::Expressive,
+    }
+}
+
+#[cfg(test)]
+mod feature_decoders {
+    use super::*;
+
+    #[test]
+    fn definiteness_decodes_from_the_loaded_synset() {
+        assert_eq!(
+            definiteness_from_synset("fw-definite-det"),
+            Definiteness::Definite
+        );
+        assert_eq!(
+            definiteness_from_synset("fw-demonstrative-det"),
+            Definiteness::Demonstrative
+        );
+        assert_eq!(
+            definiteness_from_synset("fw-universal-det"),
+            Definiteness::Quantifier
+        );
+        assert_eq!(
+            definiteness_from_synset("fw-negative-det"),
+            Definiteness::Quantifier
+        );
+        assert_eq!(
+            definiteness_from_synset("fw-indefinite-det"),
+            Definiteness::Indefinite
+        );
+        // Unknown / interrogative-det → the open-class default.
+        assert_eq!(
+            definiteness_from_synset("fw-interrogative-det"),
+            Definiteness::Indefinite
+        );
+    }
+
+    #[test]
+    fn interjection_kind_decodes_from_the_loaded_synset() {
+        assert_eq!(
+            interjection_kind_from_synset("fw-greeting"),
+            InterjectionKind::Greeting
+        );
+        assert_eq!(
+            interjection_kind_from_synset("fw-farewell"),
+            InterjectionKind::Farewell
+        );
+        assert_eq!(
+            interjection_kind_from_synset("fw-politeness"),
+            InterjectionKind::Politeness
+        );
+        assert_eq!(
+            interjection_kind_from_synset("fw-response"),
+            InterjectionKind::Response
+        );
+        assert_eq!(
+            interjection_kind_from_synset("fw-expressive"),
+            InterjectionKind::Expressive
+        );
+    }
 }
 
 // =========================================================================
