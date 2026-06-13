@@ -12,8 +12,8 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 publish = false
 
 [dependencies]
-pr4xis = { version = "0.23.1", path = "../pr4xis" }
-pr4xis-domains = { version = "0.23.1", path = "../domains" }
+pr4xis = { path = "../pr4xis" }
+pr4xis-domains = { path = "../domains" }
 
 [lints]
 workspace = true
@@ -24,7 +24,7 @@ criterion = { version = "0.8", features = ["html_reports"] }
 # compiled ontology into a `.prx` Archive, materialize it into a
 # `RuntimeOntology`, and drive the chat through a `ComposedReasoner` — proving
 # the with/without behavioral contrast end-to-end through `process_with_reasoner`.
-pr4xis-runtime = { version = "0.23.1", path = "../pr4xis-runtime", features = ["emit"] }
+pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
 
 [[bench]]
 name = "chat_benchmarks"
