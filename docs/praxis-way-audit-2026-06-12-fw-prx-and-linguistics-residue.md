@@ -29,7 +29,8 @@ projections or the new `.prx`/functor substrate. This is new ground.
 | **D-17** XSD `DatatypeEvolution` baseline derived (magic 46/4 removed) | ✅ done, verified | `2794f8c` |
 | **D-7** relation→structural-property as loaded `HasProperty` edges | ✅ done, verified | `3ae5f61` |
 | **D-11** delete dead `legacy` discourse module | ⏸ ON HOLD — it is test-covered runtime code; the "superseded by discourse/ontology.rs" claim is shaky (that is a discourse *ontology*, not a runtime conversation model). Needs explicit confirm-to-delete. |
-| **MORPH** D-1 (AGID) + D-2 (CatVar) + D-12 | ▫ pending — user chose *fetch + vendor the real data*. Needs network fetch of AGID/CatVar + a vendored data file + praxis.toml/lock registration + a OnceLock loader. Deserves a focused pass. |
+| **MORPH D-1** irregular forms LOADED from the registered AGID source | ✅ done, verified | `94d7705` |
+| **MORPH D-2 / D-12** (english_rules from CatVar + the len==13 count) | ▫ pending — the SECOND morphology source (CatVar / WordNet morphosemantic, Habash & Dorr 2003). The 13 productive affix rules map less directly to CatVar's derivational word-pairs than AGID's inflections did to irregulars; a focused follow-up. |
 | **D-5, D-6, D-16** (XSD datatype groups / base_type) | ▫ pending — derive group membership + base_type from the loaded §3.4 Subsumption structure; removes the `BaseTypeAgreesWithCategory` dual-source-of-truth axiom. Interrelated + needs a transitive reduction — higher-risk, do as a focused trio. |
 | **D-9, D-22** (registry) | ▫ pending — `family_dir_for` per-name arms → registry data (now partly enabled by the FW-A `local_path` field); `has_decoder_for` derivation (verifier flagged the fix as partly infeasible). |
 | **D-13, D-15** (linguistics) | ▫ pending — `pos_to_olia_fragments` (partial: the canonical fragment is a legit anchor, the subclass enumeration is residue); `VerbTransitivity::from_frame_id` (needs the loaded WN frame vocabulary). |
