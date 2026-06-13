@@ -33,6 +33,12 @@ use crate::social::software::markup::xml::reader as xml_reader;
 ///
 /// Returns a [`DecodeError`] if the bytes are not valid UTF-8 or if
 /// the XML reader rejects the document.
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::Xhtml;
+
 pub fn decode(bytes: &[u8]) -> Result<XmlDocument, DecodeError> {
     let text = core::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
     xml_reader::read_xml(text).map_err(|e| DecodeError::Xml(e.to_string()))

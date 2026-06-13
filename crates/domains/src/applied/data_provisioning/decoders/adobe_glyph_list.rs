@@ -34,6 +34,12 @@ use std::collections::HashMap;
 /// or malformed lines are skipped — the AGL itself is well-
 /// formed by publisher policy, so malformed lines on disk indicate
 /// file corruption rather than a parser deficiency.
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::AdobeGlyphList;
+
 pub fn parse(bytes: &str) -> HashMap<String, u16> {
     let mut map = HashMap::with_capacity(4500);
     for line in bytes.lines() {

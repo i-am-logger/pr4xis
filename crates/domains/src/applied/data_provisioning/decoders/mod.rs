@@ -23,18 +23,31 @@ pub mod xml_xsd;
 pub mod zip_archive;
 
 /// Does a decoder exist for this content type? Used by the
-/// `DecoderTotalityPerContentType` axiom.
+/// `DecoderTotalityPerKind` axiom.
+///
+/// EXHAUSTIVE — no wildcard arm (audit 2026-06-12 D-22): adding a `ContentType`
+/// variant is a COMPILE ERROR here until its decoder status is decided, which a
+/// `matches!` (treating every unlisted variant as silently `false`) cannot give.
+/// Each `true` arm is owned by a decoder module's `DECODES` const — the single
+/// declaration of which content type that file realizes (verified by
+/// `has_decoder_for_agrees_with_each_module_const`). `UslmXml` is the one decoder
+/// realized outside this directory (`xml::uslm::lens::read_uslm_title`), so it has
+/// no module const to hang on — the genuine reason this is exhaustive-but-still-
+/// enumerated rather than a collected set.
 pub fn has_decoder_for(content_type: ContentType) -> bool {
-    matches!(
-        content_type,
-        ContentType::XmlLmf
-            | ContentType::AdobeGlyphList
-            | ContentType::UslmXml
-            | ContentType::XmlXsd
-            | ContentType::Xhtml
-            | ContentType::TarGzArchive
-            | ContentType::XmlDtd
-            | ContentType::ZipArchive
-            | ContentType::Owl
-    )
+    use ContentType as CT;
+    match content_type {
+        CT::XmlLmf => true,         // xml_lmf::DECODES
+        CT::Owl => true,            // owl::DECODES
+        CT::XmlXsd => true,         // xml_xsd::DECODES
+        CT::Xhtml => true,          // xhtml::DECODES
+        CT::AdobeGlyphList => true, // adobe_glyph_list::DECODES
+        CT::XmlDtd => true,         // xml_dtd::DECODES
+        CT::TarGzArchive => true,   // tar_gz_archive::DECODES
+        CT::ZipArchive => true,     // zip_archive::DECODES
+        // Realized outside decoders/ — by xml::uslm::lens::read_uslm_title.
+        CT::UslmXml => true,
+        // No decoder yet — fail-closed for DecoderTotalityPerKind.
+        CT::Pdf | CT::Plaintext | CT::Json | CT::Video | CT::Audio | CT::Binary => false,
+    }
 }

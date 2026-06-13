@@ -16,6 +16,12 @@
 //!   document type declaration, §3.2 element type declarations,
 //!   §3.3 attribute-list declarations, §4 physical structures.
 
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::XmlDtd;
+
 /// True iff `bytes` contains an XML 1.0 markup declaration —
 /// either `<!ELEMENT` (§3.2 element-type declaration) or
 /// `<!ATTLIST` (§3.3 attribute-list declaration). Skips leading

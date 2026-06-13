@@ -49,6 +49,12 @@ use crate::social::software::markup::xml::lmf::reader as lmf_reader;
 /// assert_eq!(wordnet.entries.len(), 1);
 /// assert_eq!(wordnet.synsets.len(), 1);
 /// ```
+/// The [`ContentType`](crate::applied::data_provisioning::ontology::ContentType)
+/// this module realizes -- the single declaration of which content type
+/// this file decodes, read by `super::has_decoder_for` (audit 2026-06-12 D-22).
+pub const DECODES: crate::applied::data_provisioning::ontology::ContentType =
+    crate::applied::data_provisioning::ontology::ContentType::XmlLmf;
+
 pub fn decode(bytes: &[u8]) -> Result<WordNet, DecodeError> {
     let text = core::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
     lmf_reader::read_wordnet(text).map_err(|e| DecodeError::Lmf(e.to_string()))
