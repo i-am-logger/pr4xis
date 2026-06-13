@@ -22,14 +22,24 @@ projections or the new `.prx`/functor substrate. This is new ground.
 |---|---|---|
 | **FW-A** function-words `.prx` + `ClosedClassLexicon` + D-8 `local_path` | ✅ done, verified | `e41237e` |
 | **FW-B** `DeterminerKind` rename + `InterjectionKind`+`Conative` + cite fixes + D-14 | ✅ done, verified | `e6ae796` |
-| **D-18** derive `is_leaf` from the loaded graph (+ D-21 leaf-count → structural) | ✅ done, verified | `df6f3ec` |
+| **D-18** derive `is_leaf` from the loaded graph (source_taxonomy + artifact_identity is_leaf/is_family) | ✅ done, verified | `df6f3ec`, `2794f8c` |
 | **D-10** theme `polarity` → `Option<Polarity>` | ✅ done, verified | `df6f3ec` |
+| **D-19** `ContentHashIsInjective` derives its leaves from the subtree | ✅ done, verified | `2794f8c` |
+| **D-20** `DomainOrder` rank from the loaded N⊂Z⊂Q⊂R⊂C chain | ✅ done, verified | `2794f8c` |
+| **D-17** XSD `DatatypeEvolution` baseline derived (magic 46/4 removed) | ✅ done, verified | `2794f8c` |
+| **D-7** relation→structural-property as loaded `HasProperty` edges | ✅ done, verified | `3ae5f61` |
 | **D-11** delete dead `legacy` discourse module | ⏸ ON HOLD — it is test-covered runtime code; the "superseded by discourse/ontology.rs" claim is shaky (that is a discourse *ontology*, not a runtime conversation model). Needs explicit confirm-to-delete. |
-| **MORPH** D-1 (AGID) + D-2 (CatVar) + D-12 | ▫ pending — user chose *fetch + vendor the real data*. Needs network fetch of AGID/CatVar + a vendored data file + praxis.toml/lock registration. |
-| **META-DERIVE** D-5, D-6, D-16, D-19, D-20 + D-21 (scattered counts) | ▫ pending — derive-from-loaded-morphisms refactors (XSD datatype groups/base-type, ContentHash leaves, DomainOrder rank). |
-| **REGISTRY** D-9, D-22 | ▫ pending — `family_dir_for` per-name arms → registry data; `has_decoder_for` derivation. |
-| **CLEANUP** D-3, D-4, D-7, D-13, D-15, D-17 | ▫ pending — canonical_phrase functor, SynsetRelationType predicates, RelationProperty edges, pos_to_olia_fragments, VerbTransitivity frames, magic-46. |
-| **Track C** projection-as-data lift | ⏸ PARKED per user — file a tracked issue to lift `function_words_from_lmf` + `wn_builder_to_owned` together on the #87 engine-bridge (`f920898`/`9e59bb0`). The audit's own verifiers ruled these codec-floor, not residue — do both together or neither. |
+| **MORPH** D-1 (AGID) + D-2 (CatVar) + D-12 | ▫ pending — user chose *fetch + vendor the real data*. Needs network fetch of AGID/CatVar + a vendored data file + praxis.toml/lock registration + a OnceLock loader. Deserves a focused pass. |
+| **D-5, D-6, D-16** (XSD datatype groups / base_type) | ▫ pending — derive group membership + base_type from the loaded §3.4 Subsumption structure; removes the `BaseTypeAgreesWithCategory` dual-source-of-truth axiom. Interrelated + needs a transitive reduction — higher-risk, do as a focused trio. |
+| **D-9, D-22** (registry) | ▫ pending — `family_dir_for` per-name arms → registry data (now partly enabled by the FW-A `local_path` field); `has_decoder_for` derivation (verifier flagged the fix as partly infeasible). |
+| **D-13, D-15** (linguistics) | ▫ pending — `pos_to_olia_fragments` (partial: the canonical fragment is a legit anchor, the subclass enumeration is residue); `VerbTransitivity::from_frame_id` (needs the loaded WN frame vocabulary). |
+| **D-21** scattered `variants().len()==N` counts | ◑ partial — the source_taxonomy leaf-count + the XSD baseline are structural now; the remaining meta-ontology inventory-count pins are cited-fact regressions (closed enums, no external source) and lower priority. |
+| **D-3, D-4** (canonical_phrase / SynsetRelationType predicates) | ⏸ PARKED with Track C — both are the same `match → GeneratorAction::Functor` projection-as-data shape; D-4 specifically feeds `wn_builder_to_owned`. Do them with the Track-C lift, not piecemeal. |
+| **Track C** projection-as-data lift | ⏸ PARKED per user → tracked below. |
+
+### Track C — tracked issue (to file)
+> **Title:** Lift the LMF→praxis projections onto `apply`/FreeExtension (projection-as-data)
+> **Body:** `function_words_from_lmf` (`language.rs`), `wn_builder_to_owned` (`lmf/prx.rs:552`), the `SynsetRelationType::is_taxonomy/is_mereology/is_causal` predicates (D-4), `canonical_phrase` (D-3), and `RelationProperty` (now edges, D-7 — reference only) are source→praxis-kind projections. The #87 engine-bridge landed the substrate to carry such a projection AS `.prx` data — a `GeneratorAction::Functor` interpreted by `apply` (`9e59bb0`) — with the WordNet→praxis functor already carried that way (`f920898`, `bridge.rs:193-224`). Lift the WordNet projection AND the function-words projection together onto that interpreter so there is ONE projection mechanism, not a forked second one. NOTE: the 2026-06-12 audit's own adversarial verifiers ruled `wn_builder_to_owned`/`function_words_from_lmf` *codec-floor* (closed-enum→closed-enum), not the source-vocabulary→kind residue the functor supersedes — so this is a consistency/uniformity refactor, contested as strict residue. Do both projections together or neither.
 
 All commits are unsigned (`--no-gpg-sign`); user re-signs on YubiKey. `fa9f154` (the
 synset-codec fix) was cherry-picked forward — it never made it into the merged #201.
