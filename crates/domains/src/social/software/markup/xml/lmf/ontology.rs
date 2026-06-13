@@ -619,7 +619,7 @@ impl VerbTransitivity {
     /// Determine transitivity from a frame ID by its documented `v[ti][ai]…`
     /// prefix scheme — the FALLBACK used only when an id has no
     /// `<SyntacticBehaviour>` definition to read the text from (never fires on
-    /// OEWN 2025, where every used id is defined). Prefer [`from_frame`], which
+    /// OEWN 2025, where every used id is defined). Prefer [`Self::from_frame`], which
     /// reads the loaded frame text; the prefix is a lossy derivative of it (it
     /// drops the non-`vt`/`vi` impersonal frames).
     pub fn from_frame_id(frame_id: &str) -> Option<Self> {
