@@ -23,6 +23,7 @@ pr4xis::ontology! {
         DomainLexicon,       // Lexicon restricted to a specialty
         LegalLexicon,        // DomainLexicon for legal terms of art (Black's, statutory defs)
         SchemaVocabulary,    // DomainLexicon for schema-vocabulary names (XML/HTML element / attribute / type / group names from published schema specs)
+        ClosedClassLexicon,  // Lexicon for the closed-class (function-word) stratum — the disjoint complement of open-class Language (Quirk et al. 1985 §2.34)
 
         // === LegalCorpus family (Hart 1961 primary + secondary rules) ===
         LegalCorpus,
@@ -65,6 +66,8 @@ pr4xis::ontology! {
             "Solan (1993) The Language of Judges: a DomainLexicon for legal terms of art — statutory definitions, Black's Law Dictionary, judicial glossaries."),
         SchemaVocabulary: ("en", "Schema vocabulary",
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §3 (Schema Component Names): a DomainLexicon enumerating the closed-class element / attribute / type / group / model names declared by published schema specifications. The taxonomy slot is kept for future bundles in this family; the XSD → English projection's is_schema_vocabulary classifier now reads directly from each loaded XmlSchemaDefinition (HTML5 XSD, W3C xml.xsd, USLM-1.0.18 XSD self-annotations) rather than from a separate LMF bundle (M4.η.4)."),
+        ClosedClassLexicon: ("en", "Closed-class lexicon",
+            "Quirk, Greenbaum, Leech & Svartvik (1985) A Comprehensive Grammar of the English Language §2.34 (open vs closed word classes): a Lexicon enumerating the bounded CLOSED grammatical word classes — determiners, pronouns, prepositions, conjunctions, auxiliaries, copulas, particles, interjections, and the wh-/relative pronouns. The disjoint complement of the open-class natural-language WordNet (the `Language` leaf): function words, not content words. Category vocabulary per the OLiA Reference Model (Chiarcos & Sukhareva 2015, see [sources.olia]). The bundled crates/domains/data/function-words/english.xml is a hand-curated, citation-anchored inventory — the membership is NOT yet machine-loaded from the cited grammars (a tracked praxis-debt)."),
         LegalCorpus: ("en", "Legal corpus",
             "Hart (1961) The Concept of Law: the root of legal text resources — primary rules (statutes, constitutional articles, procedural rules) and secondary rules (regulations, case law) about them."),
         Statute: ("en", "Statute",
@@ -112,6 +115,11 @@ pr4xis::ontology! {
         (DomainLexicon, Lexicon),
         (LegalLexicon, DomainLexicon),
         (SchemaVocabulary, DomainLexicon),
+        // Sibling of Language, NOT a child of DomainLexicon: function
+        // words are the domain-independent closed-class stratum (Quirk
+        // et al. 1985 §2.34), an orthogonal axis to the specialty-domain
+        // scoping that defines DomainLexicon (Pustejovsky 1995).
+        (ClosedClassLexicon, Lexicon),
 
         // LegalCorpus family
         (LegalCorpus, Source),
@@ -205,6 +213,13 @@ pr4xis::ontology! {
         // lemmas no schema reuses.
         (SchemaVocabulary, Language, Adjoins),
 
+        // Quirk et al. (1985) §2.34: the closed-class function-word
+        // stratum is the disjoint complement of the open-class WordNet
+        // (`Language`). The unit/counit pair surfaces (a) function words
+        // a WordNet sense list omits, and (b) open-class lemmas the
+        // closed inventory doesn't carry — the two halves of the lexicon.
+        (ClosedClassLexicon, Language, Adjoins),
+
         // W3C OWL 2 §5 + RDF Schema §2.1: an OWL vocabulary's classes
         // and object properties each carry an rdfs:label whose tokens
         // anchor in common English the same way schema-vocabulary names
@@ -258,6 +273,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "DomainLexicon" => C::DomainLexicon,
         "LegalLexicon" => C::LegalLexicon,
         "SchemaVocabulary" => C::SchemaVocabulary,
+        "ClosedClassLexicon" => C::ClosedClassLexicon,
         "LegalCorpus" => C::LegalCorpus,
         "Statute" => C::Statute,
         "UsFederalStatute" => C::UsFederalStatute,
@@ -292,6 +308,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::DomainLexicon => "DomainLexicon",
         C::LegalLexicon => "LegalLexicon",
         C::SchemaVocabulary => "SchemaVocabulary",
+        C::ClosedClassLexicon => "ClosedClassLexicon",
         C::LegalCorpus => "LegalCorpus",
         C::Statute => "Statute",
         C::UsFederalStatute => "UsFederalStatute",
@@ -362,6 +379,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
         C::Language
             | C::LegalLexicon
             | C::SchemaVocabulary
+            | C::ClosedClassLexicon
             | C::UsFederalStatute
             | C::UsCodeTitle
             | C::Regulation

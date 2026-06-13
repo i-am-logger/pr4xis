@@ -799,6 +799,7 @@ mod tests {
             kind: SourceTaxonomyConcept::Statute,
             url: String::new(),
             description: None,
+            local_path: None,
             identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(
                 Vec::new(),
             ),

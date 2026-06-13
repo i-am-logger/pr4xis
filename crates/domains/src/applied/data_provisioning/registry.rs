@@ -247,6 +247,11 @@ struct RawSource {
     url: String,
     #[serde(default)]
     description: Option<String>,
+    /// Explicit workspace-relative disk path (audit 2026-06-12 D-8) —
+    /// registry data replacing the `local_path_override` Rust table for
+    /// sources whose on-disk name isn't the `{name}-{version}` formula.
+    #[serde(default)]
+    local_path: Option<String>,
 }
 
 /// Intermediate form: name + raw source. We keep names sorted at the
@@ -326,6 +331,7 @@ fn build_entry(
         kind,
         url: raw.url,
         description: raw.description,
+        local_path: raw.local_path,
         identity: CompositeIdentity(claims),
     })
 }
@@ -1089,6 +1095,7 @@ url     = "https://example.com/wordnet.xml.gz"
                 kind: "NotAConcept".into(),
                 url: "".into(),
                 description: None,
+                local_path: None,
             },
         };
         let lock = HashMap::new();
@@ -1111,6 +1118,7 @@ url     = "https://example.com/wordnet.xml.gz"
                 kind: "UsFederalStatute".into(),
                 url: "".into(),
                 description: None,
+                local_path: None,
             },
         };
         let lock = HashMap::new();
@@ -1128,6 +1136,7 @@ url     = "https://example.com/wordnet.xml.gz"
                 kind: "Language".into(),
                 url: "https://example.com/wn.xml.gz".into(),
                 description: Some("test".into()),
+                local_path: None,
             },
         };
         let mut lock = HashMap::new();

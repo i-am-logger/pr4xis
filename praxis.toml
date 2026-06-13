@@ -334,6 +334,13 @@ type        = "LegalLexicon"
 url         = "https://www.govinfo.gov/app/details/GPO-STYLEMANUAL-2016"
 description = "U.S. Federal Legal-Text Closed-Class Lexicon — citation abbreviations (GPO Style Manual 2016 Ch. 9), month names + abbreviations (GPO §9.20), federal-agency acronyms (Federal Register Document Drafting Handbook 2017 §4.1), U.S. state / place names (ISO 3166-2:US + GPO §5.20), English productive compounds (Huddleston & Pullum 2002 Ch. 19 + Bauer 1983 §6), and legal terms-of-art (Black's Law Dictionary 11th ed. 2019). Bundled as crates/domains/data/legal-text/us_legal_lexicon.xml (LMF format)."
 
+[sources.english_function_words]
+version     = "2026"
+type        = "ClosedClassLexicon"
+url         = "https://aclanthology.org/J93-2004/"
+local_path  = "function-words/english.xml"
+description = "English closed-class / function-word inventory (determiners, pronouns, prepositions, conjunctions, auxiliaries, copulas, particles, interjections, wh-/interrogative, relative & possessive pronouns) — the closed-class complement of the open-class english_wordnet (Quirk et al. 1985 §2.34). PRIMARY membership authority: Quirk, Greenbaum, Leech & Svartvik (1985) A Comprehensive Grammar of the English Language (Longman, ISBN 978-0-582-51734-9) — Ch.5 determiners, Ch.6 pronouns, Ch.9 §9.1-9.7 prepositions, Ch.13 coordination, Ch.14 subordination; converging with Huddleston & Pullum (2002) The Cambridge Grammar of the English Language (CUP, ISBN 978-0-521-43146-0) — Ch.3 auxiliaries/copula, Ch.5 determinatives/pronouns, Ch.6 interrogative adverbs, Ch.7 prepositions, Ch.12 relatives, Ch.15 coordination. Corroborating corpus: Biber et al. (1999) Longman Grammar of Spoken and Written English (ISBN 978-0-582-23725-4). Category vocabulary: OLiA Reference Model (see [sources.olia]; Chiarcos & Sukhareva 2015, doi:10.3233/SW-140167). Computational tagset: Penn Treebank closed-class tags (Santorini 1990, UPenn MS-CIS-90-47; Marcus et al. 1993, https://aclanthology.org/J93-2004/) and Universal Dependencies closed-class POS. Bundled as crates/domains/data/function-words/english.xml (LMF). NOTE: the inventory is hand-curated and citation-anchored, not yet machine-loaded from the cited grammars (tracked praxis-debt, audit 2026-06-12)."
+
 # ---------------------------------------------------------------------------
 # Ontology vocabularies (SPAR / OWL)
 # ---------------------------------------------------------------------------

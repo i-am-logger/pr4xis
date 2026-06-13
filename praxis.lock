@@ -153,6 +153,16 @@
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
 "us_legal_lexicon@2026"  = "blake3:59397b5d42712554ed5eed9be26a23854c2b19cf9fb2051b9b63daa3cbac9b38"
+# English closed-class / function-word lexicon (LMF XML). Pinned hash of
+# crates/domains/data/function-words/english.xml — the `ClosedClassLexicon`
+# disjoint complement of the open-class english_wordnet (Quirk et al. 1985
+# §2.34): determiners, pronouns, prepositions, conjunctions, auxiliaries,
+# copulas, particles, interjections, wh-/relative pronouns. Category vocabulary
+# per OLiA; membership per CGEL-1985 + CamGEL-2002 (citations in the XML header
+# + [sources.english_function_words]). Fast-loaded from the committed
+# english-function-words-2026.prx.gz; updating the XML requires regenerating
+# both this hash and the artifact (--ignored regenerate_english_function_words_prx).
+"english_function_words@2026"  = "blake3:aa95219088386de09c63cf8fc2e5a543521321f7fdf97765da414f8f468e65cc"
 # CiTO, the Citation Typing Ontology (SPAR family) — W3C OWL 2 / RDF-XML
 # vocabulary. Content digest of the bundled on-disk file
 # crates/domains/data/ontologies/cito-2.8.1.owl, a verbatim copy of the
@@ -441,6 +451,13 @@
 # equal the `us_legal_lexicon@2026` `[hashes]` pin (registry.rs enforces
 # sig == raw_hash).
 "us_legal_lexicon@2026"  = "blake3:59397b5d42712554ed5eed9be26a23854c2b19cf9fb2051b9b63daa3cbac9b38"
+# english_function_words — the THIRD WN-LMF graph-faithful source. The
+# source-agnostic `WordNetLmfLens` regenerates the on-disk english.xml bytes
+# from the typed `WordNet` ontology + the concrete-syntax complement (the source
+# is DTD-ordered, so the child-order residue is a no-op), with NO stored raw blob.
+# Because `put(get(b)) == b`, this value MUST equal the
+# `english_function_words@2026` `[hashes]` pin (registry.rs enforces sig == raw_hash).
+"english_function_words@2026"  = "blake3:aa95219088386de09c63cf8fc2e5a543521321f7fdf97765da414f8f468e65cc"
 # USC Title 1 — General Provisions. The `UslmGraphFaithfulLens` regenerates the
 # literal on-disk `usc01.xml` bytes (CRLFs included) from the typed `UsCodeTitle`
 # ontology + a concrete-syntax complement, so the byte-exact round-trip output

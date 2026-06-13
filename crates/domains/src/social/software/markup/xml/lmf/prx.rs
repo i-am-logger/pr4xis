@@ -517,6 +517,42 @@ pub fn load_wordnet_prx_gz_from_lock(prx_gz: &[u8]) -> Result<English, PrxError>
     wn_admit_validated(&rkyv_bytes, envelope, archive_pin, source_pin)
 }
 
+/// Load a WordNet `.prx.gz` blob back into the parsed [`WordNet`] ontology
+/// (NOT a materialized [`English`]) — the loader a closed-class lexicon needs.
+///
+/// The function-word lexicon (`ClosedClassLexicon`) is consumed by
+/// `language::function_words_from_lmf`, which projects the parsed `WordNet`
+/// into a rich `LexicalEntry` map keyed off the human-meaningful `fw-*` synset
+/// ids (`fw-definite-det`, `fw-greeting`, …). Those ids MUST survive the
+/// round-trip — the compact succinct codec mints synthetic `s{i}` ids and
+/// would silently collapse every determiner to `Indefinite` and every
+/// interjection to `Expressive`, so this rides the rkyv `WordNetPrxEnvelope`
+/// instead: [`wn_reconstruct_source`] returns the exact original source bytes
+/// (fail-closed against the embedded content address — and, for a graph-faithful
+/// registered lens, against the `praxis.lock` pin), which [`read_wordnet`]
+/// re-parses with the `fw-*` ids intact.
+///
+/// This composes existing, already-axiom-witnessed pieces (envelope decode +
+/// source reconstruct, the byte-exact inverse proven by
+/// `wordnet_graph_faithful_reconstructs_source_byte_exact`); it adds no new
+/// envelope, codec, or archive axiom — function-words is a 2nd consumer of the
+/// SAME `WordNetPrxEnvelope` (the USC #271 / us_legal_lexicon pattern).
+pub fn function_words_wordnet_from_prx(prx_gz: &[u8]) -> Result<WordNet, PrxError> {
+    let rkyv_bytes = gunzip(prx_gz)?;
+    let envelope = wordnet_envelope_from_bytes(&rkyv_bytes)?;
+    let source = wn_reconstruct_source(&envelope)?;
+    let text = core::str::from_utf8(&source).map_err(|e| {
+        PrxError::Read(format!(
+            "reconstructed function-words source is not UTF-8: {e}"
+        ))
+    })?;
+    read_wordnet(text).map_err(|e| {
+        PrxError::Read(format!(
+            "reconstructed function-words source failed to parse: {e}"
+        ))
+    })
+}
+
 // =============================================================================
 // Emit — read_wordnet → wn_builder_to_owned → envelope → rkyv → gzip.
 // =============================================================================

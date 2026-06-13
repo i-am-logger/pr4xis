@@ -34,9 +34,10 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twenty_five_concepts() {
-    // Lexicon family (6): Source, Lexicon, Language, DomainLexicon,
-    //                     LegalLexicon, SchemaVocabulary.
+fn twenty_six_concepts() {
+    // Lexicon family (7): Source, Lexicon, Language, DomainLexicon,
+    //                     LegalLexicon, SchemaVocabulary,
+    //                     ClosedClassLexicon.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
     //                         UsCodeTitle, Regulation,
     //                         ConstitutionalArticle, ProceduralRule,
@@ -48,7 +49,7 @@ fn twenty_five_concepts() {
     //                        ConceptualSpec, OntologyVocabulary.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 25);
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 26);
 }
 
 #[test]
@@ -116,15 +117,15 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_seventeen_leaves() {
+fn is_leaf_identifies_eighteen_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
         .filter(|c| is_leaf(*c))
         .collect();
-    // Language, LegalLexicon, SchemaVocabulary, UsFederalStatute,
-    // UsCodeTitle, Regulation, ConstitutionalArticle, ProceduralRule,
-    // CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
+    // Language, LegalLexicon, SchemaVocabulary, ClosedClassLexicon,
+    // UsFederalStatute, UsCodeTitle, Regulation, ConstitutionalArticle,
+    // ProceduralRule, CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
     // XmlDocumentTypeDefinition, OoxmlSchemaArchive, ConceptualSpec,
     // OntologyVocabulary, XmlSchemaTestSuite, XmlConformanceTestSuite.
     //   Statute is the jurisdiction-agnostic parent of
@@ -133,9 +134,11 @@ fn is_leaf_identifies_seventeen_leaves() {
     //   XmlSchemaDefinition + XmlDocumentTypeDefinition +
     //   OoxmlSchemaArchive + ConceptualSpec + OntologyVocabulary;
     //   TestSuite is parent of XmlSchemaTestSuite +
-    //   XmlConformanceTestSuite.
-    assert_eq!(leaves.len(), 17);
+    //   XmlConformanceTestSuite. ClosedClassLexicon is a leaf sibling
+    //   of Language under Lexicon (Quirk et al. 1985 §2.34).
+    assert_eq!(leaves.len(), 18);
     assert!(leaves.contains(&C::Language));
+    assert!(leaves.contains(&C::ClosedClassLexicon));
     assert!(leaves.contains(&C::SchemaVocabulary));
     assert!(leaves.contains(&C::UsFederalStatute));
     assert!(leaves.contains(&C::UsCodeTitle));

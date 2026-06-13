@@ -29,7 +29,7 @@
     aux = auxiliary, intj = interjection, num = numeral
 -->
 <LexicalResource>
-  <Lexicon id="en-function" label="English Function Words" language="en" email="" license="CC-BY-4.0" version="1.0" url="">
+  <Lexicon id="en-function" label="English Function Words" language="en" email="" license="CC-BY-4.0" version="2026" url="">
 
     <!-- Determiners (OLiA: Determiner) -->
     <LexicalEntry id="fw-the"><Lemma writtenForm="the" partOfSpeech="det"/><Sense id="fw-the-1" synset="fw-definite-det"/></LexicalEntry>
