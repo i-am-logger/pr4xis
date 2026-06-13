@@ -25,6 +25,7 @@ pr4xis::ontology! {
         SchemaVocabulary,    // DomainLexicon for schema-vocabulary names (XML/HTML element / attribute / type / group names from published schema specs)
         ClosedClassLexicon,  // Lexicon for the closed-class (function-word) stratum — the disjoint complement of open-class Language (Quirk et al. 1985 §2.34)
         InflectionLexicon,   // Lexicon of inflected word-forms ↦ base lemma (AGID — Atkinson 2016): the morphological-exception source
+        DerivationalLexicon, // Lexicon of derivational word-clusters (CatVar — Habash & Dorr 2003): the cross-POS word-formation source
 
         // === LegalCorpus family (Hart 1961 primary + secondary rules) ===
         LegalCorpus,
@@ -71,6 +72,8 @@ pr4xis::ontology! {
             "Quirk, Greenbaum, Leech & Svartvik (1985) A Comprehensive Grammar of the English Language §2.34 (open vs closed word classes): a Lexicon enumerating the bounded CLOSED grammatical word classes — determiners, pronouns, prepositions, conjunctions, auxiliaries, copulas, particles, interjections, and the wh-/relative pronouns. The disjoint complement of the open-class natural-language WordNet (the `Language` leaf): function words, not content words. Category vocabulary per the OLiA Reference Model (Chiarcos & Sukhareva 2015, see [sources.olia]). The bundled crates/domains/data/function-words/english.xml is a hand-curated, citation-anchored inventory — the membership is NOT yet machine-loaded from the cited grammars (a tracked praxis-debt)."),
         InflectionLexicon: ("en", "Inflection lexicon",
             "Atkinson (2016) Automatically Generated Inflection Database (AGID), http://wordlist.aspell.net: a Lexicon mapping every inflected word-form to its base lemma and inflection slot (noun plural; verb past / past-participle / -ing / -s; adjective comparative / superlative). The authoritative source of English morphological EXCEPTIONS — the irregular forms a productive rule cannot generate — read by the dual-route lemmatizer (Pinker 1991). A Lexicon sibling of the open-class WordNet (Language) and the closed-class function words (ClosedClassLexicon), carrying the inflectional rather than the lexical-semantic axis."),
+        DerivationalLexicon: ("en", "Derivational lexicon",
+            "Habash & Dorr (2003) CatVar — A Database of Categorial Variations for English (HLT-NAACL): a Lexicon clustering words related by DERIVATIONAL morphology across part-of-speech (e.g. {nation_N, national_AJ, nationalize_V, nationalization_N}). The corpus-attested source of English word-formation, used to GROUND the productive derivational affix rules (Bauer 1983; the affixes themselves are productive generative rules, not an enumerable list). A Lexicon sibling of the inflectional AGID (InflectionLexicon), carrying the derivational (cross-POS word-formation) rather than the inflectional axis."),
         LegalCorpus: ("en", "Legal corpus",
             "Hart (1961) The Concept of Law: the root of legal text resources — primary rules (statutes, constitutional articles, procedural rules) and secondary rules (regulations, case law) about them."),
         Statute: ("en", "Statute",
@@ -126,6 +129,9 @@ pr4xis::ontology! {
         // AGID (Atkinson 2016) — a Lexicon on the inflectional axis (forms
         // ↦ lemma), sibling of the lexical-semantic WordNet under Lexicon.
         (InflectionLexicon, Lexicon),
+        // CatVar (Habash & Dorr 2003) — a Lexicon on the derivational axis
+        // (cross-POS word-formation clusters), sibling of AGID under Lexicon.
+        (DerivationalLexicon, Lexicon),
 
         // LegalCorpus family
         (LegalCorpus, Source),
@@ -281,6 +287,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "SchemaVocabulary" => C::SchemaVocabulary,
         "ClosedClassLexicon" => C::ClosedClassLexicon,
         "InflectionLexicon" => C::InflectionLexicon,
+        "DerivationalLexicon" => C::DerivationalLexicon,
         "LegalCorpus" => C::LegalCorpus,
         "Statute" => C::Statute,
         "UsFederalStatute" => C::UsFederalStatute,
@@ -317,6 +324,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::SchemaVocabulary => "SchemaVocabulary",
         C::ClosedClassLexicon => "ClosedClassLexicon",
         C::InflectionLexicon => "InflectionLexicon",
+        C::DerivationalLexicon => "DerivationalLexicon",
         C::LegalCorpus => "LegalCorpus",
         C::Statute => "Statute",
         C::UsFederalStatute => "UsFederalStatute",

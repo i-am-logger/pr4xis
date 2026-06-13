@@ -348,6 +348,13 @@ url         = "http://wordlist.aspell.net/"
 local_path  = "morphology/agid-infl.txt"
 description = "Automatically Generated Inflection Database (AGID) — Atkinson (2000-2016) Copyright Kevin Atkinson <kevina@gnu.org>, http://wordlist.aspell.net. A plain-text database mapping every inflected English word-form to its base lemma and inflection slot: `<word> <pos>[?]: <past> [<past participle>] <-ing> <-s>` for verbs, `<comparative> <superlative>` for adjectives/adverbs, `<plural>` for nouns. The authoritative source of English morphological EXCEPTIONS (irregular forms a productive rule cannot generate), read by the dual-route lemmatizer (Pinker 1991). The 3.3 MB source (crates/domains/data/morphology/agid-infl.txt) is FETCHED via `pr4xis update` and gitignored like the WordNet XML; committed are the format-spec/copyright record (agid-README.txt) and the derived irregular-forms slice (crates/domains/data/morphology/english-irregulars.tsv — the runtime data, regenerate via --ignored regenerate_english_irregulars_tsv when the AGID source changes)."
 
+[sources.catvar]
+version     = "2.1"
+type        = "DerivationalLexicon"
+url         = "https://github.com/nizarhabash1/catvar"
+local_path  = "morphology/catvar21.signed"
+description = "CatVar 2.1 — A Database of Categorial Variations for English (Habash & Dorr 2003, HLT-NAACL). Open Software License v1.1. A plain-text database clustering words related by DERIVATIONAL morphology across part-of-speech: each line is a cluster of `word_POS%weight` joined by `#` (e.g. `national_AJ%…#nationalize_V%…#nationality_N%…`; POS ∈ N/V/AJ/AV). The corpus-attested grounding for the productive derivational affix rules in cognitive::linguistics::morphology::english::rules — the affixes (-ize, -ness, -er, un-, re-, …) are productive generative rules (Bauer 1983; rule-1 'productive, not enumerable'), CatVar grounds that each is attested in real English word-formation. The 1.1 MB source (crates/domains/data/morphology/catvar21.signed) is FETCHED via `pr4xis update` and gitignored; committed are the OSL license + README provenance records (catvar-LICENSE.txt, catvar-README.md)."
+
 # ---------------------------------------------------------------------------
 # Ontology vocabularies (SPAR / OWL)
 # ---------------------------------------------------------------------------

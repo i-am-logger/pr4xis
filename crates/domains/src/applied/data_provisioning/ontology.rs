@@ -195,8 +195,9 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // halves of the lexicon (Quirk et al. 1985 §2.34).
         C::Language | C::ClosedClassLexicon => ContentType::XmlLmf,
         // AGID (Atkinson 2016) ships as a plain-text inflection database
-        // (`<word> <pos>: <forms>` lines), not XML-LMF.
-        C::InflectionLexicon => ContentType::Plaintext,
+        // (`<word> <pos>: <forms>` lines); CatVar (Habash & Dorr 2003) ships as
+        // plain-text derivational clusters (`word_POS%weight#…`). Neither is XML.
+        C::InflectionLexicon | C::DerivationalLexicon => ContentType::Plaintext,
         // US federal statutes published by GPO ship as PDF on
         // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
         // preferred authenticated digital edition). The Statute /
