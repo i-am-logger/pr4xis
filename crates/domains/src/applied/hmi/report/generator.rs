@@ -16,6 +16,14 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Shneiderman's mantra: overview → zoom+filter → details-on-demand
 use super::spec::{ReportSpec, theme_report_fields};
 use super::validator::ThemeResult;
+use crate::applied::hmi::theming::base16::Polarity;
+
+/// Wire label for a theme's polarity at the JSON/HTML report boundary (the codec
+/// lowering): `Some(Dark)`→"dark", `Some(Light)`→"light", `None`→"unknown" (the
+/// background was indeterminable). Audit 2026-06-12 D-10.
+fn polarity_label(p: Option<Polarity>) -> &'static str {
+    p.map(|p| p.as_str()).unwrap_or("unknown")
+}
 
 /// CSS color variables derived from a theme palette.
 /// Maps base16 semantic roles to report UI roles.
@@ -85,8 +93,14 @@ pub fn to_json(results: &[ThemeResult], dataset_name: &str) -> String {
     let total = results.len();
     let mono_pass = results.iter().filter(|r| r.luminance_monotone).count();
     let wcag_pass = results.iter().filter(|r| r.wcag_aa).count();
-    let dark = results.iter().filter(|r| r.polarity == "dark").count();
-    let light = results.iter().filter(|r| r.polarity == "light").count();
+    let dark = results
+        .iter()
+        .filter(|r| r.polarity == Some(Polarity::Dark))
+        .count();
+    let light = results
+        .iter()
+        .filter(|r| r.polarity == Some(Polarity::Light))
+        .count();
 
     let mut json = String::new();
     json.push_str("{\n");
@@ -118,7 +132,7 @@ pub fn to_json(results: &[ThemeResult], dataset_name: &str) -> String {
         json.push_str(&format!("      \"scheme\": \"{}\",\n", json_esc(&r.scheme)));
         json.push_str(&format!(
             "      \"polarity\": \"{}\",\n",
-            json_esc(&r.polarity)
+            polarity_label(r.polarity)
         ));
         json.push_str(&format!("      \"slots\": {},\n", r.slots_found));
         json.push_str(&format!(
@@ -506,7 +520,7 @@ mod tests {
                 luminance_monotone: true,
                 wcag_aa: true,
                 contrast_ratio: Some(12.5),
-                polarity: "dark".into(),
+                polarity: Some(Polarity::Dark),
                 luminance_ramp: vec![
                     ("base00".into(), 0.03),
                     ("base01".into(), 0.05),
@@ -523,7 +537,7 @@ mod tests {
                 luminance_monotone: false,
                 wcag_aa: false,
                 contrast_ratio: Some(2.1),
-                polarity: "dark".into(),
+                polarity: Some(Polarity::Dark),
                 luminance_ramp: vec![
                     ("base00".into(), 0.03),
                     ("base01".into(), 0.05),
@@ -632,7 +646,11 @@ mod tests {
                 luminance_monotone: mono,
                 wcag_aa: wcag,
                 contrast_ratio: Some(cr),
-                polarity: if mono { "dark" } else { "light" }.into(),
+                polarity: Some(if mono {
+                    Polarity::Dark
+                } else {
+                    Polarity::Light
+                }),
                 luminance_ramp: vec![("base00".into(), 0.03), ("base05".into(), 0.72)],
                 mono_break_at: if mono { None } else { Some(1) },
             })

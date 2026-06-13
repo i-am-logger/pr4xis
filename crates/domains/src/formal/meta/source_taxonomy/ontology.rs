@@ -372,29 +372,18 @@ pub fn is_lexicon(concept: SourceTaxonomyConcept) -> bool {
 /// True iff `concept` is a *leaf* (no proper descendant in the taxonomy).
 /// The leaves are the kinds a `[[source]]` entry can declare as its
 /// `type` field.
+///
+/// DERIVED from the loaded `is_a` graph (audit 2026-06-12 D-18): a leaf is a
+/// concept no other concept is_a — i.e. one that is never the `target` of a
+/// `Subsumption` morphism. This replaces a hand-maintained `matches!` list that
+/// had to be edited in lockstep with the `is_a:` block and was only guarded by a
+/// brittle leaf-count literal; now the predicate cannot drift from the graph it
+/// describes.
 pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
-    use SourceTaxonomyConcept as C;
-    matches!(
-        concept,
-        C::Language
-            | C::LegalLexicon
-            | C::SchemaVocabulary
-            | C::ClosedClassLexicon
-            | C::UsFederalStatute
-            | C::UsCodeTitle
-            | C::Regulation
-            | C::ConstitutionalArticle
-            | C::ProceduralRule
-            | C::CaseLaw
-            | C::TypographicGlyphSet
-            | C::XmlSchemaDefinition
-            | C::XmlDocumentTypeDefinition
-            | C::OoxmlSchemaArchive
-            | C::ConceptualSpec
-            | C::OntologyVocabulary
-            | C::XmlSchemaTestSuite
-            | C::XmlConformanceTestSuite
-    )
+    SourceTaxonomyCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == SourceTaxonomyRelationKind::Subsumption)
+        .all(|m| m.target() != concept)
 }
 
 /// Adjunction edges from this concept (the right-hand sides of `Adjoins`
