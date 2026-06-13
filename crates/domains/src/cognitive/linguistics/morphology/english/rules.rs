@@ -5,10 +5,20 @@
 //!
 //! Coverage is closed-class inflectional plus the highest-frequency
 //! productive derivational affixes documented in Bauer (1983) ch.7
-//! and Marchand (1969). The eventual replacement is a load from a
-//! derivational-variant database (CatVar — Habash & Dorr 2003;
-//! WordNet morphosemantic DB — Fellbaum et al. 2009); until then
-//! the literature-cited rules live here.
+//! and Marchand (1969).
+//!
+//! These are PRODUCTIVE generative rules, not an enumerable list — the
+//! praxis-way rule-1 exception ("productive rule, not enumerable")
+//! applies (audit 2026-06-12 D-2). They are nonetheless GROUNDED: each
+//! productive derivational affix is corpus-attested in the registered
+//! CatVar database (Habash & Dorr 2003, `[sources.catvar]`), verified by
+//! `derivational_affixes_are_attested_in_catvar`. The inflectional affixes
+//! (`-s`/`-ed`/`-ing`) are paradigmatic, not derivational, so they are not
+//! in CatVar — they are grounded by Quirk et al. (1985). Fully DERIVING the
+//! rule set (with semantic effects) from CatVar is impractical — CatVar gives
+//! cross-POS word-clusters, not affix rules with effects, and carries no
+//! inflection — so the curated, literature-cited rules remain the working
+//! representation, now provenance-backed rather than an open deferral.
 //!
 //! **SemanticEffect mapping for productive derivational suffixes is
 //! approximate.** The shared enum lacks dedicated variants for
@@ -202,13 +212,99 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
 mod tests {
     use super::*;
 
+    fn affix_text(rule: &MorphologicalRule) -> &str {
+        match &rule.affix {
+            Affix::Prefix(p) => &p.text,
+            Affix::Suffix(s) => &s.text,
+        }
+    }
+
+    fn catvar_pos(p: PosTag) -> &'static str {
+        match p {
+            PosTag::Noun => "N",
+            PosTag::Verb => "V",
+            PosTag::Adjective => "AJ",
+            PosTag::Adverb => "AV",
+            _ => "?",
+        }
+    }
+
     #[test]
-    fn english_has_13_rules() {
-        // 10 base + "non-" (M5.D) + the inter- locative prefix and the
-        // -ize verb-forming suffix added for the Title-2 gap audit
-        // ("interparliamentary" → "parliamentary"; "annualized" →
-        // "annualize" → "annual").
-        assert_eq!(english_rules().len(), 13);
+    fn rules_have_unique_affixes_and_cover_the_core() {
+        // Structural invariant (audit 2026-06-12 D-12), replacing the brittle
+        // `len() == 13`: the inverter dispatches on the affix text, so every
+        // affix must be unique; and the canonical inflectional + high-frequency
+        // derivational affixes must be present. Adding a rule no longer requires
+        // hand-bumping a magic count.
+        let rules = english_rules();
+        let affixes: Vec<&str> = rules.iter().map(affix_text).collect();
+        let mut sorted = affixes.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(
+            sorted.len(),
+            affixes.len(),
+            "duplicate affix in english_rules"
+        );
+        for a in ["s", "ed", "ing", "ly", "er", "ness", "un", "ize"] {
+            assert!(affixes.contains(&a), "missing core affix {a}");
+        }
+    }
+
+    /// CatVar (Habash & Dorr 2003, `[sources.catvar]`) attests each productive
+    /// DERIVATIONAL affix `english_rules` uses — the corpus grounding of the
+    /// productive-rule set (audit 2026-06-12 D-2). Inflectional affixes
+    /// (`-s`/`-ed`/`-ing`) are paradigmatic, not derivational, so they are NOT in
+    /// CatVar — grounded by Quirk et al. 1985 instead. `#[ignore]`d: reads the
+    /// fetched CatVar source (gitignored); skips gracefully if absent.
+    #[test]
+    #[ignore]
+    fn derivational_affixes_are_attested_in_catvar() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/morphology/catvar21.signed"
+        );
+        let catvar = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(_) => {
+                eprintln!("catvar21.signed absent — fetch via `pr4xis update`; skipping grounding");
+                return;
+            }
+        };
+        let tokens: Vec<(&str, &str)> = catvar
+            .split(['#', '\n'])
+            .filter_map(|tok| {
+                let (w, rest) = tok.trim().rsplit_once('_')?;
+                Some((w, rest.split('%').next().unwrap_or(rest)))
+            })
+            .collect();
+        let inflectional = ["s", "ed", "ing"];
+        for rule in english_rules() {
+            let (text, is_prefix) = match &rule.affix {
+                Affix::Prefix(p) => (p.text.clone(), true),
+                Affix::Suffix(s) => (s.text.clone(), false),
+            };
+            if inflectional.contains(&text.as_str()) {
+                continue;
+            }
+            let pos = catvar_pos(rule.output_pos);
+            let count = tokens
+                .iter()
+                .filter(|(w, p)| {
+                    *p == pos
+                        && if is_prefix {
+                            w.starts_with(&text)
+                        } else {
+                            w.ends_with(&text)
+                        }
+                })
+                .count();
+            eprintln!("affix {text:?} ({pos}): {count} CatVar attestations");
+            assert!(
+                count >= 3,
+                "derivational affix {text:?} ({pos}) under-attested in CatVar: {count}"
+            );
+        }
     }
 
     #[test]
