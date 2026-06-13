@@ -25,10 +25,29 @@ const IRREGULARS_TSV: &str = include_str!(concat!(
 
 /// English irregular forms — the loaded morphological-exception table.
 ///
-/// Parsed from the committed AGID-derived TSV (the same fresh-`Vec`-per-call
-/// contract the hand-coded table had; the morphology engine builds once).
+/// Parsed from the committed AGID-derived TSV. Under `std` the parse is cached
+/// process-wide (`OnceLock`): the lemmatizer looks up irregulars per token, so
+/// re-parsing the multi-thousand-row TSV on every call would be a real
+/// regression. The `no_std`/wasm surface (no `OnceLock`) keeps the
+/// fresh-`Vec`-per-call parse.
 pub fn english_irregulars() -> Vec<IrregularForm> {
-    parse_irregulars_tsv(IRREGULARS_TSV)
+    #[cfg(feature = "std")]
+    {
+        irregulars_cached().to_vec()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        parse_irregulars_tsv(IRREGULARS_TSV)
+    }
+}
+
+/// The process-wide cached parse of the AGID-derived TSV (`std` only) — the slice
+/// [`lookup_irregular`] scans without cloning or re-parsing.
+#[cfg(feature = "std")]
+fn irregulars_cached() -> &'static [IrregularForm] {
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<Vec<IrregularForm>> = OnceLock::new();
+    CACHE.get_or_init(|| parse_irregulars_tsv(IRREGULARS_TSV))
 }
 
 fn parse_irregulars_tsv(tsv: &str) -> Vec<IrregularForm> {
@@ -54,7 +73,14 @@ fn parse_irregulars_tsv(tsv: &str) -> Vec<IrregularForm> {
 /// English-specific irregular lookup — case-insensitive match against
 /// [`english_irregulars`].
 pub fn lookup_irregular(surface: &str) -> Vec<IrregularForm> {
-    super::super::irregular::lookup_in(surface, &english_irregulars())
+    #[cfg(feature = "std")]
+    {
+        super::super::irregular::lookup_in(surface, irregulars_cached())
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        super::super::irregular::lookup_in(surface, &english_irregulars())
+    }
 }
 
 // =========================================================================
