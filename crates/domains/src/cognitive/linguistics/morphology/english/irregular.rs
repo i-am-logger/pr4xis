@@ -199,7 +199,7 @@ mod regenerate {
             }
             let toks: Vec<&str> = entry.split_whitespace().collect();
             // variant level 2 → skip (archaic/obscure/uncertain)
-            if toks.iter().any(|t| *t == "2") {
+            if toks.contains(&"2") {
                 continue;
             }
             let raw = toks[0];
@@ -241,10 +241,10 @@ mod regenerate {
              regulars: &[String],
              kind: &'static str,
              out: &mut Vec<(String, String, &'static str)>| {
-                if let Some(f) = form {
-                    if !regulars.contains(&f) {
-                        out.push((f, base.to_string(), kind));
-                    }
+                if let Some(f) = form
+                    && !regulars.contains(&f)
+                {
+                    out.push((f, base.to_string(), kind));
                 }
             };
         match pos {
