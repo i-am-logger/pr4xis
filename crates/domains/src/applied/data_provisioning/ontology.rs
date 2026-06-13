@@ -395,19 +395,17 @@ impl RegistryEntry {
     /// The `RegistryLocalPathsExist` axiom verifies the result
     /// always points to a file that actually exists in `crates/domains/data/`.
     pub fn local_path(&self) -> String {
-        // Layer 0 — explicit `local_path` from praxis.toml (registry
-        // DATA; the loaded-not-encoded path for canonical-filename
-        // sources, replacing the legacy Rust override table).
+        // Layer 0 — explicit `local_path` from praxis.toml (registry DATA): the
+        // loaded-not-encoded path for every source whose on-disk name is the
+        // publisher's canonical filename or whose corpus subdir is keyed on the
+        // source NAME (which a kind-derived formula cannot recover). This
+        // replaced both the Rust `local_path_override` table and the per-NAME
+        // arms of `family_dir_for` (audit 2026-06-12 D-8 + D-9).
         if let Some(rel) = &self.local_path {
             return format!("crates/domains/data/{rel}");
         }
-        // Layer 1 — legacy per-source override table (being migrated to
-        // the Layer-0 `local_path` field; audit 2026-06-12 D-8).
-        if let Some(rel) = local_path_override(&self.name) {
-            return format!("crates/domains/data/{rel}");
-        }
 
-        let family = family_dir_for(self.kind, &self.name);
+        let family = family_dir(self.kind);
         let ext = path_extension(self.content_type());
 
         // Layer 2 — schema-spec / test-suite formula (no intermediate
@@ -471,57 +469,16 @@ fn path_extension(ct: ContentType) -> &'static str {
     }
 }
 
-/// Workspace-relative path (without the `crates/domains/data/` prefix)
-/// for sources whose disk layout differs from the [`RegistryEntry::local_path`]
-/// formula. Most overrides reflect the publisher's canonical filename
-/// (W3C `xhtml-1.0-strict.xsd`, LC `uslm-1.0.18.xsd`) rather than the
-/// `{name}-{version}` convention; a few legacy non-schema sources
-/// (WordNet, us_legal_lexicon, Adobe AGL) predate the family taxonomy
-/// and live at historical locations downstream code references via
-/// `include_str!`.
+/// The on-disk family directory for a given source kind — a TOTAL function of
+/// the typed [`SourceTaxonomyConcept`], the legitimate kind→family floor.
 ///
-/// New sources should follow the default formula and not need an
-/// override. The [`registry_local_paths_exist`] axiom is the regression
-/// test — if a new override is needed, that axiom fails first.
-fn local_path_override(name: &str) -> Option<&'static str> {
-    Some(match name {
-        // Legacy non-schema layouts — predate the family taxonomy.
-        "english_wordnet" => "wordnet/english-wordnet-2025.xml",
-        "us_legal_lexicon" => "legal-text/us_legal_lexicon.xml",
-        "adobe_glyph_list" => "adobe/glyphlist.txt",
-        // W3C-published schema documents — kept as the W3C canonical
-        // filename (Pemberton et al. 2002; Bray et al. 2008).
-        "xhtml_1_0_xsd" => "markup-schemas/xhtml/xhtml-1.0-strict.xsd",
-        "xml_1_0_namespace_xsd" => "markup-schemas/xml/xml.xsd",
-        "xml_infoset" => "markup-schemas/xml/xml-infoset.xhtml",
-        // W3C XML 1.0 Fifth Edition (Bray et al. 2008) — published
-        // as XML (xmlspec.dtd), not XHTML. The bytes ship under the
-        // {name}-{version} convention but with `.xml` extension
-        // rather than the ConceptualSpec default `.xhtml`.
-        "xml_1_0_fifth_edition" => "markup-schemas/xml/xml_1_0_fifth_edition-2008.xml",
-        // LC-published USLM schema — kept as the GovInfo canonical
-        // filename per 1 U.S.C. § 204.
-        "uslm_xsd" => "legal/uscode/schema/uslm-1.0.18.xsd",
-        _ => return None,
-    })
-}
-
-/// The on-disk family directory for a given kind. Mirrors the praxis-domains
-/// code-path convention so the data layout matches the ontology layout.
-///
-/// Kind-only; use [`family_dir_for`] when the source name is known
-/// (some kinds — e.g. `XmlSchemaDefinition` — host instances that
-/// belong to different corpora, and the corpus is keyed on the
-/// source `name`).
+/// The per-SOURCE-NAME dispatch this function used to carry (USLM XSD vs XHTML
+/// XSD vs MODS … all `XmlSchemaDefinition` but in different corpus subdirs) was
+/// registry INSTANCE data baked into Rust; it now lives as `local_path` in
+/// `praxis.toml`, consumed at Layer 0 of [`RegistryEntry::local_path`] (audit
+/// 2026-06-12 D-9). Mirrors the praxis-domains code-path convention so the data
+/// layout matches the ontology layout.
 pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
-    family_dir_for(kind, "")
-}
-
-/// The on-disk family directory for a `(kind, name)` pair. Most
-/// kinds have a single canonical family; the `name` parameter only
-/// matters for `XmlSchemaDefinition` (USLM XSD lives under the U.S.
-/// Code corpus, XHTML XSD lives under the markup-schemas corpus).
-pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
     use crate::formal::meta::source_taxonomy::ontology::is_legal_corpus;
     use SourceTaxonomyConcept as C;
     if is_legal_corpus(kind) {
@@ -540,56 +497,26 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
             C::TypographicGlyphSet => "adobe",
             _ => "typography",
         }
-    } else if matches!(
-        kind,
-        C::TestSuite | C::XmlSchemaTestSuite | C::XmlConformanceTestSuite
-    ) {
-        // Conformance test suites live under data/markup-schemas/<name>/
-        // — siblings to the schema specs they certify against.
-        match name {
-            "xsts_xml_schema_test_suite" => "markup-schemas/xsts",
-            "xmlconf_xml_test_suite" => "markup-schemas/xmlconf",
-            _ => "markup-schemas",
-        }
-    } else if matches!(kind, C::OoxmlSchemaArchive) {
-        // OOXML schema archive bundles live under their own per-name
-        // subdir; the canonical instance is the ECMA-376 5th-edition
-        // strict-schema bundle.
-        match name {
-            "ooxml_schema_strict" => "markup-schemas/ooxml",
-            _ => "markup-schemas",
-        }
     } else if matches!(kind, C::OntologyVocabulary) {
-        // OWL vocabularies (the SPAR family — CiTO, DoCO, C4O, BiRO,
-        // PROV-O — plus OLiA) live under their own `ontologies/` family
-        // dir, flat per the schema-spec formula
-        // (`ontologies/<name>-<version>.owl`). Read by
+        // OWL vocabularies (the SPAR family — CiTO, DoCO, C4O, BiRO, PROV-O —
+        // plus OLiA) live flat under `ontologies/<name>-<version>.owl`, read by
         // `social::software::markup::xml::owl::reader::read_owl`.
         "ontologies"
     } else if matches!(
         kind,
-        C::SchemaSpec | C::XmlSchemaDefinition | C::XmlDocumentTypeDefinition | C::ConceptualSpec
+        C::SchemaSpec
+            | C::XmlSchemaDefinition
+            | C::XmlDocumentTypeDefinition
+            | C::ConceptualSpec
+            | C::OoxmlSchemaArchive
+            | C::TestSuite
+            | C::XmlSchemaTestSuite
+            | C::XmlConformanceTestSuite
     ) {
-        // XSDs live under the corpus they schema. The USLM XSD is
-        // shipped at `data/legal/uscode/schema/` (the U.S. Code
-        // corpus); the XHTML XSD is shipped at
-        // `data/markup-schemas/xhtml/` (the M4.η.1 HTML5 ontology
-        // grounding source); the W3C `xml.xsd` and Information Set
-        // recommendation live under `data/markup-schemas/xml/` (the
-        // M4.η.2 XML 1.0 ontology grounding sources). Future schema
-        // kinds for non-legal corpora can extend this branch — the
-        // per-name dispatch is the seam where new families plug in.
-        match name {
-            "xhtml_1_0_xsd" => "markup-schemas/xhtml",
-            "xml_1_0_namespace_xsd" | "xml_infoset" => "markup-schemas/xml",
-            "xsd_meta_schema" => "markup-schemas/xsd",
-            "wn_lmf_dtd" => "markup-schemas/lmf",
-            // Library of Congress MODS 3.8 — case-law metadata schema.
-            // Used by the case-law structural-extraction pipeline to
-            // parse GovInfo USREP/SCOTUS-slip mods.xml granules.
-            "mods_3_8" => "markup-schemas/mods",
-            _ => "legal/uscode/schema",
-        }
+        // Every schema / spec / conformance-suite shares the markup-schemas
+        // corpus root; the per-source subdir + filename is `local_path` data in
+        // praxis.toml, no longer keyed on the source name here.
+        "markup-schemas"
     } else {
         match kind {
             C::Language => "lexicons/languages",
