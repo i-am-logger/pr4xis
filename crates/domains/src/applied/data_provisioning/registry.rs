@@ -52,7 +52,7 @@ use serde::Deserialize;
 
 use pr4xis_runtime::address::{HashAlgorithm, hash_hex};
 
-use super::ontology::RegistryEntry;
+use super::ontology::{ContentType, RegistryEntry, canonical_encoding};
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, CompositeIdentity, IdentityClaim, IdentityConcept,
 };
@@ -294,7 +294,10 @@ fn build_entry(
     // version="...">` attribute (Global WordNet LMF 1.3 convention).
     // We synthesize the corresponding identity claim so the existing
     // XML attribute extractor validates the upstream's self-description.
-    if is_lexicon(kind) {
+    // Gated on the WN-LMF *encoding*, not merely the Lexicon family: a
+    // plain-text Lexicon (AGID, `InflectionLexicon`) has no `<Lexicon
+    // version=…>` element to validate (audit 2026-06-12 MORPH).
+    if is_lexicon(kind) && canonical_encoding(kind) == ContentType::XmlLmf {
         claims.push(IdentityClaim {
             concept: IdentityConcept::XmlElementAttribute,
             data: ClaimData::XmlAttribute {

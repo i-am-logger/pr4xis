@@ -194,6 +194,9 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // (Global WordNet LMF 1.3). They are the two complementary
         // halves of the lexicon (Quirk et al. 1985 §2.34).
         C::Language | C::ClosedClassLexicon => ContentType::XmlLmf,
+        // AGID (Atkinson 2016) ships as a plain-text inflection database
+        // (`<word> <pos>: <forms>` lines), not XML-LMF.
+        C::InflectionLexicon => ContentType::Plaintext,
         // US federal statutes published by GPO ship as PDF on
         // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
         // preferred authenticated digital edition). The Statute /

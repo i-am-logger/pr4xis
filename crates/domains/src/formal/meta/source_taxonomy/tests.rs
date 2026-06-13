@@ -34,10 +34,10 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twenty_six_concepts() {
-    // Lexicon family (7): Source, Lexicon, Language, DomainLexicon,
+fn twenty_seven_concepts() {
+    // Lexicon family (8): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon, SchemaVocabulary,
-    //                     ClosedClassLexicon.
+    //                     ClosedClassLexicon, InflectionLexicon.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
     //                         UsCodeTitle, Regulation,
     //                         ConstitutionalArticle, ProceduralRule,
@@ -49,7 +49,7 @@ fn twenty_six_concepts() {
     //                        ConceptualSpec, OntologyVocabulary.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 26);
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 27);
 }
 
 #[test]

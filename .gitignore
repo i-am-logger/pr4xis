@@ -42,6 +42,9 @@ crates/wasm/ontologies/
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml
 crates/domains/data/wordnet/*.xml.gz
+# AGID inflection database (Atkinson 2016) — the 3.3 MB source is fetched; only
+# the small derived english-irregulars.tsv + agid-README.txt are committed.
+crates/domains/data/morphology/agid-infl.txt
 # U.S. Code USLM XML titles (uscode.house.gov, fetched as zip per
 # release point, extracted to per-title XML files).
 crates/domains/data/legal/uscode/**/*.xml

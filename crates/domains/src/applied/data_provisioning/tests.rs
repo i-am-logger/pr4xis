@@ -401,6 +401,7 @@ proptest! {
             "english_wordnet",
             "us_legal_lexicon",
             "english_function_words",
+            "agid",
             "xml_1_0_namespace_xsd",
             "xml_infoset",
         ];
