@@ -278,104 +278,62 @@ pr4xis::ontology! {
 
 /// The 3 special datatypes (W3C XSD 1.1 Part 2 §3.2): `anyType`,
 /// `anySimpleType`, `anyAtomicType`.
-pub fn special_datatypes() -> [XsdDatatypeConcept; 3] {
-    [
-        XsdDatatypeConcept::AnyType,
-        XsdDatatypeConcept::AnySimpleType,
-        XsdDatatypeConcept::AnyAtomicType,
-    ]
+/// The special datatypes (§3.2): the lattice roots `anyType` / `anySimpleType`
+/// / `anyAtomicType`. DERIVED from the loaded hierarchy (audit 2026-06-12 D-6) —
+/// no longer a hand-enumerated array that could drift from the `is_a:` block.
+pub fn special_datatypes() -> Vec<XsdDatatypeConcept> {
+    XsdDatatypeConcept::variants()
+        .into_iter()
+        .filter(|d| is_special(*d))
+        .collect()
 }
 
-/// The 19 primitive datatypes (W3C XSD 1.1 Part 2 §3.3). Each derives
-/// directly from `anyAtomicType`.
-pub fn primitive_datatypes() -> [XsdDatatypeConcept; 19] {
-    use XsdDatatypeConcept as D;
-    [
-        D::StringType,
-        D::Boolean,
-        D::Decimal,
-        D::Float,
-        D::Double,
-        D::Duration,
-        D::DateTime,
-        D::Time,
-        D::Date,
-        D::GYearMonth,
-        D::GYear,
-        D::GMonthDay,
-        D::GDay,
-        D::GMonth,
-        D::HexBinary,
-        D::Base64Binary,
-        D::AnyUri,
-        D::QName,
-        D::Notation,
-    ]
+/// The primitive datatypes (W3C XSD 1.1 Part 2 §3.3) — the direct Subsumption
+/// children of `anyAtomicType`. DERIVED.
+pub fn primitive_datatypes() -> Vec<XsdDatatypeConcept> {
+    XsdDatatypeConcept::variants()
+        .into_iter()
+        .filter(|d| is_primitive(*d))
+        .collect()
 }
 
-/// The 28 derived datatypes (W3C XSD 1.1 Part 2 §3.4) — the 25 from
-/// XSD 1.0 plus `yearMonthDuration` / `dayTimeDuration` /
-/// `dateTimeStamp` new in XSD 1.1.
-pub fn derived_datatypes() -> [XsdDatatypeConcept; 28] {
-    use XsdDatatypeConcept as D;
-    [
-        // string family
-        D::NormalizedString,
-        D::Token,
-        D::Language,
-        D::NmToken,
-        D::NmTokens,
-        D::Name,
-        D::NcName,
-        D::Id,
-        D::IdRef,
-        D::IdRefs,
-        D::Entity,
-        D::Entities,
-        // integer family
-        D::Integer,
-        D::NonPositiveInteger,
-        D::NegativeInteger,
-        D::Long,
-        D::Int,
-        D::Short,
-        D::Byte,
-        D::NonNegativeInteger,
-        D::UnsignedLong,
-        D::UnsignedInt,
-        D::UnsignedShort,
-        D::UnsignedByte,
-        D::PositiveInteger,
-        // duration / dateTime (XSD 1.1)
-        D::YearMonthDuration,
-        D::DayTimeDuration,
-        D::DateTimeStamp,
-    ]
+/// The derived datatypes (W3C XSD 1.1 Part 2 §3.4) — those that are neither
+/// special nor primitive. DERIVED.
+pub fn derived_datatypes() -> Vec<XsdDatatypeConcept> {
+    XsdDatatypeConcept::variants()
+        .into_iter()
+        .filter(|d| is_derived(*d))
+        .collect()
 }
 
-/// The 3 list datatypes (W3C XSD 1.1 Part 2 §3.4.5 / §3.4.10 /
-/// §3.4.12): `NMTOKENS`, `IDREFS`, `ENTITIES`.
-pub fn list_datatypes() -> [XsdDatatypeConcept; 3] {
-    [
-        XsdDatatypeConcept::NmTokens,
-        XsdDatatypeConcept::IdRefs,
-        XsdDatatypeConcept::Entities,
-    ]
+/// The list datatypes (W3C XSD 1.1 Part 2 §3.4.5 / §3.4.10 / §3.4.12):
+/// `NMTOKENS` / `IDREFS` / `ENTITIES`. DERIVED — the datatypes carrying an
+/// [`item_type`] edge.
+pub fn list_datatypes() -> Vec<XsdDatatypeConcept> {
+    XsdDatatypeConcept::variants()
+        .into_iter()
+        .filter(|d| item_type(*d).is_some())
+        .collect()
 }
 
-/// True if `dt` is one of the 3 special datatypes (§3.2).
+/// True if `dt` is a special datatype (§3.2) — `anyAtomicType` or one of its
+/// ancestors (the lattice roots above the primitives). DERIVED from the loaded
+/// hierarchy (audit 2026-06-12 D-6).
 pub fn is_special(dt: XsdDatatypeConcept) -> bool {
-    special_datatypes().contains(&dt)
+    dt == XsdDatatypeConcept::AnyAtomicType
+        || ancestors_of(XsdDatatypeConcept::AnyAtomicType).contains(&dt)
 }
 
-/// True if `dt` is one of the 19 primitive datatypes (§3.3).
+/// True if `dt` is a primitive datatype (§3.3) — a direct Subsumption child of
+/// `anyAtomicType` (i.e. its base type IS `anyAtomicType`). DERIVED.
 pub fn is_primitive(dt: XsdDatatypeConcept) -> bool {
-    primitive_datatypes().contains(&dt)
+    base_type(dt) == Some(XsdDatatypeConcept::AnyAtomicType)
 }
 
-/// True if `dt` is one of the 28 derived datatypes (§3.4).
+/// True if `dt` is a derived datatype (§3.4) — neither special nor primitive.
+/// DERIVED (the three groups partition the inventory).
 pub fn is_derived(dt: XsdDatatypeConcept) -> bool {
-    derived_datatypes().contains(&dt)
+    !is_special(dt) && !is_primitive(dt)
 }
 
 /// The {base type definition} of `dt` — the immediate `is_a` parent in
@@ -383,54 +341,31 @@ pub fn is_derived(dt: XsdDatatypeConcept) -> bool {
 /// `anyType` (whose base is itself per §3.4.7, modelled here as the
 /// lattice top with no proper ancestor).
 pub fn base_type(dt: XsdDatatypeConcept) -> Option<XsdDatatypeConcept> {
-    use XsdDatatypeConcept as D;
-    Some(match dt {
-        D::AnyType => return None,
-        D::AnySimpleType => D::AnyType,
-        D::AnyAtomicType => D::AnySimpleType,
-        // §3.3 primitives.
-        D::StringType
-        | D::Boolean
-        | D::Decimal
-        | D::Float
-        | D::Double
-        | D::Duration
-        | D::DateTime
-        | D::Time
-        | D::Date
-        | D::GYearMonth
-        | D::GYear
-        | D::GMonthDay
-        | D::GDay
-        | D::GMonth
-        | D::HexBinary
-        | D::Base64Binary
-        | D::AnyUri
-        | D::QName
-        | D::Notation => D::AnyAtomicType,
-        // §3.4 string family.
-        D::NormalizedString => D::StringType,
-        D::Token => D::NormalizedString,
-        D::Language | D::NmToken | D::Name => D::Token,
-        D::NcName => D::Name,
-        D::Id | D::IdRef | D::Entity => D::NcName,
-        // §3.4 list datatypes — base on anySimpleType.
-        D::NmTokens | D::IdRefs | D::Entities => D::AnySimpleType,
-        // §3.4 integer family.
-        D::Integer => D::Decimal,
-        D::NonPositiveInteger | D::Long | D::NonNegativeInteger => D::Integer,
-        D::NegativeInteger => D::NonPositiveInteger,
-        D::Int => D::Long,
-        D::Short => D::Int,
-        D::Byte => D::Short,
-        D::UnsignedLong | D::PositiveInteger => D::NonNegativeInteger,
-        D::UnsignedInt => D::UnsignedLong,
-        D::UnsignedShort => D::UnsignedInt,
-        D::UnsignedByte => D::UnsignedShort,
-        // §3.4 duration / dateTime (XSD 1.1).
-        D::YearMonthDuration | D::DayTimeDuration => D::Duration,
-        D::DateTimeStamp => D::DateTime,
-    })
+    // DERIVED from the loaded `is_a` closure (audit 2026-06-12 D-16): the {base
+    // type definition} is the IMMEDIATE Subsumption parent. The ontology macro
+    // emits the transitive closure, so the immediate parent is recovered by
+    // transitive reduction — in this single-parent tree it is the DEEPEST
+    // ancestor (the one that itself has the most ancestors). This replaces a
+    // hand `match` that re-encoded the `is_a:` block — the dual source of truth
+    // the now-deleted `BaseTypeAgreesWithCategory` axiom existed only to police.
+    ancestors_of(dt)
+        .into_iter()
+        .max_by_key(|a| ancestors_of(*a).len())
+}
+
+/// The proper ancestors of `dt` in the loaded §3.4 Subsumption hierarchy (the
+/// macro-emitted transitive closure of the `is_a:` edges).
+fn ancestors_of(dt: XsdDatatypeConcept) -> Vec<XsdDatatypeConcept> {
+    use pr4xis::category::{Arrow, Category};
+    XsdDatatypeCategory::morphisms()
+        .into_iter()
+        .filter(|m| {
+            m.source() == dt
+                && m.source() != m.target()
+                && matches!(m.kind(), XsdDatatypeRelationKind::Subsumption)
+        })
+        .map(|m| m.target())
+        .collect()
 }
 
 /// The {item type definition} of a list datatype (W3C XSD 1.1 Part 2
@@ -502,7 +437,6 @@ impl Ontology for XsdDatatypeOntology {
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         axioms.push(Box::new(DatatypeLatticeSingleRoot));
-        axioms.push(Box::new(BaseTypeAgreesWithCategory));
         axioms.push(Box::new(PrimitivesDeriveFromAnyAtomicType));
         axioms.push(Box::new(ListDatatypesHaveBuiltInItemType));
         axioms.push(Box::new(Xsd11DatatypeAdditionsPresent));
@@ -556,55 +490,10 @@ pr4xis::register_axiom!(
     "W3C XSD 1.1 Part 2 §3.2; Part 1 §3.4.7"
 );
 
-/// Axiom: the explicit [`base_type`] function agrees with the category
-/// `is_a` edges emitted by the ontology macro. The two encodings of
-/// the §3.4 hierarchy diagram must not drift.
-pub struct BaseTypeAgreesWithCategory;
-
-impl Axiom for BaseTypeAgreesWithCategory {
-    fn verify(&self) -> Verdict {
-        use pr4xis::category::{Arrow, Category};
-        let morphs = XsdDatatypeCategory::morphisms();
-        for d in XsdDatatypeConcept::variants() {
-            // The direct Subsumption parents recorded in the category.
-            let cat_parents: Vec<_> = morphs
-                .iter()
-                .filter(|m| {
-                    m.source() == d
-                        && m.source() != m.target()
-                        && matches!(m.kind(), XsdDatatypeRelationKind::Subsumption)
-                })
-                .map(|m| m.target())
-                .collect();
-            match base_type(d) {
-                // The root carries no proper Subsumption parent — but
-                // the macro emits transitive-closure edges, so a
-                // non-root may list several ancestors. We require the
-                // explicit base to be among the category ancestors,
-                // and the root to have none.
-                None => {
-                    if !cat_parents.is_empty() {
-                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
-                    }
-                }
-                Some(base) => {
-                    if !cat_parents.contains(&base) {
-                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
-                    }
-                }
-            }
-        }
-        Ok(Box::new(SimpleProof::new(self.meta())))
-    }
-
-    pr4xis::axiom_meta!(
-        "BaseTypeAgreesWithCategory",
-        "the explicit base_type function agrees with the category is_a edges: every datatype's base_type is among its category ancestors, and only anyType has no ancestor",
-        "W3C XSD 1.1 Part 2 §3.4 (Peterson et al. 2012)"
-    );
-}
-
-pr4xis::register_axiom!(BaseTypeAgreesWithCategory, "W3C XSD 1.1 Part 2 §3.4");
+// `BaseTypeAgreesWithCategory` deleted (audit 2026-06-12 D-5): it existed only
+// to police drift between the hand-coded `base_type` match and the `is_a:`
+// edges. `base_type` is now DERIVED from those edges (D-16), so the two
+// encodings are one — there is nothing to drift, and nothing to police.
 
 /// Axiom: every one of the 19 primitive datatypes (§3.3) derives
 /// directly from `anyAtomicType` (§3.2.2).
