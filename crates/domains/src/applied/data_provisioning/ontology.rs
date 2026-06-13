@@ -188,7 +188,12 @@ pub enum ContentType {
 pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
     use SourceTaxonomyConcept as C;
     match kind {
-        C::Language => ContentType::XmlLmf,
+        // Both the open-class WordNet (`Language`) and the closed-class
+        // function-word stratum (`ClosedClassLexicon`) ship as WN-LMF
+        // XML — the same `<LexicalEntry>`/`<Lemma>`/`<Synset>` schema
+        // (Global WordNet LMF 1.3). They are the two complementary
+        // halves of the lexicon (Quirk et al. 1985 §2.34).
+        C::Language | C::ClosedClassLexicon => ContentType::XmlLmf,
         // US federal statutes published by GPO ship as PDF on
         // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
         // preferred authenticated digital edition). The Statute /
@@ -310,6 +315,14 @@ pub struct RegistryEntry {
     pub url: String,
     /// Optional human description (carried through from `praxis.toml`).
     pub description: Option<String>,
+    /// Optional explicit workspace-relative disk path (from the
+    /// `local_path` field of `[sources.<name>]`), for sources whose
+    /// on-disk filename is the publisher's canonical name rather than
+    /// the `{name}-{version}` formula. This is registry DATA — the
+    /// loaded-not-encoded replacement for the legacy `local_path_override`
+    /// Rust table (audit 2026-06-12 D-8). When present it wins Layer 0
+    /// in [`RegistryEntry::local_path`].
+    pub local_path: Option<String>,
     /// Identity claims, synthesized from manifest + lock at load time.
     pub identity: CompositeIdentity,
 }
@@ -378,7 +391,14 @@ impl RegistryEntry {
     /// The `RegistryLocalPathsExist` axiom verifies the result
     /// always points to a file that actually exists in `crates/domains/data/`.
     pub fn local_path(&self) -> String {
-        // Layer 1 — explicit per-source override.
+        // Layer 0 — explicit `local_path` from praxis.toml (registry
+        // DATA; the loaded-not-encoded path for canonical-filename
+        // sources, replacing the legacy Rust override table).
+        if let Some(rel) = &self.local_path {
+            return format!("crates/domains/data/{rel}");
+        }
+        // Layer 1 — legacy per-source override table (being migrated to
+        // the Layer-0 `local_path` field; audit 2026-06-12 D-8).
         if let Some(rel) = local_path_override(&self.name) {
             return format!("crates/domains/data/{rel}");
         }

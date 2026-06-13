@@ -422,14 +422,42 @@ pub fn build_verb_transitivity(
     result
 }
 
-/// Build the English function-word lexicon from the bundled LMF data
-/// (`data/function-words/english.xml`), `include_str!`'d so there is ONE loaded
-/// source — no disk-path probing, no stale embedded duplicate (the
-/// `["what","who","which"]` hand-list that drifted from the 9-word file). Same
-/// idiom as [`operators::load`](crate::cognitive::linguistics::lambek::operators::load):
-/// the bundle ships with praxis, so a parse failure is a build-time invariant.
-/// Function words are DATA; the interrogative class rides each `Sense.subcat`.
+/// Build the English function-word lexicon — the closed-class `ClosedClassLexicon`
+/// stratum, the disjoint complement of the open-class english_wordnet
+/// (Quirk et al. 1985 §2.34).
+///
+/// The OLiA-`reference_model()` twin: under `feature = "prx"` it fast-loads the
+/// committed `english-function-words-2026.prx.gz` (a graph-faithful rkyv
+/// `WordNetPrxEnvelope`) via [`function_words_wordnet_from_prx`], reconstructing
+/// the parsed `WordNet` with its human-meaningful `fw-*` synset ids intact, then
+/// projects it through the unchanged [`function_words_from_lmf`]. The committed
+/// `.prx.gz` is content-addressed and (with the registered `WordNetLmfLens`)
+/// pinned in `praxis.lock` — the loaded-not-`include_str!` path that closes the
+/// asymmetry with OLiA.
+///
+/// A corrupt/failed artifact falls through to the authoritative
+/// `include_str!(english.xml)` parse — exactly OLiA's fail-soft fallback. Without
+/// `prx`, the XML path is the only path. The bundle ships with praxis, so a
+/// parse failure is a build-time invariant. Function words are DATA; the
+/// interrogative class rides each `Sense.subcat`, the determiner/interjection
+/// features ride each `Sense.synset`.
+///
+/// [`function_words_wordnet_from_prx`]: crate::social::software::markup::xml::lmf::prx::function_words_wordnet_from_prx
 pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
+    #[cfg(feature = "prx")]
+    {
+        const PRX_GZ: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/function-words/english-function-words-2026.prx.gz"
+        ));
+        if let Ok(wn) =
+            crate::social::software::markup::xml::lmf::prx::function_words_wordnet_from_prx(PRX_GZ)
+        {
+            return function_words_from_lmf(&wn);
+        }
+        // Corrupt or failed-gate artifact → fall through to the always-correct
+        // XML parse, exactly as `olia::reference_model()` falls back to the OWL.
+    }
     const XML: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/data/function-words/english.xml"
@@ -938,5 +966,132 @@ mod tests {
                 word
             );
         }
+    }
+}
+
+/// The function-words `.prx` fast-load (audit 2026-06-12 FW-A) — the
+/// `ClosedClassLexicon` analogue of OLiA's `reference_model()` artifact tests.
+#[cfg(all(test, feature = "prx"))]
+mod function_words_prx {
+    use super::*;
+    use crate::social::software::markup::xml::lmf::prx::{
+        emit_wordnet_prx_gz, function_words_wordnet_from_prx,
+    };
+
+    const SOURCE_XML: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/function-words/english.xml"
+    ));
+    const COMMITTED_PRX_GZ: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/function-words/english-function-words-2026.prx.gz"
+    ));
+
+    fn emit_from_source() -> Vec<u8> {
+        emit_wordnet_prx_gz(
+            SOURCE_XML.as_bytes(),
+            "english_function_words",
+            "2026",
+            "https://aclanthology.org/J93-2004/",
+        )
+        .expect("emit english_function_words .prx.gz")
+    }
+
+    /// Regenerate the committed `english-function-words-2026.prx.gz`. `#[ignore]`d
+    /// (it WRITES, asserting nothing) — the function-words analogue of
+    /// `regenerate_olia_compact_prx`. Run by hand when `english.xml` changes:
+    /// `cargo test -p pr4xis-domains --features prx -- --ignored regenerate_english_function_words_prx`.
+    #[test]
+    #[ignore]
+    fn regenerate_english_function_words_prx() {
+        let prx_gz = emit_from_source();
+        let out = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/function-words/english-function-words-2026.prx.gz"
+        );
+        std::fs::write(out, &prx_gz).expect("write bundled english_function_words .prx.gz");
+        // The source content address — the value to pin in praxis.lock
+        // `[hashes]` and `[byte_exact_signatures]` as
+        // `english_function_words@2026` (the WordNetLmfLens round-trips
+        // byte-exact, so the byte-exact signature equals the source hash).
+        let src_addr = pr4xis_runtime::address::ContentAddress::of(SOURCE_XML.as_bytes()).to_hex();
+        eprintln!("english_function_words@2026 source blake3 = {src_addr}");
+    }
+
+    /// STRUCTURAL staleness guard (normal suite) — strictly stronger than OLiA's
+    /// entity-count-only guard: the FULL function-word map loaded from the
+    /// committed `.prx.gz` must equal the map parsed straight from `english.xml`.
+    /// Any drift (a changed lemma / POS / subcat / definiteness / interjection
+    /// kind) fails, not just a changed count. If `english.xml` was edited without
+    /// regenerating, this is the test that catches it.
+    #[test]
+    fn bundled_function_words_prx_matches_the_xml() {
+        let from_prx = function_words_wordnet_from_prx(COMMITTED_PRX_GZ)
+            .map(|wn| function_words_from_lmf(&wn))
+            .expect("load committed function-words .prx.gz");
+        let from_xml = function_words_from_lmf(
+            &crate::social::software::markup::xml::lmf::reader::read_wordnet(SOURCE_XML)
+                .expect("parse english.xml"),
+        );
+        assert_eq!(
+            from_prx, from_xml,
+            "committed english-function-words-2026.prx.gz is STALE — regenerate with \
+             `--ignored regenerate_english_function_words_prx`"
+        );
+    }
+
+    /// The guardrail documenting WHY the rkyv envelope (not the lossy compact
+    /// codec) was chosen: these are the exact decoder outputs that COLLAPSE if a
+    /// future change swaps in the compact codec (synthetic `s{i}` ids → every
+    /// determiner `Indefinite`, every interjection `Expressive`). Loaded through
+    /// `build_english_function_words`, which engages the `.prx` fast path.
+    #[test]
+    fn decoders_survive_the_prx_roundtrip() {
+        let map = build_english_function_words();
+        let definiteness = |w: &str| match map.get(w).and_then(|v| v.first()) {
+            Some(LexicalEntry::Determiner(d)) => Some(d.definiteness),
+            _ => None,
+        };
+        assert_eq!(definiteness("the"), Some(Definiteness::Definite));
+        assert_eq!(definiteness("this"), Some(Definiteness::Demonstrative));
+        assert_eq!(definiteness("every"), Some(Definiteness::Quantifier));
+        assert_eq!(definiteness("no"), Some(Definiteness::Quantifier));
+        assert_eq!(definiteness("a"), Some(Definiteness::Indefinite));
+
+        let kind = |w: &str| match map.get(w).and_then(|v| v.first()) {
+            Some(LexicalEntry::Interjection(i)) => Some(i.kind),
+            _ => None,
+        };
+        assert_eq!(kind("hello"), Some(InterjectionKind::Greeting));
+        assert_eq!(kind("goodbye"), Some(InterjectionKind::Farewell));
+    }
+
+    /// The lossless-source-recovery proof for the chosen tier: emitting from
+    /// `english.xml` then reloading yields a `WordNet` whose
+    /// `(lemma, pos, synset_id, subcat)` tuples equal the directly-parsed
+    /// source's — proving the `fw-*` synset ids survive the round-trip and the
+    /// new loader composes with the emitter (the function-words analogue of
+    /// `wordnet_graph_faithful_reconstructs_source_byte_exact`).
+    #[test]
+    fn round_trip_recovers_source_features() {
+        let reparsed = function_words_wordnet_from_prx(&emit_from_source())
+            .expect("round-trip emit→load english_function_words");
+        let direct = crate::social::software::markup::xml::lmf::reader::read_wordnet(SOURCE_XML)
+            .expect("parse english.xml");
+        let project = |wn: &crate::social::software::markup::xml::lmf::ontology::WordNet| {
+            wn.entries
+                .iter()
+                .map(|e| {
+                    let s = e.senses.first();
+                    (
+                        e.lemma.written_form.clone(),
+                        e.lemma.pos,
+                        s.map(|s| s.synset.clone()).unwrap_or_default(),
+                        s.map(|s| s.subcat.clone()).unwrap_or_default(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(project(&reparsed), project(&direct));
     }
 }

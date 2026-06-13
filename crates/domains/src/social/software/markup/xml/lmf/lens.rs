@@ -180,6 +180,27 @@ crate::register_lens!(
     WordNetLmfLens
 );
 
+// =============================================================================
+// english_function_words@2026 — the THIRD WN-LMF graph-faithful source.
+//
+// The English closed-class / function-word lexicon
+// (crates/domains/data/function-words/english.xml, the `ClosedClassLexicon`
+// disjoint complement of the open-class english_wordnet — Quirk et al. 1985
+// §2.34) is a small WN-LMF lexicon. It rides the IDENTICAL source-agnostic
+// `WordNetLmfLens`, exactly as us_legal_lexicon does. Registering it flips
+// english_function_words off the universal floor: `build_wordnet_envelope`'s
+// registry gate emits `graph = Some` / `raw = None`, and the source earns a
+// durable `[byte_exact_signatures]` identity pin — integrity parity with its
+// nearest sibling us_legal_lexicon (audit 2026-06-12 FW-A). Its source children
+// are DTD-ordered, so the child-order residue is a no-op — but the generic
+// species keeps the claim sound for ANY WN-LMF child order.
+crate::register_lens!(
+    ENGLISH_FUNCTION_WORDS_LENS,
+    "english_function_words",
+    "2026",
+    WordNetLmfLens
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
