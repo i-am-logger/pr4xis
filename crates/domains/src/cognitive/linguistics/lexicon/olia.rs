@@ -196,32 +196,33 @@ pub fn semantic_effect_to_olia_fragments(
     }
 }
 
-/// Get all OLiA class fragments that map to a given PosTag.
-/// Inverse of the functor: PosTag → {OLiA fragments}.
-pub fn pos_to_olia_fragments(pos: PosTag) -> Vec<&'static str> {
+/// The canonical OLiA class fragment for a coarse [`PosTag`] — the
+/// PosTag → OLiA-top-class anchor.
+///
+/// This is the irreducible closed-enum → canonical-OLiA-name bridge (the
+/// inverse-direction sibling of [`from_fragment`]'s BASE anchors): it names the
+/// top MorphosyntacticCategory class for each coarse tag and constructs no
+/// knowledge. The prior `pos_to_olia_fragments` additionally HAND-LISTED a few
+/// subclasses per tag (CommonNoun, ProperNoun, ModalVerb, …) — residue, since
+/// the loaded OLiA `reference_model()` subsumption closure already determines
+/// the descendants of each anchor, and production only ever used the anchor
+/// (audit 2026-06-12 D-13).
+pub fn canonical_olia_fragment(pos: PosTag) -> &'static str {
     match pos {
-        PosTag::Noun => vec!["Noun", "CommonNoun", "ProperNoun"],
-        PosTag::Verb => vec!["Verb", "MainVerb", "FiniteVerb"],
-        PosTag::Copula => vec!["Copula"],
-        PosTag::Auxiliary => vec!["AuxiliaryVerb", "StrictAuxiliaryVerb", "ModalVerb"],
-        PosTag::Determiner => vec![
-            "Determiner",
-            "PossessiveDeterminer",
-            "DemonstrativeDeterminer",
-        ],
-        PosTag::Article => vec!["Article", "DefiniteArticle", "IndefiniteArticle"],
-        PosTag::Adjective => vec!["Adjective", "QualifierAdjective"],
-        PosTag::Adverb => vec!["Adverb", "DegreeAdverb", "MannerAdverb"],
-        PosTag::Pronoun => vec!["Pronoun", "PersonalPronoun", "ReflexivePronoun"],
-        PosTag::Preposition => vec!["Preposition", "Adposition", "Postposition"],
-        PosTag::Conjunction => vec![
-            "Conjunction",
-            "CoordinatingConjunction",
-            "SubordinatingConjunction",
-        ],
-        PosTag::Interjection => vec!["Interjection"],
-        PosTag::Particle => vec!["Particle", "NegativeParticle", "InfinitiveParticle"],
-        PosTag::Numeral => vec!["Numeral", "CardinalNumber", "OrdinalNumber"],
+        PosTag::Noun => "Noun",
+        PosTag::Verb => "Verb",
+        PosTag::Copula => "Copula",
+        PosTag::Auxiliary => "AuxiliaryVerb",
+        PosTag::Determiner => "Determiner",
+        PosTag::Article => "Article",
+        PosTag::Adjective => "Adjective",
+        PosTag::Adverb => "Adverb",
+        PosTag::Pronoun => "Pronoun",
+        PosTag::Preposition => "Preposition",
+        PosTag::Conjunction => "Conjunction",
+        PosTag::Interjection => "Interjection",
+        PosTag::Particle => "Particle",
+        PosTag::Numeral => "Numeral",
     }
 }
 
@@ -238,22 +239,22 @@ mod tests {
     }
 
     #[test]
-    fn pos_to_olia_round_trip() {
+    fn canonical_olia_fragment_round_trips() {
+        // The PosTag → OLiA-top-class anchor round-trips through `from_fragment`
+        // (which resolves via the LOADED OLiA subsumption closure), so the anchor
+        // is a real loaded class — no hand-listed subclasses needed.
         for pos in [
             PosTag::Noun,
             PosTag::Verb,
             PosTag::Adjective,
             PosTag::Adverb,
         ] {
-            let frags = pos_to_olia_fragments(pos);
-            assert!(!frags.is_empty(), "no OLiA fragments for {pos:?}");
-            for f in &frags {
-                assert_eq!(
-                    from_fragment(f),
-                    Some(pos),
-                    "fragment `{f}` did not map back to {pos:?}"
-                );
-            }
+            let frag = canonical_olia_fragment(pos);
+            assert_eq!(
+                from_fragment(frag),
+                Some(pos),
+                "anchor `{frag}` did not map back to {pos:?}"
+            );
         }
     }
 
