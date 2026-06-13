@@ -4,11 +4,10 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::{
-    BaseTypeAgreesWithCategory, DatatypeLatticeSingleRoot, ListDatatypesHaveBuiltInItemType,
-    PrimitivesDeriveFromAnyAtomicType, Variety, VarietyOf, Xsd11DatatypeAdditionsPresent,
-    XsdDatatypeCategory, XsdDatatypeConcept, XsdDatatypeOntology, base_type, derived_datatypes,
-    is_derived, is_primitive, is_special, item_type, list_datatypes, primitive_datatypes,
-    special_datatypes,
+    DatatypeLatticeSingleRoot, ListDatatypesHaveBuiltInItemType, PrimitivesDeriveFromAnyAtomicType,
+    Variety, VarietyOf, Xsd11DatatypeAdditionsPresent, XsdDatatypeCategory, XsdDatatypeConcept,
+    XsdDatatypeOntology, base_type, derived_datatypes, is_derived, is_primitive, is_special,
+    item_type, list_datatypes, primitive_datatypes, special_datatypes,
 };
 use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
@@ -180,8 +179,24 @@ fn axiom_single_root_holds() {
 }
 
 #[test]
-fn axiom_base_type_agrees_with_category() {
-    assert!(BaseTypeAgreesWithCategory.verify().is_ok());
+fn base_type_is_the_immediate_is_a_parent() {
+    use XsdDatatypeConcept as D;
+    // `base_type` is now DERIVED from the loaded `is_a` closure by transitive
+    // reduction (audit D-16); spot-check that the deepest-ancestor recovery
+    // yields the IMMEDIATE parent across the §3.4 families, and the root maps to
+    // None. (Replaces the deleted BaseTypeAgreesWithCategory dual-source axiom.)
+    assert_eq!(base_type(D::AnyType), None);
+    assert_eq!(base_type(D::AnySimpleType), Some(D::AnyType));
+    assert_eq!(base_type(D::AnyAtomicType), Some(D::AnySimpleType));
+    assert_eq!(base_type(D::StringType), Some(D::AnyAtomicType));
+    assert_eq!(base_type(D::NormalizedString), Some(D::StringType));
+    assert_eq!(base_type(D::Token), Some(D::NormalizedString));
+    assert_eq!(base_type(D::NcName), Some(D::Name));
+    assert_eq!(base_type(D::Integer), Some(D::Decimal));
+    assert_eq!(base_type(D::Byte), Some(D::Short));
+    assert_eq!(base_type(D::UnsignedByte), Some(D::UnsignedShort));
+    assert_eq!(base_type(D::NmTokens), Some(D::AnySimpleType));
+    assert_eq!(base_type(D::DateTimeStamp), Some(D::DateTime));
 }
 
 #[test]
