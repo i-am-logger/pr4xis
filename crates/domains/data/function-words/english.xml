@@ -4,8 +4,10 @@
   Same format as WordNet — processed by the same codegen functor.
 
   Sources (per category — closed-class enumerations are bounded
-  references, not heuristic guesses):
-    • POS taxonomy:
+  references, not heuristic guesses). NOTE: this inventory is
+  hand-curated and citation-anchored, NOT yet machine-loaded from the
+  cited grammars (tracked praxis-debt, audit 2026-06-12):
+    • POS taxonomy / category vocabulary:
         Chiarcos & Sukhareva (2015) "OLiA — Ontologies of Linguistic
         Annotation" *Semantic Web Journal* 6(4):379-386.
     • Adposition enumeration:
@@ -16,12 +18,19 @@
     • Interrogative + possessive pronouns:
         Huddleston & Pullum (2002) Ch. 5 §5, §10.
     • Conjunction enumeration:
-        Quirk et al. (1985) §13, Huddleston & Pullum (2002) Ch. 8.
+        Quirk et al. (1985) Ch. 13 (Coordination), Huddleston & Pullum
+        (2002) Ch. 15 (Coordination and supplementation).
     • Determiner / copula / aux:
         Huddleston & Pullum (2002) Ch. 5 (determinatives) + Ch. 3
         (verbal categories).
-    • Interjections / response particles:
-        Huddleston & Pullum (2002) Ch. 16 §5.
+    • Determiner definiteness/quantification feature (fw-*-det synsets):
+        Lyons (1999) *Definiteness* (Cambridge); Abbott (2010)
+        *Reference* (OUP) — see DeterminerKind.
+    • Interjection communicative-function feature (fw-* synsets):
+        Ameka (1992) "Interjections: the universal yet neglected part of
+        speech" *J. Pragmatics* 18(2):101-118 — expressive / conative /
+        phatic. (H&P 2002 Ch. 16 treats interjections as a class but
+        gives no functional subclasses, so the kind is sourced here.)
 
   POS tags follow Universal Dependencies:
     det = determiner, pron = pronoun, adp = preposition,
@@ -136,7 +145,7 @@
 
     <!-- Prepositions (OLiA: Adposition).
          Enumeration follows Quirk, Greenbaum, Leech & Svartvik (1985)
-         *A Comprehensive Grammar of the English English Language* §9.1-9.7
+         *A Comprehensive Grammar of the English Language* §9.1-9.7
          and Huddleston & Pullum (2002) *Cambridge Grammar of the English
          Language* Ch. 7 — closed-class adposition set. Both reference
          grammars are converged on this list as the complete enumeration
@@ -238,6 +247,8 @@
     <LexicalEntry id="fw-sorry"><Lemma writtenForm="sorry" partOfSpeech="intj"/><Sense id="fw-sorry-1" synset="fw-politeness"/></LexicalEntry>
     <LexicalEntry id="fw-well"><Lemma writtenForm="well" partOfSpeech="intj"/><Sense id="fw-well-1" synset="fw-expressive"/></LexicalEntry>
     <LexicalEntry id="fw-oh"><Lemma writtenForm="oh" partOfSpeech="intj"/><Sense id="fw-oh-1" synset="fw-expressive"/></LexicalEntry>
+    <LexicalEntry id="fw-psst"><Lemma writtenForm="psst" partOfSpeech="intj"/><Sense id="fw-psst-1" synset="fw-conative"/></LexicalEntry>
+    <LexicalEntry id="fw-shush"><Lemma writtenForm="shush" partOfSpeech="intj"/><Sense id="fw-shush-1" synset="fw-conative"/></LexicalEntry>
 
     <!-- Synsets for function word categories -->
     <Synset id="fw-definite-det" partOfSpeech="det"><Definition>definite determiner</Definition></Synset>
@@ -256,8 +267,9 @@
     <Synset id="fw-greeting" partOfSpeech="intj"><Definition>greeting interjection</Definition></Synset>
     <Synset id="fw-farewell" partOfSpeech="intj"><Definition>farewell interjection</Definition></Synset>
     <Synset id="fw-politeness" partOfSpeech="intj"><Definition>politeness interjection</Definition></Synset>
-    <Synset id="fw-response" partOfSpeech="intj"><Definition>response interjection</Definition></Synset>
-    <Synset id="fw-expressive" partOfSpeech="intj"><Definition>expressive interjection</Definition></Synset>
+    <Synset id="fw-response" partOfSpeech="intj"><Definition>response interjection (Ameka 1992 phatic / back-channel)</Definition></Synset>
+    <Synset id="fw-expressive" partOfSpeech="intj"><Definition>expressive interjection (Ameka 1992 expressive)</Definition></Synset>
+    <Synset id="fw-conative" partOfSpeech="intj"><Definition>conative interjection — directed at an auditor, demanding attention/action (Ameka 1992 conative)</Definition></Synset>
 
   </Lexicon>
 </LexicalResource>

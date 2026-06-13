@@ -48,12 +48,34 @@ pub enum Transitivity {
     Ditransitive,
 }
 
-/// Determiner definiteness.
+/// Determiner subclass on the definiteness / quantification axis.
+///
+/// Definite vs Indefinite is the core *definiteness* contrast — the property
+/// expressed by the definite article (Lyons 1999, *Definiteness*, Cambridge,
+/// DOI 10.1017/CBO9780511605789). Demonstrative and Quantifier are the
+/// recognized determiner subclasses (Huddleston & Pullum 2002, CGEL ch.5), NOT
+/// further definiteness *values*: on the orthodox semantics a demonstrative NP
+/// is *itself* definite, and quantifiers cross-cut the ±definite axis
+/// (Abbott 2010, *Reference*, OUP).
+///
+/// PRAXIS-HONESTY FLAG (audit 2026-06-12 B-1): the four labels are each citable,
+/// but they live on two axes — this is a flat *determiner subclass* feature, not
+/// the binary ±definite contrast the legacy name "Definiteness" implied. Renamed
+/// `Definiteness` → `DeterminerKind` to name what it is. `Indefinite` is the
+/// unmarked default (Lyons 1999 §1; H&P ch.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Definiteness {
+pub enum DeterminerKind {
+    /// The definite article `the` (Lyons 1999 — the definiteness contrast).
     Definite,
+    /// The indefinite articles `a`/`an` and bare indefinites `some`/`any` — the
+    /// unmarked member (Lyons 1999 §1).
     Indefinite,
+    /// Demonstratives `this`/`that`/`these`/`those` — a subtype of *definite*
+    /// (Abbott 2010), kept distinct as a determiner subclass (H&P ch.5).
     Demonstrative,
+    /// Quantificational determiners `every`/`each`/`all`/`no` — the
+    /// quantificational axis that cross-cuts ±definite (Barwise & Cooper 1981;
+    /// Abbott 2010).
     Quantifier,
 }
 
@@ -82,7 +104,9 @@ pub struct Verb {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Determiner {
     pub text: String,
-    pub definiteness: Definiteness,
+    /// The determiner's subclass on the definiteness/quantification axis
+    /// ([`DeterminerKind`]).
+    pub kind: DeterminerKind,
     pub number: Option<Number>,
     /// The loaded OLiA class fragment (e.g. `InterrogativeDeterminer`), if this
     /// determiner carries one — the universal grammatical-class identity the
@@ -171,19 +195,36 @@ pub struct Auxiliary {
     pub tense: Option<Tense>,
 }
 
-/// Interjection kind — classified by communicative function.
+/// Interjection communicative function, after Ameka 1992 ("Interjections: the
+/// universal yet neglected part of speech", J. Pragmatics 18(2):101-118,
+/// DOI 10.1016/0378-2166(92)90048-G), whose three top-level functions are
+/// EXPRESSIVE (symptoms of the speaker's state), CONATIVE (directed at an
+/// auditor — demanding attention/action), and PHATIC (establishing/maintaining
+/// contact — greetings, farewells, back-channel feedback). OLiA and H&P 2002
+/// ch.16 give a single `Interjection` class with no sub-functions, so this kind
+/// is a praxis feature (Wierzbicka 1992; Wharton 2003 refine the semantic side).
+///
+/// `Expressive` is Ameka's expressive (top-level); `Greeting`/`Farewell`/
+/// `Response` are subtypes of his PHATIC; `Politeness` is a phatic interactional
+/// routine. `Conative` is Ameka's third function (audit 2026-06-12 B-2 fixed the
+/// prior gap — conative items like `sh!`/`psst` used to silently default to
+/// Expressive).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InterjectionKind {
-    /// "hello", "hi", "hey" — greeting/opening.
+    /// "hello", "hi", "hey" — greeting (Ameka PHATIC).
     Greeting,
-    /// "goodbye", "bye" — farewell/closing.
+    /// "goodbye", "bye" — farewell (Ameka PHATIC).
     Farewell,
-    /// "oh", "wow" — expressive.
+    /// "oh", "wow", "ouch" — expressive of the speaker's state (Ameka EXPRESSIVE,
+    /// the prototypical/most-frequent interjection function — the unmarked default).
     Expressive,
-    /// "yes", "no" — response.
+    /// "yes", "no", "uh-huh" — response / back-channel feedback (Ameka PHATIC).
     Response,
-    /// "please", "thanks" — politeness.
+    /// "please", "thanks" — politeness routine (Ameka phatic-interactional).
     Politeness,
+    /// "sh!", "psst", summoning "hey!" — directed at an auditor, demanding
+    /// attention or action (Ameka CONATIVE).
+    Conative,
 }
 
 /// An interjection: "oh", "wow", "hello", "goodbye".

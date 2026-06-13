@@ -162,7 +162,7 @@
 # + [sources.english_function_words]). Fast-loaded from the committed
 # english-function-words-2026.prx.gz; updating the XML requires regenerating
 # both this hash and the artifact (--ignored regenerate_english_function_words_prx).
-"english_function_words@2026"  = "blake3:aa95219088386de09c63cf8fc2e5a543521321f7fdf97765da414f8f468e65cc"
+"english_function_words@2026"  = "blake3:3c903026f069d306c8912580dc5e51ae8ffaed68906516313cbd8e8cad5541e8"
 # CiTO, the Citation Typing Ontology (SPAR family) — W3C OWL 2 / RDF-XML
 # vocabulary. Content digest of the bundled on-disk file
 # crates/domains/data/ontologies/cito-2.8.1.owl, a verbatim copy of the
@@ -457,7 +457,7 @@
 # is DTD-ordered, so the child-order residue is a no-op), with NO stored raw blob.
 # Because `put(get(b)) == b`, this value MUST equal the
 # `english_function_words@2026` `[hashes]` pin (registry.rs enforces sig == raw_hash).
-"english_function_words@2026"  = "blake3:aa95219088386de09c63cf8fc2e5a543521321f7fdf97765da414f8f468e65cc"
+"english_function_words@2026"  = "blake3:3c903026f069d306c8912580dc5e51ae8ffaed68906516313cbd8e8cad5541e8"
 # USC Title 1 — General Provisions. The `UslmGraphFaithfulLens` regenerates the
 # literal on-disk `usc01.xml` bytes (CRLFs included) from the typed `UsCodeTitle`
 # ontology + a concrete-syntax complement, so the byte-exact round-trip output
