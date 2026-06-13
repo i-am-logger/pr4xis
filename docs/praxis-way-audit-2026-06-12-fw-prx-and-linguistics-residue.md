@@ -41,9 +41,9 @@ projections or the new `.prx`/functor substrate. This is new ground.
 | **D-22** `has_decoder_for` | ▫ pending — verifier flagged the proposed self-registering-decoder fix as *partly infeasible*; low value. |
 | **D-21** scattered `variants().len()==N` counts | ◑ partial — the source_taxonomy leaf-count + the XSD baseline are structural now; the remaining meta-ontology inventory-count pins are cited-fact regressions (closed enums, no external source) and lower priority. |
 | **D-3, D-4** (canonical_phrase / SynsetRelationType predicates) | ⏸ PARKED with Track C — both are the same `match → GeneratorAction::Functor` projection-as-data shape; D-4 specifically feeds `wn_builder_to_owned`. Do them with the Track-C lift, not piecemeal. |
-| **Track C** projection-as-data lift | ⏸ PARKED per user → tracked below. |
+| **Track C** projection-as-data lift | ⏸ PARKED per user → filed as **#203**. |
 
-### Track C — tracked issue (to file)
+### Track C — tracked issue (filed: #203)
 > **Title:** Lift the LMF→praxis projections onto `apply`/FreeExtension (projection-as-data)
 > **Body:** `function_words_from_lmf` (`language.rs`), `wn_builder_to_owned` (`lmf/prx.rs:552`), the `SynsetRelationType::is_taxonomy/is_mereology/is_causal` predicates (D-4), `canonical_phrase` (D-3), and `RelationProperty` (now edges, D-7 — reference only) are source→praxis-kind projections. The #87 engine-bridge landed the substrate to carry such a projection AS `.prx` data — a `GeneratorAction::Functor` interpreted by `apply` (`9e59bb0`) — with the WordNet→praxis functor already carried that way (`f920898`, `bridge.rs:193-224`). Lift the WordNet projection AND the function-words projection together onto that interpreter so there is ONE projection mechanism, not a forked second one. NOTE: the 2026-06-12 audit's own adversarial verifiers ruled `wn_builder_to_owned`/`function_words_from_lmf` *codec-floor* (closed-enum→closed-enum), not the source-vocabulary→kind residue the functor supersedes — so this is a consistency/uniformity refactor, contested as strict residue. Do both projections together or neither.
 
