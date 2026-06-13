@@ -28,7 +28,10 @@ projections or the new `.prx`/functor substrate. This is new ground.
 | **D-20** `DomainOrder` rank from the loaded N⊂Z⊂Q⊂R⊂C chain | ✅ done, verified | `2794f8c` |
 | **D-17** XSD `DatatypeEvolution` baseline derived (magic 46/4 removed) | ✅ done, verified | `2794f8c` |
 | **D-7** relation→structural-property as loaded `HasProperty` edges | ✅ done, verified | `3ae5f61` |
-| **D-11** delete dead `legacy` discourse module | ⏸ ON HOLD — it is test-covered runtime code; the "superseded by discourse/ontology.rs" claim is shaky (that is a discourse *ontology*, not a runtime conversation model). Needs explicit confirm-to-delete. |
+| **D-11** delete dead `legacy` discourse module | ✅ done (deleted — no production callers, only re-exports + dead-code tests) | `479c43e` |
+| **D-9** source disk paths → praxis.toml `local_path` data; `family_dir` kind-only; `local_path_override` deleted | ✅ done, verified | `25b83a8` |
+| **D-15** verb transitivity from the loaded frame TEXT (object-slot count), not the lossy id prefix | ✅ done, verified | `02bcb1a` |
+| **D-22** exhaustive `has_decoder_for` (no wildcard) + per-module `DECODES` const | ✅ done, verified | `d35614f` |
 | **MORPH D-1** irregular forms LOADED from the registered AGID source | ✅ done, verified | `94d7705` |
 | **MORPH D-2 / D-12** productive rules grounded in registered CatVar + structural count | ✅ done, verified | `f443bf7` |
 | **D-16 / D-6 / D-5** XSD `base_type` + groups derived; dual-source axiom deleted | ✅ done, verified | `ea7e255` |
