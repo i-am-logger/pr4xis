@@ -93,11 +93,15 @@ impl Axiom for DatatypeEvolutionIsMonotone {
     fn verify(&self) -> Verdict {
         let v10 = datatypes_in_version(XsdVersion::V1_0);
         let v11 = datatypes_in_version(XsdVersion::V1_1);
+        // The number of 1.1 additions is itself loaded data, not a literal 4
+        // (audit 2026-06-12 D-17).
+        let additions = datatype_1_1_additions().len();
         let monotone = v10.iter().all(|c| v11.contains(c));
-        let strict = v11.len() == v10.len() + 4;
+        let strict = v11.len() == v10.len() + additions;
         let complete = v11.len() == XsdDatatypeConcept::variants().len();
-        // The 1.0 fiber is the XSD-1.0 inventory: 2 special + 19 + 25 = 46.
-        let baseline = v10.len() == 46;
+        // The 1.0 fiber is the full inventory minus the 1.1 additions — DERIVED
+        // from the loaded sets, not the magic literal 46 (audit D-17).
+        let baseline = v10.len() == XsdDatatypeConcept::variants().len() - additions;
         if monotone && strict && complete && baseline {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
