@@ -163,6 +163,15 @@
 # english-function-words-2026.prx.gz; updating the XML requires regenerating
 # both this hash and the artifact (--ignored regenerate_english_function_words_prx).
 "english_function_words@2026"  = "blake3:3c903026f069d306c8912580dc5e51ae8ffaed68906516313cbd8e8cad5541e8"
+# AGID (agid@2016.01.19) — Automatically Generated Inflection Database (Atkinson
+# 2016) — is deliberately NOT pinned here: it is a BUILD-TIME source read only by
+# the `regenerate_english_irregulars_tsv` step (which records the blake3 of
+# agid-infl.txt in its output), NOT decoded through the generic runtime substrate.
+# It is registered in praxis.toml as a Stub identity (cited provenance + on-disk
+# path); the RUNTIME data is the committed, git-tracked english-irregulars.tsv
+# derived slice. Pinning it would require a generic-substrate decoder for its
+# Plaintext encoding (DecoderTotalityPerKind), which it neither has nor needs.
+# Recorded source hash (for manual verification): blake3:24ea4a1e3cf69d0ae662eb2df3a021cf1a3530e7e28839ca050a710431b8ce53
 # CiTO, the Citation Typing Ontology (SPAR family) — W3C OWL 2 / RDF-XML
 # vocabulary. Content digest of the bundled on-disk file
 # crates/domains/data/ontologies/cito-2.8.1.owl, a verbatim copy of the
