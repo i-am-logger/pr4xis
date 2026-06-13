@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-chat"
-version = "0.22.0"
+version.workspace = true
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Praxis chat engine — shared logic for CLI and WASM"
@@ -13,7 +13,7 @@ publish = false
 
 [dependencies]
 pr4xis = { version = "0.23.1", path = "../pr4xis" }
-pr4xis-domains = { version = "0.22.0", path = "../domains" }
+pr4xis-domains = { version = "0.23.1", path = "../domains" }
 
 [lints]
 workspace = true

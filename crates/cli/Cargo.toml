@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-cli"
-version = "0.22.0"
+version.workspace = true
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
@@ -20,13 +20,13 @@ doc = false
 
 [dependencies]
 pr4xis = { version = "0.23.1", path = "../pr4xis" }
-pr4xis-chat = { version = "0.22.0", path = "../chat" }
+pr4xis-chat = { version = "0.23.1", path = "../chat" }
 # `fetch` brings the `.prx` load gate + network substrate; `codegen` brings the
 # OWL `read_owl → CodegenData` emit path so `pr4xis compile` can write OWL
 # `.prx.gz` archives (alongside USC + WordNet, whose emit needs only `prx`). The
 # CLI is a native binary, so `codegen`'s `xsd-parser` (which can't build for
 # wasm32) is no constraint here.
-pr4xis-domains = { version = "0.22.0", path = "../domains", features = ["fetch", "codegen"] }
+pr4xis-domains = { version = "0.23.1", path = "../domains", features = ["fetch", "codegen"] }
 # The content-address vocabulary (`ContentAddress`, `HashAlgorithm`,
 # `hash_hex`) — the emit leg for lock re-pins and the SHA-256 verify leg the
 # `decompile --fips` attestation speaks through.

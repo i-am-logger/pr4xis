@@ -69,58 +69,37 @@ commit_parsers = [
     { message = "^chore(\\(.+\\))?: release", skip = true },
 ]
 
-# Full workspace version sync — every workspace member shares a single
-# version number. Modelled on the Bevy / Tauri / SeaORM convention:
-# users install one praxis version and every supporting crate moves in
-# lockstep. Removes the per-crate version drift that previously let
-# pr4xis-derive sit at 0.1.0 while pr4xis evolved through 0.16.0 (the
-# bug that broke catch-up publish; see chore/sync-all-versions-0.22.0).
+# Full workspace version sync is now enforced by Cargo itself —
+# `[workspace.package] version` + `version.workspace = true` in every member
+# (see the root Cargo.toml), the Bevy / Tauri / SeaORM convention. That makes
+# release-plz's `version_group` redundant AND fixes the bug it suffered: the
+# group silently stopped syncing once the publish=false crates
+# (pr4xis-domains / -cli / -chat / -examples) drifted behind the published ones,
+# because release-plz reads each crate's baseline from crates.io and those
+# aren't there. With a single inherited field, drift is structurally impossible,
+# and a change to ANY member (notably the publish=false domains crate, where
+# nearly all work lands) bumps the one shared number — so release-plz opens a
+# Release PR for it. The only per-crate knob that remains is the PUBLISH gate.
 #
-# `pr4xis-examples` is in the version group so its number stays aligned
-# with the rest, but `publish = false` keeps it off crates.io — examples
-# aren't a library consumers pull in transitively.
-[[package]]
-name = "pr4xis-derive"
-version_group = "praxis"
-
-[[package]]
-name = "pr4xis"
-version_group = "praxis"
-
-# `pr4xis-runtime` (the `.prx` runtime crate) is a workspace member and
-# must move in lockstep with the rest of the group. Without this block it
-# is invisible to the version_group sync and drifts behind (it sat at
-# 0.22.0 while the group reached 0.23.0).
-[[package]]
-name = "pr4xis-runtime"
-version_group = "praxis"
-
-# `pr4xis-domains` is held back from crates.io until the registered-source
-# story (`praxis.toml` + `pr4xis update`) lands as a Rust ontology rather
-# than a build-time `include_str!` of workspace files. Path deps still
-# work locally; only the publish step is gated. Crates that depend on
-# domains (`pr4xis-chat`, `pr4xis-cli`) cascade — cargo refuses to publish
-# a crate whose dep tree contains a `publish = false` member.
+# `pr4xis-domains` is held back from crates.io until the registered-source story
+# (`praxis.toml` + `pr4xis update`) lands as a Rust ontology rather than a
+# build-time `include_str!` of workspace files; `pr4xis-cli` / `-chat` cascade
+# (cargo refuses to publish a crate whose dep tree contains a publish=false
+# member), and `pr4xis-examples` isn't a library consumers pull in. They still
+# share the inherited version and are tagged + GitHub-released in lockstep;
+# `publish = false` only skips the `cargo publish` step.
 [[package]]
 name = "pr4xis-domains"
-version_group = "praxis"
 publish = false
 
 [[package]]
 name = "pr4xis-cli"
-version_group = "praxis"
 publish = false
 
 [[package]]
 name = "pr4xis-chat"
-version_group = "praxis"
 publish = false
 
 [[package]]
-name = "pr4xis-web"
-version_group = "praxis"
-
-[[package]]
 name = "pr4xis-examples"
-version_group = "praxis"
 publish = false

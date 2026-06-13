@@ -5,8 +5,11 @@
 }:
 let
   cargoToml = builtins.fromTOML (builtins.readFile ./crates/pr4xis/Cargo.toml);
+  # The version is workspace-inherited (`version.workspace = true`), so read it
+  # from the root `[workspace.package]` rather than the member's package table.
+  workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
   packageName = cargoToml.package.name;
-  packageVersion = cargoToml.package.version;
+  packageVersion = workspaceToml.workspace.package.version;
   packageDescription = cargoToml.package.description or "";
 in
 {
