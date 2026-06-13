@@ -117,42 +117,34 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_eighteen_leaves() {
+fn is_leaf_agrees_with_the_loaded_is_a_graph() {
     use SourceTaxonomyConcept as C;
-    let leaves: Vec<_> = SourceTaxonomyConcept::variants()
-        .into_iter()
-        .filter(|c| is_leaf(*c))
-        .collect();
-    // Language, LegalLexicon, SchemaVocabulary, ClosedClassLexicon,
-    // UsFederalStatute, UsCodeTitle, Regulation, ConstitutionalArticle,
-    // ProceduralRule, CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
-    // XmlDocumentTypeDefinition, OoxmlSchemaArchive, ConceptualSpec,
-    // OntologyVocabulary, XmlSchemaTestSuite, XmlConformanceTestSuite.
-    //   Statute is the jurisdiction-agnostic parent of
-    //   UsFederalStatute (not a leaf); TypographyResource is parent
-    //   of TypographicGlyphSet; SchemaSpec is parent of
-    //   XmlSchemaDefinition + XmlDocumentTypeDefinition +
-    //   OoxmlSchemaArchive + ConceptualSpec + OntologyVocabulary;
-    //   TestSuite is parent of XmlSchemaTestSuite +
-    //   XmlConformanceTestSuite. ClosedClassLexicon is a leaf sibling
-    //   of Language under Lexicon (Quirk et al. 1985 §2.34).
-    assert_eq!(leaves.len(), 18);
-    assert!(leaves.contains(&C::Language));
-    assert!(leaves.contains(&C::ClosedClassLexicon));
-    assert!(leaves.contains(&C::SchemaVocabulary));
-    assert!(leaves.contains(&C::UsFederalStatute));
-    assert!(leaves.contains(&C::UsCodeTitle));
-    assert!(leaves.contains(&C::TypographicGlyphSet));
-    assert!(leaves.contains(&C::XmlSchemaDefinition));
-    assert!(leaves.contains(&C::ConceptualSpec));
-    assert!(leaves.contains(&C::OntologyVocabulary));
-    assert!(leaves.contains(&C::XmlSchemaTestSuite));
-    assert!(leaves.contains(&C::XmlConformanceTestSuite));
-    assert!(!leaves.contains(&C::Statute));
-    assert!(!leaves.contains(&C::TypographyResource));
-    assert!(!leaves.contains(&C::SchemaSpec));
-    assert!(!leaves.contains(&C::Source));
-    assert!(!leaves.contains(&C::LegalCorpus));
+    // STRUCTURAL invariant (audit 2026-06-12 D-18/D-21), replacing the brittle
+    // hand-counted `leaves.len() == N`: `is_leaf(c)` must hold EXACTLY when no
+    // other concept has `c` among its ancestors — i.e. `c` is never an `is_a`
+    // parent. Since `is_leaf` is now DERIVED from the same morphisms, this is the
+    // honest cross-check that the derivation means what it claims, and it never
+    // needs a hand edit when a concept is added.
+    for c in SourceTaxonomyConcept::variants() {
+        let has_a_descendant = SourceTaxonomyConcept::variants()
+            .into_iter()
+            .any(|other| other != c && ancestors_of(other).contains(&c));
+        assert_eq!(
+            is_leaf(c),
+            !has_a_descendant,
+            "is_leaf({c:?}) must equal `no concept is_a {c:?}`"
+        );
+    }
+    // Spot-check known leaves and known intermediates so a degenerate empty
+    // graph can't pass vacuously.
+    assert!(is_leaf(C::Language));
+    assert!(is_leaf(C::ClosedClassLexicon));
+    assert!(is_leaf(C::UsFederalStatute));
+    assert!(is_leaf(C::OntologyVocabulary));
+    assert!(!is_leaf(C::Source)); // root
+    assert!(!is_leaf(C::Lexicon)); // parent of Language/DomainLexicon/ClosedClassLexicon
+    assert!(!is_leaf(C::Statute)); // parent of UsFederalStatute
+    assert!(!is_leaf(C::SchemaSpec)); // parent of the schema-spec leaves
 }
 
 // =============================================================================

@@ -243,6 +243,19 @@ pub enum Polarity {
     Light,
 }
 
+impl Polarity {
+    /// The wire label (base16 convention) — the ONE codec lowering at the
+    /// JSON/HTML report boundary, so working code carries the typed `Polarity`
+    /// (or `Option<Polarity>` where the background is indeterminable) rather than
+    /// a bare `"dark"`/`"light"` string compared with `==` (audit 2026-06-12 D-10).
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Dark => "dark",
+            Self::Light => "light",
+        }
+    }
+}
+
 impl Concept for Polarity {}
 impl FinitelyGenerated for Polarity {
     fn variants() -> Vec<Self> {

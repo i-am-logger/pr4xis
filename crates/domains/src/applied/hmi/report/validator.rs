@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use crate::applied::hmi::theming::base16::ColorSlot;
+use crate::applied::hmi::theming::base16::{ColorSlot, Polarity};
 use crate::applied::hmi::theming::ontology::{
     LuminanceMonotonicity, Palette, WcagForegroundContrast,
 };
@@ -28,7 +28,10 @@ pub struct ThemeResult {
     pub luminance_monotone: bool,
     pub wcag_aa: bool,
     pub contrast_ratio: Option<f64>,
-    pub polarity: String,
+    /// Theme polarity classified from the base00 background luminance.
+    /// `None` = the background slot is absent, so polarity is indeterminable
+    /// (the honest "unknown" — a typed absence, not a `"unknown"` string).
+    pub polarity: Option<Polarity>,
     /// Luminance trace: (slot_key, luminance) for base00-base07
     pub luminance_ramp: Vec<(String, f64)>,
     /// Where monotonicity breaks: index of first violation (None if monotone)
@@ -229,16 +232,15 @@ pub fn scan_themes_with_scheme(base_dir: &Path, scheme: &str) -> Vec<ThemeResult
 
                 let detail = validate_palette(&palette);
 
-                let polarity = match palette.get(&ColorSlot::Base00) {
-                    Some(bg) => {
-                        if srgb::is_dark(bg) {
-                            "dark"
-                        } else {
-                            "light"
-                        }
+                // Classify polarity from the base00 background luminance into the
+                // typed `Polarity`; an absent background is `None` (indeterminable).
+                let polarity = palette.get(&ColorSlot::Base00).map(|bg| {
+                    if srgb::is_dark(bg) {
+                        Polarity::Dark
+                    } else {
+                        Polarity::Light
                     }
-                    None => "unknown",
-                };
+                });
 
                 results.push(ThemeResult {
                     theme: theme_name.clone(),
@@ -248,7 +250,7 @@ pub fn scan_themes_with_scheme(base_dir: &Path, scheme: &str) -> Vec<ThemeResult
                     luminance_monotone: detail.monotone,
                     wcag_aa: detail.wcag_aa,
                     contrast_ratio: detail.contrast_ratio,
-                    polarity: polarity.to_string(),
+                    polarity,
                     luminance_ramp: detail.luminance_ramp,
                     mono_break_at: detail.mono_break_at,
                 });
@@ -366,8 +368,14 @@ palette:
         let total = results.len();
         let mono_pass = results.iter().filter(|r| r.luminance_monotone).count();
         let wcag_pass = results.iter().filter(|r| r.wcag_aa).count();
-        let dark_count = results.iter().filter(|r| r.polarity == "dark").count();
-        let light_count = results.iter().filter(|r| r.polarity == "light").count();
+        let dark_count = results
+            .iter()
+            .filter(|r| r.polarity == Some(Polarity::Dark))
+            .count();
+        let light_count = results
+            .iter()
+            .filter(|r| r.polarity == Some(Polarity::Light))
+            .count();
 
         println!("\n═══════════════════════════════════");
         println!("  Theme Validation Results");
@@ -451,8 +459,14 @@ palette:
             let total = results.len();
             let mono = results.iter().filter(|r| r.luminance_monotone).count();
             let wcag = results.iter().filter(|r| r.wcag_aa).count();
-            let dark = results.iter().filter(|r| r.polarity == "dark").count();
-            let light = results.iter().filter(|r| r.polarity == "light").count();
+            let dark = results
+                .iter()
+                .filter(|r| r.polarity == Some(Polarity::Dark))
+                .count();
+            let light = results
+                .iter()
+                .filter(|r| r.polarity == Some(Polarity::Light))
+                .count();
 
             println!("║                                                           ║");
             println!(
