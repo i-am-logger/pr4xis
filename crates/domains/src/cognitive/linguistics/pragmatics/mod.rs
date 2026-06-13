@@ -13,7 +13,6 @@ pub mod response;
 pub mod response_discourse_functor;
 pub mod speech_act;
 
-pub use discourse::{Discourse, Turn};
 pub use response::{ResponseCategory, ResponseFrame};
 pub use speech_act::{Intent, SpeechAct};
 
