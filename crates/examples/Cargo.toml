@@ -10,8 +10,8 @@ repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
 
 [dependencies]
-pr4xis = { version = "0.23.1", path = "../pr4xis" }
-pr4xis-domains = { version = "0.23.1", path = "../domains" }
+pr4xis = { path = "../pr4xis" }
+pr4xis-domains = { path = "../domains" }
 
 [lints]
 workspace = true
