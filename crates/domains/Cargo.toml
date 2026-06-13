@@ -7,11 +7,20 @@ description = "Applied domains — chess, calculator, elevator, legal, traffic, 
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
-# Held back from crates.io until the registered-source layer
-# (`praxis.toml` + `pr4xis update`) is reworked as a Rust ontology
-# instead of a build-time include of workspace files. Path/git deps
-# still work; only the publish step is gated. See release-plz.toml.
-publish = false
+# NOTE: the publish gate lives in release-plz.toml (`[[package]] name =
+# "pr4xis-domains", publish = false`), NOT here. A `publish = false` in
+# THIS manifest makes release-plz ignore the crate outright — it never
+# versions or tags it, so a domains-only change (where nearly all praxis
+# work lands) cuts no release at all (the bug that stranded domains at
+# tag v0.21.0 while the workspace moved to 0.23.1). With the gate in
+# release-plz.toml instead, release-plz versions + tags domains in
+# lockstep with the workspace and only skips the `cargo publish` step.
+#
+# Crates.io publication is still blocked regardless: this crate's
+# build-time `include_str!` of workspace files (praxis.toml, data/*)
+# fails `cargo publish --verify` until the registered-source story
+# (`praxis.toml` + `pr4xis update`) lands as a Rust ontology. So the
+# release-plz gate + that technical floor together keep it off crates.io.
 
 [dependencies]
 # Runtime dep needs `std` only. The `codegen` feature (and its
@@ -21,7 +30,7 @@ publish = false
 # Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
 # (this crate is a WASM default-feature dependency — see the fetch
 # gating notes below).
-pr4xis = { version = "0.23.1", path = "../pr4xis", default-features = false, features = ["std"] }
+pr4xis = { path = "../pr4xis", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
@@ -50,7 +59,7 @@ hashbrown = "0.17"
 # feature-gating of the dependency is needed; the consuming `composed` module
 # is `std`-gated only because pr4xis-runtime is a std crate (and the WASM build
 # enables `std` via the `prx` feature anyway).
-pr4xis-runtime = { version = "0.23.1", path = "../pr4xis-runtime", features = ["emit"] }
+pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate
@@ -142,7 +151,7 @@ test-internals = ["prx"]
 # emits Rust modules under $OUT_DIR/<name>_codegen.rs for every Statute-kind
 # source whose lock carries structural data. The crate's runtime tree then
 # `include!`s those modules under `social::compliance::law::<name>::`.
-pr4xis = { version = "0.23.1", path = "../pr4xis", default-features = false, features = ["codegen"] }
+pr4xis = { path = "../pr4xis", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
 # BLAKE3 for the build-time mirror of the content-address identity gate
@@ -169,7 +178,7 @@ unreachable = "deny"
 # `pr4xis::codegen::wordnet::parse_wordnet_xml` directly. `codegen` is
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
-pr4xis = { version = "0.23.1", path = "../pr4xis", features = ["codegen"] }
+pr4xis = { path = "../pr4xis", features = ["codegen"] }
 # The runtime, with `emit`, so an integration test can project a real domain
 # ontology into a `.prx` Archive and round-trip it through the runtime.
 pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }

@@ -91,6 +91,7 @@ commit_parsers = [
 [[package]]
 name = "pr4xis-domains"
 publish = false
+release = true
 
 [[package]]
 name = "pr4xis-cli"
