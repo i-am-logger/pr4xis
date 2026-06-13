@@ -307,27 +307,24 @@ impl Quality for VerifiabilityOffline {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// True iff `concept` is an intermediate *family* node — DERIVED from the loaded
+/// `is_a` graph (audit 2026-06-12 D-18): it has descendants (is not a leaf) AND a
+/// parent (is not the root `Identity`). Replaces a hand `matches!` list kept in
+/// lockstep with `is_a:`.
 pub fn is_family(concept: &IdentityConcept) -> bool {
-    use IdentityConcept as I;
-    matches!(
-        concept,
-        I::CryptographicSignature
-            | I::ContentHash
-            | I::PersistentIdentifier
-            | I::SelfDescribingMetadata
-    )
+    !is_leaf(concept) && !ancestors_of(concept).is_empty()
 }
 
+/// True iff `concept` is a *leaf* — DERIVED from the loaded `is_a` graph (audit
+/// 2026-06-12 D-18): a leaf is a concept no other concept is_a, i.e. one that is
+/// never the `target` of a `Subsumption` morphism. Replaces a hand `matches!`
+/// list kept in lockstep with `is_a:`.
 pub fn is_leaf(concept: &IdentityConcept) -> bool {
-    use IdentityConcept as I;
-    !matches!(
-        concept,
-        I::Identity
-            | I::CryptographicSignature
-            | I::ContentHash
-            | I::PersistentIdentifier
-            | I::SelfDescribingMetadata
-    )
+    use pr4xis::category::{Arrow, Category};
+    ArtifactIdentityCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == ArtifactIdentityRelationKind::Subsumption)
+        .all(|m| &m.target() != concept)
 }
 
 /// Replacement for the deleted `taxonomy::ancestors` — walks the
@@ -395,18 +392,23 @@ pub struct ContentHashIsInjective;
 impl Axiom for ContentHashIsInjective {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use IdentityConcept as I;
+        use pr4xis::category::FinitelyGenerated;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let leaves = [
-            I::RawHash,
-            I::GitObjectSha,
-            I::IpfsCid,
-            I::NixStorePath,
-            I::BittorrentInfoHash,
-        ];
-        if leaves
-            .iter()
-            .all(|leaf| ancestors_of(leaf).contains(&I::ContentHash))
-        {
+        // The content-hash schemes are the LEAVES under ContentHash, DERIVED from
+        // the loaded taxonomy (audit 2026-06-12 D-19) — not a hand-typed list
+        // [RawHash, GitObjectSha, IpfsCid, NixStorePath, BittorrentInfoHash] that
+        // had to be kept in lockstep with the is_a: block. Structurally:
+        // ContentHash is a populated family whose every leaf descends from it.
+        let leaves: Vec<_> = IdentityConcept::variants()
+            .into_iter()
+            .filter(|c| is_leaf(c) && ancestors_of(c).contains(&I::ContentHash))
+            .collect();
+        let holds = is_family(&I::ContentHash)
+            && !leaves.is_empty()
+            && leaves
+                .iter()
+                .all(|leaf| ancestors_of(leaf).contains(&I::ContentHash));
+        if holds {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

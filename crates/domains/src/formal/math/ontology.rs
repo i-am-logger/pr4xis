@@ -65,13 +65,34 @@ impl Quality for DomainOrder {
     type Value = u8;
 
     fn get(&self, domain: &NumberConcept) -> Option<u8> {
-        Some(match domain {
-            NumberConcept::NaturalNumbers => 0,
-            NumberConcept::Integers => 1,
-            NumberConcept::Rationals => 2,
-            NumberConcept::Reals => 3,
-            NumberConcept::Complex => 4,
-        })
+        use pr4xis::category::{Arrow, Category, FinitelyGenerated};
+        // Position in the N ⊂ Z ⊂ Q ⊂ R ⊂ C inclusion chain = the number of
+        // systems strictly contained in `domain` (its proper descendants in the
+        // loaded `is_a` graph), DERIVED from the morphisms — not a hand-numbered
+        // u8 that must be re-typed if the chain changes (audit 2026-06-12 D-20).
+        let sub: Vec<(NumberConcept, NumberConcept)> = NumberCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == NumberRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        let ancestors = |start: NumberConcept| -> Vec<NumberConcept> {
+            let mut out = Vec::new();
+            let mut stack = vec![start];
+            while let Some(c) = stack.pop() {
+                for (s, t) in &sub {
+                    if *s == c && !out.contains(t) {
+                        out.push(*t);
+                        stack.push(*t);
+                    }
+                }
+            }
+            out
+        };
+        let descendants = NumberConcept::variants()
+            .into_iter()
+            .filter(|c| c != domain && ancestors(*c).contains(domain))
+            .count();
+        Some(descendants as u8)
     }
 }
 
