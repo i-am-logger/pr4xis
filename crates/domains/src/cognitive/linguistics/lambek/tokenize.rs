@@ -347,7 +347,7 @@ fn assign_predicate_adjectives(tokens: &mut [TypedToken]) {
 /// category.
 ///
 /// Content words (from WordNet) carry no OLiA class, so they canonicalize
-/// through [`olia::pos_to_olia_fragments`] — the irreducible PosTag → OLiA-class
+/// through [`olia::canonical_olia_fragment`] — the irreducible PosTag → OLiA-class
 /// bridge (a closed coarse enum mapping to canonical OLiA fragment names). Verbs
 /// add their valency (a loaded OLiA `ValencyFeature` class) as the second
 /// coordinate — the `operators::derive_lambek(arity, …)` parameter pattern.
@@ -356,10 +356,7 @@ fn olia_key(
 ) -> (&'static str, Option<&'static str>) {
     use crate::cognitive::linguistics::lexicon::olia;
     use crate::cognitive::linguistics::lexicon::pos::{LexicalEntry, Transitivity};
-    let fragment = olia::pos_to_olia_fragments(entry.pos_tag())
-        .first()
-        .copied()
-        .unwrap_or("Noun");
+    let fragment = olia::canonical_olia_fragment(entry.pos_tag());
     let valency = match entry {
         LexicalEntry::Verb(v) => Some(match v.transitivity {
             // Transitivity (a closed enum) → its OLiA ValencyFeature class.
