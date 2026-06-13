@@ -588,11 +588,40 @@ pub enum VerbTransitivity {
 }
 
 impl VerbTransitivity {
-    /// Determine transitivity from a WordNet subcategorization frame ID.
-    /// Frame IDs follow the pattern: `v[ti][ai][ai][-suffix]`
-    /// - "via" / "vii" = intransitive (Somebody/Something ----s)
-    /// - "vtaa" / "vtai" / "vtia" / "vtii" = transitive
-    /// - "ditransitive" = ditransitive
+    /// Determine transitivity from a WordNet subcategorization-frame TEXT —
+    /// the LOADED `subcategorizationFrame` of the `<SyntacticBehaviour>` the
+    /// sense references (audit 2026-06-12 D-15).
+    ///
+    /// Transitivity is the count of bare object NPs the verb takes: parse the
+    /// Princeton sentence-frame template (ISO 24613 LMF `SyntacticBehaviour`;
+    /// Open English WordNet 2025) and count the LEADING run of `somebody` /
+    /// `something` placeholders AFTER the `----` verb marker, stopping at the
+    /// first oblique (a preposition / complementizer / category placeholder like
+    /// PP / INFINITIVE / CLAUSE / Adjective). 0 objects = Intransitive (incl. the
+    /// impersonal `It is ----ing` / `It ----s that CLAUSE` frames the old
+    /// id-prefix test silently dropped to `None`); 1 = Transitive; 2 =
+    /// Ditransitive. Reading the frame grammar IS reading the loaded data — the
+    /// frame text is the authoritative signal, not the lossy 2-char id prefix.
+    pub fn from_frame(frame: &str) -> Option<Self> {
+        let toks: Vec<String> = frame.split_whitespace().map(str::to_lowercase).collect();
+        let verb = toks.iter().position(|t| t.contains("----"))?;
+        let objects = toks[verb + 1..]
+            .iter()
+            .take_while(|t| t.as_str() == "somebody" || t.as_str() == "something")
+            .count();
+        Some(match objects {
+            0 => Self::Intransitive,
+            1 => Self::Transitive,
+            _ => Self::Ditransitive,
+        })
+    }
+
+    /// Determine transitivity from a frame ID by its documented `v[ti][ai]…`
+    /// prefix scheme — the FALLBACK used only when an id has no
+    /// `<SyntacticBehaviour>` definition to read the text from (never fires on
+    /// OEWN 2025, where every used id is defined). Prefer [`from_frame`], which
+    /// reads the loaded frame text; the prefix is a lossy derivative of it (it
+    /// drops the non-`vt`/`vi` impersonal frames).
     pub fn from_frame_id(frame_id: &str) -> Option<Self> {
         match frame_id {
             "ditransitive" => Some(Self::Ditransitive),
@@ -1065,20 +1094,73 @@ mod tests {
     }
 
     #[test]
-    fn verb_transitivity_from_frame() {
+    fn verb_transitivity_from_frame_text() {
+        use VerbTransitivity as VT;
+        // Object count over the LOADED Princeton frame text (D-15).
+        assert_eq!(VT::from_frame("Somebody ----s"), Some(VT::Intransitive));
         assert_eq!(
-            VerbTransitivity::from_frame_id("vtai"),
-            Some(VerbTransitivity::Transitive)
+            VT::from_frame("Somebody ----s something"),
+            Some(VT::Transitive)
         );
         assert_eq!(
-            VerbTransitivity::from_frame_id("via"),
-            Some(VerbTransitivity::Intransitive)
+            VT::from_frame("Something ----s somebody"),
+            Some(VT::Transitive)
         );
         assert_eq!(
-            VerbTransitivity::from_frame_id("ditransitive"),
-            Some(VerbTransitivity::Ditransitive)
+            VT::from_frame("Somebody ----s somebody something"),
+            Some(VT::Ditransitive)
         );
-        assert_eq!(VerbTransitivity::from_frame_id("unknown"), None);
+        // Obliques are not objects (preposition / category placeholder stop the run).
+        assert_eq!(
+            VT::from_frame("Somebody ----s to somebody"),
+            Some(VT::Intransitive)
+        );
+        assert_eq!(
+            VT::from_frame("Somebody ----s at something"),
+            Some(VT::Intransitive)
+        );
+        assert_eq!(
+            VT::from_frame("Somebody ----s Adjective"),
+            Some(VT::Intransitive)
+        );
+        assert_eq!(
+            VT::from_frame("Somebody ----s something to somebody"),
+            Some(VT::Transitive)
+        );
+        // The impersonal frames the id-prefix dropped to None are now Intransitive.
+        assert_eq!(VT::from_frame("It is ----ing"), Some(VT::Intransitive));
+        assert_eq!(
+            VT::from_frame("It ----s that CLAUSE"),
+            Some(VT::Intransitive)
+        );
+        // A text with no verb marker is unclassifiable.
+        assert_eq!(VT::from_frame("not a frame"), None);
+    }
+
+    #[test]
+    fn from_frame_agrees_with_id_prefix_where_the_prefix_applies() {
+        use VerbTransitivity as VT;
+        // Where the documented id prefix IS total (vt*/vi*/ditransitive), the
+        // loaded-frame parse must agree with it — the migration is a superset,
+        // not a behaviour change.
+        for (id, frame) in [
+            ("via", "Somebody ----s"),
+            ("vii", "Something ----s"),
+            ("via-to", "Somebody ----s to somebody"),
+            ("via-adj", "Somebody ----s Adjective"),
+            ("vtai", "Somebody ----s something"),
+            ("vtaa", "Somebody ----s somebody"),
+            ("vtia", "Something ----s somebody"),
+            ("vtai-to", "Somebody ----s something to somebody"),
+            ("vtaa-with", "Somebody ----s somebody with something"),
+            ("ditransitive", "Somebody ----s somebody something"),
+        ] {
+            assert_eq!(
+                VT::from_frame(frame),
+                VT::from_frame_id(id),
+                "frame `{frame}` (id {id}) disagreed"
+            );
+        }
     }
 
     // ── Property-based round-trip laws for LMF enum parsers ───────
