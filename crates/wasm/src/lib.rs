@@ -14,7 +14,7 @@ use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
 use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
-use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::project_archive;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology;
 use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
@@ -238,8 +238,7 @@ impl Pr4xis {
     fn load_source_core(&mut self, name: String, xml: &str) -> Result<(), String> {
         let title = read_uslm_title(xml).map_err(|e| format!("USLM parse failed: {e:?}"))?;
         let usc = UsCode::from_uslm_titles_owned(vec![title]);
-        let archive = project_archive(&usc);
-        let onto = materialize(archive, OntologyName::new(name))
+        let onto = usc_runtime_ontology(&usc, OntologyName::new(name))
             .map_err(|e| format!("USC materialize failed: {e:?}"))?;
         self.install_runtime_ontology(onto);
         Ok(())

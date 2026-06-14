@@ -19,11 +19,12 @@ use pr4xis_domains::cognitive::linguistics::english::english_loaded;
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis_domains::social::judicial::statute_structure::grounding::denotes_lens;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::{
-    COMPOSES_REL, project_archive,
+    COMPOSES_REL, project_archive, usc_runtime_ontology,
 };
 use pr4xis_domains::social::software::markup::xml::uslm::{UsCode, read_uslm_title};
 use pr4xis_runtime::definition::EdgeTarget;
 use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
+use pr4xis_runtime::ontology::relations_kind;
 use praxis_corpus_tests::workspace_root;
 
 /// Load the first provisioned USC title as a `UsCode`, or `None` on a fresh
@@ -112,26 +113,50 @@ fn the_real_title_projects_a_parthood_mereology() {
         eprintln!("SKIP: no USC title provisioned");
         return;
     };
+    // (1) The RAW structural projection: every edge is the raw Composes relation,
+    // referentially closed (the praxis relabel is the functor's job, below).
     let archive = project_archive(&usc);
     let declared: std::collections::BTreeSet<&str> =
         archive.nodes.iter().map(|n| n.name.as_str()).collect();
 
-    let mut parthood = 0usize;
+    let mut composes = 0usize;
     for n in &archive.nodes {
         for (kind, target) in &n.edges {
-            assert_eq!(kind, COMPOSES_REL);
-            let parent = target.local_name().expect("Parthood is a local edge");
+            assert_eq!(
+                kind, COMPOSES_REL,
+                "the raw projection emits Composes edges"
+            );
+            let parent = target.local_name().expect("Composes is a local edge");
             assert!(
                 declared.contains(parent),
-                "{}--part-of-->{parent} names an undeclared node",
+                "{}--composes-->{parent} names an undeclared node",
                 n.name
             );
-            parthood += 1;
+            composes += 1;
         }
     }
     assert!(
-        parthood > 0,
-        "a real title has a subdivision hierarchy → Parthood edges"
+        composes > 0,
+        "a real title has a subdivision hierarchy → Composes edges"
     );
-    eprintln!("USC PARTHOOD: {parthood} part-of edges, all referentially closed");
+
+    // (2) The full functor-as-data pipeline relabels Composes→Parthood (DATA) and
+    // materialize folds it into a TRANSITIVE mereology — a deeply-nested provision
+    // is part-of its section transitively, not just its direct parent.
+    let onto = usc_runtime_ontology(
+        &usc,
+        pr4xis::ontology::meta::OntologyName::new_static("us_code"),
+    )
+    .expect("the USC pipeline materializes");
+    let parthood = relations_kind("Parthood");
+    let has_transitive_mereology = onto.archive().nodes.iter().any(|n| {
+        let node = onto.concept(n.name.clone());
+        onto.reachable_from(&node, parthood.clone()).len() > n.edges.len()
+    });
+    assert!(
+        has_transitive_mereology,
+        "the functor relabels Composes→Parthood and materialize folds it into a \
+         transitive mereology (a nested provision is part-of its section transitively)"
+    );
+    eprintln!("USC PARTHOOD: {composes} raw Composes edges → a transitive Parthood mereology");
 }
