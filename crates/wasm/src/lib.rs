@@ -10,6 +10,7 @@ use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
+use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
 use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
 use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
@@ -62,17 +63,19 @@ const ENGLISH_SOURCE: &str = "english_wordnet";
 
 /// The runtime. Source-agnostic: it holds the embedded English language
 /// model plus a set of on-demand-loaded ontologies. It has no notion of
-/// "statute" — a loaded U.S. Code title is just one [`LoadedSource`]
+/// "statute" — a loaded U.S. Code title is just one [`RuntimeOntology`]
 /// among whatever the registry offers.
 #[wasm_bindgen]
 pub struct Pr4xis {
     english: English,
-    loaded: Vec<LoadedSource>,
-    /// New-format `.prx` ontologies loaded fail-closed at runtime and
-    /// materialized into live, queryable [`RuntimeOntology`]s (content-address
-    /// identity). Distinct from [`LoadedSource`]: those are corpus blobs
-    /// (USC / OWL) surfaced only through the self-model catalog; these are
-    /// ontologies the CHAT reasons over, grounded into English by `composed`.
+    /// Every runtime-loaded source — USC titles, OWL vocabularies, and
+    /// new-format `.prx` ontologies — projected into the generic
+    /// [`Archive`](pr4xis_runtime::archive::Archive) by its functor-as-data
+    /// bridge and materialized into one queryable [`RuntimeOntology`] set
+    /// (content-address identity). THE single loaded-knowledge collection: the
+    /// chat reasons over all of it (grounded into English by `composed`) and the
+    /// self-model catalog reports all of it. No source is held aside in a second
+    /// collection the reasoner never sees.
     runtime_ontologies: Vec<RuntimeOntology>,
     /// The embedded English model COMPOSED with the loaded `.prx` ontologies as
     /// one [`ComposedReasoner`] — `None` until at least one `.prx` is loaded.
@@ -82,43 +85,6 @@ pub struct Pr4xis {
     /// when absent, `chat` reasons through `english` alone (it abstains on an
     /// unloaded concept, exactly as today).
     composed: Option<ComposedReasoner>,
-}
-
-/// A registered source downloaded and parsed into a LIVE in-memory
-/// ontology at runtime — exactly the end state English reaches, only via
-/// runtime download + parse instead of build-time codegen. Not a blob: the
-/// payload is a materialized ontology the system can query.
-struct LoadedSource {
-    name: String,
-    payload: LoadedPayload,
-}
-
-/// What a runtime-loaded OWL source materialised into — a [`LoadedOwlVocabulary`]
-/// (loaded from its `.prx.gz` or its `.owl` source). USLM statute titles no longer
-/// land here: [`Pr4xis::load_source`] projects them into a [`RuntimeOntology`] the
-/// chat reasons over (the `self.loaded` corpus is the remaining OWL-only path,
-/// pending its own projection into `runtime_ontologies`).
-enum LoadedPayload {
-    /// An OWL vocabulary materialised into its loaded class/property
-    /// subsumption corpus.
-    Owl(LoadedOwlVocabulary),
-}
-
-impl LoadedPayload {
-    /// The number of queryable units — OWL entities (classes + object
-    /// properties). Drives the catalog concept count.
-    fn concept_count(&self) -> usize {
-        match self {
-            LoadedPayload::Owl(v) => v.entity_count(),
-        }
-    }
-
-    /// The morphism count — the OWL subsumption-edge count.
-    fn morphism_count(&self) -> usize {
-        match self {
-            LoadedPayload::Owl(v) => v.subsumption_edge_count(),
-        }
-    }
 }
 
 /// Why loading a new-format `.prx` failed — the typed core error, rendered to a
@@ -165,7 +131,6 @@ impl Pr4xis {
         console_error_panic_hook::set_once();
         Self {
             english: load_english(),
-            loaded: Vec::new(),
             runtime_ontologies: Vec::new(),
             composed: None,
         }
@@ -208,10 +173,15 @@ impl Pr4xis {
         self.english.word_count()
     }
 
-    /// Total queryable units across the on-demand-loaded sources (0 until
-    /// one is loaded): USC sections plus OWL entities. Source-agnostic.
+    /// Total queryable units across every runtime-loaded ontology (0 until one
+    /// is loaded): the sum of node counts over `runtime_ontologies` — USC
+    /// provisions, OWL entities, and loaded `.prx` concepts alike. Source-agnostic
+    /// (the unification: every loaded source now contributes through the one set).
     pub fn loaded_section_count(&self) -> usize {
-        self.loaded.iter().map(|s| s.payload.concept_count()).sum()
+        self.runtime_ontologies
+            .iter()
+            .map(|o| o.archive().nodes.len())
+            .sum()
     }
 
     /// Load a registered USLM source from its authoritative XML (downloaded
@@ -287,7 +257,13 @@ impl Pr4xis {
         let vocab = load_prx_gz(prx_gz, archive_pin, source_pin, canonical_pin).map_err(|e| {
             JsValue::from_str(&format!(".prx.gz load/validate failed for {key}: {e}"))
         })?;
-        self.install(name, LoadedPayload::Owl(vocab));
+        // Project the OWL vocabulary into the generic runtime ontology (the
+        // functor-as-data `owl::bridge`) and install it into the ONE
+        // chat-reasoning set — no longer held aside in a corpus the reasoner
+        // never sees.
+        let onto = owl_runtime_ontology(&vocab, OntologyName::new(name))
+            .map_err(|e| JsValue::from_str(&format!("OWL materialize failed for {key}: {e:?}")))?;
+        self.install_runtime_ontology(onto);
         Ok(())
     }
 
@@ -309,7 +285,9 @@ impl Pr4xis {
         let ont =
             read_owl(owl_xml).map_err(|e| JsValue::from_str(&format!("OWL parse failed: {e}")))?;
         let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
-        self.install(name, LoadedPayload::Owl(vocab));
+        let onto = owl_runtime_ontology(&vocab, OntologyName::new(name))
+            .map_err(|e| JsValue::from_str(&format!("OWL materialize failed: {e:?}")))?;
+        self.install_runtime_ontology(onto);
         Ok(())
     }
 
@@ -449,28 +427,20 @@ impl Pr4xis {
 
 impl Pr4xis {
     /// The *monitoring* input: which registered sources are live in memory,
-    /// with their staging + counts. English is the embedded base; every
-    /// loaded source was downloaded + parsed into a live ontology at
-    /// runtime (`Async` staging) — a `UsCode` (sections) or a
-    /// `LoadedOwlVocabulary` (entities + subsumption edges).
+    /// with their staging + counts. English is the embedded base; every other
+    /// loaded source was downloaded + parsed, then projected (by its
+    /// functor-as-data bridge) into one queryable [`RuntimeOntology`] at runtime
+    /// (`Async` staging) — a USC title, an OWL vocabulary, or a loaded `.prx`.
     fn loaded_refs(&self) -> Vec<LoadedRef> {
-        let mut refs = Vec::with_capacity(self.loaded.len() + 1);
+        let mut refs = Vec::with_capacity(self.runtime_ontologies.len() + 1);
         refs.push(LoadedRef::new(
             ENGLISH_SOURCE,
             Staging::Embedded,
             self.english.concept_count(),
             0,
         ));
-        for s in &self.loaded {
-            refs.push(LoadedRef::new(
-                s.name.clone(),
-                Staging::Async,
-                s.payload.concept_count(),
-                s.payload.morphism_count(),
-            ));
-        }
-        // The new-format `.prx` runtime ontologies the chat reasons over: one
-        // node per concept, and the generating typed edges as morphisms.
+        // Every runtime-loaded ontology the chat reasons over (USC / OWL / .prx):
+        // one node per concept, and the generating typed edges as morphisms.
         for onto in &self.runtime_ontologies {
             let concepts = onto.archive().nodes.len();
             let morphisms: usize = onto.archive().nodes.iter().map(|n| n.edges.len()).sum();
@@ -482,13 +452,6 @@ impl Pr4xis {
             ));
         }
         refs
-    }
-
-    /// Install a freshly materialised payload under `name`, replacing any
-    /// existing load of the same name (idempotent — the latest load wins).
-    fn install(&mut self, name: String, payload: LoadedPayload) {
-        self.loaded.retain(|s| s.name != name);
-        self.loaded.push(LoadedSource { name, payload });
     }
 
     /// Install a materialized [`RuntimeOntology`] into the chat-reasoning set
