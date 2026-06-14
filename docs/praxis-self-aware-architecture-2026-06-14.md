@@ -429,3 +429,62 @@ and it dissolves the exact symptom. Pillars 2–3 (self-model + page) are ~60% u
 additions land (abstention, success-aware provenance, capabilities, double-count invariant,
 fail-closed recompose). All loaded-not-encoded, reusing `RuntimeOntology`/`ConceptRef`/`OntologyName`/
 `SelfModelInstance`/`ContentAddress`/`GraphSnapshot` — no forked mechanisms.
+
+---
+
+## 11. Phase A, the ONTOLOGICAL design (supersedes §10's mechanical spec)
+
+A design pass (Datalog/OWL-RL/categorical/rule-algebra) settled how to realize the runtime transitive
+closure *ontologically*. **Verdict: MERGE-READY** with a sequencing correction.
+
+**The honest principle.** A transitive closure IS a least fixpoint; the saturation loop is
+**irreducible** — every authority (Datalog `T_P`, OWL-RL materialization, categorical `Reach(Q)`,
+rule algebra) is `while changed { fire }`. The standard is therefore NOT "delete the loop." It is: the
+loop must be a **generic, rule-agnostic engine**, and *which kinds are transitive* + *how a kind is
+identified* must be **loaded data, not Rust**.
+
+**Today: 2 wrong, 1 right.**
+- ❌ vocabulary: `RelationKind` closed enum + dropping `match` (`ontology.rs:91-123`).
+- ❌ policy: hardcoded `RelationKind::transitive()` array (`ontology.rs:126-132`).
+- ✅ engine: `ReachabilityClosure::fold` (`quiver.rs:319-387`) is ALREADY the generic saturator (the
+  legitimate `Reach(Q)` image, shared with English's closure). **It stays unchanged.** A generic
+  interpreter is allowed to be Rust (like `apply`'s table-walk); the violation is the *rule + vocabulary*
+  being Rust.
+
+**The substrate already exists, unused.** `domains/.../formal/relations/ontology.rs:65-89,185-209`
+declares the relation kinds as **concepts** (`Subsumption`, `Parthood`, `Causation`, `Precedence`,
+`Equivalence`, …) and their transitivity as loaded typed edges `(R, Transitive, HasProperty)`;
+`RelationProperty::get` already derives transitivity by querying those morphisms. **The runtime never
+reads it.**
+
+**The design.**
+- **relation kind = `ConceptRef("Relations", name)`.** The edge's kind-name string stays byte-exact on
+  the wire (content-address preserved — `definition.rs:158,172-179`) but RESOLVES to a concept, not an
+  enum or a `String` map key. Cross-ontology sharing via the one Relations vocabulary.
+- **transitivity = the loaded `HasProperty Transitive` edge** (OWL-RL `Transitive(R)`). Re-emit
+  `Relations.prx` to change which kinds close; never edit Rust. NOT a `GeneratorAction::Rule` — the
+  property edge is the minimal OWL-RL-canonical form, and `rule_algebra::Implication` has no fixpoint
+  consumer (only point-checks).
+- **closure = the unchanged generic `ReachabilityClosure::fold`, driven by the queried transitive-kind
+  set** — not the closed enum, not the hardcoded array, not a string map, not a new fold. **`apply` is
+  NOT the interpreter** — it only relabels and provably cannot mint the derived arrow (`category_projection.rs:14-21`);
+  forcing the closure through it would relocate the loop and lie about it.
+- types: `RuntimeEdge.kind: ConceptRef`; `MaterializedClosure.reachable: BTreeMap<ConceptRef, ReachabilityClosure<ConceptRef>>`;
+  `fold(edges, transitive: &BTreeSet<ConceptRef>)`; query surface (`reaches`/`reachable_from`/`is_a`)
+  takes a `ConceptRef` kind; bodies (O(1) lookup) unchanged. `materialize` drops the `from_edge_kind`
+  filter (`:571`) and threads the loaded transitive set.
+
+**Critique correction (the one real risk).** The macro *independently* hardcodes the same 3 kinds
+(`pr4xis-derive/ontology.rs:668-693`), and `pr4xis-derive` has **no** data-load path (the TSV/include
+pattern lives in `domains`, which derive can't dep). So if Step 3 expands the runtime to all 7
+transitive kinds first, compile-time and runtime closures **diverge** for 4 kinds (Precedence/
+Equivalence/Specialisation/Dependence), breaking the cross-tier invariant (`ontology.rs:88-90`).
+**Sequence:** Step 3 reads ONLY the 3 macro-matching kinds initially; the macro is unified (a genuine
+new build-time `Relations.prx` load) BEFORE the runtime expands to all 7.
+
+**Migration (smallest-first; no committed `.prx` exists, wire bytes unchanged):**
+1. Emit `Relations.prx` (the relation-kind concepts + `Transitive` edges); test it contains `(Subsumption, Transitive, HasProperty)`.
+2. Add `transitive_kinds(relations: &RuntimeOntology) -> BTreeSet<ConceptRef>` (the `prp-trp` query); test it returns the declared kinds.
+3. Re-key `RuntimeEdge.kind`/`MaterializedClosure` to `ConceptRef`; delete `RelationKind`+`from_edge_kind`+`transitive()`; thread the queried set (3 kinds first); port the acceptance tests (`RelationKind::Subsumption` → `ConceptRef::new("Relations","Subsumption")`).
+4. Unify the macro to read `Relations.prx` (new derive-time data load) — then expand to all 7.
+5. (optional) lift `Transitive` into `meta.rs` so transitivity is bootstrap-available without loading a separate `.prx`.
