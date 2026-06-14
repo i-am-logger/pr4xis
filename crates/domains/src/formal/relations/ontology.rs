@@ -538,4 +538,77 @@ mod tests {
     fn subsumption_is_antisymmetric_holds() {
         assert!(SubsumptionIsAntisymmetric.verify().is_ok());
     }
+
+    #[test]
+    fn relations_prx_carries_the_loaded_transitivity_the_runtime_reads() {
+        // The "code is ontological" fix (doc §11), Step 1: the transitive
+        // relation kinds the runtime closure folds are LOADED from THIS ontology
+        // — never a hardcoded `RelationKind::transitive()` array. Emit Relations
+        // to a `.prx` [`Archive`], materialize it, and assert
+        // `transitive_kinds` recovers exactly the kinds this ontology declares
+        // `Transitive(R)` for via the `(R, Transitive, HasProperty)` edges above.
+        // This is the runtime mirror of [`RelationProperty::get`], which makes
+        // the SAME query typed over the compiled `Category`.
+        use pr4xis::ontology::meta::OntologyName;
+        use pr4xis_runtime::definition::EdgeTarget;
+        use pr4xis_runtime::ontology::{ConceptRef, materialize, transitive_kinds};
+
+        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+
+        // The loaded `.prx` data itself carries `(Subsumption, Transitive,
+        // HasProperty)` — the assertion `RelationProperty::get` reads typed at
+        // compile time, now visible as ordinary edge data on the wire.
+        let subsumption = archive
+            .nodes
+            .iter()
+            .find(|n| n.name == "Subsumption")
+            .expect("Subsumption node emitted into Relations.prx");
+        assert!(
+            subsumption
+                .edges
+                .iter()
+                .any(|(rel, target)| rel == "HasProperty"
+                    && matches!(target, EdgeTarget::Local(p) if p == "Transitive")),
+            "Relations.prx must carry the loaded (Subsumption, Transitive, HasProperty) edge; \
+             got edges {:?}",
+            subsumption.edges
+        );
+
+        let relations = materialize(archive, OntologyName::new_static("Relations"))
+            .expect("Relations materializes");
+        let kinds = transitive_kinds(&relations);
+
+        let relations_id = OntologyName::new_static("Relations");
+        let kind = |name: &str| ConceptRef::new(relations_id.clone(), name);
+
+        // Exactly the seven kinds this ontology declares Transitive(R) for
+        // (Tarski 1941 catalog; the `HasProperty` edges in the `edges:` clause).
+        for transitive in [
+            "Subsumption",
+            "Parthood",
+            "Causation",
+            "Precedence",
+            "Equivalence",
+            "Specialisation",
+            "Dependence",
+        ] {
+            assert!(
+                kinds.contains(&kind(transitive)),
+                "{transitive} declares Transitive(R) → must be a loaded transitive kind; got {kinds:?}"
+            );
+        }
+        // The non-transitive relation types are excluded (symmetric / associative
+        // only), as is the `Transitive` structural-property concept itself.
+        for non_transitive in ["Opposition", "Similarity", "Association", "Transitive"] {
+            assert!(
+                !kinds.contains(&kind(non_transitive)),
+                "{non_transitive} is not transitive → must be excluded; got {kinds:?}"
+            );
+        }
+        assert_eq!(
+            kinds.len(),
+            7,
+            "exactly the seven declared transitive kinds; got {kinds:?}"
+        );
+    }
 }
