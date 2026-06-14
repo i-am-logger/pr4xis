@@ -48,7 +48,7 @@ use alloc::vec::Vec;
 
 use hashbrown::HashMap;
 
-use pr4xis_runtime::ontology::{ConceptRef, RelationKind, RuntimeOntology};
+use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::{Concept, ConceptId, English, LexicalReasoner};
 use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
@@ -188,7 +188,9 @@ impl ComposedReasoner {
                     continue;
                 };
                 for edge in onto.morphisms_from(&cref) {
-                    if edge.kind != RelationKind::Subsumption {
+                    // morphisms_from now yields edges of ALL kinds; keep only the
+                    // Subsumption (is-a) generators for the taxonomy build.
+                    if edge.kind != subsumption_kind() {
                         continue;
                     }
                     if let Some(&parent_id) = loaded_ids.get(&edge.target) {
@@ -329,7 +331,7 @@ impl LexicalReasoner for ComposedReasoner {
                 // Cross-ontology subsumption is not asserted in the
                 // single-ontology demo; same-ontology is the closure lookup.
                 self.ontology_of(&c)
-                    .map(|onto| onto.closure().reaches(&c, &a, RelationKind::Subsumption))
+                    .map(|onto| onto.closure().reaches(&c, &a, subsumption_kind()))
                     .unwrap_or(false)
             }
             // Mixed English/loaded: no cross-universe subsumption edges exist in

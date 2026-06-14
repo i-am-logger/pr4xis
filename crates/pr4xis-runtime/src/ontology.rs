@@ -21,7 +21,7 @@
 //! # Materialization IS the free-functor image (not a query-time BFS)
 //!
 //! The [`MaterializedClosure`] is computed ONCE, at [`materialize`] time, by
-//! re-folding the archive's *generating* edges per transitive [`RelationKind`]
+//! re-folding the archive's *generating* edges per transitive relation-kind
 //! into their transitive-closure set. This re-fold is the runtime analogue of
 //! the `ontology!` macro's compile-time Floyd-Warshall
 //! (`pr4xis-derive/ontology.rs`), and categorically it is the image of the free
@@ -82,54 +82,32 @@ use alloc::{
     vec::Vec,
 };
 
-/// The canonically transitive relation kinds — the relations whose closure is
-/// taken (OBO-RO `transitive_over`, Smith et al. 2005): subsumption (OWL
-/// subClassOf), parthood (Casati & Varzi 1999), causation (Lewis 1973
-/// counterfactual chains). These are exactly the kinds the `ontology!` macro
-/// (`pr4xis-derive/ontology.rs`) folds over — the same authoritative
-/// reading, so the runtime closure matches the compile-time one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum RelationKind {
-    /// `is-a` — OWL `subClassOf`; Guarino (2009). Transitive.
-    Subsumption,
-    /// `part-of` — Casati & Varzi (1999) *Parts and Places*. Transitive.
-    Parthood,
-    /// `causes` — Lewis (1973) *Causation*; counterfactual chains. Transitive.
-    Causation,
+/// The one Relations vocabulary every edge kind-name resolves into. A relation
+/// kind is NOT a closed Rust enum and NOT a bare string — it is a [`ConceptRef`]
+/// in the loaded "Relations" ontology (`docs/praxis-self-aware-architecture` §11).
+/// One shared vocabulary means an `Org` `Subsumption` edge and an English
+/// `Subsumption` edge name the SAME kind, so closures compose across ontologies.
+const RELATIONS_VOCAB: OntologyName = OntologyName::new_static("Relations");
+
+/// Resolve an edge's kind-name (a wire string) to its [`ConceptRef`] in the one
+/// `RELATIONS_VOCAB` vocabulary — THE blessed kind-name→concept lowering
+/// (praxis-way rule 11: strings are WIRE, crossed by a single lowering). Every
+/// edge-construction site ([`materialize`], [`RuntimeOntology::morphisms_from`])
+/// and every kind a caller hands the query surface goes through here, so a
+/// relation kind is one typed value, never a hand-assembled string compared with
+/// `==`. The kind-name stays byte-exact on the wire; only its in-memory identity
+/// becomes a concept.
+pub fn relations_kind(name: impl Into<String>) -> ConceptRef {
+    ConceptRef::new(RELATIONS_VOCAB.clone(), name)
 }
 
-impl RelationKind {
-    /// The canonical relation-kind name, as it appears in a `.prx`
-    /// [`Definition::edges`](crate::definition::Definition::edges) — the same
-    /// identifier `emit` writes via `format!("{:?}", kind)` and the macro emits.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            RelationKind::Subsumption => "Subsumption",
-            RelationKind::Parthood => "Parthood",
-            RelationKind::Causation => "Causation",
-        }
-    }
-
-    /// Parse a relation-kind name into its transitive [`RelationKind`], or
-    /// `None` if the name is not one of the canonically transitive kinds
-    /// (e.g. `Opposition` / `Equivalence`, which are symmetric, not transitive).
-    pub fn from_edge_kind(name: &str) -> Option<Self> {
-        match name {
-            "Subsumption" => Some(RelationKind::Subsumption),
-            "Parthood" => Some(RelationKind::Parthood),
-            "Causation" => Some(RelationKind::Causation),
-            _ => None,
-        }
-    }
-
-    /// Every transitive kind whose closure the materializer folds.
-    pub fn transitive() -> [RelationKind; 3] {
-        [
-            RelationKind::Subsumption,
-            RelationKind::Parthood,
-            RelationKind::Causation,
-        ]
-    }
+/// The Subsumption (`is-a`) relation kind as a [`ConceptRef`] — OWL `subClassOf`
+/// (Guarino 2009), the most-queried kind. The blessed handle callers pass to
+/// [`RuntimeOntology::reachable_from`] / [`MaterializedClosure::reaches`] and that
+/// the closure internals (`is_a`, the subsumption images) key on, so the one
+/// Subsumption identity lives here, not re-spelled at each call site.
+pub fn subsumption_kind() -> ConceptRef {
+    relations_kind("Subsumption")
 }
 
 /// The open-world runtime vertex — a typed `(ontology, name)` pair.
@@ -176,18 +154,19 @@ impl Concept for ConceptRef {
 }
 
 /// A directed, typed runtime edge between two [`ConceptRef`]s — the generating
-/// morphism as data. Carries its [`RelationKind`] so the closure can be folded
-/// per kind.
+/// morphism as data. Carries its kind as a [`ConceptRef`] in the one Relations
+/// vocabulary (minted by [`relations_kind`]) so the closure can be folded per
+/// kind.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RuntimeEdge {
     pub source: ConceptRef,
-    pub kind: RelationKind,
+    pub kind: ConceptRef,
     pub target: ConceptRef,
 }
 
-/// The materialized transitive closure — per transitive [`RelationKind`], the
-/// set of `(ConceptRef → ConceptRef)` pairs reachable along that kind's
-/// generating edges.
+/// The materialized transitive closure — per transitive relation-kind
+/// [`ConceptRef`], the set of `(ConceptRef → ConceptRef)` pairs reachable along
+/// that kind's generating edges.
 ///
 /// Computed ONCE at [`materialize`] time by re-folding the generators (never a
 /// stored closure). Keyed by `ConceptRef` so an N-ontology composite can union
@@ -202,7 +181,7 @@ pub struct MaterializedClosure {
     /// the English hypernym closure uses); this type only partitions it by kind
     /// and re-exposes the reachable SET (for the existing `BTreeSet`-returning
     /// query surface).
-    reachable: BTreeMap<RelationKind, ReachabilityClosure<ConceptRef>>,
+    reachable: BTreeMap<ConceptRef, ReachabilityClosure<ConceptRef>>,
 }
 
 impl MaterializedClosure {
@@ -218,17 +197,19 @@ impl MaterializedClosure {
     /// per-kind fold delegates to the shared
     /// [`ReachabilityClosure`] —
     /// no bespoke fixpoint loop lives here.
-    pub fn fold(edges: &[RuntimeEdge]) -> Self {
-        let mut reachable: BTreeMap<RelationKind, ReachabilityClosure<ConceptRef>> =
-            BTreeMap::new();
-        for kind in RelationKind::transitive() {
+    pub fn fold(edges: &[RuntimeEdge], transitive: &BTreeSet<ConceptRef>) -> Self {
+        let mut reachable: BTreeMap<ConceptRef, ReachabilityClosure<ConceptRef>> = BTreeMap::new();
+        // `transitive` is the LOADED transitive-kind vocabulary (the kinds OWL-RL
+        // marks `Transitive`); the generic engine folds one closure per kind in
+        // it — never a hardcoded array.
+        for kind in transitive {
             let closure = ReachabilityClosure::fold(
                 edges
                     .iter()
-                    .filter(|e| e.kind == kind)
+                    .filter(|e| &e.kind == kind)
                     .map(|e| (e.source.clone(), e.target.clone())),
             );
-            reachable.insert(kind, closure);
+            reachable.insert(kind.clone(), closure);
         }
         Self { reachable }
     }
@@ -238,7 +219,7 @@ impl MaterializedClosure {
     /// outgoing edges of `kind`. This is the STRICT reachable set (descendants
     /// of `source`; the reflexive `source → source` arrow is implicit in the
     /// shared closure and is not included here, matching the prior behavior).
-    pub fn reachable_from(&self, source: &ConceptRef, kind: RelationKind) -> BTreeSet<ConceptRef> {
+    pub fn reachable_from(&self, source: &ConceptRef, kind: ConceptRef) -> BTreeSet<ConceptRef> {
         self.reachable
             .get(&kind)
             .map(|closure| {
@@ -256,7 +237,7 @@ impl MaterializedClosure {
     /// (Strict reachability: a vertex does not reach itself along the closure
     /// here, matching [`reachable_from`](Self::reachable_from); the reflexive
     /// `is-a` case is the caller's `child == ancestor` short-circuit.)
-    pub fn reaches(&self, source: &ConceptRef, target: &ConceptRef, kind: RelationKind) -> bool {
+    pub fn reaches(&self, source: &ConceptRef, target: &ConceptRef, kind: ConceptRef) -> bool {
         self.reachable
             .get(&kind)
             .is_some_and(|closure| source != target && closure.reaches(source, target))
@@ -270,7 +251,7 @@ impl MaterializedClosure {
     /// [`ReachabilityClosure`].
     pub fn subsumption_image(&self, c: &ConceptRef) -> Vec<(ConceptRef, u32)> {
         self.reachable
-            .get(&RelationKind::Subsumption)
+            .get(&subsumption_kind())
             .map(|closure| closure.strict_image(c))
             .unwrap_or_default()
     }
@@ -280,11 +261,9 @@ impl MaterializedClosure {
     /// ties broken by `(ontology, name)`. The categorical meet over the
     /// materialized set, never a hand-BFS.
     pub fn subsumption_meet(&self, a: &ConceptRef, b: &ConceptRef) -> Option<ConceptRef> {
-        self.reachable
-            .get(&RelationKind::Subsumption)
-            .and_then(|closure| {
-                closure.meet_by(a, b, |c| (c.ontology.as_str().to_string(), c.name.clone()))
-            })
+        self.reachable.get(&subsumption_kind()).and_then(|closure| {
+            closure.meet_by(a, b, |c| (c.ontology.as_str().to_string(), c.name.clone()))
+        })
     }
 
     /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first) over the
@@ -295,7 +274,7 @@ impl MaterializedClosure {
         child: &ConceptRef,
         ancestor: &ConceptRef,
     ) -> Option<Vec<ConceptRef>> {
-        let closure = self.reachable.get(&RelationKind::Subsumption)?;
+        let closure = self.reachable.get(&subsumption_kind())?;
         if child != ancestor && !closure.reaches(child, ancestor) {
             return None;
         }
@@ -322,7 +301,7 @@ impl MaterializedClosure {
     /// need it; it exists so the closure is N-ready by construction.)
     pub fn union(&mut self, other: &MaterializedClosure) {
         for (kind, other_closure) in &other.reachable {
-            let into = self.reachable.entry(*kind).or_default();
+            let into = self.reachable.entry(kind.clone()).or_default();
             // Re-fold from the union of both closures' (source → target) pairs.
             // Folding an already-closed pair set is idempotent, so this recovers
             // the combined closure correctly.
@@ -437,9 +416,12 @@ impl RuntimeOntology {
                     // Grounded target is a cross-ontology atom, resolved by the
                     // ContainsAtom step, not a generator of this graph.
                     let name = target.local_name()?;
-                    RelationKind::from_edge_kind(kind_name).map(|kind| RuntimeEdge {
+                    // EVERY local edge is a morphism now — its kind-name resolves
+                    // into the one Relations vocabulary; no kind is dropped (the
+                    // old `from_edge_kind` 3-kind filter is gone).
+                    Some(RuntimeEdge {
                         source: c.clone(),
-                        kind,
+                        kind: relations_kind(kind_name.clone()),
                         target: ConceptRef::new(self.id.clone(), name.to_string()),
                     })
                 })
@@ -449,7 +431,7 @@ impl RuntimeOntology {
 
     /// The pre-folded reachable set from `c` along `kind` — an O(1) relational-
     /// image lookup into the materialized closure. Never a query-time BFS.
-    pub fn reachable_from(&self, c: &ConceptRef, kind: RelationKind) -> BTreeSet<ConceptRef> {
+    pub fn reachable_from(&self, c: &ConceptRef, kind: ConceptRef) -> BTreeSet<ConceptRef> {
         self.closure.reachable_from(c, kind)
     }
 
@@ -459,9 +441,7 @@ impl RuntimeOntology {
     /// holds, a [`Counterexample`](pr4xis::logic::proof::Counterexample) when it
     /// does not. The decision is a closure-membership lookup, not a traversal.
     pub fn is_a(&self, child: &ConceptRef, ancestor: &ConceptRef) -> Verdict {
-        let holds = self
-            .closure
-            .reaches(child, ancestor, RelationKind::Subsumption);
+        let holds = self.closure.reaches(child, ancestor, subsumption_kind());
         let meta = self.is_a_meta(child, ancestor);
         if holds {
             Ok(Box::new(SimpleProof::new(meta)))
@@ -565,21 +545,25 @@ pub fn materialize(
                     orphan: local.clone(),
                 }));
             }
-            // Only the canonically transitive kinds participate in the closure;
-            // non-transitive kinds (Opposition / Equivalence / custom) are still
-            // referentially validated above, but are not folded.
-            if let Some(kind) = RelationKind::from_edge_kind(kind_name) {
-                edges.push(RuntimeEdge {
-                    source: ConceptRef::new(id.clone(), node.name.clone()),
-                    kind,
-                    target: ConceptRef::new(id.clone(), local.clone()),
-                });
-            }
+            // EVERY referentially-valid local edge becomes a generator; its
+            // kind-name resolves into the one Relations vocabulary. WHICH kinds
+            // actually close is decided by the loaded transitive set threaded to
+            // `fold` below — not by dropping edges here (the old `from_edge_kind`
+            // 3-kind filter is gone). A non-transitive kind simply contributes no
+            // closed pairs.
+            edges.push(RuntimeEdge {
+                source: ConceptRef::new(id.clone(), node.name.clone()),
+                kind: relations_kind(kind_name.clone()),
+                target: ConceptRef::new(id.clone(), local.clone()),
+            });
         }
     }
 
-    // 4. Re-fold the closure from the generators — the free-functor image.
-    let closure = MaterializedClosure::fold(&edges);
+    // 4. Re-fold the closure from the generators — the free-functor image — over
+    // the loaded transitive-kind set. Until Step 4 makes the `ontology!` macro
+    // data-driven, that set is the divergence-safe bootstrap 3 (see
+    // [`bootstrap_transitive_kinds`]).
+    let closure = MaterializedClosure::fold(&edges, &bootstrap_transitive_kinds());
 
     Ok(RuntimeOntology {
         id,
@@ -587,6 +571,32 @@ pub fn materialize(
         archive,
         closure,
     })
+}
+
+/// The divergence-safe transitive-kind set the kernel's [`materialize`] folds
+/// over — a TRANSITIONAL bootstrap (`docs/praxis-self-aware-architecture` §11,
+/// migration Step 3).
+///
+/// It is EXACTLY the three kinds the `ontology!` macro independently hardcodes
+/// (`pr4xis-derive/ontology.rs`: Subsumption / Parthood / Causation) — NOT the
+/// seven a full `Relations.prx` declares ([`transitive_kinds`] returns all seven).
+/// The restriction is deliberate and load-bearing: the macro closes the
+/// compile-time closure over only those three and has NO data-load path, so were
+/// the runtime to fold all seven, the compile-time and runtime closures would
+/// diverge for Precedence / Equivalence / Specialisation / Dependence and break
+/// the cross-tier invariant. The *vocabulary* is already loaded-shaped (typed
+/// [`ConceptRef`]s in the one Relations ontology, via [`relations_kind`]); only
+/// the *policy* of which three are transitive remains a named, cited transitional
+/// constant here — never a reborn closed enum.
+///
+/// REMOVED IN STEP 4: once the macro reads `Relations.prx` at build time, both
+/// tiers expand together and `materialize` threads the full loaded
+/// [`transitive_kinds`] set instead of this bootstrap.
+fn bootstrap_transitive_kinds() -> BTreeSet<ConceptRef> {
+    ["Subsumption", "Parthood", "Causation"]
+        .into_iter()
+        .map(relations_kind)
+        .collect()
 }
 
 /// The relation-kind wire name carrying a relation's OWL-style properties — the
@@ -605,8 +615,8 @@ const TRANSITIVE_CONCEPT: &str = "Transitive";
 /// `domains/.../formal/relations/ontology.rs`, which reads the SAME
 /// `(R, Transitive, HasProperty)` morphisms over the typed `Category`.
 ///
-/// This is the loaded POLICY that replaces the hardcoded
-/// [`RelationKind::transitive`] array: a relation kind is transitive iff the
+/// This is the loaded POLICY that (at Step 4) supersedes the transitional
+/// `bootstrap_transitive_kinds`: a relation kind is transitive iff the
 /// Relations ontology asserts `Transitive(R)` — the OWL `TransitiveProperty`
 /// membership read off the loaded edge, never a Rust constant. The closure
 /// engine ([`ReachabilityClosure::fold`](pr4xis::category::quiver::ReachabilityClosure))
@@ -673,7 +683,7 @@ mod tests {
         let agent = onto.concept("Agent");
         // Relational image over the materialized closure — Employer ⊑ Person ⊑
         // Agent collapses to Employer → Agent. O(1) lookup, no traversal.
-        let descendants = onto.reachable_from(&employer, RelationKind::Subsumption);
+        let descendants = onto.reachable_from(&employer, subsumption_kind());
         assert!(
             descendants.contains(&agent),
             "Employer must reach Agent through the Subsumption closure; got {descendants:?}"
@@ -848,7 +858,7 @@ mod tests {
         // re-fold never trusts, and is correct regardless of, the stored form.
         let onto = org();
         let employer = onto.concept("Employer");
-        let direct_then_closed = onto.reachable_from(&employer, RelationKind::Subsumption);
+        let direct_then_closed = onto.reachable_from(&employer, subsumption_kind());
         // Folding the generating edges again over the already-materialized
         // ontology's edges is stable.
         let refolded = MaterializedClosure::fold(
@@ -858,9 +868,10 @@ mod tests {
                 .iter()
                 .flat_map(|n| onto.morphisms_from(&onto.concept(n.name.clone())))
                 .collect::<Vec<_>>(),
+            &bootstrap_transitive_kinds(),
         );
         assert_eq!(
-            refolded.reachable_from(&employer, RelationKind::Subsumption),
+            refolded.reachable_from(&employer, subsumption_kind()),
             direct_then_closed
         );
     }

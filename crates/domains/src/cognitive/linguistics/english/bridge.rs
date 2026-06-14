@@ -437,7 +437,7 @@ mod tests {
         let dog = onto.concept("s-dog");
         let animal = onto.concept("s-animal");
         assert!(
-            onto.reachable_from(&dog, pr4xis_runtime::ontology::RelationKind::Subsumption)
+            onto.reachable_from(&dog, pr4xis_runtime::ontology::subsumption_kind())
                 .contains(&animal),
             "the transitive is-a closure must put animal in dog's Subsumption image"
         );
