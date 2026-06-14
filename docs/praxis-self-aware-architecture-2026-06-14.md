@@ -300,6 +300,116 @@ domain-salience ranking (`lexicon.rs:98`, Koeling 2005) handles legitimate colli
    producer mints its label `Form`s.)
 3. OWL's real location is `social/software/markup/xml/owl/` (`vocabulary.rs` `iri`/`rdfs:label`/`rdfs:comment`).
 
+---
+
+## 10. FOUNDATIONAL — `ontology!` ≡ `.prx`, the modality-neutral substrate, and the real leak
+
+A deep design pass (homoiconicity/reflection, category-as-presentation, Gärdenfors, lenses) on the
+maintainer's principle ("code is ontological; no difference between `ontology!` and `.prx`; knowledge
+isn't only language — it can be shapes, drawing, who knows").
+
+**`ontology!` and `.prx` are one presented category in two serializations** — both functors over the
+same `Archive`. This is *already real* for the reasoning skeleton: `emit::<Cat>()` (`emit.rs:172`)
+lowers a compiled `Category` into the byte-identical `Archive` a `.prx` loads, round-trip-tested
+(`meta.rs:113`). **English already ships as a `.prx`** (`ENGLISH_PRX_GZ`, `wasm/lib.rs:26`); its
+"privilege" is purely *in-memory* — which Rust type the bytes become (`English` struct) and that
+`ComposedReasoner` pins it as a base (`composed.rs:80`). De-privilege it: consume English **as a
+`RuntimeOntology`** like any other — `english_runtime_ontology()` (`bridge.rs:224`) exists and is
+proven to give identical `is_a` answers. The one missing direction is **`reify: Archive → Category`**
+(the inverse of `emit`); the meta-ontology *names* it (the `Parse⊣Generate` `Lens` at `meta.rs:93`)
+but doesn't interpret it (`apply` fail-closes on `Lens`, `apply.rs:84`).
+
+**The `.prx` format evolves, minimally:** the substrate is ~80% modality-neutral already
+(`Definition{kind,name,edges,axioms}`, `EdgeTarget::Grounded{ontology,atom}`, `Connection{action:
+GeneratorAction}`, identity = `ContentAddress`; `kind`/relation-kind as open strings). The leaked
+language field is **`Definition.lexical: Option<String>`** (a gloss, baked into the content address —
+`definition.rs:163,216`). Demote it: the gloss becomes a `denotes` edge into a language-lens `Form`
+atom (`form_atom`, `ground` already exist). Lenses (language / shape / generative-"draw") are **loaded
+`Connection`s selected by KIND** — an open, loaded-not-encoded registry; a capability like *drawing*
+rides the functor/`Adjunction` (`Σ_F`) machinery, not a noun.
+
+### ⚠ The real leak the critique found (NEEDS-REVISION — and it's the heart of your conflict)
+Demoting `Definition.lexical` is the **storage** leak. The **interpreter** leak is deeper and is the
+true "code is ontological" violation: **the engine's reasoning — transitive-closure folding in
+`MaterializedClosure::fold` (`ontology.rs:222`) — runs only over a CLOSED Rust enum `RelationKind
+{Subsumption, Parthood, Causation}` via a hard `match` (`from_edge_kind`, `ontology.rs:116-121`,
+`_ => None`).** An edge kind the enum doesn't know is *dropped from the closure*. So:
+- a **shape** ontology loads (neutral storage) but is **inert to reasoning** (no foldable geometry relation);
+- English's **25 WordNet relations** (derivation/antonym/…) are **un-foldable as data** — only the 3 enum kinds reason.
+
+This is precisely the standing [[feedback-ontological-not-rust-primitives]] rule: the live
+representation must BE the loaded ontology, never a Rust enum/match. **The substrate is modality-neutral
+only for inert storage, not for reasoning, until relation-kind + transitivity are themselves LOADED**
+— e.g. an OBO-RO-style `transitive_over` axiom carried in the meta-ontology and consulted by `fold`,
+so reasoning is driven by data, not a compile-time match. (Also: `ComposedReasoner` keys the live join
+on a `u64` `ConceptId` offset index — `composed.rs:96-115` — another live-form index the rule names.)
+
+**Secondary critique corrections:** `reify` needs *new compile-time machinery* — the compile-time
+`ConnectionFamily` enum has **no `Lens` variant** (`emit.rs:46-68`), so it's more than "finishing an
+interpreter." "Draw = `Σ_F` via `apply`" is asserted, not shown — `apply` only emits an `Archive` of
+relabeled `Definition`s; it can't mint a structured value (a `LambekType`/a rendered shape), as
+`category_projection.rs:14-21` already states. `form_atom` still sets `lexical` (relocates, not
+deletes, the field). The compact-succinct codec (`compact_succinct.rs:141`) carries glosses in a
+**second** format the migration must also evolve. Dropping `lexical` re-pins 10+ committed `.prx`.
+
+### Revised migration (foundational, smallest-first)
+- **Phase A — loaded relation-kind + transitivity (the real fix, do FIRST).** Make `fold` consult a
+  loaded `transitive_over`/relation-kind property in the meta-ontology instead of `match RelationKind`.
+  This is what makes reasoning modality-neutral (shapes, English's 25 relations, any kind). Without it
+  the rest is cosmetic.
+- **Phase B — de-privilege English:** route English through `english_runtime_ontology()`; one
+  `Vec<RuntimeOntology>`, no base/offset; cross-ontology `is_a` over the unioned closure (no format change).
+- **Phase C — `reify`:** add the `Lens` connection family + interpret `Parse⊣Generate` so
+  `reify(emit(C)) ≡ C` (a checkable lens law). Closes `ontology! ≡ .prx`.
+- **Phase D — demote `lexical`:** coexist (add `denotes`/Form via `ground`) → read-through-lens → drop
+  the field from both codecs → one mechanical re-pin + `praxis.lock` bump.
+- **Phase E — capabilities:** interpret `Adjunction` `Σ_F` for generative lenses (draw/shape
+  construction); absorb the lambek bespoke interpreter + HMI `engine::Action` into loaded data.
+
+**Verdict:** the unification is real and ~half-built; the format evolution is minimal (drop one field);
+but **merge-readiness requires Phase A — loaded relation-kind/transitivity — because the closed
+`RelationKind` enum, not `Definition.lexical`, is the leak that makes the substrate language/3-relation
+bound.** This is the precise locus of "code is ontological" the maintainer sensed.
+
+---
+
+### Phase A — implementation spec (the kernel change, mapped)
+
+**The two leak sites (verified):** `materialize` (`ontology.rs:571`) and `morphisms_from`
+(`ontology.rs:440`) both do `if let Some(kind) = RelationKind::from_edge_kind(kind_name)` — **silently
+dropping every edge whose kind isn't one of the 3** before it ever reaches the closure; then
+`MaterializedClosure::fold` (`ontology.rs:221`) iterates the hardcoded `RelationKind::transitive()`.
+
+**The change (coordinated, one atomic refactor — it won't compile half-done):**
+1. **Open the relation-kind.** `RelationKind` enum → an open type (newtype over the kind string with
+   `subsumption()/parthood()/causation()` constructors + `as_str()`). `from_edge_kind` becomes total
+   (`RelationKind::new(name)` — never `None`); `RuntimeEdge.kind` carries any kind; the two drop-guards
+   become unconditional pushes (no edge dropped).
+2. **Data-driven fold.** `MaterializedClosure::fold(edges, transitive: &BTreeSet<RelationKind>)` folds
+   one closure per *declared-transitive* kind (read from data), not `RelationKind::transitive()`.
+   `reachable_from`/`reaches`/`union`/`subsumption_*` re-key off the open kind.
+3. **Consumers (small set):** `composed.rs` (`edge.kind != RelationKind::Subsumption` →
+   `…subsumption()`; the closure-query kind args), `english/bridge.rs`, `emit.rs`, `codegen/uslm.rs`,
+   runtime tests. The huge domains `RelationKind` list is the *category-layer* type, untouched.
+4. **Test (the gate):** a `.prx` with a custom transitive kind (`a -broader→ b -broader→ c`, `broader`
+   declared transitive) materializes and `reaches(a, c, broader)` — RED today (dropped at `:571`),
+   GREEN after. Plus an inert-shape check (a non-transitive custom kind does *not* fold).
+
+**DECISION (maintainer, 2026-06-14): (A) — the `.prx` self-declares its relation-kind transitivity.**
+A relation-kind's transitivity is ontological data carried *in* the file, OBO-RO style: a relation `R`
+is transitive iff it declares `R transitive_over R`. Representation (additive, no rkyv/CBOR *schema*
+change — only Vec *content* grows, so old `.prx` still deserialize): a `Definition{kind:"RelationKind",
+name:R, edges:[("transitive_over", Local(R))]}` node per transitive kind. `materialize` collects the
+transitive set from these nodes and threads it to `fold`; archives that declare none fall back to the
+literature base (`Subsumption/Parthood/Causation`) **only transitionally**, until every committed
+`.prx` is re-emitted with explicit declarations (the one-time re-pin). No caller signature change.
+
+**Execution note (the "no half-fix" reality):** Phase A is *one atomic* refactor (open `RelationKind`
+→ the two drop-guards → the data-driven `fold` → consumers → the gate test) plus a one-time re-emit +
+`praxis.lock` re-pin of the committed `.prx`. It is the riskiest change in the tree and must land
+green under `dev-ci` in a single coherent pass — not partially. It is fully specified above and ready
+to execute as the focused first task of the next working block.
+
 **Revised build order for §9 (producers-first, additive, no-regress):**
 (1) USC bridge mints `form_atom(heading)` + a `canonicalForm`-role edge per section (and `otherForm`
 citations from `num`/`title_number`); (2) `composed.rs` grounding *adds* `canonicalForm`/`otherForm`
