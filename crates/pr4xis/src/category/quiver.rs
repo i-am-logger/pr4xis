@@ -261,9 +261,8 @@ where
 ///
 /// This is the runtime/loaded analogue of the `ontology!` macro's compile-time
 /// Floyd-Warshall and the shared engine behind
-/// `pr4xis-runtime`'s `MaterializedClosure` (which folds it per
-/// [`RelationKind`](../../../pr4xis_runtime/ontology/index.html) over
-/// `ConceptRef`) and the English hypernym closure (which folds it over WordNet
+/// `pr4xis-runtime`'s `MaterializedClosure` (which folds it per relation-kind
+/// `ConceptRef` over `ConceptRef`) and the English hypernym closure (which folds it over WordNet
 /// `ConceptId`s). It is keyed by `Hash + Eq` so dense index vertices (a
 /// `Reference<4>` synset id) and open-world named vertices (a `(ontology, name)`
 /// pair) reuse the SAME construct without either paying for the other's identity
