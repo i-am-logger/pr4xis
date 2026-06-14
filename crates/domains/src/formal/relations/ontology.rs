@@ -539,6 +539,85 @@ mod tests {
         assert!(SubsumptionIsAntisymmetric.verify().is_ok());
     }
 
+    /// Regenerate the committed `relations_transitive_kinds.txt` caches that the
+    /// `ontology!` macro (`pr4xis-derive`) and the kernel (`pr4xis-runtime`) read.
+    /// `#[ignore]`d (it WRITES, asserting nothing) — the relation-kind analogue of
+    /// `regenerate_english_function_words_prx`. Run by hand when a
+    /// `(R, Transitive, HasProperty)` edge is added/removed above:
+    /// `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`.
+    #[test]
+    #[ignore]
+    fn regenerate_relations_transitive_kinds_cache() {
+        use pr4xis::ontology::meta::OntologyName;
+        use pr4xis_runtime::ontology::{materialize, transitive_kinds};
+
+        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let relations =
+            materialize(archive, OntologyName::new_static("Relations")).expect("materializes");
+        let mut names: Vec<String> = transitive_kinds(&relations)
+            .iter()
+            .map(|c| c.name.clone())
+            .collect();
+        names.sort();
+        let body = format!("{}\n", names.join("\n"));
+        for path in [
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../pr4xis-derive/src/relations_transitive_kinds.txt"
+            ),
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../pr4xis-runtime/src/relations_transitive_kinds.txt"
+            ),
+        ] {
+            std::fs::write(path, &body).expect("write relations_transitive_kinds.txt");
+        }
+    }
+
+    /// Drift guard (normal suite) for the committed `relations_transitive_kinds.txt`
+    /// caches — the build-time (`pr4xis-derive`) and runtime (`pr4xis-runtime`)
+    /// halves of "one declaration, two readers". The authoritative declaration is
+    /// THIS ontology's `(R, Transitive, HasProperty)` edges; each committed cache
+    /// must equal `transitive_kinds()` read off the emitted+materialized Relations
+    /// archive. If anyone adds/removes a `Transitive` edge without regenerating, or
+    /// hand-edits a cache, this FAILS — closing the rule-7 second-declaration gap.
+    #[test]
+    fn relations_transitive_kinds_cache_matches_the_relations_ontology() {
+        use pr4xis::ontology::meta::OntologyName;
+        use pr4xis_runtime::ontology::{materialize, transitive_kinds};
+
+        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let relations =
+            materialize(archive, OntologyName::new_static("Relations")).expect("materializes");
+        let declared: alloc::collections::BTreeSet<String> = transitive_kinds(&relations)
+            .iter()
+            .map(|c| c.name.clone())
+            .collect();
+
+        for (krate, committed) in [
+            (
+                "pr4xis-derive",
+                include_str!("../../../../pr4xis-derive/src/relations_transitive_kinds.txt"),
+            ),
+            (
+                "pr4xis-runtime",
+                include_str!("../../../../pr4xis-runtime/src/relations_transitive_kinds.txt"),
+            ),
+        ] {
+            let cached: alloc::collections::BTreeSet<String> = committed
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .map(String::from)
+                .collect();
+            assert_eq!(
+                cached, declared,
+                "{krate}'s relations_transitive_kinds.txt is STALE — regenerate with \
+                 `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`"
+            );
+        }
+    }
+
     #[test]
     fn relations_prx_carries_the_loaded_transitivity_the_runtime_reads() {
         // The "code is ontological" fix (doc §11), Step 1: the transitive

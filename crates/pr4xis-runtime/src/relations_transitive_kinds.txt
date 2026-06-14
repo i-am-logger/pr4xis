@@ -1,0 +1,7 @@
+Causation
+Dependence
+Equivalence
+Parthood
+Precedence
+Specialisation
+Subsumption

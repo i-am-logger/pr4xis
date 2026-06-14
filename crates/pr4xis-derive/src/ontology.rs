@@ -4,6 +4,20 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Expr, Ident, LitStr, Token, braced, bracketed, parenthesized};
 
+/// The transitive relation-kind vocabulary — a DISTILLED, drift-guarded cache of
+/// the Relations ontology's `(R, Transitive, HasProperty)` declarations
+/// (`crates/domains/src/formal/relations/ontology.rs`), the ONE source of truth.
+/// `pr4xis-derive` is the bottom of the dependency graph and CANNOT read Relations
+/// as compiled Rust, so the macro reads this projection of it — the build-time
+/// half of "one declaration, two readers" (the runtime half is `pr4xis-runtime`'s
+/// `declared_transitive_kinds`, which reads its own copy of the same cache). The
+/// file is regenerated from `emit::<RelationsCategory>()` and drift-guarded by a
+/// `transitive_kinds()` re-derivation in the `domains` test suite; a hand-edit or
+/// a stale cache fails that test. This replaces the former hardcoded
+/// `Subsumption / Parthood / Causation` allowlist (the last "code is ontological"
+/// hardcode in the closure tiers).
+const RELATIONS_TRANSITIVE_KINDS_SRC: &str = include_str!("relations_transitive_kinds.txt");
+
 struct LabelEntry {
     concept: Ident,
     lang: LitStr,
@@ -659,16 +673,19 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         let edge_kind = &all_edge_kind;
 
         // Same-kind transitive inheritance per OBO-RO `transitive_over`
-        // (Smith 2005). Subsumption/Parthood/Causation are transitive in
-        // their canonical reading (OWL subClassOf; Casati-Varzi parthood;
-        // Lewis counterfactual chains). Same-kind composition inherits;
-        // heterogeneous returns None (partial category, #166).
+        // (Smith 2005). WHICH kinds are transitive is LOADED from the Relations
+        // vocabulary cache (`RELATIONS_TRANSITIVE_KINDS_SRC`), not a hardcoded
+        // allowlist — the build-time reader of the one `(R, Transitive,
+        // HasProperty)` declaration. Same-kind composition inherits; heterogeneous
+        // returns None (partial category, #166).
+        let transitive_names: std::collections::BTreeSet<&str> = RELATIONS_TRANSITIVE_KINDS_SRC
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .collect();
         let transitive_kind_arms: Vec<proc_macro2::TokenStream> = unique_kinds
             .iter()
-            .filter(|k| {
-                let s = k.to_string();
-                s == "Subsumption" || s == "Parthood" || s == "Causation"
-            })
+            .filter(|k| transitive_names.contains(k.to_string().as_str()))
             .map(|k| {
                 quote! {
                     (#kind_name::#k, #kind_name::#k) => Some(#kind_name::#k),
@@ -689,7 +706,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         let transitive_kind_names: Vec<String> = unique_kinds
             .iter()
             .map(|k| k.to_string())
-            .filter(|s| s == "Subsumption" || s == "Parthood" || s == "Causation")
+            .filter(|s| transitive_names.contains(s.as_str()))
             .collect();
         let mut per_kind_closure_morphisms: Vec<proc_macro2::TokenStream> = Vec::new();
         for tkind in &transitive_kind_names {
