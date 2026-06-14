@@ -15,6 +15,13 @@
 use pr4xis_wasm::Pr4xis;
 use wasm_bindgen_test::*;
 
+// Run these in the real headless browser, matching the harness `dev-test-wasm`
+// drives (`wasm-pack test --headless --firefox`). WITHOUT this the suite collects
+// 0 tests under `--firefox` (they silently never run), which is how the
+// post-59eaf8d `loaded_section_count` regression stayed invisible. With it, the
+// 13 acceptance tests below actually gate the wasm runtime.
+wasm_bindgen_test_configure!(run_in_browser);
+
 // A minimal full-shape USLM title: `<uscDoc>` wrapper, USLM namespace,
 // one `<section>`. Mirrors the runtime reader's known-good fixture
 // (`uslm::lens::tests::SAMPLE_TITLE`). The namespace is load-bearing —
