@@ -14,6 +14,7 @@ use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
 use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::project_archive;
 use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
@@ -92,33 +93,29 @@ struct LoadedSource {
     payload: LoadedPayload,
 }
 
-/// What a runtime-loaded source materialised into. A USLM statute title
-/// becomes a [`UsCode`]; an OWL vocabulary (loaded from its `.prx.gz` or
-/// its `.owl` source) becomes a [`LoadedOwlVocabulary`]. The runtime stays
-/// source-agnostic — it holds whichever live ontology the registry offered.
+/// What a runtime-loaded OWL source materialised into — a [`LoadedOwlVocabulary`]
+/// (loaded from its `.prx.gz` or its `.owl` source). USLM statute titles no longer
+/// land here: [`Pr4xis::load_source`] projects them into a [`RuntimeOntology`] the
+/// chat reasons over (the `self.loaded` corpus is the remaining OWL-only path,
+/// pending its own projection into `runtime_ontologies`).
 enum LoadedPayload {
-    /// A USLM statute title materialised into the U.S. Code corpus.
-    UsCode(UsCode),
     /// An OWL vocabulary materialised into its loaded class/property
     /// subsumption corpus.
     Owl(LoadedOwlVocabulary),
 }
 
 impl LoadedPayload {
-    /// The number of queryable units — USC sections, or OWL entities
-    /// (classes + object properties). Drives the catalog concept count.
+    /// The number of queryable units — OWL entities (classes + object
+    /// properties). Drives the catalog concept count.
     fn concept_count(&self) -> usize {
         match self {
-            LoadedPayload::UsCode(usc) => usc.section_count(),
             LoadedPayload::Owl(v) => v.entity_count(),
         }
     }
 
-    /// The morphism count: 0 for USC (its section corpus is not exposed as
-    /// a morphism graph here), the subsumption-edge count for OWL.
+    /// The morphism count — the OWL subsumption-edge count.
     fn morphism_count(&self) -> usize {
         match self {
-            LoadedPayload::UsCode(_) => 0,
             LoadedPayload::Owl(v) => v.subsumption_edge_count(),
         }
     }
@@ -225,10 +222,26 @@ impl Pr4xis {
     /// malformed document fails closed via the USLM reader. Idempotent:
     /// loading a name already present replaces it.
     pub fn load_source(&mut self, name: String, xml: &str) -> Result<(), JsValue> {
-        let title = read_uslm_title(xml)
-            .map_err(|e| JsValue::from_str(&format!("USLM parse failed: {e:?}")))?;
+        self.load_source_core(name, xml)
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// The plain-Rust core of [`Self::load_source`]: parse USLM → [`UsCode`] →
+    /// **project into the generic runtime [`Archive`]** (the
+    /// `uslm::corpus::bridge` functor) → [`materialize`] into one queryable
+    /// [`RuntimeOntology`] → install into the chat-reasoning set via
+    /// [`Self::install_runtime_ontology`]. This is the SAME
+    /// `project → materialize → install` path the `.prx` load uses, so a loaded
+    /// statute title is reasoned over by [`Self::chat`] exactly like any other
+    /// loaded ontology — no longer held aside as a `self.loaded` corpus the
+    /// reasoner never sees. Native-testable (typed `String` error, no `JsValue`).
+    fn load_source_core(&mut self, name: String, xml: &str) -> Result<(), String> {
+        let title = read_uslm_title(xml).map_err(|e| format!("USLM parse failed: {e:?}"))?;
         let usc = UsCode::from_uslm_titles_owned(vec![title]);
-        self.install(name, LoadedPayload::UsCode(usc));
+        let archive = project_archive(&usc);
+        let onto = materialize(archive, OntologyName::new(name))
+            .map_err(|e| format!("USC materialize failed: {e:?}"))?;
+        self.install_runtime_ontology(onto);
         Ok(())
     }
 
@@ -653,6 +666,51 @@ mod acceptance {
         assert_ne!(
             without_resp, with_resp,
             "loading the .prx must change the answer"
+        );
+    }
+
+    /// A minimal USLM Title (Title 18 §1, heading "First section") — the fixture
+    /// for the load-a-statute-then-query-it acceptance tests.
+    const SAMPLE_USLM_TITLE: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">Title 18—</num><heading>CRIMES AND CRIMINAL PROCEDURE</heading><section identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>First section</heading><content>Body text.</content></section></title>"##;
+
+    #[test]
+    fn loading_a_usc_title_routes_it_into_the_reasoner() {
+        // Architecture Step 1, the WIRE: a loaded USLM statute must reach the SAME
+        // reasoning set `chat()` composes over (`runtime_ontologies`), not a
+        // separate `self.loaded` corpus the reasoner never sees. Before the load
+        // the reasoner is empty; after, it holds the one projected statute
+        // ontology. This is the structural half of "load Title 15 → ask about it".
+        let mut p = Pr4xis::new();
+        assert_eq!(p.loaded_ontology_count(), 0);
+        p.load_source("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
+            .expect("a well-formed USLM title loads");
+        assert_eq!(
+            p.loaded_ontology_count(),
+            1,
+            "a loaded statute must become a RuntimeOntology the chat reasons over"
+        );
+    }
+
+    /// THE acceptance test for the maintainer's exact symptom: load a statute,
+    /// ask about a section it defines, and get its content.
+    ///
+    /// `#[ignore]`d pending **Step 1b**: USC sections are surfaced by their URN
+    /// (`/us/usc/t18/s1`, the projector's node name — `uslm/corpus/bridge.rs:84`),
+    /// and the ComposedReasoner makes the *lowercased node name* the queryable
+    /// surface (`composed.rs:154`). A URN does not tokenize as natural language,
+    /// so NL queries can't resolve it yet. The wire (above) is in; this gate opens
+    /// once USC sections carry a natural, tokenizable surface (heading / section
+    /// number). Tracked in `docs/praxis-self-aware-architecture-2026-06-14.md`.
+    #[test]
+    #[ignore = "Step 1b: USC sections are URN-named; need a tokenizable surface before NL queries resolve"]
+    fn loading_a_usc_title_makes_it_queryable() {
+        let mut p = Pr4xis::new();
+        p.load_source("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
+            .expect("a well-formed USLM title loads");
+        let resp = response_of(&p.chat("what is the first section")).to_lowercase();
+        assert!(
+            resp.contains("first section"),
+            "after loading the statute, the chat must answer about its section; got: {resp:?}"
         );
     }
 

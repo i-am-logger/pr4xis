@@ -585,7 +585,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pr4xis"
-version = "0.22.1"
+version = "0.24.0"
 dependencies = [
  "hashbrown",
  "linkme",
@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-chat"
-version = "0.22.0"
+version = "0.24.0"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",
@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-derive"
-version = "0.22.1"
+version = "0.24.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -616,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-domains"
-version = "0.22.0"
+version = "0.24.0"
 dependencies = [
  "anyhow",
  "blake3",
@@ -638,7 +638,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-runtime"
-version = "0.22.0"
+version = "0.24.0"
 dependencies = [
  "blake3",
  "pr4xis",
