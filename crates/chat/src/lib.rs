@@ -116,9 +116,22 @@ pub fn process_with_reasoner(
     // tokenize_ontological produces Tokens (ontological: sense + POS + Lambek type).
     // Legacy TypedTokens derived for the reducer until it's migrated.
     let ont_tokens = tokenize_ontological(input, lang);
-    let tokens: Vec<TypedToken> = ont_tokens.iter().cloned().map(Into::into).collect();
+    let raw_tokens: Vec<TypedToken> = ont_tokens.iter().cloned().map(Into::into).collect();
     let (_, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
     let token_count = ont_tokens.len();
+
+    // Multi-token surface recognition: collapse maximal known multi-word surfaces
+    // (a loaded citation/label, a WordNet collocation) into single proper-noun
+    // tokens BEFORE the parse, so every downstream stage — chart_reduce, interpret,
+    // and the partial-understanding fallback — sees one lookup unit. Data-driven
+    // (the reasoner's loaded surface set); a no-op when `max_surface_words == 1`
+    // (embedded English), so single-token chat is byte-identical.
+    let (tokens, type_sets) = tokenize::collapse_multiword_surfaces(
+        &raw_tokens,
+        &alternatives,
+        reasoner.max_surface_words(),
+        |s| !reasoner.lookup(s).is_empty(),
+    );
 
     if tokens.is_empty() {
         return ProcessResult {
@@ -136,21 +149,10 @@ pub fn process_with_reasoner(
     // NonEmpty semigroup: the empty-check above proves the invariant.
     let ne_tokens = NonEmpty::of(tokens[0].clone(), tokens[1..].to_vec());
     let words: Vec<String> = ne_tokens.iter().map(|t| t.word.clone()).collect();
-    let type_sets: Vec<Vec<_>> = ne_tokens
-        .iter()
-        .enumerate()
-        .map(|(i, t)| {
-            let mut ts = vec![t.lambek_type.clone()];
-            if let Some(alts) = alternatives.get(i) {
-                for alt in alts {
-                    if !ts.contains(alt) {
-                        ts.push(alt.clone());
-                    }
-                }
-            }
-            ts
-        })
-        .collect();
+    // `type_sets` was built by `collapse_multiword_surfaces` above, aligned to the
+    // (possibly collapsed) `tokens`: a collapsed span → `[proper_noun()]`; an
+    // uncollapsed token → its own type plus that position's alternatives — exactly
+    // the set this stage built before, so an uncollapsed stream is unchanged.
 
     // Stage 2: Parse through Lambek grammar. Chart reduction returns a Traceable.
     let reduction = chart_reduce(&words, &type_sets);
@@ -1150,6 +1152,58 @@ mod loaded_corpus_demo {
         // epistemic outcome — grounded entirely through the lexicon, never a
         // hardcoded branch.
         assert_ne!(without, with, "loading the corpus must change the answer");
+    }
+
+    #[test]
+    fn a_multi_token_loaded_surface_resolves_through_the_chat() {
+        // The multi-token (phrase/citation) recognizer end-to-end: a loaded
+        // ontology whose surface is MULTI-WORD ("section 1514a") becomes answerable
+        // in chat, where word-by-word tokenization alone would split + miss it.
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::Definition;
+
+        let english = English::sample();
+        let question = "what is section 1514a";
+        let gloss = "Civil action to protect against retaliation in fraud cases.";
+
+        // english-only: max_surface_words == 1, so no collapse — "section" and
+        // "1514a" are looked up separately and miss → the chat abstains.
+        let (without, _, _) = process(&english, question);
+        assert!(
+            without.to_lowercase().contains("not") || without.to_lowercase().contains("don't"),
+            "english-only must abstain on the multi-token citation; got: {without:?}"
+        );
+
+        // composed: a loaded ontology indexes the multi-word surface (its node
+        // name); the recognizer collapses ["section","1514a"] into ONE proper-noun
+        // token and the chat answers from the node's gloss — the §9 use case.
+        let archive = Archive {
+            nodes: vec![Definition {
+                kind: "Concept".to_string(),
+                name: "section 1514a".to_string(),
+                edges: vec![],
+                axioms: vec![],
+                lexical: Some(gloss.to_string()),
+            }],
+            connections: vec![],
+        };
+        let onto = materialize(archive, OntologyName::new_static("usc_test"))
+            .expect("the multi-word-named ontology materializes");
+        let composed = ComposedReasoner::new(English::sample(), vec![onto]);
+        assert!(
+            composed.max_surface_words() >= 2,
+            "the loaded surface 'section 1514a' is multi-word, so the recognizer is active"
+        );
+
+        let with = process_with_reasoner(&english, &composed, question).response;
+        assert!(
+            with.contains(gloss),
+            "the multi-token citation must collapse + resolve to the loaded gloss; got: {with:?}"
+        );
+        assert_ne!(
+            without, with,
+            "the multi-token recognizer changes an abstention into an answer"
+        );
     }
 
     #[test]
