@@ -29,6 +29,13 @@ pub mod graph_faithful_lens;
 #[cfg(feature = "std")]
 pub mod vocabulary;
 
+// OWL → praxis projection, the functor-as-data way (the OWL analog of the WordNet
+// `english::bridge`): a raw structural projection + an `owl_to_praxis_functor`
+// carried AS DATA + the one `apply` interpreter. `std`-gated because it consumes
+// `vocabulary` (above).
+#[cfg(feature = "std")]
+pub mod bridge;
+
 // OWL vocabulary → praxis `CodegenData` codegen. Gated on
 // `any(test, feature = "codegen")` because it uses `pr4xis::codegen`,
 // which `pr4xis` only exposes under its `codegen` feature — present in
