@@ -217,6 +217,17 @@ pub trait LexicalReasoner {
     /// ordered by is-a distance), never a `0..N` parent loop.
     fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>>;
     fn concept_count(&self) -> usize;
+
+    /// The maximum number of whitespace-separated words in any surface this
+    /// reasoner can resolve — the window the chat's multi-token recognizer scans
+    /// to collapse a multi-word surface (a loaded citation/label, a WordNet
+    /// collocation) into one lookup unit. Defaults to `1` (a single-word lexicon
+    /// like embedded English's primary path → the recognizer is a no-op, so the
+    /// single-token pipeline is unchanged); a composed reasoner that holds
+    /// multi-word surfaces overrides it with its real maximum.
+    fn max_surface_words(&self) -> usize {
+        1
+    }
 }
 
 impl LexicalReasoner for English {

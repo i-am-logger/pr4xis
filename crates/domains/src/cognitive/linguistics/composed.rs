@@ -113,6 +113,11 @@ pub struct ComposedReasoner {
     loaded_ids: BTreeMap<ConceptRef, ConceptId>,
     /// The id base above which all ids are loaded (== `english.concept_count()`).
     base: u64,
+    /// The widest surface (in whitespace-separated words) in `surface_index` —
+    /// the window the chat's multi-token recognizer scans. Cached once at
+    /// construction so `max_surface_words` is O(1); `1` when every surface is a
+    /// single word (the recognizer then no-ops).
+    max_surface_words: usize,
 }
 
 impl ComposedReasoner {
@@ -205,6 +210,16 @@ impl ComposedReasoner {
         // loaded-side closure answers — a set of `ConceptRef`s read off each
         // ontology's MATERIALIZED Subsumption closure — can be re-keyed back to
         // the `LexicalReasoner`'s `ConceptId` surface without a linear scan.
+        // The widest surface the recognizer must scan for — the max word count
+        // over every key (English collocations + loaded multi-word surfaces). 1
+        // when all surfaces are single words (the recognizer then no-ops).
+        let max_surface_words = surface_index
+            .keys()
+            .map(|k| k.split_whitespace().count())
+            .max()
+            .unwrap_or(1)
+            .max(1);
+
         Self {
             english,
             loaded,
@@ -216,6 +231,7 @@ impl ComposedReasoner {
             loaded_children,
             loaded_ids,
             base,
+            max_surface_words,
         }
     }
 
@@ -274,6 +290,10 @@ impl LexicalReasoner for ComposedReasoner {
             .get(word)
             .map(|v| v.as_slice())
             .unwrap_or(&[])
+    }
+
+    fn max_surface_words(&self) -> usize {
+        self.max_surface_words
     }
 
     fn concept(&self, id: ConceptId) -> Option<&Concept> {
