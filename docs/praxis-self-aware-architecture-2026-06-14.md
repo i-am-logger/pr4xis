@@ -483,8 +483,8 @@ Equivalence/Specialisation/Dependence), breaking the cross-tier invariant (`onto
 new build-time `Relations.prx` load) BEFORE the runtime expands to all 7.
 
 **Migration (smallest-first; no committed `.prx` exists, wire bytes unchanged):**
-1. Emit `Relations.prx` (the relation-kind concepts + `Transitive` edges); test it contains `(Subsumption, Transitive, HasProperty)`.
-2. Add `transitive_kinds(relations: &RuntimeOntology) -> BTreeSet<ConceptRef>` (the `prp-trp` query); test it returns the declared kinds.
-3. Re-key `RuntimeEdge.kind`/`MaterializedClosure` to `ConceptRef`; delete `RelationKind`+`from_edge_kind`+`transitive()`; thread the queried set (3 kinds first); port the acceptance tests (`RelationKind::Subsumption` → `ConceptRef::new("Relations","Subsumption")`).
-4. Unify the macro to read `Relations.prx` (new derive-time data load) — then expand to all 7.
+1. ✅ LANDED (3fb74cd) — Emit `Relations.prx` (the relation-kind concepts + `Transitive` edges); test it contains `(Subsumption, Transitive, HasProperty)`. (Done as an in-memory `emit::<RelationsCategory>()` integration test asserting the 7 declared transitive kinds; the committed-`.prx` bootstrap is Step 4/5.)
+2. ✅ LANDED (3fb74cd) — `transitive_kinds(relations: &RuntimeOntology) -> BTreeSet<ConceptRef>` (the `prp-trp` query, reading the archive's `(R, Transitive, HasProperty)` edges); returns the declared kinds.
+3. ✅ LANDED (d884da7) — Re-key `RuntimeEdge.kind`/`MaterializedClosure` to `ConceptRef`; delete `RelationKind`+`from_edge_kind`+`transitive()`; thread the bootstrap set (3 kinds first); port the consumers. The kind-name→`ConceptRef` lowering is the kernel helper `relations_kind()` (the one blessed lowering, homing every kind into "Relations"); the 3-kind restriction is the named transitional `bootstrap_transitive_kinds()`. Designed via a 16-agent adversarial workflow (stable-signature + kernel-bootstrap beat the threaded-param candidate). Green workspace-wide.
+4. ⏳ NEXT — Unify the macro (`pr4xis-derive/ontology.rs`, still hardcodes the same 3, no data-load path) to read `Relations.prx` (new derive-time data load) — THEN expand both tiers (`bootstrap_transitive_kinds` → full `transitive_kinds`, macro → all declared) to all 7 together, else the closures diverge.
 5. (optional) lift `Transitive` into `meta.rs` so transitivity is bootstrap-available without loading a separate `.prx`.
