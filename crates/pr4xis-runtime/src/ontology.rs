@@ -589,6 +589,52 @@ pub fn materialize(
     })
 }
 
+/// The relation-kind wire name carrying a relation's OWL-style properties — the
+/// `kind` of the `(R, Property, HasProperty)` morphism the Relations ontology
+/// declares (`domains/.../formal/relations/ontology.rs`). The `.prx` edge it
+/// lowers to is `("HasProperty", Local(<property>))`.
+const HAS_PROPERTY_REL: &str = "HasProperty";
+
+/// The OWL `TransitiveProperty` marker concept — the `Local` edge target whose
+/// presence under [`HAS_PROPERTY_REL`] asserts that a relation kind is
+/// transitive (OWL-RL `prp-trp`: `Transitive(p) ∧ p(x,y) ∧ p(y,z) → p(x,z)`).
+const TRANSITIVE_CONCEPT: &str = "Transitive";
+
+/// The transitive relation kinds DECLARED in a loaded Relations ontology — the
+/// runtime mirror of the compile-time `RelationProperty::get` query in
+/// `domains/.../formal/relations/ontology.rs`, which reads the SAME
+/// `(R, Transitive, HasProperty)` morphisms over the typed `Category`.
+///
+/// This is the loaded POLICY that replaces the hardcoded
+/// [`RelationKind::transitive`] array: a relation kind is transitive iff the
+/// Relations ontology asserts `Transitive(R)` — the OWL `TransitiveProperty`
+/// membership read off the loaded edge, never a Rust constant. The closure
+/// engine ([`ReachabilityClosure::fold`](pr4xis::category::quiver::ReachabilityClosure))
+/// is unchanged; only the SET of kinds it folds over becomes data.
+///
+/// # The blessed wire-boundary lowering
+///
+/// This is the ONE place the relation-property wire names (`"HasProperty"`,
+/// `"Transitive"`) are read (praxis-way rule 11: strings are WIRE, crossed by a
+/// single lowering). Every result is a typed [`ConceptRef`] keyed in `relations`'
+/// own ontology — `Subsumption` in `Relations` is a distinct, queryable concept,
+/// not a bare string. Downstream the closure keys on these `ConceptRef`s; the
+/// strings do not appear again.
+pub fn transitive_kinds(relations: &RuntimeOntology) -> BTreeSet<ConceptRef> {
+    relations
+        .archive()
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.edges.iter().any(|(rel, target)| {
+                rel == HAS_PROPERTY_REL
+                    && matches!(target, EdgeTarget::Local(name) if name == TRANSITIVE_CONCEPT)
+            })
+        })
+        .map(|node| ConceptRef::new(relations.id().clone(), node.name.clone()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -703,6 +749,71 @@ mod tests {
             }
             other => panic!("expected a DanglingEdge counterexample; got {other:?}"),
         }
+    }
+
+    #[test]
+    fn transitive_kinds_reads_the_loaded_owl_transitive_property() {
+        // The runtime mirror of `RelationProperty::get`: a relation kind is
+        // transitive iff the loaded ontology asserts `Transitive(R)` (the
+        // `("HasProperty", Local("Transitive"))` edge, OWL `TransitiveProperty`)
+        // — NOT a Rust constant. Hand-built Relations-shaped archive: Subsumption
+        // is transitive, Opposition is merely symmetric. The Transitive/Symmetric
+        // marker concepts are declared so referential closure holds.
+        let archive = Archive {
+            nodes: alloc::vec![
+                Definition {
+                    kind: "Concept".into(),
+                    name: "Subsumption".into(),
+                    edges: alloc::vec![("HasProperty".into(), "Transitive".into())],
+                    axioms: alloc::vec![],
+                    lexical: None,
+                },
+                Definition {
+                    kind: "Concept".into(),
+                    name: "Opposition".into(),
+                    edges: alloc::vec![("HasProperty".into(), "Symmetric".into())],
+                    axioms: alloc::vec![],
+                    lexical: None,
+                },
+                Definition {
+                    kind: "Concept".into(),
+                    name: "Transitive".into(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: None,
+                },
+                Definition {
+                    kind: "Concept".into(),
+                    name: "Symmetric".into(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: None,
+                },
+            ],
+            connections: alloc::vec![],
+        };
+        let relations =
+            materialize(archive, OntologyName::new_static("Relations")).expect("materializes");
+        let kinds = transitive_kinds(&relations);
+
+        let relations_id = OntologyName::new_static("Relations");
+        assert!(
+            kinds.contains(&ConceptRef::new(relations_id.clone(), "Subsumption")),
+            "Subsumption asserts Transitive(R) → must be a transitive kind; got {kinds:?}"
+        );
+        assert!(
+            !kinds.contains(&ConceptRef::new(relations_id.clone(), "Opposition")),
+            "Opposition is symmetric, not transitive → must be excluded; got {kinds:?}"
+        );
+        assert!(
+            !kinds.contains(&ConceptRef::new(relations_id, "Transitive")),
+            "the Transitive marker is not itself a transitive relation kind; got {kinds:?}"
+        );
+        assert_eq!(
+            kinds.len(),
+            1,
+            "exactly one transitive kind in this fixture; got {kinds:?}"
+        );
     }
 
     #[test]
