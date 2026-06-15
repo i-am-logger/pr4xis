@@ -5,6 +5,7 @@ use super::trace_functors::{PipelineStep, Traceable};
 use crate::cognitive::linguistics::lambek::reduce::ReductionResult;
 use crate::cognitive::linguistics::lambek::reduce::TypedToken;
 use crate::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
+use pr4xis::ontology::meta::OntologyName;
 
 // Traceable implementations — the trace functor applied to each result type.
 //
@@ -262,6 +263,11 @@ pub struct ResponseResult {
     pub entities_found: Vec<String>,
     pub taxonomy_checked: Option<(String, String, bool)>,
     pub from_ontology: bool,
+    /// The LOADED ontologies this answer reasoned over, by [`OntologyName`] (doc
+    /// §2.3) — empty when the answer came from the embedded substrate. Carried
+    /// into the trace so a turn can NAME the loaded `.prx` (e.g. a USC Title) it
+    /// drew on, not just the compiled pipeline ontologies.
+    pub reasoned_over: Vec<OntologyName>,
 }
 
 impl Traceable for ResponseResult {
@@ -290,5 +296,9 @@ impl Traceable for ResponseResult {
 
     fn trace_success(&self) -> bool {
         self.from_ontology
+    }
+
+    fn trace_reasoned_over(&self) -> Vec<OntologyName> {
+        self.reasoned_over.clone()
     }
 }

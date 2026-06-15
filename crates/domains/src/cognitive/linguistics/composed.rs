@@ -48,6 +48,7 @@ use alloc::vec::Vec;
 
 use hashbrown::HashMap;
 
+use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
@@ -455,6 +456,17 @@ impl LexicalReasoner for ComposedReasoner {
     /// (the caller falls back to Subsumption) for an unknown surface.
     fn relation_for_surface(&self, surface: &str) -> Option<ConceptRef> {
         self.relation_surface_index.get(surface).cloned()
+    }
+
+    /// The loaded ontology a concept belongs to — `Some(name)` when the id decodes
+    /// to a `Loaded` vertex (its `ConceptRef.ontology`), `None` for an English
+    /// (substrate) concept. The provenance the answer path records as
+    /// `reasoned_over`.
+    fn ontology_of_concept(&self, id: ConceptId) -> Option<OntologyName> {
+        match self.decode(id) {
+            Some(GroundedConcept::Loaded(cref)) => Some(cref.ontology),
+            _ => None,
+        }
     }
 
     fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {

@@ -1,9 +1,10 @@
 use pr4xis::category::{Ap, NonEmpty, Product, Writer};
 use pr4xis::ontology::Vocabulary;
+use pr4xis::ontology::meta::OntologyName;
 pub use pr4xis::ontology::meta::Provenance;
 pub use pr4xis::ontology::meta::Provenance as RelationshipMeta;
 use pr4xis_domains::cognitive::cognition::epistemics;
-use pr4xis_domains::cognitive::linguistics::english::{English, LexicalReasoner};
+use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, LexicalReasoner};
 use pr4xis_domains::cognitive::linguistics::lambek::{
     ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize, tokenize_ontological,
 };
@@ -328,11 +329,21 @@ fn attempt_partial_understanding(
         }
     };
 
+    // The known entities may resolve to LOADED concepts (this is the path "what is
+    // <loaded surface>" takes); record which loaded ontologies were reasoned over.
+    let reasoned_over = {
+        let ids: Vec<ConceptId> = entities
+            .iter()
+            .flat_map(|e| en.lookup(e).iter().copied())
+            .collect();
+        loaded_ontologies_of(en, &ids)
+    };
     trace_impls::ResponseResult {
         response,
         entities_found: entities,
         taxonomy_checked: None,
         from_ontology: has_knowledge,
+        reasoned_over,
     }
 }
 
@@ -370,7 +381,25 @@ fn answer_self_referential(lang: &English) -> trace_impls::ResponseResult {
         entities_found: vec!["pr4xis".into(), "self-model".into()],
         taxonomy_checked: None,
         from_ontology: true,
+        // A self-referential answer reasons over the eigenform, not a loaded .prx.
+        reasoned_over: Vec::new(),
     }
+}
+
+/// The LOADED ontologies the given concepts belong to, deduped (doc §2.3 — the
+/// provenance a turn records). Embedded-English concepts contribute nothing
+/// (`ontology_of_concept` → `None`); a loaded `.prx` concept contributes its
+/// `OntologyName`, so an answer over a USC Title names that Title.
+fn loaded_ontologies_of(en: &dyn LexicalReasoner, ids: &[ConceptId]) -> Vec<OntologyName> {
+    let mut names = Vec::new();
+    for &id in ids {
+        if let Some(name) = en.ontology_of_concept(id)
+            && !names.contains(&name)
+        {
+            names.push(name);
+        }
+    }
+    names
 }
 
 pub fn answer_question(
@@ -429,26 +458,32 @@ pub fn answer_question(
                             entities_found: entities.clone(),
                             taxonomy_checked: Some((child.clone(), parent.clone(), true)),
                             from_ontology: true,
+                            reasoned_over: loaded_ontologies_of(en, &[cid, pid]),
                         };
                     }
                 }
             }
+            // The negation still TRAVERSED the loaded closure — record it.
+            let traversed: Vec<ConceptId> = child_ids.iter().chain(parent_ids).copied().collect();
             return trace_impls::ResponseResult {
                 response: realize::realize_negation(child, parent),
                 entities_found: entities.clone(),
                 taxonomy_checked: Some((child.clone(), parent.clone(), false)),
                 from_ontology: true,
+                reasoned_over: loaded_ontologies_of(en, &traversed),
             };
         }
     }
 
     if entities.len() == 1 {
         let response = define_word(en, &entities[0]);
+        let reasoned_over = loaded_ontologies_of(en, en.lookup(&entities[0]));
         return trace_impls::ResponseResult {
             response,
             entities_found: entities,
             taxonomy_checked: None,
             from_ontology: true,
+            reasoned_over,
         };
     }
 
@@ -461,6 +496,7 @@ pub fn answer_question(
         entities_found: entities,
         taxonomy_checked: None,
         from_ontology: false,
+        reasoned_over: Vec::new(),
     }
 }
 
@@ -477,12 +513,14 @@ pub fn answer_statement(
     if entities.len() == 1 {
         let ids = en.lookup(&entities[0]);
         if !ids.is_empty() {
+            let reasoned_over = loaded_ontologies_of(en, ids);
             let response = define_word(en, &entities[0]);
             return trace_impls::ResponseResult {
                 response,
                 entities_found: entities,
                 taxonomy_checked: None,
                 from_ontology: true,
+                reasoned_over,
             };
         }
     }
@@ -495,6 +533,7 @@ pub fn answer_statement(
         response: realize::realize(&content),
         entities_found: entities,
         taxonomy_checked: None,
+        reasoned_over: Vec::new(),
         from_ontology: true,
     }
 }
@@ -1346,6 +1385,37 @@ mod loaded_corpus_demo {
             label,
             Some("title"),
             "the grounded entry's surface form is the lowercased node name"
+        );
+    }
+
+    #[test]
+    fn a_loaded_answer_names_the_loaded_ontology_in_its_provenance() {
+        // Doc §2.3 — the "Title-names-Title" deliverable: a turn that answers from
+        // a loaded `.prx` (the Statute corpus) NAMES it in the trace provenance,
+        // by its OntologyName, success-marked. English-only names no loaded ontology.
+        use pr4xis_domains::formal::information::diagnostics::trace_functors::TraceOntology;
+
+        let english = English::sample();
+        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+
+        let with = process_with_reasoner(&english, &composed, "what is a title");
+        let provenance = with.trace.reasoned_over();
+        assert!(
+            provenance.iter().any(
+                |(o, ok)| matches!(o, TraceOntology::Loaded(n) if n.as_str() == "Statute") && *ok
+            ),
+            "the trace must name the loaded Statute ontology it reasoned over; got: {provenance:?}"
+        );
+
+        // English-only reasons over no loaded ontology — the contrast.
+        let without = process_with_reasoner(&english, &English::sample(), "what is a title");
+        assert!(
+            !without
+                .trace
+                .reasoned_over()
+                .iter()
+                .any(|(o, _)| matches!(o, TraceOntology::Loaded(_))),
+            "english-only must name no loaded ontology in its provenance"
         );
     }
 

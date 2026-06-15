@@ -4,6 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use hashbrown::HashMap;
 
 use pr4xis::category::quiver::ReachabilityClosure;
+use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
@@ -264,6 +265,18 @@ pub trait LexicalReasoner {
     /// English) cannot name a relation from a surface, and the caller falls back
     /// to Subsumption. A composed reasoner that loaded the lexicon overrides it.
     fn relation_for_surface(&self, _surface: &str) -> Option<ConceptRef> {
+        None
+    }
+
+    /// The LOADED ontology a concept belongs to, by [`OntologyName`] — `Some` only
+    /// for a concept materialized from a loaded `.prx` (its provenance); `None` for
+    /// an embedded-English concept (which has no loaded ontology). The answer path
+    /// reads this to record WHICH loaded ontology a turn reasoned over (doc §2.3 —
+    /// the trace names a loaded ontology, not just the compiled pipeline ones).
+    ///
+    /// Default: `None` — embedded English's concepts are the substrate, not a
+    /// loaded source. A composed reasoner overrides it (decoding the id's universe).
+    fn ontology_of_concept(&self, _id: ConceptId) -> Option<OntologyName> {
         None
     }
 }

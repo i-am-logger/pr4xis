@@ -3,7 +3,33 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::ontology::DiagnosticConcept;
 use crate::formal::systems::mape_k::ontology::MapeKConcept;
+use pr4xis::ontology::meta::OntologyName;
 use pr4xis::ontology::provenance::ontology::ProvenanceConcept;
+
+/// An ontology that participated in a turn — a TYPED SUM (doc §2.3). A `Compiled`
+/// pipeline ontology is a `&'static str` (it is part of the binary, const at every
+/// trace step); a `Loaded` ontology is the runtime [`OntologyName`] of a `.prx`
+/// the turn reasoned over (an owned name, unknowable at compile time). So the
+/// trace can NAME a loaded Title 15, not just the compiled pipeline ontologies —
+/// without forcing the const-constructed [`PipelineStep`] to hold an owned name
+/// (which would break its `Copy`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TraceOntology {
+    /// A compiled pipeline ontology — const, in the binary (e.g. "DRT (Kamp)").
+    Compiled(&'static str),
+    /// A loaded `.prx` ontology the turn reasoned over, by its runtime name.
+    Loaded(OntologyName),
+}
+
+impl TraceOntology {
+    /// The ontology's name as a string, regardless of provenance.
+    pub fn name(&self) -> &str {
+        match self {
+            TraceOntology::Compiled(s) => s,
+            TraceOntology::Loaded(n) => n.as_str(),
+        }
+    }
+}
 
 // Trace functors — map domain ontology results to diagnostic/provenance records.
 //
@@ -196,6 +222,10 @@ pub struct PipelineTraceEntry {
     pub step: PipelineStep,
     pub detail: String,
     pub success: bool,
+    /// The LOADED ontologies this step reasoned over, by [`OntologyName`] (doc
+    /// §2.3). Empty for a compiled-only step; the respond step carries the loaded
+    /// ontologies the answer drew on — the provenance the trace can name.
+    pub reasoned_over: Vec<OntologyName>,
 }
 
 impl PipelineTraceEntry {
@@ -205,7 +235,14 @@ impl PipelineTraceEntry {
             step,
             detail: detail.into(),
             success,
+            reasoned_over: Vec::new(),
         }
+    }
+
+    /// Attach the loaded ontologies this step reasoned over (doc §2.3).
+    pub fn with_reasoned_over(mut self, reasoned_over: Vec<OntologyName>) -> Self {
+        self.reasoned_over = reasoned_over;
+        self
     }
 
     /// The ontology name (from the PipelineStep).
@@ -265,6 +302,12 @@ pub trait Traceable {
     fn trace_detail(&self) -> String;
     /// Did this step succeed?
     fn trace_success(&self) -> bool;
+    /// The LOADED ontologies this step reasoned over (doc §2.3) — empty for a
+    /// compiled-only step. The respond step overrides it with the loaded
+    /// ontologies the answer drew on, so the trace can name them by [`OntologyName`].
+    fn trace_reasoned_over(&self) -> Vec<OntologyName> {
+        Vec::new()
+    }
 }
 
 /// Functor-derived connection: an ontology that participates via a proven functor.
@@ -461,12 +504,42 @@ impl PipelineTrace {
     /// Create a single-entry trace from a Traceable result.
     pub fn from_traceable(result: &dyn Traceable) -> Self {
         Self {
-            entries: vec![PipelineTraceEntry::from_step(
-                result.step(),
-                &result.trace_detail(),
-                result.trace_success(),
-            )],
+            entries: vec![
+                PipelineTraceEntry::from_step(
+                    result.step(),
+                    &result.trace_detail(),
+                    result.trace_success(),
+                )
+                .with_reasoned_over(result.trace_reasoned_over()),
+            ],
         }
+    }
+
+    /// The ontologies this turn REASONED OVER — the typed-sum provenance (doc
+    /// §2.3 / §4.2). Each is paired with whether its step SUCCEEDED, so a consumer
+    /// can distinguish *traversed* from *answered-from* (the success bit is no
+    /// longer dropped). Compiled pipeline ontologies appear as
+    /// [`TraceOntology::Compiled`]; a loaded `.prx` the answer drew on appears as
+    /// [`TraceOntology::Loaded`] with its real [`OntologyName`]. Deduped, order-
+    /// stable (first occurrence wins).
+    pub fn reasoned_over(&self) -> Vec<(TraceOntology, bool)> {
+        let mut out: Vec<(TraceOntology, bool)> = Vec::new();
+        let push = |o: TraceOntology, success: bool, out: &mut Vec<(TraceOntology, bool)>| {
+            if !out.iter().any(|(existing, _)| existing == &o) {
+                out.push((o, success));
+            }
+        };
+        for entry in &self.entries {
+            push(
+                TraceOntology::Compiled(entry.ontology()),
+                entry.success,
+                &mut out,
+            );
+            for name in &entry.reasoned_over {
+                push(TraceOntology::Loaded(name.clone()), entry.success, &mut out);
+            }
+        }
+        out
     }
 
     /// Collect all unique ontology names that participated (direct + via functors).
@@ -573,11 +646,58 @@ mod tests {
             entities_found: vec!["dog".into()],
             taxonomy_checked: Some(("dog".into(), "mammal".into(), true)),
             from_ontology: true,
+            reasoned_over: vec![],
         };
         let trace = PipelineTrace::from_traceable(&result);
         assert_eq!(trace.entries.len(), 1);
         assert_eq!(trace.entries[0].step, PipelineStep::CONTENT_DETERMINATION);
         assert!(trace.entries[0].success);
+    }
+
+    #[test]
+    fn reasoned_over_names_loaded_ontologies_and_keeps_the_success_bit() {
+        use super::super::trace_impls;
+        // A successful answer that drew on a loaded `.prx` (a USC Title).
+        let result = trace_impls::ResponseResult {
+            response: "First section.".into(),
+            entities_found: vec!["section 1".into()],
+            taxonomy_checked: None,
+            from_ontology: true,
+            reasoned_over: vec![OntologyName::new_static("us_code")],
+        };
+        let provenance = PipelineTrace::from_traceable(&result).reasoned_over();
+
+        // The compiled pipeline ontology appears as `Compiled`, the loaded one as
+        // `Loaded` NAMED by its OntologyName (the doc §2.3 deliverable) — and both
+        // carry the step's success bit (§4.2 — no longer dropped).
+        assert!(
+            provenance
+                .iter()
+                .any(|(o, ok)| matches!(o, TraceOntology::Compiled(_)) && *ok),
+            "the compiled step ontology participates"
+        );
+        assert!(
+            provenance.iter().any(|(o, ok)| {
+                *o == TraceOntology::Loaded(OntologyName::new_static("us_code")) && *ok
+            }),
+            "the LOADED ontology is named in the provenance; got {provenance:?}"
+        );
+
+        // A FAILED step carries success=false — traversed, not answered-from.
+        let failed = trace_impls::ResponseResult {
+            response: String::new(),
+            entities_found: vec![],
+            taxonomy_checked: None,
+            from_ontology: false,
+            reasoned_over: vec![],
+        };
+        assert!(
+            PipelineTrace::from_traceable(&failed)
+                .reasoned_over()
+                .iter()
+                .all(|(_, ok)| !*ok),
+            "a failed step's ontologies are marked not-answered-from"
+        );
     }
 
     #[test]
