@@ -42,7 +42,7 @@
 //!   open-world (`ConceptRef`, not a closed enum), which is why it cannot share
 //!   English's finite `ConceptId` space without an explicit disjoint offset.
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -50,6 +50,7 @@ use hashbrown::HashMap;
 
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
+use crate::cognitive::linguistics::english::bridge::FORM_KIND;
 use crate::cognitive::linguistics::english::{Concept, ConceptId, English, LexicalReasoner};
 use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
 use crate::social::software::markup::xml::lmf::ontology::LmfPos;
@@ -149,18 +150,55 @@ impl ComposedReasoner {
         //        addressable by a disjoint ConceptId.
         for onto in &loaded {
             let ontology_name = onto.id().as_str().to_string();
+            // The `ontolex:Form` atoms in this archive — their `writtenRep` NAMES
+            // are natural-language SURFACES (a heading / label / citation), the
+            // Frege *Sinn* distinct from a node's URN/IRI *Bedeutung*. A concept's
+            // queryable surfaces are the Form atoms it points at (the §9
+            // lexicalization channel), detected by FORM-target-ness — a data
+            // property of the loaded archive, NEVER a hardcoded role allow-list.
+            let form_names: BTreeSet<&str> = onto
+                .archive()
+                .nodes
+                .iter()
+                .filter(|n| n.kind == FORM_KIND)
+                .map(|n| n.name.as_str())
+                .collect();
+
             for node in &onto.archive().nodes {
+                // A Form atom is a SURFACE, not a concept — it gets no synthesized
+                // Concept and no id; it is indexed (below) as a surface of the
+                // concept that denotes it.
+                if node.kind == FORM_KIND {
+                    continue;
+                }
                 let cref = ConceptRef::new(onto.id().clone(), node.name.clone());
                 let id = ConceptId::new(base + loaded_refs.len() as u64);
 
-                // The Lemon functor F: surface form → ConceptRef. The surface
-                // people type is the lowercased node name; the reference keeps
-                // the ontology's canonical name.
+                // The Lemon functor F: surface form → ConceptRef. The node's OWN
+                // name is kept as a surface ADDITIVELY (a compiled ontology's node
+                // name IS a natural word; the URN/IRI case is covered by its Form
+                // atoms below, so this stays until every producer mints Forms).
                 let surface = node.name.to_lowercase();
                 lexicon.add_entry(surface.clone(), ontology_name.clone(), node.name.clone());
 
                 // Union into the lookup surface (disjoint id appended).
                 surface_index.entry(surface.clone()).or_default().push(id);
+
+                // Each Form atom this concept denotes (its `writtenRep`) is a
+                // queryable surface of the concept — one *Bedeutung*, many *Sinne*.
+                for (_role, target) in &node.edges {
+                    if let Some(form) = target.local_name()
+                        && form_names.contains(form)
+                    {
+                        let form_surface = form.to_lowercase();
+                        lexicon.add_entry(
+                            form_surface.clone(),
+                            ontology_name.clone(),
+                            node.name.clone(),
+                        );
+                        surface_index.entry(form_surface).or_default().push(id);
+                    }
+                }
 
                 // The synthesized Concept carries the loaded gloss as its
                 // definition, read straight from the materialized ontology
@@ -431,5 +469,75 @@ impl LexicalReasoner for ComposedReasoner {
 
     fn concept_count(&self) -> usize {
         self.english.concept_count() + self.loaded_concepts.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::meta::OntologyName;
+    use pr4xis_runtime::archive::Archive;
+    use pr4xis_runtime::definition::{Definition, EdgeTarget};
+    use pr4xis_runtime::ontology::materialize;
+
+    /// A loaded concept is queryable by the SURFACE of a Form atom it denotes (a
+    /// heading / citation), not only by its URN/IRI identity — the §9
+    /// lexicalization channel (one *Bedeutung*, many *Sinne*). A Form atom is a
+    /// surface, never a concept of its own.
+    #[test]
+    fn a_form_atoms_surface_resolves_to_the_concept_that_denotes_it() {
+        let archive = Archive {
+            nodes: alloc::vec![
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "/us/usc/t1/s1".to_string(),
+                    edges: alloc::vec![(
+                        "canonicalForm".to_string(),
+                        EdgeTarget::Local("section 1".to_string()),
+                    )],
+                    axioms: alloc::vec![],
+                    lexical: Some("Words denoting number, gender, and so forth.".to_string()),
+                },
+                // The Form atom — its writtenRep name IS the surface.
+                Definition {
+                    kind: FORM_KIND.to_string(),
+                    name: "section 1".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: Some("section 1".to_string()),
+                },
+            ],
+            connections: alloc::vec![],
+        };
+        let onto = materialize(archive, OntologyName::new_static("usc_test"))
+            .expect("the Form-bearing archive materializes");
+        let composed = ComposedReasoner::new(English::sample(), alloc::vec![onto]);
+
+        // The Form's writtenRep "section 1" resolves to the section concept, and
+        // reading it back yields the section's gloss.
+        let ids = composed.lookup("section 1");
+        assert!(
+            !ids.is_empty(),
+            "the Form surface 'section 1' must be queryable"
+        );
+        let concept = composed.concept(ids[0]).expect("its concept resolves");
+        assert!(
+            concept
+                .definitions
+                .first()
+                .is_some_and(|d| d.contains("number")),
+            "the surface resolves to the section's gloss; got {:?}",
+            concept.definitions
+        );
+
+        // The Form atom is NOT a concept of its own: the URN still resolves to the
+        // SAME concept (the node-name surface is kept additively), not a new one.
+        assert_eq!(
+            composed.lookup("/us/usc/t1/s1"),
+            ids,
+            "the URN resolves to the same concept the Form surface does"
+        );
+        // And the multi-word Form surface makes the recognizer active.
+        assert!(composed.max_surface_words() >= 2);
     }
 }
