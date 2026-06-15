@@ -13,12 +13,14 @@
 //! NO praxis kind is baked here.
 //!
 //! Mapping those raw generators to praxis kinds (`owl:Class → Concept`,
-//! `subsumes → Subsumption`) is a separate FUNCTOR carried AS `.prx` DATA
-//! ([`owl_to_praxis_functor`]) and interpreted by the ONE runtime primitive
+//! `subsumes → Subsumption`) is a separate FUNCTOR carried AS `.prx` DATA — the
+//! committed `data/projections/owl_functor.prx`, loaded fail-closed against its
+//! baked root and interpreted by the ONE runtime primitive
 //! [`apply`] — the finite action on generators
 //! (Lawvere functorial semantics; Fong & Spivak *Seven Sketches* Ch. 3). So the
 //! relation-kind table is data that re-emits to update — never a hardcoded
-//! `match rel_type`. [`owl_runtime_ontology`] is the whole pipeline
+//! `match rel_type`, and no longer even a Rust literal: it is `.prx` on disk.
+//! [`owl_runtime_ontology`] is the whole pipeline
 //! (`project → apply(functor) → materialize`), the verbatim shape of
 //! [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology).
 //!
@@ -47,13 +49,13 @@
 
 use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
-use alloc::vec;
 use alloc::vec::Vec;
 
 use pr4xis::ontology::meta::OntologyName;
+use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
-use pr4xis_runtime::connection::{Connection, GeneratorAction};
+use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
 use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
 
@@ -176,44 +178,50 @@ pub fn owl_project_archive(vocab: &LoadedOwlVocabulary) -> Archive {
     }
 }
 
-/// The OWL → praxis projection, carried AS DATA — the [`Connection`] a `.prx`
-/// ships so the relabeling re-emits to update with no recompile.
-///
-/// A functor's whole content is its finite action on the schema's generators, and
-/// praxis serializes exactly that as [`GeneratorAction::Functor`]. So
-/// `owl:Class ↦ Concept`, `owl:ObjectProperty ↦ Relation`, `subsumes ↦ Subsumption`
-/// is not a compiled `match` — it is this data, interpreted by [`apply`] over an
-/// [`owl_project_archive`] source. `map_morphism` is a single row because the
-/// source already merged `subClassOf ∪ subPropertyOf` (both is-a) into one
-/// `subsumes` generator; `map_object` keeps the class/property sort distinction.
-pub fn owl_to_praxis_functor() -> Connection {
-    Connection {
-        kind: "Faithful".to_string(),
-        source: "OwlVocabulary".to_string(),
-        target: "PraxisOntology".to_string(),
-        action: GeneratorAction::Functor {
-            map_object: vec![
-                (CLASS_KIND.to_string(), CONCEPT_KIND.to_string()),
-                (OBJECT_PROPERTY_KIND.to_string(), RELATION_KIND.to_string()),
-            ],
-            map_morphism: vec![
-                (SUBSUMES_REL.to_string(), SUBSUMPTION_REL.to_string()),
-                (LABEL_REL.to_string(), CANONICAL_FORM_REL.to_string()),
-            ],
-        },
-        laws: vec![
-            "PreservesIdentity".to_string(),
-            "PreservesComposition".to_string(),
-        ],
-    }
+/// The committed OWL → praxis projection — the `.prx` bytes the functor LIVES in
+/// (Track C #203), embedded at build time. NOT a Rust literal: a connections-only
+/// [`Archive`] carrying one [`Connection`] whose
+/// [`Functor`](pr4xis_runtime::connection::GeneratorAction::Functor) action is
+/// `owl:Class ↦ Concept`, `owl:ObjectProperty ↦ Relation`, `subsumes ↦ Subsumption`,
+/// `label ↦ canonicalForm`. `map_morphism` collapses `subClassOf ∪ subPropertyOf`
+/// onto one `subsumes` generator; `map_object` keeps the class/property sort.
+const OWL_FUNCTOR_PRX: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/data/projections/owl_functor.prx"
+));
+
+/// The trusted Merkle root of [`OWL_FUNCTOR_PRX`] — the integrity pin the
+/// fail-closed load checks against (file ⇔ pin coherence is asserted in tests).
+const OWL_FUNCTOR_ROOT_HEX: &str =
+    "f319d55fe4249363fa4440aafa923435ae646f46f0b9d225d0a85ad30639993b";
+
+/// Load the OWL → praxis functor from its committed `.prx` ([`OWL_FUNCTOR_PRX`]) —
+/// FAIL-CLOSED: the embedded bytes are admitted only if they re-derive to
+/// [`OWL_FUNCTOR_ROOT_HEX`], so a tampered or stale projection is refused, never
+/// silently mis-applied. Reuses the kernel [`load`](pr4xis_runtime::load::load);
+/// no new runtime API. A functor's whole content is its finite action on the
+/// schema's generators (Fong & Spivak *Seven Sketches* Ch. 3), interpreted by
+/// [`apply`] over an [`owl_project_archive`] source. A load failure here is a
+/// build-time invariant violation (the bytes ship embedded in the binary).
+fn owl_functor() -> Connection {
+    let root = ContentAddress::from_hex(OWL_FUNCTOR_ROOT_HEX)
+        .expect("OWL_FUNCTOR_ROOT_HEX is valid 64-hex");
+    let archive = pr4xis_runtime::load::load(OWL_FUNCTOR_PRX, root)
+        .expect("committed owl_functor.prx must load against its baked root");
+    archive
+        .connections
+        .into_iter()
+        .next()
+        .expect("owl_functor.prx carries exactly one Connection")
 }
 
 /// Bridge a loaded OWL vocabulary into a generic [`RuntimeOntology`] — the whole
-/// pipeline in one call: [`owl_project_archive`] → [`apply`]`(`[`owl_to_praxis_functor`]`)`
-/// → [`materialize`]. The verbatim shape of
+/// pipeline in one call: [`owl_project_archive`] → [`apply`]`(owl_functor)` →
+/// [`materialize`], where `owl_functor` is the committed `owl_functor.prx` loaded
+/// fail-closed. The verbatim shape of
 /// [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology).
 ///
-/// `apply` cannot fail here: [`owl_to_praxis_functor`] is always a `Functor`
+/// `apply` cannot fail here: the loaded `owl_functor` is always a `Functor`
 /// action (the only action `apply` interprets), so its sole error is unreachable.
 /// Materialization can still fail closed (a codec error on the root); that error
 /// is propagated typed.
@@ -222,8 +230,8 @@ pub fn owl_runtime_ontology(
     name: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
     let source = owl_project_archive(vocab);
-    let praxis = apply(&owl_to_praxis_functor().action, &source)
-        .expect("owl_to_praxis_functor is a Functor action, which apply always interprets");
+    let praxis = apply(&owl_functor().action, &source)
+        .expect("owl_functor is a Functor action, which apply always interprets");
     materialize(praxis, name)
 }
 
@@ -232,6 +240,7 @@ mod tests {
     use super::*;
     use crate::cognitive::linguistics::english::bridge::FORM_KIND;
     use crate::social::software::markup::xml::owl::reader::read_owl;
+    use pr4xis_runtime::connection::GeneratorAction;
     use pr4xis_runtime::ontology::subsumption_kind;
 
     // Animal ← Mammal ← {Dog}, and Dog ALSO ⊑ Pet — a multi-parent class, so the
@@ -318,26 +327,38 @@ mod tests {
     }
 
     #[test]
-    fn functor_carries_the_relabeling_as_data() {
-        // The semantic map is DATA on the Connection, re-aimable without recompile.
+    fn the_functor_loads_from_its_committed_prx_fail_closed() {
+        // The projection LIVES in `owl_functor.prx` (Track C #203): the loader
+        // admits the committed bytes ONLY against the baked root and yields a
+        // Functor action with non-empty relabel tables. The exact rows are NOT
+        // re-asserted here — that would re-smuggle the map back into code; the
+        // relabel BEHAVIOR is proven by `pipeline_materializes...` below.
         let GeneratorAction::Functor {
             map_object,
             map_morphism,
-        } = owl_to_praxis_functor().action
+        } = &owl_functor().action
         else {
-            panic!("owl_to_praxis_functor must be a Functor action");
+            panic!("the loaded projection is a Functor action");
         };
-        assert!(map_object.contains(&(CLASS_KIND.to_string(), CONCEPT_KIND.to_string())));
         assert!(
-            map_object.contains(&(OBJECT_PROPERTY_KIND.to_string(), RELATION_KIND.to_string()))
+            !map_object.is_empty() && !map_morphism.is_empty(),
+            "the loaded functor carries non-empty relabel tables"
+        );
+        // File ⇔ pin coherence + fail-closed: the committed bytes re-derive to the
+        // baked root, and a WRONG root is refused (no drift test needed — the pin
+        // IS the integrity, there is no Rust source to drift from).
+        let pin = ContentAddress::from_hex(OWL_FUNCTOR_ROOT_HEX).unwrap();
+        assert_eq!(
+            pr4xis_runtime::load::load(OWL_FUNCTOR_PRX, pin)
+                .unwrap()
+                .root()
+                .unwrap(),
+            pin,
+            "the committed .prx re-derives to its baked root"
         );
         assert!(
-            map_morphism.contains(&(SUBSUMES_REL.to_string(), SUBSUMPTION_REL.to_string())),
-            "the is-a relabel is data"
-        );
-        assert!(
-            map_morphism.contains(&(LABEL_REL.to_string(), CANONICAL_FORM_REL.to_string())),
-            "the lexicalization relabel (label → canonicalForm) is data too"
+            pr4xis_runtime::load::load(OWL_FUNCTOR_PRX, ContentAddress::of(b"wrong")).is_err(),
+            "a wrong root is refused — the load is fail-closed"
         );
     }
 
