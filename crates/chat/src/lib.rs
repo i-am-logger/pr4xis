@@ -815,7 +815,21 @@ pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
 /// attach the loaded-source catalog (the knowledge boundary) via
 /// [`SelfModelInstance::with_catalog`].
 pub fn observe_self(lang: &English) -> SelfModelInstance {
-    SelfModelInstance::observe(loaded_ontologies(lang))
+    observe_self_with_loaded(lang, Vec::new())
+}
+
+/// The eigenform over the LIVE loaded set — `F` applied to the object level it
+/// actually has, not a constant (doc §2). The substrate ontologies
+/// ([`loaded_ontologies`]) PLUS one `Vocabulary` per loaded runtime ontology
+/// (built by the caller via
+/// [`runtime_ontology_vocabulary`](pr4xis_domains::formal::information::knowledge::runtime_ontology_vocabulary)),
+/// so `total_concepts`/`total_morphisms` MOVE the moment a corpus is loaded — the
+/// self-model is causally connected to what is loaded, not a vacuous fixed point.
+/// `loaded` is empty for the English-only path (then this is [`observe_self`]).
+pub fn observe_self_with_loaded(lang: &English, loaded: Vec<Vocabulary>) -> SelfModelInstance {
+    let mut components = loaded_ontologies(lang);
+    components.extend(loaded);
+    SelfModelInstance::observe(components)
 }
 
 /// Describe the eigenform structurally. Callers that need JSON (WASM
@@ -824,6 +838,11 @@ pub fn observe_self(lang: &English) -> SelfModelInstance {
 /// [`SelfModelInstance::with_catalog`].
 pub fn self_describe(lang: &English) -> SelfModelInstance {
     observe_self(lang)
+}
+
+/// [`self_describe`] over the live loaded set — see [`observe_self_with_loaded`].
+pub fn self_describe_with_loaded(lang: &English, loaded: Vec<Vocabulary>) -> SelfModelInstance {
+    observe_self_with_loaded(lang, loaded)
 }
 
 #[cfg(test)]
@@ -835,6 +854,52 @@ mod tests {
     fn sample_english() -> English {
         // Use sample data for unit tests (fast, no WordNet needed)
         English::sample()
+    }
+
+    #[test]
+    fn observe_self_with_loaded_moves_the_totals() {
+        // The eigenform's causal connection (doc §2): feeding the live loaded set
+        // in MOVES total_concepts/morphisms and adds the ontology as a component —
+        // the self-model is no longer blind to what is loaded.
+        use pr4xis::ontology::Vocabulary;
+        use pr4xis::ontology::meta::{ConceptName, Morphism, MorphismKind};
+
+        let english = sample_english();
+        let base = observe_self(&english);
+
+        let loaded = Vocabulary::from_captured(
+            "TestCorpus".to_string(),
+            "test::corpus",
+            "test fixture",
+            vec![
+                ConceptName::new("a"),
+                ConceptName::new("b"),
+                ConceptName::new("c"),
+            ],
+            vec![Morphism::new(
+                ConceptName::new("a"),
+                ConceptName::new("b"),
+                MorphismKind::Subsumption,
+            )],
+        );
+        let with = observe_self_with_loaded(&english, vec![loaded]);
+
+        assert_eq!(
+            with.total_concepts,
+            base.total_concepts + 3,
+            "loading 3 concepts moves the eigenform's concept total"
+        );
+        assert_eq!(
+            with.total_morphisms,
+            base.total_morphisms + 1,
+            "loading 1 morphism moves the eigenform's morphism total"
+        );
+        assert!(
+            with.components.iter().any(|v| v.name() == "TestCorpus"),
+            "the loaded ontology is a component the self-model observes"
+        );
+        // English-only is unchanged — the old eigenform, with an empty loaded set.
+        assert_eq!(observe_self(&english).total_concepts, base.total_concepts);
     }
 
     // --- Algebraic structure integration tests ---

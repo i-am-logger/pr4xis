@@ -8,7 +8,9 @@ use pr4xis_domains::applied::data_provisioning::registry::{
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::english::bridge::FORM_KIND;
-use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
+use pr4xis_domains::formal::information::knowledge::{
+    LoadedRef, runtime_ontology_vocabulary, source_catalog,
+};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
 use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
@@ -429,7 +431,15 @@ impl Pr4xis {
     /// UI renders this directly; it carries no source-specific knowledge.
     pub fn self_describe(&self) -> String {
         let catalog = source_catalog(&self.loaded_refs());
-        pr4xis_chat::self_describe(&self.english)
+        // The eigenform observes the LIVE loaded set: one Vocabulary per loaded
+        // runtime ontology, so `total_concepts`/`total_morphisms` reflect what is
+        // actually loaded (the self-model is causally connected, not vacuous).
+        let loaded = self
+            .runtime_ontologies
+            .iter()
+            .map(runtime_ontology_vocabulary)
+            .collect();
+        pr4xis_chat::self_describe_with_loaded(&self.english, loaded)
             .with_catalog(catalog)
             .to_json()
     }
@@ -664,6 +674,24 @@ mod acceptance {
         assert_ne!(
             without_resp, with_resp,
             "loading the .prx must change the answer"
+        );
+
+        // The eigenform OBSERVES the load: `total_concepts` MOVES (doc §2 — the
+        // page's "entities" stat is no longer blind to the live loaded set). The
+        // self-model is causally connected to what is loaded, not a vacuous fixed
+        // point that reports only the compiled substrate.
+        let total_concepts = |p: &Pr4xis| -> u64 {
+            serde_json::from_str::<serde_json::Value>(&p.self_describe())
+                .expect("self_describe is JSON")["total_concepts"]
+                .as_u64()
+                .expect("total_concepts is a number")
+        };
+        assert!(
+            total_concepts(&with) > total_concepts(&without),
+            "loading the .prx must move the self-model's total_concepts (the eigenform sees it): \
+             with={} without={}",
+            total_concepts(&with),
+            total_concepts(&without),
         );
     }
 
