@@ -33,6 +33,7 @@
 //! no knowledge of any particular source kind. A source is `Loaded` iff
 //! the runtime reports it in its loaded set; otherwise it is `Available`.
 
+use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -151,12 +152,18 @@ pub struct SourceStatus {
 
 /// Build the catalog: every registered source tagged Loaded/Available by
 /// joining [`data_sources`] (the full registry) against the runtime's
-/// reported loaded set (the *monitoring* input).
+/// reported loaded set (the *monitoring* input), PLUS every loaded ontology that
+/// is NOT a registered source (an embedded or uploaded `.prx`) — by its
+/// OntologyName (doc §3). So the catalog reflects EVERY loaded source, not only
+/// the registry: a load the registry never heard of is still part of the live
+/// knowledge boundary, not dropped silently.
 ///
 /// Generic over source kind — it reasons only about registry identity and
 /// load membership, never about what a particular source *is*.
 pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
-    data_sources()
+    let registered: BTreeSet<&str> = data_sources().iter().map(|e| e.name.as_str()).collect();
+
+    let mut catalog: Vec<SourceStatus> = data_sources()
         .iter()
         .map(|entry| {
             let hit = loaded.iter().find(|l| l.name == entry.name);
@@ -183,7 +190,26 @@ pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
                 morphisms,
             }
         })
-        .collect()
+        .collect();
+
+    // §3: loaded-but-UNREGISTERED ontologies — included by OntologyName so the
+    // sources panel is complete. Always `Loaded` (they exist only because loaded);
+    // no version/citation/kind from a registry it isn't in.
+    for l in loaded {
+        if !registered.contains(l.name.as_str()) {
+            catalog.push(SourceStatus {
+                name: l.name.clone(),
+                version: String::new(),
+                kind: "Loaded ontology".to_string(),
+                citation: "Loaded at runtime — content-addressed .prx".to_string(),
+                availability: SourceAvailability::Loaded,
+                staging: Some(l.staging),
+                concepts: l.concepts,
+                morphisms: l.morphisms,
+            });
+        }
+    }
+    catalog
 }
 
 /// Map a [`Staging`] to its lowercase wire label.
@@ -253,20 +279,30 @@ mod tests {
     }
 
     #[test]
-    fn an_unregistered_loaded_name_does_not_invent_a_catalog_entry() {
-        // Monitoring a name that isn't registered must not fabricate a
-        // source — the catalog is grounded in the registry.
-        let loaded = [LoadedRef::new(
-            "definitely-not-a-registered-source",
-            Staging::Async,
-            1,
-            1,
-        )];
+    fn an_unregistered_loaded_ontology_appears_in_the_catalog() {
+        // §3: a LOADED ontology the registry never heard of (an embedded or
+        // uploaded `.prx`) is INCLUDED by its OntologyName — the catalog reflects
+        // every loaded source, not only registered ones (it was silently dropped
+        // before). Its presence is grounded in the LOAD, not a fabricated source.
+        let loaded = [LoadedRef::new("an-uploaded-prx", Staging::Async, 5, 3)];
         let catalog = source_catalog(&loaded);
+
+        let entry = catalog
+            .iter()
+            .find(|s| s.name == "an-uploaded-prx")
+            .expect("the unregistered loaded ontology appears in the catalog");
+        assert_eq!(entry.availability, SourceAvailability::Loaded);
+        assert_eq!(entry.concepts, 5);
+        assert_eq!(entry.morphisms, 3);
+
+        // The registered sources (none loaded here) stay Available — the
+        // unregistered load does not pollute or mislabel them.
         assert!(
             catalog
                 .iter()
-                .all(|s| s.availability == SourceAvailability::Available)
+                .filter(|s| s.name != "an-uploaded-prx")
+                .all(|s| s.availability == SourceAvailability::Available),
+            "registered sources are unaffected"
         );
     }
 
