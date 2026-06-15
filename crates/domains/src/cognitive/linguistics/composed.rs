@@ -399,6 +399,39 @@ impl LexicalReasoner for ComposedReasoner {
         }
     }
 
+    /// Relation-parametric reachability — the verbatim shape of [`is_a`] above
+    /// with `subsumption_kind()` generalized to the `kind` parameter, read off
+    /// the owning ontology's MATERIALIZED closure for THAT relation (the closure
+    /// already folds every loaded transitive kind, Parthood included — this just
+    /// reads the right one). `is_a` is now `reaches(.., subsumption_kind())`.
+    ///
+    /// [`is_a`]: Self::is_a
+    fn reaches(&self, child: ConceptId, ancestor: ConceptId, kind: &ConceptRef) -> bool {
+        match (self.decode(child), self.decode(ancestor)) {
+            // Both loaded: membership in the MATERIALIZED `kind` closure of the
+            // owning ontology (Subsumption, Parthood, … — whichever the question
+            // names), never a BFS. Cross-ontology relations are not asserted.
+            (Some(GroundedConcept::Loaded(c)), Some(GroundedConcept::Loaded(a))) => {
+                if c == a {
+                    return true;
+                }
+                self.ontology_of(&c)
+                    .map(|onto| onto.closure().reaches(&c, &a, kind.clone()))
+                    .unwrap_or(false)
+            }
+            // Both English: the embedded taxonomy answers ONLY a Subsumption
+            // query — it carries no other relation's closure (honest false).
+            (Some(GroundedConcept::English(c)), Some(GroundedConcept::English(a)))
+                if *kind == subsumption_kind() =>
+            {
+                self.english.is_a(c, a)
+            }
+            // Mixed universes, or a non-Subsumption English query: no such edge
+            // exists in this composition (honest false, not a guess).
+            _ => false,
+        }
+    }
+
     fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
         match self.decode(id) {
             // English: delegate to English's materialized hypernym closure.
