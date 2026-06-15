@@ -4,6 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use hashbrown::HashMap;
 
 use pr4xis::category::quiver::ReachabilityClosure;
+use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
@@ -227,6 +228,43 @@ pub trait LexicalReasoner {
     /// multi-word surfaces overrides it with its real maximum.
     fn max_surface_words(&self) -> usize {
         1
+    }
+
+    /// Does `child` reach `ancestor` along the loaded relation `kind`? — the
+    /// RELATION-PARAMETRIC generalization of [`is_a`](Self::is_a) (which is the
+    /// `kind = `[`subsumption_kind`] case). ONE query parameterized by a typed
+    /// relation [`ConceptRef`], never a family of per-relation `part_of()` /
+    /// `has_part()` methods (that would re-bake the relation set into Rust — the
+    /// Subsumption-OR-Parthood anti-pattern). The relation identity is loaded
+    /// data; this method only interprets it against the implementor's closures.
+    ///
+    /// The standard shape is a single relation-parametrized reachability query
+    /// (SPARQL property paths; OWL-RL): a transitive closure read keyed by which
+    /// relation, not N specialized predicates.
+    ///
+    /// Default: a Subsumption query delegates to [`is_a`](Self::is_a); any other
+    /// kind is an honest `false` — an implementor that carries only a taxonomy
+    /// cannot witness a non-Subsumption relation, and must not guess. A reasoner
+    /// holding loaded ontologies overrides this to read each kind's MATERIALIZED
+    /// closure (Parthood, etc.).
+    fn reaches(&self, child: ConceptId, ancestor: ConceptId, kind: &ConceptRef) -> bool {
+        if *kind == subsumption_kind() {
+            self.is_a(child, ancestor)
+        } else {
+            false
+        }
+    }
+
+    /// The relation a natural-language surface asserts, resolved through the
+    /// loaded relation lexicon — `"is a"` ↦ [`subsumption_kind`], `"part of"` ↦
+    /// the Parthood kind, etc. The ONE blessed surface→kind crossing for a
+    /// relational question (the lexicon is `.prx` data; this is its lookup).
+    ///
+    /// Default: `None` — a reasoner with no loaded relation lexicon (embedded
+    /// English) cannot name a relation from a surface, and the caller falls back
+    /// to Subsumption. A composed reasoner that loaded the lexicon overrides it.
+    fn relation_for_surface(&self, _surface: &str) -> Option<ConceptRef> {
+        None
     }
 }
 
