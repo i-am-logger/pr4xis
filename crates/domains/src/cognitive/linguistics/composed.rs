@@ -252,26 +252,28 @@ impl ComposedReasoner {
             }
         }
 
-        // `loaded_ids` (ConceptRef → id) is retained as reasoner state so the
-        // loaded-side closure answers — a set of `ConceptRef`s read off each
-        // ontology's MATERIALIZED Subsumption closure — can be re-keyed back to
-        // the `LexicalReasoner`'s `ConceptId` surface without a linear scan.
-        // The widest surface the recognizer must scan for — the max word count
-        // over every key (English collocations + loaded multi-word surfaces). 1
-        // when all surfaces are single words (the recognizer then no-ops).
-        let max_surface_words = surface_index
-            .keys()
-            .map(|k| k.split_whitespace().count())
-            .max()
-            .unwrap_or(1)
-            .max(1);
-
         // The surface→relation map (the loaded relation lexicon) — built once,
         // held apart from `loaded`. Every composed reasoner can resolve a
         // relational question's predicate ("part of" → Parthood), intrinsically,
         // the way the runtime closure intrinsically folds every transitive kind.
         let relation_surface_index =
             crate::cognitive::linguistics::relation_lexicon::relation_surface_index();
+
+        // `loaded_ids` (ConceptRef → id) is retained as reasoner state so the
+        // loaded-side closure answers — a set of `ConceptRef`s read off each
+        // ontology's MATERIALIZED Subsumption closure — can be re-keyed back to
+        // the `LexicalReasoner`'s `ConceptId` surface without a linear scan.
+        // The widest surface the recognizer must scan for — the max word count
+        // over every key: English collocations + loaded multi-word surfaces AND
+        // the relational surfaces ("part of"), so the recognizer's window reaches
+        // a relation phrase. 1 when all surfaces are single words (then no-op).
+        let max_surface_words = surface_index
+            .keys()
+            .chain(relation_surface_index.keys())
+            .map(|k| k.split_whitespace().count())
+            .max()
+            .unwrap_or(1)
+            .max(1);
 
         Self {
             english,

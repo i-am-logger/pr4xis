@@ -413,4 +413,30 @@ pub mod svo {
             LambekType::np(),
         )
     }
+
+    /// Relational predicate (transitive predicative): `(S[adj]\NP)/NP` — "part of"
+    /// in "X is part of Y". Takes the OBJECT NP (right) to form a predicative
+    /// `S[adj]\NP` ("is part of Y"), which the subject NP then saturates — the
+    /// categorial type of a transitive relational expression (Moortgat,
+    /// type-logical grammar; the predicative analogue of a transitive verb
+    /// `(S\NP)/NP`). WHICH relation it introduces is LOADED data (the relation
+    /// lexicon's surface→kind map), never this category — the grammar is generic.
+    pub fn relational_predicate() -> LambekType {
+        LambekType::right_div(predicate_adjective(), LambekType::np())
+    }
+
+    /// Question copula with a predicative complement: `(S[q]/(S[adj]\NP))/NP` —
+    /// sentence-initial "is" in "is X part of Y". Takes the subject NP (right),
+    /// then a predicative complement `S[adj]\NP` (the relational predicate
+    /// "part of Y"), yielding a yes/no question `S[q]`. The predicative-complement
+    /// analogue of [`question_copula`] (`(S[q]/NP)/NP`): its second slot is for a
+    /// predicative, not a second NP — which is why "is X part of Y" needs its own
+    /// category (Hockenmaier & Steedman 2007; subject-aux inversion, Huddleston &
+    /// Pullum 2002 Ch.11).
+    pub fn question_copula_pred() -> LambekType {
+        LambekType::right_div(
+            LambekType::right_div(LambekType::q(), predicate_adjective()),
+            LambekType::np(),
+        )
+    }
 }
