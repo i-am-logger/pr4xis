@@ -10,23 +10,29 @@
 //! as the composed reasoner indexes a USC section's heading to the section.
 //!
 //! The concept node NAMES (`Parthood`, `Subsumption`) are the wire strings that
-//! cross to a typed [`ConceptRef`](pr4xis_runtime::ontology::ConceptRef) exactly
-//! once, through the blessed
-//! [`relations_kind`](pr4xis_runtime::ontology::relations_kind) lowering — so a
-//! surface resolves to the SAME relation kind the materialized closure keys on.
+//! cross to a typed [`ConceptRef`] exactly once, through the blessed
+//! [`relations_kind`] lowering — so a surface resolves to the SAME relation kind
+//! the materialized closure keys on.
 //!
 //! The map LIVES in the committed `data/projections/relation_lexicon.prx`, loaded
 //! fail-closed against its baked Merkle root — never a Rust literal (the pin IS
 //! the integrity, the [`english_functor`](super::english::bridge) `.prx`
 //! convention).
 //!
+//! The lexicon carries only NON-DEFAULT, complement-headed relational surfaces.
+//! Subsumption is the copula DEFAULT — "is X a Y" is resolved by the grammar (the
+//! copula "is" → the Subsumption fallback at dispatch), so it needs no lexicon
+//! entry, and listing "is a" here would make the multi-word recognizer wrongly
+//! COLLAPSE the copula+determiner sequence. So the lexicon holds exactly the
+//! relations a person names with a phrasal head the base grammar can't parse —
+//! today: Parthood ("part of"). (Inverse surfaces like "has part" await an
+//! inverse-relation kind in the closure; omitted until then.)
+//!
 //! Authority (every surface cited):
 //! - `"part of"` ↦ Parthood — OBO Relation Ontology / BFO `part of`
 //!   (`BFO:0000050`, `rdfs:label "part of"`, `owl:TransitiveProperty`); Smith et
 //!   al. (2005) *Genome Biology* 6:R46 (DOI:10.1186/gb-2005-6-5-r46) — the
 //!   all-some `part_of` schema, distinct from `is_a`; Casati & Varzi (1999).
-//! - `"is a"` ↦ Subsumption — `rdfs:subClassOf` (W3C OWL), OBO `is_a`, transitive
-//!   under RDFS/OWL-RL.
 //! - The surface↔concept link is the OntoLex-Lemon denotation floor (W3C 2016
 //!   Lexicon Model for Ontologies): a relation is a valid reference target.
 
@@ -58,7 +64,7 @@ const RELATION_LEXICON_PRX: &[u8] = include_bytes!(concat!(
 /// The trusted Merkle root of [`RELATION_LEXICON_PRX`] — the integrity pin the
 /// fail-closed load checks against (file ⇔ pin coherence is asserted in tests).
 const RELATION_LEXICON_ROOT_HEX: &str =
-    "c3e142e9016a63b0b79b9607576c7bec7d243bd99cb2cc2efebac3bbf4bbd26f";
+    "4f8edf9c29ef21aa0856bb26f2a4a8b120f444eaf72dec7ddc373fdac707f72c";
 
 /// Load the relation lexicon from its committed `.prx` ([`RELATION_LEXICON_PRX`])
 /// — FAIL-CLOSED: the embedded bytes are admitted only if they re-derive to
@@ -118,18 +124,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_lexicon_maps_surfaces_to_their_relation_kinds_fail_closed() {
-        // The loaded map resolves each natural surface to the SAME ConceptRef the
-        // materialized closure keys on — "part of" → Parthood, "is a" →
-        // Subsumption (the Smith et al. 2005 part_of ≠ is_a distinction, as data).
+    fn the_lexicon_maps_part_of_to_parthood_fail_closed() {
+        // The loaded map resolves the phrasal relational surface to the SAME
+        // ConceptRef the materialized closure keys on — "part of" → Parthood.
         let index = relation_surface_index();
         assert_eq!(index.get("part of"), Some(&relations_kind("Parthood")));
-        assert_eq!(index.get("has part"), Some(&relations_kind("Parthood")));
-        assert_eq!(index.get("is a"), Some(&relations_kind("Subsumption")));
-        assert_eq!(index.get("is an"), Some(&relations_kind("Subsumption")));
-        assert!(
-            index.get("part of") != index.get("is a"),
-            "Parthood and Subsumption are distinct relation kinds"
+        // Subsumption is the copula default, NOT lexicalized here (else the
+        // multi-word recognizer would wrongly collapse "is a").
+        assert_eq!(index.get("is a"), None);
+        assert_ne!(
+            index.get("part of"),
+            Some(&relations_kind("Subsumption")),
+            "part of is Parthood, distinct from Subsumption (Smith et al. 2005)"
         );
 
         // File ⇔ pin coherence + fail-closed: the committed bytes re-derive to the
