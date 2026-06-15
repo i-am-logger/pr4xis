@@ -62,20 +62,20 @@ pub fn runtime_ontology_vocabulary(onto: &RuntimeOntology) -> Vocabulary {
     for node in archive.nodes.iter().filter(|n| n.kind != FORM_KIND) {
         concepts.push(ConceptName::new(node.name.to_string()));
         for (kind, target) in &node.edges {
+            // A cross-ontology grounded edge (no local target) is a denotation link
+            // to a foreign atom, not an intra-ontology morphism between concepts —
+            // skip it (else it would mint a morphism with an empty target name and
+            // inflate the count).
+            let Some(target_name) = target.local_name() else {
+                continue;
+            };
             // A lexicalization edge into a Form surface is not a taxonomy morphism.
-            if target
-                .local_name()
-                .is_some_and(|name| form_names.contains(name))
-            {
+            if form_names.contains(target_name) {
                 continue;
             }
-            let target_name = target
-                .local_name()
-                .map(ToString::to_string)
-                .unwrap_or_default();
             morphisms.push(Morphism::new(
                 ConceptName::new(node.name.to_string()),
-                ConceptName::new(target_name),
+                ConceptName::new(target_name.to_string()),
                 MorphismKind::from_name(kind),
             ));
         }

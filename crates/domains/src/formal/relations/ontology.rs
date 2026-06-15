@@ -52,9 +52,12 @@
 //! (1910–13); Masolo et al. (2003) DOLCE.
 
 #[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use alloc::{
+    boxed::Box, collections::BTreeSet, format, string::String, string::ToString, vec, vec::Vec,
+};
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis_runtime::ontology::{ConceptRef, relations_kind};
 
 pr4xis::ontology! {
     name: "Relations",
@@ -257,6 +260,24 @@ fn relation_has_property(r: RelationsConcept, p: RelationsConcept) -> bool {
         .get(&r)
         .map(|props| props.contains(&p))
         .unwrap_or(false)
+}
+
+/// The relation kinds the ontology declares `Reflexive` — DERIVED from the typed
+/// `(R, Reflexive, HasProperty)` morphisms via [`RelationProperty`] (the same
+/// loaded-edge query the structural axioms use), returned as the [`ConceptRef`]s
+/// keyed in the `Relations` vocabulary the runtime closure keys on. No committed
+/// cache, no hardcoded list: a kind is reflexive iff the ontology SAYS so —
+/// Subsumption / Equivalence / Similarity, but NOT the `Irreflexive` Parthood.
+/// Read by `ComposedReasoner` so a relational self-query `reaches(c, a, kind)`
+/// with `c == a` holds only for a reflexive kind (OWL-RL `prp-rfp`:
+/// `Reflexive(p) → p(x, x)`; the strict closure handles the rest).
+pub fn reflexive_relation_kinds() -> BTreeSet<ConceptRef> {
+    use pr4xis::category::{Concept, FinitelyGenerated};
+    RelationsConcept::variants()
+        .into_iter()
+        .filter(|c| relation_has_property(*c, RelationsConcept::Reflexive))
+        .map(|c| relations_kind(c.name()))
+        .collect()
 }
 
 fn kinded_edge_exists(
@@ -616,6 +637,31 @@ mod tests {
                  `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`"
             );
         }
+    }
+
+    /// The reflexive relation kinds are DERIVED from this ontology's
+    /// `(R, Reflexive, HasProperty)` declarations (no committed cache): Subsumption,
+    /// Equivalence, Similarity are reflexive; Parthood (declared `Irreflexive`) is
+    /// NOT. This is the `ComposedReasoner`'s source for the `reaches` `c == a`
+    /// short-circuit, so it must track exactly what the ontology declares.
+    #[test]
+    fn reflexive_relation_kinds_are_derived_from_the_declarations() {
+        let reflexive: alloc::collections::BTreeSet<String> = super::reflexive_relation_kinds()
+            .iter()
+            .map(|c| c.name.clone())
+            .collect();
+        assert!(
+            reflexive.contains("Subsumption"),
+            "Subsumption is reflexive"
+        );
+        assert!(
+            reflexive.contains("Equivalence"),
+            "Equivalence is reflexive"
+        );
+        assert!(
+            !reflexive.contains("Parthood"),
+            "Parthood is Irreflexive — must not be in the reflexive set"
+        );
     }
 
     #[test]
