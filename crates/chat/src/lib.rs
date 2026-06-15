@@ -531,6 +531,7 @@ pub fn answer_question(
                             response: build_taxonomy_response(
                                 en,
                                 en.surface_for_relation(&kind).as_deref(),
+                                en.relation_chain(cid, pid, &kind),
                                 child,
                                 parent,
                                 cid,
@@ -657,6 +658,12 @@ fn build_taxonomy_response(
     // not "X is a Y". `None` (Subsumption / is-a) keeps the copula "is a". Loaded
     // data, never a hardcoded relation string.
     connective: Option<&str>,
+    // The ORDERED evidence chain `[child, …, parent]` along the answered relation,
+    // pre-resolved by the caller from the typed kind via `relation_chain` (the chat
+    // cannot name a `ConceptRef`). For Subsumption it is the is-a chain, for
+    // Parthood the part-of chain (`subsection → section → title`). `None`/short
+    // degrades to the endpoints — never re-derived here.
+    relation_chain: Option<Vec<pr4xis_domains::cognitive::linguistics::english::ConceptId>>,
     child_word: &str,
     parent_word: &str,
     child_id: pr4xis_domains::cognitive::linguistics::english::ConceptId,
@@ -667,18 +674,15 @@ fn build_taxonomy_response(
     // ---- Stage 1: Content Determination ----
     // Gather all relevant knowledge from the ontology.
 
-    // The taxonomy chain: how child relates to parent. The ORDERED is-a evidence
-    // path is owned by the reasoner's MATERIALIZED hypernym closure — we ask for
-    // `ancestor_chain` rather than hand-walking `parents()` in a bounded loop, so
-    // even the justification is closure-derived, not re-walked. This function is
-    // only reached after `is_a(child, parent)` already proved (see the caller),
-    // so the chain is always present; an absent chain degrades to the endpoints
-    // rather than re-deriving anything.
+    // The relation chain: how child reaches parent along the answered relation. The
+    // ORDERED evidence path is owned by the reasoner's MATERIALIZED closure (read by
+    // the caller via `relation_chain`), so even the justification is closure-derived,
+    // not re-walked. This function is only reached after the relation already proved,
+    // so the chain is present; an absent chain degrades to the endpoints.
     let chain_ids: Vec<(
         String,
         pr4xis_domains::cognitive::linguistics::english::ConceptId,
-    )> = en
-        .ancestor_chain(child_id, parent_id)
+    )> = relation_chain
         .unwrap_or_else(|| vec![child_id, parent_id])
         .into_iter()
         .enumerate()
@@ -737,14 +741,17 @@ fn build_taxonomy_response(
         realize::sentence_relation(child_word, parent_word, connective)
     ));
 
-    // Evidence: HOW — the taxonomy path explains the connection
+    // Evidence: HOW — the relation chain explains the connection, each rung
+    // phrased with the SAME loaded connective ("section is part of title", not
+    // "section is a title"). For a deep mereology this shows the part-of path.
     if chain_ids.len() > 2 {
         let chain_labels: Vec<&str> = chain_ids.iter().map(|(l, _)| l.as_str()).collect();
         let mut evidence_parts = Vec::new();
         for i in 0..chain_labels.len() - 1 {
-            evidence_parts.push(realize::sentence_copula(
+            evidence_parts.push(realize::sentence_relation(
                 chain_labels[i],
                 chain_labels[i + 1],
+                connective,
             ));
         }
         sections.push(evidence_parts.join(", and "));
@@ -1571,6 +1578,59 @@ mod loaded_corpus_demo {
         };
         materialize(archive, OntologyName::new_static("PartCorpus"))
             .expect("the Parthood corpus materializes")
+    }
+
+    /// A 3-LEVEL Parthood mereology (clause → section → title, part→whole), so a
+    /// "is clause part of title" answer has a non-trivial part-of evidence CHAIN
+    /// through the intermediate `section`.
+    fn deep_parthood_corpus() -> RuntimeOntology {
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::{Definition, EdgeTarget};
+        let part = |name: &str, whole: Option<&str>, gloss: &str| Definition {
+            kind: "Concept".to_string(),
+            name: name.to_string(),
+            edges: whole
+                .map(|w| vec![("Parthood".to_string(), EdgeTarget::Local(w.to_string()))])
+                .unwrap_or_default(),
+            axioms: vec![],
+            lexical: Some(gloss.to_string()),
+        };
+        let archive = Archive {
+            nodes: vec![
+                part("clause", Some("section"), "A clause within a section."),
+                part("section", Some("title"), "A section within a title."),
+                part("title", None, "A title of the code."),
+            ],
+            connections: vec![],
+        };
+        materialize(archive, OntologyName::new_static("DeepPartCorpus"))
+            .expect("the deep Parthood corpus materializes")
+    }
+
+    #[test]
+    fn a_deep_parthood_answer_shows_the_part_of_evidence_chain() {
+        // image-meet-chain: `relation_chain` reads the Parthood closure, so a deep
+        // mereology's answer shows the part-of EVIDENCE path through the
+        // intermediate whole — not just the two endpoints.
+        let composed = ComposedReasoner::new(English::sample(), vec![deep_parthood_corpus()]);
+        let yes = answer_question(&composed, "part of", &entity_args("clause", "title"));
+        assert_eq!(
+            yes.taxonomy_checked,
+            Some(("clause".to_string(), "title".to_string(), true)),
+            "a clause IS transitively part of a title"
+        );
+        // The evidence chain names the intermediate `section` and phrases each rung
+        // "is part of", not "is a".
+        assert!(
+            yes.response.contains("section"),
+            "the part-of chain must show the intermediate whole; got: {:?}",
+            yes.response
+        );
+        assert!(
+            yes.response.contains("is part of") && !yes.response.contains(" is a "),
+            "every rung phrases the Parthood relation; got: {:?}",
+            yes.response
+        );
     }
 
     /// Two `Sem::Concept` (NP) arguments naming the entities of a relational
