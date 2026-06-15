@@ -120,14 +120,21 @@ pub struct ComposedReasoner {
     /// construction so `max_surface_words` is O(1); `1` when every surface is a
     /// single word (the recognizer then no-ops).
     max_surface_words: usize,
-    /// The loaded surface→relation-kind map (`"part of"` → the Parthood
-    /// [`ConceptRef`], `"is a"` → Subsumption), from the committed
-    /// `relation_lexicon.prx`. Held APART from `loaded` (it is reasoning
+    /// The loaded surface→relation-kind map (today `"part of"` → the Parthood
+    /// [`ConceptRef`]; Subsumption is the un-lexicalized copula default), from the
+    /// committed `relation_lexicon.prx`. Held APART from `loaded` (it is reasoning
     /// vocabulary, not a queryable corpus), so `loaded_ontology_count` stays
     /// honest. Read by [`relation_for_surface`](LexicalReasoner::relation_for_surface)
     /// to lower a relational question's predicate to the kind its closure is
     /// keyed on.
     relation_surface_index: BTreeMap<String, ConceptRef>,
+    /// The REFLEXIVE relation kinds — DERIVED from the typed Relations ontology's
+    /// `(R, Reflexive, HasProperty)` declarations (Subsumption, Equivalence,
+    /// Similarity — NOT Parthood, which is `Irreflexive`), not a hardcoded list. A
+    /// relational query `reaches(c, a, kind)` answers `c == a` as `true` only when
+    /// `kind` is in this set, so "is X part of X" is `false` (strict, per the data)
+    /// while "is X a X" stays `true`.
+    reflexive_kinds: BTreeSet<ConceptRef>,
 }
 
 impl ComposedReasoner {
@@ -292,6 +299,10 @@ impl ComposedReasoner {
             base,
             max_surface_words,
             relation_surface_index,
+            // The reflexive relation kinds, DERIVED from the typed Relations
+            // ontology's `(R, Reflexive, HasProperty)` edges — so the `reaches`
+            // `c == a` short-circuit consults the loaded data, not a hardcoded list.
+            reflexive_kinds: crate::formal::relations::ontology::reflexive_relation_kinds(),
         }
     }
 
@@ -434,8 +445,13 @@ impl LexicalReasoner for ComposedReasoner {
             // owning ontology (Subsumption, Parthood, … — whichever the question
             // names), never a BFS. Cross-ontology relations are not asserted.
             (Some(GroundedConcept::Loaded(c)), Some(GroundedConcept::Loaded(a))) => {
+                // Reflexivity is per-relation, read from the loaded Relations data:
+                // `c == a` holds for a reflexive kind (Subsumption — `x is_a x`) but
+                // NOT an irreflexive one (Parthood — `x` is not a proper part of
+                // itself). The closure is strict reachability, so reflexivity is
+                // added here only for the kinds the ontology declares it for.
                 if c == a {
-                    return true;
+                    return self.reflexive_kinds.contains(kind);
                 }
                 self.ontology_of(&c)
                     .map(|onto| onto.closure().reaches(&c, &a, kind.clone()))
@@ -720,6 +736,19 @@ mod tests {
         assert!(
             !composed.reaches(sub, sec, &subsumption_kind()),
             "the Parthood edge is not a Subsumption edge — is-a must be false"
+        );
+
+        // Reflexivity is per-relation, read from the loaded Relations data:
+        // Parthood is declared `Irreflexive`, so a thing is NOT a proper part of
+        // itself — the `c == a` short-circuit must NOT blanket-return true.
+        assert!(
+            !composed.reaches(sub, sub, &parthood),
+            "Parthood is irreflexive — X is not part of X"
+        );
+        // …while Subsumption IS declared reflexive (X is-a X).
+        assert!(
+            composed.reaches(sub, sub, &subsumption_kind()),
+            "Subsumption is reflexive — X is-a X"
         );
     }
 }
