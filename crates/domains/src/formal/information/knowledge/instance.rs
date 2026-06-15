@@ -73,6 +73,42 @@ pub struct SelfModelInstance {
     ///
     /// [`with_capabilities`]: Self::with_capabilities
     pub capabilities: Vec<OntologyCapability>,
+    /// The append-only LOAD HISTORY (doc §2.4) — the temporal dimension the
+    /// system entirely lacked. Each event records a `.prx` becoming part of the
+    /// reasoned-over set, content-addressed by its Merkle root, so the system
+    /// REMEMBERS what it loaded and in what order. Empty until [`with_history`]
+    /// is attached.
+    ///
+    /// [`with_history`]: Self::with_history
+    pub history: Vec<LoadEvent>,
+    /// The content-addressed fingerprint of the CURRENT loaded state — a Merkle
+    /// fold over the sorted loaded roots (doc §2.4). Two systems with the same
+    /// `state_cid` have loaded exactly the same knowledge; it changes the moment a
+    /// load does. `None` until [`with_history`](Self::with_history) supplies it.
+    pub state_cid: Option<String>,
+}
+
+/// What kind of load an event records (doc §2.4 / §4.5).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadEventKind {
+    /// A `.prx` not previously loaded under its name entered the set.
+    Load,
+    /// A `.prx` DISPLACED an earlier one of the same `OntologyName` (a new
+    /// version replacing the old — the displaced root is carried).
+    Replace,
+}
+
+/// One entry in the append-only load history (doc §2.4) — a content-addressed
+/// record of a `.prx` joining the reasoned-over set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadEvent {
+    pub kind: LoadEventKind,
+    /// The ontology's name.
+    pub ontology: String,
+    /// The Merkle root (hex) of the loaded archive — its content identity.
+    pub root: String,
+    /// The root (hex) of the displaced archive, for a [`Replace`](LoadEventKind::Replace).
+    pub displaced: Option<String>,
 }
 
 impl SelfModelInstance {
@@ -89,6 +125,8 @@ impl SelfModelInstance {
             total_concepts,
             total_morphisms,
             capabilities: Vec::new(),
+            history: Vec::new(),
+            state_cid: None,
         }
     }
 
@@ -103,6 +141,15 @@ impl SelfModelInstance {
     /// ontology can actually answer, so "loaded" stops lying about capability.
     pub fn with_capabilities(mut self, capabilities: Vec<OntologyCapability>) -> Self {
         self.capabilities = capabilities;
+        self
+    }
+
+    /// Attach the load history + the current state fingerprint (doc §2.4) — the
+    /// system's MEMORY of what it loaded and a content-addressed identity of its
+    /// current knowledge state.
+    pub fn with_history(mut self, history: Vec<LoadEvent>, state_cid: Option<String>) -> Self {
+        self.history = history;
+        self.state_cid = state_cid;
         self
     }
 
@@ -233,6 +280,37 @@ impl Present for SelfModelInstance {
             })
             .collect();
         p.set("capabilities", SchemaValue::List(capabilities));
+
+        // The load history + the content-addressed state fingerprint (doc §2.4) —
+        // the temporal/memory dimension: what was loaded, in order, and an identity
+        // of the current knowledge state that changes the moment a load does.
+        let history: Vec<SchemaValue> = self
+            .history
+            .iter()
+            .map(|e| {
+                let mut ev = Presentation::new();
+                ev.set(
+                    "event",
+                    SchemaValue::Text(
+                        match e.kind {
+                            LoadEventKind::Load => "load",
+                            LoadEventKind::Replace => "replace",
+                        }
+                        .into(),
+                    ),
+                );
+                ev.set("ontology", SchemaValue::Text(e.ontology.clone()));
+                ev.set("root", SchemaValue::Text(e.root.clone()));
+                if let Some(displaced) = &e.displaced {
+                    ev.set("displaced", SchemaValue::Text(displaced.clone()));
+                }
+                SchemaValue::Record(ev)
+            })
+            .collect();
+        p.set("history", SchemaValue::List(history));
+        if let Some(cid) = &self.state_cid {
+            p.set("state_cid", SchemaValue::Text(cid.clone()));
+        }
         p
     }
 }
