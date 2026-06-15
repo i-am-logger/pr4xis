@@ -7,7 +7,6 @@ use pr4xis_domains::applied::data_provisioning::registry::{
 };
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
-use pr4xis_domains::cognitive::linguistics::english::bridge::FORM_KIND;
 use pr4xis_domains::formal::information::knowledge::{
     LoadEvent, LoadEventKind, LoadedRef, ontology_capabilities, runtime_ontology_vocabulary,
     source_catalog,
@@ -23,7 +22,6 @@ use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::usc_run
 use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
-use std::collections::BTreeSet;
 
 /// The complete WordNet ontology, baked in as the compact `.prx.gz` (emitted by
 /// build.rs). `load_english` gunzips and materializes the full `English`.
@@ -201,34 +199,32 @@ impl Pr4xis {
     /// provisions, OWL entities, and loaded `.prx` concepts alike. Source-agnostic
     /// (the unification: every loaded source now contributes through the one set).
     pub fn loaded_section_count(&self) -> usize {
-        // CONCEPTS only — the §9 `ontolex:Form` atoms (kind == FORM_KIND) are
-        // queryable SURFACES, not concepts, so they are excluded from the count.
+        // CONCEPTS only — the §9 `ontolex:Form` surface atoms are not concepts.
+        // Counted through the ONE blessed Form-aware lowering
+        // (`runtime_ontology_vocabulary`), the same counter `self_describe`'s
+        // eigenform and `loaded_refs` use, so the three can never drift apart.
         self.runtime_ontologies
             .iter()
-            .map(|o| {
-                o.archive()
-                    .nodes
-                    .iter()
-                    .filter(|n| n.kind != FORM_KIND)
-                    .count()
-            })
+            .map(|o| runtime_ontology_vocabulary(o).concept_count())
             .sum()
     }
 
     /// Load a registered USLM source from its authoritative XML (downloaded
-    /// by the host from the source's served document). Parses in-browser
-    /// into a LIVE [`UsCode`] — the same materialization path English
-    /// takes, only at runtime — and holds it in memory, queryable. This IS
-    /// the Nelson-Narens *control* operation: Available → Loaded. A
-    /// malformed document fails closed via the USLM reader. Idempotent:
-    /// loading a name already present replaces it.
+    /// by the host from the source's served document). Parses in-browser into a
+    /// transient [`UsCode`], then PROJECTS it through the `uslm::corpus::bridge`
+    /// functor into one queryable [`RuntimeOntology`] held in the chat-reasoning
+    /// set — the SAME `project → materialize → install` path the `.prx` and OWL
+    /// loads use (the `UsCode` itself is not retained; there is no `self.loaded`
+    /// corpus held aside from the reasoner). This IS the Nelson-Narens *control*
+    /// operation: Available → Loaded. A malformed document fails closed via the
+    /// USLM reader. Idempotent by name: loading a name already present replaces it.
     pub fn load_source(&mut self, name: String, xml: &str) -> Result<(), JsValue> {
         self.load_source_core(name, xml)
             .map_err(|e| JsValue::from_str(&e))
     }
 
     /// The plain-Rust core of [`Self::load_source`]: parse USLM → [`UsCode`] →
-    /// **project into the generic runtime [`Archive`]** (the
+    /// **project into the generic runtime [`Archive`](pr4xis_runtime::archive::Archive)** (the
     /// `uslm::corpus::bridge` functor) → [`materialize`] into one queryable
     /// [`RuntimeOntology`] → install into the chat-reasoning set via
     /// [`Self::install_runtime_ontology`]. This is the SAME
@@ -322,7 +318,8 @@ impl Pr4xis {
         Ok(())
     }
 
-    /// Load a NEW-FORMAT `.prx` ontology — the content-addressed [`Archive`]
+    /// Load a NEW-FORMAT `.prx` ontology — the content-addressed
+    /// [`Archive`](pr4xis_runtime::archive::Archive)
     /// (not the legacy `.prx.gz` envelope) — fail-closed, and ground it into the
     /// chat so the loaded gloss can answer "what is X".
     ///
@@ -510,50 +507,28 @@ impl Pr4xis {
             0,
         ));
         // Every runtime-loaded ontology the chat reasons over (USC / OWL / .prx):
-        // CONCEPTS (non-Form nodes) and their generating typed morphisms. The §9
-        // `ontolex:Form` atoms are queryable surfaces, not concepts — excluded from
-        // the concept count, and the lexicalization edges that point AT them are
-        // excluded from the morphism count (they are surfaces, not taxonomy).
+        // CONCEPTS and their generating typed morphisms, counted through the ONE
+        // blessed Form-aware lowering (`runtime_ontology_vocabulary`) — the same
+        // counter the eigenform vocabularies and `loaded_section_count` use, so the
+        // §9 `ontolex:Form` surface-exclusion rule lives in exactly one place and
+        // the catalog count, the stat, and the eigenform totals cannot drift.
         for onto in &self.runtime_ontologies {
-            let form_names: BTreeSet<&str> = onto
-                .archive()
-                .nodes
-                .iter()
-                .filter(|n| n.kind == FORM_KIND)
-                .map(|n| n.name.as_str())
-                .collect();
-            let concepts = onto
-                .archive()
-                .nodes
-                .iter()
-                .filter(|n| n.kind != FORM_KIND)
-                .count();
-            let morphisms: usize = onto
-                .archive()
-                .nodes
-                .iter()
-                .filter(|n| n.kind != FORM_KIND)
-                .flat_map(|n| &n.edges)
-                .filter(|(_, target)| {
-                    target
-                        .local_name()
-                        .is_none_or(|name| !form_names.contains(name))
-                })
-                .count();
+            let vocab = runtime_ontology_vocabulary(onto);
             refs.push(LoadedRef::new(
                 onto.id().as_str().to_string(),
                 Staging::Async,
-                concepts,
-                morphisms,
+                vocab.concept_count(),
+                vocab.morphism_count(),
             ));
         }
         refs
     }
 
     /// Install a materialized [`RuntimeOntology`] into the chat-reasoning set
-    /// and rebuild the [`ComposedReasoner`]. Idempotent by content address:
-    /// re-loading the same archive (equal Merkle root, hence equal
-    /// `RuntimeOntology`) replaces the prior copy rather than duplicating it.
+    /// and rebuild the [`ComposedReasoner`]. Idempotent BY NAME ([`OntologyName`]):
+    /// re-loading the same source name displaces the prior version (one current
+    /// version per source, doc §4.5), recording a `Replace` event; a DIFFERENT
+    /// name with identical content coexists (content equality is not the identity).
     ///
     /// The composed reasoner OWNS its own [`English`] (rebuilt once here from the
     /// baked codegen data — the same constructor `Pr4xis::new` uses), so the

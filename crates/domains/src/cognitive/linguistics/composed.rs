@@ -233,6 +233,9 @@ impl ComposedReasoner {
         //    the direct is-a links the English `parents`/`children` mirror).
         let mut loaded_parents: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
         let mut loaded_children: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+        // The is-a kind, built ONCE — `subsumption_kind()` allocates a `String` +
+        // clones the vocab `OntologyName`, so hoist it out of the per-edge filter.
+        let subsumption = subsumption_kind();
         for onto in &loaded {
             for node in &onto.archive().nodes {
                 let cref = ConceptRef::new(onto.id().clone(), node.name.clone());
@@ -242,7 +245,7 @@ impl ComposedReasoner {
                 for edge in onto.morphisms_from(&cref) {
                     // morphisms_from now yields edges of ALL kinds; keep only the
                     // Subsumption (is-a) generators for the taxonomy build.
-                    if edge.kind != subsumption_kind() {
+                    if edge.kind != subsumption {
                         continue;
                     }
                     if let Some(&parent_id) = loaded_ids.get(&edge.target) {

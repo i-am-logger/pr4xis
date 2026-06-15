@@ -38,14 +38,18 @@
 //! sort that DOES differ (a class is not a property, OWL 2 §5.1/§5.3) is preserved
 //! in `map_object` (`Class → Concept`, `ObjectProperty → Relation`).
 //!
-//! # Scope: the is-a closure (NL-query deferred)
+//! # Scope: the is-a closure AND the §9 canonical-form lexicalization
 //!
-//! Only the subsumption (is-a) graph is projected — exactly what the catalog +
-//! the reasoner's subsumption closure need. The projected node NAME is the IRI
-//! (the entity's globally-unique identity, the referent edges name), so — like a
-//! URN-named USC section — an IRI does not tokenize as natural language; NL
-//! queries over loaded OWL await the lexical-`Form` surfacing
-//! (`docs/praxis-self-aware-architecture` §9 / Step 1b), the same deferral USC has.
+//! The subsumption (is-a) graph is projected — what the catalog + the reasoner's
+//! subsumption closure need — together with the §9 lexical surfacing: the
+//! projected node NAME is the IRI (the entity's globally-unique identity, the
+//! referent edges name), which does not tokenize as natural language, so each
+//! distinct `rdfs:label` is also minted as an `ontolex:Form` atom with a
+//! `label ↦ canonicalForm` lexicalization edge (`owl_project_archive` below). The
+//! composed reasoner indexes that Form, so "what is &lt;label&gt;" answers from the
+//! entity's gloss instead of only its opaque IRI
+//! (`docs/praxis-self-aware-architecture` §9, landed — no longer the deferral USC
+//! once had).
 
 use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};

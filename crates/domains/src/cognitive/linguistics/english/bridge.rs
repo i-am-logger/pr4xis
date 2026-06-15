@@ -175,8 +175,12 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
 /// live ONLY as a content-addressed [`Connection`] inside these bytes, never in a
 /// Rust literal. Re-aiming the projection (say `hypernym ↦ Parthood`) means
 /// re-emitting this file and updating [`ENGLISH_FUNCTOR_ROOT_HEX`] — NO recompile
-/// of any projection logic (regenerate via the `#[ignore]`d
-/// `regenerate_english_functor_prx` bootstrap kept in git history).
+/// of any projection logic. There is deliberately NO committed regenerator: the
+/// pin IS the integrity, and a permanent Rust emitter would smuggle the relabel
+/// table back into code (the #203 design rule). The projection's reviewable
+/// provenance is the prior `wordnet_to_praxis_functor()` `Connection`, deleted in
+/// `745f38e` (recoverable from git history); a re-aim emits a fresh `.prx` from a
+/// one-off `Connection` and re-pins.
 const ENGLISH_FUNCTOR_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/data/projections/english_functor.prx"
