@@ -1270,4 +1270,115 @@ mod loaded_corpus_demo {
             "the grounded entry's surface form is the lowercased node name"
         );
     }
+
+    /// A loaded ontology carrying a PARTHOOD mereology in the USC orientation
+    /// (part → whole): a `subsection` is part of a `section`. Hand-built so the
+    /// edge direction is explicit and matches `uslm::corpus::bridge` (a
+    /// subdivision Composes INTO its parent → Parthood part→whole) — NOT the
+    /// `ontology!` `has_a:` sugar, which orients whole→part (has-part), the
+    /// inverse. `materialize` folds the edge into the transitive Parthood closure.
+    fn parthood_corpus() -> RuntimeOntology {
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::{Definition, EdgeTarget};
+        let archive = Archive {
+            nodes: vec![
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "subsection".to_string(),
+                    edges: vec![(
+                        "Parthood".to_string(),
+                        EdgeTarget::Local("section".to_string()),
+                    )],
+                    axioms: vec![],
+                    lexical: Some("A lettered subdivision of a section.".to_string()),
+                },
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "section".to_string(),
+                    edges: vec![],
+                    axioms: vec![],
+                    lexical: Some("The smallest numbered unit of a statute.".to_string()),
+                },
+            ],
+            connections: vec![],
+        };
+        materialize(archive, OntologyName::new_static("PartCorpus"))
+            .expect("the Parthood corpus materializes")
+    }
+
+    /// Two `Sem::Concept` (NP) arguments naming the entities of a relational
+    /// question — what `answer_question` reads via `extract_entity_name`.
+    fn entity_args(child: &str, parent: &str) -> [montague::Sem; 2] {
+        [
+            montague::Sem::Concept {
+                word: child.to_string(),
+                concepts: Vec::new(),
+            },
+            montague::Sem::Concept {
+                word: parent.to_string(),
+                concepts: Vec::new(),
+            },
+        ]
+    }
+
+    #[test]
+    fn is_subsection_part_of_section_answers_yes_over_a_loaded_parthood_mereology() {
+        // Step 3 end-to-end: the relational predicate "part of" resolves through
+        // the loaded relation lexicon to the Parthood kind, and the reasoner reads
+        // the loaded ontology's MATERIALIZED Parthood closure — the structural
+        // query Track C + §9 left dark (gloss worked; "is X part of Y" did not).
+        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let args = entity_args("subsection", "section");
+
+        let yes = answer_question(&composed, "part of", &args);
+        assert_eq!(
+            yes.taxonomy_checked,
+            Some(("subsection".to_string(), "section".to_string(), true)),
+            "a subsection IS part of its section (Parthood closure); got {:?}",
+            yes.taxonomy_checked
+        );
+
+        // English-only cannot witness Parthood: it has no relation lexicon
+        // (relation_for_surface → None → Subsumption) and no loaded closure.
+        let en_only = answer_question(&English::sample(), "part of", &args);
+        assert_ne!(
+            en_only.taxonomy_checked,
+            Some(("subsection".to_string(), "section".to_string(), true)),
+            "english-only must not affirm a Parthood it cannot witness"
+        );
+    }
+
+    #[test]
+    fn is_section_part_of_subsection_answers_no_parthood_is_directional() {
+        // Parthood is antisymmetric (BFO:0000050): the whole is NOT part of its
+        // part. The reverse-direction convenience that would mask this is gone.
+        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let no = answer_question(&composed, "part of", &entity_args("section", "subsection"));
+        assert_eq!(
+            no.taxonomy_checked,
+            Some(("section".to_string(), "subsection".to_string(), false)),
+            "a section is NOT part of its subsection; got {:?}",
+            no.taxonomy_checked
+        );
+    }
+
+    #[test]
+    fn part_of_and_is_a_read_distinct_closures_over_the_same_pair() {
+        // The Smith et al. (2005) part_of ≠ is_a distinction, end-to-end: the
+        // subsection→section edge is Parthood, so "is X part of Y" is true but
+        // "is X a Y" (the bare copula "is" → Subsumption fallback) is false.
+        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let args = entity_args("subsection", "section");
+
+        assert_eq!(
+            answer_question(&composed, "part of", &args).taxonomy_checked,
+            Some(("subsection".to_string(), "section".to_string(), true)),
+            "part of → Parthood → true"
+        );
+        assert_eq!(
+            answer_question(&composed, "is", &args).taxonomy_checked,
+            Some(("subsection".to_string(), "section".to_string(), false)),
+            "is → Subsumption fallback → false (the edge is Parthood, not is-a)"
+        );
+    }
 }

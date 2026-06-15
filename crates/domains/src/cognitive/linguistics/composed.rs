@@ -596,4 +596,61 @@ mod tests {
         // And the multi-word Form surface makes the recognizer active.
         assert!(composed.max_surface_words() >= 2);
     }
+
+    /// The relation-parametric `reaches` reads each relation's OWN materialized
+    /// closure: a USC-oriented Parthood mereology (part → whole) is traversable,
+    /// directionally, and is DISTINCT from Subsumption over the same edge — the
+    /// Smith et al. (2005) `part_of` ≠ `is_a` distinction, enforced at the reasoner.
+    #[test]
+    fn reaches_reads_the_parthood_closure_distinct_from_subsumption() {
+        use pr4xis_runtime::ontology::relations_kind;
+
+        // A subsection is PART OF a section — the USC orientation (part → whole),
+        // edge kind "Parthood" (which materialize folds into the transitive
+        // Parthood closure; Parthood ∈ relations_transitive_kinds.txt).
+        let archive = Archive {
+            nodes: alloc::vec![
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "subsection".to_string(),
+                    edges: alloc::vec![(
+                        "Parthood".to_string(),
+                        EdgeTarget::Local("section".to_string()),
+                    )],
+                    axioms: alloc::vec![],
+                    lexical: Some("A lettered subdivision of a section.".to_string()),
+                },
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "section".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: Some("The smallest numbered unit of a statute.".to_string()),
+                },
+            ],
+            connections: alloc::vec![],
+        };
+        let onto = materialize(archive, OntologyName::new_static("part_test"))
+            .expect("the Parthood archive materializes");
+        let composed = ComposedReasoner::new(English::sample(), alloc::vec![onto]);
+        let sub = composed.lookup("subsection")[0];
+        let sec = composed.lookup("section")[0];
+
+        let parthood = relations_kind("Parthood");
+        // The subsection reaches its section along Parthood.
+        assert!(
+            composed.reaches(sub, sec, &parthood),
+            "a subsection is part of its section"
+        );
+        // Antisymmetric (BFO:0000050): the section is NOT part of the subsection.
+        assert!(
+            !composed.reaches(sec, sub, &parthood),
+            "Parthood is directional — the whole is not part of its part"
+        );
+        // Distinct closures: the same pair is NOT an is-a (the edge is Parthood).
+        assert!(
+            !composed.reaches(sub, sec, &subsumption_kind()),
+            "the Parthood edge is not a Subsumption edge — is-a must be false"
+        );
+    }
 }
