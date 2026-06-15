@@ -279,6 +279,19 @@ pub trait LexicalReasoner {
     fn ontology_of_concept(&self, _id: ConceptId) -> Option<OntologyName> {
         None
     }
+
+    /// The natural-language SURFACE for a relation kind — the inverse of
+    /// [`relation_for_surface`](Self::relation_for_surface), used to PHRASE an
+    /// affirmation ("part of" for Parthood, so the answer reads "X is part of Y",
+    /// not "X is a Y"). Reads the SAME loaded relation lexicon, so the phrasing
+    /// connective is loaded data, never a hardcoded "is part of".
+    ///
+    /// Default: `None` — the is-a default (the copula "is a") and any kind not in
+    /// the loaded lexicon have no relational connective. A composed reasoner that
+    /// loaded the lexicon overrides it.
+    fn surface_for_relation(&self, _kind: &ConceptRef) -> Option<String> {
+        None
+    }
 }
 
 impl LexicalReasoner for English {

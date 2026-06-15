@@ -469,6 +469,17 @@ impl LexicalReasoner for ComposedReasoner {
         }
     }
 
+    /// The loaded surface for a relation kind — the inverse of the relation lexicon
+    /// (`"part of"` ↦ Parthood becomes Parthood ↦ `"part of"`), so a Parthood
+    /// affirmation phrases as "X is part of Y". `None` for Subsumption (the is-a
+    /// default) and any kind the lexicon does not carry.
+    fn surface_for_relation(&self, kind: &ConceptRef) -> Option<String> {
+        self.relation_surface_index
+            .iter()
+            .find(|(_, k)| *k == kind)
+            .map(|(surface, _)| surface.clone())
+    }
+
     fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
         match self.decode(id) {
             // English: delegate to English's materialized hypernym closure.
