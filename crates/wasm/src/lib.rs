@@ -692,23 +692,22 @@ mod acceptance {
     /// THE acceptance test for the maintainer's exact symptom: load a statute,
     /// ask about a section it defines, and get its content.
     ///
-    /// `#[ignore]`d pending **Step 1b**: USC sections are surfaced by their URN
-    /// (`/us/usc/t18/s1`, the projector's node name — `uslm/corpus/bridge.rs:84`),
-    /// and the ComposedReasoner makes the *lowercased node name* the queryable
-    /// surface (`composed.rs:154`). A URN does not tokenize as natural language,
-    /// so NL queries can't resolve it yet. The wire (above) is in; this gate opens
-    /// once USC sections carry a natural, tokenizable surface (heading / section
-    /// number). Tracked in `docs/praxis-self-aware-architecture-2026-06-14.md`.
+    /// NOW RESOLVED (§9 + the multi-token recognizer): a URN does not tokenize as
+    /// natural language, but the USC bridge mints the section's `"section <num>"`
+    /// CITATION as an `otherForm` surface (and its heading as a `canonicalForm`),
+    /// and the chat's phrase-lookup collapses the multi-token citation into one
+    /// lookup unit. So "what is section 1" resolves the URN-named section and
+    /// answers from its heading — the maintainer's exact symptom, fixed.
     #[test]
-    #[ignore = "Step 1b: USC sections are URN-named; need a tokenizable surface before NL queries resolve"]
     fn loading_a_usc_title_makes_it_queryable() {
         let mut p = Pr4xis::new();
         p.load_source("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
             .expect("a well-formed USLM title loads");
-        let resp = response_of(&p.chat("what is the first section")).to_lowercase();
+        let resp = response_of(&p.chat("what is section 1")).to_lowercase();
         assert!(
             resp.contains("first section"),
-            "after loading the statute, the chat must answer about its section; got: {resp:?}"
+            "after loading the statute, the chat must answer about its section by its \
+             citation surface; got: {resp:?}"
         );
     }
 

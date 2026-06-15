@@ -113,8 +113,9 @@ fn the_real_title_projects_a_parthood_mereology() {
         eprintln!("SKIP: no USC title provisioned");
         return;
     };
-    // (1) The RAW structural projection: every edge is the raw Composes relation,
-    // referentially closed (the praxis relabel is the functor's job, below).
+    // (1) The RAW structural projection: the Composes mereology edges are
+    // referentially closed (the §9 heading/citation lexicalization edges ride
+    // alongside; the praxis relabel is the functor's job, below).
     let archive = project_archive(&usc);
     let declared: std::collections::BTreeSet<&str> =
         archive.nodes.iter().map(|n| n.name.as_str()).collect();
@@ -122,10 +123,9 @@ fn the_real_title_projects_a_parthood_mereology() {
     let mut composes = 0usize;
     for n in &archive.nodes {
         for (kind, target) in &n.edges {
-            assert_eq!(
-                kind, COMPOSES_REL,
-                "the raw projection emits Composes edges"
-            );
+            if kind != COMPOSES_REL {
+                continue; // a §9 heading/citation lexicalization edge, not mereology
+            }
             let parent = target.local_name().expect("Composes is a local edge");
             assert!(
                 declared.contains(parent),
