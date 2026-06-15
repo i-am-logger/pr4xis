@@ -255,7 +255,8 @@ mod ontology_tests {
             ReasoningConcept::InferenceRule,
         ] {
             assert!(
-                parthood.contains(&(ReasoningConcept::Inference, part)),
+                // part→whole: each premise/conclusion/rule is PART of the Inference.
+                parthood.contains(&(part, ReasoningConcept::Inference)),
                 "Inference should have-a {:?}",
                 part
             );

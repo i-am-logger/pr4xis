@@ -343,8 +343,8 @@ fn parts_of(whole: BiologyConcept) -> Vec<BiologyConcept> {
     // closure for same-kind relations).
     BiologyCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == BiologyRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == BiologyRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

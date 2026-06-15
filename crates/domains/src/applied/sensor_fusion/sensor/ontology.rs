@@ -153,8 +153,8 @@ pr4xis::ontology! {
 pub fn parts_of(whole: SensorConcept) -> Vec<SensorConcept> {
     SensorCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == SensorRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == SensorRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

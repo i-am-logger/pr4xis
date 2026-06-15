@@ -274,8 +274,8 @@ fn parts_of(whole: VestibularConcept) -> Vec<VestibularConcept> {
     use pr4xis::category::{Arrow, Category};
     VestibularCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == VestibularRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == VestibularRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

@@ -328,8 +328,8 @@ impl Quality for AffectsOsmolarity {
 fn parts_of(whole: HematologyConcept) -> Vec<HematologyConcept> {
     HematologyCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == HematologyRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == HematologyRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

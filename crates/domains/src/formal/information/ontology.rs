@@ -194,10 +194,10 @@ mod tests {
 
     #[test]
     fn byte_composed_of_bits() {
-        // Mereological: Byte has-a Bit.
+        // Mereological: a Bit is PART of a Byte (part→whole, BFO:0000050).
         let m = InfoCategory::morphisms();
-        assert!(m.iter().any(|r| r.source() == InfoConcept::Byte
-            && r.target() == InfoConcept::Bit
+        assert!(m.iter().any(|r| r.source() == InfoConcept::Bit
+            && r.target() == InfoConcept::Byte
             && r.kind() == InfoRelationKind::Parthood));
     }
 

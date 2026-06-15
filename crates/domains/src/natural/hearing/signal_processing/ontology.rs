@@ -244,8 +244,8 @@ fn parts_of(whole: SignalConcept) -> Vec<SignalConcept> {
     use pr4xis::category::{Arrow, Category};
     SignalCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == SignalRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == SignalRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

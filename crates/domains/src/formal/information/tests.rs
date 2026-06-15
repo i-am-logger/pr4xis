@@ -21,29 +21,56 @@ fn info_has_8_units() {
 // Mereological relationships (has-a → Parthood kind)
 // =============================================================================
 
+/// CONFORMANCE: the `ontology!` macro's `has_a:` sugar emits a Parthood edge
+/// PART→WHOLE (`part_of`, BFO:0000050) — the part is the source, the whole the
+/// target — so `reaches(part, whole, Parthood)` holds, matching the USC corpus
+/// bridge and the "is X part of Y" chat query. The OLD whole→part orientation
+/// (which answered "is X part of Y" backwards) must NOT be present.
 #[test]
-fn byte_composed_of_bits() {
+fn has_a_desugars_to_a_part_to_whole_parthood_edge() {
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.source() == InfoConcept::Byte
-        && r.target() == InfoConcept::Bit
-        && r.kind() == InfoRelationKind::Parthood));
+    // Byte has_a Bit → a Bit→Byte (part→whole) Parthood edge exists …
+    assert!(
+        m.iter().any(|r| r.source() == InfoConcept::Bit
+            && r.target() == InfoConcept::Byte
+            && r.kind() == InfoRelationKind::Parthood),
+        "has_a must emit PART→WHOLE (Bit→Byte) Parthood"
+    );
+    // … and the inverse whole→part (Byte→Bit) Parthood edge must NOT exist.
+    assert!(
+        !m.iter().any(|r| r.source() == InfoConcept::Byte
+            && r.target() == InfoConcept::Bit
+            && r.kind() == InfoRelationKind::Parthood),
+        "the OLD whole→part Parthood orientation must be gone"
+    );
 }
 
 #[test]
-fn word_composed_of_bytes() {
+fn byte_composed_of_bits() {
+    // part→whole (BFO:0000050): a Bit is PART of a Byte (source=part, target=whole).
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.source() == InfoConcept::Word
+    assert!(m.iter().any(|r| r.source() == InfoConcept::Bit
         && r.target() == InfoConcept::Byte
         && r.kind() == InfoRelationKind::Parthood));
 }
 
 #[test]
+fn word_composed_of_bytes() {
+    // part→whole: a Byte is PART of a Word.
+    let m = InfoCategory::morphisms();
+    assert!(m.iter().any(|r| r.source() == InfoConcept::Byte
+        && r.target() == InfoConcept::Word
+        && r.kind() == InfoRelationKind::Parthood));
+}
+
+#[test]
 fn word_transitively_composed_of_bits() {
-    // Same-kind transitive closure (OBO-RO `transitive_over`).
+    // Same-kind transitive closure (OBO-RO `transitive_over`): part→whole, so a
+    // Bit is transitively PART of a Word (Bit→Byte→Word).
     let m = InfoCategory::morphisms();
     assert!(
         m.iter()
-            .any(|r| r.source() == InfoConcept::Word && r.target() == InfoConcept::Bit)
+            .any(|r| r.source() == InfoConcept::Bit && r.target() == InfoConcept::Word)
     );
 }
 

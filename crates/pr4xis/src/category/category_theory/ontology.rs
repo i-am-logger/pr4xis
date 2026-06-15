@@ -403,10 +403,12 @@ mod tests {
             .filter(|m| m.kind() == CategoryTheoryRelationKind::Parthood)
             .map(|m| (m.source(), m.target()))
             .collect();
-        assert!(parthood.contains(&(CategoryTheoryConcept::Monad, CategoryTheoryConcept::Unit)));
+        // Parthood is part→whole (BFO:0000050): Unit/Multiplication are PARTS of
+        // the Monad, so the part is the source.
+        assert!(parthood.contains(&(CategoryTheoryConcept::Unit, CategoryTheoryConcept::Monad)));
         assert!(parthood.contains(&(
-            CategoryTheoryConcept::Monad,
-            CategoryTheoryConcept::Multiplication
+            CategoryTheoryConcept::Multiplication,
+            CategoryTheoryConcept::Monad
         )));
     }
 
@@ -480,13 +482,14 @@ mod tests {
             .filter(|m| m.kind() == CategoryTheoryRelationKind::Parthood)
             .map(|m| (m.source(), m.target()))
             .collect();
+        // part→whole: Syntactic/Semantic are PARTS of the Interpretation.
         assert!(parthood.contains(&(
-            CategoryTheoryConcept::Interpretation,
-            CategoryTheoryConcept::Syntactic
+            CategoryTheoryConcept::Syntactic,
+            CategoryTheoryConcept::Interpretation
         )));
         assert!(parthood.contains(&(
-            CategoryTheoryConcept::Interpretation,
-            CategoryTheoryConcept::Semantic
+            CategoryTheoryConcept::Semantic,
+            CategoryTheoryConcept::Interpretation
         )));
         let opp: Vec<_> = CategoryTheoryCategory::morphisms()
             .iter()

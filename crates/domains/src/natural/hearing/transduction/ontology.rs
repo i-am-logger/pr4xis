@@ -282,8 +282,8 @@ fn parts_of(whole: TransductionConcept) -> Vec<TransductionConcept> {
     use pr4xis::category::{Arrow, Category};
     TransductionCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == TransductionRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == TransductionRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

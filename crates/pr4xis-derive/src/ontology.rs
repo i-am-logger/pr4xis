@@ -408,9 +408,17 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     // Relations umbrella ontology (`formal::relations`):
     //
     //   is_a:    (child, parent)      → (child, parent, Subsumption)
-    //   has_a:   (whole, part)        → (whole, part, Parthood)
+    //   has_a:   (whole, part)        → (PART, WHOLE, Parthood)
     //   causes:  (cause, effect)      → (cause, effect, Causation)
     //   opposes: (a, b)               → (a, b, Opposition)
+    //
+    // NOTE the has_a EDGE DIRECTION: the clause reads "whole has-a part", but the
+    // emitted Parthood edge is PART→WHOLE, because the canonical mereology relation
+    // is part_of(x, y) = "x is part of y" (BFO:0000050; OBO-RO `part of`; praxis's
+    // own `formal::mereology` `(Part, Whole, ComposesInto)`). So `reaches(part,
+    // whole, Parthood)` holds — the same orientation the USC corpus bridge and the
+    // "is X part of Y" chat query assume. A whole→part edge would be the inverse
+    // (`has_part`) and would answer "is X part of Y" backwards.
     //
     // Per Gruber (1993) / OBO-RO (Smith 2005), every morphism carries a
     // canonical relation-kind tag. Dense (unkinded) categories are
@@ -429,9 +437,11 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         });
     }
     for p in &def.has_a {
+        // `has_a: (whole, part)` → edge PART→WHOLE (part_of, BFO:0000050): the part
+        // is the source, the whole the target, so `reaches(part, whole, Parthood)`.
         sugar_edges.push(SugarEdge {
-            from: p.a.clone(),
-            to: p.b.clone(),
+            from: p.b.clone(),
+            to: p.a.clone(),
             kind: format_ident!("Parthood"),
         });
     }
