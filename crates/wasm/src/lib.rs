@@ -834,6 +834,29 @@ mod acceptance {
             0,
             "nothing loaded → empty history (and no state fingerprint)"
         );
+
+        // §3: the embedded demo `.prx` is loaded but NOT a registered source — it
+        // must still appear in the catalog's sources panel (by its OntologyName,
+        // tagged loaded), not be silently dropped.
+        let sources = with_d["sources"].as_array().expect("sources array");
+        let demo = sources
+            .iter()
+            .find(|s| s["name"].as_str() == Some(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME))
+            .expect("the unregistered loaded demo .prx appears in the catalog (doc §3)");
+        assert_eq!(
+            demo["availability"].as_str(),
+            Some("loaded"),
+            "the loaded demo is tagged loaded"
+        );
+        assert!(
+            describe(&without)["sources"]
+                .as_array()
+                .map(|ss| !ss
+                    .iter()
+                    .any(|s| s["name"].as_str() == Some(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME)))
+                .unwrap_or(true),
+            "without the load, the unregistered demo is absent from the catalog"
+        );
     }
 
     #[test]
