@@ -511,7 +511,14 @@ pub fn answer_question(
                 for &pid in parent_ids {
                     if en.reaches(cid, pid, &kind) {
                         return trace_impls::ResponseResult {
-                            response: build_taxonomy_response(en, child, parent, cid, pid),
+                            response: build_taxonomy_response(
+                                en,
+                                en.surface_for_relation(&kind).as_deref(),
+                                child,
+                                parent,
+                                cid,
+                                pid,
+                            ),
                             entities_found: entities.clone(),
                             taxonomy_checked: Some((child.clone(), parent.clone(), true)),
                             from_ontology: true,
@@ -520,10 +527,13 @@ pub fn answer_question(
                     }
                 }
             }
-            // The negation still TRAVERSED the loaded closure — record it.
+            // The negation still TRAVERSED the loaded closure — record it. The
+            // denial phrases with the relation's loaded surface ("is not part of"),
+            // not "is not a".
             let traversed: Vec<ConceptId> = child_ids.iter().chain(parent_ids).copied().collect();
+            let connective = en.surface_for_relation(&kind);
             return trace_impls::ResponseResult {
-                response: realize::realize_negation(child, parent),
+                response: realize::realize_negation(child, parent, connective.as_deref()),
                 entities_found: entities.clone(),
                 taxonomy_checked: Some((child.clone(), parent.clone(), false)),
                 from_ontology: true,
@@ -625,6 +635,11 @@ pub fn define_word(en: &dyn LexicalReasoner, word: &str) -> String {
 /// 4. Realization — compose through grammar
 fn build_taxonomy_response(
     en: &dyn LexicalReasoner,
+    // The relation's loaded surface ("part of" for Parthood), already resolved by
+    // the caller from the typed kind — so the affirmation phrases "X is part of Y",
+    // not "X is a Y". `None` (Subsumption / is-a) keeps the copula "is a". Loaded
+    // data, never a hardcoded relation string.
+    connective: Option<&str>,
     child_word: &str,
     parent_word: &str,
     child_id: pr4xis_domains::cognitive::linguistics::english::ConceptId,
@@ -698,10 +713,11 @@ fn build_taxonomy_response(
 
     let mut sections = Vec::new();
 
-    // Nucleus: the direct assertion
+    // Nucleus: the direct assertion — phrased with the relation's loaded connective
+    // ("a subsection is part of a section" for Parthood; "is a" for Subsumption).
     sections.push(format!(
         "Yes. {}.",
-        realize::sentence_copula(child_word, parent_word)
+        realize::sentence_relation(child_word, parent_word, connective)
     ));
 
     // Evidence: HOW — the taxonomy path explains the connection
@@ -1571,6 +1587,13 @@ mod loaded_corpus_demo {
             "a subsection IS part of its section (Parthood closure); got {:?}",
             yes.taxonomy_checked
         );
+        // The affirmation PHRASES the relation it answered (its loaded surface),
+        // not "is a" — Parthood is not Subsumption (the realize.rs fix).
+        assert!(
+            yes.response.contains("is part of"),
+            "a Parthood affirmation must read 'is part of', not 'is a'; got: {:?}",
+            yes.response
+        );
 
         // English-only cannot witness Parthood: it has no relation lexicon
         // (relation_for_surface → None → Subsumption) and no loaded closure.
@@ -1593,6 +1616,12 @@ mod loaded_corpus_demo {
             Some(("section".to_string(), "subsection".to_string(), false)),
             "a section is NOT part of its subsection; got {:?}",
             no.taxonomy_checked
+        );
+        // The denial phrases the relation too: "is not part of", not "is not a".
+        assert!(
+            no.response.contains("not part of"),
+            "a Parthood denial must read 'is not part of'; got: {:?}",
+            no.response
         );
     }
 

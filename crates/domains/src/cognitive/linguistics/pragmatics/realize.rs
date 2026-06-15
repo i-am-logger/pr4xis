@@ -98,6 +98,39 @@ fn sentence_copula_neg(subject: &str, complement: &str) -> String {
     format!("{det}{subject} {cop} not {det2}{complement}")
 }
 
+/// Build a RELATIONAL copula sentence: "{subject} is {connective} {complement}" —
+/// the `connective` is the relation's LOADED natural surface ("part of"), so a
+/// Parthood affirmation reads "a subsection is part of a section", not "is a".
+/// `None` is the is-a default and reduces to [`sentence_copula`] ("is a"). The
+/// connective is loaded data threaded in by the caller, NOT a hardcoded relation
+/// string here.
+pub fn sentence_relation(subject: &str, complement: &str, connective: Option<&str>) -> String {
+    match connective {
+        None => sentence_copula(subject, complement),
+        Some(conn) => {
+            let det = select_determiner(subject);
+            let det2 = select_determiner(complement);
+            let cop = select_copula(subject);
+            format!("{det}{subject} {cop} {conn} {det2}{complement}")
+        }
+    }
+}
+
+/// The negative form of [`sentence_relation`]: "{subject} is not {connective}
+/// {complement}" (a Parthood denial reads "is not part of"). `None` reduces to
+/// the is-a negation ("is not a").
+fn sentence_relation_neg(subject: &str, complement: &str, connective: Option<&str>) -> String {
+    match connective {
+        None => sentence_copula_neg(subject, complement),
+        Some(conn) => {
+            let det = select_determiner(subject);
+            let det2 = select_determiner(complement);
+            let cop = select_copula(subject);
+            format!("{det}{subject} {cop} not {conn} {det2}{complement}")
+        }
+    }
+}
+
 /// Build a copula question: "is {subject} {complement}?"
 /// Inversion: (S[q]/NP)/NP + NP + NP → S[q]
 fn sentence_question(subject: &str, complement: &str) -> String {
@@ -167,9 +200,11 @@ fn realize_assertion(content: &ResponseContent) -> String {
         .to_string()
 }
 
-/// Realize a negative assertion through the grammar.
-pub fn realize_negation(child: &str, parent: &str) -> String {
-    let sentence = sentence_copula_neg(child, parent);
+/// Realize a negative assertion through the grammar. `connective` is the relation's
+/// loaded surface ("part of") so a Parthood denial reads "is not part of"; `None`
+/// is the is-a default ("is not a").
+pub fn realize_negation(child: &str, parent: &str, connective: Option<&str>) -> String {
+    let sentence = sentence_relation_neg(child, parent, connective);
     format!("No, {sentence}.")
 }
 
@@ -277,8 +312,29 @@ mod tests {
 
     #[test]
     fn negation_uses_grammar() {
-        let text = realize_negation("dog", "fish");
-        assert_eq!(text, "No, a dog is not a fish.");
+        // is-a negation (no connective) is unchanged.
+        assert_eq!(
+            realize_negation("dog", "fish", None),
+            "No, a dog is not a fish."
+        );
+        // A relational denial reads "is not <connective>".
+        assert_eq!(
+            realize_negation("section", "subsection", Some("part of")),
+            "No, a section is not part of a subsection."
+        );
+    }
+
+    #[test]
+    fn relation_sentence_uses_the_loaded_connective() {
+        // None → the is-a copula; Some(surface) → "is <surface>".
+        assert_eq!(
+            sentence_relation("dog", "mammal", None),
+            "a dog is a mammal"
+        );
+        assert_eq!(
+            sentence_relation("subsection", "section", Some("part of")),
+            "a subsection is part of a section"
+        );
     }
 
     #[test]
