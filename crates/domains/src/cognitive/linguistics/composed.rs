@@ -557,6 +557,38 @@ impl LexicalReasoner for ComposedReasoner {
         }
     }
 
+    /// The ordered evidence chain along ANY relation `kind` — the relation-
+    /// parametric `ancestor_chain`, reading the loaded ontology's materialized
+    /// closure for that kind (Parthood's part-of chain, etc.), re-keyed to ids.
+    fn relation_chain(
+        &self,
+        child: ConceptId,
+        ancestor: ConceptId,
+        kind: &ConceptRef,
+    ) -> Option<Vec<ConceptId>> {
+        match (self.decode(child), self.decode(ancestor)) {
+            // Both loaded: the ordered chain along `kind` over the owning ontology's
+            // materialized closure, re-keyed to ConceptIds.
+            (Some(GroundedConcept::Loaded(c)), Some(GroundedConcept::Loaded(a))) => {
+                let onto = self.ontology_of(&c)?;
+                let chain_refs = onto.closure().chain(&c, &a, kind)?;
+                Some(
+                    chain_refs
+                        .into_iter()
+                        .filter_map(|r| self.loaded_ids.get(&r).copied())
+                        .collect(),
+                )
+            }
+            // Both English: only an is-a chain (one un-keyed hypernym closure).
+            (Some(GroundedConcept::English(c)), Some(GroundedConcept::English(a)))
+                if *kind == subsumption_kind() =>
+            {
+                self.english.ancestor_chain(c, a)
+            }
+            _ => None,
+        }
+    }
+
     fn concept_count(&self) -> usize {
         self.english.concept_count() + self.loaded_concepts.len()
     }

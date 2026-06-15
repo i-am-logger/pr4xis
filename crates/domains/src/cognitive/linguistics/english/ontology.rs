@@ -306,6 +306,30 @@ pub trait LexicalReasoner {
     fn is_loaded_surface(&self, _surface: &str) -> bool {
         false
     }
+
+    /// The ordered EVIDENCE chain `[child, …, ancestor]` along the relation `kind` —
+    /// the relation-parametric generalization of [`ancestor_chain`](Self::ancestor_chain)
+    /// (which is the `kind = `[`subsumption_kind`] case). For Parthood it is the
+    /// part-of chain (`subsection → section → title`), so a "is X part of Y" answer
+    /// can show its mereological evidence, not just the endpoints.
+    ///
+    /// Default: a Subsumption chain delegates to [`ancestor_chain`](Self::ancestor_chain);
+    /// any other kind is `None` — the embedded substrate has ONE un-keyed hypernym
+    /// closure and cannot chain a non-is-a relation (the audit's constraint: the
+    /// relation-parametric chain lives on the closure + composed reasoner, never the
+    /// substrate). A composed reasoner reads each kind's materialized closure.
+    fn relation_chain(
+        &self,
+        child: ConceptId,
+        ancestor: ConceptId,
+        kind: &ConceptRef,
+    ) -> Option<Vec<ConceptId>> {
+        if *kind == subsumption_kind() {
+            self.ancestor_chain(child, ancestor)
+        } else {
+            None
+        }
+    }
 }
 
 impl LexicalReasoner for English {

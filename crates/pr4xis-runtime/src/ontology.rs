@@ -258,38 +258,52 @@ impl MaterializedClosure {
             .collect()
     }
 
-    /// The reflexive Subsumption (hypernym) image of `c` — `c` itself plus every
-    /// ancestor reachable up the is-a closure, each with its minimal is-a
-    /// distance. A lookup over the materialized set; empty (apart from `c`) when
-    /// `c` has no Subsumption ancestors. This is the loaded-ontology analogue of
-    /// `English::ancestors`, sharing the same
-    /// [`ReachabilityClosure`].
-    pub fn subsumption_image(&self, c: &ConceptRef) -> Vec<(ConceptRef, u32)> {
+    /// The reflexive image of `c` along the relation `kind` — `c` itself plus every
+    /// node reachable from it under that kind's closure, each with its minimal
+    /// distance. RELATION-PARAMETRIC: `image(c, Subsumption)` is the hypernym
+    /// ancestors, `image(c, Parthood)` the wholes `c` is transitively part of. A
+    /// lookup over the materialized set, never a per-query BFS.
+    pub fn image(&self, c: &ConceptRef, kind: &ConceptRef) -> Vec<(ConceptRef, u32)> {
         self.reachable
-            .get(&subsumption_kind())
+            .get(kind)
             .map(|closure| closure.strict_image(c))
             .unwrap_or_default()
     }
 
-    /// The lattice MEET of `a` and `b` over the Subsumption closure — the nearest
-    /// shared hypernym (`strict_ancestors(b) ∩ ancestors(a)`, nearest-first),
-    /// ties broken by `(ontology, name)`. The categorical meet over the
-    /// materialized set, never a hand-BFS.
-    pub fn subsumption_meet(&self, a: &ConceptRef, b: &ConceptRef) -> Option<ConceptRef> {
-        self.reachable.get(&subsumption_kind()).and_then(|closure| {
+    /// The reflexive Subsumption (hypernym) image of `c` — `image(c, Subsumption)`.
+    /// The loaded-ontology analogue of `English::ancestors`.
+    pub fn subsumption_image(&self, c: &ConceptRef) -> Vec<(ConceptRef, u32)> {
+        self.image(c, &subsumption_kind())
+    }
+
+    /// The lattice MEET of `a` and `b` over the relation `kind`'s closure — the
+    /// nearest node both reach (`strict_image(b) ∩ image(a)`, nearest-first), ties
+    /// broken by `(ontology, name)`. RELATION-PARAMETRIC: the nearest common
+    /// hypernym for Subsumption, the nearest common whole for Parthood.
+    pub fn meet(&self, a: &ConceptRef, b: &ConceptRef, kind: &ConceptRef) -> Option<ConceptRef> {
+        self.reachable.get(kind).and_then(|closure| {
             closure.meet_by(a, b, |c| (c.ontology.as_str().to_string(), c.name.clone()))
         })
     }
 
-    /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first) over the
-    /// Subsumption closure when `child` is-a `ancestor`, else `None` — the is-a
-    /// evidence path, read off the materialized closure rather than hand-walked.
-    pub fn subsumption_chain(
+    /// The lattice meet over the Subsumption closure — `meet(a, b, Subsumption)`,
+    /// the nearest shared hypernym.
+    pub fn subsumption_meet(&self, a: &ConceptRef, b: &ConceptRef) -> Option<ConceptRef> {
+        self.meet(a, b, &subsumption_kind())
+    }
+
+    /// The ordered chain `[child, …, ancestor]` (nearest-first) along the relation
+    /// `kind` when `child` reaches `ancestor`, else `None` — the EVIDENCE path, read
+    /// off the materialized closure rather than hand-walked. RELATION-PARAMETRIC:
+    /// the is-a chain for Subsumption, the part-of chain (`subsection → section →
+    /// title`) for Parthood.
+    pub fn chain(
         &self,
         child: &ConceptRef,
         ancestor: &ConceptRef,
+        kind: &ConceptRef,
     ) -> Option<Vec<ConceptRef>> {
-        let closure = self.reachable.get(&subsumption_kind())?;
+        let closure = self.reachable.get(kind)?;
         if child != ancestor && !closure.reaches(child, ancestor) {
             return None;
         }
@@ -306,6 +320,16 @@ impl MaterializedClosure {
                 .then_with(|| a.name.cmp(&b.name))
         });
         Some(chain.into_iter().map(|(v, _)| v).collect())
+    }
+
+    /// The ordered hypernym chain over the Subsumption closure — `chain(child,
+    /// ancestor, Subsumption)`, the is-a evidence path.
+    pub fn subsumption_chain(
+        &self,
+        child: &ConceptRef,
+        ancestor: &ConceptRef,
+    ) -> Option<Vec<ConceptRef>> {
+        self.chain(child, ancestor, &subsumption_kind())
     }
 
     /// Union another closure into this one — the structural hook for an
