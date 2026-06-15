@@ -100,24 +100,26 @@ fn flush_word(buf: &mut String, vocab: &OperatorVocabulary, out: &mut Vec<String
 /// WordNet collocation "ice cream") resolves as ONE lookup unit instead of
 /// splitting into tokens that each miss.
 ///
-/// Greedy longest-match over the LOADED surface set (`is_surface`, widest window
+/// Greedy longest-match over the LOADED surface set (`classify`, widest window
 /// first, up to `max_surface_words`): a matched span becomes one [`TypedToken`]
-/// typed [`proper_noun`](super::types::svo::proper_noun) — the NP (named-entity)
-/// category the copula's `/NP` slot consumes, so it flows through the Lambek/CYK
-/// parse exactly like a single proper noun ("John"). Recognition is DATA-DRIVEN
-/// (the surface set is the reasoner's loaded index), NEVER a baked citation
-/// pattern. A `max_surface_words` of 1 (embedded English) makes the window
-/// degenerate → a pure no-op, so single-token chat is byte-identical.
+/// typed by whatever category `classify` returns for it — an ENTITY surface (a
+/// citation/label/collocation) → [`proper_noun`](super::types::svo::proper_noun)
+/// (the NP slot the copula's `/NP` consumes), a RELATIONAL surface ("part of") →
+/// [`relational_predicate`](super::types::svo::relational_predicate) (so "is X
+/// part of Y" parses). Recognition is DATA-DRIVEN (the surface set + its category
+/// are the reasoner's loaded indices), NEVER a baked citation pattern. A
+/// `max_surface_words` of 1 (embedded English) makes the window degenerate → a
+/// pure no-op, so single-token chat is byte-identical.
 ///
 /// Returns the collapsed tokens AND their per-token Lambek type sets, ready for
-/// `chart_reduce` / `interpret`: a collapsed span → `[proper_noun()]`; an
+/// `chart_reduce` / `interpret`: a collapsed span → `[its classified type]`; an
 /// uncollapsed token → its own type plus that position's `alternatives` (exactly
 /// the set the pipeline built before, so an uncollapsed stream is unchanged).
 pub fn collapse_multiword_surfaces(
     tokens: &[TypedToken],
     alternatives: &[Vec<LambekType>],
     max_surface_words: usize,
-    is_surface: impl Fn(&str) -> bool,
+    classify: impl Fn(&str) -> Option<LambekType>,
 ) -> (Vec<TypedToken>, Vec<Vec<LambekType>>) {
     let max_window = max_surface_words.max(1);
     let mut out_tokens: Vec<TypedToken> = Vec::with_capacity(tokens.len());
@@ -134,12 +136,12 @@ pub fn collapse_multiword_surfaces(
                 .map(|t| t.word.as_str())
                 .collect::<Vec<_>>()
                 .join(" ");
-            if is_surface(&joined) {
+            if let Some(ty) = classify(&joined) {
                 out_tokens.push(TypedToken {
                     word: joined,
-                    lambek_type: svo_types::proper_noun(),
+                    lambek_type: ty.clone(),
                 });
-                out_types.push(vec![svo_types::proper_noun()]);
+                out_types.push(vec![ty]);
                 i += w;
                 collapsed = true;
                 break;
@@ -238,6 +240,18 @@ pub fn tokenize_with_alternatives(
             let qpp = svo_types::question_copula_pp();
             if qpp != primary_type && !alt_types.contains(&qpp) {
                 alt_types.push(qpp);
+            }
+        }
+
+        // A sentence-initial question copula (`(S[q]/NP)/NP`) ALSO offers the
+        // predicative-complement reading `(S[q]/(S[adj]\NP))/NP`, so "is X part of
+        // Y" reduces (the relational predicate "part of Y" is the predicative
+        // complement). Additive — "is X a Y" still reduces via the NP-complement
+        // `question_copula`; the chart keeps whichever reading derives `S[q]`.
+        if primary_type == svo_types::question_copula() {
+            let qcp = svo_types::question_copula_pred();
+            if !alt_types.contains(&qcp) {
+                alt_types.push(qcp);
             }
         }
 
@@ -475,7 +489,9 @@ mod tests {
         // proper-noun (NP) token; the surrounding tokens pass through unchanged.
         let tokens = vec![tok("what"), tok("is"), tok("ice"), tok("cream")];
         let alts = vec![vec![], vec![], vec![], vec![]];
-        let (out, types) = collapse_multiword_surfaces(&tokens, &alts, 2, |s| s == "ice cream");
+        let (out, types) = collapse_multiword_surfaces(&tokens, &alts, 2, |s| {
+            (s == "ice cream").then(svo_types::proper_noun)
+        });
         assert_eq!(out.len(), 3, "ice + cream collapse into one token");
         assert_eq!(out[2].word, "ice cream");
         assert_eq!(out[2].lambek_type, svo_types::proper_noun());
@@ -490,10 +506,11 @@ mod tests {
         let alts = vec![vec![], vec![]];
         // max_surface_words == 1 → the window is degenerate → a pure no-op, even
         // if EVERY span would match (the embedded single-word-lexicon path).
-        let (out, _) = collapse_multiword_surfaces(&tokens, &alts, 1, |_| true);
+        let (out, _) =
+            collapse_multiword_surfaces(&tokens, &alts, 1, |_| Some(svo_types::proper_noun()));
         assert_eq!(out.len(), 2, "max=1 never collapses");
         // No surface matches → nothing collapses.
-        let (out2, _) = collapse_multiword_surfaces(&tokens, &alts, 3, |_| false);
+        let (out2, _) = collapse_multiword_surfaces(&tokens, &alts, 3, |_| None);
         assert_eq!(out2.len(), 2, "no matching surface → no collapse");
     }
 
@@ -504,7 +521,7 @@ mod tests {
         let tokens = vec![tok("new"), tok("york"), tok("city")];
         let alts = vec![vec![], vec![], vec![]];
         let (out, _) = collapse_multiword_surfaces(&tokens, &alts, 3, |s| {
-            s == "new york" || s == "new york city"
+            (s == "new york" || s == "new york city").then(svo_types::proper_noun)
         });
         assert_eq!(out.len(), 1, "the longest match collapses all three");
         assert_eq!(out[0].word, "new york city");
@@ -516,7 +533,7 @@ mod tests {
         // exactly: the token's own type plus that position's alternatives.
         let tokens = vec![tok("dog")];
         let alts = vec![vec![svo_types::proper_noun()]];
-        let (_, types) = collapse_multiword_surfaces(&tokens, &alts, 1, |_| false);
+        let (_, types) = collapse_multiword_surfaces(&tokens, &alts, 1, |_| None);
         assert_eq!(types[0], vec![svo_types::noun(), svo_types::proper_noun()]);
     }
 }

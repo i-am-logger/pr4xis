@@ -130,7 +130,20 @@ pub fn process_with_reasoner(
         &raw_tokens,
         &alternatives,
         reasoner.max_surface_words(),
-        |s| !reasoner.lookup(s).is_empty(),
+        |s| {
+            use pr4xis_domains::cognitive::linguistics::lambek::types::svo;
+            // An ENTITY surface (a loaded citation/label/collocation) collapses to
+            // a proper noun (NP); a RELATIONAL surface ("part of") collapses to a
+            // relational predicate so "is X part of Y" parses. Both are loaded
+            // data (the reasoner's surface + relation indices), never a pattern.
+            if !reasoner.lookup(s).is_empty() {
+                Some(svo::proper_noun())
+            } else if reasoner.relation_for_surface(s).is_some() {
+                Some(svo::relational_predicate())
+            } else {
+                None
+            }
+        },
     );
 
     if tokens.is_empty() {
@@ -1359,6 +1372,81 @@ mod loaded_corpus_demo {
             Some(("section".to_string(), "subsection".to_string(), false)),
             "a section is NOT part of its subsection; got {:?}",
             no.taxonomy_checked
+        );
+    }
+
+    /// A Parthood corpus with MULTI-WORD citation surfaces (the USC reality:
+    /// "section ninety", "title fifteen") — so the recognizer collapses each to a
+    /// proper-noun NP and "is X part of Y" parses from raw text.
+    fn parthood_corpus_multiword() -> RuntimeOntology {
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::{Definition, EdgeTarget};
+        let archive = Archive {
+            nodes: vec![
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "section ninety".to_string(),
+                    edges: vec![(
+                        "Parthood".to_string(),
+                        EdgeTarget::Local("title fifteen".to_string()),
+                    )],
+                    axioms: vec![],
+                    lexical: Some("A section within title fifteen.".to_string()),
+                },
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "title fifteen".to_string(),
+                    edges: vec![],
+                    axioms: vec![],
+                    lexical: Some("Commerce and trade.".to_string()),
+                },
+            ],
+            connections: vec![],
+        };
+        materialize(archive, OntologyName::new_static("PartCorpusMW"))
+            .expect("the multi-word Parthood corpus materializes")
+    }
+
+    #[test]
+    fn is_x_part_of_y_parses_and_answers_from_raw_chat_text() {
+        // Step 5 — the WHOLE path from RAW TEXT: tokenize → collapse "section
+        // ninety"/"title fifteen" to NPs + "part of" to a relational predicate →
+        // the predicative question-copula parses S[q] → interpret lifts the
+        // relation from the complement → answer_question reads the Parthood
+        // closure. No constructed Sem — a person types the question.
+        let english = English::sample();
+        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus_multiword()]);
+        let question = "is section ninety part of title fifteen";
+
+        let with = process_with_reasoner(&english, &composed, question);
+
+        assert!(
+            with.parsed,
+            "the predicative question-copula must parse 'is X part of Y'; got: {:?}",
+            with.response
+        );
+        assert!(
+            with.response.to_lowercase().contains("yes"),
+            "section ninety IS part of title fifteen — the Parthood closure affirms; got: {:?}",
+            with.response
+        );
+        // The loaded gloss rides the answer (the concepts resolved, not guessed).
+        assert!(
+            with.response.contains("Commerce and trade"),
+            "the affirmation surfaces the loaded gloss; got: {:?}",
+            with.response
+        );
+
+        // english-only abstains (it knows none of these surfaces and has no
+        // relation lexicon) — the contrast that proves the corpus + lexicon did it.
+        let (without, _, _) = process(&english, question);
+        assert!(
+            without.to_lowercase().contains("not") || without.to_lowercase().contains("don't"),
+            "english-only must abstain on the loaded relational question; got: {without:?}"
+        );
+        assert_ne!(
+            without, with.response,
+            "loading the corpus + relation lexicon must change the answer"
         );
     }
 

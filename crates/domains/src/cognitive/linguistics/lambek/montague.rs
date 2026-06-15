@@ -130,10 +130,10 @@ pub fn interpret(tokens: &[TypedToken], en: &dyn LexicalReasoner) -> Sem {
                 let is_forward = matches!(values[i].0, LambekType::RightDiv(_, _));
                 let sem = if is_forward {
                     // Forward: f(x) — left is function, right is argument
-                    apply(&values[i].1, &values[i + 1].1, &result_type)
+                    apply(&values[i].1, &values[i + 1].1, &result_type, en)
                 } else {
                     // Backward: f(x) — right is function, left is argument
-                    apply(&values[i + 1].1, &values[i].1, &result_type)
+                    apply(&values[i + 1].1, &values[i].1, &result_type, en)
                 };
                 values.splice(i..=i + 1, [(result_type, sem)]);
                 reduced = true;
@@ -155,13 +155,30 @@ pub fn interpret(tokens: &[TypedToken], en: &dyn LexicalReasoner) -> Sem {
 /// Semantic function application — the ONLY composition rule.
 /// When types reduce via A/B + B → A, the semantics is f(x).
 /// The result domain is determined by the result type.
-fn apply(func: &Sem, arg: &Sem, result_type: &LambekType) -> Sem {
+fn apply(func: &Sem, arg: &Sem, result_type: &LambekType, en: &dyn LexicalReasoner) -> Sem {
     match result_type {
         // Result is S (any feature) — check if question or proposition
         LambekType::Atom(super::types::AtomicType::S(feature)) => {
-            let predicate = extract_predicate(func);
-            let mut arguments = extract_arguments(func);
-            arguments.push(arg.clone());
+            // When the argument is a RELATIONAL predicative complement — a `Func`
+            // whose head surface is a LOADED relation ("part of") — the asserted
+            // relation comes from the COMPLEMENT, not the copula: lift its surface
+            // to the predicate and flatten its object into the arguments. So
+            // "is X part of Y" → Question{ "part of", [X, Y] }, whereas the plain
+            // copula "is X a Y" keeps the function's predicate ("is" → the
+            // Subsumption default). The discriminator is loaded data
+            // (`relation_for_surface`), not a hardcoded "part of" match.
+            let (predicate, arguments) = match arg {
+                Sem::Func { word, body } if en.relation_for_surface(word).is_some() => {
+                    let mut arguments = extract_arguments(func);
+                    arguments.push((**body).clone());
+                    (word.clone(), arguments)
+                }
+                _ => {
+                    let mut arguments = extract_arguments(func);
+                    arguments.push(arg.clone());
+                    (extract_predicate(func), arguments)
+                }
+            };
             match feature {
                 Some(super::types::SentenceFeature::Q | super::types::SentenceFeature::Wq) => {
                     Sem::Question {
@@ -226,5 +243,97 @@ fn extract_arguments(sem: &Sem) -> Vec<Sem> {
         Sem::Func { body, .. } => vec![*body.clone()],
         Sem::Prop { arguments, .. } | Sem::Question { arguments, .. } => arguments.clone(),
         _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cognitive::linguistics::composed::ComposedReasoner;
+    use crate::cognitive::linguistics::english::English;
+    use crate::cognitive::linguistics::lambek::types::svo;
+
+    /// The relational-question SEMANTICS in isolation (no parse plumbing): given
+    /// the typed tokens for "is X part of Y", `interpret` lifts the relation from
+    /// the COMPLEMENT ("part of") into the `Question` predicate and flattens its
+    /// object into the arguments — `Question{ "part of", [X, Y] }`. The lift fires
+    /// only because `relation_for_surface("part of")` is loaded (ComposedReasoner
+    /// carries the relation lexicon); on plain English it would not.
+    #[test]
+    fn is_x_part_of_y_interprets_to_a_relational_question() {
+        let en = ComposedReasoner::new(English::sample(), Vec::new());
+        let tokens = alloc::vec![
+            TypedToken {
+                word: "is".into(),
+                lambek_type: svo::question_copula_pred(),
+            },
+            TypedToken {
+                word: "alpha".into(),
+                lambek_type: svo::proper_noun(),
+            },
+            TypedToken {
+                word: "part of".into(),
+                lambek_type: svo::relational_predicate(),
+            },
+            TypedToken {
+                word: "beta".into(),
+                lambek_type: svo::proper_noun(),
+            },
+        ];
+
+        match interpret(&tokens, &en) {
+            Sem::Question {
+                predicate,
+                arguments,
+            } => {
+                assert_eq!(
+                    predicate, "part of",
+                    "the relation comes from the complement, not the copula 'is'"
+                );
+                let names: Vec<String> = arguments.iter().map(extract_entity_name).collect();
+                assert_eq!(
+                    names,
+                    alloc::vec!["alpha".to_string(), "beta".to_string()],
+                    "subject and object are flattened into the arguments, in order"
+                );
+            }
+            other => panic!("expected a relational Question, got {other:?}"),
+        }
+    }
+
+    /// The plain copula "is X a Y" is UNCHANGED: the argument is a bare entity NP
+    /// (not a relational `Func`), so the predicate stays the copula "is" (→ the
+    /// Subsumption default at dispatch). Proves the lift does not fire spuriously.
+    #[test]
+    fn is_x_a_y_keeps_the_copula_predicate() {
+        let en = ComposedReasoner::new(English::sample(), Vec::new());
+        let tokens = alloc::vec![
+            TypedToken {
+                word: "is".into(),
+                lambek_type: svo::question_copula(),
+            },
+            TypedToken {
+                word: "alpha".into(),
+                lambek_type: svo::proper_noun(),
+            },
+            TypedToken {
+                word: "beta".into(),
+                lambek_type: svo::proper_noun(),
+            },
+        ];
+        match interpret(&tokens, &en) {
+            Sem::Question { predicate, .. } => assert_eq!(
+                predicate, "is",
+                "a plain copula question keeps the copula predicate"
+            ),
+            other => panic!("expected a Question, got {other:?}"),
+        }
+    }
+
+    fn extract_entity_name(sem: &Sem) -> String {
+        match sem {
+            Sem::Concept { word, .. } | Sem::Pred { word } => word.clone(),
+            _ => String::new(),
+        }
     }
 }
