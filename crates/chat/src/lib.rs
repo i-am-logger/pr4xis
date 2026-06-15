@@ -145,7 +145,7 @@ pub fn process_with_reasoner(
     // and the partial-understanding fallback — sees one lookup unit. Data-driven
     // (the reasoner's loaded surface set); a no-op when `max_surface_words == 1`
     // (embedded English), so single-token chat is byte-identical.
-    let (tokens, type_sets) = tokenize::collapse_multiword_surfaces(
+    let (tokens, mut type_sets) = tokenize::collapse_multiword_surfaces(
         &raw_tokens,
         &alternatives,
         reasoner.max_surface_words(),
@@ -164,6 +164,23 @@ pub fn process_with_reasoner(
             }
         },
     );
+
+    // Single-word LOADED entity → offer a proper-noun (NP) reading too, so
+    // "is <one-word-loaded-X> part of Y" parses (collapse only NP-types MULTI-word
+    // spans). Gated on LOADED-corpus membership — NOT the union lookup — so English
+    // function words (which never resolve to a loaded ontology) keep their copula/
+    // determiner/wh types; the parse is not disturbed. NP is ADDED as an
+    // alternative, never replacing the base type, so a determiner case ("a title")
+    // still reduces via the noun reading and the chart keeps whichever derives S.
+    {
+        use pr4xis_domains::cognitive::linguistics::lambek::types::svo;
+        let np = svo::proper_noun();
+        for (i, tok) in tokens.iter().enumerate() {
+            if reasoner.is_loaded_surface(&tok.word) && !type_sets[i].contains(&np) {
+                type_sets[i].push(np.clone());
+            }
+        }
+    }
 
     if tokens.is_empty() {
         return ProcessResult {
@@ -1697,6 +1714,36 @@ mod loaded_corpus_demo {
         assert_ne!(
             without, with.response,
             "loading the corpus + relation lexicon must change the answer"
+        );
+    }
+
+    #[test]
+    fn is_x_part_of_y_parses_with_single_word_loaded_entities() {
+        // The single-word-np fix: a SINGLE-word loaded entity ("subsection",
+        // "section" — not a multi-word citation) now offers an NP reading, so
+        // "is X part of Y" parses from raw text. Gated on loaded membership, so
+        // English function words are untouched (process_taxonomy_question etc. green).
+        let english = English::sample();
+        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let question = "is subsection part of section";
+
+        let with = process_with_reasoner(&english, &composed, question);
+        assert!(
+            with.parsed,
+            "single-word loaded entities must type NP so 'is X part of Y' parses; got: {:?}",
+            with.response
+        );
+        assert!(
+            with.response.to_lowercase().contains("yes") && with.response.contains("is part of"),
+            "a subsection IS part of a section; got: {:?}",
+            with.response
+        );
+
+        // English-only abstains — the contrast (it has no loaded entity, no NP upgrade).
+        let (without, _, _) = process(&english, question);
+        assert_ne!(
+            without, with.response,
+            "the loaded corpus must change the answer"
         );
     }
 

@@ -480,6 +480,15 @@ impl LexicalReasoner for ComposedReasoner {
             .map(|(surface, _)| surface.clone())
     }
 
+    /// True iff `surface` resolves to a LOADED concept (a `Loaded` vertex), not the
+    /// embedded English substrate — so a single-word loaded entity can be typed NP
+    /// without disturbing English function words (which never decode to `Loaded`).
+    fn is_loaded_surface(&self, surface: &str) -> bool {
+        self.lookup(surface)
+            .iter()
+            .any(|&id| matches!(self.decode(id), Some(GroundedConcept::Loaded(_))))
+    }
+
     fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
         match self.decode(id) {
             // English: delegate to English's materialized hypernym closure.

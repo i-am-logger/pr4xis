@@ -292,6 +292,20 @@ pub trait LexicalReasoner {
     fn surface_for_relation(&self, _kind: &ConceptRef) -> Option<String> {
         None
     }
+
+    /// Does this surface resolve to a LOADED-corpus concept (not the embedded
+    /// substrate)? — distinct from [`lookup`](Self::lookup), which unions English
+    /// AND loaded. The chat uses this to type a single-word LOADED entity as a
+    /// proper noun (NP) so "is X part of Y" parses with a one-word X, WITHOUT
+    /// touching English function words (which resolve to the substrate, never a
+    /// loaded ontology — so they are not upgraded, the parse-breaking trap a naive
+    /// union-lookup gate falls into).
+    ///
+    /// Default: `false` — embedded English carries no loaded corpus. A composed
+    /// reasoner overrides it (true iff a lookup hits a `Loaded` vertex).
+    fn is_loaded_surface(&self, _surface: &str) -> bool {
+        false
+    }
 }
 
 impl LexicalReasoner for English {
