@@ -298,7 +298,10 @@ impl MorphismKind {
     /// The canonical kind for a relation NAME — the inverse of [`as_str`], the
     /// one blessed wire→kind crossing for a morphism kind (a non-canonical name
     /// becomes [`Custom`], still typed to its identifier, never a Debug dump).
-    /// Pairs with [`as_str`] so `from_name(k.as_str()) == k` for every variant.
+    /// CANONICALIZING: pairs with [`as_str`] so `from_name(k.as_str()) == k` for
+    /// every canonical variant and for any [`Custom`] whose name is not itself a
+    /// canonical kind — a `Custom` wrapping a canonical name (e.g.
+    /// `Custom("Subsumption")`) normalizes back to that canonical variant.
     ///
     /// [`as_str`]: Self::as_str
     /// [`Custom`]: Self::Custom

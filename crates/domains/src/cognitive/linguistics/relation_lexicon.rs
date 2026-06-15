@@ -1,5 +1,6 @@
-//! The relation lexicon — the loaded surface→relation map (`"part of"` ↦
-//! Parthood, `"is a"` ↦ Subsumption), carried AS `.prx` DATA.
+//! The relation lexicon — the loaded surface→relation map (today: `"part of"` ↦
+//! Parthood), carried AS `.prx` DATA. Subsumption ("is a") is the copula DEFAULT
+//! and is deliberately NOT lexicalized here (see the body note below).
 //!
 //! A relational question ("is X part of Y") must name WHICH relation it asserts.
 //! That surface→relation mapping is ontological vocabulary, so it is LOADED, not
@@ -54,8 +55,9 @@ pub use pr4xis_runtime::ontology::subsumption_kind;
 
 /// The committed relation lexicon — the `.prx` bytes the surface→relation map
 /// LIVES in, embedded at build time. A node-bearing [`Archive`]: relation
-/// `Concept` nodes (`Parthood`, `Subsumption`) each pointing at the
-/// `ontolex:Form` surface atoms (`"part of"`, `"is a"`, …) a person types.
+/// `Concept` nodes (today exactly one, `Parthood`) each pointing at the
+/// `ontolex:Form` surface atoms (today `"part of"`) a person types. Subsumption
+/// is the un-lexicalized copula default, so it has no node here.
 const RELATION_LEXICON_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/data/projections/relation_lexicon.prx"
@@ -79,8 +81,10 @@ fn relation_lexicon() -> Archive {
         .expect("committed relation_lexicon.prx must load against its baked root")
 }
 
-/// The loaded surface→relation-kind index: `"part of"` → the Parthood
-/// [`ConceptRef`], `"is a"` → the Subsumption [`ConceptRef`], etc. — built by
+/// The loaded surface→relation-kind index: today `"part of"` → the Parthood
+/// [`ConceptRef`] (and any future non-default phrasal relations). It does NOT map
+/// `"is a"` — Subsumption is the copula default resolved at dispatch, so
+/// `relation_surface_index().get("is a")` is `None`. Built by
 /// walking the committed lexicon archive the SAME way the composed reasoner walks
 /// a loaded corpus (§9): a relation `Concept`'s queryable surfaces are the
 /// `ontolex:Form` atoms it points at, detected by FORM-target-ness (a data

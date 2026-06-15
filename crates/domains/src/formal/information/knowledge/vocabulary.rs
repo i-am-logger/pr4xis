@@ -92,9 +92,11 @@ pub fn runtime_ontology_vocabulary(onto: &RuntimeOntology) -> Vocabulary {
 
 /// What a loaded ontology can actually ANSWER — its capabilities (doc §4.7).
 /// "Loaded" alone lies: a Parthood-only USC card goes green while its taxonomy
-/// queries are dark. This reports, DATA-DRIVEN, which structural queries the
-/// materialized ontology really supports, so the self-model is honest about
-/// capability, not just size.
+/// queries are dark. This reports, DATA-DRIVEN, which reachability queries the
+/// materialized ontology really supports over its CLOSED (transitive) relation
+/// kinds — so the self-model is honest about capability, not just size. (Purely
+/// non-transitive edge kinds carry no reachability closure, so they are not among
+/// the reported `relation_kinds`.)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OntologyCapability {
     /// The loaded ontology, by name.
