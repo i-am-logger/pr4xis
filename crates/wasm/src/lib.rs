@@ -680,10 +680,10 @@ mod acceptance {
         for node in &onto.archive().nodes {
             let surface = node.name.to_lowercase();
             let cref = onto.concept(node.name.clone());
-            if let Some(gloss) = onto.lexical(&cref) {
-                if english.lookup(&surface).is_empty() {
-                    return (surface, gloss.to_string());
-                }
+            if let Some(gloss) = onto.lexical(&cref)
+                && english.lookup(&surface).is_empty()
+            {
+                return (surface, gloss.to_string());
             }
         }
         panic!("expected at least one glossed embedded concept unknown to WordNet");
@@ -1030,10 +1030,10 @@ mod browser_acceptance {
         for node in &onto.archive().nodes {
             let surface = node.name.to_lowercase();
             let cref = onto.concept(node.name.clone());
-            if let Some(gloss) = onto.lexical(&cref) {
-                if english.lookup(&surface).is_empty() {
-                    return (surface, gloss.to_string());
-                }
+            if let Some(gloss) = onto.lexical(&cref)
+                && english.lookup(&surface).is_empty()
+            {
+                return (surface, gloss.to_string());
             }
         }
         panic!("expected at least one glossed embedded concept unknown to WordNet");
