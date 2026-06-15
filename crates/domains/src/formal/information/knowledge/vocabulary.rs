@@ -90,6 +90,50 @@ pub fn runtime_ontology_vocabulary(onto: &RuntimeOntology) -> Vocabulary {
     )
 }
 
+/// What a loaded ontology can actually ANSWER — its capabilities (doc §4.7).
+/// "Loaded" alone lies: a Parthood-only USC card goes green while its taxonomy
+/// queries are dark. This reports, DATA-DRIVEN, which structural queries the
+/// materialized ontology really supports, so the self-model is honest about
+/// capability, not just size.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OntologyCapability {
+    /// The loaded ontology, by name.
+    pub ontology: alloc::string::String,
+    /// Can a concept's gloss be read back? (At least one concept carries lexical.)
+    pub gloss: bool,
+    /// The relation kinds whose closure is POPULATED — `Subsumption`, `Parthood`,
+    /// … — read off the materialized closure, never a hardcoded `{subsumption,
+    /// parthood}` set. Sorted for a stable surface.
+    pub relation_kinds: alloc::vec::Vec<alloc::string::String>,
+}
+
+/// Derive a loaded ontology's [`OntologyCapability`] from its MATERIALIZED form —
+/// `gloss` from whether any CONCEPT carries lexical (Form surface atoms are not
+/// concepts), `relation_kinds` from
+/// [`populated_kinds`](pr4xis_runtime::ontology::MaterializedClosure::populated_kinds)
+/// (the kinds whose closure actually has reachability). So a USC reports
+/// `Parthood`, an OWL `Subsumption` — emergent from the loaded data.
+pub fn ontology_capabilities(onto: &RuntimeOntology) -> OntologyCapability {
+    let gloss = onto
+        .archive()
+        .nodes
+        .iter()
+        .filter(|n| n.kind != FORM_KIND)
+        .any(|n| n.lexical.is_some());
+    let mut relation_kinds: Vec<alloc::string::String> = onto
+        .closure()
+        .populated_kinds()
+        .into_iter()
+        .map(|k| k.name)
+        .collect();
+    relation_kinds.sort();
+    OntologyCapability {
+        ontology: onto.id().as_str().to_string(),
+        gloss,
+        relation_kinds,
+    }
+}
+
 /// The KnowledgeBase — catalogs all Vocabulary instances.
 /// This IS the self-model eigenform: X = F(X).
 #[derive(Debug, Clone)]
@@ -218,6 +262,56 @@ mod tests {
             vocab.morphisms()[0].kind,
             MorphismKind::Subsumption,
             "the edge kind is recovered as the typed Subsumption morphism"
+        );
+    }
+
+    #[test]
+    fn ontology_capabilities_are_the_data_driven_populated_kinds() {
+        use pr4xis::ontology::meta::OntologyName;
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::{Definition, EdgeTarget};
+        use pr4xis_runtime::ontology::materialize;
+
+        // A Parthood mereology (subsection part-of section) with a gloss — but NO
+        // is-a edge. The capability must report Parthood (populated) and NOT
+        // Subsumption (the doc §4.7 point: capability ≠ vocabulary, emergent from
+        // the materialized data — "loaded" with only half its closure populated).
+        let archive = Archive {
+            nodes: alloc::vec![
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "subsection".to_string(),
+                    edges: alloc::vec![(
+                        "Parthood".to_string(),
+                        EdgeTarget::Local("section".to_string())
+                    )],
+                    axioms: alloc::vec![],
+                    lexical: Some("a subdivision of a section".to_string()),
+                },
+                Definition {
+                    kind: "Concept".to_string(),
+                    name: "section".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: None,
+                },
+            ],
+            connections: alloc::vec![],
+        };
+        let onto = materialize(archive, OntologyName::new_static("usc")).expect("materializes");
+
+        let cap = ontology_capabilities(&onto);
+        assert_eq!(cap.ontology, "usc");
+        assert!(cap.gloss, "a concept carries a gloss");
+        assert!(
+            cap.relation_kinds.contains(&"Parthood".to_string()),
+            "the Parthood closure is populated; got {:?}",
+            cap.relation_kinds
+        );
+        assert!(
+            !cap.relation_kinds.contains(&"Subsumption".to_string()),
+            "no is-a edge → Subsumption is NOT a reported capability; got {:?}",
+            cap.relation_kinds
         );
     }
 
