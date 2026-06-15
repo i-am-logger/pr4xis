@@ -9,7 +9,8 @@ use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::english::bridge::FORM_KIND;
 use pr4xis_domains::formal::information::knowledge::{
-    LoadedRef, ontology_capabilities, runtime_ontology_vocabulary, source_catalog,
+    LoadEvent, LoadEventKind, LoadedRef, ontology_capabilities, runtime_ontology_vocabulary,
+    source_catalog,
 };
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
@@ -89,6 +90,9 @@ pub struct Pr4xis {
     /// when absent, `chat` reasons through `english` alone (it abstains on an
     /// unloaded concept, exactly as today).
     composed: Option<ComposedReasoner>,
+    /// The append-only load history (doc §2.4) — the system's MEMORY of what it
+    /// loaded, in order, content-addressed by root. Surfaced in `self_describe`.
+    history: Vec<LoadEvent>,
 }
 
 /// Why loading a new-format `.prx` failed — the typed core error, rendered to a
@@ -137,6 +141,7 @@ impl Pr4xis {
             english: load_english(),
             runtime_ontologies: Vec::new(),
             composed: None,
+            history: Vec::new(),
         }
     }
 
@@ -463,7 +468,30 @@ impl Pr4xis {
         pr4xis_chat::self_describe_with_loaded(&self.english, loaded)
             .with_catalog(catalog)
             .with_capabilities(capabilities)
+            .with_history(self.history.clone(), self.state_cid())
             .to_json()
+    }
+
+    /// The content-addressed fingerprint of the CURRENT loaded state (doc §2.4) —
+    /// a Merkle fold over the SORTED loaded roots, so it is order-independent
+    /// (loading A then B identifies the same state as B then A) and changes the
+    /// moment a load does. Reuses the kernel [`ContentAddress`] hash — no new
+    /// codec. `None` when nothing is loaded.
+    fn state_cid(&self) -> Option<String> {
+        if self.runtime_ontologies.is_empty() {
+            return None;
+        }
+        let mut roots: Vec<[u8; 32]> = self
+            .runtime_ontologies
+            .iter()
+            .map(|o| *o.root().as_bytes())
+            .collect();
+        roots.sort_unstable();
+        let mut bytes = Vec::with_capacity(roots.len() * 32);
+        for r in &roots {
+            bytes.extend_from_slice(r);
+        }
+        Some(ContentAddress::of(&bytes).to_hex())
     }
 }
 
@@ -533,7 +561,32 @@ impl Pr4xis {
     /// Lemon functor. This rebuild happens only on a load (a rare, deliberate
     /// action), keeping the per-chat path a cheap branch.
     fn install_runtime_ontology(&mut self, onto: RuntimeOntology) {
-        self.runtime_ontologies.retain(|o| o != &onto);
+        // Replace BY NAME — a `.prx` is identified by its OntologyName, so a new
+        // version displaces the old (one current version per source, doc §4.5),
+        // not by content (which would let two versions of Title 15 coexist). The
+        // displaced root is captured for the history's Replace event.
+        let displaced = self
+            .runtime_ontologies
+            .iter()
+            .find(|o| o.id() == onto.id())
+            .map(|o| o.root().to_hex());
+        self.runtime_ontologies.retain(|o| o.id() != onto.id());
+
+        // The append-only load history (doc §2.4): content-addressed memory of
+        // what was loaded, in order. Re-loading identical content is still
+        // recorded (the system observed a load), but the state_cid is unchanged.
+        let event = LoadEvent {
+            kind: if displaced.is_some() {
+                LoadEventKind::Replace
+            } else {
+                LoadEventKind::Load
+            },
+            ontology: onto.id().as_str().to_string(),
+            root: onto.root().to_hex(),
+            displaced,
+        };
+        self.history.push(event);
+
         self.runtime_ontologies.push(onto);
         let english = load_english();
         self.composed = Some(ComposedReasoner::new(
@@ -749,6 +802,69 @@ mod acceptance {
             "loading the .prx must add its capabilities to the self-model: with={} without={}",
             capability_count(&with),
             capability_count(&without),
+        );
+
+        // The load HISTORY + content-addressed state fingerprint (doc §2.4): the
+        // system REMEMBERS the load (an append-only event) and identifies its
+        // current knowledge state by a content-address that only a load changes.
+        let describe = |p: &Pr4xis| {
+            serde_json::from_str::<serde_json::Value>(&p.self_describe())
+                .expect("self_describe JSON")
+        };
+        let with_d = describe(&with);
+        assert_eq!(
+            with_d["history"].as_array().map(|a| a.len()).unwrap_or(0),
+            1,
+            "the load is recorded as one history event"
+        );
+        assert_eq!(
+            with_d["history"][0]["event"].as_str(),
+            Some("load"),
+            "a first load of a name is a `load` event"
+        );
+        assert!(
+            with_d["state_cid"].as_str().is_some(),
+            "a loaded state has a content-addressed fingerprint"
+        );
+        assert_eq!(
+            describe(&without)["history"]
+                .as_array()
+                .map(|a| a.len())
+                .unwrap_or(0),
+            0,
+            "nothing loaded → empty history (and no state fingerprint)"
+        );
+    }
+
+    #[test]
+    fn re_loading_a_name_replaces_it_and_records_a_replace_event() {
+        // Name-based replace (doc §4.5): a `.prx` is its OntologyName, so loading
+        // the same name again DISPLACES the prior one (one current version, not two
+        // copies) — and the history records the temporal fact (doc §2.4): a Load,
+        // then a Replace carrying the displaced root.
+        let mut p = Pr4xis::new();
+        p.load_embedded_demo_prx_core().expect("first load");
+        p.load_embedded_demo_prx_core()
+            .expect("second load (same name)");
+
+        assert_eq!(
+            p.loaded_ontology_count(),
+            1,
+            "re-loading a name replaces it — not two copies in the reasoned-over set"
+        );
+
+        let d = serde_json::from_str::<serde_json::Value>(&p.self_describe()).expect("JSON");
+        let history = d["history"].as_array().expect("history is an array");
+        assert_eq!(history.len(), 2, "both loads are recorded (append-only)");
+        assert_eq!(history[0]["event"].as_str(), Some("load"));
+        assert_eq!(
+            history[1]["event"].as_str(),
+            Some("replace"),
+            "the second load of the same name is a replace"
+        );
+        assert!(
+            history[1]["displaced"].as_str().is_some(),
+            "a replace event carries the displaced root"
         );
     }
 
