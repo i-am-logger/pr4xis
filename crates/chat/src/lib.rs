@@ -47,6 +47,22 @@ pub use pr4xis_domains::formal::information::diagnostics::trace_functors::Pipeli
 /// Alias — the trace is a PipelineTrace from the Diagnostics ontology.
 pub type Trace = PipelineTrace;
 
+/// The TYPED outcome of a turn (doc §4.1) — a self-aware system models what it
+/// CANNOT answer, not just what it can. Abstention stops being a string the UI
+/// sniffs ("I don't know …") and becomes a value: an `Abstained` turn names the
+/// surfaces it could not resolve — the "asked but not loaded" set, i.e. WHAT TO
+/// LOAD next. Reiter (1978) closed-world: the system knows the boundary of its
+/// own knowledge.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChatOutcome {
+    /// The turn answered from knowledge (the embedded model or a loaded ontology).
+    Answered,
+    /// The turn abstained — it could not ground the query. `unresolved` is the set
+    /// of asked surfaces no loaded ontology knows (empty when the input itself
+    /// carried no resolvable entity, e.g. empty input).
+    Abstained { unresolved: Vec<String> },
+}
+
 /// Result of processing input through the linguistics pipeline.
 pub struct ProcessResult {
     pub response: String,
@@ -57,6 +73,8 @@ pub struct ProcessResult {
     pub parsed: bool,
     pub trace: Trace,
     pub from_ontology: bool,
+    /// The typed outcome — answered, or abstained with the unresolved surfaces.
+    pub outcome: ChatOutcome,
 }
 
 /// Process input through the full linguistics pipeline.
@@ -157,6 +175,10 @@ pub fn process_with_reasoner(
             parsed: false,
             trace: PipelineTrace::from_traceable(&trace_impls::TokenizeResult { tokens: &tokens }),
             from_ontology: false,
+            // Empty input named nothing — an abstention with no surface to load.
+            outcome: ChatOutcome::Abstained {
+                unresolved: Vec::new(),
+            },
         };
     }
 
@@ -248,6 +270,17 @@ pub fn process_with_reasoner(
     let from_ontology = response_result.from_ontology;
     let response = response_result.response;
 
+    // The typed outcome (doc §4.1): answered from knowledge, or abstained — naming
+    // the surfaces no loaded ontology could ground (what to load next). Derived
+    // from the answer's `from_ontology` verdict, never sniffed from the text.
+    let outcome = if from_ontology {
+        ChatOutcome::Answered
+    } else {
+        ChatOutcome::Abstained {
+            unresolved: unresolved_surfaces(&meaning, reasoner),
+        }
+    };
+
     ProcessResult {
         response,
         user_act,
@@ -257,7 +290,31 @@ pub fn process_with_reasoner(
         parsed,
         trace: pipeline.log,
         from_ontology,
+        outcome,
     }
+}
+
+/// The surfaces a turn NAMED but could not resolve to any concept — the "asked but
+/// not loaded" set (doc §4.1), read off the interpreted meaning's entities and
+/// filtered to those the reasoner's lexicon does not know. This IS the abstention
+/// reason: what the user would have to load for the system to answer.
+fn unresolved_surfaces(meaning: &montague::Sem, reasoner: &dyn LexicalReasoner) -> Vec<String> {
+    let named: Vec<String> = match meaning {
+        montague::Sem::Question { arguments, .. } | montague::Sem::Prop { arguments, .. } => {
+            arguments.iter().map(extract_entity_name).collect()
+        }
+        other => vec![extract_entity_name(other)],
+    };
+    let mut unresolved = Vec::new();
+    for surface in named {
+        if !surface.is_empty()
+            && reasoner.lookup(&surface).is_empty()
+            && !unresolved.contains(&surface)
+        {
+            unresolved.push(surface);
+        }
+    }
+    unresolved
 }
 
 fn attempt_partial_understanding(
@@ -1417,6 +1474,35 @@ mod loaded_corpus_demo {
                 .any(|(o, _)| matches!(o, TraceOntology::Loaded(_))),
             "english-only must name no loaded ontology in its provenance"
         );
+    }
+
+    #[test]
+    fn abstention_is_a_typed_outcome_naming_what_to_load() {
+        // Doc §4.1 (highest): a self-aware system models what it CANNOT answer.
+        // With the corpus, "title" resolves → Answered; without it, the turn
+        // ABSTAINS and NAMES the unresolved surface (what to load), as a value —
+        // not a string the UI has to sniff.
+        let english = English::sample();
+        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+
+        let answered = process_with_reasoner(&english, &composed, "what is a title");
+        assert_eq!(
+            answered.outcome,
+            ChatOutcome::Answered,
+            "with the corpus, the loaded concept answers; got {:?}",
+            answered.outcome
+        );
+
+        let abstained = process_with_reasoner(&english, &English::sample(), "what is a title");
+        match abstained.outcome {
+            ChatOutcome::Abstained { unresolved } => assert!(
+                unresolved.iter().any(|s| s == "title"),
+                "abstention must name the unresolved surface to load; got {unresolved:?}"
+            ),
+            ChatOutcome::Answered => {
+                panic!("english-only must abstain on the unloaded concept 'title'")
+            }
+        }
     }
 
     /// A loaded ontology carrying a PARTHOOD mereology in the USC orientation
