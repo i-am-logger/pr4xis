@@ -7,6 +7,7 @@ use pr4xis_domains::applied::data_provisioning::registry::{
 };
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::english::bridge::FORM_KIND;
 use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
@@ -19,6 +20,7 @@ use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::usc_run
 use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
+use std::collections::BTreeSet;
 
 /// The complete WordNet ontology, baked in as the compact `.prx.gz` (emitted by
 /// build.rs). `load_english` gunzips and materializes the full `English`.
@@ -178,9 +180,17 @@ impl Pr4xis {
     /// provisions, OWL entities, and loaded `.prx` concepts alike. Source-agnostic
     /// (the unification: every loaded source now contributes through the one set).
     pub fn loaded_section_count(&self) -> usize {
+        // CONCEPTS only — the §9 `ontolex:Form` atoms (kind == FORM_KIND) are
+        // queryable SURFACES, not concepts, so they are excluded from the count.
         self.runtime_ontologies
             .iter()
-            .map(|o| o.archive().nodes.len())
+            .map(|o| {
+                o.archive()
+                    .nodes
+                    .iter()
+                    .filter(|n| n.kind != FORM_KIND)
+                    .count()
+            })
             .sum()
     }
 
@@ -440,10 +450,36 @@ impl Pr4xis {
             0,
         ));
         // Every runtime-loaded ontology the chat reasons over (USC / OWL / .prx):
-        // one node per concept, and the generating typed edges as morphisms.
+        // CONCEPTS (non-Form nodes) and their generating typed morphisms. The §9
+        // `ontolex:Form` atoms are queryable surfaces, not concepts — excluded from
+        // the concept count, and the lexicalization edges that point AT them are
+        // excluded from the morphism count (they are surfaces, not taxonomy).
         for onto in &self.runtime_ontologies {
-            let concepts = onto.archive().nodes.len();
-            let morphisms: usize = onto.archive().nodes.iter().map(|n| n.edges.len()).sum();
+            let form_names: BTreeSet<&str> = onto
+                .archive()
+                .nodes
+                .iter()
+                .filter(|n| n.kind == FORM_KIND)
+                .map(|n| n.name.as_str())
+                .collect();
+            let concepts = onto
+                .archive()
+                .nodes
+                .iter()
+                .filter(|n| n.kind != FORM_KIND)
+                .count();
+            let morphisms: usize = onto
+                .archive()
+                .nodes
+                .iter()
+                .filter(|n| n.kind != FORM_KIND)
+                .flat_map(|n| &n.edges)
+                .filter(|(_, target)| {
+                    target
+                        .local_name()
+                        .is_none_or(|name| !form_names.contains(name))
+                })
+                .count();
             refs.push(LoadedRef::new(
                 onto.id().as_str().to_string(),
                 Staging::Async,

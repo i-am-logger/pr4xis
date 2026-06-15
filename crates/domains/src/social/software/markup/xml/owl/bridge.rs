@@ -45,6 +45,7 @@
 //! queries over loaded OWL await the lexical-`Form` surfacing
 //! (`docs/praxis-self-aware-architecture` §9 / Step 1b), the same deferral USC has.
 
+use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -57,6 +58,7 @@ use pr4xis_runtime::definition::{Definition, EdgeTarget};
 use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
 
 use super::vocabulary::{LoadedOwlVocabulary, OwlEntityKind};
+use crate::cognitive::linguistics::english::bridge::form_atom;
 
 /// The raw node kind of an `owl:Class` in the SOURCE archive — the W3C OWL 2 §5.1
 /// metaclass tag the projector reads off the struct, before the functor relabels
@@ -86,6 +88,17 @@ pub const RELATION_KIND: &str = "Relation";
 /// transitive kinds [`materialize`] folds into the is-a closure.
 pub const SUBSUMPTION_REL: &str = "Subsumption";
 
+/// The raw relation linking an entity to its `rdfs:label` surface (W3C RDF Schema
+/// §2.4), before the functor relabels it to [`CANONICAL_FORM_REL`].
+pub const LABEL_REL: &str = "label";
+
+/// The praxis lexicalization role a `label` edge relabels to — Lemon
+/// `ontolex:canonicalForm` (the entity's one canonical written surface). Appears
+/// ONLY in the functor DATA. The composed reasoner indexes the `Form` it reaches
+/// as a queryable surface, so "what is &lt;label&gt;" answers from the entity's gloss
+/// instead of only its opaque IRI.
+pub const CANONICAL_FORM_REL: &str = "canonicalForm";
+
 /// Project a loaded OWL vocabulary into a content-addressed SOURCE [`Archive`] —
 /// the structural functor `LoadedOwlVocabulary → Archive`, carrying RAW OWL
 /// generator names (no praxis kind baked).
@@ -106,7 +119,7 @@ pub fn owl_project_archive(vocab: &LoadedOwlVocabulary) -> Archive {
         parents_of[child].push(entities[parent].iri.clone());
     }
 
-    let nodes = entities
+    let mut nodes: Vec<Definition> = entities
         .iter()
         .enumerate()
         .map(|(idx, entity)| {
@@ -118,7 +131,7 @@ pub fn owl_project_archive(vocab: &LoadedOwlVocabulary) -> Archive {
                 OwlEntityKind::ObjectProperty => OBJECT_PROPERTY_KIND,
             };
             let lexical = (!entity.definition.is_empty()).then(|| entity.definition.clone());
-            let edges = parents_of[idx]
+            let mut edges: Vec<(String, EdgeTarget)> = parents_of[idx]
                 .iter()
                 .map(|parent_iri| {
                     (
@@ -127,6 +140,16 @@ pub fn owl_project_archive(vocab: &LoadedOwlVocabulary) -> Archive {
                     )
                 })
                 .collect();
+            // Lexicalization (§9): the entity's `rdfs:label` (or its IRI local
+            // name) is its canonical natural-language SURFACE — a raw `label` edge
+            // the functor maps to `canonicalForm`, pointing at the Form atom minted
+            // below. So the chat answers "what is &lt;label&gt;", not only the IRI.
+            if !entity.label.is_empty() {
+                edges.push((
+                    LABEL_REL.to_string(),
+                    EdgeTarget::Local(entity.label.clone()),
+                ));
+            }
             Definition {
                 kind: kind.to_string(),
                 name: entity.iri.clone(),
@@ -136,6 +159,16 @@ pub fn owl_project_archive(vocab: &LoadedOwlVocabulary) -> Archive {
             }
         })
         .collect();
+
+    // One `ontolex:Form` atom per DISTINCT label (the writtenRep surface);
+    // entities sharing a label denote the same Form. Deduped so the archive stays
+    // referentially closed with no duplicate node.
+    let mut seen_forms: BTreeSet<&str> = BTreeSet::new();
+    for entity in entities {
+        if !entity.label.is_empty() && seen_forms.insert(entity.label.as_str()) {
+            nodes.push(form_atom(&entity.label));
+        }
+    }
 
     Archive {
         nodes,
@@ -163,7 +196,10 @@ pub fn owl_to_praxis_functor() -> Connection {
                 (CLASS_KIND.to_string(), CONCEPT_KIND.to_string()),
                 (OBJECT_PROPERTY_KIND.to_string(), RELATION_KIND.to_string()),
             ],
-            map_morphism: vec![(SUBSUMES_REL.to_string(), SUBSUMPTION_REL.to_string())],
+            map_morphism: vec![
+                (SUBSUMES_REL.to_string(), SUBSUMPTION_REL.to_string()),
+                (LABEL_REL.to_string(), CANONICAL_FORM_REL.to_string()),
+            ],
         },
         laws: vec![
             "PreservesIdentity".to_string(),
@@ -194,6 +230,7 @@ pub fn owl_runtime_ontology(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cognitive::linguistics::english::bridge::FORM_KIND;
     use crate::social::software::markup::xml::owl::reader::read_owl;
     use pr4xis_runtime::ontology::subsumption_kind;
 
@@ -233,24 +270,51 @@ mod tests {
             .find(|n| n.name == "http://example.org/test#Dog")
             .expect("Dog node");
         assert_eq!(dog.kind, CLASS_KIND, "raw owl:Class tag, not 'Concept'");
+        let subsumes: usize = dog
+            .edges
+            .iter()
+            .filter(|(rel, _)| rel == SUBSUMES_REL)
+            .count();
+        assert_eq!(
+            subsumes, 2,
+            "Dog's two superclasses are raw 'subsumes' edges"
+        );
+        // Dog also carries a raw `label` edge to its canonical-form surface (§9).
         assert!(
-            dog.edges.iter().all(|(rel, _)| rel == SUBSUMES_REL),
-            "raw is-a relation 'subsumes', not 'Subsumption'; got {:?}",
+            dog.edges.iter().any(|(rel, _)| rel == LABEL_REL),
+            "Dog carries a raw 'label' lexicalization edge; got {:?}",
             dog.edges
         );
-        assert_eq!(dog.edges.len(), 2, "Dog's two superclasses are both edges");
     }
 
     #[test]
-    fn projection_preserves_the_catalog_stats() {
-        // One node per entity, one edge per subsumption pair — the counts wasm's
-        // catalog reports must survive the projection (a multi-parent grouping bug
-        // would drop or duplicate an edge and fail here).
+    fn projection_preserves_the_concept_and_subsumption_stats() {
+        // The catalog counts CONCEPTS (non-Form nodes) and SUBSUMPTION edges — the
+        // §9 Form atoms + label edges are surfaces, not concepts/taxonomy, so they
+        // are excluded from the stat. A multi-parent grouping bug would drop or
+        // duplicate a subsumption edge and fail here.
         let vocab = sample_vocab();
         let archive = owl_project_archive(&vocab);
-        assert_eq!(archive.nodes.len(), vocab.entity_count());
-        let edges: usize = archive.nodes.iter().map(|n| n.edges.len()).sum();
-        assert_eq!(edges, vocab.subsumption_edge_count());
+        let concepts = archive.nodes.iter().filter(|n| n.kind != FORM_KIND).count();
+        assert_eq!(
+            concepts,
+            vocab.entity_count(),
+            "one concept node per entity"
+        );
+        let subsumes: usize = archive
+            .nodes
+            .iter()
+            .flat_map(|n| &n.edges)
+            .filter(|(rel, _)| rel == SUBSUMES_REL)
+            .count();
+        assert_eq!(subsumes, vocab.subsumption_edge_count());
+        // One canonical-form surface per entity (each has a local-name label here).
+        let forms = archive.nodes.iter().filter(|n| n.kind == FORM_KIND).count();
+        assert_eq!(
+            forms,
+            vocab.entity_count(),
+            "a canonical-form Form per entity"
+        );
     }
 
     #[test]
@@ -267,9 +331,13 @@ mod tests {
         assert!(
             map_object.contains(&(OBJECT_PROPERTY_KIND.to_string(), RELATION_KIND.to_string()))
         );
-        assert_eq!(
-            map_morphism,
-            vec![(SUBSUMES_REL.to_string(), SUBSUMPTION_REL.to_string())]
+        assert!(
+            map_morphism.contains(&(SUBSUMES_REL.to_string(), SUBSUMPTION_REL.to_string())),
+            "the is-a relabel is data"
+        );
+        assert!(
+            map_morphism.contains(&(LABEL_REL.to_string(), CANONICAL_FORM_REL.to_string())),
+            "the lexicalization relabel (label → canonicalForm) is data too"
         );
     }
 

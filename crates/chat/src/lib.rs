@@ -1207,6 +1207,41 @@ mod loaded_corpus_demo {
     }
 
     #[test]
+    fn an_owl_label_makes_a_class_chat_answerable() {
+        // The §9 OWL path end-to-end: an OWL entity is answerable by its
+        // `rdfs:label` (minted as a `canonicalForm` Form by the owl bridge), not
+        // only its opaque IRI. A MULTI-WORD label exercises §9 + the phrase-lookup
+        // together.
+        use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
+        use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
+        use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
+
+        const OWL: &str = r#"<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#">
+  <owl:ObjectProperty rdf:about="http://purl.org/spar/cito/citesAsEvidence">
+    <rdfs:label>cites as evidence</rdfs:label>
+    <rdfs:comment>The citing entity cites the cited entity as evidence.</rdfs:comment>
+  </owl:ObjectProperty>
+</rdf:RDF>"#;
+
+        let english = English::sample();
+        let ont = read_owl(OWL).expect("parse OWL");
+        let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
+        let onto = owl_runtime_ontology(&vocab, OntologyName::new_static("cito"))
+            .expect("the OWL vocabulary materializes");
+        let composed = ComposedReasoner::new(English::sample(), vec![onto]);
+
+        let resp = process_with_reasoner(&english, &composed, "what is cites as evidence").response;
+        assert!(
+            resp.to_lowercase().contains("citing"),
+            "the OWL property must answer from its rdfs:comment gloss via its label \
+             surface; got: {resp:?}"
+        );
+    }
+
+    #[test]
     fn grounding_unions_the_loaded_surface_into_the_lexicon() {
         // The Lemon grounding is what makes "title" resolvable at all: english
         // alone returns nothing for it; the composed reasoner returns the loaded
