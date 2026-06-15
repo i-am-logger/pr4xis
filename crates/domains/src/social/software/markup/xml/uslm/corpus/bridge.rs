@@ -32,7 +32,9 @@
 //! `defines`), resolved by the generic `AtomResolver` — never a bespoke string
 //! side-channel.
 
-use alloc::string::ToString;
+use alloc::collections::BTreeSet;
+use alloc::format;
+use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -45,6 +47,7 @@ use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
 
 use super::UsCode;
 use super::section_aux::UscSubdivision;
+use crate::cognitive::linguistics::english::bridge::form_atom;
 
 /// The RAW USLM node tag of a section in the SOURCE archive — the `<section>`
 /// element name the projector emits, before [`usc_to_praxis_functor`] relabels it
@@ -68,6 +71,32 @@ pub const COMPOSES_REL: &str = "Composes";
 /// is a real closure (a clause is transitively part-of its section). Appears ONLY
 /// in the functor DATA.
 pub const PARTHOOD_REL: &str = "Parthood";
+
+/// The raw relation linking a section to its HEADING surface, before the functor
+/// relabels it to [`CANONICAL_FORM_REL`] (§9 lexicalization).
+pub const HEADING_REL: &str = "heading";
+
+/// The raw relation linking a section to its CITATION surface ("section &lt;num&gt;"),
+/// before the functor relabels it to [`OTHER_FORM_REL`].
+pub const CITATION_REL: &str = "citation";
+
+/// The praxis lexicalization role a `heading` edge relabels to — Lemon
+/// `ontolex:canonicalForm` (the section's one canonical surface). Functor DATA.
+pub const CANONICAL_FORM_REL: &str = "canonicalForm";
+
+/// The praxis lexicalization role a `citation` edge relabels to — Lemon
+/// `ontolex:otherForm` (a curated variant surface). Functor DATA.
+pub const OTHER_FORM_REL: &str = "otherForm";
+
+/// The citation surface for a section URN — `"section <num>"`, the curated
+/// `otherForm` a person actually types ("section 1514a"). Derived from the section
+/// URN (`/us/usc/tNN/s<num>`): the trailing `/s<num>` segment with `s` stripped.
+/// `None` if the URN has no `s`-prefixed section segment (defensive — every USLM
+/// section URN has one).
+fn section_citation(urn: &str) -> Option<String> {
+    let num = urn.rsplit('/').next()?.strip_prefix('s')?;
+    (!num.is_empty()).then(|| format!("section {num}"))
+}
 
 /// Project a loaded [`UsCode`] into the RAW generic runtime [`Archive`] — the
 /// structural transcription only (the praxis relabel is [`usc_to_praxis_functor`]).
@@ -110,12 +139,34 @@ pub fn project_archive(usc: &UsCode) -> Archive {
     }
 
     let mut nodes = Vec::new();
+    // Distinct lexicalization surfaces (heading + citation), minted as Form atoms
+    // after the walk so the archive stays referentially closed with no duplicate.
+    let mut form_surfaces: BTreeSet<String> = BTreeSet::new();
     for section in usc.all_sections() {
         let section_urn = section.urn.value();
+        // Lexicalization (§9): a section's heading is its canonicalForm surface,
+        // and "section <num>" (from the URN) is a curated otherForm citation — raw
+        // edges the functor maps to canonicalForm/otherForm, pointing at the Form
+        // atoms below. So the chat answers "what is section 1514a", not only the URN.
+        let mut edges: Vec<(String, EdgeTarget)> = Vec::new();
+        if !section.heading.is_empty() {
+            edges.push((
+                HEADING_REL.to_string(),
+                EdgeTarget::Local(section.heading.clone()),
+            ));
+            form_surfaces.insert(section.heading.clone());
+        }
+        if let Some(citation) = section_citation(section_urn) {
+            edges.push((
+                CITATION_REL.to_string(),
+                EdgeTarget::Local(citation.clone()),
+            ));
+            form_surfaces.insert(citation);
+        }
         nodes.push(Definition {
             kind: SECTION_TAG.to_string(),
             name: section_urn.to_string(),
-            edges: Vec::new(), // a section is a root in this projection
+            edges, // a section is a Composes root; its lexicalization edges ride here
             axioms: Vec::new(),
             lexical: Some(section.heading.clone()),
         });
@@ -124,6 +175,11 @@ pub fn project_archive(usc: &UsCode) -> Archive {
         for top in section.subdivisions {
             project_subdivision(top, section_urn, &mut nodes);
         }
+    }
+    // One `ontolex:Form` atom per distinct surface (the writtenRep the composed
+    // reasoner indexes as queryable).
+    for surface in &form_surfaces {
+        nodes.push(form_atom(surface));
     }
     Archive {
         nodes,
@@ -147,7 +203,11 @@ pub fn usc_to_praxis_functor() -> Connection {
         target: "PraxisOntology".to_string(),
         action: GeneratorAction::Functor {
             map_object: vec![(SECTION_TAG.to_string(), SECTION_KIND.to_string())],
-            map_morphism: vec![(COMPOSES_REL.to_string(), PARTHOOD_REL.to_string())],
+            map_morphism: vec![
+                (COMPOSES_REL.to_string(), PARTHOOD_REL.to_string()),
+                (HEADING_REL.to_string(), CANONICAL_FORM_REL.to_string()),
+                (CITATION_REL.to_string(), OTHER_FORM_REL.to_string()),
+            ],
         },
         laws: vec![
             "PreservesIdentity".to_string(),
@@ -178,6 +238,7 @@ pub fn usc_runtime_ontology(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cognitive::linguistics::english::bridge::FORM_KIND;
     use alloc::collections::BTreeSet;
 
     #[test]
@@ -190,10 +251,12 @@ mod tests {
                 .iter()
                 .map(|s| s.subdivision_count())
                 .sum::<usize>();
+        // CONCEPTS (non-Form nodes) — one per section + per subdivision; the §9
+        // Form atoms (heading / citation surfaces) are excluded.
+        let concepts = archive.nodes.iter().filter(|n| n.kind != FORM_KIND).count();
         assert_eq!(
-            archive.nodes.len(),
-            expected,
-            "one node per section + per subdivision"
+            concepts, expected,
+            "one concept node per section + subdivision"
         );
         assert!(archive.connections.is_empty());
         // The structural projection carries the RAW USLM section tag — never the
@@ -203,28 +266,27 @@ mod tests {
     }
 
     #[test]
-    fn every_projected_edge_is_a_referentially_closed_raw_composes() {
-        // The only edge kind the structural projection emits is the RAW Composes
-        // relation (the functor maps it to Parthood), and every target is a
-        // declared section/subdivision (the precondition `materialize` enforces).
-        // `UsCode::sample()` is FLAT (no subdivision tree), so it has no edges —
-        // the invariant holds vacuously here and is exercised over a real, nested
-        // title in the heavy corpus lane (`praxis-corpus-tests`).
+    fn every_projected_edge_is_referentially_closed() {
+        // Every projected edge — the RAW Composes mereology OR the §9
+        // heading/citation lexicalization — is a same-archive local edge to a
+        // DECLARED node (the referential closure `materialize` enforces). The
+        // praxis relabels (Composes→Parthood, heading→canonicalForm) are the
+        // functor's job; the structural projection emits only these raw kinds.
         let archive = project_archive(&UsCode::sample());
         let declared: BTreeSet<&str> = archive.nodes.iter().map(|n| n.name.as_str()).collect();
         for n in &archive.nodes {
             for (kind, target) in &n.edges {
-                assert_eq!(
-                    kind, COMPOSES_REL,
-                    "the only projected edge is raw Composes"
-                );
-                let parent = target
+                let to = target
                     .local_name()
-                    .expect("a Composes edge is a same-archive local edge");
+                    .expect("a projected edge is a same-archive local edge");
                 assert!(
-                    declared.contains(parent),
-                    "Composes edge {}--composes-->{parent} names an undeclared node",
+                    declared.contains(to),
+                    "edge {}--{kind}-->{to} names an undeclared node",
                     n.name
+                );
+                assert!(
+                    kind == COMPOSES_REL || kind == HEADING_REL || kind == CITATION_REL,
+                    "projected edge kinds are Composes / heading / citation; got {kind}"
                 );
             }
         }
