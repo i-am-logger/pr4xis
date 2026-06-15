@@ -39,6 +39,13 @@ use pr4xis_runtime::ontology::{ConceptRef, relations_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
 
+/// The default relation a relational question asserts when its surface names no
+/// other — the is-a kind (`rdfs:subClassOf`). Re-exported here, the relation
+/// vocabulary's home, so the chat dispatch can resolve the fallback without a
+/// direct `pr4xis-runtime` dependency (it reasons over relation kinds only
+/// through this module + [`LexicalReasoner`](super::english::LexicalReasoner)).
+pub use pr4xis_runtime::ontology::subsumption_kind;
+
 /// The committed relation lexicon — the `.prx` bytes the surface→relation map
 /// LIVES in, embedded at build time. A node-bearing [`Archive`]: relation
 /// `Concept` nodes (`Parthood`, `Subsumption`) each pointing at the

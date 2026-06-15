@@ -367,6 +367,7 @@ pub fn answer_question(
 ) -> trace_impls::ResponseResult {
     use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
     use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
+    use pr4xis_domains::cognitive::linguistics::relation_lexicon::subsumption_kind;
 
     let all_entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
@@ -379,6 +380,17 @@ pub fn answer_question(
     if entities.len() >= 2 {
         let child = &entities[0];
         let parent = &entities[1];
+
+        // Lower the question's surface predicate to its TYPED relation kind
+        // through the loaded relation lexicon ("part of" → Parthood); an unknown
+        // surface (the bare copula "is") falls back to Subsumption. The relation
+        // is loaded data the reasoner interprets — never a `match predicate` in
+        // Rust. `child → parent` is the asserted direction (part → whole, subtype
+        // → supertype); a relation like Parthood is antisymmetric (BFO:0000050),
+        // so the reverse direction is never re-checked.
+        let kind = en
+            .relation_for_surface(predicate)
+            .unwrap_or_else(subsumption_kind);
 
         // Applicative: child and parent lookups are independent computations.
         // Using Ap::map2 makes this independence explicit — neither lookup
@@ -393,9 +405,12 @@ pub fn answer_question(
         let parent_ids = &lookups.value.right;
 
         if !child_ids.is_empty() && !parent_ids.is_empty() {
+            // The RELATION-PARAMETRIC query: does `child` reach `parent` along
+            // `kind`? `is_a` is the `kind = Subsumption` case; a USC Parthood
+            // question reads the SAME materialized closure, keyed on Parthood.
             for &cid in child_ids {
                 for &pid in parent_ids {
-                    if en.is_a(cid, pid) {
+                    if en.reaches(cid, pid, &kind) {
                         return trace_impls::ResponseResult {
                             response: build_taxonomy_response(en, child, parent, cid, pid),
                             entities_found: entities.clone(),
@@ -411,25 +426,6 @@ pub fn answer_question(
                 taxonomy_checked: Some((child.clone(), parent.clone(), false)),
                 from_ontology: true,
             };
-        }
-
-        if !parent_ids.is_empty() && !child_ids.is_empty() {
-            for &cid in parent_ids {
-                for &pid in child_ids {
-                    if en.is_a(cid, pid) {
-                        let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
-                            .with_predicate("is_a")
-                            .with_entity(parent)
-                            .with_entity(child);
-                        return trace_impls::ResponseResult {
-                            response: realize::realize(&content),
-                            entities_found: entities.clone(),
-                            taxonomy_checked: Some((parent.clone(), child.clone(), true)),
-                            from_ontology: true,
-                        };
-                    }
-                }
-            }
         }
     }
 
