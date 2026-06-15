@@ -243,6 +243,21 @@ impl MaterializedClosure {
             .is_some_and(|closure| source != target && closure.reaches(source, target))
     }
 
+    /// The relation kinds this closure actually POPULATES — the keys whose
+    /// reachability is non-empty. A transitive kind with no folded edges (the
+    /// closure folds an entry for EVERY declared transitive kind, even empty
+    /// ones) is omitted, so this reports what the ontology can really answer, not
+    /// what the vocabulary permits. The data-driven basis for an ontology's
+    /// CAPABILITIES (doc §4.7): a USC mereology populates `Parthood`, an OWL
+    /// vocabulary `Subsumption` — read off the materialized data, not hardcoded.
+    pub fn populated_kinds(&self) -> Vec<ConceptRef> {
+        self.reachable
+            .iter()
+            .filter(|(_, closure)| closure.edges_iter().next().is_some())
+            .map(|(kind, _)| kind.clone())
+            .collect()
+    }
+
     /// The reflexive Subsumption (hypernym) image of `c` — `c` itself plus every
     /// ancestor reachable up the is-a closure, each with its minimal is-a
     /// distance. A lookup over the materialized set; empty (apart from `c`) when

@@ -3,6 +3,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::cognitive::cognition::self_model::AwarenessLevel;
 use crate::formal::information::knowledge::catalog::{SourceStatus, staging_label};
+use crate::formal::information::knowledge::vocabulary::OntologyCapability;
 use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
 use pr4xis::ontology::{Axiom, Vocabulary, describe_knowledge_base};
 
@@ -65,6 +66,13 @@ pub struct SelfModelInstance {
     pub catalog: Vec<SourceStatus>,
     pub total_concepts: usize,
     pub total_morphisms: usize,
+    /// What each loaded ontology can ANSWER (doc §4.7) — gloss / which relation
+    /// kinds its closure populates. So the self-model is honest about capability,
+    /// not just size: a Parthood-only USC card no longer shows green while its
+    /// taxonomy queries are dark. Empty until [`with_capabilities`] is attached.
+    ///
+    /// [`with_capabilities`]: Self::with_capabilities
+    pub capabilities: Vec<OntologyCapability>,
 }
 
 impl SelfModelInstance {
@@ -80,6 +88,7 @@ impl SelfModelInstance {
             catalog: Vec::new(),
             total_concepts,
             total_morphisms,
+            capabilities: Vec::new(),
         }
     }
 
@@ -87,6 +96,13 @@ impl SelfModelInstance {
     /// knowledge boundary (loaded vs available registered sources).
     pub fn with_catalog(mut self, catalog: Vec<SourceStatus>) -> Self {
         self.catalog = catalog;
+        self
+    }
+
+    /// Attach the per-ontology capabilities (doc §4.7) — what each loaded
+    /// ontology can actually answer, so "loaded" stops lying about capability.
+    pub fn with_capabilities(mut self, capabilities: Vec<OntologyCapability>) -> Self {
+        self.capabilities = capabilities;
         self
     }
 
@@ -193,6 +209,30 @@ impl Present for SelfModelInstance {
             SchemaValue::Unsigned(loaded_sources as u64),
         );
         p.set("sources", SchemaValue::List(sources));
+
+        // Per-ontology capabilities (doc §4.7) — what each loaded ontology can
+        // ANSWER (gloss / the relation kinds its closure populates), so a UI can
+        // show capability, not just a green "loaded" badge.
+        let capabilities: Vec<SchemaValue> = self
+            .capabilities
+            .iter()
+            .map(|c| {
+                let mut cap = Presentation::new();
+                cap.set("ontology", SchemaValue::Text(c.ontology.clone()));
+                cap.set("gloss", SchemaValue::Boolean(c.gloss));
+                cap.set(
+                    "relation_kinds",
+                    SchemaValue::List(
+                        c.relation_kinds
+                            .iter()
+                            .map(|k| SchemaValue::Text(k.clone()))
+                            .collect(),
+                    ),
+                );
+                SchemaValue::Record(cap)
+            })
+            .collect();
+        p.set("capabilities", SchemaValue::List(capabilities));
         p
     }
 }

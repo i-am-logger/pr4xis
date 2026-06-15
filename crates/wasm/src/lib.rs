@@ -9,7 +9,7 @@ use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::english::bridge::FORM_KIND;
 use pr4xis_domains::formal::information::knowledge::{
-    LoadedRef, runtime_ontology_vocabulary, source_catalog,
+    LoadedRef, ontology_capabilities, runtime_ontology_vocabulary, source_catalog,
 };
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
@@ -439,8 +439,16 @@ impl Pr4xis {
             .iter()
             .map(runtime_ontology_vocabulary)
             .collect();
+        // Per-ontology capabilities (doc §4.7) — what each loaded ontology can
+        // answer (gloss / populated relation kinds), so "loaded" stops lying.
+        let capabilities = self
+            .runtime_ontologies
+            .iter()
+            .map(ontology_capabilities)
+            .collect();
         pr4xis_chat::self_describe_with_loaded(&self.english, loaded)
             .with_catalog(catalog)
+            .with_capabilities(capabilities)
             .to_json()
     }
 }
@@ -692,6 +700,22 @@ mod acceptance {
              with={} without={}",
             total_concepts(&with),
             total_concepts(&without),
+        );
+
+        // The self-model reports the loaded ontology's CAPABILITIES (doc §4.7) —
+        // what it can answer, not just that it is loaded. Empty before, present after.
+        let capability_count = |p: &Pr4xis| -> usize {
+            serde_json::from_str::<serde_json::Value>(&p.self_describe())
+                .expect("self_describe is JSON")["capabilities"]
+                .as_array()
+                .map(|a| a.len())
+                .unwrap_or(0)
+        };
+        assert!(
+            capability_count(&with) > capability_count(&without),
+            "loading the .prx must add its capabilities to the self-model: with={} without={}",
+            capability_count(&with),
+            capability_count(&without),
         );
     }
 
