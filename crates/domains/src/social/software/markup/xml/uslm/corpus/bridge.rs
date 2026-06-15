@@ -18,8 +18,8 @@
 //! projector: `project_archive` emits the RAW USLM generators (a `<section>` tag,
 //! a `Composes` edge); mapping `section ↦ Section` and `Composes ↦ Parthood`
 //! (Casati & Varzi 1999 — a subdivision is PART-OF its parent) is a separate
-//! FUNCTOR carried AS `.prx` DATA
-//! ([`usc_to_praxis_functor`](crate::social::software::markup::xml::uslm::corpus::bridge::usc_to_praxis_functor))
+//! FUNCTOR carried AS `.prx` DATA — the committed
+//! `data/projections/usc_functor.prx`, loaded fail-closed against its baked root
 //! and interpreted by the one runtime primitive [`apply`](pr4xis_runtime::apply::apply).
 //! [`usc_runtime_ontology`](crate::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology)
 //! is the whole pipeline (`project → apply → materialize`),
@@ -37,13 +37,13 @@
 use alloc::collections::BTreeSet;
 use alloc::format;
 use alloc::string::{String, ToString};
-use alloc::vec;
 use alloc::vec::Vec;
 
 use pr4xis::ontology::meta::OntologyName;
+use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
-use pr4xis_runtime::connection::{Connection, GeneratorAction};
+use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
 use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
 
@@ -52,8 +52,8 @@ use super::section_aux::UscSubdivision;
 use crate::cognitive::linguistics::english::bridge::form_atom;
 
 /// The RAW USLM node tag of a section in the SOURCE archive — the `<section>`
-/// element name the projector emits, before [`usc_to_praxis_functor`] relabels it
-/// to [`SECTION_KIND`]. (Subdivisions already carry their raw USLM tag via
+/// element name the projector emits, before the committed `usc_functor.prx`
+/// relabels it to [`SECTION_KIND`]. (Subdivisions already carry their raw USLM tag via
 /// `sub.kind.tag()`, so only the section root needed a name.)
 pub const SECTION_TAG: &str = "section";
 
@@ -62,8 +62,8 @@ pub const SECTION_TAG: &str = "section";
 pub const SECTION_KIND: &str = "Section";
 
 /// The RAW USLM relation of the Composes hierarchy in the SOURCE archive — a
-/// subdivision Composes INTO its parent. The schema generator
-/// [`usc_to_praxis_functor`] maps to [`PARTHOOD_REL`]; emitted raw so the
+/// subdivision Composes INTO its parent. The schema generator the committed
+/// `usc_functor.prx` maps to [`PARTHOOD_REL`]; emitted raw so the
 /// mereological reading is loaded data, not baked into the projector.
 pub const COMPOSES_REL: &str = "Composes";
 
@@ -101,7 +101,8 @@ fn section_citation(urn: &str) -> Option<String> {
 }
 
 /// Project a loaded [`UsCode`] into the RAW generic runtime [`Archive`] — the
-/// structural transcription only (the praxis relabel is [`usc_to_praxis_functor`]).
+/// structural transcription only (the praxis relabel is the committed
+/// `usc_functor.prx`, loaded fail-closed).
 ///
 /// Each section → a [`Definition`] `{kind: `[`SECTION_TAG`]`, name: urn, lexical:
 /// heading}`; each subdivision → `{kind: its raw USLM tag (`subsection` /
@@ -189,42 +190,52 @@ pub fn project_archive(usc: &UsCode) -> Archive {
     }
 }
 
-/// The USC → praxis projection, carried AS DATA — the [`Connection`] a `.prx`
-/// ships so the relabeling re-emits to update with no recompile (the OWL/WordNet
-/// pattern, applied to statutes).
-///
-/// The semantic claims of the USC projection — a `<section>` is a praxis
-/// [`SECTION_KIND`], and the USLM `Composes` hierarchy is mereological
-/// [`PARTHOOD_REL`] — are this DATA, not a baked projector kind. Interpreted by
-/// [`apply`] over a raw [`project_archive`] source. Re-emitting it (say
-/// `Composes ↦ Containment`) re-aims the projection without touching code.
-pub fn usc_to_praxis_functor() -> Connection {
-    Connection {
-        kind: "Faithful".to_string(),
-        source: "UsCode".to_string(),
-        target: "PraxisOntology".to_string(),
-        action: GeneratorAction::Functor {
-            map_object: vec![(SECTION_TAG.to_string(), SECTION_KIND.to_string())],
-            map_morphism: vec![
-                (COMPOSES_REL.to_string(), PARTHOOD_REL.to_string()),
-                (HEADING_REL.to_string(), CANONICAL_FORM_REL.to_string()),
-                (CITATION_REL.to_string(), OTHER_FORM_REL.to_string()),
-            ],
-        },
-        laws: vec![
-            "PreservesIdentity".to_string(),
-            "PreservesComposition".to_string(),
-        ],
-    }
+/// The committed USC → praxis projection — the `.prx` bytes the functor LIVES in
+/// (Track C #203), embedded at build time. NOT a Rust literal: a connections-only
+/// [`Archive`] carrying one [`Connection`] whose
+/// [`Functor`](pr4xis_runtime::connection::GeneratorAction::Functor) action maps
+/// `section ↦ Section`, `Composes ↦ Parthood` (Casati & Varzi 1999 — a
+/// subdivision is PART-OF its parent), `heading ↦ canonicalForm`,
+/// `citation ↦ otherForm`. Re-emitting it (say `Composes ↦ Containment`) re-aims
+/// the projection without touching code — and without even recompiling.
+const USC_FUNCTOR_PRX: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/data/projections/usc_functor.prx"
+));
+
+/// The trusted Merkle root of [`USC_FUNCTOR_PRX`] — the integrity pin the
+/// fail-closed load checks against (file ⇔ pin coherence is asserted in tests).
+const USC_FUNCTOR_ROOT_HEX: &str =
+    "ec20f202804d684bc2443d1a55451eb6b1e623ee25c65925614b9eef65f5445a";
+
+/// Load the USC → praxis functor from its committed `.prx` ([`USC_FUNCTOR_PRX`]) —
+/// FAIL-CLOSED: the embedded bytes are admitted only if they re-derive to
+/// [`USC_FUNCTOR_ROOT_HEX`], so a tampered or stale projection is refused, never
+/// silently mis-applied. Reuses the kernel [`load`](pr4xis_runtime::load::load);
+/// no new runtime API. A functor's whole content is its finite action on the
+/// schema's generators (Fong & Spivak *Seven Sketches* Ch. 3), interpreted by
+/// [`apply`] over a raw [`project_archive`] source. A load failure here is a
+/// build-time invariant violation (the bytes ship embedded in the binary).
+fn usc_functor() -> Connection {
+    let root = ContentAddress::from_hex(USC_FUNCTOR_ROOT_HEX)
+        .expect("USC_FUNCTOR_ROOT_HEX is valid 64-hex");
+    let archive = pr4xis_runtime::load::load(USC_FUNCTOR_PRX, root)
+        .expect("committed usc_functor.prx must load against its baked root");
+    archive
+        .connections
+        .into_iter()
+        .next()
+        .expect("usc_functor.prx carries exactly one Connection")
 }
 
 /// Bridge a loaded [`UsCode`] into a generic [`RuntimeOntology`] — the whole
-/// pipeline in one call: [`project_archive`] → [`apply`]`(`[`usc_to_praxis_functor`]`)`
-/// → [`materialize`]. The verbatim shape of
+/// pipeline in one call: [`project_archive`] → [`apply`]`(usc_functor)` →
+/// [`materialize`], where `usc_functor` is the committed `usc_functor.prx` loaded
+/// fail-closed. The verbatim shape of
 /// [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology)
 /// and `owl_runtime_ontology`.
 ///
-/// `apply` cannot fail here ([`usc_to_praxis_functor`] is always a `Functor`
+/// `apply` cannot fail here (the loaded `usc_functor` is always a `Functor`
 /// action); materialization can still fail closed (a codec error on the root),
 /// propagated typed.
 pub fn usc_runtime_ontology(
@@ -232,8 +243,8 @@ pub fn usc_runtime_ontology(
     name: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
     let source = project_archive(usc);
-    let praxis = apply(&usc_to_praxis_functor().action, &source)
-        .expect("usc_to_praxis_functor is a Functor action, which apply always interprets");
+    let praxis = apply(&usc_functor().action, &source)
+        .expect("usc_functor is a Functor action, which apply always interprets");
     materialize(praxis, name)
 }
 
@@ -242,6 +253,7 @@ mod tests {
     use super::*;
     use crate::cognitive::linguistics::english::bridge::FORM_KIND;
     use alloc::collections::BTreeSet;
+    use pr4xis_runtime::connection::GeneratorAction;
 
     #[test]
     fn projects_every_section_and_subdivision_as_a_node() {
@@ -322,7 +334,7 @@ mod tests {
             ],
             connections: Vec::new(),
         };
-        let praxis = apply(&usc_to_praxis_functor().action, &raw).expect("Functor applies");
+        let praxis = apply(&usc_functor().action, &raw).expect("Functor applies");
         let section = praxis
             .nodes
             .iter()
@@ -344,6 +356,42 @@ mod tests {
         assert_eq!(
             subsection.edges[0].0, PARTHOOD_REL,
             "raw 'Composes' edge → praxis 'Parthood'"
+        );
+    }
+
+    #[test]
+    fn the_functor_loads_from_its_committed_prx_fail_closed() {
+        // The projection LIVES in `usc_functor.prx` (Track C #203): the loader
+        // admits the committed bytes ONLY against the baked root and yields a
+        // Functor action with non-empty relabel tables. The exact rows are NOT
+        // re-asserted here — that would re-smuggle the map back into code; the
+        // relabel BEHAVIOR is proven by `the_functor_relabels...` above.
+        let GeneratorAction::Functor {
+            map_object,
+            map_morphism,
+        } = &usc_functor().action
+        else {
+            panic!("the loaded projection is a Functor action");
+        };
+        assert!(
+            !map_object.is_empty() && !map_morphism.is_empty(),
+            "the loaded functor carries non-empty relabel tables"
+        );
+        // File ⇔ pin coherence + fail-closed: the committed bytes re-derive to the
+        // baked root, and a WRONG root is refused (no drift test needed — the pin
+        // IS the integrity, there is no Rust source to drift from).
+        let pin = ContentAddress::from_hex(USC_FUNCTOR_ROOT_HEX).unwrap();
+        assert_eq!(
+            pr4xis_runtime::load::load(USC_FUNCTOR_PRX, pin)
+                .unwrap()
+                .root()
+                .unwrap(),
+            pin,
+            "the committed .prx re-derives to its baked root"
+        );
+        assert!(
+            pr4xis_runtime::load::load(USC_FUNCTOR_PRX, ContentAddress::of(b"wrong")).is_err(),
+            "a wrong root is refused — the load is fail-closed"
         );
     }
 
