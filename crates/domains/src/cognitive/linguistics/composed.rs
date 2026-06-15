@@ -119,6 +119,14 @@ pub struct ComposedReasoner {
     /// construction so `max_surface_words` is O(1); `1` when every surface is a
     /// single word (the recognizer then no-ops).
     max_surface_words: usize,
+    /// The loaded surface→relation-kind map (`"part of"` → the Parthood
+    /// [`ConceptRef`], `"is a"` → Subsumption), from the committed
+    /// `relation_lexicon.prx`. Held APART from `loaded` (it is reasoning
+    /// vocabulary, not a queryable corpus), so `loaded_ontology_count` stays
+    /// honest. Read by [`relation_for_surface`](LexicalReasoner::relation_for_surface)
+    /// to lower a relational question's predicate to the kind its closure is
+    /// keyed on.
+    relation_surface_index: BTreeMap<String, ConceptRef>,
 }
 
 impl ComposedReasoner {
@@ -258,6 +266,13 @@ impl ComposedReasoner {
             .unwrap_or(1)
             .max(1);
 
+        // The surface→relation map (the loaded relation lexicon) — built once,
+        // held apart from `loaded`. Every composed reasoner can resolve a
+        // relational question's predicate ("part of" → Parthood), intrinsically,
+        // the way the runtime closure intrinsically folds every transitive kind.
+        let relation_surface_index =
+            crate::cognitive::linguistics::relation_lexicon::relation_surface_index();
+
         Self {
             english,
             loaded,
@@ -270,6 +285,7 @@ impl ComposedReasoner {
             loaded_ids,
             base,
             max_surface_words,
+            relation_surface_index,
         }
     }
 
@@ -430,6 +446,13 @@ impl LexicalReasoner for ComposedReasoner {
             // exists in this composition (honest false, not a guess).
             _ => false,
         }
+    }
+
+    /// Resolve a relational question's surface predicate to its typed relation
+    /// kind through the loaded relation lexicon ("part of" → Parthood). `None`
+    /// (the caller falls back to Subsumption) for an unknown surface.
+    fn relation_for_surface(&self, surface: &str) -> Option<ConceptRef> {
+        self.relation_surface_index.get(surface).cloned()
     }
 
     fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
