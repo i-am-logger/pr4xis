@@ -16,6 +16,7 @@ pub mod morphology;
 pub mod orthography;
 pub mod pipeline;
 pub mod pragmatics;
+pub mod relation_lexicon;
 pub mod semantics;
 pub mod symbols;
 pub mod text;
