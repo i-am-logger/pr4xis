@@ -48,9 +48,10 @@ fn parse_has_three_stages() {
     ];
     for s in &stages {
         assert!(
+            // part→whole (BFO:0000050): each stage is a PART of Parse (stage→Parse).
             parts
                 .iter()
-                .any(|m| m.source() == PipelineConcept::Parse && m.target() == *s),
+                .any(|m| m.source() == *s && m.target() == PipelineConcept::Parse),
             "Parse missing stage {:?}",
             s
         );
@@ -70,9 +71,10 @@ fn generate_has_three_stages() {
     ];
     for s in &stages {
         assert!(
+            // part→whole: each stage is a PART of Generate (stage→Generate).
             parts
                 .iter()
-                .any(|m| m.source() == PipelineConcept::Generate && m.target() == *s),
+                .any(|m| m.source() == *s && m.target() == PipelineConcept::Generate),
             "Generate missing stage {:?}",
             s
         );

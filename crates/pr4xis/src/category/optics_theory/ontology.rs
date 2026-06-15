@@ -280,8 +280,9 @@ mod tests {
             .filter(|m| m.kind() == OpticsRelationKind::Parthood)
             .map(|m| (m.source(), m.target()))
             .collect();
-        assert!(parthood.contains(&(OpticsConcept::Lens, OpticsConcept::Product)));
-        assert!(parthood.contains(&(OpticsConcept::Prism, OpticsConcept::Sum)));
+        // part→whole (BFO:0000050): Product/Sum are PARTS of the Lens/Prism.
+        assert!(parthood.contains(&(OpticsConcept::Product, OpticsConcept::Lens)));
+        assert!(parthood.contains(&(OpticsConcept::Sum, OpticsConcept::Prism)));
     }
 
     #[test]

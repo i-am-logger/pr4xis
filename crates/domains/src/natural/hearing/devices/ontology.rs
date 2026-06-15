@@ -239,8 +239,8 @@ fn parts_of(whole: DeviceConcept) -> Vec<DeviceConcept> {
     use pr4xis::category::{Arrow, Category};
     DeviceCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == DeviceRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == DeviceRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

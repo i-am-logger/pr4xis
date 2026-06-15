@@ -325,8 +325,8 @@ fn parts_of(whole: AudiologyConcept) -> Vec<AudiologyConcept> {
     use pr4xis::category::{Arrow, Category};
     AudiologyCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == AudiologyRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == AudiologyRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 

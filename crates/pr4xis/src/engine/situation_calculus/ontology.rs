@@ -259,13 +259,14 @@ mod tests {
             .filter(|m| m.kind() == SituationCalculusRelationKind::Parthood)
             .map(|m| (m.source(), m.target()))
             .collect();
+        // part→whole (BFO:0000050): the Add/Delete lists are PARTS of the Action.
         assert!(parthood.contains(&(
-            SituationCalculusConcept::Action,
-            SituationCalculusConcept::AddList
+            SituationCalculusConcept::AddList,
+            SituationCalculusConcept::Action
         )));
         assert!(parthood.contains(&(
-            SituationCalculusConcept::Action,
-            SituationCalculusConcept::DeleteList
+            SituationCalculusConcept::DeleteList,
+            SituationCalculusConcept::Action
         )));
     }
 
@@ -283,7 +284,8 @@ mod tests {
             SituationCalculusConcept::Intention,
         ] {
             assert!(
-                parthood.contains(&(SituationCalculusConcept::Agent, part)),
+                // part→whole: each belief/desire/intention is PART of the Agent.
+                parthood.contains(&(part, SituationCalculusConcept::Agent)),
                 "Agent should have-a {:?}",
                 part
             );

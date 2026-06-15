@@ -36,8 +36,9 @@ fn common_ground_has_contributions() {
         .into_iter()
         .filter(|m| m.kind() == GroundingRelationKind::Parthood)
         .collect();
+    // part→whole (BFO:0000050): a Contribution is PART of the CommonGround.
     assert!(parts.iter().any(|m| {
-        m.source() == GroundingConcept::CommonGround && m.target() == GroundingConcept::Contribution
+        m.source() == GroundingConcept::Contribution && m.target() == GroundingConcept::CommonGround
     }));
 }
 
@@ -47,9 +48,10 @@ fn info_state_has_gameboard() {
         .into_iter()
         .filter(|m| m.kind() == GroundingRelationKind::Parthood)
         .collect();
+    // part→whole: the DialogueGameBoard is PART of the InfoState.
     assert!(parts.iter().any(|m| {
-        m.source() == GroundingConcept::InfoState
-            && m.target() == GroundingConcept::DialogueGameBoard
+        m.source() == GroundingConcept::DialogueGameBoard
+            && m.target() == GroundingConcept::InfoState
     }));
 }
 
@@ -59,8 +61,9 @@ fn gameboard_has_qud() {
         .into_iter()
         .filter(|m| m.kind() == GroundingRelationKind::Parthood)
         .collect();
+    // part→whole: the MaxQUD is PART of the DialogueGameBoard.
     assert!(parts.iter().any(|m| {
-        m.source() == GroundingConcept::DialogueGameBoard && m.target() == GroundingConcept::MaxQUD
+        m.source() == GroundingConcept::MaxQUD && m.target() == GroundingConcept::DialogueGameBoard
     }));
 }
 

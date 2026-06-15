@@ -57,7 +57,8 @@ fn pushout_needs_span() {
         .filter(|m| m.kind() == AlgebraRelationKind::Parthood)
         .map(|m| (m.source(), m.target()))
         .collect();
-    assert!(parts.contains(&(AlgebraConcept::Pushout, AlgebraConcept::Span)));
+    // part→whole (BFO:0000050): a Span is PART of a Pushout (source=part).
+    assert!(parts.contains(&(AlgebraConcept::Span, AlgebraConcept::Pushout)));
 }
 
 #[test]

@@ -102,10 +102,12 @@ impl Axiom for WordIsFullyConnected {
             TextConcept::MeaningReference,
             TextConcept::Annotation,
         ];
+        // Parthood is part→whole (BFO:0000050): each reference/type/annotation is
+        // a PART of the Word, so the part is the source and Word the target.
         if targets.iter().all(|t| {
             parts
                 .iter()
-                .any(|m| m.source() == TextConcept::Word && m.target() == *t)
+                .any(|m| m.source() == *t && m.target() == TextConcept::Word)
         }) {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -136,12 +138,13 @@ impl Axiom for TwoLevelContainment {
             .into_iter()
             .filter(|m| m.kind() == TextRelationKind::Parthood)
             .collect();
+        // part→whole: a Sentence is PART of the Context, a Word PART of the Sentence.
         let ctx_has_sent = parts
             .iter()
-            .any(|m| m.source() == TextConcept::Context && m.target() == TextConcept::Sentence);
+            .any(|m| m.source() == TextConcept::Sentence && m.target() == TextConcept::Context);
         let sent_has_word = parts
             .iter()
-            .any(|m| m.source() == TextConcept::Sentence && m.target() == TextConcept::Word);
+            .any(|m| m.source() == TextConcept::Word && m.target() == TextConcept::Sentence);
         if ctx_has_sent && sent_has_word {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

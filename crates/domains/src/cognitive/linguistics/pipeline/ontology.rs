@@ -135,13 +135,15 @@ impl Axiom for SharedLexicon {
             .into_iter()
             .filter(|m| m.kind() == PipelineRelationKind::Parthood)
             .collect();
+        // Parthood is part→whole (BFO:0000050): the LexiconHomomorphism is a PART
+        // of Parse / Generate, so it is the edge SOURCE and Parse/Generate the target.
         let parse_has = parts.iter().any(|m| {
-            m.source() == PipelineConcept::Parse
-                && m.target() == PipelineConcept::LexiconHomomorphism
+            m.source() == PipelineConcept::LexiconHomomorphism
+                && m.target() == PipelineConcept::Parse
         });
         let gen_has = parts.iter().any(|m| {
-            m.source() == PipelineConcept::Generate
-                && m.target() == PipelineConcept::LexiconHomomorphism
+            m.source() == PipelineConcept::LexiconHomomorphism
+                && m.target() == PipelineConcept::Generate
         });
         if parse_has && gen_has {
             Ok(Box::new(SimpleProof::new(self.meta())))

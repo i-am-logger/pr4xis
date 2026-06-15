@@ -210,9 +210,9 @@ impl Axiom for FrameContainsWorldsAndRelation {
         let parts: Vec<KripkeConcept> = KripkeCategory::morphisms()
             .iter()
             .filter(|m| {
-                m.kind() == KripkeRelationKind::Parthood && m.source() == KripkeConcept::KripkeFrame
+                m.kind() == KripkeRelationKind::Parthood && m.target() == KripkeConcept::KripkeFrame
             })
-            .map(|m| m.target())
+            .map(|m| m.source())
             .collect();
         if parts.contains(&KripkeConcept::PossibleWorld)
             && parts.contains(&KripkeConcept::AccessibilityRelation)

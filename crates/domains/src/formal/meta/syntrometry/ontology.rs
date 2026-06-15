@@ -208,8 +208,8 @@ fn direct_parts_of(whole: SyntrometryConcept) -> Vec<SyntrometryConcept> {
     use pr4xis::category::{Arrow, Category};
     SyntrometryCategory::morphisms()
         .iter()
-        .filter(|m| m.kind() == SyntrometryRelationKind::Parthood && m.source() == whole)
-        .map(|m| m.target())
+        .filter(|m| m.kind() == SyntrometryRelationKind::Parthood && m.target() == whole)
+        .map(|m| m.source())
         .collect()
 }
 
