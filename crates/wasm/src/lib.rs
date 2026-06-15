@@ -161,6 +161,20 @@ impl Pr4xis {
         p.set("duration_us", result.duration_us.into());
         p.set("parsed", result.parsed.into());
         p.set("from_ontology", result.from_ontology.into());
+        // The TYPED outcome (doc §4.1): answered, or abstained naming the surfaces
+        // to load — so the UI can model what the system cannot answer, not sniff it.
+        match &result.outcome {
+            pr4xis_chat::ChatOutcome::Answered => {
+                p.set("outcome", "answered".into());
+            }
+            pr4xis_chat::ChatOutcome::Abstained { unresolved } => {
+                p.set("outcome", "abstained".into());
+                p.set(
+                    "unresolved",
+                    SchemaValue::List(unresolved.iter().map(|s| s.clone().into()).collect()),
+                );
+            }
+        }
         p.set(
             "ontologies",
             SchemaValue::List(ontologies.into_iter().map(|o| o.into()).collect()),
@@ -682,6 +696,25 @@ mod acceptance {
         assert_ne!(
             without_resp, with_resp,
             "loading the .prx must change the answer"
+        );
+
+        // The TYPED outcome (doc §4.1) crosses the wire: abstained without the
+        // corpus, answered with it — the UI models what it cannot answer.
+        let outcome_of = |json: &str| -> String {
+            serde_json::from_str::<serde_json::Value>(json).expect("chat JSON")["outcome"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string()
+        };
+        assert_eq!(
+            outcome_of(&without_json),
+            "abstained",
+            "english-only must report a typed abstention"
+        );
+        assert_eq!(
+            outcome_of(&with_json),
+            "answered",
+            "the loaded corpus must report a typed answer"
         );
 
         // The eigenform OBSERVES the load: `total_concepts` MOVES (doc §2 — the
