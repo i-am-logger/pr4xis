@@ -2,8 +2,10 @@
 //! [`Connection`] and interpreted — the lexical-category assignment done the
 //! praxis way (projection-as-data), NOT a Rust `match`.
 //!
-//! This is the [`wordnet_to_praxis_functor`](crate::cognitive::linguistics::english::bridge::wordnet_to_praxis_functor)
-//! pattern applied to grammar: the map `OLiA-class ↦ CCG-category` is a
+//! This is the WordNet→praxis functor pattern (the committed
+//! `english_functor.prx`, loaded by
+//! [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology))
+//! applied to grammar: the map `OLiA-class ↦ CCG-category` is a
 //! [`GeneratorAction::Functor`] whose rows load from a cited CCGbank artifact
 //! (`data/grammar/olia-ccg-categories.tsv`), content-addressed and re-emittable,
 //! NOT a hand-written table in Rust. The class identity is a loaded OLiA Concept

@@ -17,12 +17,13 @@
 //!
 //! The projection emits each synset edge under its RAW WordNet relation name
 //! (`hypernym`), NOT a praxis kind. Mapping `hypernym → Subsumption`,
-//! `Synset → Concept` is a separate FUNCTOR carried as `.prx` data
-//! ([`wordnet_to_praxis_functor`](crate::cognitive::linguistics::english::bridge::wordnet_to_praxis_functor)) and
-//! interpreted by the one runtime primitive
+//! `Synset → Concept` is a separate FUNCTOR carried as `.prx` data — the
+//! committed `data/projections/english_functor.prx`, loaded fail-closed against
+//! its baked root and interpreted by the one runtime primitive
 //! [`apply`](pr4xis_runtime::apply::apply). So the relation-kind table is data
 //! that re-emits to update — never the hardcoded `match rel_type`
-//! (`pr4xis::codegen::wordnet`) the old codegen path baked in.
+//! (`pr4xis::codegen::wordnet`) the old codegen path baked in. The projection no
+//! longer even lives in Rust: it is `.prx` on disk.
 //!
 //! # Scope (B1): the is-a closure
 //!
@@ -44,13 +45,13 @@
 //!   the relation→kind table is carried as data and applied by a table lookup.
 
 use alloc::string::ToString;
-use alloc::vec;
 use alloc::vec::Vec;
 
 use pr4xis::ontology::meta::OntologyName;
+use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
-use pr4xis_runtime::connection::{Connection, GeneratorAction};
+use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
 use pr4xis_runtime::ontology::{ConceptRef, MaterializeError, RuntimeOntology, materialize};
 
@@ -74,8 +75,8 @@ pub const SUBSUMPTION_REL: &str = "Subsumption";
 
 /// The node kind every projected synset carries in the SOURCE archive — the raw
 /// WordNet schema generator, before the praxis functor relabels it. Held as one
-/// constant so the projection and [`wordnet_to_praxis_functor`] name the same
-/// source generator.
+/// constant so the projection and the committed `english_functor.prx` name the
+/// same source generator.
 pub const SYNSET_KIND: &str = "Synset";
 
 /// The raw WordNet relation name a hypernym (is-a) edge carries in the SOURCE
@@ -168,47 +169,49 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
     archive
 }
 
-/// The WordNet → praxis projection, carried AS DATA — the [`Connection`] node a
-/// `.prx` ships so the relabeling re-emits to update with no recompile.
-///
-/// The whole content of a functor is its finite action on the schema's
-/// generators (the finite-presentation theorem), and praxis already serializes
-/// exactly that as [`GeneratorAction::Functor`]. So the map
-/// `Synset ↦ Concept`, `hypernym ↦ Subsumption` is not a compiled `match` — it
-/// is this data, interpreted by [`apply`] over a
-/// [`project_archive`] source. Re-emitting this node with a different table
-/// (say `hypernym ↦ Parthood`) re-aims the projection without touching code —
-/// the directive "projections live in `.prx`, not code" realized.
-///
-/// It is faithful by construction: distinct source generators map to distinct
-/// praxis generators (an injective relabeling — an inclusion of the WordNet
-/// is-a schema into the praxis schema), so it preserves the hom-set structure.
-/// The [`laws`](Connection::laws) it must satisfy are carried as NAMES (data);
-/// resolving those to runnable axioms at materialize time is the documented
-/// deferral in [`materialize`](pr4xis_runtime::ontology), not done here.
-///
-/// Scope tracks [`project_archive`]: the is-a generator only. As the projection
-/// grows the full GWN relation vocabulary (the meronymy / antonymy follow-up),
-/// this table grows the corresponding rows — additively, still as data.
-pub fn wordnet_to_praxis_functor() -> Connection {
-    Connection {
-        kind: "Faithful".to_string(),
-        source: "EnglishWordNet".to_string(),
-        target: "PraxisOntology".to_string(),
-        action: GeneratorAction::Functor {
-            map_object: vec![(SYNSET_KIND.to_string(), CONCEPT_KIND.to_string())],
-            map_morphism: vec![(HYPERNYM_REL.to_string(), SUBSUMPTION_REL.to_string())],
-        },
-        laws: vec![
-            "PreservesIdentity".to_string(),
-            "PreservesComposition".to_string(),
-        ],
-    }
+/// The committed WordNet→praxis projection functor — the CANONICAL home of the
+/// projection, the directive "projections live in `.prx`, not code" realized
+/// (Track C #203). The map tables (`Synset ↦ Concept`, `hypernym ↦ Subsumption`)
+/// live ONLY as a content-addressed [`Connection`] inside these bytes, never in a
+/// Rust literal. Re-aiming the projection (say `hypernym ↦ Parthood`) means
+/// re-emitting this file and updating [`ENGLISH_FUNCTOR_ROOT_HEX`] — NO recompile
+/// of any projection logic (regenerate via the `#[ignore]`d
+/// `regenerate_english_functor_prx` bootstrap kept in git history).
+const ENGLISH_FUNCTOR_PRX: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/data/projections/english_functor.prx"
+));
+
+/// The trusted Merkle root of [`ENGLISH_FUNCTOR_PRX`] — the integrity pin the
+/// fail-closed load checks against (file ⇔ pin coherence is asserted in tests).
+const ENGLISH_FUNCTOR_ROOT_HEX: &str =
+    "55c3a8cabc2f52cb42e0e10d6a232c881f50e91a24ec35e06dadda6550c3cc1f";
+
+/// Load the WordNet→praxis functor from its committed `.prx`
+/// ([`ENGLISH_FUNCTOR_PRX`]) — FAIL-CLOSED: the embedded bytes are admitted only
+/// if they re-derive to [`ENGLISH_FUNCTOR_ROOT_HEX`], so a tampered or stale
+/// projection is refused, never silently mis-applied. Reuses the kernel
+/// [`load`](pr4xis_runtime::load::load); no new runtime API. The functor is a
+/// finite action on generators (the finite-presentation theorem; Fong & Spivak
+/// *Seven Sketches* Ch. 3), interpreted by [`apply`] over a [`project_archive`]
+/// source. A load failure here is a build-time invariant violation (the bytes
+/// ship embedded in the binary), exactly like the `english.xml` parse `expect`.
+fn english_functor() -> Connection {
+    let root = ContentAddress::from_hex(ENGLISH_FUNCTOR_ROOT_HEX)
+        .expect("ENGLISH_FUNCTOR_ROOT_HEX is valid 64-hex");
+    let archive = pr4xis_runtime::load::load(ENGLISH_FUNCTOR_PRX, root)
+        .expect("committed english_functor.prx must load against its baked root");
+    archive
+        .connections
+        .into_iter()
+        .next()
+        .expect("english_functor.prx carries exactly one Connection")
 }
 
 /// Bridge the loaded [`English`] struct into a generic [`RuntimeOntology`] — the
 /// whole B1 pipeline in one call: `English` → [`project_archive`] →
-/// [`apply`]`(`[`wordnet_to_praxis_functor`]`)` → [`materialize`].
+/// [`apply`]`(english_functor)` → [`materialize`], where `english_functor` is
+/// the committed `english_functor.prx` loaded fail-closed.
 ///
 /// The result is a source-agnostic runtime ontology a generic engine reasons
 /// over (`is_a` → `Verdict`, `reachable_from`, `lexical`), exactly as it would
@@ -216,15 +219,15 @@ pub fn wordnet_to_praxis_functor() -> Connection {
 /// hypernym taxonomy is now an addressable, traversable graph of content-
 /// addressed atoms, not a closed domain struct.
 ///
-/// `apply` cannot fail here: [`wordnet_to_praxis_functor`] is always a
+/// `apply` cannot fail here: the loaded `english_functor` is always a
 /// `Functor` action (the only action `apply` interprets), so the sole
 /// [`ApplyError`](pr4xis_runtime::apply::ApplyError) is unreachable — treated as
 /// a structural invariant. Materialization can still fail closed (a codec error
 /// on the root); that error is propagated typed.
 pub fn english_runtime_ontology(english: &English) -> Result<RuntimeOntology, MaterializeError> {
     let source = project_archive(english);
-    let praxis = apply(&wordnet_to_praxis_functor().action, &source)
-        .expect("wordnet_to_praxis_functor is a Functor action, which apply always interprets");
+    let praxis = apply(&english_functor().action, &source)
+        .expect("english_functor is a Functor action, which apply always interprets");
     materialize(praxis, OntologyName::new_static(ENGLISH_ONTOLOGY))
 }
 
@@ -254,6 +257,7 @@ pub fn concept_refs_for_word(
 mod tests {
     use super::*;
     use alloc::collections::BTreeSet;
+    use pr4xis_runtime::connection::GeneratorAction;
 
     fn node<'a>(archive: &'a Archive, name: &str) -> &'a Definition {
         archive
@@ -353,35 +357,46 @@ mod tests {
     // --- piece 3: the functor carried as data, applied ---
 
     #[test]
-    fn the_functor_is_the_relabeling_table_as_data() {
-        let functor = wordnet_to_praxis_functor();
-        match &functor.action {
-            GeneratorAction::Functor {
-                map_object,
-                map_morphism,
-            } => {
-                assert_eq!(
-                    map_object,
-                    &alloc::vec![(SYNSET_KIND.to_string(), CONCEPT_KIND.to_string())],
-                    "the object generator Synset maps to the praxis Concept kind"
-                );
-                assert_eq!(
-                    map_morphism,
-                    &alloc::vec![(HYPERNYM_REL.to_string(), SUBSUMPTION_REL.to_string())],
-                    "the morphism generator hypernym maps to Subsumption"
-                );
-            }
-            other => panic!("the WordNet projection is a Functor action; got {other:?}"),
-        }
-        // It is content-addressable data — a `.prx` node, not code.
-        assert!(functor.address().is_ok());
+    fn the_functor_loads_from_its_committed_prx_fail_closed() {
+        // The projection LIVES in `english_functor.prx` (Track C #203): the loader
+        // admits the committed bytes ONLY against the baked root and yields a
+        // Functor action with non-empty relabel tables. The exact rows are NOT
+        // re-asserted here — that would re-smuggle the map back into code; the
+        // relabel BEHAVIOR is proven by `applying_the_functor_relabels...` below.
+        let functor = english_functor();
+        let GeneratorAction::Functor {
+            map_object,
+            map_morphism,
+        } = &functor.action
+        else {
+            panic!("the loaded projection is a Functor action");
+        };
+        assert!(
+            !map_object.is_empty() && !map_morphism.is_empty(),
+            "the loaded functor carries non-empty relabel tables"
+        );
+        // File ⇔ pin coherence + fail-closed: the committed bytes re-derive to the
+        // baked root, and a WRONG root is refused (no drift test needed — the pin
+        // IS the integrity, there is no Rust source to drift from).
+        let pin = ContentAddress::from_hex(ENGLISH_FUNCTOR_ROOT_HEX).unwrap();
+        assert_eq!(
+            pr4xis_runtime::load::load(ENGLISH_FUNCTOR_PRX, pin)
+                .unwrap()
+                .root()
+                .unwrap(),
+            pin,
+            "the committed .prx re-derives to its baked root"
+        );
+        assert!(
+            pr4xis_runtime::load::load(ENGLISH_FUNCTOR_PRX, ContentAddress::of(b"wrong")).is_err(),
+            "a wrong trusted root is refused (fail-closed)"
+        );
     }
 
     #[test]
     fn applying_the_functor_relabels_synset_kinds_into_praxis_kinds() {
         let source = project_archive(&English::sample());
-        let target =
-            apply(&wordnet_to_praxis_functor().action, &source).expect("a Functor action applies");
+        let target = apply(&english_functor().action, &source).expect("a Functor action applies");
 
         // Same cardinality — the functor relabels, never drops.
         assert_eq!(target.nodes.len(), source.nodes.len());
@@ -413,7 +428,7 @@ mod tests {
         // exactly when its source is — the precondition materialize needs holds
         // after relabeling, not only before.
         let source = project_archive(&English::sample());
-        let target = apply(&wordnet_to_praxis_functor().action, &source).unwrap();
+        let target = apply(&english_functor().action, &source).unwrap();
         let declared: BTreeSet<&str> = target.nodes.iter().map(|n| n.name.as_str()).collect();
         for n in &target.nodes {
             for (_, t) in &n.edges {
