@@ -30,9 +30,9 @@ pub mod graph_faithful_lens;
 pub mod vocabulary;
 
 // OWL → praxis projection, the functor-as-data way (the OWL analog of the WordNet
-// `english::bridge`): a raw structural projection + an `owl_to_praxis_functor`
-// carried AS DATA + the one `apply` interpreter. `std`-gated because it consumes
-// `vocabulary` (above).
+// `english::bridge`): a raw structural projection + the committed
+// `owl_functor.prx` (loaded fail-closed) carried AS DATA + the one `apply`
+// interpreter. `std`-gated because it consumes `vocabulary` (above).
 #[cfg(feature = "std")]
 pub mod bridge;
 
