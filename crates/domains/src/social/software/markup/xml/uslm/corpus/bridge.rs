@@ -18,9 +18,11 @@
 //! projector: `project_archive` emits the RAW USLM generators (a `<section>` tag,
 //! a `Composes` edge); mapping `section ↦ Section` and `Composes ↦ Parthood`
 //! (Casati & Varzi 1999 — a subdivision is PART-OF its parent) is a separate
-//! FUNCTOR carried AS `.prx` DATA ([`usc_to_praxis_functor`]) and interpreted by
-//! the one runtime primitive [`apply`](pr4xis_runtime::apply::apply).
-//! [`usc_runtime_ontology`] is the whole pipeline (`project → apply → materialize`),
+//! FUNCTOR carried AS `.prx` DATA
+//! ([`usc_to_praxis_functor`](crate::social::software::markup::xml::uslm::corpus::bridge::usc_to_praxis_functor))
+//! and interpreted by the one runtime primitive [`apply`](pr4xis_runtime::apply::apply).
+//! [`usc_runtime_ontology`](crate::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology)
+//! is the whole pipeline (`project → apply → materialize`),
 //! the verbatim shape of `english_runtime_ontology`. Parthood is a canonically
 //! transitive kind [`materialize`](pr4xis_runtime::ontology) folds, so the
 //! mereology is a real closure post-apply.
@@ -107,7 +109,7 @@ fn section_citation(urn: &str) -> Option<String> {
 /// [(`[`COMPOSES_REL`]`, parent_urn)]}`. Every Composes target is a declared
 /// section/subdivision node, so the archive is referentially closed and (after
 /// the functor relabels Composes→Parthood)
-/// [`materialize`](pr4xis_runtime::ontology::materialize)s into a real mereology.
+/// [`materialize`]s into a real mereology.
 pub fn project_archive(usc: &UsCode) -> Archive {
     // Project one subdivision (and its descendants) — each composes INTO its
     // parent, so the Composes hierarchy is read straight off the tree (the

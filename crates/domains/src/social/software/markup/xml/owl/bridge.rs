@@ -15,7 +15,7 @@
 //! Mapping those raw generators to praxis kinds (`owl:Class → Concept`,
 //! `subsumes → Subsumption`) is a separate FUNCTOR carried AS `.prx` DATA
 //! ([`owl_to_praxis_functor`]) and interpreted by the ONE runtime primitive
-//! [`apply`](pr4xis_runtime::apply::apply) — the finite action on generators
+//! [`apply`] — the finite action on generators
 //! (Lawvere functorial semantics; Fong & Spivak *Seven Sketches* Ch. 3). So the
 //! relation-kind table is data that re-emits to update — never a hardcoded
 //! `match rel_type`. [`owl_runtime_ontology`] is the whole pipeline
