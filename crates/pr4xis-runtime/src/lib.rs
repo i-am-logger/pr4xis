@@ -47,3 +47,4 @@ pub mod meta;
 #[cfg(feature = "emit")]
 pub mod ontology;
 pub mod rebind;
+pub mod recursive_address;
