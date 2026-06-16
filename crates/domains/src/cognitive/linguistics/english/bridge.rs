@@ -49,11 +49,17 @@ use alloc::vec::Vec;
 
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::address::ContentAddress;
+// `apply` is now used only by the test module (the load path calls the shared
+// `apply_then_materialize` kernel loader); gate it so non-test builds don't see
+// an unused import.
+#[cfg(test)]
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
-use pr4xis_runtime::ontology::{ConceptRef, MaterializeError, RuntimeOntology, materialize};
+use pr4xis_runtime::ontology::{
+    ConceptRef, MaterializeError, RuntimeOntology, apply_then_materialize,
+};
 
 use super::ontology::English;
 
@@ -197,7 +203,7 @@ const ENGLISH_FUNCTOR_ROOT_HEX: &str =
 /// projection is refused, never silently mis-applied. Reuses the kernel
 /// [`load`](pr4xis_runtime::load::load); no new runtime API. The functor is a
 /// finite action on generators (the finite-presentation theorem; Fong & Spivak
-/// *Seven Sketches* Ch. 3), interpreted by [`apply`] over a [`project_archive`]
+/// *Seven Sketches* Ch. 3), interpreted by [`apply`](pr4xis_runtime::apply::apply) over a [`project_archive`]
 /// source. A load failure here is a build-time invariant violation (the bytes
 /// ship embedded in the binary), exactly like the `english.xml` parse `expect`.
 fn english_functor() -> Connection {
@@ -214,7 +220,7 @@ fn english_functor() -> Connection {
 
 /// Bridge the loaded [`English`] struct into a generic [`RuntimeOntology`] — the
 /// whole B1 pipeline in one call: `English` → [`project_archive`] →
-/// [`apply`]`(english_functor)` → [`materialize`], where `english_functor` is
+/// [`apply`](pr4xis_runtime::apply::apply)`(english_functor)` → [`materialize`](pr4xis_runtime::ontology::materialize), where `english_functor` is
 /// the committed `english_functor.prx` loaded fail-closed.
 ///
 /// The result is a source-agnostic runtime ontology a generic engine reasons
@@ -229,10 +235,11 @@ fn english_functor() -> Connection {
 /// a structural invariant. Materialization can still fail closed (a codec error
 /// on the root); that error is propagated typed.
 pub fn english_runtime_ontology(english: &English) -> Result<RuntimeOntology, MaterializeError> {
-    let source = project_archive(english);
-    let praxis = apply(&english_functor().action, &source)
-        .expect("english_functor is a Functor action, which apply always interprets");
-    materialize(praxis, OntologyName::new_static(ENGLISH_ONTOLOGY))
+    apply_then_materialize(
+        &english_functor().action,
+        &project_archive(english),
+        OntologyName::new_static(ENGLISH_ONTOLOGY),
+    )
 }
 
 /// The runtime [`ConceptRef`]s the English senses of `word` denote in `onto` —

@@ -71,8 +71,10 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use crate::address::ContentAddress;
+use crate::apply::apply;
 use crate::archive::Archive;
 use crate::codec::CodecError;
+use crate::connection::GeneratorAction;
 use crate::definition::EdgeTarget;
 
 extern crate alloc;
@@ -612,6 +614,34 @@ pub fn materialize(
     })
 }
 
+/// The project-less core of every envelope loader: interpret a *raw* source
+/// [`Archive`] through a functor `action` (the data-driven free extension,
+/// [`apply`]) and [`materialize`] the praxis image under `id`. This is the
+/// `apply → materialize` tail the owl / english / usc bridges each open-coded
+/// byte-for-byte; the format-specific *projection* (a domain struct → a raw
+/// [`Archive`]) stays the caller's step — the only genuinely per-format code, so
+/// the kernel carries no `match` on format.
+///
+/// `action` is `&`[`GeneratorAction`] — exactly [`apply`]'s parameter — so each
+/// bridge keeps owning its fail-closed `*_functor()` connection load (the
+/// integrity pin) and passes only `&conn.action`. The kernel never sees the
+/// committed `.prx` bytes or any root hex; nothing is re-pinned.
+///
+/// [`apply`] is infallible on a `Functor` action (it fails closed only on a
+/// non-`Functor` [`GeneratorAction`]); the bridges always pass a functor
+/// connection, so the only fallible step is [`materialize`], whose
+/// [`MaterializeError`] propagates.
+pub fn apply_then_materialize(
+    action: &GeneratorAction,
+    source: &Archive,
+    id: OntologyName,
+) -> Result<RuntimeOntology, MaterializeError> {
+    let praxis = apply(action, source).expect(
+        "a Functor action, which `apply` always interprets (fail-closed only on non-Functor)",
+    );
+    materialize(praxis, id)
+}
+
 /// The transitive relation-kind vocabulary the kernel's [`materialize`] folds the
 /// closure over — READ from `relations_transitive_kinds.txt`, a distilled,
 /// drift-guarded cache of the Relations ontology's `(R, Transitive, HasProperty)`
@@ -689,6 +719,47 @@ mod tests {
     use super::*;
     use crate::definition::Definition;
     use crate::emit;
+
+    /// A5 — `apply_then_materialize` is exactly `materialize(apply(action, source), id)`:
+    /// the `apply → materialize` tail the owl / usc / english bridges now share. The
+    /// in-crate regression gate for the kernel loader (the bridge tests are the
+    /// integration proof that behaviour is preserved end-to-end).
+    #[test]
+    fn apply_then_materialize_is_its_two_steps() {
+        let synset = |name: &str, hyper: Option<&str>, gloss: &str| Definition {
+            kind: "Synset".into(),
+            name: name.into(),
+            edges: match hyper {
+                Some(h) => vec![("hypernym".to_string(), EdgeTarget::Local(h.to_string()))],
+                None => vec![],
+            },
+            axioms: vec![],
+            lexical: Some(gloss.into()),
+        };
+        // A raw source archive (Synset/hypernym) + the functor that relabels it
+        // into praxis (Concept/Subsumption) — the shape every envelope projects to.
+        let source = Archive {
+            nodes: vec![
+                synset("dog", Some("animal"), "a dog"),
+                synset("animal", None, "an animal"),
+            ],
+            connections: vec![],
+        };
+        let action = GeneratorAction::Functor {
+            map_object: vec![("Synset".to_string(), "Concept".to_string())],
+            map_morphism: vec![("hypernym".to_string(), "Subsumption".to_string())],
+        };
+        let id = OntologyName::new_static("MiniLoaded");
+        let via = apply_then_materialize(&action, &source, id.clone()).unwrap();
+        let by_hand = materialize(apply(&action, &source).unwrap(), id).unwrap();
+        // RuntimeOntology isn't PartialEq; its content root IS its identity.
+        assert_eq!(
+            via.root(),
+            by_hand.root(),
+            "the loader is exactly its two steps"
+        );
+        assert_eq!(via.id(), by_hand.id());
+    }
 
     // The same REAL miniature ontology the emit module exercises: Org, with the
     // Subsumption taxonomy Employer/Employee ⊑ Person ⊑ Agent, materialized

@@ -16,7 +16,7 @@
 //! `subsumes → Subsumption`) is a separate FUNCTOR carried AS `.prx` DATA — the
 //! committed `data/projections/owl_functor.prx`, loaded fail-closed against its
 //! baked root and interpreted by the ONE runtime primitive
-//! [`apply`] — the finite action on generators
+//! [`apply`](pr4xis_runtime::apply::apply) — the finite action on generators
 //! (Lawvere functorial semantics; Fong & Spivak *Seven Sketches* Ch. 3). So the
 //! relation-kind table is data that re-emits to update — never a hardcoded
 //! `match rel_type`, and no longer even a Rust literal: it is `.prx` on disk.
@@ -57,11 +57,10 @@ use alloc::vec::Vec;
 
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::address::ContentAddress;
-use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
-use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
+use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, apply_then_materialize};
 
 use super::vocabulary::{LoadedOwlVocabulary, OwlEntityKind};
 use crate::cognitive::linguistics::english::bridge::form_atom;
@@ -91,7 +90,7 @@ pub const CONCEPT_KIND: &str = "Concept";
 pub const RELATION_KIND: &str = "Relation";
 
 /// The praxis relation kind a `subsumes` edge relabels to — one of the canonically
-/// transitive kinds [`materialize`] folds into the is-a closure.
+/// transitive kinds [`materialize`](pr4xis_runtime::ontology::materialize) folds into the is-a closure.
 pub const SUBSUMPTION_REL: &str = "Subsumption";
 
 /// The raw relation linking an entity to its `rdfs:label` surface (W3C RDF Schema
@@ -113,7 +112,7 @@ pub const CANONICAL_FORM_REL: &str = "canonicalForm";
 /// `{kind: raw owl metaclass tag, name: iri, lexical: rdfs:comment (None when
 /// absent), edges: [(`[`SUBSUMES_REL`]`, parent_iri)]}`. Every subsumption parent
 /// is a declared entity (the vocabulary dropped danglers on construction), so the
-/// archive is referentially closed and [`materialize`]s.
+/// archive is referentially closed and [`materialize`](pr4xis_runtime::ontology::materialize)s.
 pub fn owl_project_archive(vocab: &LoadedOwlVocabulary) -> Archive {
     let entities = vocab.entities();
 
@@ -205,7 +204,7 @@ const OWL_FUNCTOR_ROOT_HEX: &str =
 /// silently mis-applied. Reuses the kernel [`load`](pr4xis_runtime::load::load);
 /// no new runtime API. A functor's whole content is its finite action on the
 /// schema's generators (Fong & Spivak *Seven Sketches* Ch. 3), interpreted by
-/// [`apply`] over an [`owl_project_archive`] source. A load failure here is a
+/// [`apply`](pr4xis_runtime::apply::apply) over an [`owl_project_archive`] source. A load failure here is a
 /// build-time invariant violation (the bytes ship embedded in the binary).
 fn owl_functor() -> Connection {
     let root = ContentAddress::from_hex(OWL_FUNCTOR_ROOT_HEX)
@@ -220,8 +219,8 @@ fn owl_functor() -> Connection {
 }
 
 /// Bridge a loaded OWL vocabulary into a generic [`RuntimeOntology`] — the whole
-/// pipeline in one call: [`owl_project_archive`] → [`apply`]`(owl_functor)` →
-/// [`materialize`], where `owl_functor` is the committed `owl_functor.prx` loaded
+/// pipeline in one call: [`owl_project_archive`] → [`apply`](pr4xis_runtime::apply::apply)`(owl_functor)` →
+/// [`materialize`](pr4xis_runtime::ontology::materialize), where `owl_functor` is the committed `owl_functor.prx` loaded
 /// fail-closed. The verbatim shape of
 /// [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology).
 ///
@@ -233,10 +232,7 @@ pub fn owl_runtime_ontology(
     vocab: &LoadedOwlVocabulary,
     name: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
-    let source = owl_project_archive(vocab);
-    let praxis = apply(&owl_functor().action, &source)
-        .expect("owl_functor is a Functor action, which apply always interprets");
-    materialize(praxis, name)
+    apply_then_materialize(&owl_functor().action, &owl_project_archive(vocab), name)
 }
 
 #[cfg(test)]
