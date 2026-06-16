@@ -639,6 +639,54 @@ mod tests {
         }
     }
 
+    /// Regenerate the committed `morphism_kinds.prx` — the FULL relation-kind
+    /// vocabulary (every kind WITH its `HasProperty` and inter-kind edges) the
+    /// runtime folds into its default morphism-kind vocab, so a serialized morphism
+    /// carries the kind's ADDRESS, not its name (A3). Where the transitive cache is
+    /// just the transitive NAME list, this is the whole emitted archive — each
+    /// kind's structural meaning travels. `#[ignore]`d (it WRITES). Run when a
+    /// relation kind or a `HasProperty`/inter-kind edge changes above:
+    /// `cargo test -p pr4xis-domains -- --ignored regenerate_morphism_kinds_prx`.
+    /// Then update `MORPHISM_KINDS_ROOT_HEX` in `pr4xis-runtime` to the printed root.
+    #[test]
+    #[ignore]
+    fn regenerate_morphism_kinds_prx() {
+        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let bytes = pr4xis_runtime::load::emit(&archive).expect("emit morphism_kinds.prx bytes");
+        std::fs::write(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../pr4xis-runtime/src/morphism_kinds.prx"
+            ),
+            &bytes,
+        )
+        .expect("write morphism_kinds.prx");
+        println!(
+            "MORPHISM_KINDS_ROOT_HEX = {}",
+            archive.root().expect("archive roots").to_hex()
+        );
+    }
+
+    /// Drift guard (normal suite) for the committed `morphism_kinds.prx` — the
+    /// relation-kind vocabulary the runtime's default morphism-kind vocab loads. The
+    /// committed projection must deserialize, fail-closed against the LIVE Relations
+    /// root, to the SAME archive a fresh `emit::<RelationsCategory>()` produces; a
+    /// kind or a `HasProperty`/inter-kind edge changed without regenerating FAILS
+    /// here (closing the rule-7 second-declaration gap, as the transitive cache does).
+    #[test]
+    fn morphism_kinds_prx_matches_the_relations_ontology() {
+        let fresh = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let committed: &[u8] = include_bytes!("../../../../pr4xis-runtime/src/morphism_kinds.prx");
+        let loaded = pr4xis_runtime::load::load(committed, fresh.root().expect("roots")).expect(
+            "committed morphism_kinds.prx is STALE — regenerate with \
+             `cargo test -p pr4xis-domains -- --ignored regenerate_morphism_kinds_prx`",
+        );
+        assert_eq!(
+            loaded, fresh,
+            "the committed morphism_kinds.prx must equal the emitted Relations archive"
+        );
+    }
+
     /// The reflexive relation kinds are DERIVED from this ontology's
     /// `(R, Reflexive, HasProperty)` declarations (no committed cache): Subsumption,
     /// Equivalence, Similarity are reflexive; Parthood (declared `Irreflexive`) is
