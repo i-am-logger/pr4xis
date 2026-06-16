@@ -18,7 +18,7 @@ codegen = ["std", "dep:quick-xml", "dep:serde", "dep:serde_json"]
 hashbrown = { version = "0.17", default-features = false, features = ["default-hasher"] }
 linkme = "0.3"
 paste = "1"
-pr4xis-derive = { version = "0.25.0", path = "../pr4xis-derive" }
+pr4xis-derive = { version = "0.25.1", path = "../pr4xis-derive" }
 quick-xml = { version = "0.40", features = ["serialize"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
