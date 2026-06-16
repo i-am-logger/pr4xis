@@ -56,7 +56,17 @@
     .system { align-self: flex-start; background: #0d1f0d; border: 1px solid #238636; color: #e6edf3; }
     .system::before { content: '← '; opacity: 0.6; }
     .system.fallback { background: #161b22; border-color: #58a6ff; color: #79c0ff; font-style: italic; }
+    .system.abstained { background: #1c1812; border-color: #d29922; color: #e3b341; }
     .info { align-self: center; color: #8b949e; font-size: 0.8em; font-style: italic; }
+
+    /* Abstention affordance: when the engine can't answer, it names what to load. */
+    .abstain-actions { display: flex; align-items: center; gap: 0.4em; flex-wrap: wrap; margin-top: 0.5em; font-size: 0.85em; }
+    .abstain-actions .terms { color: #8b949e; }
+    .abstain-load {
+      background: none; border: 1px solid #d29922; color: #e3b341; border-radius: 6px;
+      padding: 0.2rem 0.7rem; font-size: 0.95em; cursor: pointer;
+    }
+    .abstain-load:hover { background: #d2992222; }
 
     /* Trace: attached below each response, pulls down like accordion */
     .trace-toggle {
@@ -351,6 +361,38 @@
           msgDiv.appendChild(btn);
           msgDiv.appendChild(panel);
         }
+        // Abstention (doc §4.1): the engine couldn't answer and NAMES the
+        // surfaces it doesn't know — turn that into "load it?" rather than a
+        // dead end. The typed outcome crosses the wire; we don't sniff the text.
+        if (result.outcome === 'abstained' && Array.isArray(result.unresolved) && result.unresolved.length) {
+          msgDiv.classList.add('abstained');
+          const terms = result.unresolved;
+          const actions = document.createElement('div');
+          actions.className = 'abstain-actions';
+          const label = document.createElement('span');
+          label.className = 'terms';
+          label.textContent = `not loaded: ${terms.join(', ')}`;
+          const loadBtn = document.createElement('button');
+          loadBtn.className = 'abstain-load';
+          loadBtn.textContent = 'load a source →';
+          loadBtn.addEventListener('click', () => {
+            document.querySelector('.tab[data-tab="about"]').click();
+            const f = document.getElementById('src-filter');
+            if (f) {
+              f.value = terms[0];
+              f.dispatchEvent(new Event('input'));
+              // don't strand the user on an empty grid if the term matched no source
+              const grid = f.parentElement.querySelector('.source-grid');
+              const anyVisible = grid && [...grid.children].some(c => c.style.display !== 'none');
+              if (!anyVisible) { f.value = ''; f.dispatchEvent(new Event('input')); }
+              f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          });
+          actions.appendChild(label);
+          actions.appendChild(loadBtn);
+          msgDiv.appendChild(actions);
+        }
+
         const statsEl = document.createElement('div');
         statsEl.style.cssText = 'margin-top:0.5em; font-size:0.7em; color:#484f58; border-top:1px solid #21262d; padding-top:0.3em;';
         const ontCount = Array.isArray(result.ontologies) ? result.ontologies.length : '?';
@@ -559,6 +601,23 @@
       const ontologyCatalog = (data.sources || []).filter(s => s.kind === 'OntologyVocabulary');
       const ontologies = data.ontologies || [];
 
+      // Per-ontology capabilities (doc §4.7), keyed by ontology name — what
+      // each loaded source can actually ANSWER, so a green "loaded" badge stops
+      // standing in for capability it may not have.
+      const capByName = new Map((data.capabilities || []).map(c => [c.ontology, c]));
+      function capabilityEl(name) {
+        const cap = capByName.get(name);
+        if (!cap) return null;
+        const parts = [];
+        if (cap.gloss) parts.push('glosses');
+        if (Array.isArray(cap.relation_kinds)) parts.push(...cap.relation_kinds.map(k => k.toLowerCase()));
+        if (!parts.length) return null;
+        const el = document.createElement('div');
+        el.className = 'counts';
+        el.innerHTML = `<span style="color:#7ee787;">answers:</span> ${parts.join(' · ')}`;
+        return el;
+      }
+
       dash.innerHTML = '';
 
       // Hero
@@ -596,6 +655,43 @@
         summary.appendChild(stat);
       });
       dash.appendChild(summary);
+
+      // ---- Memory: what it has loaded, in order (doc §2.4) ----
+      // The temporal dimension of the self-model — an append-only, content-
+      // addressed record of every load/replace, plus a fingerprint of the
+      // current knowledge state that changes the moment a load does.
+      const history = Array.isArray(data.history) ? data.history : [];
+      if (history.length) {
+        const memTitle = document.createElement('div');
+        memTitle.className = 'section-title';
+        memTitle.textContent = 'Memory — what it has loaded, in order';
+        dash.appendChild(memTitle);
+
+        const memList = document.createElement('div');
+        memList.className = 'ont-list';
+        for (const ev of history) {
+          const card = document.createElement('div');
+          card.className = 'ont-card';
+          const isReplace = ev.event === 'replace';
+          const verb = isReplace ? 'replaced' : 'loaded';
+          const root = (ev.root || '').slice(0, 12);
+          const displaced = isReplace && ev.displaced ? ` · displaced ${ev.displaced.slice(0, 12)}…` : '';
+          card.innerHTML =
+            `<span class="name" style="color:${isReplace ? '#d29922' : '#3fb950'};">${verb}</span>` +
+            `<span class="name">${ev.ontology}</span>` +
+            `<span class="domain">root ${root}…${displaced}</span>`;
+          memList.appendChild(card);
+        }
+        dash.appendChild(memList);
+
+        if (data.state_cid) {
+          const cid = document.createElement('div');
+          cid.className = 'cite';
+          cid.style.cssText = 'margin-top:0.4rem; font-family:monospace;';
+          cid.textContent = `state fingerprint · ${data.state_cid.slice(0, 24)}…`;
+          dash.appendChild(cid);
+        }
+      }
 
       // ---- Built-in .prx (new content-addressed Archive) ----
       // The wasm ships ONE new-format `.prx` — a real compiled domain ontology
@@ -659,6 +755,7 @@
 
       const srcFilter = document.createElement('input');
       srcFilter.className = 'filter-box';
+      srcFilter.id = 'src-filter';
       srcFilter.placeholder = 'Filter sources…';
       dash.appendChild(srcFilter);
 
@@ -714,6 +811,11 @@
           counts.className = 'counts';
           counts.textContent = `${(s.concepts || 0).toLocaleString()} entities · ${(s.morphisms || 0).toLocaleString()} morphisms`;
           card.appendChild(counts);
+        }
+
+        if (loaded) {
+          const cap = capabilityEl(s.name);
+          if (cap) card.appendChild(cap);
         }
 
         if (s.source) {
@@ -807,6 +909,11 @@
             counts.className = 'counts';
             counts.textContent = `${(s.concepts || 0).toLocaleString()} entities · ${(s.morphisms || 0).toLocaleString()} morphisms`;
             card.appendChild(counts);
+          }
+
+          if (loaded) {
+            const cap = capabilityEl(s.name);
+            if (cap) card.appendChild(cap);
           }
 
           if (s.source || s.citation) {
