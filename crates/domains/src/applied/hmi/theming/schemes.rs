@@ -547,10 +547,16 @@ mod tests {
             Vogix16Semantic::BackgroundSelection.key(),
             "background_selection"
         );
-        assert_eq!(Vogix16Semantic::ForegroundComment.key(), "foreground_comment");
+        assert_eq!(
+            Vogix16Semantic::ForegroundComment.key(),
+            "foreground_comment"
+        );
         assert_eq!(Vogix16Semantic::ForegroundBorder.key(), "foreground_border");
         assert_eq!(Vogix16Semantic::ForegroundText.key(), "foreground_text");
-        assert_eq!(Vogix16Semantic::ForegroundHeading.key(), "foreground_heading");
+        assert_eq!(
+            Vogix16Semantic::ForegroundHeading.key(),
+            "foreground_heading"
+        );
         assert_eq!(Vogix16Semantic::ForegroundBright.key(), "foreground_bright");
     }
 
