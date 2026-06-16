@@ -112,21 +112,33 @@ impl Archive {
     pub fn recursive_root(&self) -> Result<ContentAddress, RecursiveAddressError> {
         let by_name = self.recursive_addresses()?;
         let mut addrs: Vec<[u8; 32]> = by_name.values().map(|a| *a.as_bytes()).collect();
+        // Connections (the functors) contribute their identity too. A connection's
+        // references — source/target ontologies, the action's source-generator
+        // names — are FOREIGN (in the connected ontologies the peer holds), so its
+        // recursive address IS its local content address; the deeper recursive form
+        // (depending on the connected-ontology roots) is the multi-ontology
+        // manifest layer, not an in-archive concern.
+        for c in &self.connections {
+            addrs.push(*c.address()?.as_bytes());
+        }
         addrs.sort_unstable();
         addrs.dedup();
         Ok(codec::address_of(&addrs)?)
     }
 
     /// The minimal sub-archive carrying `name` and its transitive LOCAL closure
-    /// (every node reachable by `Local` edges) — the teach-a-peer payload. A peer
-    /// that loads it recomputes `name`'s recursive address to the SAME value as in
-    /// this archive, because a recursive address depends only on this closure plus
-    /// the `Grounded` leaves (whose foreign roots the peer must already hold). A
-    /// `Grounded` edge is kept verbatim (it points at a foreign atom BY address).
+    /// (every node reachable by `Local` edges) PLUS the ontology's connections —
+    /// the teach-a-peer payload. A peer that loads it (1) recomputes `name`'s
+    /// recursive address to the SAME value as in this archive — because a recursive
+    /// address depends only on this closure plus the `Grounded` leaves (whose
+    /// foreign roots the peer must already hold; a `Grounded` edge is kept verbatim
+    /// as a foreign-atom address) — and (2) holds the **functors** needed to
+    /// INTERPRET (rebind via `apply`) the concept, not merely identify it.
     ///
-    /// Connections (the rideable functor that lets the peer INTERPRET the concept)
-    /// are not carried here — node identity is the closure; connection transport is
-    /// a separate step. `Err` if `name` is absent or a local edge dangles.
+    /// The connections ride whole: a functor is ontology-level (it maps generic
+    /// KINDS, e.g. `Synset → Concept`), so it is the interpretation machinery for
+    /// every concept of the ontology, not one concept's. `Err` if `name` is absent
+    /// or a local edge dangles.
     pub fn extract_concept(&self, name: &str) -> Result<Archive, RecursiveAddressError> {
         let index: BTreeMap<&str, usize> = self
             .nodes
@@ -163,7 +175,8 @@ impl Archive {
         let nodes: Vec<Definition> = keep.iter().map(|&i| self.nodes[i].clone()).collect();
         Ok(Archive {
             nodes,
-            connections: Vec::new(),
+            // The functors ride with the concept so the peer can INTERPRET it.
+            connections: self.connections.clone(),
         })
     }
 }
@@ -560,6 +573,50 @@ mod tests {
         assert_eq!(
             sender_addr, receiver_addr,
             "the peer agrees on A's identity, transitive + grounded deps included, from the minimal payload"
+        );
+    }
+
+    /// Slice (c) — the FUNCTOR rides with the concept, so the peer can INTERPRET
+    /// it (rebind via `apply`), not merely identify it, and the functor's identity
+    /// is fixed in the recursive root.
+    #[test]
+    fn the_functor_rides_with_the_concept() {
+        use crate::connection::{Connection, GeneratorAction};
+        let functor = Connection {
+            kind: "FullyFaithful".to_string(),
+            source: "Wordnet".to_string(),
+            target: "Praxis".to_string(),
+            action: GeneratorAction::Functor {
+                map_object: vec![("Synset".to_string(), "Concept".to_string())],
+                map_morphism: vec![("hypernym".to_string(), "Subsumption".to_string())],
+            },
+            laws: vec![],
+        };
+        let full = Archive {
+            nodes: vec![
+                node("Dog", Some("dog"), &[("Subsumption", "Animal")]),
+                node("Animal", Some("animal"), &[]),
+            ],
+            connections: vec![functor.clone()],
+        };
+        // The payload carries the functor (interpretation machinery), not just nodes.
+        let payload = full.extract_concept("Dog").unwrap();
+        assert_eq!(
+            payload.connections,
+            vec![functor],
+            "the functor rides with the concept so the peer can interpret it"
+        );
+        // Node identity still agrees from the payload.
+        assert_eq!(rec(&full, "Dog"), rec(&payload, "Dog"));
+        // And the functor's identity is part of the recursive root.
+        let without = Archive {
+            nodes: full.nodes.clone(),
+            connections: vec![],
+        };
+        assert_ne!(
+            full.recursive_root().unwrap(),
+            without.recursive_root().unwrap(),
+            "the functor contributes to the recursive root"
         );
     }
 }
