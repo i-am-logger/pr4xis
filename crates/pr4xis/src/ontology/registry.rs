@@ -160,6 +160,49 @@ pub fn axiom_by_name(_name: &str) -> Option<BoxedAxiom> {
     None
 }
 
+/// Re-bind a persisted functor binding by its stable name: the registered functor
+/// whose extracted [`ConnectionGenerators::name`] (its `FUNCTORS`-slice
+/// [`Provenance`] name, set by `extract_functor` from `F::meta().name`) matches
+/// `name`. `None` on miss — fail-closed for the load gate. Native only; always
+/// `None` on wasm32 (linkme unsupported → every binding unbound, fail-closed).
+///
+/// The 1-cell analogue of [`axiom_by_name`]: the same iterate-constructors-and-find
+/// shape and typed-name comparison (`OntologyName: PartialEq<str>` — identity flows
+/// through the typed name, never a bare `String ==`). The key is the struct field
+/// `.name` rather than a `dyn` method, because `ConnectionGenerators` already
+/// self-carries its binding name (no `FUNCTORS`/`FUNCTOR_CONSTRUCTORS` index
+/// correlation — the name travels with the constructor).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn functor_by_name(name: &str) -> Option<ConnectionGenerators> {
+    FUNCTOR_CONSTRUCTORS
+        .iter()
+        .map(|f| f())
+        .find(|g| g.name == *name)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn functor_by_name(_name: &str) -> Option<ConnectionGenerators> {
+    None
+}
+
+/// Re-bind a persisted adjunction binding by its stable name: the registered
+/// adjunction whose [`ConnectionGenerators::name`] (its `ADJUNCTIONS`-slice name,
+/// set by `extract_adjunction` from the adjunction's `meta().name`) matches `name`.
+/// `None` on miss. Native only; `None` on wasm32. The structured-2-cell-pair
+/// analogue of [`functor_by_name`].
+#[cfg(not(target_arch = "wasm32"))]
+pub fn adjunction_by_name(name: &str) -> Option<ConnectionGenerators> {
+    ADJUNCTION_CONSTRUCTORS
+        .iter()
+        .map(|f| f())
+        .find(|g| g.name == *name)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn adjunction_by_name(_name: &str) -> Option<ConnectionGenerators> {
+    None
+}
+
 /// All declared functors with structured metadata.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn describe_functors() -> Vec<Provenance> {
