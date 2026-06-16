@@ -30,14 +30,14 @@
 //! committed `.prx` pin re-verifies byte-for-byte (#186 preserved). The
 //! recursive address is a SEPARATE claim ([`Archive::recursive_root`]).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 
 use crate::address::ContentAddress;
 use crate::archive::Archive;
 use crate::codec::{self, CodecError};
-use crate::definition::EdgeTarget;
+use crate::definition::{Definition, EdgeTarget};
 
 /// Why a recursive address could not be computed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +59,11 @@ pub enum RecursiveAddressError {
     AmbiguousCyclicIdentity {
         /// The colliding member names.
         names: Vec<String>,
+    },
+    /// The concept to extract is not in the archive.
+    ConceptNotFound {
+        /// The requested concept name.
+        name: String,
     },
 }
 
@@ -110,6 +115,56 @@ impl Archive {
         addrs.sort_unstable();
         addrs.dedup();
         Ok(codec::address_of(&addrs)?)
+    }
+
+    /// The minimal sub-archive carrying `name` and its transitive LOCAL closure
+    /// (every node reachable by `Local` edges) — the teach-a-peer payload. A peer
+    /// that loads it recomputes `name`'s recursive address to the SAME value as in
+    /// this archive, because a recursive address depends only on this closure plus
+    /// the `Grounded` leaves (whose foreign roots the peer must already hold). A
+    /// `Grounded` edge is kept verbatim (it points at a foreign atom BY address).
+    ///
+    /// Connections (the rideable functor that lets the peer INTERPRET the concept)
+    /// are not carried here — node identity is the closure; connection transport is
+    /// a separate step. `Err` if `name` is absent or a local edge dangles.
+    pub fn extract_concept(&self, name: &str) -> Result<Archive, RecursiveAddressError> {
+        let index: BTreeMap<&str, usize> = self
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, d)| (d.name.as_str(), i))
+            .collect();
+        let &start = index
+            .get(name)
+            .ok_or_else(|| RecursiveAddressError::ConceptNotFound {
+                name: name.to_string(),
+            })?;
+        // DFS the local closure from `name`.
+        let mut keep: BTreeSet<usize> = BTreeSet::new();
+        let mut stack = vec![start];
+        while let Some(i) = stack.pop() {
+            if !keep.insert(i) {
+                continue;
+            }
+            for (_kind, target) in &self.nodes[i].edges {
+                if let EdgeTarget::Local(n) = target {
+                    match index.get(n.as_str()) {
+                        Some(&j) => stack.push(j),
+                        None => {
+                            return Err(RecursiveAddressError::DanglingLocalEdge {
+                                from: self.nodes[i].name.clone(),
+                                to: n.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        let nodes: Vec<Definition> = keep.iter().map(|&i| self.nodes[i].clone()).collect();
+        Ok(Archive {
+            nodes,
+            connections: Vec::new(),
+        })
     }
 }
 
@@ -459,5 +514,52 @@ mod tests {
             a.recursive_addresses(),
             Err(RecursiveAddressError::DanglingLocalEdge { .. })
         ));
+    }
+
+    /// Test 5 (the headline) — TEACH-A-PEER round trip. A sender extracts a
+    /// concept's minimal payload; a receiver recomputes its recursive address and
+    /// AGREES, including the transitive (and grounded) dependencies — from a
+    /// payload that excludes everything unrelated.
+    #[test]
+    fn teach_a_peer_round_trip() {
+        // G grounds into a foreign ontology by atom address (a leaf).
+        let mut g = node("G", Some("g"), &[]);
+        g.edges.push((
+            "denotes".to_string(),
+            EdgeTarget::Grounded {
+                ontology: "english".to_string(),
+                atom: ContentAddress::of(b"the-foreign-atom"),
+            },
+        ));
+        let full = Archive {
+            nodes: vec![
+                node("A", Some("a"), &[("Subsumption", "B")]),
+                node("B", Some("b"), &[("Subsumption", "C"), ("Denotes", "G")]),
+                node("C", Some("c"), &[]),
+                node("Unrelated", Some("u"), &[]), // not in A's closure
+                g,
+            ],
+            connections: vec![],
+        };
+        let sender_addr = rec(&full, "A");
+
+        // Sender extracts the minimal payload for A.
+        let payload = full.extract_concept("A").unwrap();
+        let have = |n: &str| payload.nodes.iter().any(|d| d.name == n);
+        assert!(
+            have("A") && have("B") && have("C") && have("G"),
+            "the closure travels"
+        );
+        assert!(
+            !have("Unrelated"),
+            "unrelated nodes are excluded — minimal payload"
+        );
+
+        // Receiver recomputes A's recursive address from the payload alone.
+        let receiver_addr = rec(&payload, "A");
+        assert_eq!(
+            sender_addr, receiver_addr,
+            "the peer agrees on A's identity, transitive + grounded deps included, from the minimal payload"
+        );
     }
 }
