@@ -157,21 +157,56 @@ impl KindVocab {
     pub fn address_of(&self, name: &str) -> Option<ContentAddress> {
         self.0.get(name).copied()
     }
+
+    /// Fold `other` into this vocab; on a name collision `other` WINS. Used to
+    /// layer the LOADED, authoritative relation kinds over the hand-authored meta
+    /// floor: the Relations ontology is the cited authority for what a relation
+    /// kind MEANS, so its definition overrides the floor's bootstrap entry.
+    pub fn extend_overriding(&mut self, other: KindVocab) {
+        self.0.extend(other.0);
+    }
 }
 
-/// The default morphism-kind vocabulary — the meta-ontology's kind floor (the
-/// hand-authored, self-describing kernel: `Subsumption`, `Contains`, `HasProperty`,
-/// …, each an addressable `MorphismKind` meta-concept). Built once.
+/// The default morphism-kind vocabulary — two tiers, built once:
+/// 1. the meta-ontology's hand-authored kind FLOOR (the self-describing kernel:
+///    `Subsumption`, `Contains`, `HasProperty`, …, the format-structural kinds);
+/// 2. the LOADED, authoritative domain relation kinds (`Parthood`, `Causation`,
+///    `Opposition`, …, each with its `HasProperty`/inter-kind edges) — the
+///    Relations ontology projected to [`morphism_kinds.prx`](load_relation_kinds),
+///    fail-closed against its baked root. The Relations tier WINS a name collision
+///    (`Subsumption`, `HasProperty`): it is the cited authority for relation-kind
+///    meaning; the floor's entry was the pre-Relations bootstrap.
 ///
-/// Panics only if the meta-ontology — our own closed kernel, guarded by
-/// [`the_default_kind_vocab_builds`](tests) and `meta::is_referentially_closed` —
-/// fails to address; that is a kernel bug, not a runtime input fault.
+/// Panics only if our own closed kernel data — the meta-ontology (guarded by
+/// `meta::is_referentially_closed`) or the committed projection (guarded by its
+/// pin + the domains drift test) — fails to address/load; that is a kernel bug,
+/// not a runtime input fault. [`the_default_kind_vocab_builds`](tests) proves it.
 fn default_kind_vocab() -> &'static KindVocab {
     static VOCAB: OnceLock<KindVocab> = OnceLock::new();
     VOCAB.get_or_init(|| {
-        KindVocab::from_archive(&meta::ontology())
-            .expect("the meta-ontology kind floor must address (referentially closed kernel)")
+        let mut vocab = KindVocab::from_archive(&meta::ontology())
+            .expect("the meta-ontology kind floor must address (referentially closed kernel)");
+        vocab.extend_overriding(
+            KindVocab::from_archive(&load_relation_kinds())
+                .expect("the loaded relation-kind vocab must address (closed projection)"),
+        );
+        vocab
     })
+}
+
+/// The authoritative relation-kind vocabulary, loaded from the committed
+/// `morphism_kinds.prx` — the `domains` Relations ontology emitted as an archive
+/// (every kind WITH its `HasProperty`/inter-kind edges). Embedded + fail-closed
+/// against its baked root, the same discipline as `relation_lexicon.prx` and the
+/// functor projections; the `domains` drift test regenerates + re-pins it.
+fn load_relation_kinds() -> Archive {
+    const MORPHISM_KINDS_PRX: &[u8] = include_bytes!("morphism_kinds.prx");
+    const MORPHISM_KINDS_ROOT_HEX: &str =
+        "6c83ec88e28cd19b13f7762747162a0136f23e468267b3214bc7b9b30d5665a8";
+    let root = ContentAddress::from_hex(MORPHISM_KINDS_ROOT_HEX)
+        .expect("MORPHISM_KINDS_ROOT_HEX is valid 64-hex");
+    crate::load::load(MORPHISM_KINDS_PRX, root)
+        .expect("committed morphism_kinds.prx must load against its baked root")
 }
 
 /// The canonical recursive form of one node (referents resolved to addresses).
@@ -847,6 +882,89 @@ mod tests {
             mk("Foo").recursive_addresses_grounded(&empty).unwrap()["A"],
             mk("Foo").recursive_addresses_grounded(&other).unwrap()["A"],
             "a kind absent from the vocab is Free regardless of which vocab"
+        );
+    }
+
+    // --- A3 slice (b): the LOADED relation kinds (Relations ontology projection) ---
+
+    /// Slice (b) RC1 — the loaded relation vocab BUILDS: the committed projection
+    /// is referentially closed under the strict recursive rules (incl. the labeled
+    /// Subsumption⟷Specialisation cycle). If it were not, `default_kind_vocab()` —
+    /// hence every `recursive_addresses()` call — would panic.
+    #[test]
+    fn the_loaded_relation_vocab_builds() {
+        let relations = load_relation_kinds();
+        assert!(
+            relations
+                .recursive_addresses_grounded(&KindVocab::empty())
+                .is_ok(),
+            "the committed Relations projection must address (closed; labeled cycles)"
+        );
+    }
+
+    /// Slice (b) — the default vocab grounds the DOMAIN relation kinds
+    /// (`Parthood`, `Causation`, …) the meta FLOOR does not define: they come from
+    /// the committed Relations projection (loaded, not hardcoded).
+    #[test]
+    fn the_default_vocab_grounds_the_loaded_relation_kinds() {
+        let floor = KindVocab::from_archive(&meta::ontology()).unwrap();
+        let relations = KindVocab::from_archive(&load_relation_kinds()).unwrap();
+        for kind in [
+            "Parthood",
+            "Causation",
+            "Opposition",
+            "Equivalence",
+            "Specialisation",
+        ] {
+            assert!(
+                floor.address_of(kind).is_none(),
+                "{kind} is a domain relation kind, not a format-floor kind"
+            );
+            assert!(
+                relations.address_of(kind).is_some(),
+                "the loaded Relations vocab must ground {kind}"
+            );
+            assert!(
+                default_kind_vocab().address_of(kind).is_some(),
+                "the default vocab must ground the loaded {kind}"
+            );
+        }
+        // A real archive using a loaded relation kind resolves it to its meaning,
+        // not a bare name (addresses differently with the vocab vs the empty floor).
+        let archive = Archive {
+            nodes: vec![
+                node("Whole", None, &[("Parthood", "Part")]),
+                node("Part", None, &[]),
+            ],
+            connections: vec![],
+        };
+        assert_ne!(
+            archive.recursive_addresses_grounded(&relations).unwrap()["Whole"],
+            archive
+                .recursive_addresses_grounded(&KindVocab::empty())
+                .unwrap()["Whole"],
+            "Parthood resolves to its loaded meaning, not its spelling"
+        );
+    }
+
+    /// Slice (b) — the authoritative Relations definition WINS a name collision
+    /// over the bootstrap floor: `Subsumption` resolves to its richer Relations
+    /// meaning (which adds Antisymmetric/Reflexive + InverseOf Specialisation).
+    #[test]
+    fn the_loaded_authority_overrides_the_bootstrap_floor() {
+        let floor = KindVocab::from_archive(&meta::ontology()).unwrap();
+        let relations = KindVocab::from_archive(&load_relation_kinds()).unwrap();
+        let f = floor
+            .address_of("Subsumption")
+            .expect("floor defines Subsumption");
+        let r = relations
+            .address_of("Subsumption")
+            .expect("Relations defines Subsumption");
+        assert_ne!(f, r, "the two tiers define Subsumption differently");
+        assert_eq!(
+            default_kind_vocab().address_of("Subsumption"),
+            Some(r),
+            "the loaded authority wins the collision"
         );
     }
 }
