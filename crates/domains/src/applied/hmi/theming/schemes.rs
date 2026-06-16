@@ -77,7 +77,18 @@ impl SchemeType {
 /// Vogix16 semantic color name.
 ///
 /// Source: vogix design system (vogix16-themes)
-/// Maps semantic concepts to base16 accent slots.
+///
+/// Vogix16 reuses the base16 *slot structure* but binds each accent slot to a
+/// semantic **role** rather than a fixed hue: `base08`≡`success`, `base09`≡
+/// `warning`, `base0A`≡`notice`, `base0B`≡`danger`, … (see [`Self::to_slot`]).
+/// The role is invariant across every vogix16 theme; the *hue* that fills it is
+/// the theme author's editorial/cultural choice. So a Western theme (`yoga`)
+/// paints `success` green and `danger` red, while a Japanese-convention theme
+/// (`aikido`) paints `success` red and `danger` green — same roles, opposite
+/// hues. This decoupling of meaning from colour is the point of the scheme, and
+/// is why the mapping is by slot/role, never by hue. Consumers that must keep
+/// functional colours readable should select by [`ColorSlot::role`]
+/// (`Accent`/`BrightAccent`), not by guessing red/green.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Vogix16Semantic {
     // Monochromatic (base00-07)
@@ -150,16 +161,22 @@ impl Vogix16Semantic {
     }
 
     /// The theme file key name for this semantic color.
+    ///
+    /// These are the vogix16 design system's own key names (`snake_case`): the
+    /// vogix loader emits exactly these and vogix's Tera templates reference them
+    /// verbatim (`foreground_text`, `background_surface`, …). praxis encodes them
+    /// as the single source of truth so consumers derive their aliases from here
+    /// rather than re-hardcoding the list.
     pub fn key(&self) -> &'static str {
         match self {
             Self::Background => "background",
-            Self::BackgroundSurface => "background-surface",
-            Self::BackgroundSelection => "background-selection",
-            Self::ForegroundComment => "foreground-comment",
-            Self::ForegroundBorder => "foreground-border",
-            Self::ForegroundText => "foreground-text",
-            Self::ForegroundHeading => "foreground-heading",
-            Self::ForegroundBright => "foreground-bright",
+            Self::BackgroundSurface => "background_surface",
+            Self::BackgroundSelection => "background_selection",
+            Self::ForegroundComment => "foreground_comment",
+            Self::ForegroundBorder => "foreground_border",
+            Self::ForegroundText => "foreground_text",
+            Self::ForegroundHeading => "foreground_heading",
+            Self::ForegroundBright => "foreground_bright",
             Self::Success => "success",
             Self::Warning => "warning",
             Self::Notice => "notice",
@@ -521,7 +538,20 @@ mod tests {
         assert_eq!(Vogix16Semantic::Success.key(), "success");
         assert_eq!(Vogix16Semantic::Danger.key(), "danger");
         assert_eq!(Vogix16Semantic::Background.key(), "background");
-        assert_eq!(Vogix16Semantic::ForegroundText.key(), "foreground-text");
+        // snake_case (underscore) keys — must match the vogix loader + templates.
+        assert_eq!(
+            Vogix16Semantic::BackgroundSurface.key(),
+            "background_surface"
+        );
+        assert_eq!(
+            Vogix16Semantic::BackgroundSelection.key(),
+            "background_selection"
+        );
+        assert_eq!(Vogix16Semantic::ForegroundComment.key(), "foreground_comment");
+        assert_eq!(Vogix16Semantic::ForegroundBorder.key(), "foreground_border");
+        assert_eq!(Vogix16Semantic::ForegroundText.key(), "foreground_text");
+        assert_eq!(Vogix16Semantic::ForegroundHeading.key(), "foreground_heading");
+        assert_eq!(Vogix16Semantic::ForegroundBright.key(), "foreground_bright");
     }
 
     #[test]
