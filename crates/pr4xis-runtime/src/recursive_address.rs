@@ -29,8 +29,32 @@
 //! ADDITIVE: the local floor and `Archive::root` are untouched, so every
 //! committed `.prx` pin re-verifies byte-for-byte (#186 preserved). The
 //! recursive address is a SEPARATE claim ([`Archive::recursive_root`]).
+//!
+//! ## A3 — a morphism carries the kind's ADDRESS, not its name
+//!
+//! An edge's KIND (`Subsumption`, `Contains`, `denotes`, …) was a bare string —
+//! a label, not a referent. A3 resolves it, in the recursive encoding only,
+//! against a [`KindVocab`]: a kind present in the vocab becomes
+//! [`ResolvedKind::Grounded`] — the content address of its meta-concept (which
+//! folds in its `HasProperty → …` edges, so the kind's structural meaning is in
+//! the identity) — and a kind absent stays [`ResolvedKind::Free`], carried by
+//! name (the open-world status a `Local` generator has before `rebind`, and an
+//! unmapped kind has in `apply`). Discrimination is **vocab-relative**: the
+//! [`default vocab`](default_kind_vocab) is the meta-ontology's hand-authored
+//! kind floor; resolving against a vocab where `Subsumption` lacks `Transitive`
+//! yields a different address (that is what two peers comparing kind MEANING do).
+//!
+//! Scope fence: A3 is exactly this kind-resolution plus the meta kind floor. It
+//! does NOT touch the stored form ([`Definition::address`] keeps the kind NAME,
+//! byte-exact), the `pr4xis-derive` canonical-kind list (issue #152), or
+//! register an external corpus (the loaded Relations-ontology tier is a separate
+//! slice). Because the meta floor grows, [`default_kind_vocab`] changes — a
+//! recursive-layer semantic version event for cross-peer agreement (byte-additive
+//! to every committed `.prx`, but two peers on different floors resolve a kind to
+//! different addresses; the payload-carried vocab is the eventual mitigation).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
 use serde::Serialize;
 
@@ -38,6 +62,7 @@ use crate::address::ContentAddress;
 use crate::archive::Archive;
 use crate::codec::{self, CodecError};
 use crate::definition::{Definition, EdgeTarget};
+use crate::meta;
 
 /// Why a recursive address could not be computed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,6 +110,70 @@ enum ResolvedTarget {
     Grounded { ontology: String, atom: [u8; 32] },
 }
 
+/// A morphism's KIND, resolved for the recursive encoding — never a bare name.
+///
+/// Parallels [`ResolvedTarget`] on the kind side of the edge: a kind known to the
+/// [`KindVocab`] resolves to the content address of its MEANING (its meta-concept,
+/// whose own `HasProperty → …` edges are folded in), so two kinds that share a
+/// spelling but differ in their declared properties address differently. A kind
+/// the vocab does not know stays free, carried by name.
+#[derive(Serialize)]
+enum ResolvedKind {
+    /// The kind's meta-concept address in the vocab — its meaning, content-addressed.
+    Grounded([u8; 32]),
+    /// Open-world: the kind is absent from the vocab, carried verbatim by name
+    /// (injective on spelling). The same status a `Local` generator has before
+    /// `rebind`, and an unmapped kind has in `apply` (IDENTITY image) — not broken,
+    /// so not fail-closed.
+    Free(String),
+}
+
+/// A morphism-kind vocabulary: each kind name mapped to the content address of
+/// its meta-concept. Built from an archive of kind-concepts via
+/// [`from_archive`](KindVocab::from_archive); the [`default`](default_kind_vocab)
+/// is the meta-ontology's hand-authored kind floor.
+#[derive(Debug, Clone, Default)]
+pub struct KindVocab(BTreeMap<String, ContentAddress>);
+
+impl KindVocab {
+    /// The empty vocab — every kind resolves [`Free`](ResolvedKind::Free). This is
+    /// the FLOOR the vocab itself is addressed at: a kind-concept's vocab address
+    /// is its recursive address computed with kinds-as-`Free`, the well-founded
+    /// base of the kind tower (as [`address`](crate::address) is the hash floor),
+    /// so building a vocab never depends on a vocab.
+    pub fn empty() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    /// Build a vocab from an archive of kind-concepts: each node's name → its
+    /// recursive address (resolved against the empty vocab — the floor). `Err` if
+    /// the archive is not referentially closed (the same fail-closed rule every
+    /// recursive address obeys).
+    pub fn from_archive(archive: &Archive) -> Result<Self, RecursiveAddressError> {
+        Ok(Self(recursive_addresses_grounded(archive, &Self::empty())?))
+    }
+
+    /// The content address of the kind named `name`, if this vocab knows it.
+    pub fn address_of(&self, name: &str) -> Option<ContentAddress> {
+        self.0.get(name).copied()
+    }
+}
+
+/// The default morphism-kind vocabulary — the meta-ontology's kind floor (the
+/// hand-authored, self-describing kernel: `Subsumption`, `Contains`, `HasProperty`,
+/// …, each an addressable `MorphismKind` meta-concept). Built once.
+///
+/// Panics only if the meta-ontology — our own closed kernel, guarded by
+/// [`the_default_kind_vocab_builds`](tests) and `meta::is_referentially_closed` —
+/// fails to address; that is a kernel bug, not a runtime input fault.
+fn default_kind_vocab() -> &'static KindVocab {
+    static VOCAB: OnceLock<KindVocab> = OnceLock::new();
+    VOCAB.get_or_init(|| {
+        KindVocab::from_archive(&meta::ontology())
+            .expect("the meta-ontology kind floor must address (referentially closed kernel)")
+    })
+}
+
 /// The canonical recursive form of one node (referents resolved to addresses).
 #[derive(Serialize)]
 struct NodeCanon<'a> {
@@ -92,25 +181,47 @@ struct NodeCanon<'a> {
     name: &'a str,
     lexical: Option<&'a str>,
     axioms: Vec<&'a str>,
-    edges: Vec<(&'a str, ResolvedTarget)>,
+    edges: Vec<(ResolvedKind, ResolvedTarget)>,
 }
 
 impl Archive {
     /// The recursive (transitive) content address of every node, keyed by name —
     /// each address fixes the node's reachable definition, cycle-safe. See the
-    /// module doc. `Err` on a dangling local edge or an unlabeled automorphic
-    /// cycle (fail-closed).
+    /// module doc. Edge kinds resolve against the [`default vocab`](default_kind_vocab)
+    /// (the meta kind floor). `Err` on a dangling local edge or an unlabeled
+    /// automorphic cycle (fail-closed).
     pub fn recursive_addresses(
         &self,
     ) -> Result<BTreeMap<String, ContentAddress>, RecursiveAddressError> {
-        recursive_addresses(self)
+        recursive_addresses_grounded(self, default_kind_vocab())
+    }
+
+    /// As [`recursive_addresses`](Archive::recursive_addresses), but resolving edge
+    /// kinds against an EXPLICIT [`KindVocab`]. Two peers agree on a concept's
+    /// MEANING (not just spelling) by recomputing with the SAME vocab; a vocab in
+    /// which a kind's properties differ yields a different address (A3).
+    pub fn recursive_addresses_grounded(
+        &self,
+        vocab: &KindVocab,
+    ) -> Result<BTreeMap<String, ContentAddress>, RecursiveAddressError> {
+        recursive_addresses_grounded(self, vocab)
     }
 
     /// The recursive Merkle root — the content address over the sorted set of
     /// every node's RECURSIVE address. The transitive-identity analogue of
-    /// [`root`](Archive::root); additive, leaves `root` untouched.
+    /// [`root`](Archive::root); additive, leaves `root` untouched. Kinds resolve
+    /// against the [`default vocab`](default_kind_vocab).
     pub fn recursive_root(&self) -> Result<ContentAddress, RecursiveAddressError> {
-        let by_name = self.recursive_addresses()?;
+        self.recursive_root_grounded(default_kind_vocab())
+    }
+
+    /// As [`recursive_root`](Archive::recursive_root), but resolving edge kinds
+    /// against an explicit [`KindVocab`].
+    pub fn recursive_root_grounded(
+        &self,
+        vocab: &KindVocab,
+    ) -> Result<ContentAddress, RecursiveAddressError> {
+        let by_name = self.recursive_addresses_grounded(vocab)?;
         let mut addrs: Vec<[u8; 32]> = by_name.values().map(|a| *a.as_bytes()).collect();
         // Connections (the functors) contribute their identity too. A connection's
         // references — source/target ontologies, the action's source-generator
@@ -181,8 +292,9 @@ impl Archive {
     }
 }
 
-fn recursive_addresses(
+fn recursive_addresses_grounded(
     archive: &Archive,
+    vocab: &KindVocab,
 ) -> Result<BTreeMap<String, ContentAddress>, RecursiveAddressError> {
     let n = archive.nodes.len();
     // name -> node index. A duplicate name shadows (last wins); referential
@@ -229,7 +341,7 @@ fn recursive_addresses(
             // Acyclic singleton: a direct Merkle fold. All referents are in
             // already-processed SCCs, so their addresses exist.
             let i = scc[0];
-            let canon = node_canon(archive, i, &index, &scc_of, &addr_of, None)?;
+            let canon = node_canon(archive, i, &index, &scc_of, &addr_of, None, vocab)?;
             let a = codec::address_of(&canon)?;
             addr_of[i] = Some(a);
             rec.insert(archive.nodes[i].name.clone(), a);
@@ -268,6 +380,7 @@ fn recursive_addresses(
                 &scc_of,
                 &addr_of,
                 Some((scc_id, &within)),
+                vocab,
             )?);
         }
         let x = codec::address_of(&member_canons)?;
@@ -295,10 +408,17 @@ fn node_canon<'a>(
     scc_of: &[usize],
     addr_of: &[Option<ContentAddress>],
     cycle: Option<(usize, &BTreeMap<usize, u64>)>,
+    vocab: &KindVocab,
 ) -> Result<NodeCanon<'a>, RecursiveAddressError> {
     let node = &archive.nodes[i];
-    let mut edges: Vec<(&str, ResolvedTarget)> = Vec::with_capacity(node.edges.len());
+    let mut edges: Vec<(ResolvedKind, ResolvedTarget)> = Vec::with_capacity(node.edges.len());
     for (kind, target) in &node.edges {
+        // A3: the kind resolves to its meta-concept address (its MEANING) when the
+        // vocab knows it; otherwise it is a free leaf carried by name.
+        let resolved_kind = match vocab.address_of(kind) {
+            Some(addr) => ResolvedKind::Grounded(*addr.as_bytes()),
+            None => ResolvedKind::Free(kind.clone()),
+        };
         let resolved = match target {
             EdgeTarget::Grounded { ontology, atom } => ResolvedTarget::Grounded {
                 ontology: ontology.clone(),
@@ -316,12 +436,14 @@ fn node_canon<'a>(
                 }
             }
         };
-        edges.push((kind.as_str(), resolved));
+        edges.push((resolved_kind, resolved));
     }
     // Canonical: sort + dedup edges and axioms (assembly-order-independent, like
-    // Definition::address). Edges sort by their serialized form via the derived
-    // Ord on the tuple — but ResolvedTarget isn't Ord, so sort by a key.
-    edges.sort_by(|a, b| (a.0, target_key(&a.1)).cmp(&(b.0, target_key(&b.1))));
+    // Definition::address). Neither ResolvedKind nor ResolvedTarget is Ord, so
+    // sort by total keys over both halves of the edge.
+    edges.sort_by(|a, b| {
+        (kind_key(&a.0), target_key(&a.1)).cmp(&(kind_key(&b.0), target_key(&b.1)))
+    });
     let mut axioms: Vec<&str> = node.axioms.iter().map(|s| s.as_str()).collect();
     axioms.sort_unstable();
     axioms.dedup();
@@ -332,6 +454,14 @@ fn node_canon<'a>(
         axioms,
         edges,
     })
+}
+
+/// A total sort key over a resolved kind (canonical edge ordering).
+fn kind_key(k: &ResolvedKind) -> (u8, Vec<u8>) {
+    match k {
+        ResolvedKind::Grounded(a) => (0, a.to_vec()),
+        ResolvedKind::Free(name) => (1, name.as_bytes().to_vec()),
+    }
 }
 
 /// A total sort key over a resolved target (canonical edge ordering).
@@ -617,6 +747,106 @@ mod tests {
             full.recursive_root().unwrap(),
             without.recursive_root().unwrap(),
             "the functor contributes to the recursive root"
+        );
+    }
+
+    // --- A3: a morphism carries the kind's ADDRESS, not its name ---
+
+    /// RC1 (load-bearing) — `recursive_addresses()` routes through
+    /// `default_kind_vocab()`, which addresses the meta-ontology kind floor. If
+    /// the floor were not referentially closed it would fail-closed and EVERY
+    /// recursive call (incl. the A2 suite) would panic. Prove it builds and grounds
+    /// the format's own kinds.
+    #[test]
+    fn the_default_kind_vocab_builds() {
+        let vocab =
+            KindVocab::from_archive(&meta::ontology()).expect("the meta kind floor must address");
+        for kind in [
+            "Subsumption",
+            "Contains",
+            "HasProperty",
+            "Roots",
+            "Constrains",
+        ] {
+            assert!(
+                vocab.address_of(kind).is_some(),
+                "the meta floor must ground the format kind {kind:?}"
+            );
+        }
+        // The no-arg path (default vocab) works on a real archive.
+        let a = Archive {
+            nodes: vec![
+                node("A", None, &[("Subsumption", "B")]),
+                node("B", None, &[]),
+            ],
+            connections: vec![],
+        };
+        assert!(a.recursive_addresses().is_ok());
+    }
+
+    /// RC4 (the headline) — a kind resolves to the content-address of its MEANING
+    /// in a CHOSEN vocab: the SAME archive addresses differently under a vocab
+    /// where the kind is `Transitive` vs one where it is not. Discrimination is
+    /// vocab-relative — exactly what two peers comparing kind meaning exercise.
+    #[test]
+    fn a_kind_resolves_to_its_meaning_in_the_vocab() {
+        let vocab_with = KindVocab::from_archive(&Archive {
+            nodes: vec![
+                node("Transitive", None, &[]),
+                node("Rel", None, &[("HasProperty", "Transitive")]),
+            ],
+            connections: vec![],
+        })
+        .unwrap();
+        let vocab_without = KindVocab::from_archive(&Archive {
+            nodes: vec![node("Rel", None, &[])],
+            connections: vec![],
+        })
+        .unwrap();
+        assert_ne!(
+            vocab_with.address_of("Rel"),
+            vocab_without.address_of("Rel"),
+            "a kind's vocab address folds in its declared properties"
+        );
+
+        let archive = Archive {
+            nodes: vec![node("A", None, &[("Rel", "B")]), node("B", None, &[])],
+            connections: vec![],
+        };
+        let with = archive.recursive_addresses_grounded(&vocab_with).unwrap();
+        let without = archive
+            .recursive_addresses_grounded(&vocab_without)
+            .unwrap();
+        assert_ne!(
+            with["A"], without["A"],
+            "A's recursive address depends on what the kind Rel MEANS in the vocab"
+        );
+    }
+
+    /// A kind the vocab does not know stays a `Free` leaf, carried by name —
+    /// injective on spelling, and identical across any vocab that omits it (the
+    /// open-world status, like a `Local` generator before `rebind`).
+    #[test]
+    fn an_ungrounded_kind_is_a_free_leaf() {
+        let mk = |k: &str| Archive {
+            nodes: vec![node("A", None, &[(k, "B")]), node("B", None, &[])],
+            connections: vec![],
+        };
+        let empty = KindVocab::empty();
+        assert_ne!(
+            mk("Foo").recursive_addresses_grounded(&empty).unwrap()["A"],
+            mk("Bar").recursive_addresses_grounded(&empty).unwrap()["A"],
+            "distinct ungrounded kinds address distinctly"
+        );
+        let other = KindVocab::from_archive(&Archive {
+            nodes: vec![node("Unrelated", None, &[])],
+            connections: vec![],
+        })
+        .unwrap();
+        assert_eq!(
+            mk("Foo").recursive_addresses_grounded(&empty).unwrap()["A"],
+            mk("Foo").recursive_addresses_grounded(&other).unwrap()["A"],
+            "a kind absent from the vocab is Free regardless of which vocab"
         );
     }
 }

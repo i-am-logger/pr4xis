@@ -82,6 +82,49 @@ pub fn ontology() -> Archive {
                 "Axiom",
                 &[("Constrains", "Concept"), ("Constrains", "Connection")],
             ),
+            // The morphism-kind vocabulary (A3) — the relation/edge KINDS the
+            // format itself uses, promoted from bare edge-labels to addressable
+            // meta-concepts. Every kind a node's edges name (`Subsumption`,
+            // `Contains`, …) now EXISTS as a concept to content-address, so a
+            // serialized morphism can carry the kind's ADDRESS, not its spelling.
+            // This is the hand-authored bootstrap FLOOR — the self-describing
+            // kernel (praxis-way rule 11: the meta-`.prx` is the honest string
+            // floor). The DOMAIN relation kinds (Parthood/Causation/Opposition/…)
+            // are a separate, LOADED tier (the Relations ontology projection); an
+            // edge whose kind is in neither stays a graceful free leaf, exactly as
+            // an unmapped kind is the IDENTITY image in `apply`.
+            concept("MorphismKind", &[("Subsumption", "Concept")]),
+            // A structural property a kind may carry (OWL property characteristic —
+            // Hitzler et al., OWL 2 Primer, W3C 2012).
+            concept("Property", &[("Subsumption", "Concept")]),
+            // The OWL `TransitiveProperty` marker (OWL-RL `prp-trp`).
+            concept("Transitive", &[("Subsumption", "Property")]),
+            // `Subsumption` IS-A MorphismKind and is Transitive — `rdfs:subClassOf`
+            // is a transitive property (Brickley & Guha, RDF Schema 1.1, W3C 2014).
+            // Its content address therefore folds in `Transitive`, so a Subsumption
+            // defined WITHOUT that property addresses differently.
+            concept(
+                "Subsumption",
+                &[
+                    ("Subsumption", "MorphismKind"),
+                    ("HasProperty", "Transitive"),
+                ],
+            ),
+            // The kind that attaches a `Property` to a `MorphismKind` (the
+            // `(R, Property, HasProperty)` morphism the Relations ontology declares).
+            concept("HasProperty", &[("Subsumption", "MorphismKind")]),
+            // The remaining structural kinds the meta-ontology's own edges use,
+            // each IS-A MorphismKind. No property is asserted of them (none is
+            // claimed beyond what is cited).
+            concept("HasSource", &[("Subsumption", "MorphismKind")]),
+            concept("HasTarget", &[("Subsumption", "MorphismKind")]),
+            concept("Contains", &[("Subsumption", "MorphismKind")]),
+            concept("Presents", &[("Subsumption", "MorphismKind")]),
+            concept("Addresses", &[("Subsumption", "MorphismKind")]),
+            concept("Roots", &[("Subsumption", "MorphismKind")]),
+            concept("Grounds", &[("Subsumption", "MorphismKind")]),
+            concept("Versions", &[("Subsumption", "MorphismKind")]),
+            concept("Constrains", &[("Subsumption", "MorphismKind")]),
         ],
         connections: vec![
             // The decompile lens itself, as a Connection in the meta-ontology:
@@ -135,11 +178,52 @@ mod tests {
             "Lens",
             "Version",
             "Functor",
+            // The morphism-kind vocabulary describes itself too: `MorphismKind`
+            // is a Concept, and `Subsumption` — the kind every IS-A edge here
+            // uses — is among the meta-ontology's own nodes.
+            "MorphismKind",
+            "Subsumption",
         ] {
             assert!(
                 names.contains(required),
                 "meta-ontology must define {required}"
             );
+        }
+    }
+
+    #[test]
+    fn the_format_kinds_are_addressable_meta_concepts() {
+        // A3: every relation KIND the meta-ontology's own edges use is itself a
+        // defined concept (a `MorphismKind`), so a morphism can carry the kind's
+        // ADDRESS, not its bare name. The kinds are no longer just edge labels.
+        let meta = ontology();
+        let names: BTreeSet<&str> = meta.nodes.iter().map(|n| n.name.as_str()).collect();
+        let used_kinds: BTreeSet<&str> = meta
+            .nodes
+            .iter()
+            .flat_map(|n| n.edges.iter().map(|(kind, _)| kind.as_str()))
+            .collect();
+        for kind in used_kinds {
+            assert!(
+                names.contains(kind),
+                "edge-kind {kind:?} must exist as an addressable meta-concept"
+            );
+        }
+        // And each such kind IS-A MorphismKind.
+        for node in &meta.nodes {
+            for (kind, _) in &node.edges {
+                let def = meta
+                    .nodes
+                    .iter()
+                    .find(|n| &n.name == kind)
+                    .expect("kind is defined");
+                assert!(
+                    def.edges
+                        .iter()
+                        .any(|(r, t)| r == "Subsumption" && t.local_name() == Some("MorphismKind")),
+                    "kind {kind:?} must IS-A MorphismKind"
+                );
+            }
         }
     }
 
