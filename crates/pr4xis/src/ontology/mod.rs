@@ -23,9 +23,9 @@ pub use registry::{
     FUNCTORS, NATURAL_TRANSFORMATION_CONSTRUCTORS, NATURAL_TRANSFORMATIONS, VOCABULARIES,
 };
 pub use registry::{
-    BoxedAxiom, axiom_by_name, axiom_constructors, boxed_axiom, connection_constructors,
-    describe_adjunctions, describe_all_arrows, describe_axioms, describe_functors,
-    describe_knowledge_base, describe_natural_transformations,
+    BoxedAxiom, adjunction_by_name, axiom_by_name, axiom_constructors, boxed_axiom,
+    connection_constructors, describe_adjunctions, describe_all_arrows, describe_axioms,
+    describe_functors, describe_knowledge_base, describe_natural_transformations, functor_by_name,
 };
 pub use staging::Staging;
 

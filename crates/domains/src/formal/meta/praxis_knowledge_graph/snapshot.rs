@@ -31,7 +31,7 @@
 use alloc::{format, string::String, string::ToString, vec::Vec};
 
 use pr4xis::category::{Category, Concept, FinitelyGenerated};
-use pr4xis::ontology::axiom_by_name;
+use pr4xis::ontology::{adjunction_by_name, axiom_by_name, functor_by_name};
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::emit::{binding_definition, definition_of};
 
@@ -345,22 +345,24 @@ fn verify_merkle_root(bytes: &[u8], trusted_pin: &str) -> Result<(), SnapshotErr
 /// (`concept_from_name`); an `AxiomNode` must re-bind to a registered axiom
 /// (`axiom_by_name`); a `LensNode` to a registered lens handle
 /// (`lens_by_name` — an asymmetric re-bind: a `&'static LensRegistration`, not
-/// a runnable lens value); any other behavioural kind (FunctorNode /
-/// AdjunctionNode) has no resolver and is refused. Fail-closed `Err` on any
-/// miss. On wasm32 the axiom/lens slices are empty, so behavioural nodes are
-/// refused there — the correct fail-closed behaviour.
+/// a runnable lens value); a `FunctorNode` / `AdjunctionNode` to a registered
+/// connection by its stable binding name (`functor_by_name` / `adjunction_by_name`
+/// over `FUNCTOR_CONSTRUCTORS` / `ADJUNCTION_CONSTRUCTORS`). Fail-closed `Err` on
+/// any miss — an unknown binding name resolves to nothing and is refused. On
+/// wasm32 every constructor slice is empty, so behavioural nodes are refused
+/// there — the correct fail-closed behaviour.
 fn rebind_node(node: &SnapshotNode) -> Result<(), SnapshotError> {
     use PraxisKnowledgeGraphConcept as C;
     // Resolve the wire kind-name back to its TYPED concept (via the ontology's
     // own `concept_from_name`/`Concept::name`), then dispatch on the VARIANT —
     // never a string literal — to the registry that owns that kind of node. A
-    // behavioural kind with no resolver yet (FunctorNode / AdjunctionNode — the
-    // functor/adjunction registries are provenance-only), a non-node concept,
-    // or an unknown name all fail closed.
+    // non-node concept, or an unknown binding name in any registry, fails closed.
     let resolved = match concept_from_name(&node.node_kind) {
         Some(C::ConceptNode) => concept_from_name(&node.identity).is_some(),
         Some(C::AxiomNode) => axiom_by_name(&node.identity).is_some(),
         Some(C::LensNode) => lens_by_name(&node.identity).is_some(),
+        Some(C::FunctorNode) => functor_by_name(&node.identity).is_some(),
+        Some(C::AdjunctionNode) => adjunction_by_name(&node.identity).is_some(),
         _ => false,
     };
     if resolved {
@@ -627,6 +629,27 @@ mod tests {
     /// — `axiom_by_name` resolves it, so a snapshot binding to it re-binds.
     const REGISTERED_AXIOM: &str = "AxiomBindingComplete";
 
+    /// The stable binding name of an actually-registered functor, read from the
+    /// live registry — robust to the `meta().name` scheme (a clean `functor!`
+    /// literal vs the default `type_name` placeholder, which differ), where a
+    /// hardcoded constant would silently pin the wrong string. Any registered
+    /// functor's name re-binds; we just need one.
+    fn a_registered_functor_name() -> String {
+        pr4xis::ontology::FUNCTOR_CONSTRUCTORS
+            .iter()
+            .map(|f| f())
+            .next()
+            .expect("at least one functor is registered in this binary")
+            .name
+            .as_str()
+            .to_string()
+    }
+
+    /// A registered adjunction name — `register_adjunction!(AnalysisSynthesis)`
+    /// (hearing/adjunctions.rs), whose hand-written `meta().name` is the literal
+    /// `"AnalysisSynthesis"`. `adjunction_by_name` resolves it.
+    const REGISTERED_ADJUNCTION: &str = "AnalysisSynthesis";
+
     /// Two independent emits of the same slice + bindings produce the same
     /// `GraphVersion` (`MerkleRoot`) — reproducibility at the address level
     /// (the canonical order + name-keyed addressing pin it; no enum-index or
@@ -745,6 +768,79 @@ mod tests {
             matches!(err, SnapshotError::UnboundReference { .. }),
             "got {err:?}"
         );
+    }
+
+    /// A4 (the headline) — a `FunctorNode` binding to a REGISTERED functor
+    /// re-binds: the snapshot loads instead of failing closed with
+    /// `UnboundReference`, the node survives + is named. The connection-round-trip
+    /// blocker — a snapshot carrying a functor is admitted + re-bound to this
+    /// binary's live functor (`functor_by_name`).
+    #[test]
+    fn snapshot_functor_node_round_trips_and_rebinds() {
+        let slice = fixed_slice();
+        let fname = a_registered_functor_name();
+        let bindings = alloc::vec![GraphNode {
+            kind: C::FunctorNode,
+            identity: fname.clone(),
+        }];
+        let (gz, root) = emit_snapshot(&slice, &bindings).expect("emit");
+        let env = load_snapshot(&gz, &root).expect("load + gate + rebind the FunctorNode");
+        assert_eq!(env.nodes.len(), slice.nodes.len() + 1);
+        assert!(
+            env.nodes
+                .iter()
+                .any(|n| n.node_kind == "FunctorNode" && n.identity == fname),
+            "the FunctorNode binding survives and re-binds (would be UnboundReference otherwise)"
+        );
+    }
+
+    /// A4 — the `AdjunctionNode` arm, symmetric: a registered adjunction re-binds.
+    #[test]
+    fn snapshot_adjunction_node_round_trips_and_rebinds() {
+        let slice = fixed_slice();
+        let bindings = alloc::vec![GraphNode {
+            kind: C::AdjunctionNode,
+            identity: REGISTERED_ADJUNCTION.to_string(),
+        }];
+        let (gz, root) = emit_snapshot(&slice, &bindings).expect("emit");
+        let env = load_snapshot(&gz, &root).expect("load + gate + rebind the AdjunctionNode");
+        assert!(
+            env.nodes
+                .iter()
+                .any(|n| n.node_kind == "AdjunctionNode" && n.identity == REGISTERED_ADJUNCTION),
+            "the AdjunctionNode binding survives and re-binds"
+        );
+    }
+
+    /// A4 fail-closed teeth — a `FunctorNode` binding to an UNREGISTERED functor
+    /// passes the MerkleRoot gate but is refused at re-bind (`UnboundReference`),
+    /// no partial graph. The resolver accepts strictly more, never a fabrication.
+    #[test]
+    fn snapshot_load_rejects_unbound_functor() {
+        let bindings = alloc::vec![GraphNode {
+            kind: C::FunctorNode,
+            identity: "__praxis_unregistered_functor_binding__".to_string(),
+        }];
+        let (gz, root) = emit_snapshot(&fixed_slice(), &bindings).expect("emit");
+        let err = load_snapshot(&gz, &root).expect_err("unregistered functor must be refused");
+        assert!(
+            matches!(err, SnapshotError::UnboundReference { .. }),
+            "got {err:?}"
+        );
+    }
+
+    /// A4 — the resolver contract directly: `functor_by_name` returns `None` on a
+    /// miss (the `find`-miss path the fail-closed gate relies on). On wasm32 the
+    /// `FUNCTOR_CONSTRUCTORS` slice is empty (linkme unsupported), so EVERY name →
+    /// `None` → behavioural nodes are refused there — the cfg stub is byte-identical
+    /// to `axiom_by_name`'s, so the wasm path inherits its proven fail-closed shape.
+    #[test]
+    fn functor_by_name_refuses_an_unregistered_name() {
+        assert!(functor_by_name("__praxis_no_such_functor__").is_none());
+        assert!(adjunction_by_name("__praxis_no_such_adjunction__").is_none());
+        // And the registered names DO resolve (the positive control, native).
+        assert!(functor_by_name(&a_registered_functor_name()).is_some());
+        assert!(adjunction_by_name(REGISTERED_ADJUNCTION).is_some());
     }
 
     /// An edge is re-bound ONTOLOGICALLY: a fabricated edge between two real
