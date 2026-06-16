@@ -18,7 +18,7 @@ emit = ["dep:pr4xis"]
 [dependencies]
 sha2 = "0.11"
 blake3 = { version = "1", default-features = false, features = ["pure"] }
-pr4xis = { version = "0.25.0", path = "../pr4xis", optional = true }
+pr4xis = { version = "0.25.1", path = "../pr4xis", optional = true }
 serde = { version = "1", features = ["derive"] }
 # DAG-CBOR — the deterministic, language-agnostic canonical encoding the content
 # address is computed over (IPLD content-addressing requires a single canonical
