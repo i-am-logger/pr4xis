@@ -35,12 +35,12 @@
 //! An edge's KIND (`Subsumption`, `Contains`, `denotes`, …) was a bare string —
 //! a label, not a referent. A3 resolves it, in the recursive encoding only,
 //! against a [`KindVocab`]: a kind present in the vocab becomes
-//! [`ResolvedKind::Grounded`] — the content address of its meta-concept (which
+//! `ResolvedKind::Grounded` — the content address of its meta-concept (which
 //! folds in its `HasProperty → …` edges, so the kind's structural meaning is in
-//! the identity) — and a kind absent stays [`ResolvedKind::Free`], carried by
+//! the identity) — and a kind absent stays `ResolvedKind::Free`, carried by
 //! name (the open-world status a `Local` generator has before `rebind`, and an
 //! unmapped kind has in `apply`). Discrimination is **vocab-relative**: the
-//! [`default vocab`](default_kind_vocab) is the meta-ontology's hand-authored
+//! `default_kind_vocab` is the meta-ontology's hand-authored
 //! kind floor; resolving against a vocab where `Subsumption` lacks `Transitive`
 //! yields a different address (that is what two peers comparing kind MEANING do).
 //!
@@ -48,7 +48,7 @@
 //! does NOT touch the stored form ([`Definition::address`] keeps the kind NAME,
 //! byte-exact), the `pr4xis-derive` canonical-kind list (issue #152), or
 //! register an external corpus (the loaded Relations-ontology tier is a separate
-//! slice). Because the meta floor grows, [`default_kind_vocab`] changes — a
+//! slice). Because the meta floor grows, `default_kind_vocab` changes — a
 //! recursive-layer semantic version event for cross-peer agreement (byte-additive
 //! to every committed `.prx`, but two peers on different floors resolve a kind to
 //! different addresses; the payload-carried vocab is the eventual mitigation).
@@ -130,13 +130,13 @@ enum ResolvedKind {
 
 /// A morphism-kind vocabulary: each kind name mapped to the content address of
 /// its meta-concept. Built from an archive of kind-concepts via
-/// [`from_archive`](KindVocab::from_archive); the [`default`](default_kind_vocab)
+/// [`from_archive`](KindVocab::from_archive); the `default_kind_vocab`
 /// is the meta-ontology's hand-authored kind floor.
 #[derive(Debug, Clone, Default)]
 pub struct KindVocab(BTreeMap<String, ContentAddress>);
 
 impl KindVocab {
-    /// The empty vocab — every kind resolves [`Free`](ResolvedKind::Free). This is
+    /// The empty vocab — every kind resolves `ResolvedKind::Free`. This is
     /// the FLOOR the vocab itself is addressed at: a kind-concept's vocab address
     /// is its recursive address computed with kinds-as-`Free`, the well-founded
     /// base of the kind tower (as [`address`](crate::address) is the hash floor),
@@ -222,7 +222,7 @@ struct NodeCanon<'a> {
 impl Archive {
     /// The recursive (transitive) content address of every node, keyed by name —
     /// each address fixes the node's reachable definition, cycle-safe. See the
-    /// module doc. Edge kinds resolve against the [`default vocab`](default_kind_vocab)
+    /// module doc. Edge kinds resolve against the `default_kind_vocab`
     /// (the meta kind floor). `Err` on a dangling local edge or an unlabeled
     /// automorphic cycle (fail-closed).
     pub fn recursive_addresses(
@@ -245,7 +245,7 @@ impl Archive {
     /// The recursive Merkle root — the content address over the sorted set of
     /// every node's RECURSIVE address. The transitive-identity analogue of
     /// [`root`](Archive::root); additive, leaves `root` untouched. Kinds resolve
-    /// against the [`default vocab`](default_kind_vocab).
+    /// against the `default_kind_vocab`.
     pub fn recursive_root(&self) -> Result<ContentAddress, RecursiveAddressError> {
         self.recursive_root_grounded(default_kind_vocab())
     }
@@ -479,6 +479,11 @@ fn node_canon<'a>(
     edges.sort_by(|a, b| {
         (kind_key(&a.0), target_key(&a.1)).cmp(&(kind_key(&b.0), target_key(&b.1)))
     });
+    // Dedup by the same total key the sort used (injective over both halves, so
+    // key-equality is edge-equality): a duplicate edge must not change the address,
+    // exactly as `Definition::address` dedups its local edges. `ResolvedKind` /
+    // `ResolvedTarget` are not `Eq`, so dedup through the key, not the value.
+    edges.dedup_by_key(|e| (kind_key(&e.0), target_key(&e.1)));
     let mut axioms: Vec<&str> = node.axioms.iter().map(|s| s.as_str()).collect();
     axioms.sort_unstable();
     axioms.dedup();
@@ -652,6 +657,47 @@ mod tests {
         };
         assert_ne!(a.recursive_root().unwrap(), deep.recursive_root().unwrap());
         assert_ne!(rec(&a, "A"), rec(&deep, "A"));
+    }
+
+    /// Test 2b — a DUPLICATE edge must not change the recursive address: the
+    /// canonical form dedups edges exactly as [`Definition::address`] does, so the
+    /// recursive layer stays a faithful refinement of the local floor (regression:
+    /// `node_canon` once sorted edges but did not dedup them, so a dup-edge node
+    /// addressed differently from its equal, deduped sibling).
+    #[test]
+    fn a_duplicate_edge_does_not_change_the_recursive_address() {
+        let plain = Archive {
+            nodes: vec![
+                node("A", None, &[("Subsumption", "B")]),
+                node("B", Some("b"), &[]),
+            ],
+            connections: vec![],
+        };
+        let with_dup = Archive {
+            nodes: vec![
+                // A names the SAME edge twice — a no-op under canonical dedup.
+                node("A", None, &[("Subsumption", "B"), ("Subsumption", "B")]),
+                node("B", Some("b"), &[]),
+            ],
+            connections: vec![],
+        };
+        // The LOCAL floor is already dup-insensitive — this is the contract the
+        // recursive layer must match, not diverge from.
+        assert_eq!(
+            plain.nodes[0].address().unwrap(),
+            with_dup.nodes[0].address().unwrap(),
+            "the local address is dup-insensitive (the contract)"
+        );
+        assert_eq!(
+            rec(&plain, "A"),
+            rec(&with_dup, "A"),
+            "a duplicate edge must not change A's recursive address"
+        );
+        assert_eq!(
+            plain.recursive_root().unwrap(),
+            with_dup.recursive_root().unwrap(),
+            "the recursive root is dup-insensitive too"
+        );
     }
 
     /// Test 3 — a labeled symmetric cycle terminates, addresses each member
@@ -965,6 +1011,53 @@ mod tests {
             default_kind_vocab().address_of("Subsumption"),
             Some(r),
             "the loaded authority wins the collision"
+        );
+    }
+
+    // --- A3 slice (c): teach-a-peer agrees on a kind's MEANING ---
+
+    /// Slice (c) (the headline) — two peers that share the default vocab recompute
+    /// the SAME recursive address for a concept whose edge uses a loaded relation
+    /// kind, INCLUDING the kind's meaning — yet the kind's definition is NOT shipped
+    /// in the payload (B.3.i: both peers bootstrap the same vocab). A peer whose
+    /// vocab gives that kind a DIFFERENT meaning computes a DIFFERENT address — so
+    /// agreement is on what the kind IS, never just its spelling.
+    #[test]
+    fn a_peer_agrees_on_kind_meaning_via_default_vocab() {
+        let full = Archive {
+            nodes: vec![
+                node("Engine", Some("engine"), &[("Parthood", "Car")]),
+                node("Car", Some("car"), &[]),
+            ],
+            connections: vec![],
+        };
+        // Sender addresses via the default vocab — Parthood is a LOADED relation kind.
+        let sender = rec(&full, "Engine");
+
+        // The peer receives the minimal payload and recomputes with the SAME default
+        // vocab → agrees, kind meaning included.
+        let payload = full.extract_concept("Engine").unwrap();
+        assert!(
+            !payload.nodes.iter().any(|n| n.name == "Parthood"),
+            "the kind's meaning is NOT shipped — both peers share the default vocab (B.3.i)"
+        );
+        assert_eq!(
+            rec(&payload, "Engine"),
+            sender,
+            "the peer agrees on Engine's identity, the loaded kind's meaning included"
+        );
+
+        // Control: a peer whose vocab MEANS a different Parthood disagrees —
+        // agreement was on the kind's MEANING, not its name.
+        let divergent = KindVocab::from_archive(&Archive {
+            nodes: vec![node("Parthood", Some("a different parthood"), &[])],
+            connections: vec![],
+        })
+        .unwrap();
+        assert_ne!(
+            payload.recursive_addresses_grounded(&divergent).unwrap()["Engine"],
+            sender,
+            "a peer that means a different Parthood does NOT agree — meaning, not spelling"
         );
     }
 }
