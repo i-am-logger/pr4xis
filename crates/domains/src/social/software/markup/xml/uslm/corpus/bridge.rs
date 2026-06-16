@@ -41,11 +41,15 @@ use alloc::vec::Vec;
 
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::address::ContentAddress;
+// `apply` is now used only by the test module (the load path calls the shared
+// `apply_then_materialize` kernel loader); gate it so non-test builds don't see
+// an unused import.
+#[cfg(test)]
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
-use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
+use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, apply_then_materialize};
 
 use super::UsCode;
 use super::section_aux::UscSubdivision;
@@ -110,7 +114,7 @@ fn section_citation(urn: &str) -> Option<String> {
 /// [(`[`COMPOSES_REL`]`, parent_urn)]}`. Every Composes target is a declared
 /// section/subdivision node, so the archive is referentially closed and (after
 /// the functor relabels Composes→Parthood)
-/// [`materialize`]s into a real mereology.
+/// [`materialize`](pr4xis_runtime::ontology::materialize)s into a real mereology.
 pub fn project_archive(usc: &UsCode) -> Archive {
     // Project one subdivision (and its descendants) — each composes INTO its
     // parent, so the Composes hierarchy is read straight off the tree (the
@@ -214,7 +218,7 @@ const USC_FUNCTOR_ROOT_HEX: &str =
 /// silently mis-applied. Reuses the kernel [`load`](pr4xis_runtime::load::load);
 /// no new runtime API. A functor's whole content is its finite action on the
 /// schema's generators (Fong & Spivak *Seven Sketches* Ch. 3), interpreted by
-/// [`apply`] over a raw [`project_archive`] source. A load failure here is a
+/// [`apply`](pr4xis_runtime::apply::apply) over a raw [`project_archive`] source. A load failure here is a
 /// build-time invariant violation (the bytes ship embedded in the binary).
 fn usc_functor() -> Connection {
     let root = ContentAddress::from_hex(USC_FUNCTOR_ROOT_HEX)
@@ -229,8 +233,8 @@ fn usc_functor() -> Connection {
 }
 
 /// Bridge a loaded [`UsCode`] into a generic [`RuntimeOntology`] — the whole
-/// pipeline in one call: [`project_archive`] → [`apply`]`(usc_functor)` →
-/// [`materialize`], where `usc_functor` is the committed `usc_functor.prx` loaded
+/// pipeline in one call: [`project_archive`] → [`apply`](pr4xis_runtime::apply::apply)`(usc_functor)` →
+/// [`materialize`](pr4xis_runtime::ontology::materialize), where `usc_functor` is the committed `usc_functor.prx` loaded
 /// fail-closed. The verbatim shape of
 /// [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology)
 /// and `owl_runtime_ontology`.
@@ -242,10 +246,7 @@ pub fn usc_runtime_ontology(
     usc: &UsCode,
     name: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
-    let source = project_archive(usc);
-    let praxis = apply(&usc_functor().action, &source)
-        .expect("usc_functor is a Functor action, which apply always interprets");
-    materialize(praxis, name)
+    apply_then_materialize(&usc_functor().action, &project_archive(usc), name)
 }
 
 #[cfg(test)]
