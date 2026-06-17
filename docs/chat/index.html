@@ -645,7 +645,7 @@
         { value: `${data.loaded_source_count ?? 0}/${data.source_count ?? sources.length}`, label: 'sources loaded' },
         { value: (data.total_concepts ?? 0).toLocaleString(), label: 'entities' },
         { value: (data.total_morphisms ?? 0).toLocaleString(), label: 'morphisms' },
-        { value: ontologies.length, label: 'ontologies' },
+        { value: data.ontology_count ?? ontologies.length, label: 'ontologies' },
         { value: wasmSize, label: 'wasm binary' },
         { value: data.version || '', label: 'version' },
       ].forEach(({ value, label }) => {
@@ -683,14 +683,24 @@
           memList.appendChild(card);
         }
         dash.appendChild(memList);
+      }
 
-        if (data.state_cid) {
-          const cid = document.createElement('div');
-          cid.className = 'cite';
-          cid.style.cssText = 'margin-top:0.4rem; font-family:monospace;';
-          cid.textContent = `state fingerprint · ${data.state_cid.slice(0, 24)}…`;
-          dash.appendChild(cid);
+      // The state fingerprint is independent of the history LIST: the engine
+      // emits state_cid whenever it has a knowledge state, so it must never be
+      // hidden just because the history list is momentarily empty (U5). It
+      // carries its own section-title when no list rendered above it.
+      if (data.state_cid) {
+        if (!history.length) {
+          const memTitle = document.createElement('div');
+          memTitle.className = 'section-title';
+          memTitle.textContent = 'Memory — current state';
+          dash.appendChild(memTitle);
         }
+        const cid = document.createElement('div');
+        cid.className = 'cite';
+        cid.style.cssText = 'margin-top:0.4rem; font-family:monospace;';
+        cid.textContent = `state fingerprint · ${data.state_cid.slice(0, 24)}…`;
+        dash.appendChild(cid);
       }
 
       // ---- Built-in .prx (new content-addressed Archive) ----
