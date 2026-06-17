@@ -8,7 +8,9 @@ pub mod ontology;
 #[cfg(feature = "std")]
 pub mod bridge;
 
-pub use ontology::{Concept, ConceptId, English, LexicalReasoner, SenseId, english_loaded};
+pub use ontology::{
+    Concept, ConceptId, English, LexicalReasoner, SenseId, english_load_owned, english_loaded,
+};
 
 #[cfg(test)]
 mod tests;

@@ -923,64 +923,72 @@ impl English {
 ///
 /// [cd]: crate::social::software::markup::xml::lmf::prx::english_compact_prx_cache_dir
 /// [usc]: crate::social::software::markup::xml::uslm::corpus::loaded
+pub fn english_load_owned() -> English {
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+    use crate::social::software::markup::xml::lmf::reader::read_wordnet;
+
+    let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    // THE canonical English: the single registered `Language`-kind source
+    // (English is the sole Language implementor today). Selected by kind —
+    // exactly as every emit/anchor path filters Language — not by a name
+    // literal, so a registry rename can never silently desync the loader from
+    // the emitter that produced its archive.
+    let entry = data_sources()
+        .iter()
+        .find(|e| e.kind == SourceTaxonomyConcept::Language)
+        .expect("english_load_owned(): no Language-kind source registered");
+
+    // Fastest path: the content-addressed COMPACT archive, admitted through
+    // the fail-closed `[compact_archive_signatures]` gate — gunzip +
+    // hash-check + succinct decode, with NO XML re-parse. Tried first; an
+    // absent or unpinned compact archive falls through to the XML parse.
+    #[cfg(feature = "prx")]
+    {
+        use crate::applied::data_provisioning::registry::lock_compact_archive_signature;
+        use crate::social::software::markup::xml::lmf::prx;
+        let cprx_path = prx::english_compact_prx_cache_dir(&workspace_root)
+            .join(format!("{}-{}.cprx.gz", entry.name, entry.version));
+        if let Ok(cprx_gz) = std::fs::read(&cprx_path)
+            && let Some(pin) = lock_compact_archive_signature(&entry.name, &entry.version)
+        {
+            let key = format!("{}@{}", entry.name, entry.version);
+            match prx::load_compact_english_prx_gz_gated(&cprx_gz, pin, &key) {
+                Ok(en) => return en,
+                // Pinned but the compact archive failed the content gate — the
+                // committed pin and emitted bytes disagree. Fail LOUD.
+                Err(e) => panic!(
+                    "english_load_owned(): compact archive {} is pinned but failed the \
+                     content gate: {e}",
+                    cprx_path.display()
+                ),
+            }
+        }
+    }
+
+    // Fallback: parse the WN-LMF XML (a fresh checkout with no compiled
+    // archive pays the ~89 MB parse, the same graceful path the emitters use).
+    let src_path = workspace_root.join(entry.local_path());
+    let xml = std::fs::read_to_string(&src_path)
+        .expect("english_load_owned(): WordNet XML not on disk — run `pr4xis update`");
+    let wn = read_wordnet(&xml).expect("english_load_owned(): parse WordNet");
+    English::from_wordnet(&wn)
+}
+
+/// [`english_load_owned`] behind a process-wide `OnceLock`, for callers that want
+/// a shared `&'static` (the test/anchor fixtures that observe `english()` many
+/// times per process). NOT load-bearing: the compact `.prx` load is ms-cheap, so
+/// the cache is a convenience, not a perf necessity. A consumer that needs an
+/// OWNED English — the [`ComposedReasoner`](crate::cognitive::linguistics::composed)
+/// the chat builds from a loaded corpus — calls [`english_load_owned`] directly.
 pub fn english_loaded() -> &'static English {
     use std::sync::OnceLock;
     static INSTANCE: OnceLock<English> = OnceLock::new();
-    INSTANCE.get_or_init(|| {
-        use crate::applied::data_provisioning::registry::data_sources;
-        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
-        use crate::social::software::markup::xml::lmf::reader::read_wordnet;
-
-        let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| std::path::PathBuf::from("."));
-        // THE canonical English: the single registered `Language`-kind source
-        // (English is the sole Language implementor today). Selected by kind —
-        // exactly as every emit/anchor path filters Language — not by a name
-        // literal, so a registry rename can never silently desync the loader from
-        // the emitter that produced its archive.
-        let entry = data_sources()
-            .iter()
-            .find(|e| e.kind == SourceTaxonomyConcept::Language)
-            .expect("english_loaded(): no Language-kind source registered");
-
-        // Fastest path: the content-addressed COMPACT archive, admitted through
-        // the fail-closed `[compact_archive_signatures]` gate — gunzip +
-        // hash-check + succinct decode, with NO XML re-parse. Tried first; an
-        // absent or unpinned compact archive falls through to the XML parse.
-        #[cfg(feature = "prx")]
-        {
-            use crate::applied::data_provisioning::registry::lock_compact_archive_signature;
-            use crate::social::software::markup::xml::lmf::prx;
-            let cprx_path = prx::english_compact_prx_cache_dir(&workspace_root)
-                .join(format!("{}-{}.cprx.gz", entry.name, entry.version));
-            if let Ok(cprx_gz) = std::fs::read(&cprx_path)
-                && let Some(pin) = lock_compact_archive_signature(&entry.name, &entry.version)
-            {
-                let key = format!("{}@{}", entry.name, entry.version);
-                match prx::load_compact_english_prx_gz_gated(&cprx_gz, pin, &key) {
-                    Ok(en) => return en,
-                    // Pinned but the compact archive failed the content gate — the
-                    // committed pin and emitted bytes disagree. Fail LOUD.
-                    Err(e) => panic!(
-                        "english_loaded(): compact archive {} is pinned but failed the \
-                         content gate: {e}",
-                        cprx_path.display()
-                    ),
-                }
-            }
-        }
-
-        // Fallback: parse the WN-LMF XML (a fresh checkout with no compiled
-        // archive pays the ~89 MB parse, the same graceful path the emitters use).
-        let src_path = workspace_root.join(entry.local_path());
-        let xml = std::fs::read_to_string(&src_path)
-            .expect("english_loaded(): WordNet XML not on disk — run `pr4xis update`");
-        let wn = read_wordnet(&xml).expect("english_loaded(): parse WordNet");
-        English::from_wordnet(&wn)
-    })
+    INSTANCE.get_or_init(english_load_owned)
 }
 
 impl crate::cognitive::linguistics::language::Language for English {
