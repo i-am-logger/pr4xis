@@ -8,47 +8,64 @@
   <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
 </p>
 
-# pr4xis — reasoning you can check
+<p align="center">
+  <a href="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml"><img src="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI"/></a>
+  <a href="https://codecov.io/gh/i-am-logger/pr4xis"><img src="https://codecov.io/gh/i-am-logger/pr4xis/branch/master/graph/badge.svg" alt="Coverage"/></a>
+  <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/demo-pr4xis.dev-blue" alt="Live Demo"/></a>
+</p>
 
-pr4xis reasons by deriving claims from explicit axioms, and every claim it makes carries a proof path back to those axioms. Where a language model predicts the next token, pr4xis derives the next claim — the way a proof follows from its premises.
+# pr4xis — Axiomatic Intelligence
 
-The name is the third of Aristotle's kinds of knowing: *episteme* (knowing how things are), *techne* (knowing how to make things), and *praxis* — the doing itself, done well.
+**pr4xis is a new kind of AI: axiomatic, not statistical.** Where LLMs predict the next token from training data, pr4xis derives the next claim from accepted axioms — the same way mathematicians prove theorems.
 
-## What it is
+Aristotle named three kinds of knowing:
 
-pr4xis represents knowledge as ontologies — typed concepts and the proven relationships between them — and uses category theory as the connective tissue between domains. Because every step is a checked derivation, a conclusion can always be traced back to the axioms it rests on, and when something doesn't hold the engine names the axiom that failed.
+- **episteme** — knowing how things are
+- **techne** — knowing how to make things
+- **praxis** — *the doing itself, done well*
 
-The mathematical lineage runs from Spencer-Brown's *Laws of Form* through Heim's syntrometric logic to contemporary applied category theory ([Foundations](docs/understand/foundations.md)). Every connection in that chain is checked at test time rather than asserted.
+pr4xis is the doing.
 
 ## Demo
 
 Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
 
-## What's here today
+## Foundation
 
-- **More than 160 domain ontologies** in the workspace — from orbital mechanics, attitude estimation, and Kalman filtering through dialectics and possible-worlds semantics.
-- **A live demo** at **[pr4xis.dev](https://pr4xis.dev)** — it runs entirely in the browser; no server, GPU, or API key.
-- **A concrete, re-runnable result** — a gap-detection finding in bioelectricity you can verify yourself ([gap detection](docs/research/gap-detection.md)).
-- **Verifiable archives.** pr4xis packs what it has loaded into a small, self-contained `.prx` file and reads it back in a moment — instead of re-reading the whole original source each time — checking the archive's fingerprint first and refusing anything that's been altered. This fast, checked read-back works today for the English dictionary (WordNet) and for U.S. Code text; any `.prx` can still rebuild its original source byte-for-byte.
-- **A full audit trail** — every conclusion carries the proof path back to its axioms.
+The mathematical foundation runs from G. Spencer-Brown's *Laws of Form* (1969) through Heim's syntrometric logic to contemporary applied category theory — see [Foundations](docs/understand/foundations.md) for the academic lineage. Every step in that chain is **verified at test time**, not asserted:
 
-## pr4xis and language models
+```
+cargo test -p pr4xis-domains -- syntrometry
+```
 
-They complement each other: a language model is fluent and broad, pr4xis is precise and checkable. A natural pairing is the model out front and pr4xis behind it, checking which claims actually hold.
+runs the whole suite — the primary `Syntrometry → Pr4xisSubstrate` functor (14 of 18 concepts round-trip as fixed points; four intentional collapses whose richer semantics lives in the dedicated Dialectics and Kripke ontologies), the `Distinction → Syntrometry` embedding (Spencer-Brown → Heim), and cross-functors into `MetaOntology`, `Staging` (Futamura), `Algebra` (Goguen/Zimmermann), `Dialectics` (Hegel/Aristotle/Marx/Adorno/Priest), `Kripke` (possible-worlds semantics), and `C1` (Dehaene GWT).
 
-|   | Language models | pr4xis |
+## The problem
+
+- **LLMs hallucinate by design.** Next-token prediction has no ground truth. When wrong, they cannot tell you which axiom failed because there are no axioms. For creative writing, this is fine. For domains where it kills people, it is unworkable.
+- **Scientific knowledge is siloed.** WordNet, BioPortal, the Gene Ontology, DOLCE, OBO Foundry — rich, well-curated, almost entirely unable to be combined and trusted. Decades of expert curation, no executable substrate to compose them.
+
+pr4xis solves both. It runs on formal scientific knowledge humans have already accumulated and on the 106 domain ontologies built directly in the workspace, with mathematical proof that every connection is sound. **Many more ontologies are still to be added** — the substrate exists precisely so that integration with BioPortal, the Gene Ontology, OBO Foundry, and the rest can be machine-checkable instead of merely hopeful.
+
+## Where this matters
+
+- **Safety-critical engineering** — aerospace navigation, sensor fusion, biomedical decision support, industrial process control. pr4xis already includes the foundational ontologies for orbital mechanics, attitude estimation, multi-target tracking, Kalman filtering, AHRS, SLAM, and more.
+- **LLM verification** — pr4xis as a deterministic checker behind a generative front end. The LLM produces text; pr4xis verifies which claims actually hold.
+- **Long-lived knowledge bases** — personal research notes, organizational SOPs, academic literature. The substrate keeps a knowledge base machine-checkable as it grows.
+
+## pr4xis vs LLMs
+
+|   | LLMs | pr4xis |
 |---|---|---|
-| **How it knows** | Learned from training data | Derived from explicit axioms |
-| **When wrong** | Hard to localize | Names the axiom that failed |
-| **Traceability** | Opaque weights | Full proof path to the axioms |
-| **Determinism** | Varies with seed and temperature | Same input, same derivation |
-| **Missing knowledge** | Hard to surface | Gaps are detected |
-
-## Where it helps
-
-- **Safety-critical and regulated work**, where a conclusion needs to be checked rather than merely plausible — aerospace, biomedical decision support, industrial control.
-- **Verification behind a language model** — the model writes, pr4xis checks which claims hold.
-- **Long-lived knowledge** — research notes, SOPs, literature kept checkable as they grow.
+| **How it knows** | Learned from training data | Derived from accepted axioms |
+| **Correctness** | Approximate — best guess from training patterns | Proven — every claim verified by math |
+| **Hallucination** | Inherent — no ground truth | Impossible — every claim traces to a proof |
+| **Determinism** | Stochastic — depends on temperature and seed | Absolute — same input, same proof, every time |
+| **Traceability** | Opaque — billions of weights, no audit trail | Full proof path from conclusion back to its axioms |
+| **When wrong** | Confidently wrong, hard to find why | The failing axiom is named |
+| **Cross-domain reasoning** | Implicit blending, no guarantees | Proven connections between domains |
+| **Undo / redo / branch** | None — each completion is final | Built in: undo, redo, branch from any prior state |
+| **Missing knowledge** | Doesn't know what it doesn't know | Detects gaps automatically |
 
 ## Get started
 
@@ -56,10 +73,8 @@ Install, run the CLI, and write your first interaction with the engine: **[docs/
 
 ## Contributing
 
-pr4xis is built in the open, and early contributors are welcome.
-
-- **Try the demo** and [file issues](https://github.com/i-am-logger/pr4xis/issues) for anything that breaks — a broken query is a bug report, not user error.
-- **Contribute an ontology** for a domain you know; the ontologies under `crates/domains/src/` are working examples.
+- **Try the demo** at [pr4xis.dev](https://pr4xis.dev) and [file issues](https://github.com/i-am-logger/pr4xis/issues) for what breaks.
+- **Contribute an ontology** if you work in a domain that could be encoded as one. Existing ontologies under `crates/domains/src/` are the working examples.
 - **Partner on a safety-critical deployment** in aerospace, biomedical, industrial, or legal.
 
 ## Documentation
@@ -81,7 +96,7 @@ pr4xis is built in the open, and early contributors are welcome.
 
 | Doc | What it covers |
 |---|---|
-| [Architecture](docs/understand/architecture.md) | The Rust stack, the engine, how everything fits together |
+| [Architecture](docs/understand/architecture.md) | The five-layer Rust stack, the engine, how everything fits together |
 | [Concepts](docs/understand/concepts.md) | Categories, functors, adjunctions, gap detection — explained for engineers |
 | [Evolution](docs/understand/evolution.md) | How ontologies grow without breaking — transform via functor, never rewrite |
 | [Foundations](docs/understand/foundations.md) | Academic lineage from Spencer-Brown to applied category theory |
@@ -99,9 +114,11 @@ pr4xis is built in the open, and early contributors are welcome.
 | Doc | What it covers |
 |---|---|
 | [Glossary](docs/reference/glossary.md) | Every pr4xis term, in plain English |
-| [Domain catalog](docs/reference/domain-catalog.md) | The domain ontologies in the workspace and how they are organized |
-| [Gap detection](docs/research/gap-detection.md) | The bioelectricity finding — a concrete result you can verify |
-| [Novelty](docs/research/novelty.md) | What is new, what is prior art, what is pending verification |
+| [Domain catalog](docs/reference/domain-catalog.md) | The 106 ontologies in the workspace and how they are organized |
+| [Gap detection](docs/research/gap-detection.md) | The bioelectricity Kv discovery — a concrete result you can verify |
+| [Novelty](docs/research/novelty.md) | What is new about pr4xis, what is prior art, what is pending verification |
+| [Draft papers](docs/research/papers/) | Three drafts: categorical bioelectricity, adjunction-based gap detection, and the ontology-diagnostics meta-ontology |
+| [Paper outline](docs/research/paper-outline.md) | Draft architecture paper |
 
 ## License
 
@@ -110,3 +127,4 @@ CC BY-NC-SA 4.0 — see [LICENSE](LICENSE).
 ---
 
 - **Repo:** [github.com/i-am-logger/pr4xis](https://github.com/i-am-logger/pr4xis)
+- **Document date:** 2026-04-14
