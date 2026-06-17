@@ -46,7 +46,7 @@ exclude = ["crates/wasm", "crates/e2e", "crates/praxis-corpus-tests"]
 # finally consistent, and FUTURE breaking domains changes auto-escalate. This
 # is the last hand-set version.
 [workspace.package]
-version = "0.25.1"
+version = "0.25.2"
 
 [workspace.lints.rust]
 dead_code = "deny"
