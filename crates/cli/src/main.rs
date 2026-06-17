@@ -2,16 +2,19 @@ use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
+use pr4xis::ontology::meta::OntologyName;
 use pr4xis_chat as chat;
 
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
 use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
-use pr4xis_domains::cognitive::linguistics::english::{English, english_loaded};
+use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
+use pr4xis_domains::cognitive::linguistics::english::{English, english_load_owned};
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
 use pr4xis_domains::social::software::markup::xml::lmf;
 use pr4xis_domains::social::software::markup::xml::owl::prx::EmittedArtifact;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology;
 
 /// pr4xis — axiomatic intelligence via ontology.
 #[derive(Parser, Debug)]
@@ -875,19 +878,18 @@ fn workspace_root() -> anyhow::Result<PathBuf> {
 // --------------------------------------------------------------------------
 
 fn run_chat() {
-    // Default to the fast content-addressed compact English archive
-    // (`english_loaded()`, ~ms; XML fallback inside). An explicit `WORDNET_XML`
-    // override parses that file instead (leaked for the process lifetime).
-    let language: &'static English = match std::env::var("WORDNET_XML") {
-        Ok(path) => match load_language(&path) {
-            Ok(lang) => Box::leak(Box::new(lang)),
-            Err(e) => {
-                eprintln!("{}", e);
+    // The chat's English, through the single OWNED loader (`english_load_owned`,
+    // content-addressed compact `.prx`, ms-cheap; XML fallback inside), honoring
+    // the `WORDNET_XML` dev override. No `Box::leak` / `&'static`.
+    fn load_chat_english() -> English {
+        match std::env::var("WORDNET_XML") {
+            Ok(path) => load_language(&path).unwrap_or_else(|e| {
+                eprintln!("{e}");
                 std::process::exit(1);
-            }
-        },
-        Err(_) => english_loaded(),
-    };
+            }),
+            Err(_) => english_load_owned(),
+        }
+    }
 
     // Materialise the U.S. Code corpus through the runtime loader: the
     // content-addressed compact `.prx` fast path when `pr4xis compile` has
@@ -896,6 +898,30 @@ fn run_chat() {
     // fresh checkout `usc.section_count()` is honestly 0 — run
     // `pr4xis update` then `pr4xis compile --compact` to provision it.
     let usc = pr4xis_domains::social::software::markup::xml::uslm::corpus::loaded();
+
+    // Reason over the LOADED U.S. Code, not just English: project the loaded
+    // corpus into a RuntimeOntology and compose it with English — the SAME path
+    // the wasm runtime uses (`install_runtime_ontology`) — so "what is section 1"
+    // answers from the loaded statute instead of abstaining. `None` when no title
+    // is on disk (English-only, exactly as before). Built BEFORE `language` so it
+    // owns the one English the tokenizer borrows.
+    let usc_reasoner: Option<ComposedReasoner> = (usc.section_count() > 0)
+        .then(|| usc_runtime_ontology(usc, OntologyName::new("usc")).ok())
+        .flatten()
+        .map(|onto| ComposedReasoner::new(load_chat_english(), vec![onto]));
+
+    // The tokenizer's English: the reasoner's OWN when a corpus is loaded (so the
+    // statute path loads English ONCE, not twice — `reasoner.english()`, the wasm
+    // pattern), else a standalone load. Both honor `WORDNET_XML` via the shared
+    // loader.
+    let standalone_english;
+    let language: &English = match usc_reasoner.as_ref() {
+        Some(reasoner) => reasoner.english(),
+        None => {
+            standalone_english = load_chat_english();
+            &standalone_english
+        }
+    };
 
     println!("pr4xis — axiomatic intelligence");
     println!(
@@ -939,7 +965,16 @@ fn run_chat() {
         let resolved_input = resolve_pronouns(input, engine.situation(), language);
 
         // Process through praxis-chat (shared logic — zero I/O)
-        let (response_text, user_act, _sys_act) = chat::process(language, &resolved_input);
+        // Route through the composed reasoner when a corpus is loaded (so loaded
+        // statutes answer), else the English-only path (abstains on an unloaded
+        // concept, exactly as before).
+        let (response_text, user_act, _sys_act) = match &usc_reasoner {
+            Some(reasoner) => {
+                let r = chat::process_with_reasoner(language, reasoner, &resolved_input);
+                (r.response, r.user_act, r.system_act)
+            }
+            None => chat::process(language, &resolved_input),
+        };
 
         // Extract referents for discourse tracking
         let referents: Vec<String> = resolved_input
