@@ -313,18 +313,16 @@ pr4xis::register_axiom!(PairOntologyRoundTrip, constructor);
 /// [`archive::MerkleHashDeterministic`] KAT pattern). It pins `root1` against a
 /// STRUCTURALLY-INDEPENDENT literal, not a value re-derived by the emit path
 /// under test, so the pin leg is not `h(x) == h(x)`. A change here is a
-/// conscious GraphVersion bump (an address-preimage or rkyv-layout change), the
-/// desired property.
+/// conscious GraphVersion bump (an address-preimage change), the desired property.
 ///
-/// The literal is the content digest (BLAKE3) of the rkyv-serialized envelope bytes, portable
-/// across every praxis target because rkyv runs with the default `FixedUsize`
-/// (u32, little-endian — `crates/domains/Cargo.toml` enables no
-/// `pointer_width_*` / `big_endian` feature, so the layout is identical on
-/// native and wasm32). Adding such a feature or bumping the rkyv wire layout
-/// would invalidate this literal on the affected target — surfaced precisely by
-/// this axiom failing there (the conscious bump).
+/// The literal is BLAKE3 of the canonical DAG-CBOR of the envelope VALUE —
+/// toolchain-independent BY CONSTRUCTION (DAG-CBOR is deterministic: sorted map
+/// keys, shortest-form integers, no indefinite-length items; RFC 8949 §4.2). rkyv
+/// is now ONLY the local gz cache/transport; the address no longer depends on its
+/// `FixedUsize`/endianness layout (A7). A different address means the envelope
+/// content changed — surfaced precisely by this axiom failing (the conscious bump).
 const GRAPH_SNAPSHOT_KAT_ROOT: &str =
-    "96d1c8b09d35209f3f2108b26c7c8e73126ffa7437178918cf4fa22ad5fd1885";
+    "2cbde7dea8f63bddc399a7d55ce6fcf1ac74b0d1371ee8cb0a21573a1f905169";
 
 /// A whole-graph [`GraphSnapshot`](super::snapshot) round-trips reproducibly
 /// and fail-closed: a fixed, closed slice plus a behavioural binding emit to a
