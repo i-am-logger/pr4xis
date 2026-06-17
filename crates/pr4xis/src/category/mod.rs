@@ -39,7 +39,7 @@ pub mod yoneda;
 pub use adjunction::Adjunction;
 pub use algebra::{Algebra, Coalgebra};
 pub use applicative::Ap;
-pub use arrow::Arrow;
+pub use arrow::{Arrow, RelationKind};
 pub use category::Category;
 pub use comonad::{Cofree, Focused};
 pub use connection::{

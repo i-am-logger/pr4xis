@@ -801,6 +801,20 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
             }
 
+            // The kind-level [`RelationKind`] contract — forwarding to the
+            // inherent `name`/`from_name` above, so generic wire code can name
+            // and re-resolve a kind without per-ontology knowledge (the
+            // kind-level parallel of the `Concept` impl below). Fully-qualified
+            // calls avoid inherent-vs-trait method-resolution ambiguity.
+            impl #pr4xis::category::RelationKind for #kind_name {
+                fn name(&self) -> &'static str {
+                    #kind_name::name(self)
+                }
+                fn from_name(name: &str) -> ::core::option::Option<Self> {
+                    #kind_name::from_name(name)
+                }
+            }
+
             #[derive(Debug, Clone, PartialEq, Eq, Hash)]
             pub struct #relation_name {
                 pub from: #entity_name,
