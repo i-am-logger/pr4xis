@@ -87,3 +87,33 @@ pub trait Arrow: Sized + Clone + Debug + Eq {
         }
     }
 }
+
+/// The named, round-trippable relation-kind of an [`Arrow`].
+///
+/// [`Arrow::Kind`] is bounded only `Copy + Debug + Eq` — the minimum to carry
+/// and compare a kind in memory. `RelationKind` is the STRONGER contract a kind
+/// needs to cross the wire: a canonical [`name`](Self::name) (the kind-level
+/// parallel of [`Concept::name`]) and its typed inverse
+/// [`from_name`](Self::from_name). The `ontology!` macro emits this impl for
+/// every generated `*RelationKind` enum, forwarding to the inherent
+/// `name`/`from_name` it already generates.
+///
+/// It is deliberately NOT a supertrait of [`Arrow::Kind`]: hand-written
+/// `type Kind = ()` Arrow impls (terminal / HMI / test categories) stay legal.
+/// Generic code that must name a kind on the wire bounds it at the USE SITE
+/// (`where <C::Morphism as Arrow>::Kind: RelationKind`), the same discipline
+/// structural reasoning already uses for `KindOf<C>: PartialEq`.
+///
+/// Per OBO-RO (Smith et al. 2005) a relation is a named, re-resolvable kind;
+/// W3C SKOS (2009) — a mapping is carried by stable name, never an index.
+pub trait RelationKind: Copy + Debug + Eq {
+    /// The kind's canonical name — the stable wire identity (never `Debug`,
+    /// never a positional discriminant).
+    fn name(&self) -> &'static str;
+
+    /// Re-resolve a kind from its canonical [`name`](Self::name); fail-closed
+    /// `None` for an unknown name.
+    fn from_name(name: &str) -> Option<Self>
+    where
+        Self: Sized;
+}
