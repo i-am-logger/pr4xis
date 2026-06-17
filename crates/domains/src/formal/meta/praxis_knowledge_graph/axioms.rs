@@ -60,7 +60,8 @@ use pr4xis_runtime::emit::definition_of;
 
 use super::functor::ArchiveIntoGraph;
 use super::ontology::{
-    PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation, PraxisKnowledgeGraphRelationKind,
+    PraxisKnowledgeGraphCategory, PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation,
+    PraxisKnowledgeGraphRelationKind,
 };
 use super::snapshot::{
     EdgeKindFilter, GraphNode, RootSet, SnapshotError, compute_reachable, emit_snapshot,
@@ -192,7 +193,7 @@ impl Axiom for SelectionClosedUnderEdgeKinds {
         // Representative selection: root = MerkleRoot, filter = Subsumption —
         // now driven through the first-class selection (#271 effort B); the
         // teeth below are preserved verbatim from the inlined BFS.
-        let sub = compute_reachable(
+        let sub = compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(vec![C::MerkleRoot]),
             &EdgeKindFilter(vec![K::Subsumption]),
         );
@@ -245,7 +246,7 @@ impl Axiom for PairOntologyRoundTrip {
         {
             use PraxisKnowledgeGraphConcept as C;
             use PraxisKnowledgeGraphRelationKind as K;
-            let slice = compute_reachable(
+            let slice = compute_reachable::<PraxisKnowledgeGraphCategory>(
                 &RootSet(vec![C::MerkleRoot]),
                 &EdgeKindFilter(vec![K::Subsumption]),
             );
@@ -262,10 +263,11 @@ impl Axiom for PairOntologyRoundTrip {
                     identity: "usc_title_18@pl-119-90".to_string(),
                 },
             ];
-            let Ok((gz, root)) = emit_snapshot(&slice, &bindings) else {
+            let Ok((gz, root)) = emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &bindings)
+            else {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             };
-            let Ok(env) = load_snapshot(&gz, &root) else {
+            let Ok(env) = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root) else {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             };
             // Structural data preserved EXACTLY — every slice concept survives as
@@ -335,8 +337,9 @@ impl Axiom for GraphSnapshotReproducible {
     fn verify(&self) -> Verdict {
         use PraxisKnowledgeGraphConcept as C;
         use PraxisKnowledgeGraphRelationKind as K;
-        let roots = RootSet(vec![C::MerkleRoot]);
-        let filter = EdgeKindFilter(vec![K::Subsumption]);
+        let roots: RootSet<PraxisKnowledgeGraphCategory> = RootSet(vec![C::MerkleRoot]);
+        let filter: EdgeKindFilter<PraxisKnowledgeGraphCategory> =
+            EdgeKindFilter(vec![K::Subsumption]);
         let registered = || {
             vec![GraphNode {
                 kind: C::AxiomNode,
@@ -345,7 +348,7 @@ impl Axiom for GraphSnapshotReproducible {
         };
 
         // Non-vacuous + closed.
-        let slice = compute_reachable(&roots, &filter);
+        let slice = compute_reachable::<PraxisKnowledgeGraphCategory>(&roots, &filter);
         if slice.nodes.len() < 2 || !slice.unbound.is_empty() {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
@@ -354,8 +357,11 @@ impl Axiom for GraphSnapshotReproducible {
         // order). Not the gz bytes — gzip byte-stability is not a registered
         // axiom; CompressionRoundTrip proves only gunzip(gzip(x)) == x.
         let (Ok((gz1, root1)), Ok((_gz2, root2))) = (
-            emit_snapshot(&slice, &registered()),
-            emit_snapshot(&compute_reachable(&roots, &filter), &registered()),
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &registered()),
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(
+                &compute_reachable::<PraxisKnowledgeGraphCategory>(&roots, &filter),
+                &registered(),
+            ),
         ) else {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         };
@@ -364,7 +370,9 @@ impl Axiom for GraphSnapshotReproducible {
         }
         // Pin against the frozen, structurally-independent KAT literal, then
         // load through the real gate.
-        if root1 != GRAPH_SNAPSHOT_KAT_ROOT || load_snapshot(&gz1, &root1).is_err() {
+        if root1 != GRAPH_SNAPSHOT_KAT_ROOT
+            || load_snapshot::<PraxisKnowledgeGraphCategory>(&gz1, &root1).is_err()
+        {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
         // POISON: a different binding changes the MerkleRoot, so the poisoned
@@ -373,11 +381,12 @@ impl Axiom for GraphSnapshotReproducible {
             kind: C::AxiomNode,
             identity: UnboundReferenceFailsClosed.name().as_str().to_string(),
         }];
-        let Ok((poisoned_gz, _)) = emit_snapshot(&slice, &poisoned) else {
+        let Ok((poisoned_gz, _)) = emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &poisoned)
+        else {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         };
         if !matches!(
-            load_snapshot(&poisoned_gz, &root1),
+            load_snapshot::<PraxisKnowledgeGraphCategory>(&poisoned_gz, &root1),
             Err(SnapshotError::MerkleRootMismatch { .. })
         ) {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
@@ -388,11 +397,13 @@ impl Axiom for GraphSnapshotReproducible {
             kind: C::AxiomNode,
             identity: "__praxis_unregistered_axiom_binding__".to_string(),
         }];
-        let Ok((unbound_gz, unbound_root)) = emit_snapshot(&slice, &unbound) else {
+        let Ok((unbound_gz, unbound_root)) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &unbound)
+        else {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         };
         if !matches!(
-            load_snapshot(&unbound_gz, &unbound_root),
+            load_snapshot::<PraxisKnowledgeGraphCategory>(&unbound_gz, &unbound_root),
             Err(SnapshotError::UnboundReference { .. })
         ) {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
@@ -424,14 +435,14 @@ impl Axiom for NodeAddressIsDefinitionBearing {
     fn verify(&self) -> Verdict {
         use PraxisKnowledgeGraphConcept as C;
         use PraxisKnowledgeGraphRelationKind as K;
-        let slice = compute_reachable(
+        let slice = compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(vec![C::MerkleRoot]),
             &EdgeKindFilter(vec![K::Subsumption]),
         );
-        let Ok((gz, root)) = emit_snapshot(&slice, &[]) else {
+        let Ok((gz, root)) = emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &[]) else {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         };
-        let Ok(env) = load_snapshot(&gz, &root) else {
+        let Ok(env) = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root) else {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         };
 
@@ -623,7 +634,7 @@ mod tests {
     fn print_graph_snapshot_kat_root() {
         use PraxisKnowledgeGraphConcept as C;
         use PraxisKnowledgeGraphRelationKind as K;
-        let slice = compute_reachable(
+        let slice = compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(vec![C::MerkleRoot]),
             &EdgeKindFilter(vec![K::Subsumption]),
         );
@@ -631,7 +642,8 @@ mod tests {
             kind: C::AxiomNode,
             identity: AxiomBindingComplete.name().as_str().to_string(),
         }];
-        let (_gz, root) = emit_snapshot(&slice, &bindings).expect("the KAT fixture emits");
+        let (_gz, root) = emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &bindings)
+            .expect("the KAT fixture emits");
         println!("GRAPH_SNAPSHOT_KAT_ROOT = {root}");
     }
 }

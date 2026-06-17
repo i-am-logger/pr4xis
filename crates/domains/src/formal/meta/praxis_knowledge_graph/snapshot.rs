@@ -30,14 +30,20 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec::Vec};
 
-use pr4xis::category::{Category, Concept, FinitelyGenerated};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated, RelationKind};
 use pr4xis::ontology::{adjunction_by_name, axiom_by_name, functor_by_name};
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::emit::{binding_definition, definition_of};
 
+// `PraxisKnowledgeGraphConcept` is the PKG node-KIND vocabulary the generic
+// snapshot still classifies against (`ConceptNode`/`AxiomNode`/…), so it stays
+// in production scope. The PKG Category/Relation/RelationKind are now used only
+// by the PKG test module (the generic fns name them only via turbofish there);
+// gate them so non-test builds see no unused import.
+use super::ontology::PraxisKnowledgeGraphConcept;
+#[cfg(test)]
 use super::ontology::{
-    PraxisKnowledgeGraphCategory, PraxisKnowledgeGraphConcept, PraxisKnowledgeGraphRelation,
-    PraxisKnowledgeGraphRelationKind,
+    PraxisKnowledgeGraphCategory, PraxisKnowledgeGraphRelation, PraxisKnowledgeGraphRelationKind,
 };
 use crate::applied::data_provisioning::registry::LockDigest;
 use crate::formal::meta::artifact_identity::ontology::{
@@ -54,30 +60,34 @@ use crate::social::software::markup::xml::owl::prx::{gunzip, gzip};
 // Selection — RootSet / EdgeKindFilter / ReachableSubgraph / compute_reachable
 // =============================================================================
 
-/// The seed concepts a selection starts from. A runtime realisation of the
-/// ontology's `RootSet` concept (already declared, outside the archive image).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RootSet(pub Vec<PraxisKnowledgeGraphConcept>);
+/// The relation-kind of a category's morphisms (mirrors `structural.rs`'s alias).
+type KindOf<C> = <<C as Category>::Morphism as Arrow>::Kind;
 
-/// The edge kinds a selection traverses. A runtime realisation of the
-/// ontology's `EdgeKindFilter` concept. Membership is set-based
-/// (`filter.0.contains(&kind)`), generalising the scalar `kind == filter` of
-/// the inlined BFS.
+/// The seed concepts a selection starts from — generic over any category `C`.
+/// A runtime realisation of the ontology's `RootSet` concept.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EdgeKindFilter(pub Vec<PraxisKnowledgeGraphRelationKind>);
+pub struct RootSet<C: Category>(pub Vec<C::Object>);
+
+/// The edge kinds a selection traverses — generic over any category `C`. A
+/// runtime realisation of the ontology's `EdgeKindFilter` concept. Membership is
+/// set-based (`filter.0.contains(&kind)`), generalising the scalar `kind ==
+/// filter` of the inlined BFS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EdgeKindFilter<C: Category>(pub Vec<KindOf<C>>);
 
 /// The closed slice [`compute_reachable`] produces — a runtime realisation of
-/// the ontology's `ReachableSubgraph` concept (which `has_a UnboundReference`).
+/// the ontology's `ReachableSubgraph` concept (which `has_a UnboundReference`),
+/// generic over any category `C`.
 ///
 /// `nodes` is the reachable concept set; `in_edges` are the filtered-kind
 /// edges entirely within the slice; `unbound` are the filtered-kind edges
 /// that LEAVE the slice (`from ∈ nodes`, `to ∉ nodes`) — the
 /// `UnboundReference`s that, if non-empty, mean the slice is NOT closed.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReachableSubgraph {
-    pub nodes: Vec<PraxisKnowledgeGraphConcept>,
-    pub in_edges: Vec<PraxisKnowledgeGraphRelation>,
-    pub unbound: Vec<PraxisKnowledgeGraphRelation>,
+pub struct ReachableSubgraph<C: Category> {
+    pub nodes: Vec<C::Object>,
+    pub in_edges: Vec<C::Morphism>,
+    pub unbound: Vec<C::Morphism>,
 }
 
 /// The slice of the knowledge graph reachable from `roots` under the relation
@@ -105,24 +115,31 @@ pub struct ReachableSubgraph {
 /// empty. (Iteration here only *collects* the image set — the reachability
 /// itself is the materialized closure, queried through the category's own
 /// `morphisms_from`, never re-derived.)
-pub fn compute_reachable(roots: &RootSet, filter: &EdgeKindFilter) -> ReachableSubgraph {
+pub fn compute_reachable<C>(roots: &RootSet<C>, filter: &EdgeKindFilter<C>) -> ReachableSubgraph<C>
+where
+    C: Category,
+    C::Object: Clone + PartialEq,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
+{
     // The filtered arrows out of the roots — the Category's own
     // `morphisms_from` accessor over the CLOSED relation, not a hand-rolled
     // walk over the whole edge list. Because the closure is materialized, this
-    // single image is already the full transitively-reachable set.
-    let image_targets =
-        |objs: &[PraxisKnowledgeGraphConcept]| -> Vec<PraxisKnowledgeGraphRelation> {
-            objs.iter()
-                .flat_map(PraxisKnowledgeGraphCategory::morphisms_from)
-                .filter(|m| filter.0.contains(&m.kind))
-                .collect()
-        };
+    // single image is already the full transitively-reachable set. The kind and
+    // endpoint are read through `Arrow::kind`/`Arrow::target` — trait methods,
+    // never a per-ontology struct field.
+    let image_targets = |objs: &[C::Object]| -> Vec<C::Morphism> {
+        objs.iter()
+            .flat_map(C::morphisms_from)
+            .filter(|m| filter.0.contains(&m.kind()))
+            .collect()
+    };
 
     // Node set = the roots together with the image targets (one step: the
     // closure already contains every multi-hop edge, so this is closed under
     // each transitive kind).
     let mut nodes = roots.0.clone();
-    for target in image_targets(&roots.0).iter().map(|m| m.to) {
+    for target in image_targets(&roots.0).iter().map(|m| m.target()) {
         if !nodes.contains(&target) {
             nodes.push(target);
         }
@@ -133,7 +150,7 @@ pub fn compute_reachable(roots: &RootSet, filter: &EdgeKindFilter) -> ReachableS
     // that leave it (`UnboundReference`s — cross-kind or out-of-slice).
     let (in_edges, unbound) = image_targets(&nodes)
         .into_iter()
-        .partition(|m| nodes.contains(&m.to));
+        .partition(|m| nodes.contains(&m.target()));
 
     ReachableSubgraph {
         nodes,
@@ -152,13 +169,13 @@ pub fn compute_reachable(roots: &RootSet, filter: &EdgeKindFilter) -> ReachableS
 // is the Lemon canonical form today; grounding it in an English lexical entry
 // is a parked future review — see project_concept_name_lexical_grounding.)
 
-/// Re-resolve a [`PraxisKnowledgeGraphConcept`] from its stable
-/// [`Concept::name`], over the ontology's own `variants()` enumerator.
-/// Fail-closed `None` for an unknown name.
-fn concept_from_name(name: &str) -> Option<PraxisKnowledgeGraphConcept> {
-    PraxisKnowledgeGraphConcept::variants()
-        .into_iter()
-        .find(|c| c.name() == name)
+/// Re-resolve a concept of ANY finitely-generated ontology `T` from its stable
+/// [`Concept::name`], over `T`'s own `variants()` enumerator. Fail-closed `None`
+/// for an unknown name. Used at two type instantiations: `T = PraxisKnowledgeGraphConcept`
+/// for the structural NODE-KIND vocabulary, and `T = C::Object` for the loaded
+/// ontology's own concept identities.
+fn concept_from_name<T: FinitelyGenerated>(name: &str) -> Option<T> {
+    T::variants().into_iter().find(|c| c.name() == name)
 }
 
 // An edge's relation kind crosses the wire as its ontology name via
@@ -351,18 +368,24 @@ fn verify_merkle_root(bytes: &[u8], trusted_pin: &str) -> Result<(), SnapshotErr
 /// any miss — an unknown binding name resolves to nothing and is refused. On
 /// wasm32 every constructor slice is empty, so behavioural nodes are refused
 /// there — the correct fail-closed behaviour.
-fn rebind_node(node: &SnapshotNode) -> Result<(), SnapshotError> {
-    use PraxisKnowledgeGraphConcept as C;
-    // Resolve the wire kind-name back to its TYPED concept (via the ontology's
-    // own `concept_from_name`/`Concept::name`), then dispatch on the VARIANT —
-    // never a string literal — to the registry that owns that kind of node. A
-    // non-node concept, or an unknown binding name in any registry, fails closed.
-    let resolved = match concept_from_name(&node.node_kind) {
-        Some(C::ConceptNode) => concept_from_name(&node.identity).is_some(),
-        Some(C::AxiomNode) => axiom_by_name(&node.identity).is_some(),
-        Some(C::LensNode) => lens_by_name(&node.identity).is_some(),
-        Some(C::FunctorNode) => functor_by_name(&node.identity).is_some(),
-        Some(C::AdjunctionNode) => adjunction_by_name(&node.identity).is_some(),
+fn rebind_node<C>(node: &SnapshotNode) -> Result<(), SnapshotError>
+where
+    C: Category,
+    C::Object: FinitelyGenerated,
+{
+    use PraxisKnowledgeGraphConcept as PkgC;
+    // The node-KIND is the PKG STRUCTURAL vocabulary (`ConceptNode`/`AxiomNode`/…)
+    // — resolve it against PKG, never `C`. Then dispatch on the VARIANT: a
+    // `ConceptNode`'s IDENTITY names a concept of the LOADED ontology `C`, so it
+    // resolves against `C::Object`; the behavioural arms hit the workspace-global
+    // registries (PKG-independent), unchanged. A non-node kind, or an unknown
+    // binding name in any registry, fails closed.
+    let resolved = match concept_from_name::<PkgC>(&node.node_kind) {
+        Some(PkgC::ConceptNode) => concept_from_name::<C::Object>(&node.identity).is_some(),
+        Some(PkgC::AxiomNode) => axiom_by_name(&node.identity).is_some(),
+        Some(PkgC::LensNode) => lens_by_name(&node.identity).is_some(),
+        Some(PkgC::FunctorNode) => functor_by_name(&node.identity).is_some(),
+        Some(PkgC::AdjunctionNode) => adjunction_by_name(&node.identity).is_some(),
         _ => false,
     };
     if resolved {
@@ -388,7 +411,13 @@ fn rebind_node(node: &SnapshotNode) -> Result<(), SnapshotError> {
 ///    binding, refuse the whole snapshot (no partial graph). Also confirm each
 ///    edge's kind + endpoints re-resolve by name.
 /// 4. Return the verified, fully-rebindable envelope.
-pub fn load_snapshot(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, SnapshotError> {
+pub fn load_snapshot<C>(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, SnapshotError>
+where
+    C: Category,
+    C::Object: FinitelyGenerated + PartialEq,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: RelationKind,
+{
     // 1. Decode.
     let bytes = gunzip(gz).map_err(|e| SnapshotError::Gzip(e.to_string()))?;
     let mut aligned = rkyv::util::AlignedVec::<16>::new();
@@ -403,7 +432,7 @@ pub fn load_snapshot(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, S
     // 3. Eager re-bind — every node must resolve, every edge's kind + endpoints
     // must re-resolve by name. Fail-closed on the first miss.
     for node in &envelope.nodes {
-        rebind_node(node)?;
+        rebind_node::<C>(node)?;
     }
     // G1 — referential self-containment: the concept identities this slice
     // actually CARRIES (its `ConceptNode`s). An edge endpoint absent here is a
@@ -424,13 +453,13 @@ pub fn load_snapshot(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, S
         // symmetric with the node re-bind against the live registries, never
         // trusting the byte-gate alone.
         let is_morphism = match (
-            PraxisKnowledgeGraphRelationKind::from_name(&edge.kind),
-            concept_from_name(&edge.from),
-            concept_from_name(&edge.to),
+            <KindOf<C> as RelationKind>::from_name(&edge.kind),
+            concept_from_name::<C::Object>(&edge.from),
+            concept_from_name::<C::Object>(&edge.to),
         ) {
-            (Some(k), Some(f), Some(t)) => PraxisKnowledgeGraphCategory::morphisms_from(&f)
+            (Some(k), Some(f), Some(t)) => C::morphisms_from(&f)
                 .iter()
-                .any(|m| m.to == t && m.kind == k),
+                .any(|m| m.target() == t && m.kind() == k),
             _ => false,
         };
         if !is_morphism {
@@ -474,16 +503,22 @@ pub fn load_snapshot(gz: &[u8], trusted_pin: &str) -> Result<SnapshotEnvelope, S
 ///    any shared identity ([`SnapshotError::AddressCollision`]).
 /// 4. **Address** = the content digest of the rkyv bytes (the `GraphVersion`, derived),
 ///    then gzip. Re-emitting the same slice reproduces the same address.
-pub fn emit_snapshot(
-    slice: &ReachableSubgraph,
+pub fn emit_snapshot<C>(
+    slice: &ReachableSubgraph<C>,
     bindings: &[GraphNode],
-) -> Result<(Vec<u8>, String), SnapshotError> {
+) -> Result<(Vec<u8>, String), SnapshotError>
+where
+    C: Category,
+    C::Object: Concept + PartialEq,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: RelationKind,
+{
     // 1. The slice must be closed.
     if let Some(u) = slice.unbound.first() {
         return Err(SnapshotError::SelectionLeftSlice {
-            from: u.from.name().to_string(),
-            to: u.to.name().to_string(),
-            kind: u.kind.name().to_string(),
+            from: u.source().name().to_string(),
+            to: u.target().name().to_string(),
+            kind: u.kind().name().to_string(),
         });
     }
 
@@ -496,18 +531,25 @@ pub fn emit_snapshot(
     // (`binding_definition`): the receiver re-binds it through its own
     // registries, and load is the gate.
     let structural = slice.nodes.iter().map(|c| {
-        let morphisms: Vec<PraxisKnowledgeGraphRelation> = slice
+        let morphisms: Vec<C::Morphism> = slice
             .in_edges
             .iter()
-            .filter(|m| m.from == *c)
+            .filter(|m| m.source() == *c)
             .cloned()
             .collect();
         (
+            // The node-KIND is the PKG structural `ConceptNode` (the `K` slot of
+            // the generic `definition_of<K,O,M>`); the concept CONTENT `O` and its
+            // morphisms `M` are the loaded ontology `C`'s own — independent params.
             GraphNode {
                 kind: PraxisKnowledgeGraphConcept::ConceptNode,
                 identity: c.name().to_string(),
             },
-            definition_of(&PraxisKnowledgeGraphConcept::ConceptNode, c, &morphisms),
+            definition_of::<PraxisKnowledgeGraphConcept, C::Object, C::Morphism>(
+                &PraxisKnowledgeGraphConcept::ConceptNode,
+                c,
+                &morphisms,
+            ),
         )
     });
     let behavioural = bindings.iter().cloned().map(|gn| {
@@ -532,9 +574,9 @@ pub fn emit_snapshot(
         .in_edges
         .iter()
         .map(|m| SnapshotEdge {
-            from: m.from.name().to_string(),
-            to: m.to.name().to_string(),
-            kind: m.kind.name().to_string(),
+            from: m.source().name().to_string(),
+            to: m.target().name().to_string(),
+            kind: m.kind().name().to_string(),
         })
         .collect();
 
@@ -575,7 +617,7 @@ mod tests {
     /// kind).
     #[test]
     fn single_root_single_filter_reproduces_original_slice() {
-        let sub = compute_reachable(
+        let sub = compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(alloc::vec![C::MerkleRoot]),
             &EdgeKindFilter(alloc::vec![K::Subsumption]),
         );
@@ -596,11 +638,11 @@ mod tests {
     /// Multi-root / multi-kind slices a wider region than a single root.
     #[test]
     fn multi_root_multi_kind_widens_the_slice() {
-        let single = compute_reachable(
+        let single = compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(alloc::vec![C::MerkleRoot]),
             &EdgeKindFilter(alloc::vec![K::Subsumption]),
         );
-        let multi = compute_reachable(
+        let multi = compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(alloc::vec![C::MerkleRoot, C::GraphSnapshot]),
             &EdgeKindFilter(alloc::vec![K::Subsumption, K::Parthood]),
         );
@@ -618,8 +660,8 @@ mod tests {
     // ── emit / load (the GraphSnapshot slice round-trip) ────────────────
 
     /// A fixed, closed slice — the `MerkleRoot` Subsumption image.
-    fn fixed_slice() -> ReachableSubgraph {
-        compute_reachable(
+    fn fixed_slice() -> ReachableSubgraph<PraxisKnowledgeGraphCategory> {
+        compute_reachable::<PraxisKnowledgeGraphCategory>(
             &RootSet(alloc::vec![C::MerkleRoot]),
             &EdgeKindFilter(alloc::vec![K::Subsumption]),
         )
@@ -660,8 +702,12 @@ mod tests {
             kind: C::AxiomNode,
             identity: REGISTERED_AXIOM.to_string(),
         }];
-        let (_gz1, root1) = emit_snapshot(&fixed_slice(), &bindings).expect("emit 1");
-        let (_gz2, root2) = emit_snapshot(&fixed_slice(), &bindings).expect("emit 2");
+        let (_gz1, root1) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &bindings)
+                .expect("emit 1");
+        let (_gz2, root2) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &bindings)
+                .expect("emit 2");
         assert_eq!(root1, root2, "same slice → same MerkleRoot");
     }
 
@@ -675,8 +721,10 @@ mod tests {
             kind: C::AxiomNode,
             identity: REGISTERED_AXIOM.to_string(),
         }];
-        let (gz, root) = emit_snapshot(&slice, &bindings).expect("emit");
-        let env = load_snapshot(&gz, &root).expect("load + gate + rebind");
+        let (gz, root) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &bindings).expect("emit");
+        let env = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect("load + gate + rebind");
 
         // One ConceptNode per slice concept, plus the one AxiomNode binding.
         assert_eq!(env.nodes.len(), slice.nodes.len() + 1);
@@ -709,7 +757,8 @@ mod tests {
                 identity: "dup".to_string()
             },
         ];
-        let err = emit_snapshot(&fixed_slice(), &dup).expect_err("duplicate identity must refuse");
+        let err = emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &dup)
+            .expect_err("duplicate identity must refuse");
         assert!(
             matches!(err, SnapshotError::AddressCollision { .. }),
             "got {err:?}"
@@ -719,7 +768,7 @@ mod tests {
     /// A slice that is NOT closed (a filtered edge leaves it) cannot be emitted.
     #[test]
     fn snapshot_emit_rejects_unclosed_slice() {
-        let open = ReachableSubgraph {
+        let open = ReachableSubgraph::<PraxisKnowledgeGraphCategory> {
             nodes: alloc::vec![C::MerkleRoot],
             in_edges: Vec::new(),
             unbound: alloc::vec![PraxisKnowledgeGraphRelation {
@@ -728,7 +777,8 @@ mod tests {
                 kind: K::Subsumption,
             }],
         };
-        let err = emit_snapshot(&open, &[]).expect_err("unclosed slice must refuse");
+        let err = emit_snapshot::<PraxisKnowledgeGraphCategory>(&open, &[])
+            .expect_err("unclosed slice must refuse");
         assert!(
             matches!(err, SnapshotError::SelectionLeftSlice { .. }),
             "got {err:?}"
@@ -739,14 +789,18 @@ mod tests {
     /// slice's pin is refused (poison detection — the address binds the slice).
     #[test]
     fn snapshot_load_rejects_wrong_merkle_root() {
-        let (_gz_a, root_a) = emit_snapshot(&fixed_slice(), &[]).expect("emit A");
+        let (_gz_a, root_a) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &[]).expect("emit A");
         let bindings = alloc::vec![GraphNode {
             kind: C::AxiomNode,
             identity: REGISTERED_AXIOM.to_string(),
         }];
-        let (gz_b, root_b) = emit_snapshot(&fixed_slice(), &bindings).expect("emit B");
+        let (gz_b, root_b) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &bindings)
+                .expect("emit B");
         assert_ne!(root_a, root_b, "different slices → different roots");
-        let err = load_snapshot(&gz_b, &root_a).expect_err("wrong pin must be refused");
+        let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz_b, &root_a)
+            .expect_err("wrong pin must be refused");
         assert!(
             matches!(err, SnapshotError::MerkleRootMismatch { .. }),
             "got {err:?}"
@@ -762,8 +816,10 @@ mod tests {
             kind: C::AxiomNode,
             identity: "__praxis_unregistered_axiom_binding__".to_string(),
         }];
-        let (gz, root) = emit_snapshot(&fixed_slice(), &bindings).expect("emit");
-        let err = load_snapshot(&gz, &root).expect_err("unregistered binding must be refused");
+        let (gz, root) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &bindings).expect("emit");
+        let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect_err("unregistered binding must be refused");
         assert!(
             matches!(err, SnapshotError::UnboundReference { .. }),
             "got {err:?}"
@@ -783,8 +839,10 @@ mod tests {
             kind: C::FunctorNode,
             identity: fname.clone(),
         }];
-        let (gz, root) = emit_snapshot(&slice, &bindings).expect("emit");
-        let env = load_snapshot(&gz, &root).expect("load + gate + rebind the FunctorNode");
+        let (gz, root) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &bindings).expect("emit");
+        let env = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect("load + gate + rebind the FunctorNode");
         assert_eq!(env.nodes.len(), slice.nodes.len() + 1);
         assert!(
             env.nodes
@@ -802,8 +860,10 @@ mod tests {
             kind: C::AdjunctionNode,
             identity: REGISTERED_ADJUNCTION.to_string(),
         }];
-        let (gz, root) = emit_snapshot(&slice, &bindings).expect("emit");
-        let env = load_snapshot(&gz, &root).expect("load + gate + rebind the AdjunctionNode");
+        let (gz, root) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &bindings).expect("emit");
+        let env = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect("load + gate + rebind the AdjunctionNode");
         assert!(
             env.nodes
                 .iter()
@@ -821,8 +881,10 @@ mod tests {
             kind: C::FunctorNode,
             identity: "__praxis_unregistered_functor_binding__".to_string(),
         }];
-        let (gz, root) = emit_snapshot(&fixed_slice(), &bindings).expect("emit");
-        let err = load_snapshot(&gz, &root).expect_err("unregistered functor must be refused");
+        let (gz, root) =
+            emit_snapshot::<PraxisKnowledgeGraphCategory>(&fixed_slice(), &bindings).expect("emit");
+        let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect_err("unregistered functor must be refused");
         assert!(
             matches!(err, SnapshotError::UnboundReference { .. }),
             "got {err:?}"
@@ -863,7 +925,8 @@ mod tests {
             .to_vec();
         let root = ContentAddress::of(&bytes).to_hex();
         let gz = gzip(&bytes).expect("gzip");
-        let err = load_snapshot(&gz, &root).expect_err("non-morphism edge must be refused");
+        let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect_err("non-morphism edge must be refused");
         assert!(
             matches!(err, SnapshotError::UnboundReference { .. }),
             "got {err:?}"
@@ -892,7 +955,8 @@ mod tests {
             .to_vec();
         let root = ContentAddress::of(&bytes).to_hex();
         let gz = gzip(&bytes).expect("gzip");
-        let err = load_snapshot(&gz, &root).expect_err("dangling edge must be refused");
+        let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
+            .expect_err("dangling edge must be refused");
         assert!(
             matches!(err, SnapshotError::DanglingEdge { .. }),
             "got {err:?}"
@@ -910,15 +974,15 @@ mod tests {
             root_ix in 0usize..PraxisKnowledgeGraphConcept::variants().len()
         ) {
             let root = PraxisKnowledgeGraphConcept::variants()[root_ix];
-            let slice = compute_reachable(
+            let slice = compute_reachable::<PraxisKnowledgeGraphCategory>(
                 &RootSet(alloc::vec![root]),
                 &EdgeKindFilter(alloc::vec![K::Subsumption]),
             );
             // compute_reachable closes the slice for the transitive Subsumption
             // kind; emit refuses an unclosed one.
             proptest::prop_assume!(slice.unbound.is_empty());
-            let (gz, pin) = emit_snapshot(&slice, &[]).expect("emit closed slice");
-            let env = load_snapshot(&gz, &pin).expect("honest snapshot round-trips");
+            let (gz, pin) = emit_snapshot::<PraxisKnowledgeGraphCategory>(&slice, &[]).expect("emit closed slice");
+            let env = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &pin).expect("honest snapshot round-trips");
             let carried: alloc::collections::BTreeSet<&str> = env
                 .nodes
                 .iter()
@@ -930,5 +994,100 @@ mod tests {
                 proptest::prop_assert!(carried.contains(edge.to.as_str()));
             }
         }
+    }
+}
+
+/// A6 — the genericity proof. The PKG monomorphization is exercised above; these
+/// instantiate the SAME `compute_reachable`/`emit_snapshot`/`load_snapshot` over a
+/// SECOND, unrelated `ontology!`-generated category, proving the generics are real
+/// (not vacuous): generic emit lowers the wire kind via `RelationKind::name`, and
+/// generic load re-resolves it via `RelationKind::from_name` + `concept_from_name`
+/// over THIS ontology's own concepts. No production non-PKG caller exists yet, so
+/// these two tests ARE the non-vacuity justification.
+#[cfg(test)]
+mod second_ontology_tests {
+    use super::*;
+
+    // A real second ontology — typed kinds + a macro-materialized is_a closure
+    // (NOT a `type Kind = ()` stub). The `is_a` chain A⊑B⊑C is closed by the
+    // macro's Floyd–Warshall to also carry the transitive A⊑C; D is isolated.
+    pr4xis::ontology! {
+        name: "SnapA6",
+        source: "A6 generic-snapshot second-ontology fixture",
+        concepts: [A, B, C, D],
+        labels: {
+            A: ("en", "A", "Root concept of the A6 snapshot fixture."),
+            B: ("en", "B", "Mid concept."),
+            C: ("en", "C", "Apex concept."),
+            D: ("en", "D", "An isolated concept, off the A-reachable set."),
+        },
+        is_a: [
+            (A, B),
+            (B, C),
+        ],
+    }
+
+    use SnapA6Concept as O;
+    use SnapA6RelationKind as OK;
+    type Cat = SnapA6Category;
+
+    /// (i) `compute_reachable` over a SECOND ontology: roots={A}, the Subsumption
+    /// chain A⊑B⊑C is closed (the macro materializes A⊑C), the isolated D excluded.
+    #[test]
+    fn second_ontology_compute_reachable_closure() {
+        let sub = compute_reachable::<Cat>(
+            &RootSet::<Cat>(alloc::vec![O::A]),
+            &EdgeKindFilter::<Cat>(alloc::vec![OK::Subsumption]),
+        );
+        assert!(sub.unbound.is_empty(), "A⊑B⊑C is closed under Subsumption");
+        assert!(sub.nodes.contains(&O::A), "root A is in the slice");
+        assert!(sub.nodes.contains(&O::B), "A reaches B");
+        assert!(
+            sub.nodes.contains(&O::C),
+            "A reaches C via the materialized transitive closure"
+        );
+        assert!(!sub.nodes.contains(&O::D), "isolated D is not reached");
+    }
+
+    /// (ii) full EMIT→LOAD round-trip over the SECOND ontology — generic emit
+    /// (`RelationKind::name` on the wire edge) AND generic load (rebind the O
+    /// concepts via `concept_from_name::<SnapA6Concept>` + `RelationKind::from_name`).
+    #[test]
+    fn second_ontology_emit_load_round_trip() {
+        let slice = compute_reachable::<Cat>(
+            &RootSet::<Cat>(alloc::vec![O::A]),
+            &EdgeKindFilter::<Cat>(alloc::vec![OK::Subsumption]),
+        );
+        assert!(slice.unbound.is_empty(), "closed slice is emittable");
+
+        // No behavioural bindings — a pure concept-only graph, so the round-trip
+        // exercises ONLY the O-concept / O-kind wire path.
+        let (gz, root) = emit_snapshot::<Cat>(&slice, &[]).expect("generic emit");
+        let env = load_snapshot::<Cat>(&gz, &root).expect("generic load + gate + rebind");
+
+        assert_eq!(env.nodes.len(), slice.nodes.len());
+        assert_eq!(env.nodes.len(), 3, "A, B, C — D is not in the slice");
+        for ident in ["A", "B", "C"] {
+            assert!(
+                env.nodes
+                    .iter()
+                    .any(|n| n.node_kind == "ConceptNode" && n.identity == ident),
+                "ConceptNode {ident} survives the round-trip"
+            );
+        }
+        let mut addrs: alloc::vec::Vec<&str> =
+            env.nodes.iter().map(|n| n.address.as_str()).collect();
+        addrs.sort_unstable();
+        let before = addrs.len();
+        addrs.dedup();
+        assert_eq!(addrs.len(), before, "node addresses are distinct");
+        // The materialized A⊑C edge round-trips: generic emit lowered its kind via
+        // `RelationKind::name`, load re-resolved it via `RelationKind::from_name`.
+        assert!(
+            env.edges
+                .iter()
+                .any(|e| e.from == "A" && e.to == "C" && e.kind == "Subsumption"),
+            "the transitive A⊑C edge round-trips by canonical kind name"
+        );
     }
 }
