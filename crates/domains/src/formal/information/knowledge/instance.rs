@@ -86,6 +86,13 @@ pub struct SelfModelInstance {
     /// `state_cid` have loaded exactly the same knowledge; it changes the moment a
     /// load does. `None` until [`with_history`](Self::with_history) supplies it.
     pub state_cid: Option<String>,
+    /// The wasm linear-memory footprint in bytes at observation time (U2) — the
+    /// self-model reporting its OWN live size in the host, the byte dimension of
+    /// the eigenform alongside its concept/morphism counts. `None` off-wasm (a
+    /// native build has no single linear-memory measure) and until
+    /// [`with_footprint`](Self::with_footprint) supplies it; the presentation then
+    /// omits `linear_memory_bytes` entirely.
+    pub footprint_bytes: Option<u64>,
 }
 
 /// What kind of load an event records (doc §2.4 / §4.5).
@@ -127,6 +134,7 @@ impl SelfModelInstance {
             capabilities: Vec::new(),
             history: Vec::new(),
             state_cid: None,
+            footprint_bytes: None,
         }
     }
 
@@ -150,6 +158,14 @@ impl SelfModelInstance {
     pub fn with_history(mut self, history: Vec<LoadEvent>, state_cid: Option<String>) -> Self {
         self.history = history;
         self.state_cid = state_cid;
+        self
+    }
+
+    /// Attach the wasm linear-memory footprint (U2) — the self-model reporting its
+    /// own live size in the host. `None` off-wasm (no single linear-memory measure
+    /// natively), in which case the presentation omits `linear_memory_bytes`.
+    pub fn with_footprint(mut self, bytes: Option<u64>) -> Self {
+        self.footprint_bytes = bytes;
         self
     }
 
@@ -183,6 +199,11 @@ impl Present for SelfModelInstance {
             "total_morphisms",
             SchemaValue::Unsigned(self.total_morphisms as u64),
         );
+        // U2: the self-model's own live linear-memory footprint, present only when
+        // observed on wasm (omitted off-wasm — no single native measure).
+        if let Some(bytes) = self.footprint_bytes {
+            p.set("linear_memory_bytes", SchemaValue::Unsigned(bytes));
+        }
 
         let ontologies: Vec<SchemaValue> = self
             .components

@@ -647,6 +647,7 @@
         { value: (data.total_morphisms ?? 0).toLocaleString(), label: 'morphisms' },
         { value: data.ontology_count ?? ontologies.length, label: 'ontologies' },
         { value: wasmSize, label: 'wasm binary' },
+        { value: data.linear_memory_bytes ? (data.linear_memory_bytes / 1048576).toFixed(1) + ' MB' : '—', label: 'memory' },
         { value: data.version || '', label: 'version' },
       ].forEach(({ value, label }) => {
         const stat = document.createElement('div');

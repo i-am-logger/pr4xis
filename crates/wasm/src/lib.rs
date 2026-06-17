@@ -466,6 +466,7 @@ impl Pr4xis {
             .with_catalog(catalog)
             .with_capabilities(capabilities)
             .with_history(self.history.clone(), self.state_cid())
+            .with_footprint(linear_memory_bytes())
             .to_json()
     }
 
@@ -490,6 +491,21 @@ impl Pr4xis {
         }
         Some(ContentAddress::of(&bytes).to_hex())
     }
+}
+
+/// The wasm linear-memory footprint in bytes (U2) — `memory_size(0)` pages × 64 KiB.
+/// The self-model reports its OWN live size in the host. `None` off-wasm, where
+/// there is no single linear-memory measure — the self-model then omits the
+/// `linear_memory_bytes` field (so the native test build compiles unchanged).
+#[cfg(target_arch = "wasm32")]
+fn linear_memory_bytes() -> Option<u64> {
+    // `memory_size(0)` is the current page count of linear memory 0 (64 KiB pages).
+    Some((core::arch::wasm32::memory_size(0) as u64) << 16)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn linear_memory_bytes() -> Option<u64> {
+    None
 }
 
 impl Pr4xis {
