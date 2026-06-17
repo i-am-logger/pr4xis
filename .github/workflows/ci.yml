@@ -499,7 +499,18 @@ jobs:
   release-plz-pr:
     name: Release-PR
     runs-on: ubuntu-latest
-    needs: [lint-docs, test, wasm, format, no-ignored-doctests]
+    # MUST run AFTER release-plz-release. That job publishes + creates the new
+    # version tags; this one computes the NEXT bump from the latest tag. Run in
+    # parallel (the old setup), the fast release-pr job finished before the slow
+    # publish job created the new tag, so it diffed from the PREVIOUS tag,
+    # re-listed the just-released commits, and opened a redundant `chore: release`
+    # PR every cycle — a self-feeding loop (v0.25.2 → v0.25.3 → …). Sequencing
+    # breaks it: by the time release-pr runs, the just-released version is tagged,
+    # so there are no unreleased commits left to propose. The `if` also requires
+    # Release to have SUCCEEDED — a failed publish leaves no new tag, which would
+    # re-trigger the same loop, so skip release-pr in that case. (On an ordinary
+    # feature merge Release succeeds as a no-op, so this never blocks the first PR.)
+    needs: [lint-docs, test, wasm, format, no-ignored-doctests, release-plz-release]
     if: |
       always() &&
       github.event_name == 'push' &&
@@ -508,7 +519,8 @@ jobs:
       needs.test.result == 'success' &&
       needs.wasm.result == 'success' &&
       needs.format.result == 'success' &&
-      needs.no-ignored-doctests.result == 'success'
+      needs.no-ignored-doctests.result == 'success' &&
+      needs.release-plz-release.result == 'success'
     permissions:
       contents: write
       pull-requests: write
