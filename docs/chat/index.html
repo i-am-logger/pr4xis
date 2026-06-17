@@ -376,7 +376,7 @@
           loadBtn.className = 'abstain-load';
           loadBtn.textContent = 'load a source →';
           loadBtn.addEventListener('click', () => {
-            document.querySelector('.tab[data-tab="about"]').click();
+            document.querySelector('.tab[data-tab="about"]')?.click();
             const f = document.getElementById('src-filter');
             if (f) {
               f.value = terms[0];
@@ -395,8 +395,16 @@
 
         const statsEl = document.createElement('div');
         statsEl.style.cssText = 'margin-top:0.5em; font-size:0.7em; color:#484f58; border-top:1px solid #21262d; padding-top:0.3em;';
-        const ontCount = Array.isArray(result.ontologies) ? result.ontologies.length : '?';
-        statsEl.textContent = `${ontCount} ontologies · ${dur} · in-browser`;
+        // The ontologies the answer REASONED OVER — projected straight from the
+        // engine's reasoned_over() (the compiled pipeline + any LOADED .prx the
+        // answer drew on). Loaded ones are marked ✦, so the list GENERALISES as you
+        // load more — no hardcoded pipeline (U6/U7). Defensive over the older flat
+        // string shape.
+        const onts = Array.isArray(result.ontologies) ? result.ontologies : [];
+        const names = onts
+          .map(o => (o && typeof o === 'object') ? (o.kind === 'loaded' ? `${o.ontology} ✦` : o.ontology) : o)
+          .join(', ');
+        statsEl.textContent = `${onts.length} ontologies${names ? ` · ${names}` : ''} · ${dur} · in-browser`;
         msgDiv.appendChild(statsEl);
       } catch {
         addMessage(raw, 'system');
@@ -588,7 +596,11 @@
         sources_avail = JSON.parse(await call('available_sources')).sources || [];
         ontologies_avail = JSON.parse(await call('available_ontologies')).ontologies || [];
       } catch (e) {
-        dash.innerHTML = `<div class="message info" style="color:#f85149;">self_describe parse error: ${e}</div>`;
+        const err = document.createElement('div');
+        err.className = 'message info';
+        err.style.color = '#f85149';
+        err.textContent = `self_describe parse error: ${e}`;
+        dash.replaceChildren(err);
         return;
       }
       const sourceByName = new Map(sources_avail.map(a => [a.name, a]));
@@ -614,7 +626,12 @@
         if (!parts.length) return null;
         const el = document.createElement('div');
         el.className = 'counts';
-        el.innerHTML = `<span style="color:#7ee787;">answers:</span> ${parts.join(' · ')}`;
+        // textContent, not innerHTML: `parts` carries loaded-source relation kinds.
+        const answersLabel = document.createElement('span');
+        answersLabel.style.color = '#7ee787';
+        answersLabel.textContent = 'answers:';
+        el.appendChild(answersLabel);
+        el.appendChild(document.createTextNode(' ' + parts.join(' · ')));
         return el;
       }
 
@@ -677,10 +694,18 @@
           const verb = isReplace ? 'replaced' : 'loaded';
           const root = (ev.root || '').slice(0, 12);
           const displaced = isReplace && ev.displaced ? ` · displaced ${ev.displaced.slice(0, 12)}…` : '';
-          card.innerHTML =
-            `<span class="name" style="color:${isReplace ? '#d29922' : '#3fb950'};">${verb}</span>` +
-            `<span class="name">${ev.ontology}</span>` +
-            `<span class="domain">root ${root}…${displaced}</span>`;
+          // textContent, not innerHTML: `ev.ontology` is a loaded-source name.
+          const verbSpan = document.createElement('span');
+          verbSpan.className = 'name';
+          verbSpan.style.color = isReplace ? '#d29922' : '#3fb950';
+          verbSpan.textContent = verb;
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'name';
+          nameSpan.textContent = ev.ontology;
+          const domainSpan = document.createElement('span');
+          domainSpan.className = 'domain';
+          domainSpan.textContent = `root ${root}…${displaced}`;
+          card.replaceChildren(verbSpan, nameSpan, domainSpan);
           memList.appendChild(card);
         }
         dash.appendChild(memList);
