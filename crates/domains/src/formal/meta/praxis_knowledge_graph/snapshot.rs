@@ -6,7 +6,7 @@
 //! instance hands its ontologies to another, verifiably.
 //!
 //! This is the whole-graph generalisation of the archive storage substratum:
-//! it REUSES the prx primitives ([`ContentAddress`], gzip/rkyv, the
+//! it REUSES the prx primitives ([`ContentAddress`](pr4xis_runtime::address::ContentAddress), gzip/rkyv, the
 //! `raw_hash::verify` typed-claim gate) and expresses selection
 //! ONTOLOGICALLY — as the **relational image** of a [`RootSet`] under an
 //! [`EdgeKindFilter`], computed through the category's own
@@ -32,7 +32,7 @@ use alloc::{format, string::String, string::ToString, vec::Vec};
 
 use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated, RelationKind};
 use pr4xis::ontology::{adjunction_by_name, axiom_by_name, functor_by_name};
-use pr4xis_runtime::address::ContentAddress;
+use pr4xis_runtime::codec;
 use pr4xis_runtime::emit::{binding_definition, definition_of};
 
 // `PraxisKnowledgeGraphConcept` is the PKG node-KIND vocabulary the generic
@@ -200,7 +200,17 @@ pub struct GraphNode {
 
 /// One persisted node, name-keyed and per-node content-addressed (the Merkle
 /// DAG's `ContentAddressableNode`).
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct SnapshotNode {
     /// The structural-node concept this node is, by [`Concept::name`]
     /// (`"ConceptNode"` / `"AxiomNode"` / `"LensNode"` / …).
@@ -220,7 +230,17 @@ pub struct SnapshotNode {
 }
 
 /// One persisted edge — a `MerkleEdge`-by-name between two node identities.
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct SnapshotEdge {
     pub from: String,
     pub to: String,
@@ -231,7 +251,17 @@ pub struct SnapshotEdge {
 /// of name-keyed nodes + Merkle-edges. Its `GraphVersion` is the content digest of
 /// these bytes (a DERIVED label, NOT stored inside them), so re-emitting the
 /// same slice reproduces the same address.
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct SnapshotEnvelope {
     pub nodes: Vec<SnapshotNode>,
     pub edges: Vec<SnapshotEdge>,
@@ -426,8 +456,17 @@ where
         rkyv::from_bytes::<SnapshotEnvelope, rkyv::rancor::Error>(&aligned)
             .map_err(|e| SnapshotError::Rkyv(e.to_string()))?;
 
-    // 2. MerkleRoot gate — over the EXACT decoded bytes (gzip-level-independent).
-    verify_merkle_root(&bytes, trusted_pin)?;
+    // 2. MerkleRoot gate — over the canonical DAG-CBOR of the DECODED envelope
+    //    (toolchain-stable), NOT the rkyv layout. rkyv is now only the local
+    //    transport. Correctness invariant: DAG-CBOR(rkyv-decoded envelope) ==
+    //    DAG-CBOR(emitted envelope), because the rkyv round-trip is value-lossless
+    //    and `serde_ipld_dagcbor` is a pure function of the value — so this
+    //    re-derivation reproduces the address emit pinned. (A future field with a
+    //    non-canonical serde repr — a float, an untagged enum — would break this;
+    //    this comment is the tripwire.)
+    let canonical =
+        codec::canonical_encode(&envelope).map_err(|e| SnapshotError::Codec(e.to_string()))?;
+    verify_merkle_root(&canonical, trusted_pin)?;
 
     // 3. Eager re-bind — every node must resolve, every edge's kind + endpoints
     // must re-resolve by name. Fail-closed on the first miss.
@@ -598,7 +637,13 @@ where
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&envelope)
         .map(|v| v.to_vec())
         .map_err(|e| SnapshotError::Rkyv(e.to_string()))?;
-    let merkle_root = ContentAddress::of(&bytes).to_hex();
+    // The address (GraphVersion) is BLAKE3 over the canonical DAG-CBOR of the
+    // envelope VALUE — toolchain-independent by construction — NOT over the rkyv
+    // `bytes` (whose FixedUsize/endianness layout is per-toolchain). `bytes` is now
+    // only the local gz cache/transport; the address no longer depends on it.
+    let merkle_root = codec::address_of(&envelope)
+        .map_err(|e| SnapshotError::Codec(e.to_string()))?
+        .to_hex();
     let gz = gzip(&bytes).map_err(|e| SnapshotError::Gzip(e.to_string()))?;
     Ok((gz, merkle_root))
 }
@@ -923,7 +968,9 @@ mod tests {
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&env)
             .expect("serialize")
             .to_vec();
-        let root = ContentAddress::of(&bytes).to_hex();
+        // The genuine pin is now the DAG-CBOR address of the envelope (self-tracks
+        // the A7 change); the gz still wraps the rkyv `bytes` as the cache.
+        let root = codec::address_of(&env).expect("dag-cbor address").to_hex();
         let gz = gzip(&bytes).expect("gzip");
         let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
             .expect_err("non-morphism edge must be refused");
@@ -953,7 +1000,9 @@ mod tests {
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&env)
             .expect("serialize")
             .to_vec();
-        let root = ContentAddress::of(&bytes).to_hex();
+        // The genuine pin is now the DAG-CBOR address of the envelope (self-tracks
+        // the A7 change); the gz still wraps the rkyv `bytes` as the cache.
+        let root = codec::address_of(&env).expect("dag-cbor address").to_hex();
         let gz = gzip(&bytes).expect("gzip");
         let err = load_snapshot::<PraxisKnowledgeGraphCategory>(&gz, &root)
             .expect_err("dangling edge must be refused");
