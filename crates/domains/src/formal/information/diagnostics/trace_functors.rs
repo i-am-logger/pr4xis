@@ -29,6 +29,16 @@ impl TraceOntology {
             TraceOntology::Loaded(n) => n.as_str(),
         }
     }
+
+    /// The provenance label — `"loaded"` for a runtime `.prx` the answer drew on,
+    /// `"compiled"` for a const pipeline ontology. Lets a projector (the wasm
+    /// surface, the page) tag each ontology without matching the variants.
+    pub fn provenance(&self) -> &'static str {
+        match self {
+            TraceOntology::Compiled(_) => "compiled",
+            TraceOntology::Loaded(_) => "loaded",
+        }
+    }
 }
 
 // Trace functors — map domain ontology results to diagnostic/provenance records.

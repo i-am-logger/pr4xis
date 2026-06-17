@@ -156,7 +156,7 @@ impl Pr4xis {
             }
             None => pr4xis_chat::process_with_metadata(&self.english, input),
         };
-        let ontologies = result.trace.all_participating_ontologies();
+        let reasoned = result.trace.reasoned_over();
         let trace = result.trace.serialize_with_functors();
 
         let mut p = Presentation::new();
@@ -178,9 +178,25 @@ impl Pr4xis {
                 );
             }
         }
+        // U6/U7: the ontologies this answer REASONED OVER — the compiled pipeline
+        // PLUS every loaded `.prx` it drew on (`reasoned_over`, not the compiled-only
+        // `all_participating_ontologies`), each a structured record carrying its
+        // provenance + success bit. The page projects this, so the list GENERALISES
+        // as ontologies load — never a hardcoded pipeline.
         p.set(
             "ontologies",
-            SchemaValue::List(ontologies.into_iter().map(|o| o.into()).collect()),
+            SchemaValue::List(
+                reasoned
+                    .into_iter()
+                    .map(|(ont, success)| {
+                        let mut r = Presentation::new();
+                        r.set("ontology", SchemaValue::Text(ont.name().to_string()));
+                        r.set("kind", SchemaValue::Text(ont.provenance().to_string()));
+                        r.set("success", SchemaValue::Boolean(success));
+                        SchemaValue::Record(r)
+                    })
+                    .collect(),
+            ),
         );
         p.set("trace", trace.into());
         p.to_json()
