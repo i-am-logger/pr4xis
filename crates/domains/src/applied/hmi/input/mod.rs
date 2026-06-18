@@ -6,3 +6,4 @@
 pub mod engine;
 pub mod keybindings;
 pub mod modes;
+pub mod wm_action;

@@ -14,6 +14,11 @@ use hashbrown::{HashMap, HashSet};
 /// - Harel, "Statecharts" (1987): mode-scoped keybindings
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
+use super::wm_action::{
+    ActionWord, Cycle, Direction, Follow, HyprlandRealization, SubmapTarget, WmAction,
+    WorkspaceTarget,
+};
+use pr4xis::category::Functor;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
@@ -126,22 +131,36 @@ impl KeyCombo {
     }
 }
 
-/// An action that a keybinding triggers.
+/// An action that a keybinding triggers — its name, a human description, and the
+/// typed [`WmAction`] sequence it performs (the abstract intent, **not** a raw
+/// dispatcher string). The concrete compositor command is *derived* on demand by
+/// [`Action::command`] via the [`HyprlandRealization`] functor.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Action {
     pub name: String,
     pub description: String,
-    /// The action command (e.g., "killactive,", "exec, $TERMINAL")
-    pub command: String,
+    /// The typed action sequence this binding performs.
+    pub actions: ActionWord,
 }
 
 impl Action {
-    pub fn new(name: impl Into<String>, desc: impl Into<String>, cmd: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        desc: impl Into<String>,
+        actions: impl Into<ActionWord>,
+    ) -> Self {
         Self {
             name: name.into(),
             description: desc.into(),
-            command: cmd.into(),
+            actions: actions.into(),
         }
+    }
+
+    /// The concrete Hyprland command this binding emits — the realization of its
+    /// [`ActionWord`] under [`HyprlandRealization`], rendered at the single wire
+    /// boundary. A composite (multi-action) binding batches into one `exec`.
+    pub fn command(&self) -> String {
+        HyprlandRealization::map_morphism(&self.actions).command()
     }
 }
 
@@ -269,31 +288,47 @@ pub fn vim_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('h')),
         normal.clone(),
-        Action::new("move_left", "Move cursor left", "movefocus, l"),
+        Action::new(
+            "move_left",
+            "Move cursor left",
+            WmAction::Focus(Direction::Left),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('j')),
         normal.clone(),
-        Action::new("move_down", "Move cursor down", "movefocus, d"),
+        Action::new(
+            "move_down",
+            "Move cursor down",
+            WmAction::Focus(Direction::Down),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('k')),
         normal.clone(),
-        Action::new("move_up", "Move cursor up", "movefocus, u"),
+        Action::new("move_up", "Move cursor up", WmAction::Focus(Direction::Up)),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('l')),
         normal.clone(),
-        Action::new("move_right", "Move cursor right", "movefocus, r"),
+        Action::new(
+            "move_right",
+            "Move cursor right",
+            WmAction::Focus(Direction::Right),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('i')),
         normal.clone(),
-        Action::new("enter_insert", "Enter insert mode", "submap, insert"),
+        Action::new(
+            "enter_insert",
+            "Enter insert mode",
+            WmAction::Submap(SubmapTarget::Enter(ModeId::new("insert"))),
+        ),
         false,
     );
 
@@ -301,7 +336,11 @@ pub fn vim_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Named(NamedKey::Escape)),
         insert,
-        Action::new("exit_insert", "Return to normal mode", "submap, reset"),
+        Action::new(
+            "exit_insert",
+            "Return to normal mode",
+            WmAction::Submap(SubmapTarget::Reset),
+        ),
         false,
     );
 
@@ -316,24 +355,44 @@ pub fn cua_preset() -> BindingSet {
     let app = ModeId::new("app");
 
     let binds = [
-        ('c', "copy", "Copy", "exec, wl-copy"),
-        ('v', "paste", "Paste", "exec, wl-paste"),
-        ('x', "cut", "Cut", "exec, wl-copy"),
-        ('z', "undo", "Undo", "exec, undo"),
-        ('s', "save", "Save", "exec, save"),
-        ('a', "select_all", "Select all", "exec, select-all"),
-        ('f', "find", "Find", "exec, find"),
-        ('n', "new_window", "New window", "exec, new-window"),
-        ('o', "open", "Open file", "exec, open"),
-        ('p', "print", "Print", "exec, print"),
-        ('w', "close_tab", "Close tab", "killactive,"),
-        ('t', "new_tab", "New tab", "exec, new-tab"),
+        ('c', "copy", "Copy", WmAction::Exec("wl-copy".to_string())),
+        (
+            'v',
+            "paste",
+            "Paste",
+            WmAction::Exec("wl-paste".to_string()),
+        ),
+        ('x', "cut", "Cut", WmAction::Exec("wl-copy".to_string())),
+        ('z', "undo", "Undo", WmAction::Exec("undo".to_string())),
+        ('s', "save", "Save", WmAction::Exec("save".to_string())),
+        (
+            'a',
+            "select_all",
+            "Select all",
+            WmAction::Exec("select-all".to_string()),
+        ),
+        ('f', "find", "Find", WmAction::Exec("find".to_string())),
+        (
+            'n',
+            "new_window",
+            "New window",
+            WmAction::Exec("new-window".to_string()),
+        ),
+        ('o', "open", "Open file", WmAction::Exec("open".to_string())),
+        ('p', "print", "Print", WmAction::Exec("print".to_string())),
+        ('w', "close_tab", "Close tab", WmAction::Close),
+        (
+            't',
+            "new_tab",
+            "New tab",
+            WmAction::Exec("new-tab".to_string()),
+        ),
     ];
-    for (c, name, desc, cmd) in binds {
+    for (c, name, desc, action) in binds {
         bs.add(
             KeyCombo::new(Key::Letter(c)).with_mod(Modifier::Ctrl),
             app.clone(),
-            Action::new(name, desc, cmd),
+            Action::new(name, desc, action),
             false,
         );
     }
@@ -342,14 +401,18 @@ pub fn cua_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Function(4)).with_mod(Modifier::Alt),
         app.clone(),
-        Action::new("quit", "Quit application", "killactive,"),
+        Action::new("quit", "Quit application", WmAction::Close),
         false,
     );
     // Alt+Tab = switch window
     bs.add(
         KeyCombo::new(Key::Named(NamedKey::Tab)).with_mod(Modifier::Alt),
         app,
-        Action::new("switch_window", "Switch window", "cyclenext,"),
+        Action::new(
+            "switch_window",
+            "Switch window",
+            WmAction::CycleWindow(Cycle::Forward),
+        ),
         false,
     );
 
@@ -367,25 +430,37 @@ pub fn emacs_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('a')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("line_start", "Beginning of line", "exec, line-start"),
+        Action::new(
+            "line_start",
+            "Beginning of line",
+            WmAction::Exec("line-start".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('e')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("line_end", "End of line", "exec, line-end"),
+        Action::new(
+            "line_end",
+            "End of line",
+            WmAction::Exec("line-end".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('k')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("kill_line", "Kill to end of line", "exec, kill-line"),
+        Action::new(
+            "kill_line",
+            "Kill to end of line",
+            WmAction::Exec("kill-line".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('y')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("yank", "Yank (paste)", "exec, yank"),
+        Action::new("yank", "Yank (paste)", WmAction::Exec("yank".to_string())),
         false,
     );
 
@@ -393,25 +468,33 @@ pub fn emacs_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('f')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("forward_char", "Forward one character", "movefocus, r"),
+        Action::new(
+            "forward_char",
+            "Forward one character",
+            WmAction::Focus(Direction::Right),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('b')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("backward_char", "Backward one character", "movefocus, l"),
+        Action::new(
+            "backward_char",
+            "Backward one character",
+            WmAction::Focus(Direction::Left),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('n')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("next_line", "Next line", "movefocus, d"),
+        Action::new("next_line", "Next line", WmAction::Focus(Direction::Down)),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('p')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("prev_line", "Previous line", "movefocus, u"),
+        Action::new("prev_line", "Previous line", WmAction::Focus(Direction::Up)),
         false,
     );
 
@@ -419,13 +502,21 @@ pub fn emacs_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('f')).with_mod(Modifier::Alt),
         app.clone(),
-        Action::new("forward_word", "Forward one word", "exec, forward-word"),
+        Action::new(
+            "forward_word",
+            "Forward one word",
+            WmAction::Exec("forward-word".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('b')).with_mod(Modifier::Alt),
         app.clone(),
-        Action::new("backward_word", "Backward one word", "exec, backward-word"),
+        Action::new(
+            "backward_word",
+            "Backward one word",
+            WmAction::Exec("backward-word".to_string()),
+        ),
         false,
     );
 
@@ -433,7 +524,11 @@ pub fn emacs_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('g')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("cancel", "Cancel / keyboard quit", "submap, reset"),
+        Action::new(
+            "cancel",
+            "Cancel / keyboard quit",
+            WmAction::Submap(SubmapTarget::Reset),
+        ),
         false,
     );
 
@@ -444,7 +539,7 @@ pub fn emacs_preset() -> BindingSet {
         Action::new(
             "search_forward",
             "Incremental search forward",
-            "exec, search-forward",
+            WmAction::Exec("search-forward".to_string()),
         ),
         false,
     );
@@ -454,7 +549,7 @@ pub fn emacs_preset() -> BindingSet {
         Action::new(
             "search_backward",
             "Incremental search backward",
-            "exec, search-backward",
+            WmAction::Exec("search-backward".to_string()),
         ),
         false,
     );
@@ -474,13 +569,21 @@ pub fn i3_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Named(NamedKey::Enter)).with_mod(Modifier::Super),
         app.clone(),
-        Action::new("terminal", "Launch terminal", "exec, $TERMINAL"),
+        Action::new(
+            "terminal",
+            "Launch terminal",
+            WmAction::Exec("$TERMINAL".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('d')).with_mod(Modifier::Super),
         app.clone(),
-        Action::new("launcher", "Application launcher", "exec, walker"),
+        Action::new(
+            "launcher",
+            "Application launcher",
+            WmAction::Exec("walker".to_string()),
+        ),
         false,
     );
     bs.add(
@@ -488,22 +591,22 @@ pub fn i3_preset() -> BindingSet {
             .with_mod(Modifier::Super)
             .with_mod(Modifier::Shift),
         app.clone(),
-        Action::new("kill", "Kill focused window", "killactive,"),
+        Action::new("kill", "Kill focused window", WmAction::Close),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('f')).with_mod(Modifier::Super),
         app.clone(),
-        Action::new("fullscreen", "Toggle fullscreen", "fullscreen"),
+        Action::new("fullscreen", "Toggle fullscreen", WmAction::Fullscreen),
         false,
     );
 
     // Focus: Super+hjkl
-    for (c, dir, desc) in [
-        ('h', "l", "left"),
-        ('j', "d", "down"),
-        ('k', "u", "up"),
-        ('l', "r", "right"),
+    for (c, direction, desc) in [
+        ('h', Direction::Left, "left"),
+        ('j', Direction::Down, "down"),
+        ('k', Direction::Up, "up"),
+        ('l', Direction::Right, "right"),
     ] {
         bs.add(
             KeyCombo::new(Key::Letter(c)).with_mod(Modifier::Super),
@@ -511,18 +614,18 @@ pub fn i3_preset() -> BindingSet {
             Action::new(
                 format!("focus_{desc}"),
                 format!("Focus {desc}"),
-                format!("movefocus, {dir}"),
+                WmAction::Focus(direction),
             ),
             false,
         );
     }
 
     // Move: Super+Shift+hjkl
-    for (c, dir, desc) in [
-        ('h', "l", "left"),
-        ('j', "d", "down"),
-        ('k', "u", "up"),
-        ('l', "r", "right"),
+    for (c, direction, desc) in [
+        ('h', Direction::Left, "left"),
+        ('j', Direction::Down, "down"),
+        ('k', Direction::Up, "up"),
+        ('l', Direction::Right, "right"),
     ] {
         bs.add(
             KeyCombo::new(Key::Letter(c))
@@ -532,7 +635,7 @@ pub fn i3_preset() -> BindingSet {
             Action::new(
                 format!("move_{desc}"),
                 format!("Move window {desc}"),
-                format!("movewindow, {dir}"),
+                WmAction::MoveWindow(direction),
             ),
             false,
         );
@@ -546,7 +649,7 @@ pub fn i3_preset() -> BindingSet {
             Action::new(
                 format!("workspace_{i}"),
                 format!("Workspace {i}"),
-                format!("workspace, {i}"),
+                WmAction::Workspace(WorkspaceTarget::Index(i)),
             ),
             false,
         );
@@ -562,7 +665,7 @@ pub fn i3_preset() -> BindingSet {
             Action::new(
                 format!("move_to_{i}"),
                 format!("Move to workspace {i}"),
-                format!("movetoworkspace, {i}"),
+                WmAction::MoveToWorkspace(WorkspaceTarget::Index(i), Follow::Follow),
             ),
             false,
         );
@@ -572,7 +675,7 @@ pub fn i3_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('v')).with_mod(Modifier::Super),
         app.clone(),
-        Action::new("split_v", "Split vertical", "layoutmsg, togglesplit"),
+        Action::new("split_v", "Split vertical", WmAction::ToggleSplit),
         false,
     );
     bs.add(
@@ -580,7 +683,7 @@ pub fn i3_preset() -> BindingSet {
             .with_mod(Modifier::Super)
             .with_mod(Modifier::Shift),
         app.clone(),
-        Action::new("float", "Toggle floating", "togglefloating,"),
+        Action::new("float", "Toggle floating", WmAction::ToggleFloat),
         false,
     );
 
@@ -588,28 +691,36 @@ pub fn i3_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('r')).with_mod(Modifier::Super),
         app,
-        Action::new("enter_resize", "Enter resize mode", "submap, resize"),
+        Action::new(
+            "enter_resize",
+            "Enter resize mode",
+            WmAction::Submap(SubmapTarget::Enter(ModeId::new("resize"))),
+        ),
         false,
     );
 
     // Resize mode bindings
-    for (c, action, desc) in [
-        ('h', "resizeactive, -30 0", "Shrink width"),
-        ('j', "resizeactive, 0 30", "Grow height"),
-        ('k', "resizeactive, 0 -30", "Shrink height"),
-        ('l', "resizeactive, 30 0", "Grow width"),
+    for (c, direction, desc) in [
+        ('h', Direction::Left, "Shrink width"),
+        ('j', Direction::Down, "Grow height"),
+        ('k', Direction::Up, "Shrink height"),
+        ('l', Direction::Right, "Grow width"),
     ] {
         bs.add(
             KeyCombo::new(Key::Letter(c)),
             resize.clone(),
-            Action::new(format!("resize_{c}"), desc, action),
+            Action::new(format!("resize_{c}"), desc, WmAction::Resize(direction, 30)),
             true,
         );
     }
     bs.add(
         KeyCombo::new(Key::Named(NamedKey::Escape)),
         resize,
-        Action::new("exit_resize", "Exit resize mode", "submap, reset"),
+        Action::new(
+            "exit_resize",
+            "Exit resize mode",
+            WmAction::Submap(SubmapTarget::Reset),
+        ),
         false,
     );
 
@@ -627,13 +738,21 @@ pub fn tmux_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('c')),
         prefix.clone(),
-        Action::new("new_window", "Create new window", "exec, tmux new-window"),
+        Action::new(
+            "new_window",
+            "Create new window",
+            WmAction::Exec("tmux new-window".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('n')),
         prefix.clone(),
-        Action::new("next_window", "Next window", "exec, tmux next-window"),
+        Action::new(
+            "next_window",
+            "Next window",
+            WmAction::Exec("tmux next-window".to_string()),
+        ),
         false,
     );
     bs.add(
@@ -642,14 +761,18 @@ pub fn tmux_preset() -> BindingSet {
         Action::new(
             "prev_window",
             "Previous window",
-            "exec, tmux previous-window",
+            WmAction::Exec("tmux previous-window".to_string()),
         ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('l')),
         prefix.clone(),
-        Action::new("last_window", "Last window", "exec, tmux last-window"),
+        Action::new(
+            "last_window",
+            "Last window",
+            WmAction::Exec("tmux last-window".to_string()),
+        ),
         false,
     );
 
@@ -661,7 +784,7 @@ pub fn tmux_preset() -> BindingSet {
             Action::new(
                 format!("window_{i}"),
                 format!("Switch to window {i}"),
-                format!("exec, tmux select-window -t {i}"),
+                WmAction::Exec(format!("tmux select-window -t {i}")),
             ),
             false,
         );
@@ -674,7 +797,7 @@ pub fn tmux_preset() -> BindingSet {
         Action::new(
             "split_v",
             "Split pane vertical",
-            "exec, tmux split-window -h",
+            WmAction::Exec("tmux split-window -h".to_string()),
         ),
         false,
     );
@@ -684,7 +807,7 @@ pub fn tmux_preset() -> BindingSet {
         Action::new(
             "split_h",
             "Split pane horizontal",
-            "exec, tmux split-window -v",
+            WmAction::Exec("tmux split-window -v".to_string()),
         ),
         false,
     );
@@ -702,7 +825,7 @@ pub fn tmux_preset() -> BindingSet {
             Action::new(
                 format!("pane_{name}"),
                 format!("Focus pane {name}"),
-                format!("exec, tmux select-pane -{dir}"),
+                WmAction::Exec(format!("tmux select-pane -{dir}")),
             ),
             false,
         );
@@ -712,25 +835,41 @@ pub fn tmux_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('d')),
         prefix.clone(),
-        Action::new("detach", "Detach session", "exec, tmux detach"),
+        Action::new(
+            "detach",
+            "Detach session",
+            WmAction::Exec("tmux detach".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('z')),
         prefix.clone(),
-        Action::new("zoom", "Toggle pane zoom", "exec, tmux resize-pane -Z"),
+        Action::new(
+            "zoom",
+            "Toggle pane zoom",
+            WmAction::Exec("tmux resize-pane -Z".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('x')),
         prefix.clone(),
-        Action::new("kill_pane", "Kill pane", "exec, tmux kill-pane"),
+        Action::new(
+            "kill_pane",
+            "Kill pane",
+            WmAction::Exec("tmux kill-pane".to_string()),
+        ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('?')),
         prefix,
-        Action::new("help", "List keybindings", "exec, tmux list-keys"),
+        Action::new(
+            "help",
+            "List keybindings",
+            WmAction::Exec("tmux list-keys".to_string()),
+        ),
         false,
     );
 
@@ -833,6 +972,611 @@ impl Axiom for MacosRemapComplete {
         "macOS remap covers essential shortcuts (C, V, X, Z, S, A)",
         "IBM (1987) Common User Access Specification; macOS Human Interface Guidelines"
     );
+}
+
+// ── Desktop / WM-navigation presets ───────────────────────────────────────
+// The window-management navigation flavour of each desktop paradigm as a flat
+// `BindingSet` (the consumer supplies the per-paradigm mode topology). Commands
+// are Hyprland dispatchers. Lifted from vogix's input catalog so praxis is the
+// single source of every paradigm's bindings.
+use Modifier::{Alt, Ctrl, Shift, Super};
+
+/// Build a [`KeyCombo`] from modifiers + a key.
+fn combo(mods: &[Modifier], key: Key) -> KeyCombo {
+    let mut c = KeyCombo::new(key);
+    for m in mods {
+        c = c.with_mod(*m);
+    }
+    c
+}
+
+/// The four cardinal directions as `(letter, arrow, hypr-suffix)`. The `vogix`
+/// layout binds BOTH `hjkl` and the arrows to the same action (h=left, l=right,
+/// j=up, k=down — a non-vim mapping), so every nav verb is generated for both.
+const DIRS: &[(char, NamedKey, &str, Direction)] = &[
+    ('h', NamedKey::Left, "l", Direction::Left),
+    ('l', NamedKey::Right, "r", Direction::Right),
+    ('j', NamedKey::Up, "u", Direction::Up),
+    ('k', NamedKey::Down, "d", Direction::Down),
+];
+
+/// `vogix` — the house default: a flat `Super`-combos WM-navigation layout in one
+/// `app` mode (focus/move/resize, workspaces 1–10, send-to-workspace). Both `hjkl`
+/// and the arrow keys drive focus/move/resize.
+pub fn vogix_preset() -> BindingSet {
+    let mut bs = BindingSet::new("vogix");
+    let app = ModeId::new("app");
+    let mut add =
+        |mods: &[Modifier], key: Key, name: &str, desc: &str, actions: ActionWord, repeat: bool| {
+            bs.add(
+                combo(mods, key),
+                app.clone(),
+                Action::new(name, desc, actions),
+                repeat,
+            );
+        };
+
+    // Focus (Super + dir -> movefocus); hjkl AND arrows.
+    for (letter, arrow, suf, direction) in DIRS {
+        add(
+            &[Super],
+            Key::Letter(*letter),
+            &format!("focus_{suf}"),
+            "Focus",
+            WmAction::Focus(*direction).into(),
+            false,
+        );
+        add(
+            &[Super],
+            Key::Named(arrow.clone()),
+            &format!("focus_{suf}_arrow"),
+            "Focus",
+            WmAction::Focus(*direction).into(),
+            false,
+        );
+    }
+    // Move window (Super + Shift + dir -> swapwindow).
+    for (letter, arrow, suf, direction) in DIRS {
+        add(
+            &[Super, Shift],
+            Key::Letter(*letter),
+            &format!("move_{suf}"),
+            "Move window",
+            WmAction::SwapWindow(*direction).into(),
+            false,
+        );
+        add(
+            &[Super, Shift],
+            Key::Named(arrow.clone()),
+            &format!("move_{suf}_arrow"),
+            "Move window",
+            WmAction::SwapWindow(*direction).into(),
+            false,
+        );
+    }
+    // Resize window (Ctrl + Shift + dir -> resizeactive; repeats). The pixel
+    // deltas are derived from the direction by the realization functor.
+    for (letter, arrow, suf, direction) in DIRS {
+        add(
+            &[Ctrl, Shift],
+            Key::Letter(*letter),
+            &format!("resize_{suf}"),
+            "Resize",
+            WmAction::Resize(*direction, 30).into(),
+            true,
+        );
+        add(
+            &[Ctrl, Shift],
+            Key::Named(arrow.clone()),
+            &format!("resize_{suf}_arrow"),
+            "Resize",
+            WmAction::Resize(*direction, 30).into(),
+            true,
+        );
+    }
+
+    // Window state.
+    add(
+        &[Super],
+        Key::Letter('q'),
+        "close",
+        "Close window",
+        WmAction::Close.into(),
+        false,
+    );
+    // Float + pin is a genuine TWO-action composite — not a shell hack. The
+    // realization functor batches [ToggleFloat, Pin] into one exec.
+    add(
+        &[Super],
+        Key::Letter('y'),
+        "float_pin",
+        "Float + pin",
+        vec![WmAction::ToggleFloat, WmAction::Pin].into(),
+        false,
+    );
+    add(
+        &[Super],
+        Key::Letter('f'),
+        "fullscreen",
+        "Fullscreen",
+        WmAction::Fullscreen.into(),
+        false,
+    );
+    add(
+        &[Super],
+        Key::Letter('p'),
+        "pseudo",
+        "Pseudotile",
+        WmAction::Pseudotile.into(),
+        false,
+    );
+    add(
+        &[Super],
+        Key::Letter('o'),
+        "toggle_split",
+        "Toggle split",
+        WmAction::ToggleSplit.into(),
+        false,
+    );
+    add(
+        &[Super],
+        Key::Letter('u'),
+        "toggle_group",
+        "Toggle group",
+        WmAction::ToggleGroup.into(),
+        false,
+    );
+    add(
+        &[Super],
+        Key::Named(NamedKey::Tab),
+        "group_cycle",
+        "Cycle window in group",
+        WmAction::CycleGroup(Cycle::Forward).into(),
+        false,
+    );
+
+    // Workspaces (Super + number; 0 = ws 10).
+    for n in 1u8..=10 {
+        let key = Key::Number(if n == 10 { 0 } else { n });
+        add(
+            &[Super],
+            key,
+            &format!("workspace_{n}"),
+            "Workspace",
+            WmAction::Workspace(WorkspaceTarget::Index(n)).into(),
+            false,
+        );
+    }
+    add(
+        &[Super],
+        Key::Letter('m'),
+        "workspace_music",
+        "Music workspace",
+        WmAction::Workspace(WorkspaceTarget::Named("Music".to_string())).into(),
+        false,
+    );
+
+    // Adjacent workspace (Super + Ctrl + arrows or j/l).
+    add(
+        &[Super, Ctrl],
+        Key::Named(NamedKey::Left),
+        "ws_prev",
+        "Previous workspace",
+        WmAction::Workspace(WorkspaceTarget::Relative(-1)).into(),
+        false,
+    );
+    add(
+        &[Super, Ctrl],
+        Key::Named(NamedKey::Right),
+        "ws_next",
+        "Next workspace",
+        WmAction::Workspace(WorkspaceTarget::Relative(1)).into(),
+        false,
+    );
+    add(
+        &[Super, Ctrl],
+        Key::Letter('j'),
+        "ws_prev_j",
+        "Previous workspace",
+        WmAction::Workspace(WorkspaceTarget::Relative(-1)).into(),
+        false,
+    );
+    add(
+        &[Super, Ctrl],
+        Key::Letter('l'),
+        "ws_next_l",
+        "Next workspace",
+        WmAction::Workspace(WorkspaceTarget::Relative(1)).into(),
+        false,
+    );
+
+    // Send window to workspace (Super + Ctrl + number).
+    for n in 1u8..=10 {
+        let key = Key::Number(if n == 10 { 0 } else { n });
+        add(
+            &[Super, Ctrl],
+            key,
+            &format!("move_to_ws_{n}"),
+            "Send window to workspace",
+            WmAction::MoveToWorkspace(WorkspaceTarget::Index(n), Follow::Follow).into(),
+            false,
+        );
+    }
+    // Send window to adjacent workspace (Super + Ctrl + Shift + arrows or j/l).
+    add(
+        &[Super, Ctrl, Shift],
+        Key::Named(NamedKey::Left),
+        "send_ws_prev",
+        "Send window \u{2190} workspace",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Relative(-1), Follow::Follow).into(),
+        false,
+    );
+    add(
+        &[Super, Ctrl, Shift],
+        Key::Named(NamedKey::Right),
+        "send_ws_next",
+        "Send window \u{2192} workspace",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Relative(1), Follow::Follow).into(),
+        false,
+    );
+    add(
+        &[Super, Ctrl, Shift],
+        Key::Letter('j'),
+        "send_ws_prev_j",
+        "Send window \u{2190} workspace",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Relative(-1), Follow::Follow).into(),
+        false,
+    );
+    add(
+        &[Super, Ctrl, Shift],
+        Key::Letter('l'),
+        "send_ws_next_l",
+        "Send window \u{2192} workspace",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Relative(1), Follow::Follow).into(),
+        false,
+    );
+
+    // Send window to workspace silently (Super + Shift + number).
+    for n in 1u8..=10 {
+        let key = Key::Number(if n == 10 { 0 } else { n });
+        add(
+            &[Super, Shift],
+            key,
+            &format!("move_silent_{n}"),
+            "Send window to workspace (silent)",
+            WmAction::MoveToWorkspace(WorkspaceTarget::Index(n), Follow::Silent).into(),
+            false,
+        );
+    }
+
+    bs
+}
+
+/// `windows` — Microsoft Windows 11 global window & virtual-desktop conventions,
+/// projected to Hyprland. Single passthrough `app` mode, no remap (Windows uses
+/// Ctrl natively). Snap/maximize are adapted to the nearest real dispatcher.
+///
+/// Source: Microsoft Support, "Keyboard shortcuts in Windows".
+pub fn windows_preset() -> BindingSet {
+    let mut bs = BindingSet::new("windows");
+    let app = ModeId::new("app");
+    let mut add = |mods: &[Modifier], key: Key, name: &str, desc: &str, action: WmAction| {
+        bs.add(
+            combo(mods, key),
+            app.clone(),
+            Action::new(name, desc, action),
+            false,
+        );
+    };
+
+    // Window switch (Alt+Tab) + close (Alt+F4) — faithful.
+    add(
+        &[Alt],
+        Key::Named(NamedKey::Tab),
+        "switch_window",
+        "Switch window",
+        WmAction::CycleWindow(Cycle::Forward),
+    );
+    add(
+        &[Alt, Shift],
+        Key::Named(NamedKey::Tab),
+        "switch_window_prev",
+        "Switch window (reverse)",
+        WmAction::CycleWindow(Cycle::Backward),
+    );
+    add(
+        &[Alt],
+        Key::Function(4),
+        "close",
+        "Close window",
+        WmAction::Close,
+    );
+
+    // Snap (Win+arrows) + maximize (Win+Up) — adapted. Win+Up maximizes (keeps
+    // the bar): fullscreen mode 1, NOT true fullscreen.
+    add(
+        &[Super],
+        Key::Named(NamedKey::Left),
+        "snap_left",
+        "Snap window left",
+        WmAction::MoveWindow(Direction::Left),
+    );
+    add(
+        &[Super],
+        Key::Named(NamedKey::Right),
+        "snap_right",
+        "Snap window right",
+        WmAction::MoveWindow(Direction::Right),
+    );
+    add(
+        &[Super],
+        Key::Named(NamedKey::Up),
+        "maximize",
+        "Maximize window",
+        WmAction::Maximize,
+    );
+
+    // Move window (Win+Shift+arrows) — adapted to a directional move.
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::Left),
+        "move_left",
+        "Move window left",
+        WmAction::MoveWindow(Direction::Left),
+    );
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::Right),
+        "move_right",
+        "Move window right",
+        WmAction::MoveWindow(Direction::Right),
+    );
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::Up),
+        "move_up",
+        "Move window up",
+        WmAction::MoveWindow(Direction::Up),
+    );
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::Down),
+        "move_down",
+        "Move window down",
+        WmAction::MoveWindow(Direction::Down),
+    );
+
+    // Virtual desktops: Ctrl+Win+arrows switch; Win+1..9 -> desktop N.
+    add(
+        &[Super, Ctrl],
+        Key::Named(NamedKey::Left),
+        "desktop_prev",
+        "Previous virtual desktop",
+        WmAction::Workspace(WorkspaceTarget::Relative(-1)),
+    );
+    add(
+        &[Super, Ctrl],
+        Key::Named(NamedKey::Right),
+        "desktop_next",
+        "Next virtual desktop",
+        WmAction::Workspace(WorkspaceTarget::Relative(1)),
+    );
+    for n in 1u8..=9 {
+        add(
+            &[Super],
+            Key::Number(n),
+            &format!("workspace_{n}"),
+            "Virtual desktop",
+            WmAction::Workspace(WorkspaceTarget::Index(n)),
+        );
+    }
+    bs
+}
+
+/// `macos` — Apple macOS Mission Control / Spaces / window conventions, projected
+/// to Hyprland. Pairs with the `macos` remap (Cmd-feel); the window verbs
+/// (Cmd+W/Q/H/M) are bound so they win over the remap.
+///
+/// Source: Apple Support, "Mac keyboard shortcuts" & "Use Mission Control".
+pub fn macos_preset() -> BindingSet {
+    let mut bs = BindingSet::new("macos");
+    let app = ModeId::new("app");
+    let mut add = |mods: &[Modifier], key: Key, name: &str, desc: &str, action: WmAction| {
+        bs.add(
+            combo(mods, key),
+            app.clone(),
+            Action::new(name, desc, action),
+            false,
+        );
+    };
+
+    // Spaces: Ctrl+arrows + Ctrl+1..9 (native Ctrl).
+    add(
+        &[Ctrl],
+        Key::Named(NamedKey::Left),
+        "workspace_prev",
+        "Previous Space",
+        WmAction::Workspace(WorkspaceTarget::Relative(-1)),
+    );
+    add(
+        &[Ctrl],
+        Key::Named(NamedKey::Right),
+        "workspace_next",
+        "Next Space",
+        WmAction::Workspace(WorkspaceTarget::Relative(1)),
+    );
+    for n in 1u8..=9 {
+        add(
+            &[Ctrl],
+            Key::Number(n),
+            &format!("workspace_{n}"),
+            "Space",
+            WmAction::Workspace(WorkspaceTarget::Index(n)),
+        );
+    }
+    // Mission Control (Ctrl+Up) — adapted to an `overview` special workspace.
+    add(
+        &[Ctrl],
+        Key::Named(NamedKey::Up),
+        "mission_control",
+        "Mission Control",
+        WmAction::ToggleSpecialWorkspace("overview".to_string()),
+    );
+
+    // Window switch (Cmd+Tab).
+    add(
+        &[Super],
+        Key::Named(NamedKey::Tab),
+        "switch_window",
+        "Switch window",
+        WmAction::CycleWindow(Cycle::Forward),
+    );
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::Tab),
+        "switch_window_prev",
+        "Switch window (reverse)",
+        WmAction::CycleWindow(Cycle::Backward),
+    );
+
+    // Window verbs (Cmd+W/Q/H/M) — bound, so they win over the remap. Hide and
+    // "minimize" are silent moves to special workspaces, not a minimize state.
+    add(
+        &[Super],
+        Key::Letter('w'),
+        "close_window",
+        "Close window",
+        WmAction::Close,
+    );
+    add(
+        &[Super],
+        Key::Letter('q'),
+        "quit",
+        "Quit app",
+        WmAction::Close,
+    );
+    add(
+        &[Super],
+        Key::Letter('h'),
+        "hide",
+        "Hide window",
+        WmAction::MoveToWorkspace(
+            WorkspaceTarget::Special("hidden".to_string()),
+            Follow::Silent,
+        ),
+    );
+    add(
+        &[Super],
+        Key::Letter('m'),
+        "minimize",
+        "Minimize window",
+        WmAction::Minimize,
+    );
+    // Fullscreen (Ctrl+Cmd+F).
+    add(
+        &[Ctrl, Super],
+        Key::Letter('f'),
+        "fullscreen",
+        "Toggle fullscreen",
+        WmAction::Fullscreen,
+    );
+    bs
+}
+
+/// `linux` — mainstream GNOME Shell global window conventions, projected to
+/// Hyprland. Single passthrough `app` mode, no remap. Tile/maximize/hide are
+/// adapted to the nearest real dispatcher.
+///
+/// Source: GNOME Shell defaults (`org.gnome.desktop.wm.keybindings`).
+pub fn linux_preset() -> BindingSet {
+    let mut bs = BindingSet::new("linux");
+    let app = ModeId::new("app");
+    let mut add = |mods: &[Modifier], key: Key, name: &str, desc: &str, action: WmAction| {
+        bs.add(
+            combo(mods, key),
+            app.clone(),
+            Action::new(name, desc, action),
+            false,
+        );
+    };
+
+    // Workspaces: Super+PageUp/PageDown switch; Super+Shift+PageUp/Down move window.
+    add(
+        &[Super],
+        Key::Named(NamedKey::PageUp),
+        "workspace_prev",
+        "Previous workspace",
+        WmAction::Workspace(WorkspaceTarget::Relative(-1)),
+    );
+    add(
+        &[Super],
+        Key::Named(NamedKey::PageDown),
+        "workspace_next",
+        "Next workspace",
+        WmAction::Workspace(WorkspaceTarget::Relative(1)),
+    );
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::PageUp),
+        "move_to_prev",
+        "Move window \u{2190} workspace",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Relative(-1), Follow::Follow),
+    );
+    add(
+        &[Super, Shift],
+        Key::Named(NamedKey::PageDown),
+        "move_to_next",
+        "Move window \u{2192} workspace",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Relative(1), Follow::Follow),
+    );
+
+    // Window switch (Alt+Tab) + close (Alt+F4) — faithful.
+    add(
+        &[Alt],
+        Key::Named(NamedKey::Tab),
+        "switch_window",
+        "Switch window",
+        WmAction::CycleWindow(Cycle::Forward),
+    );
+    add(
+        &[Alt],
+        Key::Function(4),
+        "kill",
+        "Close window",
+        WmAction::Close,
+    );
+
+    // Maximize (Super+Up) + tile (Super+arrows) + hide (Super+H) — adapted.
+    // Super+Up maximizes (keeps the bar): fullscreen mode 1, not true fullscreen.
+    add(
+        &[Super],
+        Key::Named(NamedKey::Up),
+        "maximize",
+        "Maximize window",
+        WmAction::Maximize,
+    );
+    add(
+        &[Super],
+        Key::Named(NamedKey::Left),
+        "tile_left",
+        "Tile window left",
+        WmAction::MoveWindow(Direction::Left),
+    );
+    add(
+        &[Super],
+        Key::Named(NamedKey::Right),
+        "tile_right",
+        "Tile window right",
+        WmAction::MoveWindow(Direction::Right),
+    );
+    add(
+        &[Super],
+        Key::Letter('h'),
+        "hide",
+        "Hide window",
+        WmAction::MoveToWorkspace(WorkspaceTarget::Special(String::new()), Follow::Silent),
+    );
+    bs
 }
 
 #[cfg(test)]
@@ -941,10 +1685,15 @@ mod tests {
         bs.add(
             combo.clone(),
             mode.clone(),
-            Action::new("a1", "Action 1", "cmd1"),
+            Action::new("a1", "Action 1", WmAction::Close),
             false,
         );
-        bs.add(combo, mode, Action::new("a2", "Action 2", "cmd2"), false);
+        bs.add(
+            combo,
+            mode,
+            Action::new("a2", "Action 2", WmAction::Close),
+            false,
+        );
         assert!(
             NoConflicts {
                 bindings: bs.clone()
@@ -962,13 +1711,13 @@ mod tests {
         bs.add(
             combo.clone(),
             ModeId::new("mode1"),
-            Action::new("a1", "Action 1", "cmd1"),
+            Action::new("a1", "Action 1", WmAction::Close),
             false,
         );
         bs.add(
             combo,
             ModeId::new("mode2"),
-            Action::new("a2", "Action 2", "cmd2"),
+            Action::new("a2", "Action 2", WmAction::Close),
             false,
         );
         assert!(NoConflicts { bindings: bs }.verify().is_ok());
@@ -1117,9 +1866,100 @@ mod tests {
             ("emacs", emacs_preset()),
             ("i3", i3_preset()),
             ("tmux", tmux_preset()),
+            ("vogix", vogix_preset()),
+            ("windows", windows_preset()),
+            ("macos", macos_preset()),
+            ("linux", linux_preset()),
         ] {
             let axiom = NoConflicts { bindings: bs };
             assert!(axiom.verify().is_ok(), "{name} preset has conflicts");
+        }
+    }
+
+    #[test]
+    fn test_vogix_preset_has_focus_and_workspaces() {
+        let bs = vogix_preset();
+        let app = ModeId::new("app");
+        let names: Vec<_> = bs
+            .for_mode(&app)
+            .iter()
+            .map(|b| b.action.name.clone())
+            .collect();
+        // Focus for both hjkl and arrows, plus all 10 workspaces.
+        assert!(names.iter().any(|n| n == "focus_l"));
+        assert!(names.iter().any(|n| n == "focus_l_arrow"));
+        for i in 1..=10 {
+            assert!(
+                names.iter().any(|n| n == &format!("workspace_{i}")),
+                "vogix missing workspace_{i}"
+            );
+        }
+    }
+
+    #[test]
+    fn vogix_commands_realize_to_expected_dispatchers() {
+        let bs = vogix_preset();
+        let app = ModeId::new("app");
+        let cmd = |n: &str| {
+            bs.for_mode(&app)
+                .into_iter()
+                .find(|b| b.action.name == n)
+                .map(|b| b.action.command())
+        };
+        assert_eq!(cmd("focus_l").as_deref(), Some("movefocus, l"));
+        assert_eq!(cmd("move_u").as_deref(), Some("swapwindow, u"));
+        assert_eq!(cmd("resize_l").as_deref(), Some("resizeactive, -30 0"));
+        assert_eq!(cmd("fullscreen").as_deref(), Some("fullscreen"));
+        assert_eq!(cmd("workspace_10").as_deref(), Some("workspace, 10"));
+        assert_eq!(cmd("workspace_music").as_deref(), Some("workspace, Music"));
+        assert_eq!(cmd("ws_next").as_deref(), Some("workspace, +1"));
+        assert_eq!(
+            cmd("move_silent_1").as_deref(),
+            Some("movetoworkspacesilent, 1")
+        );
+        // The float+pin composite batches into one exec — derived, not hand-written.
+        assert_eq!(
+            cmd("float_pin").as_deref(),
+            Some("exec, hyprctl dispatch togglefloating ; hyprctl dispatch pin")
+        );
+    }
+
+    #[test]
+    fn desktop_maximize_realizes_to_fullscreen_mode_one() {
+        // The maximize-vs-fullscreen fix at the binding level: windows/linux
+        // "maximize" => fullscreen mode 1 (keep the bar), not true fullscreen.
+        for (label, bs, name) in [
+            ("windows", windows_preset(), "maximize"),
+            ("linux", linux_preset(), "maximize"),
+        ] {
+            let app = ModeId::new("app");
+            let max = bs
+                .for_mode(&app)
+                .into_iter()
+                .find(|b| b.action.name == name)
+                .map(|b| b.action.command());
+            assert_eq!(
+                max.as_deref(),
+                Some("fullscreen, 1"),
+                "{label} maximize should realize to fullscreen, 1"
+            );
+        }
+    }
+
+    #[test]
+    fn test_desktop_presets_have_window_switch() {
+        // Each desktop paradigm binds a window-switch verb.
+        for (name, bs) in [
+            ("windows", windows_preset()),
+            ("macos", macos_preset()),
+            ("linux", linux_preset()),
+        ] {
+            let app = ModeId::new("app");
+            let has_switch = bs
+                .for_mode(&app)
+                .iter()
+                .any(|b| b.action.name == "switch_window");
+            assert!(has_switch, "{name} preset missing switch_window");
         }
     }
 
@@ -1190,7 +2030,7 @@ mod tests {
                 bs.add(
                     KeyCombo::new(Key::Letter(c)),
                     mode.clone(),
-                    Action::new(format!("a{}", i), "test", "cmd"),
+                    Action::new(format!("a{}", i), "test", WmAction::Close),
                     false,
                 );
             }
