@@ -1398,21 +1398,29 @@ pub fn windows_preset() -> BindingSet {
         "Maximize window",
         WmAction::maximize(),
     );
+    add(
+        &[Super],
+        Key::Named(NamedKey::Down),
+        "minimize",
+        "Minimize window",
+        WmAction::minimize(),
+    );
 
-    // Move window (Win+Shift+arrows) — adapted to a directional move.
+    // Win+Shift+Left/Right move the window to the adjacent monitor (real Windows
+    // semantics); Win+Shift+Up/Down move it directionally within the layout.
     add(
         &[Super, Shift],
         Key::Named(NamedKey::Left),
-        "move_left",
-        "Move window left",
-        WmAction::MoveWindow(Direction::Left),
+        "to_monitor_left",
+        "Move window to monitor left",
+        WmAction::move_to_monitor(OutputSel::Direction(Direction::Left)),
     );
     add(
         &[Super, Shift],
         Key::Named(NamedKey::Right),
-        "move_right",
-        "Move window right",
-        WmAction::MoveWindow(Direction::Right),
+        "to_monitor_right",
+        "Move window to monitor right",
+        WmAction::move_to_monitor(OutputSel::Direction(Direction::Right)),
     );
     add(
         &[Super, Shift],
@@ -1453,6 +1461,14 @@ pub fn windows_preset() -> BindingSet {
             WmAction::Workspace(WorkspaceTarget::Index(n)),
         );
     }
+    // Task View overview (Win+Tab).
+    add(
+        &[Super],
+        Key::Named(NamedKey::Tab),
+        "overview",
+        "Task view",
+        WmAction::ToggleSpecialWorkspace("overview".to_string()),
+    );
     bs
 }
 
