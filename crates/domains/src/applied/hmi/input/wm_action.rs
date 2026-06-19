@@ -999,6 +999,268 @@ pub fn realize(action: &WmAction) -> String {
     HyprlandRealization::map_morphism(&ActionWord::from(action.clone())).command()
 }
 
+// ── A second backend: SwayRealization (the generality is load-bearing) ────────
+
+/// A single sway command — the realization atom for the [`SwayRealization`]
+/// backend. Unlike Hyprland's typed [`Dispatch`], sway's command language is a
+/// flat string vocabulary (i3-inherited), so the atom carries the exact, CITED
+/// sway(5) command text; [`SwayCmd::render`] is its (identity) wire form.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SwayCmd(pub String);
+
+impl SwayCmd {
+    fn new(s: impl Into<String>) -> Self {
+        SwayCmd(s.into())
+    }
+    /// The wire form — the sway command string.
+    pub fn render(&self) -> String {
+        self.0.clone()
+    }
+}
+
+/// A word in the free monoid of sway commands — the realization of an action word.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SwayWord(pub Vec<SwayCmd>);
+
+impl SwayWord {
+    /// The command string a single keybind emits; a composite chains with `; `
+    /// (sway's command separator).
+    pub fn command(&self) -> String {
+        self.0
+            .iter()
+            .map(SwayCmd::render)
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+}
+
+impl Arrow for SwayWord {
+    type Object = WmSurface;
+    type Kind = ();
+    fn source(&self) -> WmSurface {
+        WmSurface::Compositor
+    }
+    fn target(&self) -> WmSurface {
+        WmSurface::Compositor
+    }
+    fn kind(&self) {}
+}
+
+/// The free monoid on [`SwayCmd`] — the [`SwayRealization`] functor target.
+pub struct SwayAlgebra;
+
+impl Category for SwayAlgebra {
+    type Object = WmSurface;
+    type Morphism = SwayWord;
+    fn identity(_: &WmSurface) -> SwayWord {
+        SwayWord(Vec::new())
+    }
+    fn compose(f: &SwayWord, g: &SwayWord) -> Option<SwayWord> {
+        let mut w = f.0.clone();
+        w.extend(g.0.iter().cloned());
+        Some(SwayWord(w))
+    }
+    fn morphisms() -> Vec<SwayWord> {
+        let mut ms = vec![SwayWord(Vec::new())];
+        ms.extend(
+            WmAction::representative_actions()
+                .iter()
+                .map(|a| SwayWord(lower_sway(a))),
+        );
+        ms
+    }
+}
+
+/// The window states sway exposes a command for — its window-state capability.
+/// Sway lacks a distinct maximize, pseudo-tiling, shading, the below layer, and
+/// the EWMH hints; its `sticky` realizes above/pin (for floating windows).
+fn sway_state_capability() -> [StateBit; 5] {
+    [
+        StateBit::Fullscreen,
+        StateBit::Hidden,
+        StateBit::Floating,
+        StateBit::Above,
+        StateBit::Sticky,
+    ]
+}
+
+/// Whether sway has a command for an action — its CAPABILITY. Distinct from
+/// Hyprland's: sway realizes the container-tree / focus-layer / named-layout /
+/// split-orientation operations Hyprland lacks, but lacks the maximize / pseudo-
+/// tile / shade / directional-swap that Hyprland has. The capability sets
+/// DIFFERING per backend is exactly what makes the source backend-independent.
+pub fn sway_realizes(action: &WmAction) -> bool {
+    match action {
+        WmAction::State(d) => sway_state_capability().contains(&d.bit),
+        // sway `swap container with` targets a mark/id, never a bare direction.
+        WmAction::SwapWindow(_) => false,
+        _ => true,
+    }
+}
+
+/// The sway workspace argument for a non-special target (`number N` / `next` /
+/// `prev` / a name / `back_and_forth`).
+fn sway_ws(t: &WorkspaceTarget) -> String {
+    match t {
+        WorkspaceTarget::Index(n) => format!("number {n}"),
+        WorkspaceTarget::Relative(k) => {
+            if *k >= 0 {
+                "next".to_string()
+            } else {
+                "prev".to_string()
+            }
+        }
+        WorkspaceTarget::Named(s) => s.clone(),
+        WorkspaceTarget::Last => "back_and_forth".to_string(),
+        // Special is a Hyprland concept; sway's analogue is the scratchpad,
+        // handled at the call site.
+        WorkspaceTarget::Special(_) => "scratchpad".to_string(),
+    }
+}
+
+/// The sway monitor argument (`left|right|up|down` / a name / `next`|`prev`).
+fn sway_output(s: &OutputSel) -> String {
+    match s {
+        OutputSel::Direction(d) => d.name().to_string(),
+        OutputSel::Named(n) => n.clone(),
+        OutputSel::Relative(k) => {
+            if *k >= 0 {
+                "next".to_string()
+            } else {
+                "prev".to_string()
+            }
+        }
+    }
+}
+
+/// Lower a window-state mutation to sway. Sway exposes only toggles (the EWMH
+/// add/remove/toggle distinction is not observable, as on Hyprland). The states
+/// sway lacks (maximize / pseudo / shade / below / hints) lower to the empty word.
+fn lower_sway_state(d: &StateDelta) -> Vec<SwayCmd> {
+    match d.bit {
+        StateBit::Fullscreen => vec![SwayCmd::new("fullscreen toggle")],
+        StateBit::Hidden => vec![SwayCmd::new("move scratchpad")],
+        StateBit::Floating => vec![SwayCmd::new("floating toggle")],
+        // sway `sticky` pins floating windows across workspaces — its above/pin analogue.
+        StateBit::Above | StateBit::Sticky => vec![SwayCmd::new("sticky toggle")],
+        StateBit::MaximizedVert
+        | StateBit::MaximizedHorz
+        | StateBit::PseudoTiled
+        | StateBit::Shaded
+        | StateBit::Below
+        | StateBit::SkipTaskbar
+        | StateBit::SkipPager
+        | StateBit::Modal
+        | StateBit::DemandsAttention
+        | StateBit::Focused => Vec::new(),
+    }
+}
+
+/// Lower one abstract action to its sway command(s) — the cited per-action rule
+/// for the sway backend (sway(5) / i3 User's Guide). Operations sway has no
+/// command for (maximize, pseudo-tile, shade, directional swap) lower to the
+/// empty word, excluded from sway's generating set by [`sway_realizes`].
+fn lower_sway(action: &WmAction) -> Vec<SwayCmd> {
+    let one = |s: &str| vec![SwayCmd::new(s)];
+    match action {
+        WmAction::Focus(FocusBy::Direction(d)) => one(&format!("focus {}", d.name())),
+        WmAction::Focus(FocusBy::Cycle(c)) => one(match c {
+            Cycle::Forward => "focus next",
+            Cycle::Backward => "focus prev",
+        }),
+        WmAction::Focus(FocusBy::Tree(axis)) => one(match axis {
+            TreeAxis::Parent => "focus parent",
+            TreeAxis::Child => "focus child",
+            TreeAxis::Sibling(Cycle::Forward) => "focus next sibling",
+            TreeAxis::Sibling(Cycle::Backward) => "focus prev sibling",
+        }),
+        WmAction::Focus(FocusBy::Layer) => one("focus mode_toggle"),
+        WmAction::MoveWindow(d) => one(&format!("move {}", d.name())),
+        // sway swap requires a mark/id target — no directional form (capability gap).
+        WmAction::SwapWindow(_) => Vec::new(),
+        WmAction::Resize(d, amt) => {
+            let (verb, axis) = match d {
+                Direction::Left => ("shrink", "width"),
+                Direction::Right => ("grow", "width"),
+                Direction::Up => ("shrink", "height"),
+                Direction::Down => ("grow", "height"),
+            };
+            one(&format!("resize {verb} {axis} {amt} px"))
+        }
+        WmAction::Close => one("kill"),
+        WmAction::State(d) => lower_sway_state(d),
+        WmAction::Split(o) => one(match o {
+            Orientation::Horizontal => "split horizontal",
+            Orientation::Vertical => "split vertical",
+            Orientation::Toggle => "split toggle",
+        }),
+        WmAction::ToggleGroup => one("layout toggle split tabbed"),
+        WmAction::CycleGroup(c) => one(match c {
+            Cycle::Forward => "focus next",
+            Cycle::Backward => "focus prev",
+        }),
+        WmAction::Workspace(WorkspaceTarget::Special(_)) => one("scratchpad show"),
+        WmAction::Workspace(t) => one(&format!("workspace {}", sway_ws(t))),
+        WmAction::MoveToWorkspace(WorkspaceTarget::Special(_), _) => one("move scratchpad"),
+        WmAction::MoveToWorkspace(t, Follow::Silent) => {
+            one(&format!("move container to workspace {}", sway_ws(t)))
+        }
+        WmAction::MoveToWorkspace(t, Follow::Follow) => {
+            // sway has no move-and-follow flag — chain the move and the switch.
+            let ws = sway_ws(t);
+            vec![
+                SwayCmd::new(format!("move container to workspace {ws}")),
+                SwayCmd::new(format!("workspace {ws}")),
+            ]
+        }
+        WmAction::ToggleSpecialWorkspace(_) => one("scratchpad show"),
+        WmAction::FocusMonitor(s) => one(&format!("focus output {}", sway_output(s))),
+        WmAction::MoveToMonitor(s) => one(&format!("move container to output {}", sway_output(s))),
+        WmAction::Exec(cmd) => one(&format!("exec {cmd}")),
+        WmAction::Submap(SubmapTarget::Enter(m)) => one(&format!("mode {}", m.0)),
+        WmAction::Submap(SubmapTarget::Reset) => one("mode default"),
+    }
+}
+
+/// The realization functor `SwayRealization : ActionAlgebra → SwayAlgebra` — a
+/// SECOND backend over the SAME source, proving the source is backend-independent
+/// (the generality is load-bearing, not YAGNI). Sway realizes natively the
+/// container-tree / focus-layer / named-layout / split-orientation operations
+/// Hyprland gaps; Hyprland realizes the maximize / pseudo-tile / directional-swap
+/// sway gaps. Both are total monoid homomorphisms on their respective capability.
+pub struct SwayRealization;
+
+impl Functor for SwayRealization {
+    type Source = ActionAlgebra;
+    type Target = SwayAlgebra;
+
+    fn map_object(_: &WmSurface) -> WmSurface {
+        WmSurface::Compositor
+    }
+
+    fn map_morphism(word: &ActionWord) -> SwayWord {
+        SwayWord(word.0.iter().flat_map(lower_sway).collect())
+    }
+
+    fn meta() -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("SwayRealization"),
+            description: Label::new_static(
+                "abstract WM actions → sway command sequences (a second backend realization)",
+            ),
+            citation: Citation::parse_static(
+                "sway(5) — the sway command language (i3-inherited); a second algebra of the WM-action signature, so the projection is the forced unique homomorphism (Goguen-Thatcher-Wagner 1978)",
+            ),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
+}
+
+/// Convenience: the sway command string a single action emits.
+pub fn sway_realize(action: &WmAction) -> String {
+    SwayRealization::map_morphism(&ActionWord::from(action.clone())).command()
+}
+
 // ── Domain axioms ─────────────────────────────────────────────────────────────
 
 /// Every abstract action realizes to at least one dispatcher — the projection is
@@ -1307,6 +1569,79 @@ mod tests {
         );
     }
 
+    // ── The second backend: SwayRealization (generality is load-bearing) ──
+
+    #[test]
+    fn sway_realization_is_a_functor() {
+        assert_functor_laws::<SwayRealization>();
+    }
+
+    #[test]
+    fn sway_realizes_the_hyprland_gaps_and_vice_versa() {
+        // The SAME source action Hyprland gaps, sway realizes NATIVELY — the proof
+        // that the generality is load-bearing, not YAGNI. Container-tree focus and
+        // focus-layer have no Hyprland dispatcher; sway has "focus parent" /
+        // "focus mode_toggle".
+        for a in [WmAction::focus_parent(), WmAction::focus_layer()] {
+            assert!(!hyprland_realizes(&a), "Hyprland should gap {a:?}");
+            assert!(realize(&a).is_empty(), "Hyprland must gap {a:?} to empty");
+            assert!(sway_realizes(&a), "sway should realize {a:?}");
+            assert!(
+                !sway_realize(&a).is_empty(),
+                "sway must emit a command for {a:?}"
+            );
+        }
+        // Split(Vertical) is realized on BOTH but DIFFERENTLY: Hyprland collapses
+        // every orientation to togglesplit; sway distinguishes "split vertical".
+        assert_eq!(
+            realize(&WmAction::Split(Orientation::Vertical)),
+            "layoutmsg, togglesplit"
+        );
+        assert_eq!(
+            sway_realize(&WmAction::Split(Orientation::Vertical)),
+            "split vertical"
+        );
+        // Conversely: Hyprland realizes the maximize / pseudo-tile sway gaps.
+        for a in [WmAction::maximize(), WmAction::pseudotile()] {
+            assert!(hyprland_realizes(&a), "Hyprland should realize {a:?}");
+            assert!(!sway_realizes(&a), "sway should gap {a:?}");
+        }
+    }
+
+    #[test]
+    fn sway_realize_strings() {
+        assert_eq!(sway_realize(&WmAction::focus_parent()), "focus parent");
+        assert_eq!(sway_realize(&WmAction::focus_layer()), "focus mode_toggle");
+        assert_eq!(
+            sway_realize(&WmAction::focus(Direction::Left)),
+            "focus left"
+        );
+        assert_eq!(
+            sway_realize(&WmAction::Split(Orientation::Vertical)),
+            "split vertical"
+        );
+        assert_eq!(
+            sway_realize(&WmAction::Resize(Direction::Left, 30)),
+            "resize shrink width 30 px"
+        );
+        assert_eq!(
+            sway_realize(&WmAction::Workspace(WorkspaceTarget::Index(3))),
+            "workspace number 3"
+        );
+        assert_eq!(
+            sway_realize(&WmAction::Workspace(WorkspaceTarget::Last)),
+            "workspace back_and_forth"
+        );
+        assert_eq!(
+            sway_realize(&WmAction::focus_monitor(OutputSel::Direction(
+                Direction::Left
+            ))),
+            "focus output left"
+        );
+        // A sway capability gap lowers to the empty command.
+        assert_eq!(sway_realize(&WmAction::maximize()), "");
+    }
+
     // ── The three fixes ──
 
     #[test]
@@ -1395,6 +1730,18 @@ mod tests {
             let ra = HyprlandRealization::map_morphism(&a);
             let rb = HyprlandRealization::map_morphism(&b);
             let rhs = DispatchAlgebra::compose(&ra, &rb).unwrap();
+            prop_assert_eq!(lhs, rhs);
+        }
+
+        /// SwayRealization is likewise a monoid homomorphism — the second backend
+        /// is a genuine functor over the same source.
+        #[test]
+        fn prop_sway_is_homomorphism(a in arb_word(), b in arb_word()) {
+            let cat = ActionAlgebra::compose(&a, &b).unwrap();
+            let lhs = SwayRealization::map_morphism(&cat);
+            let ra = SwayRealization::map_morphism(&a);
+            let rb = SwayRealization::map_morphism(&b);
+            let rhs = SwayAlgebra::compose(&ra, &rb).unwrap();
             prop_assert_eq!(lhs, rhs);
         }
 
