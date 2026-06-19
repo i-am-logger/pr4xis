@@ -138,6 +138,39 @@ impl FinitelyGenerated for Cycle {
     }
 }
 
+/// The orientation of a tiling split — the parameter of the split operation
+/// (i3/sway `split horizontal|vertical|toggle`).
+///
+/// A strongly-typed variable over i3's split value-set (Payne & Green 1986).
+/// `Toggle` flips the current orientation — the third value, not a separate verb.
+/// Hyprland exposes only the toggle, so the absolute orientations collapse to it
+/// there; a directed backend (Sway `split horizontal`) realizes them distinctly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Orientation {
+    Horizontal,
+    Vertical,
+    Toggle,
+}
+
+impl Concept for Orientation {
+    fn name(&self) -> &'static str {
+        match self {
+            Orientation::Horizontal => "horizontal",
+            Orientation::Vertical => "vertical",
+            Orientation::Toggle => "toggle",
+        }
+    }
+}
+impl FinitelyGenerated for Orientation {
+    fn variants() -> Vec<Self> {
+        vec![
+            Orientation::Horizontal,
+            Orientation::Vertical,
+            Orientation::Toggle,
+        ]
+    }
+}
+
 /// Whether moving a window to a workspace **follows** it (focus travels) or is
 /// **silent** (window leaves, focus stays).
 ///
@@ -255,9 +288,11 @@ pub enum WmAction {
     /// direction — restore / unmaximize — expressible as `State { Remove, … }`,
     /// which a flat verb set could not name.
     State(StateDelta),
-    /// Toggle the split orientation of the layout (Hyprland `layoutmsg
-    /// togglesplit`).
-    ToggleSplit,
+    /// Set or toggle the split orientation of the tiling layout — i3/sway
+    /// `split h|v|toggle`. Hyprland exposes only the toggle (`layoutmsg
+    /// togglesplit`), so all orientations collapse to it there; a backend with
+    /// absolute split (Sway `split horizontal`) realizes them distinctly.
+    Split(Orientation),
     /// Toggle grouping (tabbed group) for the focused window.
     ToggleGroup,
     /// Cycle the active window *within* the current group.
@@ -322,6 +357,12 @@ impl WmAction {
         WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::PseudoTiled))
     }
 
+    /// Toggle the tiling split orientation — `Split(Orientation::Toggle)` (i3
+    /// `split toggle`; Hyprland `layoutmsg togglesplit`).
+    pub fn toggle_split() -> Self {
+        WmAction::Split(Orientation::Toggle)
+    }
+
     /// The finite generating set — one representative of every variant. Used to
     /// machine-check the realization functor (totality, the functor laws) and to
     /// seed property tests. This is a *generating* set, not the (open-world) whole
@@ -346,7 +387,9 @@ impl WmAction {
             WmAction::toggle_float(),
             WmAction::pin(),
             WmAction::pseudotile(),
-            WmAction::ToggleSplit,
+            WmAction::Split(Orientation::Toggle),
+            WmAction::Split(Orientation::Horizontal),
+            WmAction::Split(Orientation::Vertical),
             WmAction::ToggleGroup,
             WmAction::CycleGroup(Cycle::Forward),
             WmAction::CycleWindow(Cycle::Forward),
@@ -380,7 +423,7 @@ impl Concept for WmAction {
             WmAction::Resize(_, _) => "resize",
             WmAction::Close => "close",
             WmAction::State(_) => "state",
-            WmAction::ToggleSplit => "toggle-split",
+            WmAction::Split(_) => "split",
             WmAction::ToggleGroup => "toggle-group",
             WmAction::CycleGroup(_) => "cycle-group",
             WmAction::CycleWindow(_) => "cycle-window",
@@ -653,7 +696,9 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
         }
         WmAction::Close => vec![Dispatch::KillActive],
         WmAction::State(d) => lower_state(d),
-        WmAction::ToggleSplit => vec![Dispatch::LayoutMsg("togglesplit")],
+        // Hyprland exposes only the split toggle; all orientations collapse to it
+        // here (Sway realizes split horizontal/vertical distinctly — see lower_sway).
+        WmAction::Split(_) => vec![Dispatch::LayoutMsg("togglesplit")],
         WmAction::ToggleGroup => vec![Dispatch::ToggleGroup],
         WmAction::CycleGroup(c) => vec![Dispatch::ChangeGroupActive(match c {
             Cycle::Forward => 'f',
@@ -871,7 +916,7 @@ pub struct MigrationFaithful;
 impl Axiom for MigrationFaithful {
     fn verify(&self) -> Verdict {
         // (the frozen v1 Hyprland string, the restructured term that must still emit it)
-        let golden: [(&str, WmAction); 6] = [
+        let golden: [(&str, WmAction); 7] = [
             ("fullscreen", WmAction::fullscreen()),
             ("fullscreen, 1", WmAction::maximize()),
             (
@@ -881,6 +926,7 @@ impl Axiom for MigrationFaithful {
             ("togglefloating,", WmAction::toggle_float()),
             ("pin,", WmAction::pin()),
             ("pseudo,", WmAction::pseudotile()),
+            ("layoutmsg, togglesplit", WmAction::toggle_split()),
         ];
         for (expected, action) in &golden {
             if realize(action) != *expected {

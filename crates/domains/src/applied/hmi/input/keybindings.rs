@@ -15,7 +15,7 @@ use hashbrown::{HashMap, HashSet};
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
 use super::wm_action::{
-    ActionWord, Cycle, Direction, Follow, HyprlandRealization, SubmapTarget, WmAction,
+    ActionWord, Cycle, Direction, Follow, HyprlandRealization, Orientation, SubmapTarget, WmAction,
     WorkspaceTarget,
 };
 use pr4xis::category::Functor;
@@ -675,7 +675,11 @@ pub fn i3_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('v')).with_mod(Modifier::Super),
         app.clone(),
-        Action::new("split_v", "Split vertical", WmAction::ToggleSplit),
+        Action::new(
+            "split_v",
+            "Split vertical",
+            WmAction::Split(Orientation::Vertical),
+        ),
         false,
     );
     bs.add(
@@ -1115,7 +1119,7 @@ pub fn vogix_preset() -> BindingSet {
         Key::Letter('o'),
         "toggle_split",
         "Toggle split",
-        WmAction::ToggleSplit.into(),
+        WmAction::toggle_split().into(),
         false,
     );
     add(
