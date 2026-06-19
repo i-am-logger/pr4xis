@@ -171,16 +171,54 @@ impl FinitelyGenerated for Orientation {
     }
 }
 
+/// A selector into the container TREE — the axis a tree-focus moves along
+/// (i3/sway `focus parent|child`; bspwm `@parent`/`@brother`). There is NO
+/// spatial direction here, which is exactly why tree-ascent cannot be a
+/// [`Direction`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TreeAxis {
+    Parent,
+    Child,
+    Sibling(Cycle),
+}
+
+impl Concept for TreeAxis {
+    fn name(&self) -> &'static str {
+        match self {
+            TreeAxis::Parent => "parent",
+            TreeAxis::Child => "child",
+            TreeAxis::Sibling(_) => "sibling",
+        }
+    }
+}
+impl FinitelyGenerated for TreeAxis {
+    fn variants() -> Vec<Self> {
+        vec![
+            TreeAxis::Parent,
+            TreeAxis::Child,
+            TreeAxis::Sibling(Cycle::Forward),
+            TreeAxis::Sibling(Cycle::Backward),
+        ]
+    }
+}
+
 /// How focus is selected — the parameter of the focus operation. A focus is
-/// always "move keyboard focus", but BY what: a spatial direction, or a cycle
-/// through the stack (Alt-Tab). (The container-tree and tiling/floating-layer
-/// selectors arrive with the capability framework.)
+/// always "move keyboard focus", but BY what: a spatial direction, a cycle
+/// through the stack (Alt-Tab), the container tree, or the tiling/floating layer.
+/// The tree and layer selectors are realized by backends that model a container
+/// tree / a focus-layer toggle (Sway); Hyprland exposes neither, so they fall
+/// outside its capability ([`hyprland_realizes`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FocusBy {
     /// The spatial neighbour in a direction (`movefocus`).
     Direction(Direction),
     /// Cycle through windows in stacking order (Alt-Tab; `cyclenext`).
     Cycle(Cycle),
+    /// Along the container tree (i3 `focus parent|child`). No Hyprland dispatcher.
+    Tree(TreeAxis),
+    /// Toggle focus between the tiling and floating layers (i3 `focus
+    /// mode_toggle`). No Hyprland dispatcher.
+    Layer,
 }
 
 impl Concept for FocusBy {
@@ -188,6 +226,8 @@ impl Concept for FocusBy {
         match self {
             FocusBy::Direction(_) => "direction",
             FocusBy::Cycle(_) => "cycle",
+            FocusBy::Tree(_) => "tree",
+            FocusBy::Layer => "layer",
         }
     }
 }
@@ -200,6 +240,10 @@ impl FinitelyGenerated for FocusBy {
         for c in Cycle::variants() {
             v.push(FocusBy::Cycle(c));
         }
+        for t in TreeAxis::variants() {
+            v.push(FocusBy::Tree(t));
+        }
+        v.push(FocusBy::Layer);
         v
     }
 }
@@ -407,6 +451,19 @@ impl WmAction {
         WmAction::Focus(FocusBy::Cycle(cycle))
     }
 
+    /// Focus the parent container (tree-ascent) — `Focus(FocusBy::Tree(Parent))`.
+    /// No spatial direction; a container-tree backend (Sway `focus parent`)
+    /// realizes it, Hyprland does not (capability gap).
+    pub fn focus_parent() -> Self {
+        WmAction::Focus(FocusBy::Tree(TreeAxis::Parent))
+    }
+
+    /// Toggle focus between the tiling and floating layers —
+    /// `Focus(FocusBy::Layer)` (i3 `focus mode_toggle`). Hyprland capability gap.
+    pub fn focus_layer() -> Self {
+        WmAction::Focus(FocusBy::Layer)
+    }
+
     /// The finite generating set — one representative of every variant. Used to
     /// machine-check the realization functor (totality, the functor laws) and to
     /// seed property tests. This is a *generating* set, not the (open-world) whole
@@ -438,6 +495,12 @@ impl WmAction {
             WmAction::CycleGroup(Cycle::Forward),
             WmAction::cycle_window(Cycle::Forward),
             WmAction::cycle_window(Cycle::Backward),
+            // Capability-gap representatives: the generalized ontology expresses
+            // these, Hyprland realizes none (they lower to the empty word, witnessed
+            // by RealizationMatchesCapability; Sway realizes the two focus gaps).
+            WmAction::focus_parent(),
+            WmAction::focus_layer(),
+            WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::Shaded)),
             WmAction::Workspace(WorkspaceTarget::Index(1)),
             WmAction::Workspace(WorkspaceTarget::Relative(1)),
             WmAction::Workspace(WorkspaceTarget::Relative(-1)),
@@ -728,6 +791,10 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
         WmAction::Focus(FocusBy::Cycle(c)) => {
             vec![Dispatch::CycleNext(matches!(c, Cycle::Backward))]
         }
+        // Hyprland has no container tree and no tiling/floating focus-layer toggle
+        // — outside its capability; lowers to the empty word (Sway realizes
+        // `focus parent` / `focus mode_toggle` — see lower_sway).
+        WmAction::Focus(FocusBy::Tree(_)) | WmAction::Focus(FocusBy::Layer) => Vec::new(),
         WmAction::MoveWindow(d) => vec![Dispatch::MoveWindow(*d)],
         WmAction::SwapWindow(d) => vec![Dispatch::SwapWindow(*d)],
         WmAction::Resize(d, amt) => {
@@ -808,6 +875,22 @@ fn hyprland_state_capability() -> [StateBit; 8] {
     ]
 }
 
+/// Whether Hyprland has a user realization for an action — its CAPABILITY. The
+/// generalized ontology can express operations Hyprland exposes no dispatcher for
+/// (container-tree focus, the tiling/floating focus-layer toggle, the EWMH window
+/// states outside [`hyprland_state_capability`]); those lower to the empty word
+/// and are excluded from Hyprland's generating set. A backend that DOES expose
+/// them (Sway) declares a wider capability. [`LoweringTotal`] proves the lowering
+/// is total ON this capability; [`RealizationMatchesCapability`] proves the empty
+/// arms are EXACTLY its complement — the gaps are checked, never silent drops.
+pub fn hyprland_realizes(action: &WmAction) -> bool {
+    match action {
+        WmAction::State(d) => hyprland_state_capability().contains(&d.bit),
+        WmAction::Focus(FocusBy::Tree(_)) | WmAction::Focus(FocusBy::Layer) => false,
+        _ => true,
+    }
+}
+
 /// The realization functor `HyprlandRealization : ActionAlgebra → DispatchAlgebra`.
 ///
 /// On the single object it is the identity; on morphisms it lowers each action
@@ -859,6 +942,11 @@ pub struct LoweringTotal;
 impl Axiom for LoweringTotal {
     fn verify(&self) -> Verdict {
         for a in WmAction::representative_actions() {
+            if !hyprland_realizes(&a) {
+                // Outside Hyprland's capability — the empty lowering is intentional
+                // and checked by RealizationMatchesCapability, not asserted here.
+                continue;
+            }
             let w = HyprlandRealization::map_morphism(&ActionWord::from(a));
             if w.0.is_empty() {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
@@ -869,8 +957,8 @@ impl Axiom for LoweringTotal {
 
     pr4xis::axiom_meta!(
         "LoweringTotal",
-        "every abstract action realizes to a non-empty dispatcher sequence (total projection)",
-        "Goguen, Thatcher & Wagner (1978) An Initial Algebra Approach to ADTs — the initial algebra has a unique (total) homomorphism into any algebra of the signature; Card, Moran & Newell (1983) GOMS — every goal has a method"
+        "every action within Hyprland's capability realizes to a non-empty dispatcher sequence (total on the capability)",
+        "Goguen, Thatcher & Wagner (1978) An Initial Algebra Approach to ADTs — a unique homomorphism on the signature; Card, Moran & Newell (1983) GOMS — every goal has a method; a backend realizes the operations within its capability (the rest are tracked gaps)"
     );
 }
 
@@ -988,6 +1076,35 @@ impl Axiom for MigrationFaithful {
     );
 }
 
+/// Every action realizes to the empty word **exactly** when it is outside
+/// Hyprland's capability ([`hyprland_realizes`]). The capability gaps (the
+/// container-tree / focus-layer selectors, the EWMH states with no Hyprland user
+/// dispatcher) are therefore a checked boundary across the whole generating set:
+/// no in-capability action silently drops, and no out-of-capability action is
+/// silently faked. The dual of [`LoweringTotal`] (total ON the capability).
+pub struct RealizationMatchesCapability;
+
+impl Axiom for RealizationMatchesCapability {
+    fn verify(&self) -> Verdict {
+        for a in WmAction::representative_actions() {
+            let empty = HyprlandRealization::map_morphism(&ActionWord::from(a.clone()))
+                .0
+                .is_empty();
+            // empty <=> !realizes; a mismatch (silent drop or phantom realization) fails.
+            if empty == hyprland_realizes(&a) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "RealizationMatchesCapability",
+        "an action lowers to the empty word exactly when it is outside the backend's capability (checked gaps, never silent drops)",
+        "EWMH v1.5 (2013) / i3 & sway — backends realize a subset of the general operation set (a capability); ext-workspace-v1's capabilities enum makes unsupported operations explicit rather than silently inert"
+    );
+}
+
 // ── The ontology ──────────────────────────────────────────────────────────────
 
 /// The window-action ontology. Validating it discharges the realization functor
@@ -1010,6 +1127,7 @@ impl WindowActionOntology {
         all.push(Box::new(CompositeSequencePreserved));
         all.push(Box::new(StateLoweringMatchesCapability));
         all.push(Box::new(MigrationFaithful));
+        all.push(Box::new(RealizationMatchesCapability));
         all
     }
 
@@ -1206,6 +1324,9 @@ mod tests {
         /// dispatcher — there are no unbound placeholders left in the wire form.
         #[test]
         fn prop_single_action_realizes_nonempty(a in arb_action()) {
+            // Only in-capability actions realize non-empty; the capability gaps
+            // (tree/layer focus, unsupported states) intentionally lower to empty.
+            prop_assume!(hyprland_realizes(&a));
             let w = HyprlandRealization::map_morphism(&ActionWord::from(a));
             prop_assert!(!w.0.is_empty());
             let cmd = w.command();
