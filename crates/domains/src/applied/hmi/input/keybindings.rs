@@ -291,7 +291,7 @@ pub fn vim_preset() -> BindingSet {
         Action::new(
             "move_left",
             "Move cursor left",
-            WmAction::Focus(Direction::Left),
+            WmAction::focus(Direction::Left),
         ),
         false,
     );
@@ -301,14 +301,14 @@ pub fn vim_preset() -> BindingSet {
         Action::new(
             "move_down",
             "Move cursor down",
-            WmAction::Focus(Direction::Down),
+            WmAction::focus(Direction::Down),
         ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('k')),
         normal.clone(),
-        Action::new("move_up", "Move cursor up", WmAction::Focus(Direction::Up)),
+        Action::new("move_up", "Move cursor up", WmAction::focus(Direction::Up)),
         false,
     );
     bs.add(
@@ -317,7 +317,7 @@ pub fn vim_preset() -> BindingSet {
         Action::new(
             "move_right",
             "Move cursor right",
-            WmAction::Focus(Direction::Right),
+            WmAction::focus(Direction::Right),
         ),
         false,
     );
@@ -411,7 +411,7 @@ pub fn cua_preset() -> BindingSet {
         Action::new(
             "switch_window",
             "Switch window",
-            WmAction::CycleWindow(Cycle::Forward),
+            WmAction::cycle_window(Cycle::Forward),
         ),
         false,
     );
@@ -471,7 +471,7 @@ pub fn emacs_preset() -> BindingSet {
         Action::new(
             "forward_char",
             "Forward one character",
-            WmAction::Focus(Direction::Right),
+            WmAction::focus(Direction::Right),
         ),
         false,
     );
@@ -481,20 +481,20 @@ pub fn emacs_preset() -> BindingSet {
         Action::new(
             "backward_char",
             "Backward one character",
-            WmAction::Focus(Direction::Left),
+            WmAction::focus(Direction::Left),
         ),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('n')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("next_line", "Next line", WmAction::Focus(Direction::Down)),
+        Action::new("next_line", "Next line", WmAction::focus(Direction::Down)),
         false,
     );
     bs.add(
         KeyCombo::new(Key::Letter('p')).with_mod(Modifier::Ctrl),
         app.clone(),
-        Action::new("prev_line", "Previous line", WmAction::Focus(Direction::Up)),
+        Action::new("prev_line", "Previous line", WmAction::focus(Direction::Up)),
         false,
     );
 
@@ -614,7 +614,7 @@ pub fn i3_preset() -> BindingSet {
             Action::new(
                 format!("focus_{desc}"),
                 format!("Focus {desc}"),
-                WmAction::Focus(direction),
+                WmAction::focus(direction),
             ),
             false,
         );
@@ -1027,7 +1027,7 @@ pub fn vogix_preset() -> BindingSet {
             Key::Letter(*letter),
             &format!("focus_{suf}"),
             "Focus",
-            WmAction::Focus(*direction).into(),
+            WmAction::focus(*direction).into(),
             false,
         );
         add(
@@ -1035,7 +1035,7 @@ pub fn vogix_preset() -> BindingSet {
             Key::Named(arrow.clone()),
             &format!("focus_{suf}_arrow"),
             "Focus",
-            WmAction::Focus(*direction).into(),
+            WmAction::focus(*direction).into(),
             false,
         );
     }
@@ -1279,14 +1279,14 @@ pub fn windows_preset() -> BindingSet {
         Key::Named(NamedKey::Tab),
         "switch_window",
         "Switch window",
-        WmAction::CycleWindow(Cycle::Forward),
+        WmAction::cycle_window(Cycle::Forward),
     );
     add(
         &[Alt, Shift],
         Key::Named(NamedKey::Tab),
         "switch_window_prev",
         "Switch window (reverse)",
-        WmAction::CycleWindow(Cycle::Backward),
+        WmAction::cycle_window(Cycle::Backward),
     );
     add(
         &[Alt],
@@ -1433,14 +1433,14 @@ pub fn macos_preset() -> BindingSet {
         Key::Named(NamedKey::Tab),
         "switch_window",
         "Switch window",
-        WmAction::CycleWindow(Cycle::Forward),
+        WmAction::cycle_window(Cycle::Forward),
     );
     add(
         &[Super, Shift],
         Key::Named(NamedKey::Tab),
         "switch_window_prev",
         "Switch window (reverse)",
-        WmAction::CycleWindow(Cycle::Backward),
+        WmAction::cycle_window(Cycle::Backward),
     );
 
     // Window verbs (Cmd+W/Q/H/M) — bound, so they win over the remap. Hide and
@@ -1540,7 +1540,7 @@ pub fn linux_preset() -> BindingSet {
         Key::Named(NamedKey::Tab),
         "switch_window",
         "Switch window",
-        WmAction::CycleWindow(Cycle::Forward),
+        WmAction::cycle_window(Cycle::Forward),
     );
     add(
         &[Alt],
