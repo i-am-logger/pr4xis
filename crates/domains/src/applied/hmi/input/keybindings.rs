@@ -15,8 +15,8 @@ use hashbrown::{HashMap, HashSet};
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
 use super::wm_action::{
-    ActionWord, Cycle, Direction, Follow, HyprlandRealization, Orientation, SubmapTarget, WmAction,
-    WorkspaceTarget,
+    ActionWord, Cycle, Direction, Follow, HyprlandRealization, Orientation, OutputSel,
+    SubmapTarget, WmAction, WorkspaceTarget,
 };
 use pr4xis::category::Functor;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
@@ -347,71 +347,150 @@ pub fn vim_preset() -> BindingSet {
     bs
 }
 
-/// CUA/Windows-style keybindings — standard PC shortcuts.
+/// CUA / Windows-style keybindings — the *window-management* keys of the IBM CUA
+/// standard (Alt+Tab, Alt+F4) plus the Windows Win-key conventions (snap, virtual
+/// desktops, move-to-monitor). The in-app accelerators (Ctrl+C/V/X/Z/S/A/F/N/O/P/
+/// T/W) are deliberately NOT bound — they pass through to the focused application
+/// (this is a window-manager paradigm, not an editor).
 ///
-/// Source: IBM CUA specification (1987), Microsoft Windows UX Guidelines
+/// Source: IBM Common User Access (SAA CUA, 1987) — Alt+Tab task-switch, Alt+F4
+/// close; Microsoft "Keyboard shortcuts in Windows" — Win+arrows snap/maximize/
+/// minimize, Win+Shift+arrows move-to-monitor, Win+number virtual desktop,
+/// Win+Ctrl+arrows switch desktop, Win+Tab Task View.
 pub fn cua_preset() -> BindingSet {
     let mut bs = BindingSet::new("cua");
     let app = ModeId::new("app");
 
-    let binds = [
-        ('c', "copy", "Copy", WmAction::Exec("wl-copy".to_string())),
-        (
-            'v',
-            "paste",
-            "Paste",
-            WmAction::Exec("wl-paste".to_string()),
-        ),
-        ('x', "cut", "Cut", WmAction::Exec("wl-copy".to_string())),
-        ('z', "undo", "Undo", WmAction::Exec("undo".to_string())),
-        ('s', "save", "Save", WmAction::Exec("save".to_string())),
-        (
-            'a',
-            "select_all",
-            "Select all",
-            WmAction::Exec("select-all".to_string()),
-        ),
-        ('f', "find", "Find", WmAction::Exec("find".to_string())),
-        (
-            'n',
-            "new_window",
-            "New window",
-            WmAction::Exec("new-window".to_string()),
-        ),
-        ('o', "open", "Open file", WmAction::Exec("open".to_string())),
-        ('p', "print", "Print", WmAction::Exec("print".to_string())),
-        ('w', "close_tab", "Close tab", WmAction::Close),
-        (
-            't',
-            "new_tab",
-            "New tab",
-            WmAction::Exec("new-tab".to_string()),
-        ),
-    ];
-    for (c, name, desc, action) in binds {
-        bs.add(
-            KeyCombo::new(Key::Letter(c)).with_mod(Modifier::Ctrl),
-            app.clone(),
-            Action::new(name, desc, action),
-            false,
-        );
-    }
-
-    // Alt+F4 = quit
-    bs.add(
-        KeyCombo::new(Key::Function(4)).with_mod(Modifier::Alt),
-        app.clone(),
-        Action::new("quit", "Quit application", WmAction::Close),
-        false,
-    );
-    // Alt+Tab = switch window
+    // App switching (Alt+Tab / Alt+Shift+Tab).
     bs.add(
         KeyCombo::new(Key::Named(NamedKey::Tab)).with_mod(Modifier::Alt),
-        app,
+        app.clone(),
         Action::new(
             "switch_window",
             "Switch window",
             WmAction::cycle_window(Cycle::Forward),
+        ),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Tab))
+            .with_mod(Modifier::Alt)
+            .with_mod(Modifier::Shift),
+        app.clone(),
+        Action::new(
+            "switch_window_back",
+            "Switch window (reverse)",
+            WmAction::cycle_window(Cycle::Backward),
+        ),
+        false,
+    );
+    // Close the focused WINDOW (Alt+F4). Ctrl+W closes a TAB — the app's concern.
+    bs.add(
+        KeyCombo::new(Key::Function(4)).with_mod(Modifier::Alt),
+        app.clone(),
+        Action::new("close", "Close window", WmAction::Close),
+        false,
+    );
+
+    // Window snap left/right (Win+arrows) + maximize/minimize (Win+Up/Down).
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Left)).with_mod(Modifier::Super),
+        app.clone(),
+        Action::new(
+            "snap_left",
+            "Snap left",
+            WmAction::MoveWindow(Direction::Left),
+        ),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Right)).with_mod(Modifier::Super),
+        app.clone(),
+        Action::new(
+            "snap_right",
+            "Snap right",
+            WmAction::MoveWindow(Direction::Right),
+        ),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Up)).with_mod(Modifier::Super),
+        app.clone(),
+        Action::new("maximize", "Maximize", WmAction::maximize()),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Down)).with_mod(Modifier::Super),
+        app.clone(),
+        Action::new("minimize", "Minimize", WmAction::minimize()),
+        false,
+    );
+
+    // Move window to the monitor in a direction (Win+Shift+arrows).
+    for (key, dir, name) in [
+        (NamedKey::Left, Direction::Left, "left"),
+        (NamedKey::Right, Direction::Right, "right"),
+    ] {
+        bs.add(
+            KeyCombo::new(Key::Named(key))
+                .with_mod(Modifier::Super)
+                .with_mod(Modifier::Shift),
+            app.clone(),
+            Action::new(
+                format!("to_monitor_{name}"),
+                format!("Move to monitor {name}"),
+                WmAction::move_to_monitor(OutputSel::Direction(dir)),
+            ),
+            false,
+        );
+    }
+
+    // Virtual desktops: Win+1..9 switch.
+    for i in 1u8..=9 {
+        bs.add(
+            KeyCombo::new(Key::Number(i)).with_mod(Modifier::Super),
+            app.clone(),
+            Action::new(
+                format!("desktop_{i}"),
+                format!("Virtual desktop {i}"),
+                WmAction::Workspace(WorkspaceTarget::Index(i)),
+            ),
+            false,
+        );
+    }
+    // Win+Ctrl+Left/Right switch the adjacent desktop.
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Left))
+            .with_mod(Modifier::Super)
+            .with_mod(Modifier::Ctrl),
+        app.clone(),
+        Action::new(
+            "desktop_prev",
+            "Previous desktop",
+            WmAction::Workspace(WorkspaceTarget::Relative(-1)),
+        ),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Right))
+            .with_mod(Modifier::Super)
+            .with_mod(Modifier::Ctrl),
+        app.clone(),
+        Action::new(
+            "desktop_next",
+            "Next desktop",
+            WmAction::Workspace(WorkspaceTarget::Relative(1)),
+        ),
+        false,
+    );
+    // Task View overview (Win+Tab).
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Tab)).with_mod(Modifier::Super),
+        app,
+        Action::new(
+            "overview",
+            "Task view",
+            WmAction::ToggleSpecialWorkspace("overview".to_string()),
         ),
         false,
     );
@@ -1741,14 +1820,24 @@ mod tests {
     }
 
     #[test]
-    fn test_cua_has_copy_paste() {
+    fn test_cua_is_wm_not_inapp() {
+        // The WM-paradigm cua binds the global window-management keys (Alt+Tab /
+        // Alt+F4 / Win-key) — the in-app accelerators (copy/paste/save/find) are
+        // NOT bound; they pass through to the focused application.
         let bs = cua_preset();
         let app = ModeId::new("app");
         let bindings = bs.for_mode(&app);
         let names: Vec<_> = bindings.iter().map(|b| b.action.name.as_str()).collect();
-        assert!(names.contains(&"copy"));
-        assert!(names.contains(&"paste"));
-        assert!(names.contains(&"cut"));
+        assert!(names.contains(&"switch_window"), "Alt+Tab switch");
+        assert!(names.contains(&"close"), "Alt+F4 close");
+        assert!(names.contains(&"desktop_1"), "Win+1 desktop");
+        assert!(names.contains(&"maximize"), "Win+Up maximize");
+        for stub in ["copy", "paste", "cut", "save", "find", "undo", "select_all"] {
+            assert!(
+                !names.contains(&stub),
+                "in-app `{stub}` must pass through, not be bound"
+            );
+        }
     }
 
     // ── emacs preset ──
