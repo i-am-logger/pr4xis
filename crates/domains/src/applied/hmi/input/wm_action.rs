@@ -171,6 +171,39 @@ impl FinitelyGenerated for Orientation {
     }
 }
 
+/// How focus is selected — the parameter of the focus operation. A focus is
+/// always "move keyboard focus", but BY what: a spatial direction, or a cycle
+/// through the stack (Alt-Tab). (The container-tree and tiling/floating-layer
+/// selectors arrive with the capability framework.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FocusBy {
+    /// The spatial neighbour in a direction (`movefocus`).
+    Direction(Direction),
+    /// Cycle through windows in stacking order (Alt-Tab; `cyclenext`).
+    Cycle(Cycle),
+}
+
+impl Concept for FocusBy {
+    fn name(&self) -> &'static str {
+        match self {
+            FocusBy::Direction(_) => "direction",
+            FocusBy::Cycle(_) => "cycle",
+        }
+    }
+}
+impl FinitelyGenerated for FocusBy {
+    fn variants() -> Vec<Self> {
+        let mut v = Vec::new();
+        for d in Direction::variants() {
+            v.push(FocusBy::Direction(d));
+        }
+        for c in Cycle::variants() {
+            v.push(FocusBy::Cycle(c));
+        }
+        v
+    }
+}
+
 /// Whether moving a window to a workspace **follows** it (focus travels) or is
 /// **silent** (window leaves, focus stays).
 ///
@@ -268,9 +301,11 @@ impl SubmapTarget {
 /// full spine.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum WmAction {
-    /// Move keyboard focus to the neighbour in a direction (Myers
-    /// "change-listener"; EWMH input focus).
-    Focus(Direction),
+    /// Move keyboard focus — selected by a [`FocusBy`] (a spatial direction, a
+    /// stack cycle, and — with the capability framework — the container tree or
+    /// the tiling/floating layer). Subsumes the former `Focus(Direction)` and
+    /// `CycleWindow` verbs (Myers "change-listener"; EWMH input focus).
+    Focus(FocusBy),
     /// Move the focused window one slot in a direction (Myers "move").
     MoveWindow(Direction),
     /// Swap the focused window with its neighbour in a direction.
@@ -297,8 +332,6 @@ pub enum WmAction {
     ToggleGroup,
     /// Cycle the active window *within* the current group.
     CycleGroup(Cycle),
-    /// Cycle focus across windows (Alt-Tab; EWMH stacking order traversal).
-    CycleWindow(Cycle),
     /// Switch to a workspace (Henderson & Card 1986 *Rooms*; EWMH
     /// `_NET_CURRENT_DESKTOP`).
     Workspace(WorkspaceTarget),
@@ -363,6 +396,17 @@ impl WmAction {
         WmAction::Split(Orientation::Toggle)
     }
 
+    /// Move focus to the neighbour in a direction — `Focus(FocusBy::Direction)`.
+    pub fn focus(direction: Direction) -> Self {
+        WmAction::Focus(FocusBy::Direction(direction))
+    }
+
+    /// Cycle focus across windows in stacking order (Alt-Tab) —
+    /// `Focus(FocusBy::Cycle)`.
+    pub fn cycle_window(cycle: Cycle) -> Self {
+        WmAction::Focus(FocusBy::Cycle(cycle))
+    }
+
     /// The finite generating set — one representative of every variant. Used to
     /// machine-check the realization functor (totality, the functor laws) and to
     /// seed property tests. This is a *generating* set, not the (open-world) whole
@@ -370,10 +414,10 @@ impl WmAction {
     pub fn representative_actions() -> Vec<WmAction> {
         use Direction::*;
         vec![
-            WmAction::Focus(Left),
-            WmAction::Focus(Right),
-            WmAction::Focus(Up),
-            WmAction::Focus(Down),
+            WmAction::focus(Left),
+            WmAction::focus(Right),
+            WmAction::focus(Up),
+            WmAction::focus(Down),
             WmAction::MoveWindow(Left),
             WmAction::SwapWindow(Up),
             WmAction::Resize(Left, 30),
@@ -392,8 +436,8 @@ impl WmAction {
             WmAction::Split(Orientation::Vertical),
             WmAction::ToggleGroup,
             WmAction::CycleGroup(Cycle::Forward),
-            WmAction::CycleWindow(Cycle::Forward),
-            WmAction::CycleWindow(Cycle::Backward),
+            WmAction::cycle_window(Cycle::Forward),
+            WmAction::cycle_window(Cycle::Backward),
             WmAction::Workspace(WorkspaceTarget::Index(1)),
             WmAction::Workspace(WorkspaceTarget::Relative(1)),
             WmAction::Workspace(WorkspaceTarget::Relative(-1)),
@@ -426,7 +470,6 @@ impl Concept for WmAction {
             WmAction::Split(_) => "split",
             WmAction::ToggleGroup => "toggle-group",
             WmAction::CycleGroup(_) => "cycle-group",
-            WmAction::CycleWindow(_) => "cycle-window",
             WmAction::Workspace(_) => "workspace",
             WmAction::MoveToWorkspace(_, _) => "move-to-workspace",
             WmAction::ToggleSpecialWorkspace(_) => "toggle-special-workspace",
@@ -681,7 +724,10 @@ impl Category for DispatchAlgebra {
 /// genuine composites lower to a short sequence.
 fn lower(action: &WmAction) -> Vec<Dispatch> {
     match action {
-        WmAction::Focus(d) => vec![Dispatch::MoveFocus(*d)],
+        WmAction::Focus(FocusBy::Direction(d)) => vec![Dispatch::MoveFocus(*d)],
+        WmAction::Focus(FocusBy::Cycle(c)) => {
+            vec![Dispatch::CycleNext(matches!(c, Cycle::Backward))]
+        }
         WmAction::MoveWindow(d) => vec![Dispatch::MoveWindow(*d)],
         WmAction::SwapWindow(d) => vec![Dispatch::SwapWindow(*d)],
         WmAction::Resize(d, amt) => {
@@ -704,7 +750,6 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
             Cycle::Forward => 'f',
             Cycle::Backward => 'b',
         })],
-        WmAction::CycleWindow(c) => vec![Dispatch::CycleNext(matches!(c, Cycle::Backward))],
         WmAction::Workspace(w) => vec![Dispatch::Workspace(w.clone())],
         WmAction::MoveToWorkspace(w, Follow::Follow) => vec![Dispatch::MoveToWorkspace(w.clone())],
         WmAction::MoveToWorkspace(w, Follow::Silent) => {
@@ -996,10 +1041,10 @@ mod tests {
 
     #[test]
     fn realize_focus_directions() {
-        assert_eq!(realize(&WmAction::Focus(Direction::Left)), "movefocus, l");
-        assert_eq!(realize(&WmAction::Focus(Direction::Right)), "movefocus, r");
-        assert_eq!(realize(&WmAction::Focus(Direction::Up)), "movefocus, u");
-        assert_eq!(realize(&WmAction::Focus(Direction::Down)), "movefocus, d");
+        assert_eq!(realize(&WmAction::focus(Direction::Left)), "movefocus, l");
+        assert_eq!(realize(&WmAction::focus(Direction::Right)), "movefocus, r");
+        assert_eq!(realize(&WmAction::focus(Direction::Up)), "movefocus, u");
+        assert_eq!(realize(&WmAction::focus(Direction::Down)), "movefocus, d");
     }
 
     #[test]
