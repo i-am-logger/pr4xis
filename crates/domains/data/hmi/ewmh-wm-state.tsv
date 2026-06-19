@@ -1,0 +1,28 @@
+# Window-state atom vocabulary — the controlled set of window STATES an action
+# adds/removes/toggles. LOADED, not hand-encoded: this is the authoritative
+# source the StateBit enum is machine-checked complete-and-sound against
+# (window_state::VocabularyComplete).
+#
+# Primary source: EWMH (Extended Window Manager Hints) v1.5, freedesktop.org,
+# section "Application Window Properties" — _NET_WM_STATE (the 13 state atoms)
+# and _NET_WM_STATE mutation { _NET_WM_STATE_REMOVE=0, _ADD=1, _TOGGLE=2 }.
+# https://specifications.freedesktop.org/wm-spec/1.5/ar01s05.html
+# The final two rows are cited compositor extensions for the tiling layer that
+# EWMH (an X11/stacking spec) does not name — sourced as marked.
+#
+# bit_name<TAB>spec_atom<TAB>source
+modal	_NET_WM_STATE_MODAL	EWMH 1.5 §5
+sticky	_NET_WM_STATE_STICKY	EWMH 1.5 §5
+maximized-vert	_NET_WM_STATE_MAXIMIZED_VERT	EWMH 1.5 §5
+maximized-horz	_NET_WM_STATE_MAXIMIZED_HORZ	EWMH 1.5 §5
+shaded	_NET_WM_STATE_SHADED	EWMH 1.5 §5
+skip-taskbar	_NET_WM_STATE_SKIP_TASKBAR	EWMH 1.5 §5
+skip-pager	_NET_WM_STATE_SKIP_PAGER	EWMH 1.5 §5
+hidden	_NET_WM_STATE_HIDDEN	EWMH 1.5 §5
+fullscreen	_NET_WM_STATE_FULLSCREEN	EWMH 1.5 §5
+above	_NET_WM_STATE_ABOVE	EWMH 1.5 §5
+below	_NET_WM_STATE_BELOW	EWMH 1.5 §5
+demands-attention	_NET_WM_STATE_DEMANDS_ATTENTION	EWMH 1.5 §5
+focused	_NET_WM_STATE_FOCUSED	EWMH 1.5 §5
+floating	xdg_toplevel(tiled-states absent) / wlr "floating"	Wayland xdg-shell + wlroots
+pseudo-tiled	node flag "pseudo_tiled"	bspwm(1)
