@@ -6,7 +6,8 @@ authors = ["i-am-logger"]
 description = "Derive macros for pr4xis ontology traits"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
-homepage = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://pr4xis.dev"
+keywords = ["ontology", "category-theory", "neurosymbolic", "pr4xis"]
 
 [lib]
 proc-macro = true

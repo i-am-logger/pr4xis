@@ -6,8 +6,9 @@ authors = ["i-am-logger"]
 description = "The pr4xis runtime — load a .prx ontology as data, deserialize into the free category, rebind into the closed world; grounds only the hash primitive."
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
-homepage = "https://github.com/i-am-logger/pr4xis"
-keywords = ["ontology", "runtime", "content-addressing", "prx", "category-theory"]
+homepage = "https://pr4xis.dev"
+keywords = ["ontology", "reasoning", "category-theory", "content-addressing", "knowledge-graph"]
+categories = ["science", "mathematics", "algorithms"]
 
 [features]
 # `emit` bridges a compiled praxis ontology (a `Category`) into an `Archive` —

@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use pr4xis in your research, please cite it as below."
+title: pr4xis
+abstract: >-
+  An ontology-driven, axiomatic reasoning engine: knowledge is represented as
+  ontologies (typed concepts and the proven relationships between them),
+  connected across domains by category-theory functors, and every claim carries
+  a proof path back to the axioms it rests on.
+type: software
+authors:
+  - given-names: Ido
+    family-names: Samuelson
+    website: "https://github.com/i-am-logger"
+repository-code: "https://github.com/i-am-logger/pr4xis"
+url: "https://pr4xis.dev"
+license: CC-BY-NC-SA-4.0
+version: 0.25.3
+date-released: "2026-06-17"
+keywords:
+  - ontology
+  - category theory
+  - axiomatic reasoning
+  - knowledge representation
+  - neurosymbolic
+  - formal methods
+  - automated reasoning
+  - knowledge graph

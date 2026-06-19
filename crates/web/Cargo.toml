@@ -6,7 +6,9 @@ authors = ["i-am-logger"]
 description = "Dev server for pr4xis — serves presentation + WASM chatbot with live reload"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
-homepage = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://pr4xis.dev"
+keywords = ["wasm", "pr4xis", "ontology", "demo"]
+categories = ["wasm", "web-programming"]
 
 [lints]
 workspace = true

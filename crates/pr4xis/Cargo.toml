@@ -3,11 +3,12 @@ name = "pr4xis"
 version.workspace = true
 edition = "2024"
 authors = ["i-am-logger"]
-description = "Prove your domain is correct — ontology-driven rule enforcement with category theory, logical composition, and runtime state machines"
+description = "Axiomatic Intelligence — an ontology + category-theory reasoning engine: every claim derived from explicit axioms, with a proof path back to them"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
-homepage = "https://github.com/i-am-logger/pr4xis"
-keywords = ["ontology", "category-theory", "enforcement", "state-machine", "formal-methods"]
+homepage = "https://pr4xis.dev"
+keywords = ["ai", "neurosymbolic", "ontology", "reasoning", "category-theory"]
+categories = ["science", "mathematics", "algorithms"]
 
 [features]
 default = ["std"]
