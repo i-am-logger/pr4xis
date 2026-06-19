@@ -1613,6 +1613,26 @@ pub fn linux_preset() -> BindingSet {
         WmAction::MoveToWorkspace(WorkspaceTarget::Relative(1), Follow::Follow),
     );
 
+    // Workspaces by index: Super+1..9 switch; Super+Shift+1..9 move window. (The
+    // GNOME schema reserves these numeric slots; binding them is GNOME's documented
+    // numeric-workspace mechanism, not the empty default.)
+    for i in 1u8..=9 {
+        add(
+            &[Super],
+            Key::Number(i),
+            &format!("workspace_{i}"),
+            &format!("Workspace {i}"),
+            WmAction::Workspace(WorkspaceTarget::Index(i)),
+        );
+        add(
+            &[Super, Shift],
+            Key::Number(i),
+            &format!("move_to_{i}"),
+            &format!("Move window to workspace {i}"),
+            WmAction::MoveToWorkspace(WorkspaceTarget::Index(i), Follow::Follow),
+        );
+    }
+
     // Window switch (Alt+Tab) + close (Alt+F4) — faithful.
     add(
         &[Alt],
@@ -1652,12 +1672,13 @@ pub fn linux_preset() -> BindingSet {
         "Tile window right",
         WmAction::MoveWindow(Direction::Right),
     );
+    // GNOME Super+H is MINIMIZE (not the special-workspace hide it was mapped to).
     add(
         &[Super],
         Key::Letter('h'),
-        "hide",
-        "Hide window",
-        WmAction::MoveToWorkspace(WorkspaceTarget::Special(String::new()), Follow::Silent),
+        "minimize",
+        "Minimize window",
+        WmAction::minimize(),
     );
     bs
 }
