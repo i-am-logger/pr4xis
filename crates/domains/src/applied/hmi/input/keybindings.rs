@@ -15,7 +15,7 @@ use hashbrown::{HashMap, HashSet};
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
 use super::wm_action::{
-    ActionWord, Cycle, Direction, Follow, HyprlandRealization, Orientation, OutputSel,
+    ActionWord, Cycle, Direction, Follow, HyprlandRealization, LayoutKind, Orientation, OutputSel,
     SubmapTarget, WmAction, WorkspaceTarget,
 };
 use pr4xis::category::Functor;
@@ -767,6 +767,54 @@ pub fn i3_preset() -> BindingSet {
             .with_mod(Modifier::Shift),
         app.clone(),
         Action::new("float", "Toggle floating", WmAction::toggle_float()),
+        false,
+    );
+
+    // Container layout + tree focus (i3 `layout`, `focus parent`, `focus
+    // mode_toggle`). NOTE: focus-parent, focus-layer and the stacking layout have
+    // NO Hyprland dispatcher — inert on Hyprland (capability gaps), realized
+    // natively on Sway.
+    for (c, name, desc, action) in [
+        (
+            'a',
+            "focus_parent",
+            "Focus parent container",
+            WmAction::focus_parent(),
+        ),
+        (
+            's',
+            "layout_stacking",
+            "Stacking layout",
+            WmAction::layout(LayoutKind::Stacking),
+        ),
+        (
+            'w',
+            "layout_tabbed",
+            "Tabbed layout",
+            WmAction::layout(LayoutKind::Tabbed),
+        ),
+        (
+            'e',
+            "layout_toggle_split",
+            "Toggle split layout",
+            WmAction::toggle_split(),
+        ),
+    ] {
+        bs.add(
+            KeyCombo::new(Key::Letter(c)).with_mod(Modifier::Super),
+            app.clone(),
+            Action::new(name, desc, action),
+            false,
+        );
+    }
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Space)).with_mod(Modifier::Super),
+        app.clone(),
+        Action::new(
+            "focus_layer",
+            "Focus tiling/floating layer",
+            WmAction::focus_layer(),
+        ),
         false,
     );
 
