@@ -597,7 +597,7 @@ pub fn i3_preset() -> BindingSet {
     bs.add(
         KeyCombo::new(Key::Letter('f')).with_mod(Modifier::Super),
         app.clone(),
-        Action::new("fullscreen", "Toggle fullscreen", WmAction::Fullscreen),
+        Action::new("fullscreen", "Toggle fullscreen", WmAction::fullscreen()),
         false,
     );
 
@@ -683,7 +683,7 @@ pub fn i3_preset() -> BindingSet {
             .with_mod(Modifier::Super)
             .with_mod(Modifier::Shift),
         app.clone(),
-        Action::new("float", "Toggle floating", WmAction::ToggleFloat),
+        Action::new("float", "Toggle floating", WmAction::toggle_float()),
         false,
     );
 
@@ -1091,7 +1091,7 @@ pub fn vogix_preset() -> BindingSet {
         Key::Letter('y'),
         "float_pin",
         "Float + pin",
-        vec![WmAction::ToggleFloat, WmAction::Pin].into(),
+        vec![WmAction::toggle_float(), WmAction::pin()].into(),
         false,
     );
     add(
@@ -1099,7 +1099,7 @@ pub fn vogix_preset() -> BindingSet {
         Key::Letter('f'),
         "fullscreen",
         "Fullscreen",
-        WmAction::Fullscreen.into(),
+        WmAction::fullscreen().into(),
         false,
     );
     add(
@@ -1107,7 +1107,7 @@ pub fn vogix_preset() -> BindingSet {
         Key::Letter('p'),
         "pseudo",
         "Pseudotile",
-        WmAction::Pseudotile.into(),
+        WmAction::pseudotile().into(),
         false,
     );
     add(
@@ -1313,7 +1313,7 @@ pub fn windows_preset() -> BindingSet {
         Key::Named(NamedKey::Up),
         "maximize",
         "Maximize window",
-        WmAction::Maximize,
+        WmAction::maximize(),
     );
 
     // Move window (Win+Shift+arrows) — adapted to a directional move.
@@ -1470,7 +1470,7 @@ pub fn macos_preset() -> BindingSet {
         Key::Letter('m'),
         "minimize",
         "Minimize window",
-        WmAction::Minimize,
+        WmAction::minimize(),
     );
     // Fullscreen (Ctrl+Cmd+F).
     add(
@@ -1478,7 +1478,7 @@ pub fn macos_preset() -> BindingSet {
         Key::Letter('f'),
         "fullscreen",
         "Toggle fullscreen",
-        WmAction::Fullscreen,
+        WmAction::fullscreen(),
     );
     bs
 }
@@ -1553,7 +1553,7 @@ pub fn linux_preset() -> BindingSet {
         Key::Named(NamedKey::Up),
         "maximize",
         "Maximize window",
-        WmAction::Maximize,
+        WmAction::maximize(),
     );
     add(
         &[Super],

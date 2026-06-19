@@ -66,6 +66,7 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict, combine_v
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::modes::ModeId;
+use super::window_state::{StateBit, StateDelta, StateOp};
 
 // ── Layer 2: typed parameters ────────────────────────────────────────────────
 
@@ -246,23 +247,14 @@ pub enum WmAction {
     Resize(Direction, u16),
     /// Close / kill the focused window (Myers "delete"; EWMH `CLOSE`).
     Close,
-    /// Toggle true fullscreen (EWMH `_NET_WM_ACTION_FULLSCREEN`; Myers
-    /// "make-full-screen"). Realized by the bare `fullscreen` dispatcher.
-    Fullscreen,
-    /// Maximize — fill the work area but keep the layout's reserved space. A
-    /// *distinct* EWMH action (`_NET_WM_ACTION_MAXIMIZE_*`) and Myers operation,
-    /// realized on Hyprland by the `fullscreen` dispatcher's mode 1.
-    Maximize,
-    /// Minimize / iconify the focused window (EWMH `_NET_WM_ACTION_MINIMIZE`;
-    /// Myers "shrink-to-icon"). Hyprland has no native minimize, so the functor
-    /// emulates it with a silent move to a dedicated special workspace.
-    Minimize,
-    /// Toggle floating (tiled ⇄ floating).
-    ToggleFloat,
-    /// Pin the window above others / across workspaces (EWMH `ABOVE`/`STICK`).
-    Pin,
-    /// Toggle pseudo-tiling for the focused window (Hyprland dwindle).
-    Pseudotile,
+    /// Mutate one window-state atom — the EWMH `_NET_WM_STATE` add/remove/toggle
+    /// on a [`StateBit`] (see [`window_state`](super::window_state)). This single
+    /// constructor subsumes the former flat fullscreen / maximize / minimize /
+    /// float / pin / pseudotile verbs (the convenience constructors
+    /// [`WmAction::fullscreen`] … preserve their names) **and** makes the inverse
+    /// direction — restore / unmaximize — expressible as `State { Remove, … }`,
+    /// which a flat verb set could not name.
+    State(StateDelta),
     /// Toggle the split orientation of the layout (Hyprland `layoutmsg
     /// togglesplit`).
     ToggleSplit,
@@ -289,6 +281,47 @@ pub enum WmAction {
 }
 
 impl WmAction {
+    /// Toggle true fullscreen — `State{Toggle, Fullscreen}` (EWMH
+    /// `_NET_WM_STATE_FULLSCREEN`). Convenience for the common window-state verb.
+    pub fn fullscreen() -> Self {
+        WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::Fullscreen))
+    }
+
+    /// Maximize — fill the work area keeping reserved space. The canonical
+    /// maximize toggles the (representative) `MaximizedVert` bit; the Hyprland
+    /// realization lowers both `MaximizedVert` and `MaximizedHorz` to the single
+    /// `fullscreen, 1` dispatcher (Hyprland has no per-axis maximize). A backend
+    /// with independent axes realizes them distinctly, and "maximize both axes"
+    /// is the `[Vert, Horz]` composite there.
+    pub fn maximize() -> Self {
+        WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::MaximizedVert))
+    }
+
+    /// Minimize / iconify — `State{Add, Hidden}` (EWMH `_NET_WM_STATE_HIDDEN`,
+    /// the canonical minimize). Hyprland has no native iconify, so the functor
+    /// emulates it with a silent move to a dedicated special workspace.
+    pub fn minimize() -> Self {
+        WmAction::State(StateDelta::new(StateOp::Add, StateBit::Hidden))
+    }
+
+    /// Toggle floating — `State{Toggle, Floating}` (the tiled ⇄ floating layer).
+    pub fn toggle_float() -> Self {
+        WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::Floating))
+    }
+
+    /// Pin above / across workspaces — `State{Toggle, Above}` (EWMH `ABOVE`;
+    /// Hyprland's `pin` realizes above+sticky together, so `Sticky` lowers
+    /// identically below the functor).
+    pub fn pin() -> Self {
+        WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::Above))
+    }
+
+    /// Toggle pseudo-tiling — `State{Toggle, PseudoTiled}` (bspwm's node state;
+    /// Hyprland dwindle's `pseudo`).
+    pub fn pseudotile() -> Self {
+        WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::PseudoTiled))
+    }
+
     /// The finite generating set — one representative of every variant. Used to
     /// machine-check the realization functor (totality, the functor laws) and to
     /// seed property tests. This is a *generating* set, not the (open-world) whole
@@ -305,12 +338,14 @@ impl WmAction {
             WmAction::Resize(Left, 30),
             WmAction::Resize(Down, 30),
             WmAction::Close,
-            WmAction::Fullscreen,
-            WmAction::Maximize,
-            WmAction::Minimize,
-            WmAction::ToggleFloat,
-            WmAction::Pin,
-            WmAction::Pseudotile,
+            WmAction::fullscreen(),
+            WmAction::maximize(),
+            // The inverse direction a flat verb set could not name — restore.
+            WmAction::State(StateDelta::new(StateOp::Remove, StateBit::MaximizedVert)),
+            WmAction::minimize(),
+            WmAction::toggle_float(),
+            WmAction::pin(),
+            WmAction::pseudotile(),
             WmAction::ToggleSplit,
             WmAction::ToggleGroup,
             WmAction::CycleGroup(Cycle::Forward),
@@ -344,12 +379,7 @@ impl Concept for WmAction {
             WmAction::SwapWindow(_) => "swap-window",
             WmAction::Resize(_, _) => "resize",
             WmAction::Close => "close",
-            WmAction::Fullscreen => "fullscreen",
-            WmAction::Maximize => "maximize",
-            WmAction::Minimize => "minimize",
-            WmAction::ToggleFloat => "toggle-float",
-            WmAction::Pin => "pin",
-            WmAction::Pseudotile => "pseudotile",
+            WmAction::State(_) => "state",
             WmAction::ToggleSplit => "toggle-split",
             WmAction::ToggleGroup => "toggle-group",
             WmAction::CycleGroup(_) => "cycle-group",
@@ -622,16 +652,7 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
             vec![Dispatch::ResizeActive(dx, dy)]
         }
         WmAction::Close => vec![Dispatch::KillActive],
-        WmAction::Fullscreen => vec![Dispatch::Fullscreen(0)],
-        WmAction::Maximize => vec![Dispatch::Fullscreen(1)],
-        // Hyprland has no native iconify — emulate minimize with a silent move to a
-        // dedicated special (scratchpad) workspace.
-        WmAction::Minimize => vec![Dispatch::MoveToWorkspaceSilent(WorkspaceTarget::Special(
-            "minimized".to_string(),
-        ))],
-        WmAction::ToggleFloat => vec![Dispatch::ToggleFloating],
-        WmAction::Pin => vec![Dispatch::Pin],
-        WmAction::Pseudotile => vec![Dispatch::Pseudo],
+        WmAction::State(d) => lower_state(d),
         WmAction::ToggleSplit => vec![Dispatch::LayoutMsg("togglesplit")],
         WmAction::ToggleGroup => vec![Dispatch::ToggleGroup],
         WmAction::CycleGroup(c) => vec![Dispatch::ChangeGroupActive(match c {
@@ -648,6 +669,53 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
         WmAction::Exec(cmd) => vec![Dispatch::Exec(cmd.clone())],
         WmAction::Submap(t) => vec![Dispatch::Submap(t.render())],
     }
+}
+
+/// Lower a window-state mutation to its Hyprland dispatcher(s).
+///
+/// Hyprland exposes only TOGGLE dispatchers for window states, so the EWMH
+/// add/remove/toggle distinction ([`StateOp`]) is not observable in the Hyprland
+/// realization (a directed backend such as X11 honours it via `_NET_WM_STATE`
+/// client messages). The states Hyprland gives a user dispatcher are its
+/// window-state CAPABILITY ([`hyprland_state_capability`]); EWMH states outside
+/// it (app-set hints, the below layer, shading) have no Hyprland user action and
+/// lower to the empty word — they are never *generated* for a Hyprland binding
+/// (`representative_actions` excludes them; [`StateLoweringMatchesCapability`]
+/// witnesses the boundary, so the empty arm is intentional, not a silent drop).
+fn lower_state(d: &StateDelta) -> Vec<Dispatch> {
+    match d.bit {
+        StateBit::Fullscreen => vec![Dispatch::Fullscreen(0)],
+        StateBit::MaximizedVert | StateBit::MaximizedHorz => vec![Dispatch::Fullscreen(1)],
+        StateBit::Hidden => vec![Dispatch::MoveToWorkspaceSilent(WorkspaceTarget::Special(
+            "minimized".to_string(),
+        ))],
+        StateBit::Floating => vec![Dispatch::ToggleFloating],
+        StateBit::Above | StateBit::Sticky => vec![Dispatch::Pin],
+        StateBit::PseudoTiled => vec![Dispatch::Pseudo],
+        StateBit::Shaded
+        | StateBit::Below
+        | StateBit::SkipTaskbar
+        | StateBit::SkipPager
+        | StateBit::Modal
+        | StateBit::DemandsAttention
+        | StateBit::Focused => Vec::new(),
+    }
+}
+
+/// The window states Hyprland exposes a user dispatcher for — its window-state
+/// CAPABILITY. The EWMH atoms outside this set have no Hyprland user action and
+/// are excluded from Hyprland's generating set.
+fn hyprland_state_capability() -> [StateBit; 8] {
+    [
+        StateBit::Fullscreen,
+        StateBit::MaximizedVert,
+        StateBit::MaximizedHorz,
+        StateBit::Hidden,
+        StateBit::Floating,
+        StateBit::Above,
+        StateBit::Sticky,
+        StateBit::PseudoTiled,
+    ]
 }
 
 /// The realization functor `HyprlandRealization : ActionAlgebra → DispatchAlgebra`.
@@ -725,9 +793,9 @@ pub struct WindowStateActionsDistinct;
 
 impl Axiom for WindowStateActionsDistinct {
     fn verify(&self) -> Verdict {
-        let fs = realize(&WmAction::Fullscreen);
-        let mx = realize(&WmAction::Maximize);
-        let mn = realize(&WmAction::Minimize);
+        let fs = realize(&WmAction::fullscreen());
+        let mx = realize(&WmAction::maximize());
+        let mn = realize(&WmAction::minimize());
         if fs != mx && mx != mn && fs != mn {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -750,8 +818,8 @@ pub struct CompositeSequencePreserved;
 impl Axiom for CompositeSequencePreserved {
     fn verify(&self) -> Verdict {
         let w = HyprlandRealization::map_morphism(&ActionWord(vec![
-            WmAction::ToggleFloat,
-            WmAction::Pin,
+            WmAction::toggle_float(),
+            WmAction::pin(),
         ]));
         if w.0 == vec![Dispatch::ToggleFloating, Dispatch::Pin] {
             Ok(Box::new(SimpleProof::new(self.meta())))
@@ -764,6 +832,68 @@ impl Axiom for CompositeSequencePreserved {
         "CompositeSequencePreserved",
         "a composite action (float+pin) realizes to a two-dispatcher sequence, not a single opaque command",
         "Plotkin & Power (2003) Algebraic Operations and Generic Effects — sequenced effects compose in the free monoid"
+    );
+}
+
+/// The window-state mutations Hyprland realizes are **exactly** its declared
+/// window-state capability: `lower_state` is non-empty for a [`StateBit`] iff the
+/// bit is in [`hyprland_state_capability`]. This makes the empty-lowering arm an
+/// intentional, checked capability boundary (the EWMH hints / layers Hyprland has
+/// no user action for), never an accidental silent drop.
+pub struct StateLoweringMatchesCapability;
+
+impl Axiom for StateLoweringMatchesCapability {
+    fn verify(&self) -> Verdict {
+        let cap = hyprland_state_capability();
+        for bit in <StateBit as FinitelyGenerated>::variants() {
+            let realizable = !lower_state(&StateDelta::new(StateOp::Toggle, bit)).is_empty();
+            if realizable != cap.contains(&bit) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "StateLoweringMatchesCapability",
+        "a window-state atom lowers to a non-empty Hyprland dispatcher exactly when it is in Hyprland's declared window-state capability",
+        "EWMH v1.5 (2013) §5 _NET_WM_STATE — the full state set; a backend realizes the subset its dispatchers expose (a capability), the rest are tracked gaps not silent drops"
+    );
+}
+
+/// The restructure into the window-state lattice is **byte-faithful**: each
+/// pre-restructure window-state verb still realizes to the exact Hyprland string
+/// it emitted before. The frozen golden corpus is the v1 contract; if any
+/// re-expression drifts a single byte, this axiom fails loudly (the migration
+/// gate the design demanded).
+pub struct MigrationFaithful;
+
+impl Axiom for MigrationFaithful {
+    fn verify(&self) -> Verdict {
+        // (the frozen v1 Hyprland string, the restructured term that must still emit it)
+        let golden: [(&str, WmAction); 6] = [
+            ("fullscreen", WmAction::fullscreen()),
+            ("fullscreen, 1", WmAction::maximize()),
+            (
+                "movetoworkspacesilent, special:minimized",
+                WmAction::minimize(),
+            ),
+            ("togglefloating,", WmAction::toggle_float()),
+            ("pin,", WmAction::pin()),
+            ("pseudo,", WmAction::pseudotile()),
+        ];
+        for (expected, action) in &golden {
+            if realize(action) != *expected {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "MigrationFaithful",
+        "every pre-restructure window-state verb realizes byte-for-byte to its frozen v1 Hyprland string",
+        "the v1 realized-string corpus is the migration contract; the state-lattice restructure is a behaviour-preserving re-expression of the source signature"
     );
 }
 
@@ -787,6 +917,8 @@ impl WindowActionOntology {
         all.push(Box::new(LoweringTotal));
         all.push(Box::new(WindowStateActionsDistinct));
         all.push(Box::new(CompositeSequencePreserved));
+        all.push(Box::new(StateLoweringMatchesCapability));
+        all.push(Box::new(MigrationFaithful));
         all
     }
 
@@ -884,10 +1016,10 @@ mod tests {
     fn fullscreen_maximize_minimize_are_distinct_verbs() {
         // Three distinct intents → three distinct dispatchers. Maximize is
         // fullscreen mode 1; minimize is the special-workspace emulation.
-        assert_eq!(realize(&WmAction::Fullscreen), "fullscreen");
-        assert_eq!(realize(&WmAction::Maximize), "fullscreen, 1");
+        assert_eq!(realize(&WmAction::fullscreen()), "fullscreen");
+        assert_eq!(realize(&WmAction::maximize()), "fullscreen, 1");
         assert_eq!(
-            realize(&WmAction::Minimize),
+            realize(&WmAction::minimize()),
             "movetoworkspacesilent, special:minimized"
         );
     }
@@ -895,8 +1027,8 @@ mod tests {
     #[test]
     fn fix_float_pin_is_two_dispatch_exec_batch() {
         let cmd = HyprlandRealization::map_morphism(&ActionWord(vec![
-            WmAction::ToggleFloat,
-            WmAction::Pin,
+            WmAction::toggle_float(),
+            WmAction::pin(),
         ]))
         .command();
         assert_eq!(
