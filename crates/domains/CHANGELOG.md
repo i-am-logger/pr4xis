@@ -1,5 +1,242 @@
 # Changelog
 
+## [0.25.4](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.3...pr4xis-domains-v0.25.4) - 2026-06-19
+
+### Build
+
+- *(release)* version the domains crate via release-plz
+- *(release)* single workspace version via inheritance — fix the release-plz drift
+
+### Docs
+
+- *(domains)* green the workspace rustdoc over the OWL/USC bridges
+- *(domains)* fix two rustdoc intra-doc links (CI Docs step)
+- complete validation overhaul — per-def trait sweep + rustdoc rot + mdBook ([#176](https://github.com/i-am-logger/pr4xis/pull/176))
+- *(#173)* per-ontology rollout for the 5 new HMI sub-ontologies (#69)
+- rewrite + per-ontology rollout (#57, #55, #52, #46, #44) ([#63](https://github.com/i-am-logger/pr4xis/pull/63))
+- color science source papers
+- pregroup grammar research — parsing as group algebra
+
+### Feat
+
+- *(input)* WmAction ontology + Hyprland realization functor
+- *(web)* the chat shows every ontology it reasoned over, loaded ones included (U6, U7)
+- *(web)* the self-model reports its own memory footprint (U2)
+- *(runtime)* a snapshot's address is portable, not toolchain-bound (A7)
+- *(runtime)* snapshot any ontology, not just the self-model graph (A6)
+- *(runtime)* one generic loader for every envelope (A5)
+- *(runtime)* a functor or adjunction in a snapshot re-binds, not refused (A4)
+- *(runtime)* load the relation-kind vocabulary from the Relations ontology (A3, slice b)
+- *(theming)* vogix16 semantic keys use snake_case to match the design system
+- *(self-aware)* the catalog includes loaded-but-unregistered ontologies (§3)
+- *(runtime,chat)* relation-parametric image/meet/chain — Parthood evidence chains
+- *(chat)* single-word loaded entities type NP — "is X part of Y" parses with a one-word X
+- *(self-aware)* content-addressed load history + state fingerprint (Step 6 / §2.4)
+- *(self-aware)* per-ontology capabilities — what each loaded ontology can answer (§4.7)
+- *(self-aware)* provenance names the loaded ontology a turn reasoned over (Step 5 / §2.3)
+- *(self-aware)* the SelfModel eigenform observes the live loaded set (Step 4 / §2)
+- *(lambek,chat)* "is X part of Y" parses from raw text (Step 5 — the parse)
+- *(domains)* trim the relation lexicon to non-default complement-headed surfaces
+- *(chat)* lower a question's predicate to a typed relation kind (Step 3)
+- *(domains)* relation_lexicon.prx — the loaded "part of"↦Parthood surface map (Step 3)
+- *(domains)* relation-parametric LexicalReasoner::reaches (Step 3 spine)
+- *(domains)* the USC→praxis functor lives in usc_functor.prx, not Rust ([#203](https://github.com/i-am-logger/pr4xis/pull/203))
+- *(domains)* the OWL→praxis functor lives in owl_functor.prx, not Rust ([#203](https://github.com/i-am-logger/pr4xis/pull/203))
+- *(domains)* the WordNet→praxis functor lives in english_functor.prx, not Rust ([#203](https://github.com/i-am-logger/pr4xis/pull/203))
+- *(uslm)* mint USC heading + citation Forms — sections answerable by "section N" (§9c)
+- *(owl,wasm)* mint OWL label Forms — loaded OWL answerable by its label (§9b)
+- *(composed)* index a loaded concept's Form-atom surfaces (§9 lexicalization)
+- *(chat)* multi-token surface recognition — phrase/citation lookup
+- *(uslm)* lift USC→praxis to functor-as-data (off the baked Parthood/Section)
+- *(owl)* OWL→praxis as a functor-as-data projection (not a baked converter)
+- *(derive,runtime)* transitive kinds are loaded from data — Phase A Step 4
+- *(runtime)* relation kind is a ConceptRef, not a closed enum — Phase A Step 3
+- *(runtime)* transitive_kinds — relation transitivity as loaded data, not a constant
+- *(morphology)* ground the productive rules in registered CatVar; structural rule count (D-2/D-12)
+- *(morphology)* irregular forms LOADED from the registered AGID source (MORPH/D-1)
+- *(linguistics)* [**breaking**] literature-honest determiner/interjection features (FW-B)
+- *(domains)* function-words load from a committed .prx — the ClosedClassLexicon (FW-A)
+- *(linguistics)* wh-questions via a loaded OLiA→CCG category functor ([#169](https://github.com/i-am-logger/pr4xis/pull/169))
+- *(linguistics)* math operators as a loaded vocabulary — the #169 tokenizer fix
+- generic grounding — ground(lens) over the substrate, denotes is one lens
+- *(domains)* USC → Archive — statute provisions in the generic substrate (the ontological way)
+- *(domains)* persist the denotes pointer column in the USC envelope (G3b-2b code)
+- *(domains)* the denotes-floor producer — statute prose → ontolex:Form pointers (G3b-2a)
+- *(domains)* the honest denotes floor — a span grounds into an ontolex:Form (G3b-1)
+- *(runtime)* EdgeTarget — the foreign-atom slot, byte-exact (grounding G2)
+- *(domains)* bridge loaded English to a RuntimeOntology — the #87 grounding gate
+- *(domains)* the WordNet→praxis functor, carried as .prx data
+- *(domains)* project English into a runtime Archive — the WordNet→.prx source
+- `.prx` — praxis' knowledge, in a file ([#186](https://github.com/i-am-logger/pr4xis/pull/186))
+- [**breaking**] sync all praxis crates to one version (0.22.0) ([#190](https://github.com/i-am-logger/pr4xis/pull/190))
+- [**breaking**] restore praxis publishing to crates.io ([#188](https://github.com/i-am-logger/pr4xis/pull/188))
+- *(cli)* one-command corpus updates via `pr4xis update --lock` ([#183](https://github.com/i-am-logger/pr4xis/pull/183))
+- praxis + praxis-cli gain the registered-source mechanism (SOX 1514A, AIR21 42121) ([#179](https://github.com/i-am-logger/pr4xis/pull/179))
+- *(deps,ci)* [**breaking**] pure-Rust crypto + always-latest devenv + PR-title gate ([#177](https://github.com/i-am-logger/pr4xis/pull/177))
+- *(#91)* pr4xis core + domains run no_std + alloc (#157)
+- *(#148)* Lemon meta on every structural entity — uniform registry for ontologies, axioms, functors, adjunctions, nat-trans (#150)
+- *(#117)* MAPE-K ontology — chat pipeline's literature-grounded home (#146)
+- *(#62)* Heim syntrometric lineage — consolidated stack (#143)
+- *(#62)* Heim syntrometry Phase 1 — lineage verified by functor laws (#135)
+- *(#131)* TerminalFunctor helper — reusable one-object collapse (#134)
+- *(#130)* Category::Op<C> + empirical 4th failure mode discovery (#133)
+- *(#123)* Resilience ontology — Nygard/Brooker/Armstrong/Patterson (#128)
+- *(#124)* Endofunctor trait — first-class C → C functor (#127)
+- *(#122)* Dependability ontology — Avizienis-Laprie-Randell-Landwehr (2004) (#125)
+- typed Vocabulary — OntologyName, ModulePath, structured Citation ([#111](https://github.com/i-am-logger/pr4xis/pull/111))
+- compose API — runtime ontology composition via Korporator ([#103](https://github.com/i-am-logger/pr4xis/pull/103)) ([#108](https://github.com/i-am-logger/pr4xis/pull/108))
+- Ontolex-Lemon, consciousness C1×C2, complete functor chain, Vocabulary API ([#88](https://github.com/i-am-logger/pr4xis/pull/88)) ([#104](https://github.com/i-am-logger/pr4xis/pull/104))
+- define_ontology! being: clause + register all 108 ontologies ([#76](https://github.com/i-am-logger/pr4xis/pull/76)) ([#84](https://github.com/i-am-logger/pr4xis/pull/84))
+- artifact_identity + data_provisioning — ontological external-data subsystem, no more LFS ([#71](https://github.com/i-am-logger/pr4xis/pull/71))
+- staging ontology — Futamura's partial-evaluation framework as a meta-ontology ([#67](https://github.com/i-am-logger/pr4xis/pull/67))
+- enforce ontology patterns — define_ontology! everywhere, 4851 tests
+- integrate Kleisli + anamorphism + Yoneda into causation reasoning
+- integrate algebraic structures into reasoning + tracing
+- F-algebra, MonoidalCategory, Optics, MonadTransformer (4 structures)
+- complete algebraic structure library — 7 new structures
+- Reader + State monads with property-based tests
+- migrate remaining 5 biomedical Ontology impls to structural + domain split
+- migrate Ontology impls to structural + domain axiom split
+- Ontology trait — structural + domain axioms merged via monoid
+- define_ontology! clean API — concepts/is_a/has_a/causes/opposes + auto structural axioms
+- migrate 41 ontologies to define_ontology! macro (-3163 lines)
+- define_ontology! macro — generates Category + Taxonomy + Mereology + Causation + Opposition + OntologyMeta
+- Monoid + Writer monad + TracedCategory refactor (Moggi 1991, Mac Lane 1971)
+- restructure to academic hierarchy (DOLCE-aligned)
+- migrate ~65 Pattern B ontologies to define_dense_category! (-5325 lines)
+- migrate 30 Pattern A ontologies to define_category! macro (-4404 lines)
+- derive macros — #[derive(Entity)] + define_category! + define_dense_category!
+- dev-web serves chatbot at /, presentation at /decks/technical
+- rename praxis → pr4xis across entire codebase
+- migrate burp + pssst ontologies — 123 categories, 61 functors, 4707 tests
+- migrate 11 vogix ontologies into praxis theming (3117 tests)
+- prop tests + functor connections across 15 ontologies (2934 tests, 18 functors)
+- PregroupCategory — proper Category with proven laws
+- NoisyChannel→Communication + DRT→Dialogue functors (proven)
+- Diagnostics→Control functor (FDI IS control — Gertler 1998, proven)
+- Communication→Control + Diagnostics→Metacognition functors (proven)
+- TraceSchema ontology — T(C) = El(C) + O_obs (Spivak 2012)
+- trace shows Lambek notation (S[q]/NP) not Rust debug format
+- proper ontology trace — each step reports what it did with status
+- proper ontology trace — each step reports what it did with status
+- trace functors — map pipeline steps to Diagnostics/PROV ontologies
+- Diagnostics ontology + TracedCategory (writer monad on categories)
+- proper ontology trace — each step reports what it did with status
+- add Ontology Alignment and NLG pipeline ontologies
+- rich taxonomy responses with path, definitions, and subtypes
+- add criterion benchmarks for all ontologies and chat pipeline
+- add Instance ontology (Spivak) and SystemsToSchema functor
+- add durability, volatility, measurement, and benchmark ontologies
+- merge sensor-fusion ontologies, add schema/storage/consistency ontologies, praxis-web
+- speech production ontology (Levelt pipeline as category)
+- Traum grounding state machine as finite category
+- extend dialogue ontology with QUD, CommonGround, Intention, Repair
+- function words as LMF data, extend LmfPos with closed-class types
+- extended sentence test suite, chart type selection fix
+- self-model ontology, CYK chart parser, adjunction, response generation
+- integration tests with full WordNet — expose real failures honestly
+- docs/chat/ for GitHub Pages — presentation embeds live chatbot
+- complete scheme taxonomy — Vogix16, Ansi16, Base24, SchemeType
+- Turing test benchmark — 18 questions, 3 pass, 15 need ontologies
+- ColorSlot::key() — canonical theme file key names
+- Rgb::from_hex and to_hex for color parsing
+- Language::pregroup_types — end-to-end pregroup pipeline through Language trait
+- Lambek → Pregroup functor — ontology evolution proven
+- load WordNet verb frames for transitivity — no more defaults
+- pregroup grammar ontology — parsing as group algebra
+- integrate ontologies via functors, wire into chatbot pipeline
+- control systems ontology + foundational cybernetics papers
+- math functions + sRGB color science + theming ontology
+- cognition ontologies — distinction, epistemics, metacognition
+- question grammar types + Q semantic domain in Lambek/Montague
+- Montague functor — type-driven syntax-semantics interpretation
+- Lambek grammar — syntax as category, text understood through type reduction
+- dialogue ontology + chatbot CLI — praxis can chat
+- SystemsToEvents functor — closes System ↔ EventDriven ↔ Concurrent triangle
+- event-driven ontology — chess IS event-driven IS concurrent (proven)
+- SystemsToConcurrency functor — every system IS concurrent (proven)
+- concurrency ontology — chess IS concurrent (proven via functor)
+- Language trait, orthography, morphology, cached reasoning queries
+- English language ontology — 107k concepts, nanosecond queries
+- information ontology — what bits, bytes, references, and text ARE
+- WordNet-LMF ontology — full 107k synset load in 3.8s
+- XML ontology, enhanced property tests, systems thinking completeness
+- DOLCE upper ontology, domain restructure, linguistics, systems thinking, codegen
+
+### Fix
+
+- *(cli)* reason over loaded statutes; load English owned, not leaked
+- *(reasoning)* Parthood is irreflexive; a grounded edge is not a morphism
+- *(derive)* has_a: emits part→whole Parthood edges (BFO:0000050 alignment)
+- *(chat)* a Parthood answer phrases "is part of", not "is a"
+- *(morphology)* satisfy clippy --all-targets --release in the AGID regenerate helper
+- *(linguistics)* address Copilot review — cache operator vocab + don't split glyphs inside words
+- *(docs,grounding)* broken intra-doc links + Copilot review
+- *(#62)* address 11 copilot comments on consolidated Heim PR #143 (#144)
+- clippy clean — no dead code, no unused imports, no stubs
+- remove unused Category imports from test modules (clippy -D warnings)
+- qualify kind refs in define_category! macro (avoid Identity ambiguity) + LOC badge
+- update release-please config for pr4xis rename + add version to path deps
+- add WordNet XML (LFS) + tinted-schemes submodule for CI
+- skip data-dependent tests when WordNet/themes not available (CI)
+- clarify Base16 has 16 slots, Base24 has 24
+- remove hardcoded quit/exit — farewell detection through language lexicon
+- remove all hardcoded pronoun/noun matching from dialogue engine
+- taxonomy query works — 'is a dog a mammal' answered correctly
+- copula type from CCG research — question 'is X a Y' now parses to Q type
+- resolve all clippy warnings for strict CI
+
+### Perf
+
+- *(morphology)* cache the parsed irregulars table behind OnceLock in std (Copilot review)
+- praxis tests give faster feedback and catch slowdowns earlier ([#185](https://github.com/i-am-logger/pr4xis/pull/185))
+
+### Refactor
+
+- *(self-aware)* address branch-review findings — doc-rot + one Form-aware counter
+- *(decoders)* exhaustive has_decoder_for + per-module DECODES const (D-22)
+- *(lmf)* verb transitivity from the loaded frame text, not the id prefix (D-15)
+- *(registry)* source disk paths as praxis.toml data, not Rust dispatch (D-9)
+- *(linguistics)* delete the dead legacy discourse module (D-11)
+- *(lexicon)* collapse pos_to_olia_fragments to the canonical anchor (D-13)
+- *(xsd)* derive datatype base_type + groups from the loaded hierarchy (D-16/D-6/D-5)
+- *(relations)* relation→structural-property as loaded edges, not a Rust match (D-7)
+- *(meta)* derive identity leaves, domain rank, and the XSD baseline from loaded data (D-18/D-19/D-20/D-17)
+- *(domains)* derive is_leaf from the loaded graph + type the theme polarity (D-18, D-10)
+- *(domains)* lower determiner/interjection features through ONE codec, not scattered synset.contains
+- *(linguistics)* migrate ALL lexical-category assignment into the loaded functor (Batch K)
+- migrate pr4xis-domains to feat/logic-ontologies API ([#170](https://github.com/i-am-logger/pr4xis/pull/170))
+- *(#113)* batch 3 — final cognitive ontologies (lemon, consciousness, self_model) (#120)
+- *(#113)* batch 2 — dialogue/pragmatics cluster (7 ontologies) (#119)
+- *(#113)* migrate 18 ontologies to ontology! proc macro (#116)
+- applied/theming/ → applied/hmi/{theming,surfaces,visualization,input,report,explorer}/ ([#66](https://github.com/i-am-logger/pr4xis/pull/66))
+- move meta/methodological ontologies from biomedical to formal
+- response generation through SVO grammar, not hardcoded strings
+- load function words from LMF data file instead of hardcoded Rust
+- rename Lambek types::english to types::svo (language-agnostic)
+- replace hardcoded chat strings with response realization ontology
+- merge English + EnglishLanguage into one type
+- delete function_words.rs and vocabulary.rs — all lookups through Language
+- Language trait as single lexical interface — tokenizer is language-agnostic
+- remove hardcoded Montague, keep Lambek grammar clean
+- revert hardcoded CLI, add dialogue ontology, add missing tests
+- merge science into domains, reorganize by ontology, harden engine
+- consolidate 18 crates → 4 workspace members
+
+### Research
+
+- *(#98)* kinded-functor failures diagnosed — three distinct problems, none lax (#129)
+
+### Style
+
+- rustfmt
+
+### Test
+
+- *(chat,domains)* "is X part of Y" answers over a loaded Parthood mereology (Step 3)
+- property-based tests for math functions + sRGB color science
+- comprehensive prop-based tests for cognition ontologies
+
 ## [0.25.3](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.2...pr4xis-domains-v0.25.3) - 2026-06-17
 
 ### Build
