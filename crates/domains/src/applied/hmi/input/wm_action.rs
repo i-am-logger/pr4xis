@@ -290,6 +290,9 @@ pub enum WorkspaceTarget {
     /// A special / scratchpad workspace. Empty name = the default `special`
     /// scratchpad; a name = `special:hidden`, `special:minimized`, …
     Special(String),
+    /// The most-recently-used workspace (i3 `back_and_forth`; Hyprland
+    /// `workspace, previous`). Distinct from `Relative(±1)` adjacency.
+    Last,
 }
 
 impl WorkspaceTarget {
@@ -305,8 +308,40 @@ impl WorkspaceTarget {
                 }
             }
             WorkspaceTarget::Named(s) => s.clone(),
+            WorkspaceTarget::Last => "previous".to_string(),
             WorkspaceTarget::Special(s) if s.is_empty() => "special".to_string(),
             WorkspaceTarget::Special(s) => format!("special:{s}"),
+        }
+    }
+}
+
+/// A monitor / output selector — the parameter of the monitor focus/move
+/// operations (i3/sway `focus output` / `move container to output`; Hyprland
+/// `focusmonitor` / `movewindow mon:`). The multihead dimension EWMH names with
+/// `_NET_DESKTOP_VIEWPORT` / `_NET_DESKTOP_GEOMETRY`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OutputSel {
+    /// The monitor in a spatial direction (`focusmonitor, l`).
+    Direction(Direction),
+    /// A named monitor / output (`focusmonitor, DP-1`).
+    Named(String),
+    /// A relative step in the monitor list (`focusmonitor, +1`).
+    Relative(i32),
+}
+
+impl OutputSel {
+    /// The Hyprland monitor argument.
+    fn render(&self) -> String {
+        match self {
+            OutputSel::Direction(d) => d.hypr().to_string(),
+            OutputSel::Named(s) => s.clone(),
+            OutputSel::Relative(k) => {
+                if *k >= 0 {
+                    format!("+{k}")
+                } else {
+                    k.to_string()
+                }
+            }
         }
     }
 }
@@ -384,6 +419,12 @@ pub enum WmAction {
     MoveToWorkspace(WorkspaceTarget, Follow),
     /// Toggle a special / scratchpad workspace overlay (e.g. an overview).
     ToggleSpecialWorkspace(String),
+    /// Move keyboard focus to another monitor / output (i3 `focus output`;
+    /// Hyprland `focusmonitor`).
+    FocusMonitor(OutputSel),
+    /// Send the focused window to another monitor / output (i3 `move container to
+    /// output`; Hyprland `movewindow mon:`).
+    MoveToMonitor(OutputSel),
     /// Run an external command. The **one blessed wire boundary**: the command
     /// line is genuine external data, not a vocabulary praxis controls — the
     /// reason [`WmAction`] is open-world (Reiter 1978).
@@ -464,6 +505,18 @@ impl WmAction {
         WmAction::Focus(FocusBy::Layer)
     }
 
+    /// Move keyboard focus to a monitor / output — `FocusMonitor(OutputSel)`
+    /// (Hyprland `focusmonitor`).
+    pub fn focus_monitor(sel: OutputSel) -> Self {
+        WmAction::FocusMonitor(sel)
+    }
+
+    /// Send the focused window to a monitor / output — `MoveToMonitor(OutputSel)`
+    /// (Hyprland `movewindow mon:`).
+    pub fn move_to_monitor(sel: OutputSel) -> Self {
+        WmAction::MoveToMonitor(sel)
+    }
+
     /// The finite generating set — one representative of every variant. Used to
     /// machine-check the realization functor (totality, the functor laws) and to
     /// seed property tests. This is a *generating* set, not the (open-world) whole
@@ -501,6 +554,9 @@ impl WmAction {
             WmAction::focus_parent(),
             WmAction::focus_layer(),
             WmAction::State(StateDelta::new(StateOp::Toggle, StateBit::Shaded)),
+            WmAction::focus_monitor(OutputSel::Direction(Left)),
+            WmAction::move_to_monitor(OutputSel::Direction(Right)),
+            WmAction::Workspace(WorkspaceTarget::Last),
             WmAction::Workspace(WorkspaceTarget::Index(1)),
             WmAction::Workspace(WorkspaceTarget::Relative(1)),
             WmAction::Workspace(WorkspaceTarget::Relative(-1)),
@@ -536,6 +592,8 @@ impl Concept for WmAction {
             WmAction::Workspace(_) => "workspace",
             WmAction::MoveToWorkspace(_, _) => "move-to-workspace",
             WmAction::ToggleSpecialWorkspace(_) => "toggle-special-workspace",
+            WmAction::FocusMonitor(_) => "focus-monitor",
+            WmAction::MoveToMonitor(_) => "move-to-monitor",
             WmAction::Exec(_) => "exec",
             WmAction::Submap(_) => "submap",
         }
@@ -574,6 +632,10 @@ pub enum Dispatch {
     MoveToWorkspace(WorkspaceTarget),
     MoveToWorkspaceSilent(WorkspaceTarget),
     ToggleSpecialWorkspace(String),
+    /// `focusmonitor, <sel>`.
+    FocusMonitor(OutputSel),
+    /// `movewindow, mon:<sel>`.
+    MoveToMonitor(OutputSel),
     /// `cyclenext,` or `cyclenext, prev`.
     CycleNext(bool),
     Exec(String),
@@ -607,6 +669,8 @@ impl Dispatch {
                 format!("movetoworkspacesilent, {}", w.render())
             }
             Dispatch::ToggleSpecialWorkspace(n) => format!("togglespecialworkspace, {n}"),
+            Dispatch::FocusMonitor(s) => format!("focusmonitor, {}", s.render()),
+            Dispatch::MoveToMonitor(s) => format!("movewindow, mon:{}", s.render()),
             Dispatch::CycleNext(prev) => {
                 if *prev {
                     "cyclenext, prev".to_string()
@@ -823,6 +887,8 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
             vec![Dispatch::MoveToWorkspaceSilent(w.clone())]
         }
         WmAction::ToggleSpecialWorkspace(n) => vec![Dispatch::ToggleSpecialWorkspace(n.clone())],
+        WmAction::FocusMonitor(s) => vec![Dispatch::FocusMonitor(s.clone())],
+        WmAction::MoveToMonitor(s) => vec![Dispatch::MoveToMonitor(s.clone())],
         WmAction::Exec(cmd) => vec![Dispatch::Exec(cmd.clone())],
         WmAction::Submap(t) => vec![Dispatch::Submap(t.render())],
     }
@@ -1216,6 +1282,28 @@ mod tests {
                 Follow::Silent
             )),
             "movetoworkspacesilent, special"
+        );
+    }
+
+    #[test]
+    fn realize_monitor_and_mru_workspace() {
+        // The monitor/output dimension Hyprland realizes natively.
+        assert_eq!(
+            realize(&WmAction::focus_monitor(OutputSel::Direction(
+                Direction::Left
+            ))),
+            "focusmonitor, l"
+        );
+        assert_eq!(
+            realize(&WmAction::move_to_monitor(OutputSel::Direction(
+                Direction::Right
+            ))),
+            "movewindow, mon:r"
+        );
+        // MRU / back-and-forth workspace.
+        assert_eq!(
+            realize(&WmAction::Workspace(WorkspaceTarget::Last)),
+            "workspace, previous"
         );
     }
 
