@@ -74,8 +74,9 @@ use super::window_state::{StateBit, StateDelta, StateOp};
 ///
 /// A strongly-typed variable over a small closed value-set (Payne & Green 1986);
 /// the value domain is EWMH's `_NET_WM_MOVERESIZE` direction family restricted to
-/// the four cardinals the presets use (diagonals are deferred — see the pack
-/// README). Hyprland names them `l`/`r`/`u`/`d`.
+/// the four cardinals the presets use (diagonals are out of the four-cardinal
+/// set — a diagonal extension is a tracked follow-up, not a hidden default).
+/// Hyprland names them `l`/`r`/`u`/`d`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     Left,
@@ -167,6 +168,42 @@ impl FinitelyGenerated for Orientation {
             Orientation::Horizontal,
             Orientation::Vertical,
             Orientation::Toggle,
+        ]
+    }
+}
+
+/// A container DISPLAY layout — the parameter of the layout operation (i3/sway
+/// `layout default|stacking|tabbed`). The split-orientation layouts (`splith`/
+/// `splitv`) are the separate [`Split`](WmAction::Split) operation, not duplicated
+/// here. A backend without named layouts (Hyprland) realizes only `tabbed` (via
+/// its window-group mechanism) and gaps the rest.
+///
+/// Source: i3 User's Guide "Manipulating layout"; sway(5) `layout`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LayoutKind {
+    /// The workspace's default tiling layout.
+    Default,
+    /// A stacked container (one window shown, titles listed).
+    Stacking,
+    /// A tabbed container (one window shown, tabs across the top).
+    Tabbed,
+}
+
+impl Concept for LayoutKind {
+    fn name(&self) -> &'static str {
+        match self {
+            LayoutKind::Default => "default",
+            LayoutKind::Stacking => "stacking",
+            LayoutKind::Tabbed => "tabbed",
+        }
+    }
+}
+impl FinitelyGenerated for LayoutKind {
+    fn variants() -> Vec<Self> {
+        vec![
+            LayoutKind::Default,
+            LayoutKind::Stacking,
+            LayoutKind::Tabbed,
         ]
     }
 }
@@ -409,6 +446,10 @@ pub enum WmAction {
     Split(Orientation),
     /// Toggle grouping (tabbed group) for the focused window.
     ToggleGroup,
+    /// Set the container's display layout (i3/sway `layout default|stacking|
+    /// tabbed`). Hyprland realizes only `tabbed` (its window groups); `stacking`
+    /// and `default` are gaps there (Sway realizes all three).
+    Layout(LayoutKind),
     /// Cycle the active window *within* the current group.
     CycleGroup(Cycle),
     /// Switch to a workspace (Henderson & Card 1986 *Rooms*; EWMH
@@ -417,6 +458,12 @@ pub enum WmAction {
     /// Send the focused window to a workspace, optionally following it (EWMH
     /// `_NET_WM_DESKTOP`).
     MoveToWorkspace(WorkspaceTarget, Follow),
+    /// Rename a workspace — the one explicit workspace-lifecycle op (i3/sway
+    /// `rename workspace`; Hyprland `renameworkspace`). Workspace CREATE is
+    /// implicit (switching to a non-existent target via [`Workspace`](WmAction::Workspace)
+    /// creates it) and DESTROY is implicit (empty workspaces auto-reap) on both
+    /// backends — neither is a distinct keybind action.
+    RenameWorkspace(WorkspaceTarget, String),
     /// Toggle a special / scratchpad workspace overlay (e.g. an overview).
     ToggleSpecialWorkspace(String),
     /// Move keyboard focus to another monitor / output (i3 `focus output`;
@@ -517,6 +564,18 @@ impl WmAction {
         WmAction::MoveToMonitor(sel)
     }
 
+    /// Set the container display layout — `Layout(LayoutKind)` (i3/sway
+    /// `layout …`).
+    pub fn layout(kind: LayoutKind) -> Self {
+        WmAction::Layout(kind)
+    }
+
+    /// Rename a workspace — `RenameWorkspace` (Hyprland `renameworkspace`; sway
+    /// `rename workspace to`).
+    pub fn rename_workspace(target: WorkspaceTarget, name: impl Into<String>) -> Self {
+        WmAction::RenameWorkspace(target, name.into())
+    }
+
     /// The finite generating set — one representative of every variant. Used to
     /// machine-check the realization functor (totality, the functor laws) and to
     /// seed property tests. This is a *generating* set, not the (open-world) whole
@@ -545,6 +604,8 @@ impl WmAction {
             WmAction::Split(Orientation::Horizontal),
             WmAction::Split(Orientation::Vertical),
             WmAction::ToggleGroup,
+            WmAction::Layout(LayoutKind::Tabbed),
+            WmAction::Layout(LayoutKind::Stacking),
             WmAction::CycleGroup(Cycle::Forward),
             WmAction::cycle_window(Cycle::Forward),
             WmAction::cycle_window(Cycle::Backward),
@@ -569,6 +630,7 @@ impl WmAction {
                 Follow::Silent,
             ),
             WmAction::MoveToWorkspace(WorkspaceTarget::Special(String::new()), Follow::Silent),
+            WmAction::RenameWorkspace(WorkspaceTarget::Index(1), "work".to_string()),
             WmAction::ToggleSpecialWorkspace("overview".to_string()),
             WmAction::Exec("$TERMINAL".to_string()),
             WmAction::Submap(SubmapTarget::Enter(ModeId::new("resize"))),
@@ -588,9 +650,11 @@ impl Concept for WmAction {
             WmAction::State(_) => "state",
             WmAction::Split(_) => "split",
             WmAction::ToggleGroup => "toggle-group",
+            WmAction::Layout(_) => "layout",
             WmAction::CycleGroup(_) => "cycle-group",
             WmAction::Workspace(_) => "workspace",
             WmAction::MoveToWorkspace(_, _) => "move-to-workspace",
+            WmAction::RenameWorkspace(_, _) => "rename-workspace",
             WmAction::ToggleSpecialWorkspace(_) => "toggle-special-workspace",
             WmAction::FocusMonitor(_) => "focus-monitor",
             WmAction::MoveToMonitor(_) => "move-to-monitor",
@@ -631,6 +695,8 @@ pub enum Dispatch {
     Workspace(WorkspaceTarget),
     MoveToWorkspace(WorkspaceTarget),
     MoveToWorkspaceSilent(WorkspaceTarget),
+    /// `renameworkspace, <id> <name>`.
+    RenameWorkspace(WorkspaceTarget, String),
     ToggleSpecialWorkspace(String),
     /// `focusmonitor, <sel>`.
     FocusMonitor(OutputSel),
@@ -667,6 +733,9 @@ impl Dispatch {
             Dispatch::MoveToWorkspace(w) => format!("movetoworkspace, {}", w.render()),
             Dispatch::MoveToWorkspaceSilent(w) => {
                 format!("movetoworkspacesilent, {}", w.render())
+            }
+            Dispatch::RenameWorkspace(w, name) => {
+                format!("renameworkspace, {} {name}", w.render())
             }
             Dispatch::ToggleSpecialWorkspace(n) => format!("togglespecialworkspace, {n}"),
             Dispatch::FocusMonitor(s) => format!("focusmonitor, {}", s.render()),
@@ -877,6 +946,10 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
         // here (Sway realizes split horizontal/vertical distinctly — see lower_sway).
         WmAction::Split(_) => vec![Dispatch::LayoutMsg("togglesplit")],
         WmAction::ToggleGroup => vec![Dispatch::ToggleGroup],
+        // Hyprland realizes the tabbed layout via its window groups; stacking and
+        // the default tiling layout have no dispatcher (Sway realizes all three).
+        WmAction::Layout(LayoutKind::Tabbed) => vec![Dispatch::ToggleGroup],
+        WmAction::Layout(LayoutKind::Stacking | LayoutKind::Default) => Vec::new(),
         WmAction::CycleGroup(c) => vec![Dispatch::ChangeGroupActive(match c {
             Cycle::Forward => 'f',
             Cycle::Backward => 'b',
@@ -885,6 +958,9 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
         WmAction::MoveToWorkspace(w, Follow::Follow) => vec![Dispatch::MoveToWorkspace(w.clone())],
         WmAction::MoveToWorkspace(w, Follow::Silent) => {
             vec![Dispatch::MoveToWorkspaceSilent(w.clone())]
+        }
+        WmAction::RenameWorkspace(w, name) => {
+            vec![Dispatch::RenameWorkspace(w.clone(), name.clone())]
         }
         WmAction::ToggleSpecialWorkspace(n) => vec![Dispatch::ToggleSpecialWorkspace(n.clone())],
         WmAction::FocusMonitor(s) => vec![Dispatch::FocusMonitor(s.clone())],
@@ -953,6 +1029,8 @@ pub fn hyprland_realizes(action: &WmAction) -> bool {
     match action {
         WmAction::State(d) => hyprland_state_capability().contains(&d.bit),
         WmAction::Focus(FocusBy::Tree(_)) | WmAction::Focus(FocusBy::Layer) => false,
+        WmAction::Layout(LayoutKind::Tabbed) => true,
+        WmAction::Layout(_) => false,
         _ => true,
     }
 }
@@ -1195,6 +1273,7 @@ fn lower_sway(action: &WmAction) -> Vec<SwayCmd> {
             Orientation::Toggle => "split toggle",
         }),
         WmAction::ToggleGroup => one("layout toggle split tabbed"),
+        WmAction::Layout(k) => one(&format!("layout {}", k.name())),
         WmAction::CycleGroup(c) => one(match c {
             Cycle::Forward => "focus next",
             Cycle::Backward => "focus prev",
@@ -1213,6 +1292,7 @@ fn lower_sway(action: &WmAction) -> Vec<SwayCmd> {
                 SwayCmd::new(format!("workspace {ws}")),
             ]
         }
+        WmAction::RenameWorkspace(_, name) => one(&format!("rename workspace to {name}")),
         WmAction::ToggleSpecialWorkspace(_) => one("scratchpad show"),
         WmAction::FocusMonitor(s) => one(&format!("focus output {}", sway_output(s))),
         WmAction::MoveToMonitor(s) => one(&format!("move container to output {}", sway_output(s))),
