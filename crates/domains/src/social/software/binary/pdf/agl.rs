@@ -1,10 +1,11 @@
 //! Adobe Glyph List — name → Unicode resolver for `/Differences`
 //! arrays in PDF font dictionaries (runtime path).
 //!
-//! Mirrors the build-time path at `build_helpers/agl.rs`; both
-//! `include_str!` the same canonical data file. The parser logic
-//! is duplicated rather than shared because build helpers cannot
-//! depend on crate sources (build/compile chicken-and-egg).
+//! The glyph table is materialized from the committed
+//! `glyphlist.prx` (`include_bytes!`) through the generalized
+//! fail-closed `[compact_archive_signatures]` content gate — the
+//! raw `glyphlist.txt` is fetch-only (`pr4xis update`) and ships
+//! in NO crate. See [`glyph_list_bytes`].
 //!
 //! ## Data source
 //!
@@ -12,10 +13,11 @@
 //! SPDX-License-Identifier: BSD-3-Clause. The canonical file
 //! lives at
 //! <https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt>;
-//! the repo embeds a verbatim copy at
-//! `crates/domains/data/adobe/glyphlist.txt`. ISO 32000-2:2020
-//! §9.6.5.4 cites the AGL as the resolver for `/Differences`
-//! glyph names.
+//! the repo fetches a verbatim copy to
+//! `crates/domains/data/adobe/glyphlist.txt` (fetch-only) and ships
+//! only the committed content-addressed `glyphlist.prx`. ISO
+//! 32000-2:2020 §9.6.5.4 cites the AGL as the resolver for
+//! `/Differences` glyph names.
 //!
 //! ## File format
 //!

@@ -58,9 +58,12 @@ mod tests {
     #[test]
     fn recognises_bundled_ooxml_schema_archive() {
         // The bundled OOXML schema archive is a real PKZIP file; the magic-prefix
-        // check returns true on its first bytes. The raw `.zip` is fetch-only and
-        // ships in NO crate — the bytes are materialized from the committed `.prx`
-        // through the fail-closed `[compact_archive_signatures]` gate (phase 2d).
+        // check returns true on its first bytes. The raw `.zip` is a BUNDLED
+        // source-of-truth (not URL-fetchable — the published download is a
+        // ZIP-of-ZIPs): git-tracked but excluded from the crate by the
+        // `[package].include` allowlist, so it ships in NO crate — the bytes are
+        // materialized from the committed `.prx` through the fail-closed
+        // `[compact_archive_signatures]` gate (phase 2d).
         use crate::applied::data_provisioning::raw_source_prx::raw_source_bytes_embedded;
         const OOXML_PRX: &[u8] = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),

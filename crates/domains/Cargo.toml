@@ -17,9 +17,9 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 # not matched below is simply absent from `cargo package`/`publish`.
 #
 # Rationale per category:
-#   - Rust source is what the crate IS (lib, build script + its documented
-#     `build_helpers` mirror, benches, the `emit_prx` example, integration
-#     test targets). Test fixtures the `tests/*.rs` load are resolved at RUNTIME
+#   - Rust source is what the crate IS (lib, build script, benches, the
+#     `emit_prx` example, integration test targets). Test fixtures the
+#     `tests/*.rs` load are resolved at RUNTIME
 #     via `CARGO_MANIFEST_DIR` + `std::fs` (NOT `include_*!`), so excluding
 #     `tests/data/**` leaves the test *.rs compiling under `cargo publish
 #     --verify` while keeping the fixtures out of the package; local `cargo test`
@@ -37,7 +37,6 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 include = [
     "src/**/*.rs",
     "build.rs",
-    "build_helpers/**/*.rs",
     "benches/**/*.rs",
     "examples/**/*.rs",
     "tests/**/*.rs",
@@ -189,8 +188,9 @@ test-internals = ["prx"]
 pr4xis = { path = "../pr4xis", version = "0.25.4", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
-# BLAKE3 for the build-time mirror of the content-address identity gate
-# (`build_helpers/agl.rs`) — same pure-Rust config as the main dependency.
+# BLAKE3 for build.rs's content-address gates — the committed-`.prx` decode
+# (`decode_committed_prx_gated`) and the registry-manifest baked-root gate
+# (`decode_registry_prx`). Same pure-Rust config as the main dependency.
 blake3 = { version = "1", default-features = false, features = ["pure"] }
 
 # Lints are inlined here (not inherited from `[workspace.lints]`) so the

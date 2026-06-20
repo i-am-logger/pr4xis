@@ -92,11 +92,16 @@ crates/domains/data/adobe/glyphlist.txt
 crates/domains/data/markup-schemas/xml/xml.xsd
 crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
 crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
-# Phase 2d FETCHED raw schema sources — W3C XSD meta-schema + ECMA-376 OOXML
-# schema ZIP. Routed through the generalized raw-source `.prx` path; the raw is
-# fetch-only (pinned in praxis.lock `[hashes]`), only the `.prx` ships.
+# Phase 2d FETCHED raw schema source — W3C XSD meta-schema. Routed through the
+# generalized raw-source `.prx` path; the raw is fetch-only (pinned in
+# praxis.lock `[hashes]`), only the `.prx` ships.
 crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
-crates/domains/data/markup-schemas/ooxml/ooxml_schema_strict-2016.zip
+# NOTE: the ECMA-376 OOXML schema ZIP is NOT gitignored — it is a BUNDLED
+# source-of-truth (a ZIP-of-ZIPs the single-`.xml`-member `unzip_single_xml`
+# fetch path cannot reproduce), so it is git-tracked like ewmh-wm-state.tsv /
+# math-operators.xml: present on checkout so `fetch_entry` verifies the local
+# copy and never downloads, excluded from the published crate by the
+# `[package].include` allowlist, shipped only as the committed `.prx`.
 # Phase 3 FETCHED raw color-scheme COLLECTION — the Tinted Theming
 # `tinted-schemes` corpus (formerly a git submodule). FETCHED from the
 # i-am-logger/tinted-schemes fork; `pr4xis update` clones the theme tree here
