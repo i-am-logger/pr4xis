@@ -858,21 +858,75 @@ pub fn i3_preset() -> BindingSet {
     bs
 }
 
-/// tmux-style keybindings — prefix key (Ctrl+B) then action key.
+/// tmux-style keybindings — a `Ctrl+B` PREFIX that drives WINDOW MANAGEMENT in the
+/// tmux idiom (panes -> windows, windows -> workspaces). The prefix is REACHABLE
+/// (an `app` passthrough root binds `Ctrl+B` to enter the submap) and EXITABLE
+/// (`Escape` returns to the root) — the previous preset authored a `tmux-prefix`
+/// mode that nothing entered and nothing exited. In-terminal tmux functions
+/// (copy-mode, the command prompt) are NOT bound; they pass through to the app.
 ///
-/// Source: tmux(1) man page, vi copy mode conventions
+/// Source: tmux(1) DEFAULT KEY BINDINGS — the prefix idiom and the
+/// window/pane/zoom/split mnemonics.
 pub fn tmux_preset() -> BindingSet {
     let mut bs = BindingSet::new("tmux");
+    let app = ModeId::new("app");
     let prefix = ModeId::new("tmux-prefix");
 
-    // Window management
+    // Enter the prefix submap with Ctrl+B (the tmux prefix); Escape leaves it.
+    bs.add(
+        KeyCombo::new(Key::Letter('b')).with_mod(Modifier::Ctrl),
+        app,
+        Action::new(
+            "enter_prefix",
+            "tmux prefix (Ctrl+B)",
+            WmAction::Submap(SubmapTarget::Enter(ModeId::new("tmux-prefix"))),
+        ),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Named(NamedKey::Escape)),
+        prefix.clone(),
+        Action::new(
+            "exit_prefix",
+            "Leave the tmux prefix",
+            WmAction::Submap(SubmapTarget::Reset),
+        ),
+        false,
+    );
+
+    // Pane focus (prefix + hjkl / arrows) — panes are WM windows.
+    for (c, key, dir, dname) in [
+        ('h', NamedKey::Left, Direction::Left, "left"),
+        ('j', NamedKey::Down, Direction::Down, "down"),
+        ('k', NamedKey::Up, Direction::Up, "up"),
+        ('l', NamedKey::Right, Direction::Right, "right"),
+    ] {
+        bs.add(
+            KeyCombo::new(Key::Letter(c)),
+            prefix.clone(),
+            Action::new(format!("focus_{c}"), "Focus pane", WmAction::focus(dir)),
+            false,
+        );
+        bs.add(
+            KeyCombo::new(Key::Named(key)),
+            prefix.clone(),
+            Action::new(
+                format!("focus_arrow_{dname}"),
+                "Focus pane",
+                WmAction::focus(dir),
+            ),
+            false,
+        );
+    }
+
+    // Windows -> workspaces: prefix + c new, n/p next/prev, 1..9 by index.
     bs.add(
         KeyCombo::new(Key::Letter('c')),
         prefix.clone(),
         Action::new(
             "new_window",
-            "Create new window",
-            WmAction::Exec("tmux new-window".to_string()),
+            "New window (spawn terminal)",
+            WmAction::Exec("$TERMINAL".to_string()),
         ),
         false,
     );
@@ -882,7 +936,7 @@ pub fn tmux_preset() -> BindingSet {
         Action::new(
             "next_window",
             "Next window",
-            WmAction::Exec("tmux next-window".to_string()),
+            WmAction::Workspace(WorkspaceTarget::Relative(1)),
         ),
         false,
     );
@@ -892,43 +946,43 @@ pub fn tmux_preset() -> BindingSet {
         Action::new(
             "prev_window",
             "Previous window",
-            WmAction::Exec("tmux previous-window".to_string()),
+            WmAction::Workspace(WorkspaceTarget::Relative(-1)),
         ),
         false,
     );
-    bs.add(
-        KeyCombo::new(Key::Letter('l')),
-        prefix.clone(),
-        Action::new(
-            "last_window",
-            "Last window",
-            WmAction::Exec("tmux last-window".to_string()),
-        ),
-        false,
-    );
-
-    // Window numbers
-    for i in 0u8..=9 {
+    for i in 1u8..=9 {
         bs.add(
             KeyCombo::new(Key::Number(i)),
             prefix.clone(),
             Action::new(
                 format!("window_{i}"),
-                format!("Switch to window {i}"),
-                WmAction::Exec(format!("tmux select-window -t {i}")),
+                "Select window",
+                WmAction::Workspace(WorkspaceTarget::Index(i)),
             ),
             false,
         );
     }
 
-    // Pane splitting
+    // Pane verbs: zoom -> fullscreen, x -> close, splits, detach -> minimize.
+    bs.add(
+        KeyCombo::new(Key::Letter('z')),
+        prefix.clone(),
+        Action::new("zoom", "Zoom (fullscreen)", WmAction::fullscreen()),
+        false,
+    );
+    bs.add(
+        KeyCombo::new(Key::Letter('x')),
+        prefix.clone(),
+        Action::new("kill_pane", "Close pane", WmAction::Close),
+        false,
+    );
     bs.add(
         KeyCombo::new(Key::Letter('%')),
         prefix.clone(),
         Action::new(
-            "split_v",
-            "Split pane vertical",
-            WmAction::Exec("tmux split-window -h".to_string()),
+            "split_h",
+            "Split side-by-side",
+            WmAction::Split(Orientation::Horizontal),
         ),
         false,
     );
@@ -936,71 +990,16 @@ pub fn tmux_preset() -> BindingSet {
         KeyCombo::new(Key::Letter('"')),
         prefix.clone(),
         Action::new(
-            "split_h",
-            "Split pane horizontal",
-            WmAction::Exec("tmux split-window -v".to_string()),
+            "split_v",
+            "Split stacked",
+            WmAction::Split(Orientation::Vertical),
         ),
         false,
     );
-
-    // Pane navigation (arrows — hjkl conflicts with window commands in default tmux)
-    for (key, dir, name) in [
-        (NamedKey::Left, "L", "left"),
-        (NamedKey::Down, "D", "down"),
-        (NamedKey::Up, "U", "up"),
-        (NamedKey::Right, "R", "right"),
-    ] {
-        bs.add(
-            KeyCombo::new(Key::Named(key)),
-            prefix.clone(),
-            Action::new(
-                format!("pane_{name}"),
-                format!("Focus pane {name}"),
-                WmAction::Exec(format!("tmux select-pane -{dir}")),
-            ),
-            false,
-        );
-    }
-
-    // Session/pane management
     bs.add(
         KeyCombo::new(Key::Letter('d')),
-        prefix.clone(),
-        Action::new(
-            "detach",
-            "Detach session",
-            WmAction::Exec("tmux detach".to_string()),
-        ),
-        false,
-    );
-    bs.add(
-        KeyCombo::new(Key::Letter('z')),
-        prefix.clone(),
-        Action::new(
-            "zoom",
-            "Toggle pane zoom",
-            WmAction::Exec("tmux resize-pane -Z".to_string()),
-        ),
-        false,
-    );
-    bs.add(
-        KeyCombo::new(Key::Letter('x')),
-        prefix.clone(),
-        Action::new(
-            "kill_pane",
-            "Kill pane",
-            WmAction::Exec("tmux kill-pane".to_string()),
-        ),
-        false,
-    );
-    bs.add(
-        KeyCombo::new(Key::Letter('?')),
         prefix,
-        Action::new(
-            "help",
-            "List keybindings",
-            WmAction::Exec("tmux list-keys".to_string()),
-        ),
+        Action::new("detach", "Detach (minimize)", WmAction::minimize()),
         false,
     );
 
@@ -2023,15 +2022,39 @@ mod tests {
     }
 
     #[test]
-    fn test_tmux_has_pane_navigation() {
+    fn test_tmux_prefix_is_reachable_and_exitable() {
+        // The previous preset shipped a tmux-prefix mode that NOTHING entered and
+        // NOTHING exited. Now an `app` root binds Ctrl+B to enter it, and Escape
+        // exits — and pane focus lives in the prefix submap.
         let bs = tmux_preset();
+        let app = ModeId::new("app");
         let prefix = ModeId::new("tmux-prefix");
-        let bindings = bs.for_mode(&prefix);
-        let names: Vec<_> = bindings.iter().map(|b| b.action.name.as_str()).collect();
-        assert!(names.contains(&"pane_left"));
-        assert!(names.contains(&"pane_down"));
-        assert!(names.contains(&"pane_up"));
-        assert!(names.contains(&"pane_right"));
+        let app_names: Vec<_> = bs
+            .for_mode(&app)
+            .iter()
+            .map(|b| b.action.name.as_str())
+            .collect();
+        assert!(
+            app_names.contains(&"enter_prefix"),
+            "Ctrl+B enters the prefix"
+        );
+        let prefix_names: Vec<_> = bs
+            .for_mode(&prefix)
+            .iter()
+            .map(|b| b.action.name.as_str())
+            .collect();
+        assert!(
+            prefix_names.contains(&"exit_prefix"),
+            "Escape exits the prefix"
+        );
+        assert!(
+            prefix_names.contains(&"focus_h"),
+            "prefix + h focuses a pane"
+        );
+        assert!(
+            prefix_names.contains(&"focus_arrow_left"),
+            "prefix + Left focuses a pane"
+        );
     }
 
     // ── Cross-preset tests ──
