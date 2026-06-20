@@ -444,30 +444,29 @@ impl Axiom for StateAddRemoveComplementary {
     );
 }
 
-/// The [`StateBit`] enum is exactly the loaded EWMH-plus-extensions vocabulary —
-/// **sound** (every variant has a loaded definition) and **complete** (every
-/// loaded atom has a variant). This is what makes "loaded, not hand-encoded"
-/// real: the typed alphabet cannot drift from the cited source without this
-/// axiom failing.
+/// The [`StateBit`] enum is exactly the loaded EWMH-plus-extensions vocabulary,
+/// **in the same order** — sound (every variant has a loaded definition),
+/// complete (every loaded atom has a variant), and order-faithful (the i-th
+/// variant is the i-th loaded row, so `StateBit::index` — and thus the bit
+/// positions — is pinned to the loaded row order). This is what makes "loaded,
+/// not hand-encoded" real: the typed alphabet cannot drift from the cited source,
+/// in membership OR order, without this axiom failing.
 pub struct VocabularyComplete;
 
 impl Axiom for VocabularyComplete {
     fn verify(&self) -> Verdict {
         let loaded = wm_state_vocabulary();
         let variants = StateBit::variants();
-        // Same cardinality.
+        // Same cardinality AND same ORDER: the i-th StateBit variant must be the
+        // i-th loaded atom. Ordered equality is stronger than set equality — it
+        // also pins `StateBit::index` (and thus the bit positions) to the loaded
+        // row order, so a reorder of either the enum or the TSV fails here rather
+        // than silently breaking the index <-> vocabulary-order correspondence.
         if loaded.len() != variants.len() {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
-        // Sound + complete: every variant name appears in the loaded vocabulary,
-        // and every loaded name is a variant (bijection on names).
-        for v in &variants {
-            if !loaded.iter().any(|d| d.name == v.name()) {
-                return Err(Box::new(SimpleCounterexample::new(self.meta())));
-            }
-        }
-        for d in &loaded {
-            if !variants.iter().any(|v| v.name() == d.name) {
+        for (i, v) in variants.iter().enumerate() {
+            if loaded[i].name != v.name() {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -476,8 +475,8 @@ impl Axiom for VocabularyComplete {
 
     pr4xis::axiom_meta!(
         "VocabularyComplete",
-        "the StateBit alphabet is exactly the loaded EWMH _NET_WM_STATE vocabulary (sound and complete)",
-        "EWMH v1.5 (2013) §5 — the _NET_WM_STATE atom set is the controlled source; the typed enum is checked against the loaded vocabulary, not merely cited"
+        "the StateBit alphabet is exactly the loaded EWMH _NET_WM_STATE vocabulary, in the same order (sound, complete, and order-faithful: index() matches the loaded row order)",
+        "EWMH v1.5 (2013) §5 — the _NET_WM_STATE atom set is the controlled source; the typed enum is checked against the loaded vocabulary positionally, not merely cited"
     );
 }
 
