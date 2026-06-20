@@ -978,9 +978,12 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
 /// client messages). The states Hyprland gives a user dispatcher are its
 /// window-state CAPABILITY (`hyprland_state_capability`); EWMH states outside
 /// it (app-set hints, the below layer, shading) have no Hyprland user action and
-/// lower to the empty word — they are never *generated* for a Hyprland binding
-/// (`representative_actions` excludes them; [`StateLoweringMatchesCapability`]
-/// witnesses the boundary, so the empty arm is intentional, not a silent drop).
+/// lower to the empty word. That empty arm is INTENTIONAL and checked, not a
+/// silent drop: [`StateLoweringMatchesCapability`] proves it fires exactly outside
+/// the capability. (`representative_actions` deliberately includes a few
+/// out-of-capability witnesses — e.g. `Shaded` — to exercise that proof; a
+/// Hyprland-targeting preset is expected to bind only in-capability actions, a
+/// consumer gating on [`hyprland_realizes`].)
 fn lower_state(d: &StateDelta) -> Vec<Dispatch> {
     match d.bit {
         StateBit::Fullscreen => vec![Dispatch::Fullscreen(0)],
