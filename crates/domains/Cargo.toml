@@ -7,6 +7,44 @@ description = "Applied domains — chess, calculator, elevator, legal, traffic, 
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
+# The published crate is Rust + `.prx` ONLY — a hardcore rule, enforced
+# DECLARATIVELY by this `include` ALLOWLIST (not an ever-growing `exclude`).
+# Everything else — per-module `README.md` / `citings.md` docs, papers,
+# license-records, generated reports, and every test fixture (`.nq`, `.json`,
+# `.csv`, `.ttl`, `.pgn`, `.txt`, `.tsv`, `.xml`, `.xhtml`, `.xsd`, …) — stays
+# GIT-TRACKED but never enters the tarball. The rule is enforced going forward:
+# a future stray non-Rust/non-`.prx` file can't silently ship, because anything
+# not matched below is simply absent from `cargo package`/`publish`.
+#
+# Rationale per category:
+#   - Rust source is what the crate IS (lib, build script + its documented
+#     `build_helpers` mirror, benches, the `emit_prx` example, integration
+#     test targets). Test fixtures the `tests/*.rs` load are resolved at RUNTIME
+#     via `CARGO_MANIFEST_DIR` + `std::fs` (NOT `include_*!`), so excluding
+#     `tests/data/**` leaves the test *.rs compiling under `cargo publish
+#     --verify` while keeping the fixtures out of the package; local `cargo test`
+#     still finds them in the working tree.
+#   - `.prx` / `.prx.gz` are the SHIPPED content-addressed artifacts (the
+#     phase 1-4 conversions: vocab/schema/spec sources, themes, projections,
+#     the registry MANIFEST `.prx`, the OWL `.prx.gz` ontologies, the `.tar.prx`
+#     archives). Every runtime / build-time `include_bytes!` in NON-test code
+#     targets one of these; the derived/authored source-of-truth inputs that
+#     regenerate them (`*.tsv`, `*.xml`, the raw `*.xsd`/`*.xhtml`) are
+#     fetch-only or git-only and ship in NO crate — "in git, not in the crate".
+#   - `CHANGELOG.md` is conventional crate metadata. (`Cargo.toml` is auto-
+#     included always; there is no crate-root `README`/`LICENSE` file — the
+#     license is an SPDX expression in `[package].license`.)
+include = [
+    "src/**/*.rs",
+    "build.rs",
+    "build_helpers/**/*.rs",
+    "benches/**/*.rs",
+    "examples/**/*.rs",
+    "tests/**/*.rs",
+    "data/**/*.prx",
+    "data/**/*.prx.gz",
+    "CHANGELOG.md",
+]
 # NOTE: the publish gate lives in release-plz.toml (`[[package]] name =
 # "pr4xis-domains", publish = false`), NOT here. A `publish = false` in
 # THIS manifest makes release-plz ignore the crate outright — it never
@@ -30,7 +68,7 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 # Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
 # (this crate is a WASM default-feature dependency — see the fetch
 # gating notes below).
-pr4xis = { path = "../pr4xis", default-features = false, features = ["std"] }
+pr4xis = { path = "../pr4xis", version = "0.25.4", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
@@ -59,7 +97,7 @@ hashbrown = "0.17"
 # feature-gating of the dependency is needed; the consuming `composed` module
 # is `std`-gated only because pr4xis-runtime is a std crate (and the WASM build
 # enables `std` via the `prx` feature anyway).
-pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
+pr4xis-runtime = { path = "../pr4xis-runtime", version = "0.25.4", features = ["emit"] }
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate
@@ -151,7 +189,7 @@ test-internals = ["prx"]
 # emits Rust modules under $OUT_DIR/<name>_codegen.rs for every Statute-kind
 # source whose lock carries structural data. The crate's runtime tree then
 # `include!`s those modules under `social::compliance::law::<name>::`.
-pr4xis = { path = "../pr4xis", default-features = false, features = ["codegen"] }
+pr4xis = { path = "../pr4xis", version = "0.25.4", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
 # BLAKE3 for the build-time mirror of the content-address identity gate
@@ -178,10 +216,10 @@ unreachable = "deny"
 # `pr4xis::codegen::wordnet::parse_wordnet_xml` directly. `codegen` is
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
-pr4xis = { path = "../pr4xis", features = ["codegen"] }
+pr4xis = { path = "../pr4xis", version = "0.25.4", features = ["codegen"] }
 # The runtime, with `emit`, so an integration test can project a real domain
 # ontology into a `.prx` Archive and round-trip it through the runtime.
-pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
+pr4xis-runtime = { path = "../pr4xis-runtime", version = "0.25.4", features = ["emit"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1.11"
 tempfile = "3"

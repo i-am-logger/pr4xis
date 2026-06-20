@@ -127,7 +127,7 @@ impl XmlEncodingFamilies {
 pub fn loaded_xml_encoding_families() -> &'static XmlEncodingFamilies {
     static FAMILIES: OnceLock<XmlEncodingFamilies> = OnceLock::new();
     FAMILIES.get_or_init(|| {
-        extract_encoding_families(super::spec::XML_1_0_FIFTH_EDITION).expect(
+        extract_encoding_families(super::spec::loaded_xml_1_0_fifth_edition()).expect(
             "W3C XML 1.0 §F + §4.3.3 must yield the canonical \
              encoding-label families from the loaded spec source",
         )

@@ -1,3 +1,0 @@
-[submodule "crates/domains/data/tinted-schemes"]
-	path = crates/domains/data/tinted-schemes
-	url = https://github.com/i-am-logger/tinted-schemes.git

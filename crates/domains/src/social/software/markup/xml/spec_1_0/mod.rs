@@ -26,7 +26,7 @@ pub use content_dispatch::{
 pub use encoding_labels::{
     EncodingLabelExtractionError, XmlEncodingFamilies, loaded_xml_encoding_families,
 };
-pub use spec::{XML_1_0_FIFTH_EDITION, loaded_xml_1_0_fifth_edition};
+pub use spec::loaded_xml_1_0_fifth_edition;
 
 mod content_dispatch;
 mod encoding_labels;

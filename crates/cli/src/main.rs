@@ -350,7 +350,8 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
         emit_all_compact_english_prx_gz, emit_all_wordnet_prx_gz, english_compact_prx_cache_dir,
     };
     use pr4xis_domains::social::software::markup::xml::owl::prx::{
-        emit_all_prx_gz as emit_all_owl_prx_gz, owl_prx_cache_dir,
+        emit_all_compact_owl_prx_gz, emit_all_prx_gz as emit_all_owl_prx_gz,
+        owl_compact_prx_cache_dir, owl_prx_cache_dir,
     };
     use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
         emit_all_compact_usc_prx_gz, emit_all_usc_prx_gz, usc_compact_prx_cache_dir,
@@ -361,9 +362,10 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     // Precondition: `compile` consumes the physical sources `pr4xis update`
     // provisions. A registered, pinned, compilable source that is not on disk is
     // the "forgot to run update" failure — alert (or auto-provision with
-    // `--update`) instead of silently emitting nothing for it. `--compact` only
-    // touches U.S. Code titles, so it only requires those.
-    let missing = missing_compilable_sources(&workspace_root, compact);
+    // `--update`) instead of silently emitting nothing for it. Every leg
+    // (compact + rkyv) needs its source on disk, so the same set is required
+    // regardless of `--compact`.
+    let missing = missing_compilable_sources(&workspace_root);
     if !missing.is_empty() {
         if update {
             println!(
@@ -371,7 +373,7 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
                 missing.len()
             );
             run_update(None, false, false, false, false, false)?;
-            let still = missing_compilable_sources(&workspace_root, compact);
+            let still = missing_compilable_sources(&workspace_root);
             if !still.is_empty() {
                 anyhow::bail!("still missing after update: {}", still.join(", "));
             }
@@ -407,6 +409,36 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     compact_artifacts.extend(
         emit_all_compact_english_prx_gz(&english_compact_dir)
             .map_err(|e| anyhow::anyhow!("emit English compact: {e}"))?,
+    );
+
+    // The portable compact OWL cache → `.prx-cache/ontologies-compact/` — the
+    // OWL-vocab loader's (`olia::reference_model` + `loaded_vocabularies`) FAST
+    // content-address-gated path. The committed `data/ontologies/<name>.prx.gz`
+    // is a copy of this output. Always emitted (the runtime fast-load artifact);
+    // graceful-skip per source whose `.owl` is absent.
+    let owl_compact_dir = owl_compact_prx_cache_dir(&workspace_root);
+    compact_artifacts.extend(
+        emit_all_compact_owl_prx_gz(&owl_compact_dir)
+            .map_err(|e| anyhow::anyhow!("emit OWL compact: {e}"))?,
+    );
+
+    // The committed RAW-SOURCE `.prx` archives — every registered byte-stream
+    // source (XSD / DTD / XHTML / XML-spec / OOXML zip / TSV / glyph list). These
+    // are the `data/**/<stem>.prx` committed twins the generalized raw-source
+    // loader (`raw_source_prx::load_raw_source`) reads; written beside their raw
+    // source (NOT under `.prx-cache/`) since they ARE the committed artifact, and
+    // pinned into the same `[compact_archive_signatures]` space.
+    compact_artifacts.extend(
+        pr4xis_domains::applied::data_provisioning::raw_source_prx::emit_all_compact_raw_source_prx()
+            .map_err(|e| anyhow::anyhow!("emit raw-source .prx: {e}"))?
+            .into_iter()
+            .map(|r| EmittedArtifact {
+                name: r.name,
+                version: r.version,
+                path: r.path,
+                byte_len: r.byte_len,
+                archive_address: r.archive_address,
+            }),
     );
 
     if !compact {
@@ -464,7 +496,7 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
 /// (`OntologyVocabulary` OWL, `UsCodeTitle` USC, `Language` WordNet); other
 /// registered kinds (conformance suites, …) are not flagged. "Pinned" = present
 /// in `[hashes]` (a source with no source-pin is not yet provisioned-expected).
-fn missing_compilable_sources(workspace_root: &Path, compact_only: bool) -> Vec<String> {
+fn missing_compilable_sources(workspace_root: &Path) -> Vec<String> {
     use pr4xis_domains::applied::data_provisioning::registry::{data_sources, lock_hashes};
     use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::{
         Language, OntologyVocabulary, UsCodeTitle,
@@ -472,12 +504,11 @@ fn missing_compilable_sources(workspace_root: &Path, compact_only: bool) -> Vec<
     let hashes = lock_hashes();
     let mut missing = Vec::new();
     for e in data_sources() {
-        // `--compact` only emits U.S. Code titles, so only those are required.
-        let required = if compact_only {
-            matches!(e.kind, UsCodeTitle)
-        } else {
-            matches!(e.kind, OntologyVocabulary | UsCodeTitle | Language)
-        };
+        // Every leg of `compile` (rkyv envelopes AND the always-on compact
+        // archives) needs its source on disk. `--compact` only skips the heavy
+        // rkyv-envelope leg — it still emits the compact OWL / USC / WordNet
+        // archives — so all three kinds are required regardless of `--compact`.
+        let required = matches!(e.kind, OntologyVocabulary | UsCodeTitle | Language);
         if !required {
             continue;
         }

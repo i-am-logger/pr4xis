@@ -21,20 +21,34 @@
 //!   copy; the `xml_1_0_fifth_edition@2008` hash in `praxis.lock`
 //!   is the content digest of those bytes.
 
-/// The bundled W3C XML 1.0 Fifth Edition XML-format bytes — the
-/// normative source the parser's grammar predicates derive from
-/// (per `feedback_bottom_up_loaded_not_encoded`).
-pub const XML_1_0_FIFTH_EDITION: &str = include_str!(concat!(
+/// The committed W3C XML 1.0 Fifth Edition spec `.prx` — the content-addressed
+/// envelope carrying the W3C-published XML-format bytes. The raw `.xml` is
+/// fetch-only (`pr4xis update`) and ships in NO crate; only this `.prx` is
+/// committed + embedded, loaded through the generalized fail-closed
+/// `[compact_archive_signatures]` gate (phase 2c). The SAME committed `.prx`
+/// `build.rs` decodes at compile time to emit the grammar predicates.
+const XML_1_0_FIFTH_EDITION_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml"
+    "/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.prx"
 ));
 
 /// The loaded W3C XML 1.0 Fifth Edition spec bytes. Downstream
 /// code queries this to anchor parser predicates in the published
 /// EBNF rather than in hand-coded ranges.
+///
+/// The bytes are materialized from the committed `.prx` through the fail-closed
+/// `[compact_archive_signatures]` content gate
+/// ([`raw_source_text_embedded`](crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded)),
+/// cached for the process behind a `OnceLock`. The raw `.xml` is no longer
+/// embedded — only the gated `.prx` is.
 #[must_use]
 pub fn loaded_xml_1_0_fifth_edition() -> &'static str {
-    XML_1_0_FIFTH_EDITION
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    use std::sync::OnceLock;
+    static SPEC: OnceLock<&'static str> = OnceLock::new();
+    SPEC.get_or_init(|| {
+        raw_source_text_embedded("xml_1_0_fifth_edition", "2008", XML_1_0_FIFTH_EDITION_PRX)
+    })
 }
 
 #[cfg(test)]

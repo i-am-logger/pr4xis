@@ -56,18 +56,31 @@ pub struct StateBitDef {
     pub source: String,
 }
 
-/// The committed window-state atom vocabulary — EWMH `_NET_WM_STATE` (13 atoms)
-/// plus two cited compositor extensions. One `bit_name<TAB>atom<TAB>source` row
-/// each. This is the authority the [`StateBit`] enum is proven complete-and-sound
-/// against ([`VocabularyComplete`]); the enum is the typed working representation,
-/// the loaded data is what it must conform to.
-const WM_STATE_TSV: &str = include_str!(concat!(
+/// The committed window-state vocabulary `.prx` — the content-addressed envelope
+/// carrying the `bit_name<TAB>atom<TAB>source` table bytes. The raw `.tsv` is
+/// AUTHORED source-of-truth (git-tracked) but EXCLUDED from the published crate;
+/// only this `.prx` is committed + embedded here and ships in the crate. Loaded
+/// through the generalized raw-source gate (phase 2b).
+const WM_STATE_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/hmi/ewmh-wm-state.tsv"
+    "/data/hmi/ewmh-wm-state.prx"
 ));
 
+/// The committed window-state atom vocabulary text — EWMH `_NET_WM_STATE`
+/// (13 atoms) plus two cited compositor extensions, one
+/// `bit_name<TAB>atom<TAB>source` row each. Materialized from the committed
+/// `.prx` through the fail-closed `[compact_archive_signatures]` content gate
+/// (feature-independent: works on default, `no_std` and wasm). This is the
+/// authority the [`StateBit`] enum is proven complete-and-sound against
+/// ([`VocabularyComplete`]); the enum is the typed working representation, the
+/// loaded data is what it must conform to.
+fn wm_state_tsv() -> &'static str {
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    raw_source_text_embedded("ewmh_wm_state", "1.5", WM_STATE_PRX)
+}
+
 /// The loaded window-state atom vocabulary (EWMH `_NET_WM_STATE` + 2 cited
-/// compositor extensions), parsed from the committed TSV.
+/// compositor extensions), parsed from the committed `.prx`.
 ///
 /// Under `std` the parse is cached process-wide ([`OnceLock`](std::sync::OnceLock)):
 /// the completeness axiom and any vocabulary lookup re-read it, so re-parsing per
@@ -79,7 +92,7 @@ pub fn wm_state_vocabulary() -> Vec<StateBitDef> {
     }
     #[cfg(not(feature = "std"))]
     {
-        parse_wm_state_tsv(WM_STATE_TSV)
+        parse_wm_state_tsv(wm_state_tsv())
     }
 }
 
@@ -87,7 +100,7 @@ pub fn wm_state_vocabulary() -> Vec<StateBitDef> {
 fn wm_state_cached() -> &'static [StateBitDef] {
     use std::sync::OnceLock;
     static CACHE: OnceLock<Vec<StateBitDef>> = OnceLock::new();
-    CACHE.get_or_init(|| parse_wm_state_tsv(WM_STATE_TSV))
+    CACHE.get_or_init(|| parse_wm_state_tsv(wm_state_tsv()))
 }
 
 fn parse_wm_state_tsv(tsv: &str) -> Vec<StateBitDef> {

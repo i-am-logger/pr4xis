@@ -142,19 +142,53 @@ impl WellBehavedLens for PdfLens {
 mod tests {
     use super::*;
 
-    /// The bundled SOX § 1514A PDF lives at
-    /// `crates/domains/data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.pdf`
-    /// (240 KB, tracked in git). It's the smallest real PDF available
-    /// in the praxis tree and exercises the full read + extract
-    /// pipeline end-to-end.
-    const SOX_1514A_PDF: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.pdf"
-    ));
+    /// A hermetic single-page PDF carrying a text content stream, built
+    /// programmatically via `lopdf` (correct xref offsets) — the same
+    /// approach as `super::super::reader`'s `minimal_pdf` fixture. It
+    /// exercises the read + extract pipeline end-to-end with NO committed
+    /// binary: praxis ships no PDFs in its crates, and real statute
+    /// corpora are fetched + compiled to `.prx` in CI, not embedded.
+    fn sample_pdf_with_text() -> Vec<u8> {
+        use lopdf::{Document, Object, Stream, dictionary};
+        let mut doc = Document::with_version("1.4");
+        let pages_id = doc.new_object_id();
+        let font_id = doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+        });
+        let content_id = doc.add_object(Stream::new(
+            dictionary! {},
+            b"BT /F1 24 Tf 72 720 Td (Praxis PDF lens fixture) Tj ET".to_vec(),
+        ));
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Contents" => content_id,
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+        });
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![page_id.into()],
+                "Count" => 1,
+            }),
+        );
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog_id);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize sample pdf");
+        bytes
+    }
 
     #[test]
     fn get_then_put_returns_original_bytes() {
-        let bytes = SOX_1514A_PDF.to_vec();
+        let bytes = sample_pdf_with_text();
         let target = <PdfLens as WellBehavedLens>::get(&bytes).expect("parse + extract");
         let back = <PdfLens as WellBehavedLens>::put(&target).expect("put");
         assert_eq!(back, bytes);
@@ -162,11 +196,10 @@ mod tests {
 
     #[test]
     fn get_extracts_some_text() {
-        let bytes = SOX_1514A_PDF.to_vec();
+        let bytes = sample_pdf_with_text();
         let target = <PdfLens as WellBehavedLens>::get(&bytes).expect("parse + extract");
-        // SOX § 1514A is the whistleblower protection statute; its
-        // §-heading should appear in the extracted text. Any
-        // text-shaped output proves the content-stream pipeline ran.
+        // The fixture's content stream shows "Praxis PDF lens fixture";
+        // any text-shaped output proves the content-stream pipeline ran.
         let text = target.full_text();
         assert!(
             !text.trim().is_empty(),
@@ -176,16 +209,16 @@ mod tests {
 
     #[test]
     fn get_emits_one_page_text_per_page() {
-        let bytes = SOX_1514A_PDF.to_vec();
+        let bytes = sample_pdf_with_text();
         let target = <PdfLens as WellBehavedLens>::get(&bytes).expect("parse + extract");
-        // The extractor produces one PageText per page; SOX § 1514A
-        // is a multi-page document so the count is positive.
+        // The extractor produces one PageText per page; the fixture has
+        // one page, so the count is positive.
         assert!(!target.extraction.pages.is_empty());
     }
 
     #[test]
     fn put_get_law_holds() {
-        let bytes = SOX_1514A_PDF.to_vec();
+        let bytes = sample_pdf_with_text();
         assert!(<PdfLens as WellBehavedLens>::assert_put_get_law(&bytes).is_ok());
     }
 

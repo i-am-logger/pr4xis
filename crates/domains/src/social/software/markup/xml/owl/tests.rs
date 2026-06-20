@@ -511,17 +511,20 @@ fn load_bundled_prov_o() {
 
 #[test]
 fn load_olia() {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../docs/papers/olia-reference-model.owl"
-    );
+    // Source the OLiA OWL from the registered, CI-fetched `olia` corpus
+    // (`[sources.olia]`, bundled at data/ontologies/olia-2026-04-09.owl) —
+    // not the stale `docs/papers/olia-reference-model.owl` path that no
+    // longer exists. No graceful skip: an absent bundled vocab is a real
+    // failure (mirrors `rdf_triple_reader_structural_content_audit`).
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("data/ontologies/olia-2026-04-09.owl");
 
-    if !std::path::Path::new(path).exists() {
-        eprintln!("SKIP: OLiA OWL not found");
-        return;
-    }
-
-    let xml = std::fs::read_to_string(path).unwrap();
+    let xml = std::fs::read_to_string(&path).unwrap_or_else(|_| {
+        panic!(
+            "run `pr4xis update olia` to fetch the bundled OLiA OWL at {}; tests do not skip",
+            path.display()
+        )
+    });
 
     let start = std::time::Instant::now();
     let ont = reader::read_owl(&xml).unwrap();

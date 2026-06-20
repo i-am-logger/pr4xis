@@ -164,14 +164,41 @@
 # both this hash and the artifact (--ignored regenerate_english_function_words_prx).
 "english_function_words@2026"  = "blake3:3c903026f069d306c8912580dc5e51ae8ffaed68906516313cbd8e8cad5541e8"
 # AGID (agid@2016.01.19) — Automatically Generated Inflection Database (Atkinson
-# 2016) — is deliberately NOT pinned here: it is a BUILD-TIME source read only by
-# the `regenerate_english_irregulars_tsv` step (which records the blake3 of
-# agid-infl.txt in its output), NOT decoded through the generic runtime substrate.
-# It is registered in praxis.toml as a Stub identity (cited provenance + on-disk
-# path); the RUNTIME data is the committed, git-tracked english-irregulars.tsv
-# derived slice. Pinning it would require a generic-substrate decoder for its
-# Plaintext encoding (DecoderTotalityPerKind), which it neither has nor needs.
-# Recorded source hash (for manual verification): blake3:24ea4a1e3cf69d0ae662eb2df3a021cf1a3530e7e28839ca050a710431b8ce53
+# 2016) — is deliberately NOT pinned here: the 3.3 MB raw database is a BUILD-TIME
+# source read only by the `regenerate_english_irregulars_tsv` step, never decoded
+# through the generic runtime substrate. It stays a praxis.toml Stub identity
+# (cited provenance + on-disk path). What IS pinned (below, english_irregulars)
+# is the RUNTIME data: the small git-tracked english-irregulars.tsv slice the
+# step DERIVES from AGID — a registered Plaintext source now decoded through the
+# generic plaintext_tsv decoder and shipped as a committed content-addressed .prx.
+# Recorded AGID source hash (for manual verification): blake3:24ea4a1e3cf69d0ae662eb2df3a021cf1a3530e7e28839ca050a710431b8ce53
+# Controlled-vocabulary / derived TSV sources (plain-text, decoded through the
+# generic `decoders::plaintext_tsv` codec). Raw-bytes pins of the git-tracked,
+# authored/derived source-of-truth TSVs that are EXCLUDED from the published crate
+# (`[package].exclude` in crates/domains/Cargo.toml) and shipped as the committed
+# content-addressed `.prx` (pinned in `[compact_archive_signatures]` below, loaded
+# through the generalized raw-source gate). Each is authored-from-spec or derived,
+# not URL-fetchable, so it carries a provenance citation URL in praxis.toml.
+"ewmh_wm_state@1.5"        = "blake3:c1526ef8000d57c75299b56073716c77e23cfced0181fcc950b2dfab36fa6453"
+"olia_ccg_categories@2026" = "blake3:a68538dc19badcc63bec96c38f4693c2f99ff4e72bbb9639725490233b953b48"
+"english_irregulars@2016.01.19" = "blake3:8ab82de01a60a6502398f88e420afa742fc0035c89708294434402bb8481b566"
+# Mathematical-operator vocabulary — AUTHORED LMF-shaped XML (NOT a TSV; the same
+# `<LexicalEntry>` reader as WordNet), consumed as raw bytes into an
+# `OperatorVocabulary`. Raw-bytes pin of the git-tracked authored source-of-truth
+# crates/domains/data/operators/math-operators.xml, EXCLUDED from the published
+# crate and shipped as the committed content-addressed `.prx` (pinned in
+# `[compact_archive_signatures]` below, loaded through the generalized raw-source
+# gate). Authored from OpenMath arith1/relation1 + ISO 80000-2, not URL-fetchable.
+"math_operators@2019"      = "blake3:8e17ecb02086375a376de3a1434a79cb2663630bac3ccb1eb33ef448e693669f"
+# Base16/Base24 color-scheme COLLECTION — the Tinted Theming `tinted-schemes`
+# corpus archived into ONE deterministic `.themes` blob by
+# `theme_collection::archive_directory` over the `base16/` + `base24/` scheme
+# trees. Raw-bytes pin of that canonical archive (crates/domains/data/themes/
+# tinted-schemes-2025.themes, 488 schemes), FETCHED from the
+# i-am-logger/tinted-schemes fork and gitignored after fetch; only the committed
+# content-addressed `.prx` (pinned in `[compact_archive_signatures]` below)
+# ships, loaded through the generalized raw-source gate by the theming validator.
+"tinted_schemes@2025"      = "blake3:43100d1290e701b6b57078aab461a496cea8c253874ea2b174e15604fd056f23"
 # CiTO, the Citation Typing Ontology (SPAR family) — W3C OWL 2 / RDF-XML
 # vocabulary. Content digest of the bundled on-disk file
 # crates/domains/data/ontologies/cito-2.8.1.owl, a verbatim copy of the
@@ -552,3 +579,28 @@
 "usc_title_5@pl-119-90" = "blake3:c3e540ce595f914e9a3f3aa6c5747803ab6a76807797835ab1dcbba577c2685b"
 "usc_title_50@pl-119-90" = "blake3:ae0cf53ff4903450a4f1a5fe7ea104018d20293d3d8d8051ff0828c32a3c22ed"
 "english_wordnet@2025" = "blake3:6a7c9cfa7ddec79976b64d881a52f40a91e78b5314b385086dc1220ee03a7c96"
+"biro@1.1.1" = "blake3:8b541ca2b092c6742e3505f30b6950792c6d8b85ca7410c532e67f163e6b713c"
+"c4o@1.2" = "blake3:d6c1d4865b2325b01dad39d8a4a2cf0066c91db61861f018050d5a3d0ffeadf7"
+"cito@2.8.1" = "blake3:7e12afc97bf5d907f4395dec7ddea5100c7e19e167a3c9ddf15b0763ee4ae51f"
+"doco@1.3" = "blake3:e316f11737413b6b212b004e00080d9469c7662c95cacb0dd59a33bae81cff5f"
+"olia@2026-04-09" = "blake3:a37690c1a39689bf33b7b7d4464f2f0242f7e99ae1c1e2a577ad34baf7697fa3"
+"prov_o@2013-04-30" = "blake3:5fe2c63ce0244c85e066d3953618ddeca97f9207c38796a345bbb0fb1d5aea1c"
+"adobe_glyph_list@2019" = "blake3:3565092c2f17b4dd2295d4db1526cde98e7c5a2b445b5ba7267f533b88f1b19a"
+"mods_3_8@2018" = "blake3:161829c81139e914dd9d3caed7d165f670d831e5e8d31df8c72e2e5ec19072cb"
+"uslm_xsd@1.0.18" = "blake3:7d3b7772b667c56957c2b9df334c266df52429f84378feafa566ac8e254cbce2"
+"wn_lmf_dtd@1.3" = "blake3:31261b985ec53979bc97c4b11b572ba000bc8e6259d861b1c1fc4c189fe1d0cc"
+"xhtml_1_0_xsd@1.0" = "blake3:1644b5e9d453f86279ab7e42e6b4a9e84f509d99ee6f1745b608083a32e28134"
+"english_irregulars@2016.01.19" = "blake3:14d471a68291d04962f1a1937f33820f4eb7783405ff3544cdc9e3d20fc15ff2"
+"ewmh_wm_state@1.5" = "blake3:deaeff22d4d1103ebfe9bcebff03f8b5931c8d6185a9e702eb85bcf57f4e3803"
+"olia_ccg_categories@2026" = "blake3:244e0940caa3645c8f559bd77e3f644f04f280b33df5f114edba2eda1adc2e4d"
+"ooxml_schema_strict@2016" = "blake3:16c917c958a17d00a6c4d6c0811c0641e3024711ca1cb83439072b42dd34500f"
+"xml_1_0_fifth_edition@2008" = "blake3:f4103a70f8cd487e5064288440127176a46bf2cf922aed21bae6669d5c098bbb"
+"xml_1_0_namespace_xsd@1.0" = "blake3:2b0fc77e9cbc87337894a96beeb63c63b7fa4c2c2e43fdf6a5961930208e7662"
+"xml_infoset@2004" = "blake3:f514efdb08b7b69fa828aa2bbfb8102f06815e9415cd3a3d3eac718af797d399"
+"xmlconf_xml_test_suite@2008-08-27" = "blake3:177fc463bd1c3d6c84e29ac947120d702a9a3364e8a76a785191ffc1084a33a6"
+"xsd_meta_schema@1.1" = "blake3:a641dfe2e755c68d7ca60cdb330edd6acc261e23adc1f4b1583541be7789bf73"
+"xsts_xml_schema_test_suite@2007-06-20" = "blake3:7906f6b2f55997f2887e69866bb90ed872f5313343c2b8110fe072af86935b8c"
+"math_operators@2019" = "blake3:470937007dcdff634f4a34de872e3f5fceae0ba11a459f7d41a9e467e2d9e471"
+"english_function_words@2026" = "blake3:79cc1fee24c5a6706b8f19bb570049524fcd1ba76d6ac8d2224ef49a257b440b"
+"us_legal_lexicon@2026" = "blake3:09a4205de268af7dbd79c69b89fc30ee7e4d0f6a15e21437f532f3d1a4603dd1"
+"tinted_schemes@2025" = "blake3:2dadba0f94ec0ae5582dfcfedfd5c1e712896016fea5fb9bf028d1bbe1522677"

@@ -31,13 +31,28 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-/// Content address (BLAKE3) of [`GLYPH_LIST_BYTES`], pinned by an axiom in
-/// `mod.rs` and verified at test time. Updating the file requires
-/// recomputing this address.
+/// Content address (BLAKE3) of the loaded glyph-list bytes, pinned by an axiom
+/// in `mod.rs` and verified at test time. Updating the file requires recomputing
+/// this address.
 pub const PINNED_ADDRESS: &str = "5a200d1e890dce2c1ce30e8063f241eea96c4ffadab39eb01259cb927bb1b67f";
 
-/// Verbatim glyph list bytes embedded at build time.
-pub const GLYPH_LIST_BYTES: &str = include_str!("../../../../../data/adobe/glyphlist.txt");
+/// The committed Adobe Glyph List `.prx` — the content-addressed envelope
+/// carrying the `name;HEX[ HEX]*` table bytes. The raw `.txt` is fetch-only
+/// (`pr4xis update`) and ships in NO crate; only this `.prx` is committed +
+/// embedded. Loaded through the generalized raw-source gate (phase 2).
+const GLYPH_LIST_PRX: &[u8] = include_bytes!("../../../../../data/adobe/glyphlist.prx");
+
+/// The loaded Adobe Glyph List bytes, materialized from the committed `.prx`
+/// through the fail-closed `[compact_archive_signatures]` content gate, cached
+/// for the process behind a `OnceLock`. The raw `.txt` is no longer embedded —
+/// only the gated `.prx` is. The function-form successor of the former
+/// `GLYPH_LIST_BYTES` const.
+#[must_use]
+pub fn glyph_list_bytes() -> &'static str {
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    static BYTES: OnceLock<&'static str> = OnceLock::new();
+    BYTES.get_or_init(|| raw_source_text_embedded("adobe_glyph_list", "2019", GLYPH_LIST_PRX))
+}
 
 /// Parse the AGL once on first call and cache the name → Unicode
 /// codepoint map. Multi-codepoint mappings flatten to the first
@@ -46,7 +61,7 @@ pub fn glyph_name_table() -> &'static HashMap<&'static str, u16> {
     static TABLE: OnceLock<HashMap<&'static str, u16>> = OnceLock::new();
     TABLE.get_or_init(|| {
         let mut map = HashMap::with_capacity(4500);
-        for line in GLYPH_LIST_BYTES.lines() {
+        for line in glyph_list_bytes().lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
@@ -104,7 +119,7 @@ mod tests {
 
     #[test]
     fn embedded_address_matches_pinned_hash() {
-        let hex = ContentAddress::of(GLYPH_LIST_BYTES.as_bytes()).to_hex();
+        let hex = ContentAddress::of(glyph_list_bytes().as_bytes()).to_hex();
         assert_eq!(hex, PINNED_ADDRESS);
     }
 }

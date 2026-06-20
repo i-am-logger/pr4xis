@@ -281,7 +281,8 @@ fn has_decoder_for_agrees_with_each_module_const() {
     // a mis-cited arm trips the test (the exhaustive match already forces a new
     // ContentType variant to be decided here at compile time).
     use super::decoders::{
-        adobe_glyph_list, owl, tar_gz_archive, xhtml, xml_dtd, xml_xsd, zip_archive,
+        adobe_glyph_list, owl, plaintext_tsv, tar_gz_archive, theme_collection, xhtml, xml_dtd,
+        xml_xsd, zip_archive,
     };
     for ct in [
         xml_lmf::DECODES,
@@ -292,6 +293,8 @@ fn has_decoder_for_agrees_with_each_module_const() {
         xml_dtd::DECODES,
         tar_gz_archive::DECODES,
         zip_archive::DECODES,
+        plaintext_tsv::DECODES,
+        theme_collection::DECODES,
     ] {
         assert!(
             has_decoder_for(ct),
@@ -405,13 +408,15 @@ fn every_content_type() -> Vec<ContentType> {
         ContentType::XmlXsd,
         ContentType::Xhtml,
         ContentType::Owl,
+        ContentType::MathOperatorLmf,
+        ContentType::XmlLmfLexicon,
     ]
 }
 
 proptest! {
     /// `has_decoder_for` must be a pure function of the variant.
     #[test]
-    fn prop_has_decoder_for_is_pure(idx in 0usize..12) {
+    fn prop_has_decoder_for_is_pure(idx in 0usize..14) {
         let variant = every_content_type()[idx];
         let first = has_decoder_for(variant);
         for _ in 0..16 {

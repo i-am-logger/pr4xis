@@ -61,13 +61,24 @@ use std::sync::OnceLock;
 pub(crate) fn legal_lexicon() -> &'static alloc::collections::BTreeSet<String> {
     static LEXICON: OnceLock<alloc::collections::BTreeSet<String>> = OnceLock::new();
     LEXICON.get_or_init(|| {
-        const XML: &str = include_str!(concat!(
+        // The committed `.prx` — the content-addressed envelope carrying the
+        // authored U.S. legal closed-class lexicon. The raw `.xml` is the
+        // git-tracked source-of-truth but is EXCLUDED from the published crate;
+        // only this `.prx` ships, materialized through the generalized
+        // feature-light `[compact_archive_signatures]` gate (phase 2d) — so it
+        // loads in the default `std`-only build with no `prx`/gzip feature. The
+        // `read_wordnet` reader is unchanged.
+        const US_LEGAL_LEXICON_PRX: &[u8] = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/data/legal-text/us_legal_lexicon.xml"
+            "/data/legal-text/us_legal_lexicon.prx"
         ));
-        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML).expect(
-            "bundled crates/domains/data/legal-text/us_legal_lexicon.xml \
-                 failed to parse — build-time invariant violated",
+        let xml = crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded(
+            "us_legal_lexicon",
+            "2026",
+            US_LEGAL_LEXICON_PRX,
+        );
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).expect(
+            "us_legal_lexicon committed .prx bytes failed to parse — build-time invariant violated",
         );
         wn.entries
             .iter()

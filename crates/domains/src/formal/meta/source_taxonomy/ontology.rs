@@ -53,6 +53,13 @@ pr4xis::ontology! {
         TestSuite,                  // root of published conformance test corpora
         XmlSchemaTestSuite,         // leaf: the W3C XML Schema Test Suite (xsts) — a corpus of validity-labeled XSD documents
         XmlConformanceTestSuite,    // leaf: the W3C XML 1.0 Conformance Test Suite (XMLConf) — a corpus of {valid, invalid, not-wf, error}-labelled XML documents
+
+        // === ControlledVocabulary family (ISO 25964-1 §4 / W3C SKOS) ===
+        ControlledVocabulary,       // root of published controlled vocabularies / category-mapping tables (plain-text TSV)
+        WindowStateVocabulary,      // leaf: the EWMH `_NET_WM_STATE` window-state atom set (freedesktop.org wm-spec)
+        LexicalCategoryProjection,  // leaf: a grammatical-class → lexical-category map (OLiA Reference-Model class ↦ CCGbank category)
+        MathOperatorVocabulary,     // leaf: the closed-class mathematical-operator vocabulary (OpenMath arith1/relation1 + ISO 80000-2 glyphs), authored as LMF-shaped XML
+        ColorSchemeVocabulary,      // leaf: the Base16/Base24 named color-scheme collection (Tinted Theming framework spec) — a controlled set of {base00..base0F[+base10..base17]} hex palettes, one per named scheme
     ],
 
     labels: {
@@ -112,6 +119,16 @@ pr4xis::ontology! {
             "W3C XML Schema Working Group, XML Schema Test Suite, archive xsts-2007-06-20 at <https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2006-11-06/xsts-2007-06-20.tar.gz>: ~14,328 schemaTest cases (~11,598 valid + ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun contributions, each pairing a <schemaDocument> with an <expected validity=...> classification per the W3C XSD 1.1 Parts 1 + 2 (Gao et al. 2012; Peterson et al. 2012)."),
         XmlConformanceTestSuite: ("en", "W3C XML Conformance Test Suite (XMLConf)",
             "W3C XML Test Suite Working Group, XML Conformance Test Suite (XMLConf), archive xmlts20080827.tar.gz at <https://www.w3.org/XML/Test/xmlts20080827.tar.gz>: ~3,000 test cases drawn from Sun, James Clark, IBM, NIST/OASIS, Fuji Xerox and University of Edinburgh contributions; each TEST entry pairs a URI with a TYPE ∈ {valid, invalid, not-wf, error} per W3C XML 1.0 Fifth Edition (Bray et al. 2008) §2.1 well-formedness + §2.8 validity."),
+        ControlledVocabulary: ("en", "Controlled vocabulary",
+            "ISO 25964-1:2011 §4 (Thesauri and interoperability with other vocabularies — Part 1: Thesauri for information retrieval) + W3C SKOS Reference (Miles & Bechhofer eds., W3C Recommendation 18 August 2009): a published, bounded, citation-anchored set of controlled terms — or a category-mapping table between two such sets — distributed as a plain-text tab-separated table rather than as a lexicon (no senses/qualia), a schema (no document grammar), or a corpus (no running text). The sibling of Lexicon under Source for the controlled-term and category-projection resources praxis loads-not-encodes."),
+        WindowStateVocabulary: ("en", "Window-state vocabulary",
+            "freedesktop.org Extended Window Manager Hints (EWMH) v1.5 §5 `_NET_WM_STATE` (<https://specifications.freedesktop.org/wm-spec/1.5/ar01s05.html>): the controlled set of window-state atoms (_NET_WM_STATE_FULLSCREEN, _MODAL, _ABOVE, _BELOW, …) a client adds/removes/toggles, plus two cited compositor extensions (bspwm pseudo_tiled; Wayland xdg-shell/wlroots floating). A ControlledVocabulary leaf: one `bit_name<TAB>spec_atom<TAB>source` row per atom, the authority the StateBit alphabet is machine-checked complete-and-sound against (window_state::VocabularyComplete)."),
+        LexicalCategoryProjection: ("en", "Lexical-category projection",
+            "A controlled mapping from a grammatical-annotation class to its lexical category: each row pairs an OLiA Reference-Model class (Chiarcos & Sukhareva 2015, Semantic Web 6(4):379-386; see [sources.olia]) with its standard CCGbank category notation (Hockenmaier & Steedman 2007, Computational Linguistics 33(3):355-396 — the Combinatory Categorial Grammar lexical-category inventory). A ControlledVocabulary leaf carried as `olia_class<TAB>ccg_category[<TAB>valency_class]` rows: the universal lexical-category functor, loaded as data and interpreted (projection-as-data), never a Rust match."),
+        MathOperatorVocabulary: ("en", "Mathematical-operator vocabulary",
+            "The closed-class inventory of mathematical operators — each glyph bound to one OpenMath symbol with its STS signature (role, arity, result sort). A ControlledVocabulary leaf authored as LMF-shaped XML (one operator per `<LexicalEntry>`, same reader as WordNet/function-words) but consumed as raw bytes into an `OperatorVocabulary`, NOT a WordNet graph. Cite: OpenMath Content Dictionaries `arith1` + `relation1` and OpenMath Standard 2.0 (Kohlhase & Rabe, eds., 2019) §2.1.4 (Role), §4.3 (STS signatures); ISO 80000-2:2019 (operator glyphs). DERIVED/authored source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."),
+        ColorSchemeVocabulary: ("en", "Color-scheme vocabulary",
+            "The Base16 / Base24 named color-scheme collection — a controlled set of named palettes, each binding the framework's reserved slot keys (`base00`..`base0F` for Base16; `base00`..`base17` for Base24) to sRGB hex values. The vocabulary is the Tinted Theming framework specification's scheme corpus (the community `tinted-schemes` dataset, github.com/tinted-theming/schemes), a published, bounded set of named color schemes distributed as one YAML file per scheme. A ControlledVocabulary leaf (ISO 25964-1 controlled terms — each scheme name is a controlled term; each slot key a reserved name): the substrate the theming validator scans to certify the praxis luminance-monotonicity and WCAG-AA contrast axioms over real-world palettes. A COLLECTION source — its `.prx` archives the whole directory of YAML schemes, not a single file. Cite: Tinted Theming, Base16 Styling Guidelines + Base24 specification, <https://github.com/tinted-theming/home>; W3C WCAG 2.1 §1.4.3 (contrast). FETCHED source: the i-am-logger/tinted-schemes fork is the fetch endpoint; the raw theme tree is gitignored after fetch, regenerated via `pr4xis update`, and only the committed content-addressed `.prx` ships."),
     },
 
     is_a: [
@@ -159,6 +176,13 @@ pr4xis::ontology! {
         (TestSuite, Source),
         (XmlSchemaTestSuite, TestSuite),
         (XmlConformanceTestSuite, TestSuite),
+
+        // ControlledVocabulary family
+        (ControlledVocabulary, Source),
+        (WindowStateVocabulary, ControlledVocabulary),
+        (LexicalCategoryProjection, ControlledVocabulary),
+        (MathOperatorVocabulary, ControlledVocabulary),
+        (ColorSchemeVocabulary, ControlledVocabulary),
     ],
 
     // Adjunction graph: pairs of concepts whose instances are connected by
@@ -307,6 +331,11 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "TestSuite" => C::TestSuite,
         "XmlSchemaTestSuite" => C::XmlSchemaTestSuite,
         "XmlConformanceTestSuite" => C::XmlConformanceTestSuite,
+        "ControlledVocabulary" => C::ControlledVocabulary,
+        "WindowStateVocabulary" => C::WindowStateVocabulary,
+        "LexicalCategoryProjection" => C::LexicalCategoryProjection,
+        "MathOperatorVocabulary" => C::MathOperatorVocabulary,
+        "ColorSchemeVocabulary" => C::ColorSchemeVocabulary,
         _ => return None,
     })
 }
@@ -344,6 +373,11 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::TestSuite => "TestSuite",
         C::XmlSchemaTestSuite => "XmlSchemaTestSuite",
         C::XmlConformanceTestSuite => "XmlConformanceTestSuite",
+        C::ControlledVocabulary => "ControlledVocabulary",
+        C::WindowStateVocabulary => "WindowStateVocabulary",
+        C::LexicalCategoryProjection => "LexicalCategoryProjection",
+        C::MathOperatorVocabulary => "MathOperatorVocabulary",
+        C::ColorSchemeVocabulary => "ColorSchemeVocabulary",
     }
 }
 

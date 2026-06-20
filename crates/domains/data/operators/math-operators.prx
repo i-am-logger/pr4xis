@@ -1,0 +1,69 @@
+math_operators2019�+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Mathematical operators (closed class) in LMF format.
+  Same shape as function-words/english.xml and WordNet — processed by the
+  same praxis XML/LMF reader (social::software::markup::xml::lmf::reader).
+
+  Each entry is one operator GLYPH bound to one OpenMath symbol. The four
+  loaded facts per operator are the OpenMath STS signature, carried as:
+
+    <Lemma writtenForm="GLYPH"/>            the surface glyph (ISO 80000-2)
+    <Sense synset="CD#symbol"              the OpenMath symbol identity
+           subcat="ROLE ARITY RESULTSORT"/> the STS signature facts
+
+  where, decoded once at the codec boundary into typed values:
+    ROLE        ∈ {application}        OpenMath Role (Std 2.0 §2.1.4)
+    ARITY       ∈ {unary,binary,nary}  operand count (nary = associative)
+    RESULTSORT  ∈ {number,truth}        the OpenMath result sort
+
+  The grammatical (Lambek) type is NOT stored — it is DERIVED from (arity,
+  result_sort) by `operators::derive_lambek` (see operators.rs), so adding an
+  operator is one data line with zero new Rust.
+
+  Sources (closed-class enumerations — bounded references, not guesses):
+    • Operator vocabulary, symbol identity, role + arity:
+        OpenMath Content Dictionaries `arith1` (arithmetic) and `relation1`
+        (relations), <https://openmath.org/cd/arith1.xhtml>,
+        <https://openmath.org/cd/relation1.xhtml>; OpenMath Standard 2.0
+        (Kohlhase & Rabe, eds., 2019) §2.1.4 (Role), §4.3 (STS signatures).
+    • Glyphs (ASCII + ISO prescribed forms):
+        ISO 80000-2:2019 *Quantities and units — Part 2: Mathematics*,
+        signs and symbols (× U+00D7, ÷ U+00F7, − U+2212, ≤ U+2264,
+        ≥ U+2265, ≠ U+2260).
+    • Categorial type of an infix operator (derived in operators.rs, cited
+        there): Lambek (1958); Steedman (2000) *The Syntactic Process*
+        (coordination schema (X\X)/X); Moortgat (1997) *Categorial Type
+        Logics*; Partee & Rooth (1983) *Generalized Conjunction and Type
+        Ambiguity*.
+
+  POS: operators are not a natural-language part of speech; partOfSpeech="x"
+  (residual/other) is honest and accepted by the LMF reader, which keys this
+  vocabulary off writtenForm + Sense, not POS.
+
+  Issue #169 (math operators dropped by the tokenizer). Co-authored-by:
+  awfmilton — the #169 bug report and research framed this fix.
+-->
+<LexicalResource>
+  <Lexicon id="math-operators" label="Mathematical Operators" language="zxx" email="" license="CC-BY-4.0" version="arith1-3+relation1-2" url="https://openmath.org/cd/">
+
+    <!-- Arithmetic operators (OpenMath arith1 CD; result sort: number) -->
+    <LexicalEntry id="op-plus"><Lemma writtenForm="+" partOfSpeech="x"/><Sense id="op-plus-1" synset="arith1#plus" subcat="application nary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-minus-bin"><Lemma writtenForm="-" partOfSpeech="x"/><Sense id="op-minus-bin-1" synset="arith1#minus" subcat="application binary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-minus-un"><Lemma writtenForm="-" partOfSpeech="x"/><Sense id="op-minus-un-1" synset="arith1#unary_minus" subcat="application unary number NP/NP"/></LexicalEntry>
+    <LexicalEntry id="op-times-ascii"><Lemma writtenForm="*" partOfSpeech="x"/><Sense id="op-times-ascii-1" synset="arith1#times" subcat="application nary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-times-iso"><Lemma writtenForm="×" partOfSpeech="x"/><Sense id="op-times-iso-1" synset="arith1#times" subcat="application nary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-divide-ascii"><Lemma writtenForm="/" partOfSpeech="x"/><Sense id="op-divide-ascii-1" synset="arith1#divide" subcat="application binary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-divide-iso"><Lemma writtenForm="÷" partOfSpeech="x"/><Sense id="op-divide-iso-1" synset="arith1#divide" subcat="application binary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-minus-iso-bin"><Lemma writtenForm="−" partOfSpeech="x"/><Sense id="op-minus-iso-bin-1" synset="arith1#minus" subcat="application binary number (NP\NP)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-minus-iso-un"><Lemma writtenForm="−" partOfSpeech="x"/><Sense id="op-minus-iso-un-1" synset="arith1#unary_minus" subcat="application unary number NP/NP"/></LexicalEntry>
+
+    <!-- Relational operators (OpenMath relation1 CD; result sort: truth) -->
+    <LexicalEntry id="op-eq"><Lemma writtenForm="=" partOfSpeech="x"/><Sense id="op-eq-1" synset="relation1#eq" subcat="application binary truth (NP\S)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-lt"><Lemma writtenForm="&lt;" partOfSpeech="x"/><Sense id="op-lt-1" synset="relation1#lt" subcat="application binary truth (NP\S)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-gt"><Lemma writtenForm="&gt;" partOfSpeech="x"/><Sense id="op-gt-1" synset="relation1#gt" subcat="application binary truth (NP\S)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-leq"><Lemma writtenForm="≤" partOfSpeech="x"/><Sense id="op-leq-1" synset="relation1#leq" subcat="application binary truth (NP\S)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-geq"><Lemma writtenForm="≥" partOfSpeech="x"/><Sense id="op-geq-1" synset="relation1#geq" subcat="application binary truth (NP\S)/NP"/></LexicalEntry>
+    <LexicalEntry id="op-neq"><Lemma writtenForm="≠" partOfSpeech="x"/><Sense id="op-neq-1" synset="relation1#neq" subcat="application binary truth (NP\S)/NP"/></LexicalEntry>
+
+  </Lexicon>
+</LexicalResource>

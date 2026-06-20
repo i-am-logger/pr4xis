@@ -380,12 +380,12 @@ fn load_full_english() {
         "/data/wordnet/english-wordnet-2025.xml"
     );
 
-    if !std::path::Path::new(path).exists() {
-        eprintln!("SKIP: WordNet data not found");
-        return;
-    }
-
-    let xml = std::fs::read_to_string(path).unwrap();
+    // No graceful skip: the corpus is fetched in CI via
+    // `pr4xis update english_wordnet`. An absent corpus is a real failure,
+    // not a reason to false-green.
+    let xml = std::fs::read_to_string(path).expect(
+        "run `pr4xis update english_wordnet` to fetch the WordNet corpus; tests do not skip",
+    );
 
     // Phase 1: Parse XML through LMF ontology
     let t0 = std::time::Instant::now();

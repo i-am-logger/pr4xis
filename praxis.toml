@@ -495,6 +495,82 @@ local_path  = "adobe/glyphlist.txt"
 description = "Adobe Glyph List — PostScript glyph name → Unicode codepoint table; cited by ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014 as the canonical resolver for PDF /Differences glyph names."
 
 # ---------------------------------------------------------------------------
+# Controlled vocabularies (plain-text TSV) — DERIVED / authored source-of-truth
+# ---------------------------------------------------------------------------
+#
+# Unlike the FETCHED sources above (whose raw bytes are gitignored and pulled by
+# `pr4xis update`), these three TSVs are SOURCE-OF-TRUTH that cannot be
+# re-fetched from a URL: each is authored-from-spec or regenerated from another
+# registered source. They therefore stay git-tracked (the input to regenerating
+# their `.prx`) but are EXCLUDED from the published crate via `[package].exclude`
+# in crates/domains/Cargo.toml — "in git, not in the crate" — while the
+# content-addressed committed `.prx` ships and is loaded through the generalized
+# fail-closed `[compact_archive_signatures]` gate
+# (`applied::data_provisioning::raw_source_prx`). The `url` field carries the
+# AUTHORITY citation (the spec / paper the table is derived from), not a fetch
+# endpoint — the registry schema requires a `url` for every source, so a local
+# derived source cites its provenance URL (the same convention the local-only
+# english_function_words / us_legal_lexicon sources already follow).
+
+# EWMH `_NET_WM_STATE` window-state atom vocabulary — AUTHORED from the
+# freedesktop.org wm-spec, the authority the StateBit alphabet is machine-checked
+# complete-and-sound against (window_state::VocabularyComplete).
+[sources.ewmh_wm_state]
+version     = "1.5"
+type        = "WindowStateVocabulary"
+url         = "https://specifications.freedesktop.org/wm-spec/1.5/ar01s05.html"
+local_path  = "hmi/ewmh-wm-state.tsv"
+description = "EWMH (Extended Window Manager Hints) v1.5 §5 `_NET_WM_STATE` window-state atom set — the controlled vocabulary of window states a client adds/removes/toggles (freedesktop.org wm-spec; the 13 EWMH atoms _NET_WM_STATE_MODAL/_STICKY/_MAXIMIZED_VERT/…/_FOCUSED) plus two cited compositor extensions for the tiling layer EWMH does not name (bspwm(1) `pseudo_tiled`; Wayland xdg-shell/wlroots floating). One `bit_name<TAB>spec_atom<TAB>source` row per atom. AUTHORED-from-spec source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# OLiA grammatical-class → CCG lexical-category projection — DERIVED (authored as
+# the universal lexical-category functor), carried as DATA and interpreted
+# (projection-as-data), never a Rust `match`.
+[sources.olia_ccg_categories]
+version     = "2026"
+type        = "LexicalCategoryProjection"
+url         = "https://aclanthology.org/J07-3004/"
+local_path  = "grammar/olia-ccg-categories.tsv"
+description = "OLiA Reference-Model grammatical class → CCGbank lexical-category projection — the universal lexical-category functor carried as loaded DATA. Each row pairs an OLiA Reference-Model class (Chiarcos & Sukhareva 2015, Semantic Web 6(4):379-386, doi:10.3233/SW-140167; see [sources.olia]) with its CCGbank category in standard notation (Hockenmaier & Steedman 2007, Computational Linguistics 33(3):355-396, https://aclanthology.org/J07-3004/ — the Combinatory Categorial Grammar lexical-category inventory), `olia_class<TAB>ccg_category[<TAB>valency_class]`. DERIVED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Mathematical-operator vocabulary — AUTHORED as LMF-shaped XML from the OpenMath
+# arith1/relation1 Content Dictionaries + ISO 80000-2 glyphs. Consumed as raw
+# bytes into an `OperatorVocabulary` (NOT a WordNet graph), so it rides the
+# generalized raw-source `.prx` path under the `MathOperatorVocabulary` leaf.
+[sources.math_operators]
+version     = "2019"
+type        = "MathOperatorVocabulary"
+url         = "https://openmath.org/cd/arith1.xhtml"
+local_path  = "operators/math-operators.xml"
+description = "Mathematical-operator closed-class vocabulary — each operator glyph bound to one OpenMath symbol with its STS signature (role, arity, result sort). AUTHORED from the OpenMath Content Dictionaries arith1 (arithmetic) + relation1 (relations), <https://openmath.org/cd/arith1.xhtml>, <https://openmath.org/cd/relation1.xhtml>; OpenMath Standard 2.0 (Kohlhase & Rabe, eds., 2019) §2.1.4 (Role), §4.3 (STS signatures); glyphs per ISO 80000-2:2019 (Quantities and units — Part 2: Mathematics). LMF-shaped XML (same `<LexicalEntry>` reader as WordNet/function-words), parsed to an OperatorVocabulary by cognitive::linguistics::lambek::operators. DERIVED/authored source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Base16/Base24 color-scheme COLLECTION — the Tinted Theming `tinted-schemes`
+# dataset (a directory of named-scheme YAML palettes). A FETCHED source: the
+# i-am-logger/tinted-schemes fork is the fetch endpoint; `pr4xis update` clones
+# it and `theme_collection::archive_directory` flattens the `base16/` + `base24/`
+# scheme trees into ONE deterministic archive at the `local_path` below (one
+# blob, many schemes), which then rides the generalized raw-source `.prx` path
+# under the `ColorSchemeVocabulary` leaf. The raw theme tree is gitignored after
+# fetch; only the committed content-addressed `.prx` ships. The theming
+# validator (applied::hmi::report::validator) decodes the `.prx` back into the
+# scheme set to certify the luminance-monotonicity + WCAG-AA-contrast axioms.
+[sources.tinted_schemes]
+version     = "2025"
+type        = "ColorSchemeVocabulary"
+url         = "https://github.com/i-am-logger/tinted-schemes.git"
+local_path  = "themes/tinted-schemes-2025.themes"
+description = "Base16/Base24 named color-scheme collection — the Tinted Theming `tinted-schemes` corpus (one YAML palette per named scheme; base00..base0F for Base16, base00..base17 for Base24). FETCHED from the i-am-logger/tinted-schemes fork (a community dataset fork), archived into a single deterministic `.themes` blob by `theme_collection::archive_directory` over the `base16/` + `base24/` scheme trees, and shipped as the committed content-addressed `.prx`. The substrate the theming validator scans to certify the praxis luminance-monotonicity + WCAG-AA-contrast axioms over real-world palettes. Cite: Tinted Theming, Base16 Styling Guidelines + Base24 specification, <https://github.com/tinted-theming/home>; W3C WCAG 2.1 §1.4.3."
+
+# English irregular-forms slice — REGENERATED from the registered AGID source
+# (`--ignored regenerate_english_irregulars_tsv`); the runtime morphological-
+# exception table the dual-route lemmatizer loads.
+[sources.english_irregulars]
+version     = "2016.01.19"
+type        = "InflectionLexicon"
+url         = "http://wordlist.aspell.net/"
+local_path  = "morphology/english-irregulars.tsv"
+description = "English irregular-forms slice — the morphological EXCEPTIONS (inflected forms no productive English rule, Quirk et al. 1985 §3, can generate from the base) DERIVED from the registered AGID inflection database (Atkinson 2016, [sources.agid]) by `--ignored regenerate_english_irregulars_tsv`. One `surface<TAB>lemma<TAB>kind` row per form; the runtime table the dual-route lemmatizer (Pinker 1991) loads. DERIVED source-of-truth (regenerated from AGID, not independently URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# ---------------------------------------------------------------------------
 # Statutes
 # ---------------------------------------------------------------------------
 

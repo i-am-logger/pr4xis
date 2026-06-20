@@ -201,21 +201,28 @@ mod tests {
     use crate::social::software::markup::xml::owl::reader::read_owl;
     use proptest::prelude::*;
 
-    /// The bundled CiTO 2.8.1 OWL vocabulary (SPAR Ontologies). Embedded
-    /// at build time via `include_str!` so the test is hermetic — the
-    /// same `concat!(env!("CARGO_MANIFEST_DIR"), …)` convention the
-    /// USLM vocabulary loader uses.
-    const CITO_2_8_1_OWL: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/ontologies/cito-2.8.1.owl"
-    ));
+    /// The FETCHED raw CiTO 2.8.1 OWL bytes, read from disk at runtime (NOT
+    /// `include_str!`-embedded — the raw `.owl` is fetch-only via `pr4xis update`
+    /// and ships in no crate). An absent raw fails loudly naming the fix.
+    fn cito_2_8_1_owl() -> std::string::String {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/ontologies/cito-2.8.1.owl"
+        );
+        std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!(
+                "CiTO raw .owl is not on disk at {path} ({e}) — it is fetch-only; \
+                 run `pr4xis update` to regenerate it"
+            )
+        })
+    }
 
     /// CiTO's `citesAsEvidence` object-property IRI (SPAR uses
     /// slash-delimited IRIs, no `#` fragment).
     const CITES_AS_EVIDENCE_IRI: &str = "http://purl.org/spar/cito/citesAsEvidence";
 
     fn cito() -> OwlOntology {
-        read_owl(CITO_2_8_1_OWL).expect("bundled CiTO 2.8.1 must parse")
+        read_owl(&cito_2_8_1_owl()).expect("bundled CiTO 2.8.1 must parse")
     }
 
     // ── Unit: build the builder from the real bundled CiTO ───────────

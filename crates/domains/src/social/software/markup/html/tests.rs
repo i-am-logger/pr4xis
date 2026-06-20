@@ -7,7 +7,7 @@
 //! 3. **Functor laws** — `assert_category_laws` on `HtmlCategory`.
 
 use super::loader::{
-    XHTML_1_0_STRICT_XSD, attribute_names, element_names, is_html_attribute, is_html_element,
+    attribute_names, element_names, is_html_attribute, is_html_element, loaded_xhtml_1_0_strict,
 };
 use super::ontology::{HtmlCategory, HtmlConcept};
 use pr4xis::category::FinitelyGenerated;
@@ -169,7 +169,7 @@ fn axiom_name_lookup_case_insensitive_per_whatwg_13_1_2() {
 #[test]
 fn axiom_bundled_xsd_targets_xhtml_1_0_namespace() {
     assert!(
-        XHTML_1_0_STRICT_XSD.contains("targetNamespace=\"http://www.w3.org/1999/xhtml\""),
+        loaded_xhtml_1_0_strict().contains("targetNamespace=\"http://www.w3.org/1999/xhtml\""),
         "bundled XSD does not target http://www.w3.org/1999/xhtml — wrong file?"
     );
 }

@@ -47,13 +47,22 @@ use pr4xis_runtime::connection::{Connection, GeneratorAction};
 /// fragment is carried as a wire string, unvalidated — a tracked degradation,
 /// the same one the rest of the `std`-only OLiA path has. The CCG category must
 /// always parse (a build invariant on both paths).
+/// The committed OLiA→CCG projection `.prx` — the content-addressed envelope
+/// carrying the `olia_class<TAB>ccg_category[<TAB>valency]` table bytes. The raw
+/// `.tsv` is authored/derived source-of-truth (git-tracked) but EXCLUDED from the
+/// published crate; only this `.prx` is committed + embedded and ships. Loaded
+/// through the generalized raw-source gate (phase 2b), feature-independent so the
+/// functor builds on default, `no_std` and wasm.
+const OLIA_CCG_PRX: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/data/grammar/olia-ccg-categories.prx"
+));
+
 fn build_functor() -> Connection {
-    const TSV: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/grammar/olia-ccg-categories.tsv"
-    ));
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    let tsv = raw_source_text_embedded("olia_ccg_categories", "2026", OLIA_CCG_PRX);
     let mut map_object: Vec<(String, String)> = Vec::new();
-    for line in TSV.lines() {
+    for line in tsv.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -68,7 +77,13 @@ fn build_functor() -> Connection {
             parse_category(notation).is_some(),
             "CCG category {notation:?} for {fragment:?} does not parse"
         );
-        #[cfg(feature = "std")]
+        // The build-time grounding check (each key is a real loaded OLiA class)
+        // needs the loaded Reference Model, which only materializes through the
+        // `prx`-gated committed `.prx.gz` (`olia::is_loaded_class` is itself
+        // `#[cfg(feature = "prx")]`). Under `std`-without-`prx` the model is not
+        // loadable, so the fragment is carried unvalidated — the same tracked
+        // degradation the rest of the `std`-only OLiA path has.
+        #[cfg(all(feature = "std", feature = "prx"))]
         {
             assert!(
                 olia::is_loaded_class(fragment),

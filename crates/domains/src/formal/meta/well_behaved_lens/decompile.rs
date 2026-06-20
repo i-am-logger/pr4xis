@@ -101,7 +101,10 @@ impl DecompileKind {
         match ct {
             ContentType::Owl => Some(DecompileKind::Owl),
             ContentType::UslmXml => Some(DecompileKind::UsCode),
-            ContentType::XmlLmf => Some(DecompileKind::WordNet),
+            // Both the open-class WordNet (`XmlLmf`) and the closed-class
+            // function-word / legal lexica (`XmlLmfLexicon`) are WN-LMF graph
+            // sources — the same byte-exact `WordNetLmfLens` decompiles them.
+            ContentType::XmlLmf | ContentType::XmlLmfLexicon => Some(DecompileKind::WordNet),
             _ => None,
         }
     }

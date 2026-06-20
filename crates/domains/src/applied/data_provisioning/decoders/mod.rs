@@ -15,7 +15,9 @@ use super::ontology::ContentType;
 
 pub mod adobe_glyph_list;
 pub mod owl;
+pub mod plaintext_tsv;
 pub mod tar_gz_archive;
+pub mod theme_collection;
 pub mod xhtml;
 pub mod xml_dtd;
 pub mod xml_lmf;
@@ -37,17 +39,30 @@ pub mod zip_archive;
 pub fn has_decoder_for(content_type: ContentType) -> bool {
     use ContentType as CT;
     match content_type {
-        CT::XmlLmf => true,         // xml_lmf::DECODES
-        CT::Owl => true,            // owl::DECODES
-        CT::XmlXsd => true,         // xml_xsd::DECODES
-        CT::Xhtml => true,          // xhtml::DECODES
-        CT::AdobeGlyphList => true, // adobe_glyph_list::DECODES
-        CT::XmlDtd => true,         // xml_dtd::DECODES
-        CT::TarGzArchive => true,   // tar_gz_archive::DECODES
-        CT::ZipArchive => true,     // zip_archive::DECODES
+        CT::XmlLmf => true, // xml_lmf::DECODES
+        // Closed-class function-word / legal lexica are WN-LMF-shaped, so the
+        // SAME `xml_lmf` reader (`lmf::reader::read_wordnet`) decodes their
+        // materialized raw bytes. One reader, two content types — no dedicated
+        // module/const, so it has no `DECODES` to hang on.
+        CT::XmlLmfLexicon => true,
+        CT::Owl => true,             // owl::DECODES
+        CT::XmlXsd => true,          // xml_xsd::DECODES
+        CT::Xhtml => true,           // xhtml::DECODES
+        CT::AdobeGlyphList => true,  // adobe_glyph_list::DECODES
+        CT::XmlDtd => true,          // xml_dtd::DECODES
+        CT::TarGzArchive => true,    // tar_gz_archive::DECODES
+        CT::ZipArchive => true,      // zip_archive::DECODES
+        CT::Plaintext => true,       // plaintext_tsv::DECODES
+        CT::ThemeCollection => true, // theme_collection::DECODES
         // Realized outside decoders/ — by xml::uslm::lens::read_uslm_title.
         CT::UslmXml => true,
+        // The math-operator vocabulary is WN-LMF-shaped, so the SAME
+        // `xml_lmf` reader (`lmf::reader::read_wordnet`) decodes its
+        // materialized raw bytes — it just projects to an `OperatorVocabulary`
+        // downstream instead of an `English`. No dedicated decoder module/const
+        // (one reader, two consumers), so it has no `DECODES` to hang on.
+        CT::MathOperatorLmf => true,
         // No decoder yet — fail-closed for DecoderTotalityPerKind.
-        CT::Pdf | CT::Plaintext | CT::Json | CT::Video | CT::Audio | CT::Binary => false,
+        CT::Pdf | CT::Json | CT::Video | CT::Audio | CT::Binary => false,
     }
 }

@@ -194,18 +194,24 @@ fn english_stopwords() -> &'static alloc::collections::BTreeSet<String> {
     use std::sync::OnceLock;
     static STOPWORDS: OnceLock<alloc::collections::BTreeSet<String>> = OnceLock::new();
     STOPWORDS.get_or_init(|| {
-        const XML: &str = include_str!(concat!(
+        // The committed function-word `.prx` — materialized through the
+        // generalized feature-light `[compact_archive_signatures]` gate (phase
+        // 2d). The raw `english.xml` is the git-tracked source-of-truth but is
+        // EXCLUDED from the published crate; only this `.prx` ships. Its
+        // parseability is a build-time invariant verified by the bundled test
+        // suite. Failure here is a defect, not user input — hard fail.
+        const PRX: &[u8] = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/data/function-words/english.xml"
+            "/data/function-words/english.prx"
         ));
-        // XML is include_str!'d at compile time — its parseability
-        // is a build-time invariant verified by the bundled test
-        // suite. Failure here means the bundled file shipped with
-        // praxis is malformed, which is a defect, not user input.
-        // Hard fail with diagnostic context, not silent fallback.
-        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML).expect(
-            "bundled crates/domains/data/function-words/english.xml \
-                 failed to parse — build-time invariant violated",
+        let xml = crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded(
+            "english_function_words",
+            "2026",
+            PRX,
+        );
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).expect(
+            "english_function_words committed .prx bytes failed to parse — \
+                 build-time invariant violated",
         );
         wn.entries
             .iter()

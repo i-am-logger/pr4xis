@@ -32,7 +32,7 @@ use std::sync::OnceLock;
 
 use super::super::corpus::*;
 use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
-use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
+use crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
 use crate::social::software::markup::xml::parser::grammar as xml_grammar;
 use crate::social::software::markup::xml::reader as xml_reader;
@@ -45,7 +45,7 @@ use crate::social::software::markup::xml::reader as xml_reader;
 /// element-name literals.
 pub(super) fn loaded_uslm_xsd() -> &'static XsdOntologyInstance {
     static USLM_XSD_INSTANCE: OnceLock<XsdOntologyInstance> = OnceLock::new();
-    USLM_XSD_INSTANCE.get_or_init(|| project_from_xsd_text(USLM_1_0_18_XSD))
+    USLM_XSD_INSTANCE.get_or_init(|| project_from_xsd_text(loaded_uslm_1_0_18_xsd()))
 }
 
 /// True iff `local_name` is declared as an `<xsd:element>` by the

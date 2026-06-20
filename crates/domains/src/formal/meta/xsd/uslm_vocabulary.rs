@@ -42,14 +42,26 @@ use alloc::{
 
 use std::sync::OnceLock;
 
-/// The raw bytes of the bundled USLM XSD —
-/// `crates/domains/data/legal/uscode/schema/uslm-1.0.18.xsd`.
-/// Embedded at build time via `include_str!` so the runtime path
-/// is hermetic.
-pub const USLM_1_0_18_XSD: &str = include_str!(concat!(
+/// The committed USLM-1.0.18 `.prx` — the content-addressed envelope carrying
+/// the XSD bytes. The raw `.xsd` is fetch-only (`pr4xis update`) and ships in NO
+/// crate; only this `.prx` is committed + embedded. Loaded through the
+/// generalized raw-source gate (phase 2).
+const USLM_1_0_18_XSD_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/legal/uscode/schema/uslm-1.0.18.xsd"
+    "/data/legal/uscode/schema/uslm-1.0.18.prx"
 ));
+
+/// The loaded USLM-1.0.18 XSD bytes, materialized from the committed `.prx`
+/// through the fail-closed `[compact_archive_signatures]` content gate, cached
+/// for the process behind a `OnceLock`. The raw `.xsd` is no longer embedded —
+/// only the gated `.prx` is. The function-form successor of the former
+/// `USLM_1_0_18_XSD` const.
+#[must_use]
+pub fn loaded_uslm_1_0_18_xsd() -> &'static str {
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    static XSD: OnceLock<&'static str> = OnceLock::new();
+    XSD.get_or_init(|| raw_source_text_embedded("uslm_xsd", "1.0.18", USLM_1_0_18_XSD_PRX))
+}
 
 /// Lazily-loaded set of every local-name (lowercased) declared by
 /// the bundled USLM-1.0.18 XSD that carries a non-empty
@@ -62,7 +74,7 @@ pub const USLM_1_0_18_XSD: &str = include_str!(concat!(
 /// silently misclassify.
 pub fn documented_names() -> &'static BTreeSet<String> {
     static SET: OnceLock<BTreeSet<String>> = OnceLock::new();
-    SET.get_or_init(|| scan_documented_names(USLM_1_0_18_XSD))
+    SET.get_or_init(|| scan_documented_names(loaded_uslm_1_0_18_xsd()))
 }
 
 /// True iff `name` is the local-name of a schema component declared
@@ -264,12 +276,12 @@ mod tests {
         // The bundle ships with praxis; if this fires the file is
         // missing or the include_str! path is broken.
         assert!(
-            !USLM_1_0_18_XSD.is_empty(),
+            !loaded_uslm_1_0_18_xsd().is_empty(),
             "USLM-1.0.18.xsd bundle is empty — bundle missing?"
         );
         // The published file declares the USLM target namespace.
         assert!(
-            USLM_1_0_18_XSD.contains("uslm"),
+            loaded_uslm_1_0_18_xsd().contains("uslm"),
             "bundle does not look like the USLM XSD — wrong file?"
         );
     }
@@ -406,7 +418,7 @@ mod tests {
             // case-sensitive but our set is lower-cased).
             let found_decl = DECLARATION_KINDS.iter().any(|kind_prefix| {
                 let needle_lower = format!("{kind_prefix}name=\"{name}\"");
-                if USLM_1_0_18_XSD
+                if loaded_uslm_1_0_18_xsd()
                     .to_lowercase()
                     .contains(&needle_lower.to_lowercase())
                 {
@@ -418,7 +430,8 @@ mod tests {
                 // kind. The earlier check matches the common shape
                 // where name=… is first.
                 let mut cursor = 0;
-                let src_lower = USLM_1_0_18_XSD.to_lowercase();
+                let xsd = loaded_uslm_1_0_18_xsd();
+                let src_lower = xsd.to_lowercase();
                 let kp_lower = kind_prefix.to_lowercase();
                 while let Some(rel) = src_lower[cursor..].find(&kp_lower) {
                     let abs = cursor + rel + kp_lower.len();
@@ -426,7 +439,7 @@ mod tests {
                         .find('>')
                         .map(|p| abs + p)
                         .unwrap_or(src_lower.len());
-                    let attr_slice = &USLM_1_0_18_XSD[abs..tag_close];
+                    let attr_slice = &xsd[abs..tag_close];
                     if let Some(found_name) = extract_attr(attr_slice, "name")
                         && found_name.to_lowercase() == *name
                     {

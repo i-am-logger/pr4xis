@@ -587,16 +587,11 @@ mod tests {
 
     #[test]
     fn from_uslm_section_on_real_sox_1514a_slice() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-        if !path.exists() {
-            eprintln!("SKIP: real slice not on disk");
-            return;
-        }
-        let xml = std::fs::read_to_string(&path).unwrap();
-        let title = read_uslm_title(&xml).unwrap();
-        let section = &title.sections[0];
-        let st = from_uslm_section("sox_1514a", "2002", section).expect("functor");
+        // § 1514A is sliced out of the fetched `usc_title_18` corpus
+        // (18 U.S.C. § 1514A), not a deleted standalone fixture. FAILS LOUD
+        // when the corpus is absent — CI fetches it; tests do not skip.
+        let section = crate::social::software::markup::xml::uslm::real_sox_1514a::section();
+        let st = from_uslm_section("sox_1514a", "2002", &section).expect("functor");
 
         // Term count: 5 subsections + every paragraph,
         // subparagraph, clause beneath them. Real § 1514A has

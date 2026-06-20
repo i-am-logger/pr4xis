@@ -152,14 +152,10 @@ fn rejects_non_uslm_root() {
 
 #[test]
 fn parses_real_sox_1514a_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP: SOX § 1514A slice not on disk at {path:?}");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).expect("read XML");
-    let title = read_uslm_title(&xml).expect("parse");
+    // § 1514A is sliced out of the fetched `usc_title_18` corpus (18 U.S.C.
+    // § 1514A), not a deleted standalone fixture. The slice carries exactly
+    // one section, so the single-section assertions below are unchanged.
+    let title = super::real_sox_1514a::title();
     assert_eq!(title.sections.len(), 1);
     let s = &title.sections[0];
     assert_eq!(s.identifier, "/us/usc/t18/s1514A");
@@ -277,14 +273,7 @@ fn axiom_every_section_has_num_on_sample() {
 
 #[test]
 fn axiom_every_section_has_num_on_real_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP: real slice not on disk");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
-    let t = read_uslm_title(&xml).unwrap();
+    let t = super::real_sox_1514a::title();
     axiom_every_section_has_num(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
@@ -296,14 +285,7 @@ fn axiom_every_container_has_identifier_on_sample() {
 
 #[test]
 fn axiom_every_container_has_identifier_on_real_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
-    let t = read_uslm_title(&xml).unwrap();
+    let t = super::real_sox_1514a::title();
     axiom_every_container_has_identifier(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
@@ -315,14 +297,7 @@ fn axiom_child_identifier_extends_parent_on_sample() {
 
 #[test]
 fn axiom_child_identifier_extends_parent_on_real_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
-    let t = read_uslm_title(&xml).unwrap();
+    let t = super::real_sox_1514a::title();
     axiom_child_identifier_extends_parent(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
@@ -334,14 +309,7 @@ fn axiom_hierarchy_strictly_nested_on_sample() {
 
 #[test]
 fn axiom_hierarchy_strictly_nested_on_real_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
-    let t = read_uslm_title(&xml).unwrap();
+    let t = super::real_sox_1514a::title();
     axiom_hierarchy_strictly_nested(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
@@ -377,14 +345,7 @@ fn lrc_duplicate_numbering_footnote_recognizes_the_idiom() {
 
 #[test]
 fn axiom_ref_hrefs_well_formed_on_real_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
-    let t = read_uslm_title(&xml).unwrap();
+    let t = super::real_sox_1514a::title();
     axiom_ref_hrefs_well_formed(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
@@ -763,22 +724,19 @@ fn footnote_backlinks_not_collected_as_refs() {
 #[test]
 fn codegen_and_runtime_paths_produce_equivalent_term_set() {
     use crate::social::compliance::statutes::from_uslm::derive_structural;
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP: real slice not on disk");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
+    // Both paths read the SAME fetched `usc_title_18` corpus (18 U.S.C.
+    // § 1514A). The runtime path takes the sliced § 1514A section; the
+    // codegen `parse_uslm_str` slices § 1514A out of the full Title 18 XML
+    // itself, keyed on its USLM identifier.
+    let runtime_data = derive_structural("sox_1514a", &super::real_sox_1514a::section());
 
-    // Runtime path: read into UsCodeTitle then derive_structural.
-    let title = read_uslm_title(&xml).unwrap();
-    let runtime_data = derive_structural("sox_1514a", &title.sections[0]);
-
-    // Build-time path: parse_uslm_str on same XML directly.
-    let codegen_doc =
-        pr4xis::codegen::uslm::parse_uslm_str(&xml, "/us/usc/t18/s1514A", "sox_1514a")
-            .expect("codegen parse");
+    // Build-time path: parse_uslm_str slices § 1514A from the full title.
+    let codegen_doc = pr4xis::codegen::uslm::parse_uslm_str(
+        &super::real_sox_1514a::xml(),
+        "/us/usc/t18/s1514A",
+        "sox_1514a",
+    )
+    .expect("codegen parse");
 
     // Term sets equivalent (modulo ordering and the codegen path
     // including a root term that the runtime path drops).
@@ -799,17 +757,15 @@ fn codegen_and_runtime_paths_produce_equivalent_term_set() {
 #[test]
 fn codegen_and_runtime_paths_produce_equivalent_relation_set() {
     use crate::social::compliance::statutes::from_uslm::derive_structural;
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!("SKIP");
-        return;
-    }
-    let xml = std::fs::read_to_string(&path).unwrap();
-    let title = read_uslm_title(&xml).unwrap();
-    let runtime_data = derive_structural("sox_1514a", &title.sections[0]);
-    let codegen_doc =
-        pr4xis::codegen::uslm::parse_uslm_str(&xml, "/us/usc/t18/s1514A", "sox_1514a").unwrap();
+    // Both paths read the SAME fetched `usc_title_18` corpus; see
+    // `codegen_and_runtime_paths_produce_equivalent_term_set`.
+    let runtime_data = derive_structural("sox_1514a", &super::real_sox_1514a::section());
+    let codegen_doc = pr4xis::codegen::uslm::parse_uslm_str(
+        &super::real_sox_1514a::xml(),
+        "/us/usc/t18/s1514A",
+        "sox_1514a",
+    )
+    .unwrap();
 
     // Codegen has extra edges where top-level subsections compose
     // into the section-root term. Filter those out for comparison.
@@ -2171,8 +2127,8 @@ fn inline_runs_idempotent_under_reparse() {
 
 fn axiom_loaded_uslm_xsd() -> crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance {
     use crate::formal::meta::xsd::from_xsd_parser::project_from_xsd_text;
-    use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
-    project_from_xsd_text(USLM_1_0_18_XSD)
+    use crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd;
+    project_from_xsd_text(loaded_uslm_1_0_18_xsd())
 }
 
 #[test]

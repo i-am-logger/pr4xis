@@ -20,6 +20,6 @@
 //!   metadata format for USREP / SCOTUS-slip / USCOURTS packages,
 //!   <https://www.govinfo.gov/help/usreports>.
 
-pub use schema::{MODS_3_8_XSD, loaded_mods_3_8};
+pub use schema::loaded_mods_3_8;
 
 mod schema;

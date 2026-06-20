@@ -73,13 +73,18 @@ impl std::error::Error for DecodeError {}
 mod tests {
     use super::*;
 
-    /// The bundled W3C XML Information Set rec (XHTML 1.0
-    /// Transitional). Decodes through the praxis XML reader.
-    const XML_INFOSET: &str = include_str!("../../../../data/markup-schemas/xml/xml-infoset.xhtml");
+    /// The bundled W3C XML Information Set rec (XHTML 1.0 Transitional),
+    /// materialized from the committed `.prx` through the fail-closed
+    /// `[compact_archive_signatures]` gate — the raw `.xhtml` is fetch-only and
+    /// ships in NO crate. Decodes through the praxis XML reader.
+    const XML_INFOSET_PRX: &[u8] =
+        include_bytes!("../../../../data/markup-schemas/xml/xml-infoset.prx");
 
     #[test]
     fn decoder_round_trips_xml_infoset_bytes() {
-        let doc = decode(XML_INFOSET.as_bytes())
+        use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+        let xml_infoset = raw_source_text_embedded("xml_infoset", "2004", XML_INFOSET_PRX);
+        let doc = decode(xml_infoset.as_bytes())
             .expect("the XML Information Set XHTML bytes must decode through the dispatcher");
         // Sanity: the W3C XHTML root element is `<html>` with the
         // XHTML 1.0 namespace.

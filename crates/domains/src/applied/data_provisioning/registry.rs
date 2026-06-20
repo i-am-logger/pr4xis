@@ -67,17 +67,39 @@ use crate::formal::meta::source_taxonomy::ontology::{
 #[allow(dead_code)]
 const _SOURCE_TAXONOMY_CONCEPT_WITNESS: Option<SourceTaxonomyConcept> = None;
 
-// Embedded at build time by `build.rs` from the workspace-root
-// `praxis.toml` / `praxis.lock`. The embedding lives in $OUT_DIR
-// rather than being read via `include_str!` directly so the crate
-// remains buildable when packaged for crates.io (cargo unpacks the
-// tarball below `target/package/` where the relative
-// `../../../../../praxis.toml` path no longer reaches the workspace
-// root). When the workspace files aren't present at build time
-// (consumers compiling from crates.io), `build.rs` emits empty
-// stubs and the `data_sources()` / `lock_hashes()` queries return
-// empty slices.
-include!(concat!(env!("OUT_DIR"), "/praxis_embed.rs"));
+use super::registry_prx::load_registry_manifest;
+
+/// The registered-source MANIFEST, loaded ONCE from the committed
+/// `praxis-registry.prx` through the self-contained baked-root gate
+/// ([`load_registry_manifest`]). The `.prx` is the SOLE carrier of the manifest
+/// in the published crate — there is no raw `praxis.toml` / `praxis.lock` in the
+/// package and no `build.rs`-emitted `&str` const. Both files are recovered as
+/// text here and parsed by [`data_sources`] / [`lock_data`] exactly as before; a
+/// failed load (tampered / stale / mis-baked-root `.prx`) panics fail-closed.
+///
+/// This is the BOOTSTRAP ROOT: it loads via the baked
+/// [`PRAXIS_REGISTRY_ROOT_HEX`](super::registry_prx::PRAXIS_REGISTRY_ROOT_HEX),
+/// NOT via any `lock_*` lookup (which would require the lock to already be
+/// loaded) — so the manifest can be "just another `.prx`" without the
+/// circularity of loading through the registry it itself populates.
+fn registry_manifest() -> &'static (String, String) {
+    static MANIFEST: OnceLock<(String, String)> = OnceLock::new();
+    MANIFEST.get_or_init(|| {
+        load_registry_manifest().unwrap_or_else(|e| {
+            panic!("registry .prx (the registered-source manifest) failed to load: {e}")
+        })
+    })
+}
+
+/// The `praxis.toml` text recovered from the committed registry `.prx`.
+fn praxis_toml() -> &'static str {
+    &registry_manifest().0
+}
+
+/// The `praxis.lock` text recovered from the committed registry `.prx`.
+fn praxis_lock() -> &'static str {
+    &registry_manifest().1
+}
 
 static REGISTRY: OnceLock<Vec<RegistryEntry>> = OnceLock::new();
 static LOCK: OnceLock<LockData> = OnceLock::new();
@@ -87,7 +109,7 @@ static LOCK: OnceLock<LockData> = OnceLock::new();
 pub fn data_sources() -> &'static [RegistryEntry] {
     REGISTRY
         .get_or_init(|| {
-            let manifest = parse_praxis_toml(PRAXIS_TOML)
+            let manifest = parse_praxis_toml(praxis_toml())
                 .unwrap_or_else(|e| panic!("invalid praxis.toml: {e}"));
             let lock = lock_hashes();
             manifest
@@ -206,7 +228,7 @@ pub fn lock_snapshot_signature(version: &str) -> Option<&'static LockDigest> {
 
 fn lock_data() -> &'static LockData {
     LOCK.get_or_init(|| {
-        parse_praxis_lock(PRAXIS_LOCK).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
+        parse_praxis_lock(praxis_lock()).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
     })
 }
 
@@ -296,8 +318,15 @@ fn build_entry(
     // XML attribute extractor validates the upstream's self-description.
     // Gated on the WN-LMF *encoding*, not merely the Lexicon family: a
     // plain-text Lexicon (AGID, `InflectionLexicon`) has no `<Lexicon
-    // version=…>` element to validate (audit 2026-06-12 MORPH).
-    if is_lexicon(kind) && canonical_encoding(kind) == ContentType::XmlLmf {
+    // version=…>` element to validate (audit 2026-06-12 MORPH). Both the
+    // open-class WordNet (`XmlLmf`) and the closed-class function-word / legal
+    // lexica (`XmlLmfLexicon`) carry the `<Lexicon version="...">` element.
+    if is_lexicon(kind)
+        && matches!(
+            canonical_encoding(kind),
+            ContentType::XmlLmf | ContentType::XmlLmfLexicon
+        )
+    {
         claims.push(IdentityClaim {
             concept: IdentityConcept::XmlElementAttribute,
             data: ClaimData::XmlAttribute {
