@@ -167,6 +167,42 @@ pub enum ContentType {
     /// vocabulary ships in this form. Decoder:
     /// `xml owl::reader::read_owl`.
     Owl,
+    /// WN-LMF-shaped *closed-class lexicon* — a small, bounded LMF lexicon
+    /// (the English function-word inventory; the U.S. legal closed-class
+    /// lexicon) authored in the same `<LexicalEntry>`/`<Lemma>`/`<Synset>`
+    /// schema as WordNet, but distinguished from the open-class `XmlLmf`
+    /// (WordNet) because its runtime loader materializes the source bytes
+    /// through the generalized feature-light RAW-bytes `.prx` path
+    /// (`raw_source_prx`) — so the lexicon loads in the default `std`-only
+    /// build with NO `prx`/gzip feature, where the graph `.prx.gz` envelope is
+    /// unavailable. The reader over those raw bytes is still
+    /// `lmf::reader::read_wordnet`; the byte-exact graph-faithful round-trip is
+    /// still witnessed by the registered `WordNetLmfLens` audit. Decoder:
+    /// `decoders::xml_lmf`.
+    XmlLmfLexicon,
+    /// A Base16/Base24 color-scheme COLLECTION — a directory of named
+    /// color-scheme YAML files (each binding the framework's reserved
+    /// slot keys `base00`..`base0F` / `base00`..`base17` to sRGB hex),
+    /// archived into ONE deterministic content-addressed blob (the
+    /// Tinted Theming `tinted-schemes` dataset). Unlike every other
+    /// raw-source content type — each of which is a single file — this
+    /// is a MANY-file collection, so its `.prx` carries a directory
+    /// archive (`decoders::theme_collection`'s deterministic
+    /// `path → bytes` manifest), not one file's bytes. Decoder:
+    /// `decoders::theme_collection`. Cite: Tinted Theming, Base16
+    /// Styling Guidelines + Base24 spec, github.com/tinted-theming/home.
+    ThemeCollection,
+    /// LMF-shaped mathematical-operator vocabulary — an authored closed-class
+    /// controlled vocabulary serialised in the WN-LMF `<LexicalEntry>` shape
+    /// (`math-operators.xml`: one operator glyph per `<Lemma>`, its OpenMath STS
+    /// signature on the `<Sense>`). Unlike `XmlLmf` (WordNet / function-words /
+    /// legal-lexicon), its runtime value is an `OperatorVocabulary`, NOT a
+    /// WordNet graph — so it loads through the generalized RAW-bytes `.prx` path
+    /// (`raw_source_prx`), not the graph-faithful `WordNetPrxEnvelope`. The reader
+    /// is still `lmf::reader::read_wordnet` over the materialized raw bytes.
+    /// Cite: OpenMath Standard 2.0 (Kohlhase & Rabe 2019) §2.1.4 + §4.3;
+    /// ISO 80000-2:2019 (operator glyphs).
+    MathOperatorLmf,
     /// Raw bytes with no further decoding.
     Binary,
 }
@@ -188,16 +224,45 @@ pub enum ContentType {
 pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
     use SourceTaxonomyConcept as C;
     match kind {
-        // Both the open-class WordNet (`Language`) and the closed-class
-        // function-word stratum (`ClosedClassLexicon`) ship as WN-LMF
-        // XML — the same `<LexicalEntry>`/`<Lemma>`/`<Synset>` schema
-        // (Global WordNet LMF 1.3). They are the two complementary
-        // halves of the lexicon (Quirk et al. 1985 §2.34).
-        C::Language | C::ClosedClassLexicon => ContentType::XmlLmf,
+        // The open-class WordNet (`Language`) ships as WN-LMF XML and loads
+        // through the graph-faithful `WordNetPrxEnvelope` (`.prx.gz`) under the
+        // `prx` feature — its corpus is far too large to materialize in the
+        // default build.
+        C::Language => ContentType::XmlLmf,
+        // The closed-class function-word stratum (`ClosedClassLexicon`) is the
+        // complementary half of the lexicon (Quirk et al. 1985 §2.34), authored
+        // in the SAME WN-LMF `<LexicalEntry>`/`<Lemma>`/`<Synset>` schema — but
+        // it is small and bounded, and its runtime loader runs in the default
+        // `std`-only build (no `prx`/gzip), so it materializes its source bytes
+        // through the generalized feature-light RAW-bytes `.prx` path
+        // (`XmlLmfLexicon`), not the graph `.prx.gz` envelope. The reader is
+        // unchanged (`read_wordnet`); the byte-exact graph round-trip is still
+        // witnessed by the registered `WordNetLmfLens` audit.
+        C::ClosedClassLexicon => ContentType::XmlLmfLexicon,
         // AGID (Atkinson 2016) ships as a plain-text inflection database
         // (`<word> <pos>: <forms>` lines); CatVar (Habash & Dorr 2003) ships as
         // plain-text derivational clusters (`word_POS%weight#…`). Neither is XML.
         C::InflectionLexicon | C::DerivationalLexicon => ContentType::Plaintext,
+        // ControlledVocabulary leaves ship as plain-text tab-separated tables
+        // (the praxis-TSV convention): the EWMH window-state atom vocabulary
+        // (`bit_name<TAB>spec_atom<TAB>source`) and the OLiA→CCG lexical-category
+        // projection (`olia_class<TAB>ccg_category[<TAB>valency]`). Decoder:
+        // `decoders::plaintext_tsv` (the generic TSV → typed-record-stream codec).
+        C::WindowStateVocabulary | C::LexicalCategoryProjection => ContentType::Plaintext,
+        // The mathematical-operator vocabulary is a ControlledVocabulary leaf
+        // authored in LMF-shaped XML (one operator glyph per `<LexicalEntry>`,
+        // its OpenMath STS signature on the `<Sense>`). It is consumed as raw
+        // bytes (parsed to an `OperatorVocabulary`, NOT a WordNet graph), so it
+        // rides the generalized RAW-bytes `.prx` path under its own content type.
+        C::MathOperatorVocabulary => ContentType::MathOperatorLmf,
+        // The Base16/Base24 color-scheme vocabulary is a COLLECTION leaf — a
+        // whole directory of named-scheme YAML files (the Tinted Theming
+        // `tinted-schemes` dataset). Its canonical on-disk form + `.prx` is a
+        // single deterministic directory archive (one blob, many files), so it
+        // rides the generalized RAW-bytes `.prx` path under its own content
+        // type, decoded by `decoders::theme_collection` back into the
+        // `path → bytes` set the theming validator scans.
+        C::ColorSchemeVocabulary => ContentType::ThemeCollection,
         // US federal statutes published by GPO ship as PDF on
         // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
         // preferred authenticated digital edition). The Statute /
@@ -217,11 +282,16 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         C::Regulation | C::ConstitutionalArticle | C::ProceduralRule | C::CaseLaw => {
             ContentType::Pdf
         }
-        // LegalLexicons ship as LMF XML — same shape as Language
-        // (WordNet) and function-word lexica, reusing the same
-        // `decoders::xml_lmf` decoder. The bundled
-        // `us_legal_lexicon@2026` instance is the canonical example.
-        C::LegalLexicon => ContentType::XmlLmf,
+        // LegalLexicons ship as LMF XML — same `<LexicalEntry>` shape as the
+        // function-word lexicon, reusing the same `decoders::xml_lmf` reader.
+        // The bundled `us_legal_lexicon@2026` instance (a small bounded
+        // closed-class lexicon consumed as a `BTreeSet` of lemma forms) is the
+        // canonical example. Like `ClosedClassLexicon`, its loader runs in the
+        // default `std`-only build, so it materializes its source bytes through
+        // the generalized feature-light RAW-bytes `.prx` path (`XmlLmfLexicon`),
+        // not the graph `.prx.gz` envelope; the byte-exact graph round-trip is
+        // still witnessed by the registered `WordNetLmfLens` audit.
+        C::LegalLexicon => ContentType::XmlLmfLexicon,
         // SchemaVocabularies ship as LMF XML — same shape as
         // LegalLexicons. The taxonomy slot remains for future
         // bundles in this family; the M4.η.4 deletion of
@@ -283,7 +353,8 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         | C::LegalCorpus
         | C::TypographyResource
         | C::SchemaSpec
-        | C::TestSuite => ContentType::Binary,
+        | C::TestSuite
+        | C::ControlledVocabulary => ContentType::Binary,
     }
 }
 
@@ -455,7 +526,10 @@ impl RegistryEntry {
 /// without per-source overrides for the common case.
 fn path_extension(ct: ContentType) -> &'static str {
     match ct {
-        ContentType::XmlLmf | ContentType::UslmXml => "xml",
+        ContentType::XmlLmf
+        | ContentType::XmlLmfLexicon
+        | ContentType::UslmXml
+        | ContentType::MathOperatorLmf => "xml",
         ContentType::XmlXsd => "xsd",
         ContentType::Xhtml => "xhtml",
         ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
@@ -466,6 +540,12 @@ fn path_extension(ct: ContentType) -> &'static str {
         ContentType::XmlDtd => "dtd",
         ContentType::ZipArchive => "zip",
         ContentType::Owl => "owl",
+        // The fetched raw color-scheme COLLECTION is a single deterministic
+        // directory archive on disk (`<name>-<version>.themes`) — one blob,
+        // many YAML schemes — so a single FILE extension keeps `local_path()`
+        // pointing at a real file (the `RegistryLocalPathsExist` invariant) and
+        // the generalized raw-source emit reads it as one source.
+        ContentType::ThemeCollection => "themes",
     }
 }
 
@@ -502,6 +582,28 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
         // plus OLiA) live flat under `ontologies/<name>-<version>.owl`, read by
         // `social::software::markup::xml::owl::reader::read_owl`.
         "ontologies"
+    } else if matches!(
+        kind,
+        C::ControlledVocabulary
+            | C::WindowStateVocabulary
+            | C::LexicalCategoryProjection
+            | C::MathOperatorVocabulary
+            | C::ColorSchemeVocabulary
+    ) {
+        // ControlledVocabulary leaves are DERIVED/authored or FETCHED sources
+        // that live beside the code that consumes them (the EWMH window-state
+        // table under `hmi/`, the OLiA→CCG projection under `grammar/`, the
+        // math-operator vocabulary under `operators/`, the Base16/Base24
+        // color-scheme collection under `themes/`). Each carries an explicit
+        // `local_path` in praxis.toml (Layer 0 of `local_path()`), so this floor
+        // is the family root, not the resolved path.
+        match kind {
+            C::WindowStateVocabulary => "hmi",
+            C::LexicalCategoryProjection => "grammar",
+            C::MathOperatorVocabulary => "operators",
+            C::ColorSchemeVocabulary => "themes",
+            _ => "vocabularies",
+        }
     } else if matches!(
         kind,
         C::SchemaSpec

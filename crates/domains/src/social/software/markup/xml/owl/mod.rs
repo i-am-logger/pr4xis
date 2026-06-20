@@ -57,16 +57,19 @@ pub mod owl_vocabulary;
 #[cfg(feature = "prx")]
 pub mod prx;
 
-// Registry-driven loaded OWL vocabularies (the SPAR family + PROV-O) and
-// the corpus-wide audit. Walks every `OntologyVocabulary` source in the
-// registry, hydrates each through `build_envelope` →
-// `to_codegen_data_leaked` → `from_codegen`, and walks every record + edge
-// of every vocabulary in the audit. Gated on both `fetch` (for `prx`'s
-// `build_envelope` / `OwnedCodegenData`) and `any(test, feature =
-// "codegen")` (because `build_envelope` itself, and the `owl_to_builder` it
-// calls, are codegen-gated) — the WASM default-runtime `.prx.gz`/source
-// load path is a separate milestone.
-#[cfg(all(feature = "fetch", any(test, feature = "codegen")))]
+// Registry-driven loaded OWL vocabularies (the SPAR family + PROV-O + OLiA)
+// and the corpus-wide staleness-guard audit. The single generalized
+// `load_owl_vocabulary` mechanism reads each `OntologyVocabulary`'s COMMITTED
+// compact `.prx.gz` and admits it through the fail-closed
+// `[compact_archive_signatures]` content gate (`load_compact_prx_gz_gated`),
+// so the PURE LOAD PATH (`prx_path` / `load_owl_vocabulary` /
+// `loaded_vocabularies`) needs only `prx` — it runs on the WASM/std-prx build
+// the same way `olia::reference_model` does. The corpus-wide AUDIT inside
+// additionally re-parses the FETCHED raw `.owl` (`read_owl` / `build_envelope`)
+// as the staleness cross-check, so the audit ITEMS are gated on
+// `any(test, feature = "codegen")` (where `build_envelope` lives) within the
+// module.
+#[cfg(feature = "prx")]
 pub mod loaded_vocabularies;
 
 pub use ontology::*;

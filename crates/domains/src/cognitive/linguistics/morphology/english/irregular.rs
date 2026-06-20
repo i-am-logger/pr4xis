@@ -15,17 +15,30 @@ use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use super::super::irregular::{IrregularForm, IrregularKind};
 
-/// The committed irregular-forms slice, derived from the registered AGID
-/// source (Atkinson 2016). One `surface<TAB>lemma<TAB>kind` row per irregular
-/// form. Regenerate with `--ignored regenerate_english_irregulars_tsv`.
-const IRREGULARS_TSV: &str = include_str!(concat!(
+/// The committed irregular-forms `.prx` — the content-addressed envelope
+/// carrying the `surface<TAB>lemma<TAB>kind` slice bytes derived from the
+/// registered AGID source (Atkinson 2016). The raw `.tsv` is DERIVED
+/// source-of-truth (git-tracked, regenerated with
+/// `--ignored regenerate_english_irregulars_tsv`) but EXCLUDED from the
+/// published crate; only this `.prx` is committed + embedded and ships. Loaded
+/// through the generalized raw-source gate (phase 2b).
+const IRREGULARS_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/morphology/english-irregulars.tsv"
+    "/data/morphology/english-irregulars.prx"
 ));
+
+/// The committed irregular-forms slice text, materialized from the committed
+/// `.prx` through the fail-closed `[compact_archive_signatures]` content gate
+/// (feature-independent: works on default, `no_std` and wasm). One
+/// `surface<TAB>lemma<TAB>kind` row per irregular form.
+fn irregulars_tsv() -> &'static str {
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    raw_source_text_embedded("english_irregulars", "2016.01.19", IRREGULARS_PRX)
+}
 
 /// English irregular forms — the loaded morphological-exception table.
 ///
-/// Parsed from the committed AGID-derived TSV. Under `std` the parse is cached
+/// Parsed from the committed AGID-derived `.prx`. Under `std` the parse is cached
 /// process-wide (`OnceLock`): the lemmatizer looks up irregulars per token, so
 /// re-parsing the multi-thousand-row TSV on every call would be a real
 /// regression. The `no_std`/wasm surface (no `OnceLock`) keeps the
@@ -37,7 +50,7 @@ pub fn english_irregulars() -> Vec<IrregularForm> {
     }
     #[cfg(not(feature = "std"))]
     {
-        parse_irregulars_tsv(IRREGULARS_TSV)
+        parse_irregulars_tsv(irregulars_tsv())
     }
 }
 
@@ -47,7 +60,7 @@ pub fn english_irregulars() -> Vec<IrregularForm> {
 fn irregulars_cached() -> &'static [IrregularForm] {
     use std::sync::OnceLock;
     static CACHE: OnceLock<Vec<IrregularForm>> = OnceLock::new();
-    CACHE.get_or_init(|| parse_irregulars_tsv(IRREGULARS_TSV))
+    CACHE.get_or_init(|| parse_irregulars_tsv(irregulars_tsv()))
 }
 
 fn parse_irregulars_tsv(tsv: &str) -> Vec<IrregularForm> {

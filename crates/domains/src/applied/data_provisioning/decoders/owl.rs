@@ -83,11 +83,25 @@ impl std::error::Error for DecodeError {}
 mod tests {
     use super::*;
 
-    const CITO_OWL: &str = include_str!("../../../../data/ontologies/cito-2.8.1.owl");
+    /// The FETCHED raw CiTO 2.8.1 OWL bytes, read from disk at runtime (NOT
+    /// `include_str!`-embedded — the raw `.owl` is fetch-only via `pr4xis update`
+    /// and ships in no crate). An absent raw fails loudly naming the fix.
+    fn cito_owl() -> std::string::String {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/ontologies/cito-2.8.1.owl"
+        );
+        std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!(
+                "CiTO raw .owl is not on disk at {path} ({e}) — it is fetch-only; \
+                 run `pr4xis update` to regenerate it"
+            )
+        })
+    }
 
     #[test]
     fn decoder_round_trips_cito_bytes() {
-        let ont = decode(CITO_OWL.as_bytes())
+        let ont = decode(cito_owl().as_bytes())
             .expect("the bundled CiTO OWL bytes must decode through the dispatcher");
         // Sanity: CiTO declares > 30 object properties (cito:cites +
         // its sub-properties and their cito:isCitedBy inverses). The

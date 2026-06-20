@@ -1,4 +1,5 @@
-<?xml version='1.0' encoding="UTF-8"?>
+
+wn_lmf_dtd1.3¬T<?xml version='1.0' encoding="UTF-8"?>
 <!ELEMENT LexicalResource (Lexicon|LexiconExtension)+>
 <!ATTLIST LexicalResource
     xmlns:dc CDATA #FIXED "https://globalwordnet.github.io/schemas/dc/">

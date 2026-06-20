@@ -2,32 +2,44 @@
 //!
 //! Every `[sources.X]` of kind
 //! [`SourceTaxonomyConcept::OntologyVocabulary`] in `praxis.toml` (the
-//! SPAR family — CiTO, DoCO, C4O, BiRO — plus W3C PROV-O) is a *loaded*
-//! runtime corpus here, materialised from its bundled RDF/XML the same way
+//! SPAR family — CiTO, DoCO, C4O, BiRO — plus W3C PROV-O and OLiA) is a
+//! *loaded* runtime corpus here, materialised from its **committed compact
+//! `.prx.gz`** the same way
 //! [`crate::social::software::markup::xml::uslm::corpus::loaded`] loads the
 //! U.S. Code titles and [`crate::cognitive::linguistics::english::English`]
 //! loads WordNet.
 //!
-//! ## The hydration chain
+//! ## The generalized, registry-driven `.prx` load path
 //!
-//! For one registered source, the runtime materialisation is:
+//! There is **one** mechanism — [`load_owl_vocabulary`] — and every OWL-vocab
+//! consumer routes through it (`olia::reference_model` and every
+//! `OntologyVocabulary` in [`loaded_vocabularies`]). For one registered source,
+//! the runtime materialisation is:
 //!
 //! ```text
-//! entry.local_path()  ─►  std::fs::read   (the bundled .owl bytes)
-//!   └► build_envelope(bytes, name, version, url)        (read_owl → owl_to_builder → owned)
-//!        └► env.data.to_codegen_data_leaked()           (CodegenData<LoadedOwlVocabulary>)
-//!             └► LoadedOwlVocabulary::from_codegen       (the runtime corpus)
+//! prx_path(entry)  ─►  std::fs::read   (the COMMITTED compact .prx.gz)
+//!   └► lock_compact_archive_signature(name, version)   (the trusted pin)
+//!        └► load_compact_prx_gz_gated(bytes, pin, key) (gunzip → hash-check → succinct decode)
+//!             └► LoadedOwlVocabulary                    (the runtime corpus)
 //! ```
 //!
+//! No raw `.owl` is read at load time and no XML is re-parsed: the load is the
+//! same portable, dependency-free succinct codec the USC / WordNet compact load
+//! paths use, gated fail-closed on the `praxis.lock`
+//! `[compact_archive_signatures]` content address (Dolstra 2006
+//! content-addressing; W3C SRI 2016). A committed `.prx.gz` whose succinct bytes
+//! do not hash to the pin — or that is on disk under a source with no pin — is
+//! rejected loudly, never silently skipped. The raw `.owl` is fetch-only (via
+//! `pr4xis update`); it ships in NO published crate.
+//!
 //! [`loaded_vocabularies`] walks every `OntologyVocabulary` entry the
-//! registry declares, hydrates each through that chain, and caches the map
-//! for the process lifetime behind a `OnceLock`. A registered source whose
-//! bytes are on disk but fail to read or parse is a **defect**, so the
-//! loader `panic!`s with the vocabulary name and the underlying error,
-//! exactly as [`loaded`][crate::social::software::markup::xml::uslm::corpus::loaded]
-//! panics on a registered title that fails to parse. A source registered
-//! but *not* on disk is skipped (the same graceful skip the USC loader
-//! makes for a title XML that isn't bundled).
+//! registry declares, hydrates each through [`load_owl_vocabulary`], and caches
+//! the map for the process lifetime behind a `OnceLock`. A registered source
+//! whose committed `.prx.gz` is on disk but fails the content gate is a
+//! **defect**, so the loader `panic!`s with the vocabulary name and the
+//! underlying error. A source registered but whose `.prx.gz` is *not* on disk
+//! (or has no compact pin) is skipped (the same graceful skip the USC loader
+//! makes for a title that isn't compiled).
 //!
 //! ## The corpus-wide audit
 //!
@@ -83,12 +95,10 @@ use alloc::{
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use pr4xis::codegen_data::CodegenData;
-
-use super::prx::build_envelope;
-use super::reader::read_owl;
+use super::prx::load_compact_prx_gz_gated;
 use super::vocabulary::LoadedOwlVocabulary;
-use crate::applied::data_provisioning::registry::data_sources;
+use crate::applied::data_provisioning::ontology::RegistryEntry;
+use crate::applied::data_provisioning::registry::{data_sources, lock_compact_archive_signature};
 use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
 /// The workspace root — the parent of this crate's parent (i.e.
@@ -104,49 +114,103 @@ fn workspace_root() -> std::path::PathBuf {
         .unwrap_or_else(|| std::path::PathBuf::from("."))
 }
 
+/// The committed compact `.prx.gz` path for an `OntologyVocabulary` entry —
+/// the registry-driven sibling of [`RegistryEntry::local_path`] that resolves
+/// the loaded artifact instead of the raw source. It is exactly
+/// `entry.local_path()` with its published `.owl` extension swapped for
+/// `.prx.gz` (`crates/domains/data/ontologies/<name>-<version>.prx.gz`), so the
+/// one Layer-0/Layer-2 path formula in `local_path()` is reused, never a second
+/// hand-built path.
+///
+/// This is the committed artifact [`load_owl_vocabulary`] reads — the raw
+/// `.owl` it sits beside is fetch-only and ships in no published crate.
+pub fn prx_path(entry: &RegistryEntry) -> String {
+    let owl = entry.local_path();
+    // local_path() yields `…/<name>-<version>.owl` for every OntologyVocabulary
+    // (kind-derived ext is `owl`; no source overrides the ontologies family).
+    match owl.strip_suffix(".owl") {
+        Some(stem) => format!("{stem}.prx.gz"),
+        // Defensive: a future OntologyVocabulary with a non-.owl extension still
+        // gets a deterministic `.prx.gz` sibling rather than a silent mismatch.
+        None => format!("{owl}.prx.gz"),
+    }
+}
+
+/// Load ONE registered [`OntologyVocabulary`][ov] from its committed compact
+/// `.prx.gz` through the fail-closed `[compact_archive_signatures]` gate — the
+/// single generalized OWL-vocab load mechanism every consumer routes through
+/// (`olia::reference_model` and [`loaded_vocabularies`]).
+///
+/// Reads `workspace_root.join(`[`prx_path`]`(entry))`, looks up the source's
+/// `[compact_archive_signatures]` pin, and hands both to
+/// [`load_compact_prx_gz_gated`] — gunzip → verify the succinct bytes hash to
+/// the pin → succinct-decode → materialize. Returns:
+///
+/// - `Ok(Some(vocab))` — the committed `.prx.gz` is on disk, pinned, and passed
+///   the content gate;
+/// - `Ok(None)` — the committed `.prx.gz` is **not on disk** OR the source has
+///   no compact pin (graceful skip — a fresh checkout that hasn't run
+///   `pr4xis compile`, or a not-yet-pinned source). The same graceful skip the
+///   USC / English compact loaders make for an un-compiled corpus;
+/// - `Err(_)` — the `.prx.gz` is on disk AND pinned but **failed the content
+///   gate** (a stale/poisoned artifact): a defect, surfaced fail-closed, never
+///   silently dropped.
+///
+/// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
+pub fn load_owl_vocabulary(
+    entry: &RegistryEntry,
+) -> Result<Option<LoadedOwlVocabulary>, super::prx::PrxError> {
+    let path = workspace_root().join(prx_path(entry));
+    let Ok(prx_gz) = std::fs::read(&path) else {
+        // Committed `.prx.gz` not on disk — graceful skip (un-compiled checkout).
+        return Ok(None);
+    };
+    let Some(pin) = lock_compact_archive_signature(&entry.name, &entry.version) else {
+        // On disk but no compact pin — graceful skip (not yet pinned); nothing
+        // trusted to validate against.
+        return Ok(None);
+    };
+    let key = format!("{}@{}", entry.name, entry.version);
+    // On disk AND pinned but failing the gate is a DEFECT — propagate the Err.
+    load_compact_prx_gz_gated(&prx_gz, pin, &key).map(Some)
+}
+
 /// Hydrate every registered [`OntologyVocabulary`][ov] source into a
 /// `name → LoadedOwlVocabulary` map, materialised once per process behind a
 /// `OnceLock`.
 ///
 /// Walks every entry in [`data_sources`] whose `kind` is
-/// [`SourceTaxonomyConcept::OntologyVocabulary`], reads its bundled RDF/XML
-/// from `workspace_root.join(entry.local_path())`, and runs the
-/// [module-level hydration chain][self] (`build_envelope` →
-/// `to_codegen_data_leaked` → `from_codegen`). A registered source whose
-/// bytes are on disk but fail to parse is a defect: the loader panics with
-/// the vocabulary name and error. A source not on disk is skipped, matching
-/// the USC corpus loader's graceful skip.
+/// [`SourceTaxonomyConcept::OntologyVocabulary`] and hydrates each through the
+/// single generalized [`load_owl_vocabulary`] mechanism (committed `.prx.gz` →
+/// content gate → materialize). A registered source whose committed `.prx.gz`
+/// is on disk and pinned but fails the gate is a defect: the loader panics with
+/// the vocabulary name and error. A source whose `.prx.gz` is not on disk (or
+/// has no compact pin) is skipped, matching the USC corpus loader's graceful
+/// skip.
 ///
 /// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
 pub fn loaded_vocabularies() -> &'static HashMap<String, LoadedOwlVocabulary> {
     static INSTANCE: OnceLock<HashMap<String, LoadedOwlVocabulary>> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        let root = workspace_root();
         let mut map: HashMap<String, LoadedOwlVocabulary> = HashMap::new();
         for entry in data_sources() {
             if entry.kind != SourceTaxonomyConcept::OntologyVocabulary {
                 continue;
             }
-            let path = root.join(entry.local_path());
-            let Ok(bytes) = std::fs::read(&path) else {
-                // Registered but not on disk — skip gracefully, exactly as
-                // the USC corpus loader skips a title XML that isn't bundled.
-                continue;
-            };
-            // On-disk but unparseable is a defect, not a skip.
-            let env = build_envelope(&bytes, &entry.name, &entry.version, &entry.url)
-                .unwrap_or_else(|e| {
-                    panic!(
-                        "loaded_vocabularies() failed building envelope for registered \
-                         OntologyVocabulary `{}@{}` from {}: {e}",
-                        entry.name,
-                        entry.version,
-                        path.display()
-                    )
-                });
-            let data: CodegenData<LoadedOwlVocabulary> = env.data.to_codegen_data_leaked();
-            let vocab = LoadedOwlVocabulary::from_codegen(&data);
-            map.insert(entry.name.clone(), vocab);
+            match load_owl_vocabulary(entry) {
+                Ok(Some(vocab)) => {
+                    map.insert(entry.name.clone(), vocab);
+                }
+                // Not on disk / not pinned — graceful skip.
+                Ok(None) => {}
+                // On disk + pinned but failed the content gate — a defect.
+                Err(e) => panic!(
+                    "loaded_vocabularies(): committed compact .prx.gz for registered \
+                     OntologyVocabulary `{}@{}` failed the [compact_archive_signatures] \
+                     content gate: {e}",
+                    entry.name, entry.version
+                ),
+            }
         }
         map
     })
@@ -165,6 +229,7 @@ pub fn loaded_vocabulary(registry_name: &str) -> Option<&'static LoadedOwlVocabu
 /// Per-vocabulary structural metrics derived by the audit. Every field is
 /// counted from the loaded corpus and the source `read_owl` returns — no
 /// field is a hardcoded constant.
+#[cfg(any(test, feature = "codegen"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VocabularyAuditMetrics {
     /// The registry name (`[sources.<name>]`).
@@ -195,8 +260,14 @@ pub struct VocabularyAuditMetrics {
 /// One unresolved-item finding from the corpus-wide audit. Names the
 /// vocabulary and the specific item that failed to resolve so a defect is
 /// actionable, never silent.
+#[cfg(any(test, feature = "codegen"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VocabularyAuditFinding {
+    /// A vocab loaded from its committed `.prx.gz`, but its FETCHED raw `.owl`
+    /// is absent from disk, so the staleness guard cannot cross-check the
+    /// committed archive against the registered source. The raw is fetch-only
+    /// (`pr4xis update`); this is a hard failure, never a silent skip.
+    MissingFetchedSource { vocabulary: String, path: String },
     /// An entity record's IRI is empty (W3C OWL 2 §5.5 requires an IRI).
     EmptyIri { vocabulary: String, index: usize },
     /// An entity record's IRI does not resolve back through `find`.
@@ -242,6 +313,7 @@ pub enum VocabularyAuditFinding {
 
 /// Outcome of the corpus-wide audit over every registered loaded OWL
 /// vocabulary.
+#[cfg(any(test, feature = "codegen"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VocabularyAuditReport {
     /// Per-vocabulary derived metrics, one entry per loaded vocabulary, in
@@ -251,6 +323,7 @@ pub struct VocabularyAuditReport {
     pub findings: Vec<VocabularyAuditFinding>,
 }
 
+#[cfg(any(test, feature = "codegen"))]
 impl VocabularyAuditReport {
     /// True iff every record of every vocabulary resolved cleanly (no
     /// findings) and at least one vocabulary was walked.
@@ -263,17 +336,22 @@ impl VocabularyAuditReport {
 /// Run the corpus-wide audit over every registered loaded OWL vocabulary.
 ///
 /// For each [`OntologyVocabulary`][ov] entry discovered in
-/// [`data_sources`] (never a hardcoded set), this re-reads the bundled
-/// bytes, hydrates the corpus via [`loaded_vocabulary`], and:
+/// [`data_sources`] (never a hardcoded set), this hydrates the corpus via the
+/// committed-`.prx` [`loaded_vocabulary`] load path and:
 ///
 /// 1. walks every [`OwlEntityRecord`][rec] and verifies `find(iri)` is
 ///    `Some`, the IRI is non-empty, and the resolved index equals the
 ///    record's own position;
 /// 2. walks every subsumption edge and verifies both endpoints are valid
 ///    in-corpus indices (`< entity_count()`);
-/// 3. cross-checks the loaded class / property counts against what
-///    [`read_owl`] saw on the same bytes, and against the envelope's
-///    `omv:numberOf*` metrics — proving nothing was silently dropped.
+/// 3. **the staleness guard** — cross-checks the loaded class / property
+///    counts against what [`read_owl`] sees in the FETCHED raw `.owl`, and
+///    against the envelope's `omv:numberOf*` metrics. This proves the committed
+///    `.prx.gz` still round-trips to the registered source. It does **not**
+///    depend on a *shipped* raw `.owl`: the raw is fetched via `pr4xis update`.
+///    A vocab loaded from its committed `.prx.gz` whose raw `.owl` is **absent**
+///    is a hard FAILURE here (a [`VocabularyAuditFinding::MissingFetchedSource`]
+///    finding naming `pr4xis update`), **never a silent skip**.
 ///
 /// It also derives per-source annotation coverage (`labeled_entities` /
 /// `commented_entities`) from the source's real `rdfs:label` /
@@ -287,8 +365,12 @@ impl VocabularyAuditReport {
 /// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
 /// [rec]: super::vocabulary::OwlEntityRecord
 /// [`read_owl`]: super::reader::read_owl
+#[cfg(any(test, feature = "codegen"))]
 #[must_use]
 pub fn audit_loaded_vocabularies() -> VocabularyAuditReport {
+    use super::prx::build_envelope;
+    use super::reader::read_owl;
+
     let root = workspace_root();
     let mut metrics: Vec<VocabularyAuditMetrics> = Vec::new();
     let mut findings: Vec<VocabularyAuditFinding> = Vec::new();
@@ -297,19 +379,27 @@ pub fn audit_loaded_vocabularies() -> VocabularyAuditReport {
         if entry.kind != SourceTaxonomyConcept::OntologyVocabulary {
             continue;
         }
-        // Skip a source whose bytes aren't on disk — `loaded_vocabulary`
-        // makes the same graceful skip, so it would return `None` anyway.
-        let path = root.join(entry.local_path());
-        let Ok(bytes) = std::fs::read(&path) else {
+        // Only a vocab that actually LOADED (its committed `.prx.gz` is on disk
+        // + pinned + passed the content gate) is audited. A source with no
+        // committed `.prx.gz` is skipped — there is nothing loaded to audit, and
+        // `loaded_vocabulary` returns `None` for it anyway.
+        let Some(vocab) = loaded_vocabulary(&entry.name) else {
             continue;
         };
 
-        let vocab = loaded_vocabulary(&entry.name).unwrap_or_else(|| {
-            panic!(
-                "audit: registered OntologyVocabulary `{}` is on disk but not loaded",
-                entry.name
-            )
-        });
+        // The STALENESS GUARD's source side: the loaded `.prx` is cross-checked
+        // against the FETCHED raw `.owl`. The raw is NOT shipped — it is fetched
+        // via `pr4xis update` — so an absent raw under a LOADED vocab is a hard
+        // failure naming the fix, NEVER a silent skip (the prompt's
+        // skip-NOT-allowed rule).
+        let path = root.join(entry.local_path());
+        let Ok(bytes) = std::fs::read(&path) else {
+            findings.push(VocabularyAuditFinding::MissingFetchedSource {
+                vocabulary: entry.name.clone(),
+                path: path.display().to_string(),
+            });
+            continue;
+        };
 
         // (1) Every entity record resolves through the typed accessor.
         for (record_index, record) in vocab.entities().iter().enumerate() {
@@ -432,6 +522,7 @@ pub fn audit_loaded_vocabularies() -> VocabularyAuditReport {
 /// Count the distinct, non-empty strings in an iterator — the cardinality
 /// `read_owl` + `owl_to_builder` collapse a class / property list to (both
 /// dedup by IRI and drop empty IRIs).
+#[cfg(any(test, feature = "codegen"))]
 fn distinct_nonempty<'a>(iter: impl Iterator<Item = &'a str>) -> usize {
     let mut seen: hashbrown::HashSet<&str> = hashbrown::HashSet::new();
     for s in iter {
@@ -447,33 +538,39 @@ mod tests {
     use super::*;
     use crate::social::software::markup::xml::owl::vocabulary::OwlEntityKind;
 
-    /// The loader discovers at least one `OntologyVocabulary` from the
-    /// registry and hydrates it. The count is derived (every registered,
-    /// on-disk source), never asserted against a magic number — only that
-    /// the bundled SPAR + PROV-O sources actually loaded.
+    /// The loader discovers every `OntologyVocabulary` from the registry whose
+    /// committed compact `.prx.gz` is on disk AND pinned, and hydrates it
+    /// through the generalized [`load_owl_vocabulary`] gate. The count is
+    /// derived (every registered source with a committed, pinned `.prx.gz`),
+    /// never asserted against a magic number — only that the committed SPAR +
+    /// PROV-O + OLiA archives actually loaded.
     #[test]
     fn loads_registered_ontology_vocabularies() {
         let map = loaded_vocabularies();
-        // Every registered, on-disk OntologyVocabulary appears in the map;
-        // since the SPAR + PROV-O files are bundled, the map is non-empty.
-        let registered_on_disk = data_sources()
+        // Every registered OntologyVocabulary whose committed `.prx.gz` is on
+        // disk and pinned appears in the map — exactly what `load_owl_vocabulary`
+        // returns `Some` for. Since the 6 compact `.prx.gz` are committed +
+        // pinned, the map is non-empty.
+        let loadable = data_sources()
             .iter()
             .filter(|e| e.kind == SourceTaxonomyConcept::OntologyVocabulary)
             .filter(|e| {
                 workspace_root()
-                    .join(e.local_path())
+                    .join(prx_path(e))
                     .try_exists()
                     .unwrap_or(false)
+                    && lock_compact_archive_signature(&e.name, &e.version).is_some()
             })
             .count();
         assert_eq!(
             map.len(),
-            registered_on_disk,
-            "every registered, on-disk OntologyVocabulary must be loaded"
+            loadable,
+            "every registered OntologyVocabulary with a committed, pinned .prx.gz must be loaded"
         );
         assert!(
-            registered_on_disk > 0,
-            "the bundled SPAR + PROV-O vocabularies must be on disk and loaded"
+            loadable > 0,
+            "the committed SPAR + PROV-O + OLiA compact .prx.gz archives must be on disk, \
+             pinned, and loaded"
         );
     }
 

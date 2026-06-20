@@ -150,7 +150,7 @@ fn projects_real_uslm_xsd_via_praxis_xml() {
     // Read the bundled USLM 1.0.18 XSD through praxis-xml + the
     // praxis-native XSD reader, then check the projection picks up
     // a representative sample of USLM declarations.
-    let xsd_bytes = include_bytes!("../../../../../data/legal/uscode/schema/uslm-1.0.18.xsd");
+    let xsd_bytes = crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd().as_bytes();
     let doc = parse_document(xsd_bytes).expect("USLM XSD must parse via praxis-xml");
     let instance = project_from_xml_document(&doc);
 
@@ -340,7 +340,7 @@ fn projects_nested_annotation_on_element_declaration() {
 fn projects_real_uslm_xsd_annotations_and_imports() {
     // The bundled USLM 1.0.18 XSD has multiple <xs:annotation>
     // blocks and three <xs:import> directives (xml, dcterms, xhtml).
-    let xsd_bytes = include_bytes!("../../../../../data/legal/uscode/schema/uslm-1.0.18.xsd");
+    let xsd_bytes = crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd().as_bytes();
     let doc = parse_document(xsd_bytes).unwrap();
     let instance = project_from_xml_document(&doc);
     assert!(
@@ -454,7 +454,7 @@ fn projects_simple_type_list_and_union() {
 fn projects_real_uslm_xsd_derivations() {
     // The bundled USLM XSD uses complexContent/simpleContent +
     // extension/restriction extensively for its type hierarchy.
-    let xsd_bytes = include_bytes!("../../../../../data/legal/uscode/schema/uslm-1.0.18.xsd");
+    let xsd_bytes = crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd().as_bytes();
     let doc = parse_document(xsd_bytes).unwrap();
     let instance = project_from_xml_document(&doc);
     assert!(

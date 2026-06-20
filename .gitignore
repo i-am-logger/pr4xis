@@ -67,3 +67,42 @@ mutants.out/
 # CatVar derivational-variation database (Habash & Dorr 2003) — the 1.1 MB source
 # is fetched; only the LICENSE + README provenance records are committed.
 crates/domains/data/morphology/catvar21.signed
+# OWL ontology vocabularies (SPAR CiTO/DoCO/C4O/BiRO, W3C PROV-O, OLiA) — the
+# raw RDF/XML `.owl` is FETCHED via `pr4xis update` (pinned in praxis.lock) and
+# never committed; only the compiled, content-addressed compact `.prx.gz` ships
+# (committed alongside, the runtime fast-load artifact every OWL-vocab consumer
+# loads through the fail-closed `[compact_archive_signatures]` gate).
+crates/domains/data/ontologies/*.owl
+
+# Phase 2 raw schema / data sources (XSD / DTD / Adobe Glyph List) — the raw
+# bytes are FETCHED via `pr4xis update` (pinned in praxis.lock `[hashes]`) and
+# never committed; only the content-addressed committed `.prx` ships alongside,
+# loaded through the generalized fail-closed `[compact_archive_signatures]` gate
+# (`applied::data_provisioning::raw_source_prx`). Each source's runtime loader
+# embeds the committed `.prx` via `include_bytes!`, never the raw.
+crates/domains/data/legal/uscode/schema/uslm-1.0.18.xsd
+crates/domains/data/markup-schemas/mods/mods_3_8-2018.xsd
+crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd
+crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
+crates/domains/data/adobe/glyphlist.txt
+# Phase 2c — W3C XML schema / spec sources read at COMPILE time by build.rs
+# (which now decodes their committed `.prx` through the same content gate) and
+# at runtime via the embedded committed `.prx`. FETCHED from www.w3.org, pinned
+# in praxis.lock `[hashes]`; only the content-addressed `.prx` ships.
+crates/domains/data/markup-schemas/xml/xml.xsd
+crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
+# Phase 2d FETCHED raw schema sources — W3C XSD meta-schema + ECMA-376 OOXML
+# schema ZIP. Routed through the generalized raw-source `.prx` path; the raw is
+# fetch-only (pinned in praxis.lock `[hashes]`), only the `.prx` ships.
+crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
+crates/domains/data/markup-schemas/ooxml/ooxml_schema_strict-2016.zip
+# Phase 3 FETCHED raw color-scheme COLLECTION — the Tinted Theming
+# `tinted-schemes` corpus (formerly a git submodule). FETCHED from the
+# i-am-logger/tinted-schemes fork; `pr4xis update` clones the theme tree here
+# and `theme_collection::archive_directory` flattens it into the deterministic
+# `tinted-schemes-2025.themes` archive (the canonical raw, pinned in praxis.lock
+# `[hashes]`). Both the cloned tree and the archive are fetch-only; only the
+# content-addressed committed `.prx` (data/themes/tinted-schemes-2025.prx) ships.
+crates/domains/data/tinted-schemes/
+crates/domains/data/themes/*.themes

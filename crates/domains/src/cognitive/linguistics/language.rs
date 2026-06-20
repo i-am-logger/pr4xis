@@ -445,45 +445,40 @@ pub fn build_verb_transitivity(
 /// stratum, the disjoint complement of the open-class english_wordnet
 /// (Quirk et al. 1985 §2.34).
 ///
-/// The OLiA-`reference_model()` twin: under `feature = "prx"` it fast-loads the
-/// committed `english-function-words-2026.prx.gz` (a graph-faithful rkyv
-/// `WordNetPrxEnvelope`) via [`function_words_wordnet_from_prx`], reconstructing
-/// the parsed `WordNet` with its human-meaningful `fw-*` synset ids intact, then
-/// projects it through the unchanged `function_words_from_lmf`. The committed
-/// `.prx.gz` is content-addressed and (with the registered `WordNetLmfLens`)
-/// pinned in `praxis.lock` — the loaded-not-`include_str!` path that closes the
-/// asymmetry with OLiA.
-///
-/// A corrupt/failed artifact falls through to the authoritative
-/// `include_str!(english.xml)` parse — exactly OLiA's fail-soft fallback. Without
-/// `prx`, the XML path is the only path. The bundle ships with praxis, so a
-/// parse failure is a build-time invariant. Function words are DATA; the
-/// interrogative class rides each `Sense.subcat`, the determiner/interjection
-/// features ride each `Sense.synset`.
-///
-/// [`function_words_wordnet_from_prx`]: crate::social::software::markup::xml::lmf::prx::function_words_wordnet_from_prx
+/// It materializes the committed `english.prx` through the generalized
+/// feature-light RAW-bytes `.prx` gate (`raw_source_prx`) — the
+/// `[compact_archive_signatures]` content-addressed path that works in the
+/// default `std`-only build (no `prx`/gzip feature, where the graph `.prx.gz`
+/// envelope is unavailable). `read_wordnet` recovers the parsed `WordNet` with
+/// its human-meaningful `fw-*` synset ids intact, then `function_words_from_lmf`
+/// projects it. The raw `english.xml` is the git-tracked source-of-truth but
+/// ships in NO published crate; only the committed `.prx` is embedded, loaded
+/// fail-closed against its `praxis.lock` pin. The byte-exact graph round-trip is
+/// still witnessed by the registered `WordNetLmfLens` audit. Function words are
+/// DATA; the interrogative class rides each `Sense.subcat`, the
+/// determiner/interjection features ride each `Sense.synset`.
 pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
-    #[cfg(feature = "prx")]
-    {
-        const PRX_GZ: &[u8] = include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/data/function-words/english-function-words-2026.prx.gz"
-        ));
-        if let Ok(wn) =
-            crate::social::software::markup::xml::lmf::prx::function_words_wordnet_from_prx(PRX_GZ)
-        {
-            return function_words_from_lmf(&wn);
-        }
-        // Corrupt or failed-gate artifact → fall through to the always-correct
-        // XML parse, exactly as `olia::reference_model()` falls back to the OWL.
-    }
-    const XML: &str = include_str!(concat!(
+    // The committed `.prx` — the content-addressed envelope carrying the authored
+    // English function-word inventory. The raw `english.xml` is the git-tracked
+    // source-of-truth but is EXCLUDED from the published crate; only this `.prx`
+    // ships, materialized through the generalized feature-light
+    // `[compact_archive_signatures]` gate (phase 2d) — so it loads in the default
+    // `std`-only build with no `prx`/gzip feature (where the graph `.prx.gz`
+    // envelope is unavailable). The `read_wordnet` reader recovers the parsed
+    // `WordNet` with its human-meaningful `fw-*` synset ids intact, then
+    // `function_words_from_lmf` projects it; the byte-exact graph round-trip is
+    // still witnessed by the registered `WordNetLmfLens` audit.
+    const PRX: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/data/function-words/english.xml"
+        "/data/function-words/english.prx"
     ));
-    let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML).expect(
-        "bundled crates/domains/data/function-words/english.xml failed to parse — \
-         build-time invariant violated",
+    let xml = crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded(
+        "english_function_words",
+        "2026",
+        PRX,
+    );
+    let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).expect(
+        "english_function_words committed .prx bytes failed to parse — build-time invariant violated",
     );
     function_words_from_lmf(&wn)
 }
@@ -999,82 +994,57 @@ mod tests {
     }
 }
 
-/// The function-words `.prx` fast-load (audit 2026-06-12 FW-A) — the
-/// `ClosedClassLexicon` analogue of OLiA's `reference_model()` artifact tests.
-#[cfg(all(test, feature = "prx"))]
+/// The function-words committed-`.prx` load (audit 2026-06-12 FW-A; phase 2d) —
+/// the `ClosedClassLexicon` analogue of the `raw_source_prx` staleness guards.
+/// Feature-light: the function-word lexicon now rides the generalized RAW-bytes
+/// `.prx` path (`raw_source_prx`), which works in the default `std`-only build,
+/// so these tests are NOT `feature = "prx"`-gated.
+#[cfg(test)]
 mod function_words_prx {
     use super::*;
-    use crate::social::software::markup::xml::lmf::prx::{
-        emit_wordnet_prx_gz, function_words_wordnet_from_prx,
-    };
 
-    const SOURCE_XML: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/function-words/english.xml"
-    ));
-    const COMMITTED_PRX_GZ: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/function-words/english-function-words-2026.prx.gz"
-    ));
-
-    fn emit_from_source() -> Vec<u8> {
-        emit_wordnet_prx_gz(
-            SOURCE_XML.as_bytes(),
-            "english_function_words",
-            "2026",
-            "https://aclanthology.org/J93-2004/",
-        )
-        .expect("emit english_function_words .prx.gz")
-    }
-
-    /// Regenerate the committed `english-function-words-2026.prx.gz`. `#[ignore]`d
-    /// (it WRITES, asserting nothing) — the function-words analogue of
-    /// `regenerate_olia_compact_prx`. Run by hand when `english.xml` changes:
-    /// `cargo test -p pr4xis-domains --features prx -- --ignored regenerate_english_function_words_prx`.
+    /// STRUCTURAL staleness guard (normal suite) — HARD-FAILS, never skips: the
+    /// FULL function-word map loaded from the committed `.prx` (through the
+    /// generalized fail-closed gate) must equal the map parsed straight from the
+    /// git-tracked source-of-truth `english.xml`. Any drift (a changed lemma /
+    /// POS / subcat / definiteness / interjection kind) fails, not just a changed
+    /// count. If `english.xml` was edited without re-running
+    /// `pr4xis compile --compact --lock`, this is the test that catches it.
     #[test]
-    #[ignore]
-    fn regenerate_english_function_words_prx() {
-        let prx_gz = emit_from_source();
-        let out = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/data/function-words/english-function-words-2026.prx.gz"
-        );
-        std::fs::write(out, &prx_gz).expect("write bundled english_function_words .prx.gz");
-        // The source content address — the value to pin in praxis.lock
-        // `[hashes]` and `[byte_exact_signatures]` as
-        // `english_function_words@2026` (the WordNetLmfLens round-trips
-        // byte-exact, so the byte-exact signature equals the source hash).
-        let src_addr = pr4xis_runtime::address::ContentAddress::of(SOURCE_XML.as_bytes()).to_hex();
-        eprintln!("english_function_words@2026 source blake3 = {src_addr}");
-    }
+    fn committed_function_words_prx_matches_the_xml() {
+        // Loaded through the generalized committed-`.prx` gate (the SAME path
+        // `build_english_function_words` uses at runtime).
+        let from_prx = build_english_function_words();
 
-    /// STRUCTURAL staleness guard (normal suite) — strictly stronger than OLiA's
-    /// entity-count-only guard: the FULL function-word map loaded from the
-    /// committed `.prx.gz` must equal the map parsed straight from `english.xml`.
-    /// Any drift (a changed lemma / POS / subcat / definiteness / interjection
-    /// kind) fails, not just a changed count. If `english.xml` was edited without
-    /// regenerating, this is the test that catches it.
-    #[test]
-    fn bundled_function_words_prx_matches_the_xml() {
-        let from_prx = function_words_wordnet_from_prx(COMMITTED_PRX_GZ)
-            .map(|wn| function_words_from_lmf(&wn))
-            .expect("load committed function-words .prx.gz");
+        // The git-tracked source-of-truth `english.xml` — present (it is the
+        // authored input the `.prx` is emitted from, EXCLUDED from the crate but
+        // never gitignored). HARD-FAIL if absent: a committed `.prx` with no raw
+        // to cross-check against is the staleness blind-spot this guard forbids.
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let xml_path = root.join("data/function-words/english.xml");
+        let xml = std::fs::read_to_string(&xml_path).unwrap_or_else(|e| {
+            panic!(
+                "english_function_words: source-of-truth `{}` is absent ({e}) — it is \
+                 git-tracked (regenerate the `.prx` from it via `pr4xis compile --compact \
+                 --lock`); the committed `.prx` cannot be staleness-checked without it",
+                xml_path.display()
+            )
+        });
         let from_xml = function_words_from_lmf(
-            &crate::social::software::markup::xml::lmf::reader::read_wordnet(SOURCE_XML)
+            &crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml)
                 .expect("parse english.xml"),
         );
         assert_eq!(
             from_prx, from_xml,
-            "committed english-function-words-2026.prx.gz is STALE — regenerate with \
-             `--ignored regenerate_english_function_words_prx`"
+            "committed english.prx is STALE relative to english.xml — re-run \
+             `pr4xis compile --compact --lock`"
         );
     }
 
-    /// The guardrail documenting WHY the rkyv envelope (not the lossy compact
-    /// codec) was chosen: these are the exact decoder outputs that COLLAPSE if a
-    /// future change swaps in the compact codec (synthetic `s{i}` ids → every
-    /// determiner `Indefinite`, every interjection `Expressive`). Loaded through
-    /// `build_english_function_words`, which engages the `.prx` fast path.
+    /// The guardrail documenting the exact decoder outputs the lexicon must
+    /// preserve (determiner kinds, interjection kinds — the human-meaningful
+    /// `fw-*` synset ids survive the `.prx` round-trip), loaded through
+    /// `build_english_function_words` (the committed-`.prx` path).
     #[test]
     fn decoders_survive_the_prx_roundtrip() {
         let map = build_english_function_words();
@@ -1094,34 +1064,5 @@ mod function_words_prx {
         };
         assert_eq!(kind("hello"), Some(InterjectionKind::Greeting));
         assert_eq!(kind("goodbye"), Some(InterjectionKind::Farewell));
-    }
-
-    /// The lossless-source-recovery proof for the chosen tier: emitting from
-    /// `english.xml` then reloading yields a `WordNet` whose
-    /// `(lemma, pos, synset_id, subcat)` tuples equal the directly-parsed
-    /// source's — proving the `fw-*` synset ids survive the round-trip and the
-    /// new loader composes with the emitter (the function-words analogue of
-    /// `wordnet_graph_faithful_reconstructs_source_byte_exact`).
-    #[test]
-    fn round_trip_recovers_source_features() {
-        let reparsed = function_words_wordnet_from_prx(&emit_from_source())
-            .expect("round-trip emit→load english_function_words");
-        let direct = crate::social::software::markup::xml::lmf::reader::read_wordnet(SOURCE_XML)
-            .expect("parse english.xml");
-        let project = |wn: &crate::social::software::markup::xml::lmf::ontology::WordNet| {
-            wn.entries
-                .iter()
-                .map(|e| {
-                    let s = e.senses.first();
-                    (
-                        e.lemma.written_form.clone(),
-                        e.lemma.pos,
-                        s.map(|s| s.synset.clone()).unwrap_or_default(),
-                        s.map(|s| s.subcat.clone()).unwrap_or_default(),
-                    )
-                })
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(project(&reparsed), project(&direct));
     }
 }

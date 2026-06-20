@@ -8,7 +8,7 @@
 //!
 //! This module is the typed-layer accessor that "loads like English":
 //! a cached `&'static str` of the DTD bytes via [`loaded_wn_lmf_dtd`],
-//! mirroring [`crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD`]
+//! mirroring [`crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd`]
 //! and [`crate::applied::data_provisioning::registry::data_sources`].
 //!
 //! ## Citation
@@ -23,22 +23,30 @@
 //!   Markup Framework (LMF)* — the abstract framework WN-LMF
 //!   instantiates for the WordNet family.
 
-/// The raw bytes of the bundled WN-LMF 1.3 DTD, embedded at build
-/// time via `include_str!` so the runtime path is hermetic. Matches
-/// the `wn_lmf_dtd@1.3` source registered in `praxis.toml`; the
-/// pinned digest in `praxis.lock` certifies these bytes.
-pub const WN_LMF_1_3_DTD: &str = include_str!(concat!(
+/// The committed WN-LMF 1.3 `.prx` — the content-addressed envelope carrying the
+/// DTD bytes. The raw `.dtd` is fetch-only (`pr4xis update`) and ships in NO
+/// crate; only this `.prx` is committed + embedded. Loaded through the
+/// generalized raw-source gate (phase 2).
+const WN_LMF_1_3_DTD_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd"
+    "/data/markup-schemas/lmf/wn_lmf_dtd-1.3.prx"
 ));
 
 /// The loaded WN-LMF 1.3 DTD — the schema the bundled WordNet 2025
 /// XML bytes declare DOCTYPE against. Downstream code queries this
 /// to anchor LMF concept identity in the published DTD rather than
 /// in the hand-coded runtime types (`feedback_bottom_up_loaded_not_encoded`).
+///
+/// The bytes are materialized from the committed `.prx` through the fail-closed
+/// `[compact_archive_signatures]` content gate, cached for the process behind a
+/// `OnceLock`. The raw `.dtd` is no longer embedded — only the gated `.prx` is.
+/// The function-form successor of the former `WN_LMF_1_3_DTD` const.
 #[must_use]
 pub fn loaded_wn_lmf_dtd() -> &'static str {
-    WN_LMF_1_3_DTD
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    use std::sync::OnceLock;
+    static DTD: OnceLock<&'static str> = OnceLock::new();
+    DTD.get_or_init(|| raw_source_text_embedded("wn_lmf_dtd", "1.3", WN_LMF_1_3_DTD_PRX))
 }
 
 /// True iff `name` is the local-name of an element type declared
@@ -71,7 +79,7 @@ fn loaded_wn_lmf_dtd_schema() -> &'static crate::formal::meta::dtd::DtdSchema {
     static SCHEMA: std::sync::OnceLock<crate::formal::meta::dtd::DtdSchema> =
         std::sync::OnceLock::new();
     SCHEMA.get_or_init(|| {
-        <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(WN_LMF_1_3_DTD.as_bytes())
+        <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(loaded_wn_lmf_dtd().as_bytes())
             .expect("bundled WN-LMF 1.3 DTD must parse cleanly")
     })
 }
@@ -149,9 +157,9 @@ mod tests {
 
     #[test]
     fn dtd_bytes_are_non_empty() {
-        assert!(!WN_LMF_1_3_DTD.is_empty());
-        assert!(WN_LMF_1_3_DTD.contains("<!ELEMENT"));
-        assert!(WN_LMF_1_3_DTD.contains("LexicalResource"));
+        assert!(!loaded_wn_lmf_dtd().is_empty());
+        assert!(loaded_wn_lmf_dtd().contains("<!ELEMENT"));
+        assert!(loaded_wn_lmf_dtd().contains("LexicalResource"));
     }
 
     #[test]
@@ -234,7 +242,7 @@ mod tests {
         // from what the lock declares — drift triggers
         // LockManifestAgreement failure separately.
         use pr4xis_runtime::address::ContentAddress;
-        let got = ContentAddress::of(WN_LMF_1_3_DTD.as_bytes()).to_hex();
+        let got = ContentAddress::of(loaded_wn_lmf_dtd().as_bytes()).to_hex();
         assert_eq!(
             got, "c1dc8156ce433bbb75e533af345d392ed6ea908dfa04e86d249ca68f987a1a12",
             "WN-LMF DTD bytes drifted from praxis.lock pinned digest"
@@ -263,7 +271,7 @@ mod tests {
             use crate::formal::meta::well_behaved_lens::WellBehavedLens;
             let schema =
                 <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(
-                    WN_LMF_1_3_DTD.as_bytes(),
+                    loaded_wn_lmf_dtd().as_bytes(),
                 )
                 .expect("bundled WN-LMF DTD parses");
             let expected = schema

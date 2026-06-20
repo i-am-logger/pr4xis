@@ -581,33 +581,21 @@ mod tests {
 
     #[test]
     fn test_generate_real_report() {
-        use crate::applied::hmi::report::validator::scan_themes;
+        use crate::applied::hmi::report::validator::scan_loaded_themes;
 
-        let home = std::path::Path::new(env!("HOME"));
-        let datasets = [
-            (
-                "base16",
-                home.join("Code/github/logger/tinted-schemes/base16"),
-            ),
-            (
-                "base24",
-                home.join("Code/github/logger/tinted-schemes/base24"),
-            ),
-            ("vogix16", home.join("Code/github/logger/vogix16-themes")),
-        ];
+        // Load + validate the WHOLE Base16/Base24 corpus through the generalized
+        // content-addressed `.prx` gate (NOT a git submodule worktree). The gated
+        // load panics fail-closed if the committed `.prx` is absent/unpinned, and
+        // the corpus is non-empty by construction — so this report-generation
+        // test exercises the real load path and never silently skips.
+        let all_results = scan_loaded_themes();
+        assert!(
+            !all_results.is_empty(),
+            "scan_loaded_themes returned no schemes — the committed tinted_schemes \
+             .prx must decode to a non-empty corpus"
+        );
 
-        let mut all_results = Vec::new();
-        for (_, dir) in &datasets {
-            if dir.exists() {
-                all_results.extend(scan_themes(dir));
-            }
-        }
-
-        if all_results.is_empty() {
-            return; // skip if no datasets
-        }
-
-        let html = to_html(&all_results, "all (base16 + base24 + vogix16)");
+        let html = to_html(&all_results, "all (base16 + base24)");
         let json = to_json(&all_results, "all");
 
         // Write to docs/ for viewing

@@ -652,12 +652,21 @@ mod tests {
     use proptest::prelude::*;
     use std::sync::Mutex;
 
-    /// The bundled CiTO 2.8.1 OWL vocabulary (SPAR Ontologies), embedded
-    /// at build time — the same source the codegen-side tests use.
-    const CITO_2_8_1_OWL: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/ontologies/cito-2.8.1.owl"
-    ));
+    /// The FETCHED raw CiTO 2.8.1 OWL bytes, read from disk at runtime (NOT
+    /// `include_str!`-embedded — the raw `.owl` is fetch-only via `pr4xis update`
+    /// and ships in no crate). An absent raw fails loudly naming the fix.
+    fn cito_2_8_1_owl() -> std::string::String {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/ontologies/cito-2.8.1.owl"
+        );
+        std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!(
+                "CiTO raw .owl is not on disk at {path} ({e}) — it is fetch-only; \
+                 run `pr4xis update` to regenerate it"
+            )
+        })
+    }
 
     const CITES_AS_EVIDENCE_IRI: &str = "http://purl.org/spar/cito/citesAsEvidence";
     const CITES_IRI: &str = "http://purl.org/spar/cito/cites";
@@ -745,7 +754,7 @@ mod tests {
     /// Build the CiTO runtime vocabulary through the full
     /// reader → builder → CodegenData → from_codegen path.
     fn cito_vocabulary() -> LoadedOwlVocabulary {
-        let ont = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
+        let ont = read_owl(&cito_2_8_1_owl()).expect("bundled CiTO must parse");
         let builder = owl_to_builder(&ont);
         let data = codegen_data_from_builder(&builder);
         LoadedOwlVocabulary::from_codegen(&data)
@@ -814,15 +823,16 @@ mod tests {
     /// stronger guarantee than sharing one parse would give.
     #[test]
     fn from_owl_ontology_equals_from_codegen_on_cito() {
+        let owl = cito_2_8_1_owl();
         // from_codegen path, sourced from its own parse.
-        let ont_codegen = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
+        let ont_codegen = read_owl(&owl).expect("bundled CiTO must parse");
         let builder = owl_to_builder(&ont_codegen);
         let data = codegen_data_from_builder(&builder);
         let via_codegen = LoadedOwlVocabulary::from_codegen(&data);
 
         // from_owl_ontology path, sourced from a *separate* parse of the
         // same bytes — deterministic ordering makes the two agree.
-        let ont_owl = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
+        let ont_owl = read_owl(&owl).expect("bundled CiTO must parse");
         let via_owl = LoadedOwlVocabulary::from_owl_ontology(&ont_owl);
 
         assert_eq!(

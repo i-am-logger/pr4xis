@@ -76,8 +76,25 @@ pub fn generate_xml_namespace_schema_source(
 ) -> Result<String, XmlSchemaCodegenError> {
     let xsd = std::fs::read_to_string(xsd_path)
         .map_err(|e| XmlSchemaCodegenError::ReadSource(xsd_path.display().to_string(), e))?;
+    generate_xml_namespace_schema_from_source(&xsd)
+}
 
-    let names = scan_xsd_attribute_names(&xsd);
+/// Emit the XML namespace schema codegen Rust source from the schema
+/// bytes already in memory — the byte-stream sibling of
+/// [`generate_xml_namespace_schema_source`] for callers that hold the
+/// decoded source (e.g. a build script that has materialized the
+/// committed `.prx` envelope rather than reading the raw `.xsd` from
+/// disk). The path-reading entry point delegates here, so both share one
+/// scan/emit body.
+///
+/// # Errors
+///
+/// Returns [`XmlSchemaCodegenError::EmptyScan`] if the source contains no
+/// `<xs:attribute name=...>` declarations.
+pub fn generate_xml_namespace_schema_from_source(
+    xsd: &str,
+) -> Result<String, XmlSchemaCodegenError> {
+    let names = scan_xsd_attribute_names(xsd);
     if names.is_empty() {
         return Err(XmlSchemaCodegenError::EmptyScan(
             "xml.xsd <xs:attribute name=...>".to_string(),
@@ -147,8 +164,22 @@ fn scan_xsd_attribute_names(xsd: &str) -> Vec<String> {
 pub fn generate_xml_infoset_source(xhtml_path: &Path) -> Result<String, XmlSchemaCodegenError> {
     let xhtml = std::fs::read_to_string(xhtml_path)
         .map_err(|e| XmlSchemaCodegenError::ReadSource(xhtml_path.display().to_string(), e))?;
+    generate_xml_infoset_from_source(&xhtml)
+}
 
-    let items = scan_infoset_items(&xhtml);
+/// Emit the XML Information Set codegen Rust source from the XHTML rec
+/// bytes already in memory — the byte-stream sibling of
+/// [`generate_xml_infoset_source`] for callers that hold the decoded
+/// source (e.g. a build script materializing the committed `.prx`
+/// envelope rather than reading the raw `.xhtml` from disk). The
+/// path-reading entry point delegates here.
+///
+/// # Errors
+///
+/// Returns [`XmlSchemaCodegenError::EmptyScan`] if the section-heading
+/// scan finds zero information items.
+pub fn generate_xml_infoset_from_source(xhtml: &str) -> Result<String, XmlSchemaCodegenError> {
+    let items = scan_infoset_items(xhtml);
     if items.is_empty() {
         return Err(XmlSchemaCodegenError::EmptyScan(
             "xml-infoset.xhtml <h3><a name=\"infoitem.*\">...</a></h3>".to_string(),

@@ -1041,11 +1041,67 @@ pub fn emit_compact_prx_gz(data: &OwnedCodegenData) -> Result<Vec<u8>, PrxError>
 /// → [`to_codegen_data_leaked`](OwnedCodegenData::to_codegen_data_leaked) →
 /// [`LoadedOwlVocabulary::from_codegen`]. The runtime decode path — no re-parse,
 /// no rkyv envelope.
+///
+/// UNGATED: trusts the bytes. The content-address-checked entry point every
+/// committed-archive consumer uses is [`load_compact_prx_gz_gated`]; this raw
+/// form is for in-memory round-trip tests only.
 pub fn load_compact_prx_gz(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxError> {
     let bytes = gunzip(prx_gz)?;
     let data = OwnedCodegenData::from_succinct(&bytes);
     let codegen: CodegenData<LoadedOwlVocabulary> = data.to_codegen_data_leaked();
     Ok(LoadedOwlVocabulary::from_codegen(&codegen))
+}
+
+/// The content address of a compact OWL `.prx.gz` — the digest of its
+/// uncompressed succinct bytes (gzip-level-independent), as 64-char lowercase
+/// hex. The value pinned in `praxis.lock` `[compact_archive_signatures]` and the
+/// one [`load_compact_prx_gz_gated`] re-derives and verifies. Portable: the
+/// succinct codec is dependency-free bit-packing, stable across toolchains and
+/// targets (unlike the rkyv [`prx_archive_address`]). The OWL sibling of
+/// [`compact_english_archive_address`](crate::social::software::markup::xml::lmf::prx::compact_english_archive_address).
+pub fn compact_owl_archive_address(prx_gz: &[u8]) -> Result<String, PrxError> {
+    Ok(ContentAddress::of(&gunzip(prx_gz)?).to_hex())
+}
+
+/// Load a compact OWL `.prx.gz` into a materialized [`LoadedOwlVocabulary`]
+/// through the fail-closed content-address gate: gunzip → verify the succinct
+/// bytes hash to `archive_pin` (the `[compact_archive_signatures]` pin) →
+/// succinct-decode → materialize. A compact archive whose bytes do not match
+/// the pin is rejected before any data is installed (Dolstra 2006
+/// content-addressing; W3C SRI 2016). The portable, no-source-reconstruction
+/// OWL sibling of
+/// [`load_compact_english_prx_gz_gated`](crate::social::software::markup::xml::lmf::prx::load_compact_english_prx_gz_gated)
+/// and [`load_compact_usc_prx_gz_gated`](crate::social::software::markup::xml::uslm::corpus::prx::load_compact_usc_prx_gz_gated).
+///
+/// This is the SINGLE gated entry point the committed-`.prx` OWL load path
+/// ([`load_owl_vocabulary`](super::loaded_vocabularies::load_owl_vocabulary))
+/// routes through — both `olia::reference_model` and every
+/// `OntologyVocabulary` in [`loaded_vocabularies`](super::loaded_vocabularies::loaded_vocabularies).
+pub fn load_compact_prx_gz_gated(
+    prx_gz: &[u8],
+    archive_pin: &LockDigest,
+    key: &str,
+) -> Result<LoadedOwlVocabulary, PrxError> {
+    let raw = gunzip(prx_gz)?;
+    verify_content_address(&raw, archive_pin, key)?;
+    let data = OwnedCodegenData::from_succinct(&raw);
+    let codegen: CodegenData<LoadedOwlVocabulary> = data.to_codegen_data_leaked();
+    Ok(LoadedOwlVocabulary::from_codegen(&codegen))
+}
+
+/// The compiled COMPACT-OWL-archive cache directory:
+/// `<workspace_root>/.prx-cache/ontologies-compact`. `pr4xis compile` writes one
+/// `{name}-{version}.prx.gz` here per registered `OntologyVocabulary` source (the
+/// portable, content-addressed compact codec), and the committed
+/// `crates/domains/data/ontologies/{name}-{version}.prx.gz` is a copy of it. The
+/// OWL sibling of
+/// [`english_compact_prx_cache_dir`](crate::social::software::markup::xml::lmf::prx::english_compact_prx_cache_dir)
+/// / [`usc_compact_prx_cache_dir`](crate::social::software::markup::xml::uslm::corpus::prx::usc_compact_prx_cache_dir);
+/// gitignored build output — never committed (the committed copy lives under
+/// `data/ontologies/`).
+#[cfg(feature = "std")]
+pub fn owl_compact_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root.join(".prx-cache").join("ontologies-compact")
 }
 
 // =============================================================================
@@ -1339,6 +1395,24 @@ mod emit {
         gzip(&rkyv_bytes)
     }
 
+    /// Emit a COMPACT OWL `.prx.gz` from OWL source bytes:
+    /// `build_envelope → data → to_succinct → gzip`. The portable,
+    /// dependency-free sibling of [`emit_prx_gz`] (no rkyv envelope) — the bytes
+    /// the committed-`.prx` OWL load path
+    /// ([`load_owl_vocabulary`](super::super::loaded_vocabularies::load_owl_vocabulary))
+    /// reads through the `[compact_archive_signatures]` content gate. The OWL
+    /// sibling of
+    /// [`emit_compact_english_prx_gz`](crate::social::software::markup::xml::lmf::prx::emit_compact_english_prx_gz).
+    pub fn emit_compact_owl_prx_gz(
+        source: &[u8],
+        name: &str,
+        version: &str,
+        url: &str,
+    ) -> Result<Vec<u8>, PrxError> {
+        let envelope = build_envelope(source, name, version, url)?;
+        emit_compact_prx_gz(&envelope.data)
+    }
+
     /// Workspace root — the grandparent of `CARGO_MANIFEST_DIR`
     /// (`crates/domains/`). `RegistryEntry::local_path()` is
     /// workspace-relative (`crates/domains/data/...`), so the bundled `.owl`
@@ -1447,10 +1521,77 @@ mod emit {
         }
         Ok(emitted)
     }
+
+    /// Emit a COMPACT OWL `.prx.gz` for **every** registered
+    /// [`OntologyVocabulary`][ov] source on disk into `out_dir`,
+    /// round-trip-validating each (the emitted bytes load back through the
+    /// content gate) before returning it.
+    ///
+    /// Registry-driven (never a hardcoded source set): the same source-agnostic
+    /// walk [`emit_all_prx_gz`] makes, but producing the portable,
+    /// content-addressed compact codec the committed `data/ontologies/*.prx.gz`
+    /// distribute. A source whose `.owl` is not on disk is skipped gracefully.
+    /// The OWL sibling of
+    /// [`emit_all_compact_english_prx_gz`](crate::social::software::markup::xml::lmf::prx::emit_all_compact_english_prx_gz)
+    /// and `emit_all_compact_usc_prx_gz`.
+    ///
+    /// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
+    pub fn emit_all_compact_owl_prx_gz(
+        out_dir: &std::path::Path,
+    ) -> Result<Vec<EmittedArtifact>, PrxError> {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+        std::fs::create_dir_all(out_dir)
+            .map_err(|e| PrxError::Gzip(format!("create out_dir {}: {e}", out_dir.display())))?;
+
+        let root = workspace_root();
+        let mut emitted = Vec::new();
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::OntologyVocabulary {
+                continue;
+            }
+            let src_path = root.join(entry.local_path());
+            let Ok(source) = std::fs::read(&src_path) else {
+                // Registered but not on disk — skip gracefully, exactly as
+                // `emit_all_prx_gz` and the USC/English compact emitters do.
+                continue;
+            };
+
+            let prx_gz = emit_compact_owl_prx_gz(&source, &entry.name, &entry.version, &entry.url)?;
+            let archive_address = compact_owl_archive_address(&prx_gz)?;
+            let path = out_dir.join(format!("{}-{}.prx.gz", entry.name, entry.version));
+            std::fs::write(&path, &prx_gz)
+                .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
+
+            // Round-trip-validate the *written file* against the address this
+            // emit just produced (the GetPut leg of the bytes ⇄ vocabulary lens).
+            let key = format!("{}@{}", entry.name, entry.version);
+            let read_back = std::fs::read(&path)
+                .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
+            load_compact_prx_gz_gated(
+                &read_back,
+                &LockDigest::address(archive_address.clone()),
+                &key,
+            )?;
+
+            emitted.push(EmittedArtifact {
+                name: entry.name.clone(),
+                version: entry.version.clone(),
+                path,
+                byte_len: prx_gz.len() as u64,
+                archive_address,
+            });
+        }
+        Ok(emitted)
+    }
 }
 
 #[cfg(any(test, feature = "codegen"))]
-pub use emit::{build_envelope, emit_all_prx_gz, emit_prx_gz};
+pub use emit::{
+    build_envelope, emit_all_compact_owl_prx_gz, emit_all_prx_gz, emit_compact_owl_prx_gz,
+    emit_prx_gz,
+};
 
 #[cfg(test)]
 mod tests {
@@ -1460,12 +1601,21 @@ mod tests {
     };
     use proptest::prelude::*;
 
-    /// The bundled CiTO 2.8.1 OWL vocabulary (SPAR), embedded at build
-    /// time — the same source the codegen-side tests use.
-    const CITO_2_8_1_OWL: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/ontologies/cito-2.8.1.owl"
-    ));
+    /// The FETCHED raw CiTO 2.8.1 OWL bytes, read from disk at runtime (NOT
+    /// `include_str!`-embedded — the raw `.owl` is fetch-only via `pr4xis update`
+    /// and ships in no crate). An absent raw fails loudly naming the fix.
+    fn cito_2_8_1_owl() -> std::string::String {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/ontologies/cito-2.8.1.owl"
+        );
+        std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!(
+                "CiTO raw .owl is not on disk at {path} ({e}) — it is fetch-only; \
+                 run `pr4xis update` to regenerate it"
+            )
+        })
+    }
     const CITO_NAME: &str = "cito";
     const CITO_VERSION: &str = "2.8.1";
     const CITO_URL: &str = "https://sparontologies.github.io/cito/current/cito.xml";
@@ -1491,7 +1641,8 @@ mod tests {
     /// if it ever breaks, every `.prx.gz` for CiTO must be rejected.
     #[test]
     fn source_anchor_cito_hash_matches_lock() {
-        let computed = LockDigest::address(ContentAddress::of(CITO_2_8_1_OWL.as_bytes()).to_hex());
+        let owl = cito_2_8_1_owl();
+        let computed = LockDigest::address(ContentAddress::of(owl.as_bytes()).to_hex());
         let pinned = lock_hashes()
             .get("cito@2.8.1")
             .expect("praxis.lock must pin cito@2.8.1");
@@ -1515,7 +1666,8 @@ mod tests {
 
     #[test]
     fn envelope_bytes_round_trip_and_deterministic() {
-        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+        let owl = cito_2_8_1_owl();
+        let envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let a = envelope_to_bytes(&envelope).expect("serialize a");
         let b = envelope_to_bytes(&envelope).expect("serialize b");
@@ -1539,10 +1691,11 @@ mod tests {
     /// (RFC 1952) — are bit-for-bit stable across processes.
     #[test]
     fn emit_prx_gz_is_byte_reproducible() {
-        let first = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-            .expect("emit first");
-        let second = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-            .expect("emit second");
+        let owl = cito_2_8_1_owl();
+        let first =
+            emit_prx_gz(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL).expect("emit first");
+        let second =
+            emit_prx_gz(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL).expect("emit second");
         assert_eq!(
             first, second,
             "two independent emit_prx_gz runs must yield byte-identical .prx.gz"
@@ -1555,7 +1708,8 @@ mod tests {
     fn emit_then_load_equals_direct_corpus() {
         // The envelope built from real CiTO (read_owl → owl_to_builder →
         // owned). Its owned data is the fidelity reference.
-        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+        let owl = cito_2_8_1_owl();
+        let envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let direct = materialize_direct(&envelope.data);
 
@@ -1592,7 +1746,8 @@ mod tests {
 
     #[test]
     fn cito_graph_faithful_reconstructs_source_byte_exact() {
-        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+        let owl = cito_2_8_1_owl();
+        let envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         // CiTO is the byte-exact graph-faithful tier — no stored raw blob.
         assert_eq!(envelope.mode, RoundTripFidelity::ByteExactGraphFaithful);
@@ -1610,7 +1765,7 @@ mod tests {
         let reconstructed = reconstruct_source(&envelope).expect("reconstruct");
         assert_eq!(
             reconstructed,
-            CITO_2_8_1_OWL.as_bytes(),
+            owl.as_bytes(),
             "reconstruct_source must return the exact source bytes (graph-faithful)"
         );
         // … so the operator's invariant holds: round-trip hash == source hash.
@@ -1625,14 +1780,15 @@ mod tests {
     fn cito_graph_faithful_survives_prx_gz_round_trip() {
         // The structured complement must survive the full rkyv + gzip envelope
         // round-trip so a distributed .prx.gz is self-reconstructing.
-        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+        let owl = cito_2_8_1_owl();
+        let envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
         let back = envelope_from_bytes(&gunzip(&prx_gz).expect("gunzip")).expect("deserialize");
         assert_eq!(back.mode, RoundTripFidelity::ByteExactGraphFaithful);
         assert!(back.raw.is_none(), "no raw blob survives — none was stored");
         let reconstructed = reconstruct_source(&back).expect("reconstruct after round-trip");
-        assert_eq!(reconstructed, CITO_2_8_1_OWL.as_bytes());
+        assert_eq!(reconstructed, owl.as_bytes());
     }
 
     #[test]
@@ -1640,9 +1796,9 @@ mod tests {
         // Fail-closed: if the regenerated bytes no longer hash to the content
         // address (here a corrupted property-element leaf text in the structured
         // complement), reconstruction refuses rather than returning wrong bytes.
-        let mut envelope =
-            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-                .expect("build envelope");
+        let owl = cito_2_8_1_owl();
+        let mut envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
         let graph = envelope.graph.as_mut().expect("graph-faithful payload");
         let mut flipped = false;
         'outer: for block in &mut graph.complement.structure.node_blocks {
@@ -1699,7 +1855,8 @@ mod tests {
 
     #[test]
     fn metadata_is_omv_prov_grounded() {
-        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+        let owl = cito_2_8_1_owl();
+        let envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let m = &envelope.metadata;
         // omv:name / omv:version
@@ -1731,8 +1888,8 @@ mod tests {
 
     #[test]
     fn load_validation_accepts_correct_prx_gz() {
-        let prx_gz = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-            .expect("emit");
+        let owl = cito_2_8_1_owl();
+        let prx_gz = emit_prx_gz(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL).expect("emit");
         // Through the live registry lock lookup (no pin passed in).
         let loaded = load_prx_gz_from_lock(&prx_gz).expect("must load + validate via lock");
         assert!(loaded.entity_count() > 30);
@@ -1747,9 +1904,9 @@ mod tests {
         // from the whole envelope, so tampering any field changes the
         // content address; the lock-driven gate refuses it against cito's
         // [archive_signatures] pin before anything is installed.
-        let mut envelope =
-            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-                .expect("build envelope");
+        let owl = cito_2_8_1_owl();
+        let mut envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
         envelope.metadata.source_address =
             "0000000000000000000000000000000000000000000000000000000000000000".to_string();
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
@@ -1765,13 +1922,9 @@ mod tests {
     /// the lock-driven loader fails closed.
     #[test]
     fn load_validation_rejects_unpinned_source() {
-        let prx_gz = emit_prx_gz(
-            CITO_2_8_1_OWL.as_bytes(),
-            "not_a_registered_source",
-            "9.9.9",
-            CITO_URL,
-        )
-        .expect("emit");
+        let owl = cito_2_8_1_owl();
+        let prx_gz = emit_prx_gz(owl.as_bytes(), "not_a_registered_source", "9.9.9", CITO_URL)
+            .expect("emit");
         let err = load_prx_gz_from_lock(&prx_gz).expect_err("unpinned source must be rejected");
         // The MerkleRoot pin is looked up first; an unregistered source has
         // no [archive_signatures] entry, so the gate fails closed there.
@@ -1782,8 +1935,8 @@ mod tests {
     /// never materializing unsound references.
     #[test]
     fn load_rejects_corrupted_blob() {
-        let prx_gz = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-            .expect("emit");
+        let owl = cito_2_8_1_owl();
+        let prx_gz = emit_prx_gz(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL).expect("emit");
         // gunzip / rkyv-bytecheck fail before the pin checks, so the pin
         // values are immaterial here.
         let any_pin = LockDigest::address("0".repeat(64));
@@ -1807,9 +1960,9 @@ mod tests {
     /// the content address and the lock-driven gate refuses it.
     #[test]
     fn load_rejects_poisoned_data_under_honest_label() {
-        let mut envelope =
-            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-                .expect("build envelope");
+        let owl = cito_2_8_1_owl();
+        let mut envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
         // Source identity stays genuine …
         assert_eq!(
             &LockDigest::address(envelope.metadata.source_address.clone()),
@@ -1833,7 +1986,8 @@ mod tests {
     /// (RDF 1.1 §3.6), not merely its bytes.
     #[test]
     fn load_rejects_wrong_canonical_pin() {
-        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+        let owl = cito_2_8_1_owl();
+        let envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
         let archive_pin =
@@ -1867,8 +2021,8 @@ mod tests {
         // proving the pin lookups are mandatory. To isolate the canonical
         // requirement specifically, emit under cito's identity but assert
         // the from_lock path resolves a canonical pin (it exists for cito).
-        let prx_gz = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-            .expect("emit");
+        let owl = cito_2_8_1_owl();
+        let prx_gz = emit_prx_gz(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL).expect("emit");
         // cito has all three pins → the lock loader succeeds, exercising
         // the canonical-pin lookup on the happy path.
         load_prx_gz_from_lock(&prx_gz).expect("cito has a canonical pin and loads");
@@ -1878,8 +2032,7 @@ mod tests {
         // an unregistered name trips NoArchivePin first (pins are checked
         // archive → source → canonical), so the mandatory-canonical
         // guarantee is the `?`-propagation in `load_prx_gz_from_lock`.
-        let unpinned =
-            emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), "nope_canon", "0.0.0", CITO_URL).expect("emit");
+        let unpinned = emit_prx_gz(owl.as_bytes(), "nope_canon", "0.0.0", CITO_URL).expect("emit");
         let err = load_prx_gz_from_lock(&unpinned).expect_err("unpinned must reject");
         assert!(
             matches!(
@@ -1958,9 +2111,9 @@ mod tests {
     /// regenerate from).
     #[test]
     fn load_rejects_envelope_missing_reconstruction_payload() {
-        let mut envelope =
-            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
-                .expect("build envelope");
+        let owl = cito_2_8_1_owl();
+        let mut envelope = build_envelope(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
         // CiTO is graph-faithful — strip its structured complement so neither a
         // raw leaf nor a graph payload is present.
         assert_eq!(envelope.mode, RoundTripFidelity::ByteExactGraphFaithful);
@@ -2154,11 +2307,12 @@ mod tests {
         use crate::applied::data_provisioning::registry::data_sources;
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
+        let owl = cito_2_8_1_owl();
         let out = std::env::temp_dir().join(format!(
             "prx-emit-test-{}-{}",
             std::process::id(),
             // A per-invocation suffix so parallel test processes don't collide.
-            CITO_2_8_1_OWL.len()
+            owl.len()
         ));
         // Start from a clean dir so the count assertions are exact.
         let _ = std::fs::remove_dir_all(&out);

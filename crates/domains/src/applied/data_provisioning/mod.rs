@@ -32,7 +32,9 @@
 pub mod decoders;
 pub mod lockfile;
 pub mod ontology;
+pub mod raw_source_prx;
 pub mod registry;
+pub mod registry_prx;
 
 #[cfg(feature = "fetch")]
 pub mod fetch;

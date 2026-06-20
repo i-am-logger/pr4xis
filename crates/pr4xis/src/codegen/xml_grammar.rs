@@ -100,11 +100,29 @@ pub struct CodePointRange {
 pub fn generate_xml_grammar_source(spec_path: &Path) -> Result<String, XmlGrammarCodegenError> {
     let spec_bytes = std::fs::read_to_string(spec_path)
         .map_err(|e| XmlGrammarCodegenError::ReadSource(spec_path.display().to_string(), e))?;
+    generate_xml_grammar_from_source(&spec_bytes)
+}
 
-    let char_ranges = extract_production(&spec_bytes, "Char")?;
-    let name_start_char_ranges = extract_production(&spec_bytes, "NameStartChar")?;
-    let name_char_ranges = extract_production(&spec_bytes, "NameChar")?;
-    let predefined_entities = extract_predefined_entities(&spec_bytes)?;
+/// Emit the XML 1.0 grammar codegen Rust source from the spec bytes
+/// already in memory — the byte-stream sibling of
+/// [`generate_xml_grammar_source`] for callers that hold the decoded
+/// source (e.g. a build script materializing the committed `.prx`
+/// envelope rather than reading the raw `.xml` from disk). The
+/// path-reading entry point delegates here, so both share one
+/// extract/emit body.
+///
+/// # Errors
+///
+/// Returns [`XmlGrammarCodegenError`] if any of the grounded productions
+/// (`Char`, `NameStartChar`, `NameChar`) or the predefined-entity
+/// declarations cannot be extracted from the spec source.
+pub fn generate_xml_grammar_from_source(
+    spec_bytes: &str,
+) -> Result<String, XmlGrammarCodegenError> {
+    let char_ranges = extract_production(spec_bytes, "Char")?;
+    let name_start_char_ranges = extract_production(spec_bytes, "NameStartChar")?;
+    let name_char_ranges = extract_production(spec_bytes, "NameChar")?;
+    let predefined_entities = extract_predefined_entities(spec_bytes)?;
 
     let mut out = String::new();
     out.push_str(

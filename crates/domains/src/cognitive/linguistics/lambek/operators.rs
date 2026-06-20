@@ -191,13 +191,22 @@ fn single_glyph(word: &str) -> Option<char> {
 /// The bundle ships with praxis, so a parse / decode failure is a build-time
 /// invariant and panics rather than silently degrading.
 pub fn load() -> OperatorVocabulary {
-    const XML: &str = include_str!(concat!(
+    // The committed math-operator `.prx` — the content-addressed envelope carrying
+    // the authored LMF-shaped operator vocabulary. The raw `.xml` is the
+    // git-tracked source-of-truth but is EXCLUDED from the published crate; only
+    // this `.prx` ships, loaded through the generalized fail-closed
+    // `[compact_archive_signatures]` gate (phase 2d). The reader is unchanged.
+    const MATH_OPERATORS_PRX: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/data/operators/math-operators.xml"
+        "/data/operators/math-operators.prx"
     ));
-    let wn = read_wordnet(XML).expect(
-        "bundled crates/domains/data/operators/math-operators.xml failed to \
-         parse — build-time invariant violated",
+    let xml = crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded(
+        "math_operators",
+        "2019",
+        MATH_OPERATORS_PRX,
+    );
+    let wn = read_wordnet(xml).expect(
+        "math_operators committed .prx bytes failed to parse — build-time invariant violated",
     );
 
     let mut map: BTreeMap<char, Vec<LoadedOperator>> = BTreeMap::new();

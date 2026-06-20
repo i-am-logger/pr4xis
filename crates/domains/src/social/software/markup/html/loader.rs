@@ -42,20 +42,32 @@ use alloc::{
 
 use std::sync::OnceLock;
 
-/// The raw bytes of the bundled XHTML 1.0 Strict XSD —
-/// `crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd`.
-/// Embedded at build time via `include_str!` so the runtime path
-/// is hermetic.
-pub const XHTML_1_0_STRICT_XSD: &str = include_str!(concat!(
+/// The committed XHTML 1.0 Strict `.prx` — the content-addressed envelope
+/// carrying the XSD bytes. The raw `.xsd` is fetch-only (`pr4xis update`) and
+/// ships in NO crate; only this `.prx` is committed + embedded. Loaded through
+/// the generalized raw-source gate (phase 2).
+const XHTML_1_0_STRICT_XSD_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd"
+    "/data/markup-schemas/xhtml/xhtml-1.0-strict.prx"
 ));
+
+/// The loaded XHTML 1.0 Strict XSD bytes, materialized from the committed `.prx`
+/// through the fail-closed `[compact_archive_signatures]` content gate, cached
+/// for the process behind a `OnceLock`. The raw `.xsd` is no longer embedded —
+/// only the gated `.prx` is. The function-form successor of the former
+/// `XHTML_1_0_STRICT_XSD` const.
+#[must_use]
+pub fn loaded_xhtml_1_0_strict() -> &'static str {
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    static XSD: OnceLock<&'static str> = OnceLock::new();
+    XSD.get_or_init(|| raw_source_text_embedded("xhtml_1_0_xsd", "1.0", XHTML_1_0_STRICT_XSD_PRX))
+}
 
 /// Lazily-loaded set of element local-names (lowercased) declared by
 /// the bundled XHTML 1.0 Strict XSD.
 pub fn element_names() -> &'static BTreeSet<String> {
     static SET: OnceLock<BTreeSet<String>> = OnceLock::new();
-    SET.get_or_init(|| scan_named_declarations(XHTML_1_0_STRICT_XSD, "<xs:element "))
+    SET.get_or_init(|| scan_named_declarations(loaded_xhtml_1_0_strict(), "<xs:element "))
 }
 
 /// Lazily-loaded set of attribute local-names (lowercased) declared
@@ -63,7 +75,7 @@ pub fn element_names() -> &'static BTreeSet<String> {
 /// attributeGroup definitions).
 pub fn attribute_names() -> &'static BTreeSet<String> {
     static SET: OnceLock<BTreeSet<String>> = OnceLock::new();
-    SET.get_or_init(|| scan_named_declarations(XHTML_1_0_STRICT_XSD, "<xs:attribute "))
+    SET.get_or_init(|| scan_named_declarations(loaded_xhtml_1_0_strict(), "<xs:attribute "))
 }
 
 /// True iff `name` is a declared HTML element per the bundled
@@ -133,13 +145,13 @@ mod tests {
         // The bundle ships with praxis; if this fires the file is
         // missing or the include_str! path is broken.
         assert!(
-            !XHTML_1_0_STRICT_XSD.is_empty(),
+            !loaded_xhtml_1_0_strict().is_empty(),
             "XHTML 1.0 Strict XSD bundle is empty — bundle missing?"
         );
         // The published file declares the strict schema's target
         // namespace as the XHTML 1.0 namespace.
         assert!(
-            XHTML_1_0_STRICT_XSD.contains("targetNamespace=\"http://www.w3.org/1999/xhtml\""),
+            loaded_xhtml_1_0_strict().contains("targetNamespace=\"http://www.w3.org/1999/xhtml\""),
             "bundle does not carry XHTML 1.0 target namespace — wrong file?"
         );
     }

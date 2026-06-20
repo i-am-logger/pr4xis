@@ -34,7 +34,7 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twenty_eight_concepts() {
+fn thirty_three_concepts() {
     // Lexicon family (9): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon, SchemaVocabulary,
     //                     ClosedClassLexicon, InflectionLexicon,
@@ -50,7 +50,12 @@ fn twenty_eight_concepts() {
     //                        ConceptualSpec, OntologyVocabulary.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 28);
+    // ControlledVocabulary family (5): ControlledVocabulary,
+    //                                  WindowStateVocabulary,
+    //                                  LexicalCategoryProjection,
+    //                                  MathOperatorVocabulary,
+    //                                  ColorSchemeVocabulary.
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 33);
 }
 
 #[test]

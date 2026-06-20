@@ -57,14 +57,18 @@ mod tests {
 
     #[test]
     fn recognises_bundled_ooxml_schema_archive() {
-        // The bundled OOXML schema archive is a real PKZIP file;
-        // the magic-prefix check returns true on its first bytes.
-        let bytes: &[u8] = include_bytes!(concat!(
+        // The bundled OOXML schema archive is a real PKZIP file; the magic-prefix
+        // check returns true on its first bytes. The raw `.zip` is fetch-only and
+        // ships in NO crate — the bytes are materialized from the committed `.prx`
+        // through the fail-closed `[compact_archive_signatures]` gate (phase 2d).
+        use crate::applied::data_provisioning::raw_source_prx::raw_source_bytes_embedded;
+        const OOXML_PRX: &[u8] = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/data/markup-schemas/ooxml/ooxml_schema_strict-2016.zip"
+            "/data/markup-schemas/ooxml/ooxml_schema_strict-2016.prx"
         ));
+        let bytes = raw_source_bytes_embedded("ooxml_schema_strict", "2016", OOXML_PRX);
         assert!(
-            is_zip(bytes),
+            is_zip(&bytes),
             "bundled OOXML schema archive must be a valid PKZIP file"
         );
     }

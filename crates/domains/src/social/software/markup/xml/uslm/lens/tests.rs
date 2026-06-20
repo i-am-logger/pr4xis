@@ -169,25 +169,19 @@ fn axiom_canonical_round_trip_equals_input() {
 }
 
 // =========================================================
-// Layer 2.5 — real-corpus check (skip when XML not present)
+// Layer 2.5 — real-corpus check
 // =========================================================
 
-/// Real-corpus PutGet — SOX § 1514A USLM slice (if on disk).
-/// Skips when the data isn't present so CI works without the LRC
-/// USLM bundle.
+/// Real-corpus PutGet — SOX § 1514A USLM slice sourced from the fetched
+/// `usc_title_18` corpus (18 U.S.C. § 1514A), not a deleted standalone
+/// fixture. The verbatim `<section>` byte span for § 1514A is sliced out
+/// of Title 18 and the lens's PutGet law (Foster et al. 2007 §2.2) is run
+/// over those genuine published bytes. FAILS LOUD when the corpus is
+/// absent — CI fetches it via `pr4xis update usc_title_18`; no skip.
 #[test]
 fn axiom_put_get_law_on_real_sox_1514a_slice() {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-    if !path.exists() {
-        eprintln!(
-            "SKIP: real SOX 1514A slice not on disk at {}",
-            path.display()
-        );
-        return;
-    }
-    let bytes = std::fs::read(&path).expect("read real slice");
-    UslmXmlLens::assert_put_get_law(&bytes).expect("PutGet on real SOX slice");
+    let bytes = crate::social::software::markup::xml::uslm::real_sox_1514a::section_bytes();
+    UslmXmlLens::assert_put_get_law(&bytes).expect("PutGet on real SOX § 1514A slice");
 }
 
 // =========================================================
@@ -247,7 +241,7 @@ proptest! {
 // =========================================================
 
 use crate::formal::meta::xsd::from_xsd_parser::project_from_xsd_text;
-use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
+use crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd;
 
 /// Axiom — the walker dispatches only via XSD-ontology queries.
 ///
@@ -262,7 +256,7 @@ use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
 /// declaration has no `{type definition}` to dispatch on.
 #[test]
 fn axiom_walker_only_uses_xsd_ontology_queries() {
-    let xsd = project_from_xsd_text(USLM_1_0_18_XSD);
+    let xsd = project_from_xsd_text(loaded_uslm_1_0_18_xsd());
 
     // Every named element the walker reaches in a representative
     // USLM input must be declared by the loaded XSD. Walk the
@@ -289,7 +283,7 @@ fn axiom_walker_only_uses_xsd_ontology_queries() {
 /// W3C XSD 1.1 Part 1 §3.3.6.
 #[test]
 fn axiom_level_substitution_group_membership_grounded() {
-    let xsd = project_from_xsd_text(USLM_1_0_18_XSD);
+    let xsd = project_from_xsd_text(loaded_uslm_1_0_18_xsd());
 
     // Reflexive: "level" is a member of "level" (W3C XSD 1.1 Part 1
     // §3.3.6 — every element is in its own substitution group).
@@ -322,7 +316,7 @@ fn axiom_level_substitution_group_membership_grounded() {
 /// type reference per W3C XSD 1.1 Part 1 §3.3.2.3.
 #[test]
 fn axiom_type_of_element_grounded() {
-    let xsd = project_from_xsd_text(USLM_1_0_18_XSD);
+    let xsd = project_from_xsd_text(loaded_uslm_1_0_18_xsd());
 
     // The walker's section-leaf dispatch is keyed on
     // `type_definition_of("section") == Some("LevelType")` — exactly

@@ -10,10 +10,14 @@
 //! addressable by USLM URN via `UsCode::section_by_urn`. They are
 //! never separate `[sources.*]` entries.
 //!
-//! Skips gracefully if praxis.toml or praxis.lock is missing
-//! (downstream consumers of pr4xis-domains as a published crate hit
-//! that branch until the published-crate-bundles-its-own-praxis.toml
-//! story lands).
+//! The manifest is read from the workspace-root `praxis.toml`/`praxis.lock`
+//! when present (the live source of truth), else from the committed registry
+//! MANIFEST `.prx` (`data/registry/praxis-registry.prx`) — the SAME committed
+//! artifact the runtime registry loads (`registry_prx::load_registry_manifest`).
+//! So the PUBLISHED crate, unpacked with no workspace root, builds its codegen
+//! from the `.prx`, never from a raw-TOML snapshot (it ships none). build.rs
+//! emits NO `praxis_embed.rs` `&str` const — the runtime registry is sourced
+//! from the `.prx` directly.
 //!
 //! Citation: 1 U.S.C. § 204 (Code authority); LRC, *USLM XML User
 //! Guide* §V (USC URN hierarchy); W3C XML Schema 1.1 Part 1 (Gao,
@@ -51,11 +55,137 @@ struct RawSource {
 // praxis.lock parsing — minimal, build-time only
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 struct RawLockFile {
     #[serde(default)]
     #[allow(dead_code)]
     hashes: HashMap<String, String>,
+    /// The committed-`.prx` content-address pins, keyed `"{name}@{version}"`,
+    /// values `"blake3:<hex>"`. The build-side mirror of the runtime
+    /// `[compact_archive_signatures]` gate (`raw_source_prx::load_raw_source`):
+    /// the phase-2c XML schema sources are read at COMPILE time, so the gate
+    /// that the runtime applies to the committed `.prx` is applied here too,
+    /// against the SAME pin, before the decoded bytes feed codegen.
+    #[serde(default, rename = "compact_archive_signatures")]
+    compact_archive_signatures: HashMap<String, String>,
+}
+
+// ---------------------------------------------------------------------------
+// Build-side committed-`.prx` decode + content-address gate
+// ---------------------------------------------------------------------------
+//
+// The phase-2c XML schema / spec sources (`xml.xsd`, `xml-infoset.xhtml`,
+// `xml_1_0_fifth_edition-2008.xml`) are consumed at COMPILE time by the codegen
+// writers below. Their raw bytes are fetch-only (`pr4xis update`) and ship in NO
+// crate; only the content-addressed committed `.prx` is committed. So — exactly
+// like every runtime `include_str!` site that phase 2 repointed to
+// `raw_source_prx::raw_source_text_embedded` — these build-time readers decode
+// the committed `.prx` envelope and gate it against the SAME
+// `[compact_archive_signatures]` pin before the bytes reach codegen.
+//
+// This is ONE build-side decoder shared by all three writers (not three), the
+// build-script mirror of `raw_source_prx::load_raw_source_prx_gated`: the
+// envelope framing is the same dependency-free LEB128 layout
+// (`put_blob(name) put_blob(version) put_blob(bytes)`), and the content address
+// is `blake3` hex (matching `pr4xis_runtime::address::ContentAddress::of`), which
+// the build-dep `blake3` re-derives here.
+
+/// Read one LEB128 length-prefixed blob from `buf` at `*pos`, advancing `*pos`.
+/// Fully bounds-checked — a truncated envelope is an `Err`, never a panic
+/// (mirrors `raw_source_prx::get_blob`).
+fn prx_get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], String> {
+    let mut len: u64 = 0;
+    let mut shift = 0u32;
+    loop {
+        let b = *buf
+            .get(*pos)
+            .ok_or_else(|| "committed .prx varint runs past end of buffer".to_string())?;
+        *pos += 1;
+        len |= u64::from(b & 0x7f) << shift;
+        if b & 0x80 == 0 {
+            break;
+        }
+        shift += 7;
+        if shift >= 64 {
+            return Err("committed .prx varint length overflow".to_string());
+        }
+    }
+    let len = len as usize;
+    let end = pos
+        .checked_add(len)
+        .filter(|&e| e <= buf.len())
+        .ok_or_else(|| "committed .prx blob runs past end of buffer".to_string())?;
+    let b = &buf[*pos..end];
+    *pos = end;
+    Ok(b)
+}
+
+/// Decode a committed raw-source `.prx` envelope into its source bytes, AFTER
+/// verifying the envelope's `blake3` content address equals the trusted
+/// `[compact_archive_signatures]` pin for `"{name}@{version}"`. Fail-closed: a
+/// missing pin, an address mismatch, or a malformed envelope is an `Err` and
+/// NO bytes are returned — the build-side twin of the runtime fail-closed gate.
+///
+/// Returns `Ok(None)` only when the committed `.prx` is **not on disk** (a fresh
+/// checkout that hasn't run `pr4xis compile` — the same graceful skip the
+/// runtime loader and the existing writers' "source not on disk" branch take,
+/// which makes the writer fall through to its commented stub).
+fn decode_committed_prx_gated(
+    prx_path: &std::path::Path,
+    name: &str,
+    version: &str,
+    lock: &RawLockFile,
+) -> Result<Option<String>, String> {
+    let Ok(prx) = std::fs::read(prx_path) else {
+        return Ok(None); // committed .prx not on disk — graceful skip.
+    };
+    let key = format!("{name}@{version}");
+    let pin = lock
+        .compact_archive_signatures
+        .get(&key)
+        .ok_or_else(|| format!("no praxis.lock [compact_archive_signatures] pin for `{key}`"))?;
+    let expected_hex = pin.strip_prefix("blake3:").unwrap_or(pin);
+    let found_hex = blake3::hash(&prx).to_hex().to_string();
+    if found_hex != expected_hex {
+        return Err(format!(
+            "committed .prx for `{key}` hash mismatch: praxis.lock pins {expected_hex}, \
+             archive carries {found_hex} — refusing to feed codegen"
+        ));
+    }
+    let mut pos = 0usize;
+    let _name = prx_get_blob(&prx, &mut pos)?;
+    let _version = prx_get_blob(&prx, &mut pos)?;
+    let blob = prx_get_blob(&prx, &mut pos)?;
+    let text = String::from_utf8(blob.to_vec())
+        .map_err(|e| format!("committed .prx for `{key}` payload is not UTF-8: {e}"))?;
+    Ok(Some(text))
+}
+
+/// The committed `.prx` path beside a raw source path — swap the final extension
+/// for `.prx` (mirrors `raw_source_prx::raw_prx_path`). `foo/bar-1.0.xsd` →
+/// `foo/bar-1.0.prx`.
+fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
+    raw_path.with_extension("prx")
+}
+
+/// Decode the committed registry MANIFEST `.prx`
+/// (`crates/domains/data/registry/praxis-registry.prx`) into its
+/// `(praxis.toml text, praxis.lock text)` — the build-side twin of the runtime
+/// `registry_prx::decode_registry`. Two LEB128 length-prefixed blobs:
+/// `put_blob(toml) put_blob(lock)`. Fail-closed on a truncated / malformed
+/// envelope. Used when the workspace-root `praxis.toml` / `praxis.lock` are
+/// ABSENT — the published crate unpacked under `target/package/` with no
+/// workspace root — so the build reads the SAME committed `.prx` the runtime
+/// registry loads, never an embedded raw-TOML snapshot.
+fn decode_registry_prx(prx: &[u8]) -> Result<(String, String), String> {
+    let mut pos = 0usize;
+    let toml = prx_get_blob(prx, &mut pos)?;
+    let lock = prx_get_blob(prx, &mut pos)?;
+    let toml = String::from_utf8(toml.to_vec())
+        .map_err(|e| format!("registry .prx praxis.toml payload is not UTF-8: {e}"))?;
+    let lock = String::from_utf8(lock.to_vec())
+        .map_err(|e| format!("registry .prx praxis.lock payload is not UTF-8: {e}"))?;
+    Ok((toml, lock))
 }
 
 // ---------------------------------------------------------------------------
@@ -80,16 +210,18 @@ fn main() {
 
     println!("cargo:rerun-if-changed=build.rs");
 
-    // Read `praxis.toml` / `praxis.lock` from the workspace root if
-    // they exist. Empty fallback covers the published-crate case:
-    // when consumers compile `pr4xis-domains` from crates.io their
-    // workspace doesn't have these files, and the relative
-    // `../../../../../praxis.toml` path from `registry.rs` no longer
-    // reaches the workspace root (the crate is unpacked under
-    // `target/package/`).
-    let manifest_text = std::fs::read_to_string(&manifest_path).unwrap_or_default();
-    let lock_text = std::fs::read_to_string(&lock_path).unwrap_or_default();
-
+    // The manifest the codegen writers walk for source versions/kinds. PREFER the
+    // workspace-root `praxis.toml` / `praxis.lock` — the live source of truth that
+    // `pr4xis update` / `compile` rewrites. When the workspace root is ABSENT (the
+    // crate is unpacked under `target/package/` for `cargo publish --verify`, or
+    // pulled from crates.io) decode the committed registry MANIFEST `.prx`
+    // (`data/registry/praxis-registry.prx`) — the SAME committed artifact the
+    // runtime registry loads — so the PUBLISHED crate reads its registered-source
+    // manifest from the `.prx`, never from a raw-TOML snapshot (it ships none).
+    // No empty fallback: the `.prx` is committed in-repo, so one source always
+    // resolves; a genuinely-missing `.prx` is a build defect, surfaced.
+    let registry_prx_path = PathBuf::from(&manifest_dir).join("data/registry/praxis-registry.prx");
+    println!("cargo:rerun-if-changed={}", registry_prx_path.display());
     if manifest_path.exists() {
         println!("cargo:rerun-if-changed={}", manifest_path.display());
     }
@@ -97,32 +229,46 @@ fn main() {
         println!("cargo:rerun-if-changed={}", lock_path.display());
     }
 
-    // Embed the workspace files as runtime constants. `registry.rs`
-    // `include!`s the file this writes. When the files weren't found,
-    // the constants are empty strings — `parse_praxis_toml("")`
-    // returns an empty manifest and the `data_sources()` /
-    // `lock_hashes()` queries surface empty slices. Consumers who
-    // never invoke the registered-source machinery are unaffected;
-    // those who do can ship their own `praxis.toml` and rebuild.
-    let praxis_embed = format!(
-        "pub const PRAXIS_TOML: &str = {:?};\n\
-         pub const PRAXIS_LOCK: &str = {:?};\n",
-        manifest_text, lock_text,
-    );
-    std::fs::write(out_dir.join("praxis_embed.rs"), praxis_embed).expect("write praxis_embed.rs");
-
-    // Parse with empty defaults if files weren't present. The
-    // downstream writers handle "source not in manifest" by writing
-    // commented stubs to their respective $OUT_DIR/*_generated.rs
-    // files, so the runtime `include!`s still resolve.
-    let manifest: RawManifest = if manifest_text.is_empty() {
-        RawManifest::default()
-    } else {
-        toml::from_str(&manifest_text).expect("parse praxis.toml")
+    let (manifest_text, lock_text) = match (
+        std::fs::read_to_string(&manifest_path),
+        std::fs::read_to_string(&lock_path),
+    ) {
+        // Workspace root present — the live source of truth.
+        (Ok(toml), Ok(lock)) => (toml, lock),
+        // No workspace root (published/unpacked crate): decode the committed
+        // registry `.prx`. This is what makes `cargo publish --verify` build a
+        // NON-HOLLOW crate — the registry comes from the `.prx`, not empty consts.
+        _ => {
+            let prx = std::fs::read(&registry_prx_path).unwrap_or_else(|e| {
+                panic!(
+                    "neither workspace-root praxis.toml/.lock nor committed registry .prx \
+                     `{}` is readable ({e}) — the registry manifest is unavailable",
+                    registry_prx_path.display()
+                )
+            });
+            decode_registry_prx(&prx).unwrap_or_else(|e| {
+                panic!(
+                    "committed registry .prx `{}` is malformed: {e}",
+                    registry_prx_path.display()
+                )
+            })
+        }
     };
-    if !lock_text.is_empty() {
-        let _: RawLockFile = toml::from_str(&lock_text).expect("parse praxis.lock");
-    }
+
+    // `registry.rs` no longer `include!`s a `$OUT_DIR/praxis_embed.rs`: the
+    // runtime registry loads the manifest from the committed `.prx` directly
+    // (`registry_prx::load_registry_manifest`), so build.rs emits no raw-TOML
+    // `&str` const. The manifest parsed here is build-time-only, driving the XML
+    // codegen writers below.
+    let manifest: RawManifest = toml::from_str(&manifest_text)
+        .expect("parse praxis.toml (workspace root or registry .prx)");
+    // The parsed lock carries the `[compact_archive_signatures]` pins the
+    // phase-2c writers below gate their committed `.prx` against. Recovered from
+    // the workspace-root `praxis.lock` or the committed registry `.prx` (same as
+    // the manifest above) — so the writers always have the pins to gate against,
+    // even in the published/unpacked crate.
+    let lock: RawLockFile =
+        toml::from_str(&lock_text).expect("parse praxis.lock (workspace root or registry .prx)");
 
     // The early-return that used to bail when praxis.toml/lock were
     // missing emitted no $OUT_DIR files, which broke the runtime
@@ -175,8 +321,8 @@ fn main() {
     // Per "bottom-up loaded, never encoded", every name comes from
     // a registered authoritative source — not from hand-coded Rust
     // enum variants or string lists.
-    write_xml_namespace_schema_codegen(&workspace_root, &manifest, &out_dir);
-    write_xml_infoset_codegen(&workspace_root, &manifest, &out_dir);
+    write_xml_namespace_schema_codegen(&workspace_root, &manifest, &lock, &out_dir);
+    write_xml_infoset_codegen(&workspace_root, &manifest, &lock, &out_dir);
 
     // M5.ε.2 — XML 1.0 grammar productions from the loaded spec
     // (`xml_1_0_fifth_edition@2008`, Bray et al. 2008). Parses the
@@ -185,18 +331,24 @@ fn main() {
     // (`parser::grammar`) includes the generated module instead of
     // hand-coding the code-point ranges as primitive `matches!`
     // arms, per `feedback_bottom_up_loaded_not_encoded`.
-    write_xml_grammar_codegen(&workspace_root, &manifest, &out_dir);
+    write_xml_grammar_codegen(&workspace_root, &manifest, &lock, &out_dir);
 }
 
 /// Find the registered `xml_1_0_namespace_xsd` source in the praxis
-/// manifest, resolve its bundled xml.xsd on disk, and invoke
-/// `pr4xis::codegen::xml_schemas::generate_xml_namespace_schema_source`
+/// manifest, materialize its committed `xml.prx` through the build-side
+/// `[compact_archive_signatures]` gate, and invoke
+/// `pr4xis::codegen::xml_schemas::generate_xml_namespace_schema_from_source`
 /// to emit `$OUT_DIR/xml_namespace_schema_generated.rs`. On any
-/// failure (missing entry, missing file, scan error) write a
+/// failure (missing entry, missing/unpinned `.prx`, scan error) write a
 /// commented stub so the runtime `include!` site always resolves.
+///
+/// The raw `xml.xsd` is fetch-only (`pr4xis update`) and ships in NO crate;
+/// only the content-addressed committed `xml.prx` is committed and read here —
+/// the build-time twin of every runtime `raw_source_text_embedded` site.
 fn write_xml_namespace_schema_codegen(
     workspace_root: &std::path::Path,
     manifest: &RawManifest,
+    lock: &RawLockFile,
     out_dir: &std::path::Path,
 ) {
     let out_path = out_dir.join("xml_namespace_schema_generated.rs");
@@ -221,22 +373,36 @@ fn write_xml_namespace_schema_codegen(
 
     // xml.xsd is bundled at a fixed name (not `<name>-<version>.xsd`
     // like the per-corpus XSDs) — the W3C-published file is just
-    // `xml.xsd` and that's the convention every consumer follows.
+    // `xml.xsd`, so its committed envelope is `xml.prx` beside it.
     let xsd_path = workspace_root.join("crates/domains/data/markup-schemas/xml/xml.xsd");
+    let prx_path = committed_prx_path(&xsd_path);
+    println!("cargo:rerun-if-changed={}", prx_path.display());
 
-    if !xsd_path.exists() {
-        let stub = format!(
-            "// Stub: XML namespace XSD not on disk at {}; skipping codegen.\n\
-             pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n",
-            xsd_path.display(),
-        );
-        std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
-        return;
-    }
+    let xsd = match decode_committed_prx_gated(
+        &prx_path,
+        "xml_1_0_namespace_xsd",
+        &src.version,
+        lock,
+    ) {
+        Ok(Some(text)) => text,
+        Ok(None) => {
+            let stub = format!(
+                "// Stub: committed XML namespace XSD `.prx` not on disk at {}; skipping codegen.\n\
+                 pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n",
+                prx_path.display(),
+            );
+            std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
+            return;
+        }
+        Err(e) => {
+            // A present-but-failing committed `.prx` is a defect (stale/poisoned
+            // archive or missing pin) — fail the build, never feed unverified
+            // bytes to codegen.
+            panic!("XML namespace XSD committed .prx gate failed: {e}");
+        }
+    };
 
-    println!("cargo:rerun-if-changed={}", xsd_path.display());
-
-    match pr4xis::codegen::xml_schemas::generate_xml_namespace_schema_source(&xsd_path) {
+    match pr4xis::codegen::xml_schemas::generate_xml_namespace_schema_from_source(&xsd) {
         Ok(source) => {
             let attr_count = source.matches("    \"").count();
             std::fs::write(&out_path, source).expect("write xml_namespace_schema codegen");
@@ -249,7 +415,7 @@ fn write_xml_namespace_schema_codegen(
             let stub = format!(
                 "// XML namespace XSD codegen failed for {}: {}\n\
                  pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n",
-                xsd_path.display(),
+                prx_path.display(),
                 e,
             );
             std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
@@ -259,13 +425,18 @@ fn write_xml_namespace_schema_codegen(
 }
 
 /// Find the registered `xml_infoset` source in the praxis manifest,
-/// resolve its bundled XHTML on disk, and invoke
-/// `pr4xis::codegen::xml_schemas::generate_xml_infoset_source` to
+/// materialize its committed `xml-infoset.prx` through the build-side
+/// `[compact_archive_signatures]` gate, and invoke
+/// `pr4xis::codegen::xml_schemas::generate_xml_infoset_from_source` to
 /// emit `$OUT_DIR/xml_infoset_generated.rs`. On any failure (missing
-/// entry, missing file, scan error) write a commented stub.
+/// entry, missing/unpinned `.prx`, scan error) write a commented stub.
+///
+/// The raw `xml-infoset.xhtml` is fetch-only and ships in NO crate; only the
+/// content-addressed committed `.prx` is committed and read here.
 fn write_xml_infoset_codegen(
     workspace_root: &std::path::Path,
     manifest: &RawManifest,
+    lock: &RawLockFile,
     out_dir: &std::path::Path,
 ) {
     let out_path = out_dir.join("xml_infoset_generated.rs");
@@ -300,19 +471,24 @@ fn write_xml_infoset_codegen(
 
     let xhtml_path =
         workspace_root.join("crates/domains/data/markup-schemas/xml/xml-infoset.xhtml");
+    let prx_path = committed_prx_path(&xhtml_path);
+    println!("cargo:rerun-if-changed={}", prx_path.display());
 
-    if !xhtml_path.exists() {
-        let stub = format!(
-            "// Stub: XML Information Set rec not on disk at {}; skipping codegen.\n{stub_decl}",
-            xhtml_path.display(),
-        );
-        std::fs::write(&out_path, stub).expect("write xml_infoset stub");
-        return;
-    }
+    let xhtml = match decode_committed_prx_gated(&prx_path, "xml_infoset", &src.version, lock) {
+        Ok(Some(text)) => text,
+        Ok(None) => {
+            let stub = format!(
+                "// Stub: committed XML Information Set `.prx` not on disk at {}; skipping \
+                 codegen.\n{stub_decl}",
+                prx_path.display(),
+            );
+            std::fs::write(&out_path, stub).expect("write xml_infoset stub");
+            return;
+        }
+        Err(e) => panic!("XML Infoset committed .prx gate failed: {e}"),
+    };
 
-    println!("cargo:rerun-if-changed={}", xhtml_path.display());
-
-    match pr4xis::codegen::xml_schemas::generate_xml_infoset_source(&xhtml_path) {
+    match pr4xis::codegen::xml_schemas::generate_xml_infoset_from_source(&xhtml) {
         Ok(source) => {
             let item_count = source.matches("InformationItemEntry {").count();
             std::fs::write(&out_path, source).expect("write xml_infoset codegen");
@@ -324,7 +500,7 @@ fn write_xml_infoset_codegen(
         Err(e) => {
             let stub = format!(
                 "// XML Infoset codegen failed for {}: {}\n{stub_decl}",
-                xhtml_path.display(),
+                prx_path.display(),
                 e,
             );
             std::fs::write(&out_path, stub).expect("write xml_infoset stub");
@@ -345,6 +521,7 @@ fn write_xml_infoset_codegen(
 fn write_xml_grammar_codegen(
     workspace_root: &std::path::Path,
     manifest: &RawManifest,
+    lock: &RawLockFile,
     out_dir: &std::path::Path,
 ) {
     let out_path = out_dir.join("xml_grammar_generated.rs");
@@ -389,19 +566,25 @@ fn write_xml_grammar_codegen(
     let spec_path = workspace_root
         .join("crates/domains/data/markup-schemas/xml")
         .join(format!("xml_1_0_fifth_edition-{}.xml", src.version));
+    let prx_path = committed_prx_path(&spec_path);
+    println!("cargo:rerun-if-changed={}", prx_path.display());
 
-    if !spec_path.exists() {
-        let stub = format!(
-            "// Stub: XML 1.0 Fifth Edition spec not on disk at {}; skipping codegen.\n{stub_decl}",
-            spec_path.display(),
-        );
-        std::fs::write(&out_path, stub).expect("write xml_grammar stub");
-        return;
-    }
+    let spec_bytes =
+        match decode_committed_prx_gated(&prx_path, "xml_1_0_fifth_edition", &src.version, lock) {
+            Ok(Some(text)) => text,
+            Ok(None) => {
+                let stub = format!(
+                    "// Stub: committed XML 1.0 Fifth Edition spec `.prx` not on disk at {}; \
+                     skipping codegen.\n{stub_decl}",
+                    prx_path.display(),
+                );
+                std::fs::write(&out_path, stub).expect("write xml_grammar stub");
+                return;
+            }
+            Err(e) => panic!("XML 1.0 grammar spec committed .prx gate failed: {e}"),
+        };
 
-    println!("cargo:rerun-if-changed={}", spec_path.display());
-
-    match pr4xis::codegen::xml_grammar::generate_xml_grammar_source(&spec_path) {
+    match pr4xis::codegen::xml_grammar::generate_xml_grammar_from_source(&spec_bytes) {
         Ok(source) => {
             let range_count = source.matches("(0x").count();
             std::fs::write(&out_path, source).expect("write xml_grammar codegen");
@@ -413,7 +596,7 @@ fn write_xml_grammar_codegen(
         Err(e) => {
             let stub = format!(
                 "// XML grammar codegen failed for {}: {}\n{stub_decl}",
-                spec_path.display(),
+                prx_path.display(),
                 e,
             );
             std::fs::write(&out_path, stub).expect("write xml_grammar stub");

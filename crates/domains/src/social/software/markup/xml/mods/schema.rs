@@ -18,12 +18,14 @@
 //!   bundled file is a byte-for-byte copy; the `mods_3_8@2018` hash
 //!   in `praxis.lock` is the content digest of those bytes.
 
-/// The bundled MODS 3.8 XSD bytes — the LC-published schema document
-/// the praxis runtime parses to anchor MODS concept identity (per
-/// `feedback_bottom_up_loaded_not_encoded`).
-pub const MODS_3_8_XSD: &str = include_str!(concat!(
+/// The committed MODS 3.8 `.prx` — the content-addressed envelope carrying the
+/// LC-published schema bytes. The raw `.xsd` is fetch-only (`pr4xis update`) and
+/// ships in NO crate; only this `.prx` is committed + embedded. Loaded through
+/// the generalized raw-source gate (phase 2), the byte-stream sibling of OLiA's
+/// embedded committed `.prx.gz`.
+const MODS_3_8_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/data/markup-schemas/mods/mods_3_8-2018.xsd"
+    "/data/markup-schemas/mods/mods_3_8-2018.prx"
 ));
 
 /// The loaded MODS 3.8 XSD — the schema GovInfo packages
@@ -31,9 +33,18 @@ pub const MODS_3_8_XSD: &str = include_str!(concat!(
 /// per-package `mods.xml`. Downstream code queries this to anchor
 /// MODS concept identity in the published XSD rather than in
 /// hand-coded runtime types (`feedback_bottom_up_loaded_not_encoded`).
+///
+/// The bytes are materialized from the committed `.prx` through the fail-closed
+/// `[compact_archive_signatures]` content gate
+/// ([`raw_source_text_embedded`](crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded)),
+/// cached for the process behind a `OnceLock`. The raw `.xsd` is no longer
+/// embedded — only the gated `.prx` is.
 #[must_use]
 pub fn loaded_mods_3_8() -> &'static str {
-    MODS_3_8_XSD
+    use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+    use std::sync::OnceLock;
+    static XSD: OnceLock<&'static str> = OnceLock::new();
+    XSD.get_or_init(|| raw_source_text_embedded("mods_3_8", "2018", MODS_3_8_PRX))
 }
 
 #[cfg(test)]

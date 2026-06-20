@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn parses_real_wn_lmf_dtd() {
         // The bundled WN-LMF 1.3 DTD round-trips through the lens.
-        let bytes = crate::social::software::markup::xml::lmf::WN_LMF_1_3_DTD
+        let bytes = crate::social::software::markup::xml::lmf::loaded_wn_lmf_dtd()
             .as_bytes()
             .to_vec();
         let target = <DtdLens as WellBehavedLens>::get(&bytes).expect("parse WN-LMF");

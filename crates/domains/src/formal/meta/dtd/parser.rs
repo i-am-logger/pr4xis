@@ -326,7 +326,7 @@ mod tests {
         // recognises the published LexicalResource / Lexicon /
         // LexicalEntry / Synset / Sense ElementDecls plus their
         // AttListDecl siblings.
-        let dtd = crate::social::software::markup::xml::lmf::WN_LMF_1_3_DTD;
+        let dtd = crate::social::software::markup::xml::lmf::loaded_wn_lmf_dtd();
         let decls = parse_dtd(dtd.as_bytes());
         let names: Vec<_> = decls
             .iter()
