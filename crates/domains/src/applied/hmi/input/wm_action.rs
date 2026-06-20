@@ -976,7 +976,7 @@ fn lower(action: &WmAction) -> Vec<Dispatch> {
 /// add/remove/toggle distinction ([`StateOp`]) is not observable in the Hyprland
 /// realization (a directed backend such as X11 honours it via `_NET_WM_STATE`
 /// client messages). The states Hyprland gives a user dispatcher are its
-/// window-state CAPABILITY ([`hyprland_state_capability`]); EWMH states outside
+/// window-state CAPABILITY (`hyprland_state_capability`); EWMH states outside
 /// it (app-set hints, the below layer, shading) have no Hyprland user action and
 /// lower to the empty word — they are never *generated* for a Hyprland binding
 /// (`representative_actions` excludes them; [`StateLoweringMatchesCapability`]
@@ -1020,7 +1020,7 @@ fn hyprland_state_capability() -> [StateBit; 8] {
 /// Whether Hyprland has a user realization for an action — its CAPABILITY. The
 /// generalized ontology can express operations Hyprland exposes no dispatcher for
 /// (container-tree focus, the tiling/floating focus-layer toggle, the EWMH window
-/// states outside [`hyprland_state_capability`]); those lower to the empty word
+/// states outside `hyprland_state_capability`); those lower to the empty word
 /// and are excluded from Hyprland's generating set. A backend that DOES expose
 /// them (Sway) declares a wider capability. [`LoweringTotal`] proves the lowering
 /// is total ON this capability; [`RealizationMatchesCapability`] proves the empty
@@ -1423,7 +1423,7 @@ impl Axiom for CompositeSequencePreserved {
 
 /// The window-state mutations Hyprland realizes are **exactly** its declared
 /// window-state capability: `lower_state` is non-empty for a [`StateBit`] iff the
-/// bit is in [`hyprland_state_capability`]. This makes the empty-lowering arm an
+/// bit is in `hyprland_state_capability`. This makes the empty-lowering arm an
 /// intentional, checked capability boundary (the EWMH hints / layers Hyprland has
 /// no user action for), never an accidental silent drop.
 pub struct StateLoweringMatchesCapability;
