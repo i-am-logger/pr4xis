@@ -108,8 +108,15 @@ mod tests {
     #[test]
     fn parse_real_agl_population() {
         // Sanity check the actual embedded glyph list parses to
-        // the expected scale (~4300 entries).
-        let bytes = include_str!("../../../../data/adobe/glyphlist.txt");
+        // the expected scale (~4300 entries). The raw `.txt` is fetch-only
+        // (`pr4xis update`) and ships in NO crate; the bytes are materialized
+        // from the committed `.prx` through the fail-closed
+        // `[compact_archive_signatures]` gate — the SAME load path the runtime
+        // `pdf::agl::glyph_list_bytes()` uses, so a clean checkout (no
+        // `pr4xis update`) still compiles + runs this test.
+        use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+        const GLYPH_LIST_PRX: &[u8] = include_bytes!("../../../../data/adobe/glyphlist.prx");
+        let bytes = raw_source_text_embedded("adobe_glyph_list", "2019", GLYPH_LIST_PRX);
         let map = parse(bytes);
         assert!(
             map.len() > 4000,

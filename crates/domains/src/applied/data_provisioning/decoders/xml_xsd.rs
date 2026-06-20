@@ -203,11 +203,20 @@ impl std::error::Error for DecodeError {}
 mod tests {
     use super::*;
 
-    const USLM_XSD: &str = include_str!("../../../../data/legal/uscode/schema/uslm-1.0.18.xsd");
+    /// The committed USLM-1.0.18 `.prx`. The raw `.xsd` is fetch-only
+    /// (`pr4xis update`) and ships in NO crate; the XSD bytes are materialized
+    /// from this committed `.prx` through the fail-closed
+    /// `[compact_archive_signatures]` gate — the SAME load path the runtime
+    /// `formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd()` uses, so a
+    /// clean checkout (no `pr4xis update`) still compiles + runs this test.
+    const USLM_XSD_PRX: &[u8] =
+        include_bytes!("../../../../data/legal/uscode/schema/uslm-1.0.18.prx");
 
     #[test]
     fn decoder_round_trips_uslm_xsd_bytes() {
-        let instance = decode(USLM_XSD.as_bytes())
+        use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
+        let uslm_xsd = raw_source_text_embedded("uslm_xsd", "1.0.18", USLM_XSD_PRX);
+        let instance = decode(uslm_xsd.as_bytes())
             .expect("the USLM XSD bytes must decode through the dispatcher");
         // Sanity: the USLM XSD declares > 100 `<xs:element>` declarations.
         // Don't reassert exact counts here — the load-bearing exact-count

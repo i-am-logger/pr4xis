@@ -394,6 +394,10 @@ fn full_chain_rejects_wrong_version() {
 // Property-based tests
 // =============================================================================
 
+/// Every `ContentType` variant declared in
+/// `ontology::ContentType` — kept exhaustive by hand (the enum has no
+/// `variants()` reflection). When a variant is added to the enum, add it
+/// here and bump the `prop_has_decoder_for_is_pure` index range.
 fn every_content_type() -> Vec<ContentType> {
     vec![
         ContentType::XmlLmf,
@@ -410,13 +414,17 @@ fn every_content_type() -> Vec<ContentType> {
         ContentType::Owl,
         ContentType::MathOperatorLmf,
         ContentType::XmlLmfLexicon,
+        ContentType::TarGzArchive,
+        ContentType::XmlDtd,
+        ContentType::ZipArchive,
+        ContentType::ThemeCollection,
     ]
 }
 
 proptest! {
     /// `has_decoder_for` must be a pure function of the variant.
     #[test]
-    fn prop_has_decoder_for_is_pure(idx in 0usize..14) {
+    fn prop_has_decoder_for_is_pure(idx in 0usize..18) {
         let variant = every_content_type()[idx];
         let first = has_decoder_for(variant);
         for _ in 0..16 {

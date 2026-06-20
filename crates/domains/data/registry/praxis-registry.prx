@@ -1,4 +1,4 @@
-©Ö# praxis.toml â€” Praxis external-data registry manifest.
+÷Ø# praxis.toml â€” Praxis external-data registry manifest.
 #
 # Cargo-precedent naming: this file is the manifest; `praxis.lock` (M2)
 # pins the expected content hashes per (name, version). Lives at the
@@ -238,7 +238,7 @@ version     = "2016"
 type        = "OoxmlSchemaArchive"
 url         = "https://ecma-international.org/wp-content/uploads/ECMA-376-1_5th_edition_december_2016.zip"
 local_path  = "markup-schemas/ooxml/ooxml_schema_strict-2016.zip"
-description = "ECMA-376 5th edition (December 2016) Office Open XML schemas â€” the OfficeOpenXML-XMLSchema-Strict.zip bundle of 21 XSDs defining WordprocessingML (DOCX), SpreadsheetML (XLSX), PresentationML (PPTX) and DrawingML. Cite: ECMA International / ISO/IEC JTC 1/SC 34 (2016) Office Open XML File Formats Part 1, ECMA-376 5th edition / ISO/IEC 29500-1:2016."
+description = "ECMA-376 5th edition (December 2016) Office Open XML schemas â€” the OfficeOpenXML-XMLSchema-Strict.zip bundle of 21 XSDs defining WordprocessingML (DOCX), SpreadsheetML (XLSX), PresentationML (PPTX) and DrawingML. Cite: ECMA International / ISO/IEC JTC 1/SC 34 (2016) Office Open XML File Formats Part 1, ECMA-376 5th edition / ISO/IEC 29500-1:2016, <https://ecma-international.org/wp-content/uploads/ECMA-376-1_5th_edition_december_2016.zip>. BUNDLED source-of-truth (not URL-fetchable by the single-`.xml`-member `unzip_single_xml` path â€” the published download is a ZIP-of-ZIPs): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
 
 # Library of Congress MODS 3.8 â€” Metadata Object Description Schema. The
 # canonical XSD-defined XML metadata vocabulary used by GovInfo USREP /

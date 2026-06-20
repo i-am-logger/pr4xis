@@ -934,6 +934,60 @@ fn clean_text(s: &str) -> String {
 mod tests {
     use super::*;
 
+    /// USLM identifier for 18 U.S.C. § 1514A (Sarbanes–Oxley § 806).
+    const SOX_1514A_IDENTIFIER: &str = "/us/usc/t18/s1514A";
+
+    /// The fetched `usc_title_18` USLM XML, read as a string. Sourced from the
+    /// same path the sibling `parse_title_18_is_single_pass_fast` test reads
+    /// (`pr4xis-domains/data/legal/uscode/usc_title_18/`), the registered
+    /// `usc_title_18` corpus CI fetches via `pr4xis update usc_title_18`. FAILS
+    /// LOUD (panics) when the corpus is not on disk — the data is fetched in
+    /// CI, so an absent corpus is a real failure, not a reason to skip.
+    fn real_title_18_xml() -> String {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../domains/data/legal/uscode/usc_title_18/usc_title_18-pl-119-90.xml");
+        std::fs::read_to_string(&path).unwrap_or_else(|e| {
+            panic!(
+                "run `pr4xis update usc_title_18` to fetch the Title 18 USLM corpus \
+                 at {} — tests do not skip ({e})",
+                path.display()
+            )
+        })
+    }
+
+    /// The verbatim `<section …identifier="/us/usc/t18/s1514A">…</section>`
+    /// byte span sliced out of the fetched Title 18 USLM source — genuine
+    /// published bytes, no transcription — wrapped in a single-section
+    /// `<title>` so codegen reports exactly one section. The title-sourced
+    /// replacement for the deleted standalone `sox_1514a-2002.xml` document.
+    /// FAILS LOUD (panics) when the corpus or section is absent; tests do not
+    /// skip. Mirrors the domains-side
+    /// `uslm::real_sox_1514a::section_bytes` slice.
+    fn real_sox_1514a_section_title_doc() -> String {
+        let xml = real_title_18_xml();
+        let needle = format!("identifier=\"{SOX_1514A_IDENTIFIER}\"");
+        let id_pos = xml.find(&needle).unwrap_or_else(|| {
+            panic!(
+                "§ 1514A ({SOX_1514A_IDENTIFIER}) not found in the fetched usc_title_18 \
+                 corpus — a real corpus regression"
+            )
+        });
+        let start = xml[..id_pos]
+            .rfind("<section")
+            .expect("§ 1514A identifier must sit inside a <section> element");
+        let end_tag = "</section>";
+        let end_rel = xml[start..]
+            .find(end_tag)
+            .expect("§ 1514A <section> must have a closing </section>")
+            + end_tag.len();
+        let section = &xml[start..start + end_rel];
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+             <title xmlns=\"http://xml.house.gov/schemas/uslm/1.0\" identifier=\"/us/usc/t18\">\
+             {section}</title>"
+        )
+    }
+
     /// Inline fixture mirroring the structural shape of the real
     /// SOX § 1514A USLM slice — one § with two subsections, the
     /// first with two paragraphs, the first paragraph with two
@@ -1222,15 +1276,19 @@ mod tests {
 
     /// Real-corpus check — generating the source for the actual
     /// SOX § 1514A slice yields a non-trivial Rust module.
+    ///
+    /// § 1514A is sliced out of the registered `usc_title_18` corpus (the
+    /// authority CI fetches via `pr4xis update usc_title_18`) rather than a
+    /// deleted standalone `sox_1514a-2002.xml` fixture — `pr4xis-domains` went
+    /// crates.io-publishable, so the standalone granule no longer ships. FAILS
+    /// LOUD (panics) when the corpus is absent; tests do not skip.
     #[test]
     fn generate_title_module_source_on_real_sox_slice() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../domains/data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-        if !path.exists() {
-            eprintln!("SKIP: real slice not on disk");
-            return;
-        }
-        let src = generate_title_module_source(&path).expect("emit");
+        // Wrap the verbatim § 1514A `<section>` (sliced out of Title 18) in a
+        // single-section `<title>` so codegen reports exactly one section,
+        // identical to the old standalone-slice shape.
+        let section_doc = real_sox_1514a_section_title_doc();
+        let src = generate_title_module_source_from_str(&section_doc).expect("emit");
         // One section in the slice file.
         assert!(src.contains("// Sections: 1"));
         // The § 1514A identifier appears verbatim.
@@ -1252,13 +1310,10 @@ mod tests {
     /// it to O(XML_size) rather than O(N × XML_size).
     #[test]
     fn parse_title_18_is_single_pass_fast() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../domains/data/legal/uscode/usc_title_18/usc_title_18-pl-119-90.xml");
-        if !path.exists() {
-            eprintln!("SKIP: Title 18 not on disk");
-            return;
-        }
-        let xml = std::fs::read_to_string(&path).unwrap();
+        // The registered `usc_title_18` corpus — CI fetches it via
+        // `pr4xis update usc_title_18`. FAILS LOUD when absent; tests do not
+        // skip.
+        let xml = real_title_18_xml();
         let t0 = std::time::Instant::now();
         let docs = parse_uslm_title_all_sections_str(&xml).unwrap();
         let elapsed = t0.elapsed();
@@ -1275,19 +1330,18 @@ mod tests {
         );
     }
 
-    /// Real-corpus check — parse the SOX § 1514A USLM slice that
-    /// ships in `pr4xis-domains/data/legal/statutes/us_federal/`.
-    /// Verifies the parser handles the actual published structure,
-    /// not just the synthetic inline fixture above.
+    /// Real-corpus check — parse 18 U.S.C. § 1514A out of the registered
+    /// `usc_title_18` corpus (the authority CI fetches via
+    /// `pr4xis update usc_title_18`), NOT a deleted standalone
+    /// `sox_1514a-2002.xml` fixture. `parse_uslm_str` selects § 1514A by its
+    /// USLM identifier internally, so it reads the same bytes the runtime path
+    /// does. Verifies the parser handles the actual published structure, not
+    /// just the synthetic inline fixture above. FAILS LOUD (panics) when the
+    /// corpus is absent; tests do not skip.
     #[test]
     fn parses_real_sox_1514a_slice() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../domains/data/legal/statutes/us_federal/sox_1514a/sox_1514a-2002.xml");
-        if !path.exists() {
-            eprintln!("SKIP: SOX § 1514A USLM slice not on disk at {path:?}");
-            return;
-        }
-        let doc = parse_uslm_xml(&path, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
+        let xml = real_title_18_xml();
+        let doc = parse_uslm_str(&xml, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
 
         // The published § 1514A has subsections (a)–(e), and the
         // structure (subsections + paragraphs + subparagraphs +
