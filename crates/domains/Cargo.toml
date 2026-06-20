@@ -45,20 +45,17 @@ include = [
     "data/**/*.prx.gz",
     "CHANGELOG.md",
 ]
-# NOTE: the publish gate lives in release-plz.toml (`[[package]] name =
-# "pr4xis-domains", publish = false`), NOT here. A `publish = false` in
-# THIS manifest makes release-plz ignore the crate outright — it never
-# versions or tags it, so a domains-only change (where nearly all praxis
-# work lands) cuts no release at all (the bug that stranded domains at
-# tag v0.21.0 while the workspace moved to 0.23.1). With the gate in
-# release-plz.toml instead, release-plz versions + tags domains in
-# lockstep with the workspace and only skips the `cargo publish` step.
-#
-# Crates.io publication is still blocked regardless: this crate's
-# build-time `include_str!` of workspace files (praxis.toml, data/*)
-# fails `cargo publish --verify` until the registered-source story
-# (`praxis.toml` + `pr4xis update`) lands as a Rust ontology. So the
-# release-plz gate + that technical floor together keep it off crates.io.
+# NOTE: this crate IS published to crates.io. It carries no `publish = false`
+# (neither here nor in release-plz.toml) — the manifest-level gate is deliberately
+# absent because it would make release-plz ignore the crate outright (never
+# versioned/tagged — the bug that stranded domains at tag v0.21.0 while the
+# workspace moved on). The crates.io floor that used to block it — a build-time
+# `include_str!` of workspace files (`praxis.toml`, raw `data/*`) that fails
+# `cargo publish --verify` — is gone: the registered-source manifest and every
+# data source now ship as committed `.prx` (the `include` allowlist above), loaded
+# through the generalized registry gate, so `--verify` is clean. Publish order is
+# the workspace dependency order: `pr4xis` (with the build-time codegen API
+# `build.rs` calls) publishes before this crate.
 
 [dependencies]
 # Runtime dep needs `std` only. The `codegen` feature (and its

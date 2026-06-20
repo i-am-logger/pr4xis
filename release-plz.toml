@@ -81,18 +81,19 @@ commit_parsers = [
 # nearly all work lands) bumps the one shared number — so release-plz opens a
 # Release PR for it. The only per-crate knob that remains is the PUBLISH gate.
 #
-# `pr4xis-domains` is held back from crates.io until the registered-source story
-# (`praxis.toml` + `pr4xis update`) lands as a Rust ontology rather than a
-# build-time `include_str!` of workspace files; `pr4xis-cli` / `-chat` cascade
-# (cargo refuses to publish a crate whose dep tree contains a publish=false
-# member), and `pr4xis-examples` isn't a library consumers pull in. They still
-# share the inherited version and are tagged + GitHub-released in lockstep;
-# `publish = false` only skips the `cargo publish` step.
-[[package]]
-name = "pr4xis-domains"
-publish = false
-release = true
-
+# `pr4xis-domains` IS published to crates.io: it now ships Rust + `.prx` archives
+# only — every registered-source vocabulary/schema/theme/manifest is loaded from a
+# committed, content-addressed `.prx` through the generalized registry gate (no
+# raw OWL/XSD/XML/TSV, no raw `praxis.toml`/`.lock`, enforced by the crate's
+# `[package].include` allowlist), so `cargo publish --verify` is clean. (Publish
+# order is the natural workspace dependency order: `pr4xis` — carrying the
+# build-time codegen API `domains/build.rs` calls — publishes before
+# `pr4xis-domains`.)
+#
+# `pr4xis-cli` / `-chat` are applications, not libraries consumers pull in, and
+# `pr4xis-examples` isn't either — they stay `publish = false` (no crates.io
+# value), while sharing the inherited version and being tagged + GitHub-released
+# in lockstep; `publish = false` only skips their `cargo publish` step.
 [[package]]
 name = "pr4xis-cli"
 publish = false
