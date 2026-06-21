@@ -459,11 +459,26 @@ jobs:
           exit $fail
 
 
+  # Deploy the docs site (chatbot / decks / the `.prx.gz` ontologies under
+  # /ontologies/) on EVERY green master push — NOT gated on a release. It used to
+  # be `needs: [release-plz-release]` + `if: releases_created == 'true'`, so the
+  # public site only refreshed when a version was cut and went stale between
+  # releases (and skipped entirely on a no-release push, e.g. when the workspace
+  # is already up to date). Decoupled: it deploys whenever the build/test/wasm/
+  # lint gates pass on master, the same success gate the release jobs use.
   pages:
     name: Deploy Pages
     runs-on: ubuntu-latest
-    needs: [release-plz-release]
-    if: needs.release-plz-release.outputs.releases_created == 'true'
+    needs: [lint-docs, test, wasm, format, no-ignored-doctests]
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      needs.lint-docs.result == 'success' &&
+      needs.test.result == 'success' &&
+      needs.wasm.result == 'success' &&
+      needs.format.result == 'success' &&
+      needs.no-ignored-doctests.result == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
