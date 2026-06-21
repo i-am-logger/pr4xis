@@ -97,9 +97,10 @@ commit_parsers = [
 # generalized registry gate, enforced by the crate's `[package].include`
 # allowlist, so `cargo publish --verify` is clean). BOOTSTRAP REQUIRED: it has
 # tags (v0.24.0..v0.25.4) but was never on crates.io, so it must be FIRST-
-# published manually once (`cargo publish -p pr4xis-domains`, in workspace
-# dependency order — `pr4xis`, carrying the build-time codegen API
-# `domains/build.rs` calls, publishes first) to establish the registry baseline.
+# published manually once to establish the registry baseline, in workspace
+# dependency order: pr4xis-derive → pr4xis → pr4xis-runtime → pr4xis-domains →
+# pr4xis-web (each crate's deps must be on crates.io first; `pr4xis` carries the
+# build-time codegen API `domains/build.rs` calls, so it precedes domains).
 # After that one-time publish the invariant holds and release-plz self-heals.
 # RULE: never flip a crate from `publish = false` to publishing without doing its
 # first manual publish FIRST — the CI guard now catches this at PR time.

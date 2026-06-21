@@ -391,9 +391,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # all tags, to compare against the registry
-      - name: No publish=true crate may be tagged-but-unpublished
+      - name: No publish=true crate may be tagged ahead of its crates.io version
         run: |
           set -uo pipefail
+          # crates.io's API REQUIRES a User-Agent (it 403s without one), so every
+          # query carries this identifying header.
+          UA="pr4xis-ci-publish-invariant (https://github.com/i-am-logger/pr4xis)"
           # Crates release-plz.toml marks publish = false (apps / examples) are
           # EXEMPT — release-plz never publishes them, so a tag without a
           # registry entry is harmless for them.
@@ -402,6 +405,25 @@ jobs:
             match($0, /^name[[:space:]]*=[[:space:]]*"([^"]+)"/, a) { name = a[1] }
             /^publish[[:space:]]*=[[:space:]]*false/ { if (name) print name }
           ' release-plz.toml | sort -u)
+
+          # crates.io max_version for a crate, resilient to transient API errors.
+          # Echoes the version (200), "404" (definitively absent), or "ERROR"
+          # (no definitive answer after retries → the caller FAILS CLOSED rather
+          # than treat a crates.io outage / 5xx / timeout as a pass).
+          registry_version() {
+            local crate=$1 i code
+            for i in 1 2 3 4; do
+              code=$(curl -s -A "$UA" -o /tmp/ci_crate.json -w '%{http_code}' \
+                "https://crates.io/api/v1/crates/${crate}" 2>/dev/null || echo 000)
+              case "$code" in
+                200) jq -r '.crate.max_version' /tmp/ci_crate.json; return 0 ;;
+                404) echo "404"; return 0 ;;
+                *)   sleep $((i * 3)) ;;  # 000/5xx/timeout — retry with backoff
+              esac
+            done
+            echo "ERROR"
+          }
+
           fail=0
           # Walk every workspace member dir → its package name.
           for dir in $(awk '/members[[:space:]]*=[[:space:]]*\[/{f=1;next} /\]/{f=0} f{gsub(/[",[:space:]]/,"");if($0!="")print}' Cargo.toml); do
@@ -411,14 +433,27 @@ jobs:
             if printf '%s\n' "$exempt" | grep -qx "$name"; then continue; fi
             # A member's own Cargo.toml publish=false → also exempt.
             if awk '/^\[package\]/{p=1} p&&/^publish[[:space:]]*=[[:space:]]*false/{found=1} END{exit !found}' "$dir/Cargo.toml"; then continue; fi
-            # Highest release tag for this crate, if any.
+            # Highest release tag for this crate, if any (nothing tagged → nothing
+            # release-plz will diff against; not yet the forbidden state).
             tag=$(git tag --list "${name}-v*" | sort -V | tail -1)
             [ -z "$tag" ] && continue
-            # Registry presence (crates.io API: 404 = never published).
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://crates.io/api/v1/crates/${name}")
-            if [ "$code" = "404" ]; then
-              echo "::error::Publish invariant violated: '${name}' is tagged (${tag}) but absent from crates.io (HTTP 404). release-plz will ABORT the Release-PR for the whole workspace. Fix: publish it once (\`cargo publish -p ${name}\`) before it is tagged, OR mark it \`publish = false\` in release-plz.toml. Never leave a publish=true crate tagged-but-unpublished."
+            tagver=${tag#"${name}-v"}
+            rv=$(registry_version "$name")
+            if [ "$rv" = "404" ]; then
+              echo "::error::Publish invariant: '${name}' is tagged (${tag}) but absent from crates.io (404). release-plz will ABORT the Release-PR for the whole workspace. Fix: publish it once (\`cargo publish -p ${name}\`) before it is tagged, OR mark it \`publish = false\` in release-plz.toml."
               fail=1
+            elif [ "$rv" = "ERROR" ]; then
+              echo "::error::Publish invariant: could not verify crates.io for '${name}' after retries (transient API error). Failing closed — re-run the job; if crates.io is genuinely down, retry when it recovers."
+              fail=1
+            else
+              # The full invariant: crates.io max_version must be >= the highest
+              # tag. A registry BEHIND its tag is the same release-plz baseline
+              # inconsistency as a 404.
+              lower=$(printf '%s\n%s\n' "$rv" "$tagver" | sort -V | head -1)
+              if [ "$lower" = "$rv" ] && [ "$rv" != "$tagver" ]; then
+                echo "::error::Publish invariant: '${name}' crates.io max version (${rv}) is BEHIND its highest tag (${tagver}). release-plz's next-version baseline is inconsistent. Publish ${name} ${tagver} (or higher) to crates.io."
+                fail=1
+              fi
             fi
           done
           exit $fail

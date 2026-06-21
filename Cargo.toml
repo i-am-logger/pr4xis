@@ -48,8 +48,9 @@ exclude = ["crates/wasm", "crates/e2e", "crates/praxis-corpus-tests"]
 #     but 404), wedging the Release-PR. The fix is to publish it once; because the
 #     v0.25.4 tag is the pre-#219 unpublishable tree AND master's domains build.rs
 #     needs pr4xis's new codegen API (absent from published pr4xis 0.25.4), the
-#     bootstrap publish is 0.25.5 in dependency order (pr4xis-derive → -runtime →
-#     pr4xis → -domains [→ -web]). After it lands on crates.io the invariant holds
+#     bootstrap publish is 0.25.5 in dependency order (pr4xis-derive → pr4xis →
+#     pr4xis-runtime → pr4xis-domains → pr4xis-web; each crate's deps must be on
+#     crates.io first). After it lands on crates.io the invariant holds
 #     and release-plz auto-bumps from here on. See release-plz.toml + the
 #     `publish-invariant` CI guard for the rule that prevents a recurrence.
 [workspace.package]
