@@ -102,12 +102,15 @@ crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
 # math-operators.xml: present on checkout so `fetch_entry` verifies the local
 # copy and never downloads, excluded from the published crate by the
 # `[package].include` allowlist, shipped only as the committed `.prx`.
-# Phase 3 FETCHED raw color-scheme COLLECTION — the Tinted Theming
-# `tinted-schemes` corpus (formerly a git submodule). FETCHED from the
-# i-am-logger/tinted-schemes fork; `pr4xis update` clones the theme tree here
-# and `theme_collection::archive_directory` flattens it into the deterministic
-# `tinted-schemes-2025.themes` archive (the canonical raw, pinned in praxis.lock
-# `[hashes]`). Both the cloned tree and the archive are fetch-only; only the
-# content-addressed committed `.prx` (data/themes/tinted-schemes-2025.prx) ships.
+# Phase 3 color-scheme COLLECTION — the Tinted Theming `tinted-schemes` corpus
+# (formerly a git submodule, sourced from the i-am-logger/tinted-schemes fork).
+# `pr4xis update` clones the theme tree into `data/tinted-schemes/` (TRANSIENT,
+# ignored) and `theme_collection::archive_directory` flattens it into the
+# deterministic `tinted-schemes-2025.themes` archive. Unlike a single-file HTTP
+# download, a git-clone-and-archive is NOT byte-reproducible against the pin (the
+# fork moves; archive ordering), so the `.themes` is a BUNDLED source-of-truth:
+# git-tracked (the curated snapshot the `[hashes]` pin + `.prx` derive from),
+# excluded from the published crate by the `[package].include` allowlist, present
+# on a fresh checkout so `pr4xis update` verifies it locally instead of re-cloning
+# the fork. Only the content-addressed `.prx` (data/themes/*.prx) ships.
 crates/domains/data/tinted-schemes/
-crates/domains/data/themes/*.themes
