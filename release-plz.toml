@@ -81,19 +81,33 @@ commit_parsers = [
 # nearly all work lands) bumps the one shared number — so release-plz opens a
 # Release PR for it. The only per-crate knob that remains is the PUBLISH gate.
 #
-# `pr4xis-domains` IS published to crates.io: it now ships Rust + `.prx` archives
-# only — every registered-source vocabulary/schema/theme/manifest is loaded from a
-# committed, content-addressed `.prx` through the generalized registry gate (no
-# raw OWL/XSD/XML/TSV, no raw `praxis.toml`/`.lock`, enforced by the crate's
-# `[package].include` allowlist), so `cargo publish --verify` is clean. (Publish
-# order is the natural workspace dependency order: `pr4xis` — carrying the
-# build-time codegen API `domains/build.rs` calls — publishes before
-# `pr4xis-domains`.)
+# THE PUBLISH INVARIANT (enforced by the `publish-invariant` CI job, ci.yml):
+# every workspace member is EITHER published to crates.io (a registry row at >=
+# its highest git tag) OR marked `publish = false` below. The forbidden state is
+# `publish=true` + a release tag + no crates.io row (HTTP 404): release-plz reads
+# each crate's next-version baseline from crates.io, and a tagged-but-absent
+# publishable crate is an unresolvable inconsistency that ABORTS the Release-PR
+# for the WHOLE workspace ("package X not found in the registry, but the git tag
+# X-vN exists"). This wedged master repeatedly — `pr4xis-domains` was
+# `release=true` + `publish=false` (tagged every release, never published), and
+# removing its publish gate in #219 flipped it to the forbidden state.
+#
+# `pr4xis-domains` is publishable (it ships Rust + `.prx` archives only — every
+# registered source loads from a committed, content-addressed `.prx` through the
+# generalized registry gate, enforced by the crate's `[package].include`
+# allowlist, so `cargo publish --verify` is clean). BOOTSTRAP REQUIRED: it has
+# tags (v0.24.0..v0.25.4) but was never on crates.io, so it must be FIRST-
+# published manually once (`cargo publish -p pr4xis-domains`, in workspace
+# dependency order — `pr4xis`, carrying the build-time codegen API
+# `domains/build.rs` calls, publishes first) to establish the registry baseline.
+# After that one-time publish the invariant holds and release-plz self-heals.
+# RULE: never flip a crate from `publish = false` to publishing without doing its
+# first manual publish FIRST — the CI guard now catches this at PR time.
 #
 # `pr4xis-cli` / `-chat` are applications, not libraries consumers pull in, and
 # `pr4xis-examples` isn't either — they stay `publish = false` (no crates.io
-# value), while sharing the inherited version and being tagged + GitHub-released
-# in lockstep; `publish = false` only skips their `cargo publish` step.
+# value), which ALSO exempts them from the tag-vs-registry check; they share the
+# inherited version and are tagged + GitHub-released in lockstep.
 [[package]]
 name = "pr4xis-cli"
 publish = false

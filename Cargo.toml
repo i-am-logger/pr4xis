@@ -33,20 +33,27 @@ exclude = ["crates/wasm", "crates/e2e", "crates/praxis-corpus-tests"]
 # This REPLACES release-plz's `version_group`, which silently stopped
 # syncing once the publish=false crates drifted behind the published ones.
 #
-# 0.24.0 is a one-time RE-BASELINE, set by hand. The publish=false domains
-# crate (where ~all praxis work lands) had drifted to 0.22.0 while the
-# published crates reached 0.23.1, so release-plz — which reconciles the
-# shared version against the higher published baseline — could only ever
-# absorb a domains change into a patch (0.23.2), even the breaking
-# DeterminerKind rename (FW-B, committed as `feat!`). There is no historical
-# commit where domains was 0.23.1 to seed a clean baseline from, so the
-# minor bump that this breaking release warrants is set here. After it ships,
-# release-plz tags domains at the workspace version (it is now release-plz-
-# visible — its publish gate moved to release-plz.toml), domains' baseline is
-# finally consistent, and FUTURE breaking domains changes auto-escalate. This
-# is the last hand-set version.
+# Hand-set version bumps here are a LAST RESORT (release-plz normally owns the
+# version, bumping it via the Release PR). Two have been needed historically, both
+# one-time re-baselines forced by the same root cause — release-plz reads each
+# crate's next-version baseline from crates.io, so a workspace crate that is NOT
+# on crates.io has no baseline to reconcile against:
+#   • 0.24.0 — domains (then publish=false) had drifted to 0.22.0 while the
+#     published crates reached 0.23.1; with no crates.io baseline release-plz
+#     could only absorb even the breaking DeterminerKind rename into a patch, so
+#     the minor bump was hand-set.
+#   • 0.25.5 — the FIRST-PUBLISH BOOTSTRAP for `pr4xis-domains`. It had tags
+#     (v0.24.0..v0.25.4) but was never published (it was publish=false until
+#     #219). Once publishable, release-plz can't compute its next version (tagged
+#     but 404), wedging the Release-PR. The fix is to publish it once; because the
+#     v0.25.4 tag is the pre-#219 unpublishable tree AND master's domains build.rs
+#     needs pr4xis's new codegen API (absent from published pr4xis 0.25.4), the
+#     bootstrap publish is 0.25.5 in dependency order (pr4xis-derive → -runtime →
+#     pr4xis → -domains [→ -web]). After it lands on crates.io the invariant holds
+#     and release-plz auto-bumps from here on. See release-plz.toml + the
+#     `publish-invariant` CI guard for the rule that prevents a recurrence.
 [workspace.package]
-version = "0.25.4"
+version = "0.25.5"
 
 [workspace.lints.rust]
 dead_code = "deny"

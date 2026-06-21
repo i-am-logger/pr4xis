@@ -370,6 +370,59 @@ jobs:
             exit 1
           fi
 
+  # ── The release invariant — fail fast at PR time, never wedge master ──────
+  # release-plz computes each crate's next version from its crates.io baseline.
+  # Its tag-vs-registry safety check ABORTS the Release-PR for the ENTIRE
+  # workspace if any crate it would publish has a git release tag but is absent
+  # from crates.io (HTTP 404):
+  #     "package X not found in the registry, but the git tag X-vN exists.
+  #      Consider running cargo publish manually to publish this package."
+  # That forbidden state — `publish=true` + tagged + 404 — has wedged master
+  # repeatedly (it is exactly what `release=true` tag-without-publish for
+  # pr4xis-domains set up, then #219's gate removal exposed). The invariant:
+  # every workspace member is EITHER published to crates.io (a registry row at
+  # >= its highest tag) OR marked `publish = false` in release-plz.toml (which
+  # release-plz exempts from the check). This job enforces it at PR time so the
+  # forbidden state can never reach master.
+  publish-invariant:
+    name: Publish invariant
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # all tags, to compare against the registry
+      - name: No publish=true crate may be tagged-but-unpublished
+        run: |
+          set -uo pipefail
+          # Crates release-plz.toml marks publish = false (apps / examples) are
+          # EXEMPT — release-plz never publishes them, so a tag without a
+          # registry entry is harmless for them.
+          exempt=$(awk '
+            /^\[\[package\]\]/ { name = "" }
+            match($0, /^name[[:space:]]*=[[:space:]]*"([^"]+)"/, a) { name = a[1] }
+            /^publish[[:space:]]*=[[:space:]]*false/ { if (name) print name }
+          ' release-plz.toml | sort -u)
+          fail=0
+          # Walk every workspace member dir → its package name.
+          for dir in $(awk '/members[[:space:]]*=[[:space:]]*\[/{f=1;next} /\]/{f=0} f{gsub(/[",[:space:]]/,"");if($0!="")print}' Cargo.toml); do
+            name=$(awk -F'"' '/^name[[:space:]]*=/{print $2; exit}' "$dir/Cargo.toml")
+            [ -z "$name" ] && continue
+            # Exempt (publish=false in release-plz.toml) → skip.
+            if printf '%s\n' "$exempt" | grep -qx "$name"; then continue; fi
+            # A member's own Cargo.toml publish=false → also exempt.
+            if awk '/^\[package\]/{p=1} p&&/^publish[[:space:]]*=[[:space:]]*false/{found=1} END{exit !found}' "$dir/Cargo.toml"; then continue; fi
+            # Highest release tag for this crate, if any.
+            tag=$(git tag --list "${name}-v*" | sort -V | tail -1)
+            [ -z "$tag" ] && continue
+            # Registry presence (crates.io API: 404 = never published).
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://crates.io/api/v1/crates/${name}")
+            if [ "$code" = "404" ]; then
+              echo "::error::Publish invariant violated: '${name}' is tagged (${tag}) but absent from crates.io (HTTP 404). release-plz will ABORT the Release-PR for the whole workspace. Fix: publish it once (\`cargo publish -p ${name}\`) before it is tagged, OR mark it \`publish = false\` in release-plz.toml. Never leave a publish=true crate tagged-but-unpublished."
+              fail=1
+            fi
+          done
+          exit $fail
+
 
   pages:
     name: Deploy Pages
@@ -436,22 +489,14 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-      # Publish the SAME .prx.gz files to the pr4xis-domains release as
-      # immutable archive assets. The release-plz `releases` output is a
-      # JSON array — we pull the pr4xis-domains tag out of it. If
-      # pr4xis-domains wasn't released this run (e.g. only pr4xis-cli
-      # was bumped), skip upload cleanly.
-      - name: Upload .prx.gz to pr4xis-domains release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASES: ${{ needs.release-plz-release.outputs.releases }}
-        run: |
-          TAG=$(echo "$RELEASES" | jq -r '.[] | select(.package_name == "pr4xis-domains") | .tag')
-          if [ -n "$TAG" ] && [ "$TAG" != "null" ]; then
-            gh release upload "$TAG" pages/ontologies/*.prx.gz --clobber
-          else
-            echo "pr4xis-domains not released in this run; skipping .prx.gz upload"
-          fi
+      # NOTE: the `.prx.gz` ontology artifacts are served from Pages
+      # `/ontologies/` (emitted above into the pages tree), NOT attached to the
+      # GitHub release. release-plz creates releases with `git_release_enable`,
+      # which are IMMUTABLE — `gh release upload --clobber` against an immutable
+      # release fails `HTTP 422: Cannot upload assets to an immutable release`,
+      # which reddened every release run that touched pr4xis-domains
+      # (v0.24.0 / 0.25.0 / .1 / .3 / .4). The release-asset copy was redundant
+      # with the Pages copy, so it is dropped: Pages is the single artifact home.
 
   # release-plz replaces the old release-please + katyo/publish-crates
   # pair. Reads the current repo state, queries crates.io for each
