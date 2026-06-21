@@ -9,8 +9,9 @@
 //! 4-core CI runner blows the 30 s ci-profile cap — the same parse-once
 //! doctrine every other giant-corpus test here follows.
 //!
-//! Skips titles that aren't on disk so a fresh checkout works without the
-//! LRC USLM bundle. The test passes regardless of gap size — the audit is
+//! A title absent on disk is left out of THIS run's census, but the test
+//! HARD-FAILS if NONE are provisioned (`pr4xis update`) — it cannot audit
+//! nothing. The test passes regardless of gap size — the audit is
 //! informational; the per-title report (run with `--nocapture`) is what a
 //! reviewer reads to decide which dropped element kinds warrant lifting
 //! into the typed view. The title set derives from
@@ -22,7 +23,7 @@ use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConce
 use pr4xis_domains::social::software::markup::xml::uslm::lens::structural_audit::{
     GapRow, audit_structural_content, render_audit,
 };
-use praxis_corpus_tests::workspace_root;
+use praxis_corpus_tests::{require_provisioned, workspace_root};
 
 #[test]
 fn phase1_structural_audit_across_registered_usc_titles() {
@@ -38,7 +39,7 @@ fn phase1_structural_audit_across_registered_usc_titles() {
         let path = workspace_root.join(entry.local_path());
         let Ok(bytes) = std::fs::read(&path) else {
             eprintln!(
-                "SKIP {}@{}: {} not on disk",
+                "{}@{}: {} not on disk — not audited this run",
                 entry.name,
                 entry.version,
                 path.display()
@@ -75,10 +76,7 @@ fn phase1_structural_audit_across_registered_usc_titles() {
         // with --nocapture.
         eprintln!("{}", render_audit(&label, &audit));
     }
-    if audited == 0 {
-        eprintln!("phase1_structural_audit: no registered USC title XML on disk; skip");
-        return;
-    }
+    require_provisioned(audited, "usc");
     eprintln!("=== Phase-1 USLM structural audit ===");
     eprintln!("titles audited: {audited}");
     eprintln!("aggregate total_dropped: {total_dropped}");

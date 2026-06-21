@@ -19,6 +19,65 @@
 use std::path::PathBuf;
 
 use pr4xis_domains::social::software::markup::xml::lmf::WordNet;
+
+/// Hard-fail accessor for an absent corpus — the SINGLE source of truth for
+/// "the corpus must be on disk".
+///
+/// The heavy corpora (USC titles, the 89 MB WordNet) are fetched in CI by
+/// `pr4xis update`, never committed. A test that finds its corpus ABSENT must
+/// fail loud — it cannot assert anything, so a silent skip would be a
+/// false-green (PASS while testing nothing). This unwraps the loader's
+/// `Option`, panicking with the exact `pr4xis update <corpus>` to run so the
+/// operator knows what to fetch. Tests do not skip.
+///
+/// `corpus` is the registry source name (the `pr4xis update` argument), e.g.
+/// `"usc_title_18"` or `"english_wordnet"`.
+#[track_caller]
+pub fn require<T>(opt: Option<T>, corpus: &str) -> T {
+    opt.unwrap_or_else(|| {
+        panic!(
+            "corpus `{corpus}` not on disk — run `pr4xis update {corpus}` to fetch it; \
+             tests do not skip"
+        )
+    })
+}
+
+/// Hard-fail when a corpus-set scan provisioned NOTHING on disk.
+///
+/// The sibling of [`require`] for the loop-aggregate gates that iterate the
+/// data-source registry and `continue` past each absent title (so they
+/// legitimately cover whatever IS on disk). If the loop measured ZERO sources
+/// it asserted nothing — a false-green — so this panics naming the
+/// `pr4xis update` family to fetch. `count` is the number of sources the loop
+/// actually measured; `corpus_family` describes what to provision (e.g.
+/// `"usc"` USC titles, or `"english_wordnet"`). Tests do not skip.
+#[track_caller]
+pub fn require_provisioned(count: usize, corpus_family: &str) {
+    assert!(
+        count > 0,
+        "no `{corpus_family}` corpus provisioned on disk — run `pr4xis update {corpus_family}` \
+         (or `pr4xis update --list`) to fetch it; tests do not skip"
+    );
+}
+
+/// Borrow a per-file `LazyLock<Option<C>>` corpus fixture, hard-failing via
+/// [`require`] when the corpus is absent.
+///
+/// Each `tests/title_*.rs` file owns a file-local `LazyLock<Option<UslmCorpus>>`
+/// (the giant is parsed once per binary), so the borrow can't live in a plain
+/// function — it must expand at the call site against that static. This macro
+/// is that borrow, routed through the shared hard-fail so the skip cannot
+/// reappear file-by-file. Pass the static and the registry corpus name:
+///
+/// ```text
+/// let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
+/// ```
+#[macro_export]
+macro_rules! corpus_or_fail {
+    ($lazy:ident, $corpus:expr) => {
+        $crate::require((&*$lazy).as_ref(), $corpus)
+    };
+}
 use pr4xis_domains::social::software::markup::xml::lmf::reader::read_wordnet;
 use pr4xis_domains::social::software::markup::xml::uslm::{UsCodeTitle, read_uslm_title};
 
@@ -50,9 +109,11 @@ pub fn workspace_root() -> PathBuf {
 /// Load and parse a USLM title from `crates/domains/data/<rel>`.
 ///
 /// Returns `None` when the giant is not on disk — the multi-hundred-MB USC
-/// titles are fetched (`pr4xis update`), not committed, so the corpus tests
-/// skip gracefully on a fresh checkout. A file that IS present but fails to
-/// parse is a hard error: the on-disk corpus is expected to be well-formed.
+/// titles are fetched (`pr4xis update`), not committed. Callers route the
+/// `None` through [`require`] / [`corpus_or_fail!`] so an absent corpus
+/// HARD-FAILS the test (it can assert nothing); the test layer never skips. A
+/// file that IS present but fails to parse is a hard error: the on-disk corpus
+/// is expected to be well-formed.
 pub fn load_uslm_corpus(rel: &str) -> Option<UslmCorpus> {
     let path = domains_data_dir().join(rel);
     let xml = std::fs::read_to_string(&path).ok()?;
@@ -84,7 +145,10 @@ pub struct WnCorpus {
 }
 
 impl WnCorpus {
-    /// The full English WordNet source, or `None` when not on disk.
+    /// The full English WordNet source, or `None` when not on disk. Callers
+    /// route the `None` through [`require`] so an absent `english_wordnet`
+    /// HARD-FAILS the test naming `pr4xis update english_wordnet`; tests never
+    /// skip on absence.
     pub fn english(&self) -> Option<&WnSource> {
         self.sources.iter().find(|s| s.name == "english_wordnet")
     }

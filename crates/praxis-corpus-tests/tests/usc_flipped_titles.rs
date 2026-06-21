@@ -13,7 +13,9 @@
 //! The `corrupt_first_text_in` helper is carried verbatim from
 //! `uslm::lens::writer`'s `#[cfg(test)]` module (where it is shared with the
 //! bare-section corruption meta-tests that stay in-crate). USC titles are
-//! externally provisioned (`pr4xis update`), so a plain checkout skips gracefully.
+//! externally provisioned (`pr4xis update`); CI provisions them, so each gate
+//! HARD-FAILS (via `require_provisioned`) if NONE of its flipped titles are on
+//! disk — tests do not skip.
 
 use pr4xis_domains::social::software::markup::xml::uslm::UsCodeContentNode;
 use pr4xis_domains::social::software::markup::xml::uslm::lens::writer::{
@@ -21,7 +23,7 @@ use pr4xis_domains::social::software::markup::xml::uslm::lens::writer::{
 };
 use pr4xis_runtime::address::ContentAddress;
 
-use praxis_corpus_tests::workspace_root;
+use praxis_corpus_tests::{require_provisioned, workspace_root};
 
 /// Corrupt the FIRST descendant `#PCDATA` `UsCodeContentNode::Text` leaf in a
 /// mixed-content node list (pre-order), rewriting it to a different value.
@@ -81,12 +83,13 @@ fn flipped_titles_reconstruct_byte_exact() {
             "f42660413a471f1133c1e23f93038cae9ac0437885358492e119a0fcd98aa311",
         ),
     ];
+    let mut checked = 0usize;
     for (n, expected_address) in FLIPPED {
         let path = workspace_root().join(format!(
             "crates/domains/data/legal/uscode/usc_title_{n}/usc_title_{n}-pl-119-90.xml"
         ));
         let Ok(bytes) = std::fs::read(&path) else {
-            continue; // corpus not provisioned — skip gracefully
+            continue; // corpus not provisioned this run — covered when on disk
         };
         // Sanity: the source's content address is the pinned value (else a corpus
         // swap silently weakened this gate).
@@ -137,7 +140,11 @@ fn flipped_titles_reconstruct_byte_exact() {
             expected_address,
             "title {n} round-trip output must hash to its pinned content address"
         );
+        checked += 1;
     }
+    // At least one flipped title MUST be on disk — with none, the loop asserted
+    // nothing (a false-green). CI provisions via `pr4xis update`.
+    require_provisioned(checked, "usc");
 }
 
 /// META-TEST (slice U7 has TEETH on EVERY flipped title): for each flipped title,
@@ -150,12 +157,13 @@ fn flipped_titles_reconstruct_byte_exact() {
 /// `flipped_titles_reconstruct_byte_exact`.
 #[test]
 fn corrupted_flipped_title_breaks_byte_exact_gate() {
+    let mut checked = 0usize;
     for n in ["28", "18", "29", "50"] {
         let path = workspace_root().join(format!(
             "crates/domains/data/legal/uscode/usc_title_{n}/usc_title_{n}-pl-119-90.xml"
         ));
         let Ok(bytes) = std::fs::read(&path) else {
-            continue; // corpus not provisioned — skip gracefully
+            continue; // corpus not provisioned this run — covered when on disk
         };
         let src = String::from_utf8(bytes).expect("title is UTF-8");
         let (mut title, complement) = capture_uslm_complement(&src).expect("capture flipped title");
@@ -180,5 +188,9 @@ fn corrupted_flipped_title_breaks_byte_exact_gate() {
             "a corrupted title {n} backbone #PCDATA value MUST diverge the byte-exact \
              reconstruction — the U7 flipped-title gate has teeth"
         );
+        checked += 1;
     }
+    // At least one flipped title MUST be on disk — with none, the loop asserted
+    // nothing (a false-green). CI provisions via `pr4xis update`.
+    require_provisioned(checked, "usc");
 }

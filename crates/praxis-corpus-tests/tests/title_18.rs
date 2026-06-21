@@ -24,29 +24,16 @@ use pr4xis_domains::social::software::markup::xml::uslm::{
     ContainerKind, HierarchyNode, UsCodeContainer, UsCodeDate, UsCodeHeader, UsCodeNoteKind,
     UsCodeSection, UsCodeSubdivision, UsCodeTitleId,
 };
-use praxis_corpus_tests::{UslmCorpus, load_uslm_corpus};
+use praxis_corpus_tests::{UslmCorpus, corpus_or_fail, load_uslm_corpus};
 
 /// Title 18, parsed once. `None` if the title is not on disk (fresh checkout
-/// before `pr4xis update`); each test then skips gracefully.
+/// before `pr4xis update`); each test then HARD-FAILS via `corpus_or_fail!` (tests do not skip).
 static TITLE_18: LazyLock<Option<UslmCorpus>> =
     LazyLock::new(|| load_uslm_corpus("legal/uscode/usc_title_18/usc_title_18-pl-119-90.xml"));
 
-/// Borrow the shared corpus, or return early with a SKIP note when absent.
-macro_rules! corpus_or_skip {
-    () => {
-        match &*TITLE_18 {
-            Some(c) => c,
-            None => {
-                eprintln!("SKIP: Title 18 USLM not on disk (run `pr4xis update`)");
-                return;
-            }
-        }
-    };
-}
-
 #[test]
 fn full_title_18_parses_with_expected_section_count() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     assert_eq!(title.identifier, "/us/usc/t18");
     assert_eq!(title.number, 18);
     assert!(
@@ -66,7 +53,7 @@ fn full_title_18_parses_with_expected_section_count() {
 
 #[test]
 fn full_title_18_every_section_has_unique_identifier() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut seen = std::collections::HashSet::new();
     for s in &title.sections {
         assert!(
@@ -79,7 +66,7 @@ fn full_title_18_every_section_has_unique_identifier() {
 
 #[test]
 fn full_title_18_every_section_satisfies_every_axiom() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     axiom_every_section_has_num(title).expect("EverySectionHasNum must hold for full Title 18");
     axiom_every_container_has_identifier(title)
@@ -95,7 +82,7 @@ fn full_title_18_every_section_satisfies_every_axiom() {
 
 #[test]
 fn full_title_18_every_section_lifts_to_statute() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     // The from_uslm_section functor must succeed on every published
     // section — no statute should fail validation (no dangling
@@ -132,7 +119,7 @@ fn full_title_18_known_sections_present() {
     // Sentinel sections this case actually cites — failure here means
     // the corpus drifted at the LRC's release point or our slicing
     // is wrong.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let ids: std::collections::HashSet<&str> = title
         .sections
         .iter()
@@ -170,7 +157,7 @@ fn full_title_18_known_sections_present() {
 
 #[test]
 fn full_title_18_codegen_and_runtime_agree_on_sox_1514a() {
-    let UslmCorpus { xml, title } = corpus_or_skip!();
+    let UslmCorpus { xml, title } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let sox_section = title
         .section("/us/usc/t18/s1514A")
         .expect("§ 1514A must be present");
@@ -199,7 +186,7 @@ fn full_title_18_codegen_and_runtime_agree_on_sox_1514a() {
 
 #[test]
 fn hierarchy_has_published_part_chapter_subchapter_counts_for_title_18() {
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let parts = t.containers_of_kind(ContainerKind::Part);
     let chapters = t.containers_of_kind(ContainerKind::Chapter);
     let subchapters = t.containers_of_kind(ContainerKind::Subchapter);
@@ -221,7 +208,7 @@ fn hierarchy_has_published_part_chapter_subchapter_counts_for_title_18() {
 fn flat_sections_equals_hierarchy_dfs_walk() {
     // Invariant: the flat `sections` field is a DFS flatten of
     // the `hierarchy` tree. Order and count must match.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut dfs_collected: Vec<&UsCodeSection> = Vec::new();
     fn walk<'a>(nodes: &'a [HierarchyNode], out: &mut Vec<&'a UsCodeSection>) {
         for n in nodes {
@@ -244,7 +231,7 @@ fn flat_sections_equals_hierarchy_dfs_walk() {
 
 #[test]
 fn every_container_has_unique_identifier_in_title_18() {
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut seen = std::collections::HashSet::new();
     for c in t.containers() {
         assert!(
@@ -266,7 +253,7 @@ fn sox_1514a_carries_pub_law_source_credit() {
     // <sourceCredit> entry citing its originating Pub. L. and
     // Stat. citation. § 1514A was enacted by SOX 2002 (Pub. L.
     // 107-204).
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let sox = t.section("/us/usc/t18/s1514A").expect("§ 1514A");
     assert!(
         !sox.source_credits.is_empty(),
@@ -294,7 +281,7 @@ fn sox_1514a_carries_pub_law_source_credit() {
 fn sox_1514a_has_notes_blocks() {
     // § 1514A should have at least one editorial notes block
     // (amendments, effective dates, or short titles).
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let sox = t.section("/us/usc/t18/s1514A").expect("§ 1514A");
     assert!(
         !sox.notes_blocks.is_empty(),
@@ -309,7 +296,7 @@ fn title_18_headers_collected_correctly() {
     // doesn't carry one at that level (its TOC headers live
     // inside `<toc>` blocks, modeled later in M4.δ.8). Verify
     // the field exists and is consistently zero or more.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     // The field is populated correctly — the test asserts the
     // type contract, not a specific count. Title-level `<header>`
     // is an optional element.
@@ -320,7 +307,7 @@ fn title_18_headers_collected_correctly() {
 fn title_18_notes_blocks_collected_at_title_level() {
     // The title's preamble carries title-level notes (enacting
     // history, current-through marker, etc.).
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     assert!(
         !t.notes_blocks.is_empty(),
         "Title 18 should carry ≥1 title-level <notes> block"
@@ -334,7 +321,7 @@ fn note_topic_attribute_round_trips() {
     // bare-note list (Title 18's enacting note is a direct
     // `<note topic="enacting">` child of `<title>`, not wrapped
     // in a `<notes>` block).
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut topics: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for note in &t.bare_notes {
         if let Some(topic) = &note.topic {
@@ -360,7 +347,7 @@ fn source_credit_refs_carry_only_href_urns() {
     // Footnote backlinks (<ref class="footnoteRef" idref="...">)
     // should be filtered out of source_credit refs by the
     // collect_refs_in helper; only href URNs remain.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let sox = t.section("/us/usc/t18/s1514A").expect("§ 1514A");
     for sc in &sox.source_credits {
         for r in &sc.refs {
@@ -386,7 +373,7 @@ fn title_18_collects_quoted_content_inside_notes() {
     // Title 18's amendment-history notes contain <quotedContent>
     // blocks carrying text from the amending Pub. L. The reader
     // must collect them as typed UsCodeQuotedContent values.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut total = 0usize;
     let mut with_origin = 0usize;
     for note in &t.bare_notes {
@@ -420,7 +407,7 @@ fn title_18_collects_quoted_content_inside_notes() {
 fn quoted_content_origin_carries_urn_when_present() {
     // Every quotedContent.origin (when set) follows the USLM URN
     // shape `/us/...`.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     for note in &t.bare_notes {
         for qc in &note.quoted_contents {
             if let Some(origin) = &qc.origin {
@@ -438,7 +425,7 @@ fn source_credits_collect_iso_dates() {
     // SourceCredit on § 1514A contains <date date="2002-07-30">
     // for the SOX 2002 enactment. The reader must capture it as
     // a typed UsCodeDate.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let sox = t.section("/us/usc/t18/s1514A").expect("§ 1514A");
     let mut all_dates: Vec<&UsCodeDate> = Vec::new();
     for sc in &sox.source_credits {
@@ -466,7 +453,7 @@ fn iso_date_format_round_trips() {
     // Every captured UsCodeDate.iso must be a well-formed ISO
     // 8601 date string. Per the USLM Schema, the `date` attribute
     // is xs:date format (`YYYY-MM-DD`).
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut all_dates: Vec<&UsCodeDate> = Vec::new();
     for sc in t.sections.iter().flat_map(|s| s.source_credits.iter()) {
         all_dates.extend(&sc.dates);
@@ -485,7 +472,7 @@ fn sox_1514a_belongs_to_part_i_chapter_73_title_18() {
     // Sentinel: § 1514A lives in Title 18 > Part I (CRIMES) >
     // Chapter 73 (OBSTRUCTION OF JUSTICE). Verifies hierarchy
     // assigns sections to their published containers.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     // Find Part I.
     let part_i = t
@@ -534,7 +521,7 @@ fn non_usc_kinds_zero_in_title_18_corpus() {
     // preamble, preliminary, appendix, subsubitem, quotedText,
     // recital, statement, enactingFormula, amendingFormula,
     // approved, made, action, instruction, checkBox, fillIn.
-    let UslmCorpus { xml, .. } = corpus_or_skip!();
+    let UslmCorpus { xml, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     // Cheap substring check — the LRC's USLM never wraps any of
     // these tags in commented-out blocks, so a literal "<tag" hit
     // means the element appears in the document.
@@ -585,7 +572,7 @@ fn title_18_real_corpus_has_zero_amendment_markup_today() {
     // Tripwire: if this assertion ever fails, LRC has changed the
     // pl-XXX-YY USC publication format to include amendment-diff
     // markup and downstream consumers should be reviewed.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     let mut total = 0usize;
     for s in &title.sections {
@@ -617,7 +604,7 @@ fn title_18_real_corpus_is_positive_law() {
     // Title 18 is enacted as positive law (Act of June 25, 1948,
     // ch. 645, 62 Stat. 683). Verify the LRC's published USLM
     // carries the property correctly.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let meta = title.meta.as_ref().expect("Title 18 has meta block");
     assert_eq!(
         meta.is_positive_law(),
@@ -628,7 +615,7 @@ fn title_18_real_corpus_is_positive_law() {
 
 #[test]
 fn title_18_real_corpus_carries_doc_number_and_publication() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let meta = title.meta.as_ref().expect("Title 18 has meta block");
     assert_eq!(meta.doc_number.as_deref(), Some("18"));
     assert!(
@@ -647,7 +634,7 @@ fn title_18_real_corpus_carries_doc_number_and_publication() {
 
 #[test]
 fn title_18_real_corpus_has_table_of_disposition() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     // LRC reports 17 tables in Title 18 pl-119-90. Most carry
     // class="TableOfDisposition" — verify the collector picks them up.
     assert!(
@@ -672,7 +659,7 @@ fn title_18_real_corpus_has_table_of_disposition() {
 
 #[test]
 fn title_18_real_corpus_has_three_column_toc() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     // Title 18 ships at least one title-level TOC (the three-column
     // Part / Heading / Section index).
     assert!(
@@ -700,7 +687,7 @@ fn title_18_chapter_tocs_total_at_least_a_thousand_items() {
     // LRC's TOC count for Title 18 (146 <toc> with 1534 <tocItem>)
     // means the corpus-wide TOC fanout is substantial — verifies
     // that container-level TOC collection (M4.δ.8) is wired up.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     let mut total = title.tocs.iter().map(|t| t.items.len()).sum::<usize>();
     for c in title.containers() {
@@ -720,7 +707,7 @@ fn title_18_chapter_tocs_total_at_least_a_thousand_items() {
 
 #[test]
 fn title_18_real_corpus_has_olrc_meta_block() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let meta = title
         .meta
         .as_ref()
@@ -749,7 +736,7 @@ fn title_18_corpus_classifies_at_least_one_note_per_documented_kind() {
     // topic vocabulary; classification should surface at least one
     // Editorial, one Statutory, and one Change note across the
     // title (footnotes likewise common at the title level).
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     let mut counts = std::collections::HashMap::new();
     for nb in &title.notes_blocks {
@@ -796,7 +783,7 @@ fn title_18_real_corpus_has_zero_typed_def_elements_today() {
     // typed `<def>` / `<marker>` elements. If this count ever goes
     // up, the corpus has moved forward and downstream code that
     // anticipates defined-term lifts should be reviewed.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     let mut total_defs = 0usize;
     let mut total_markers = 0usize;
@@ -839,7 +826,7 @@ fn title_18_contains_inline_runs_with_class_attributes() {
     // styled defined-term headings. If zero inline runs carry a
     // class, either the corpus has changed format or our reader
     // is dropping them silently.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     let mut classed_runs = 0usize;
     for s in &title.sections {
@@ -872,7 +859,7 @@ fn sox_1514a_subsection_a_carries_whistleblower_protection_small_caps() {
     // Companies" heading rendered in small-caps via
     // `<inline class="small-caps">`. This is the precise
     // legal-term that downstream definition-extractors must lift.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let sox = title
         .section("/us/usc/t18/s1514A")
         .expect("§ 1514A present");
@@ -909,7 +896,7 @@ fn every_section_urn_starts_with_its_title_urn_t18() {
     // doesn't form a tree and citation traversal breaks. Multi-URN
     // identifiers (combined ranges) are skipped — they're a separate
     // construct outside the single-URN composition rule.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let title_urn = title.identifier.as_str();
     for s in &title.sections {
         if s.identifier.contains(' ') {
@@ -931,7 +918,7 @@ fn every_single_section_urn_is_uslm_urn_grammar_conformant() {
     // (e.g. "/us/usc/t18/s221 /us/usc/t18/s222"); those are a
     // separate ontological construct not yet typed and are
     // legitimately outside the single-URN grammar.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let mut multi_urn_count = 0usize;
     for s in &title.sections {
         if s.identifier.contains(' ') {
@@ -954,7 +941,7 @@ fn every_single_section_urn_is_uslm_urn_grammar_conformant() {
 fn title_id_round_trips_via_urn_for_title_18() {
     // Building a UsCodeTitleId from the parsed title's URN must
     // yield the same number as `UsCodeTitle.number`.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
     let expected_number = 18u32;
     let id =
         UsCodeTitleId::try_from_urn(&title.identifier).expect("title URN is a valid UsCodeTitleId");
@@ -971,7 +958,7 @@ fn every_section_lifts_to_statute_with_urn_provenance() {
     // Statute whose description carries the section's URN as
     // context_uri. This is the M4.δ.21 URN push-down invariant —
     // enforced uniformly across every section in every loaded title.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     // Spot-check 10 sections — too expensive to lift all ~1500.
     use pr4xis_domains::social::software::markup::xml::uslm::corpus::loaded as usc_loaded;
@@ -997,7 +984,7 @@ fn every_section_lifts_to_statute_with_urn_provenance() {
 fn no_section_has_internally_duplicate_subdivision_ids() {
     // Within a section, every subdivision's URN must be unique.
     // Duplicates would collide on term_by_id lookups silently.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_18, "usc_title_18");
 
     for s in &title.sections {
         let mut ids = std::collections::HashSet::new();

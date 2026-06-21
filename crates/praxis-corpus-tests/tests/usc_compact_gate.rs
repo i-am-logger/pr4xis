@@ -41,7 +41,7 @@ use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
     emit_compact_usc_prx_gz, load_compact_usc_prx_gz,
 };
 use pr4xis_domains::social::software::markup::xml::uslm::{UsCode, read_uslm_title};
-use praxis_corpus_tests::workspace_root;
+use praxis_corpus_tests::{require_provisioned, workspace_root};
 
 /// gzip size of `bytes` — the apples-to-apples "source download" baseline.
 fn gz_len(bytes: &[u8]) -> usize {
@@ -113,10 +113,7 @@ fn compact_usc_prx_beats_source_download_and_loads_faster_than_xml_over_every_ti
         );
     }
 
-    if measured == 0 {
-        eprintln!("SKIP: no USC titles provisioned on disk (run `pr4xis update`)");
-        return;
-    }
+    require_provisioned(measured, "usc");
 
     // ── LOAD-SPEED GATE: the compact fast path must be much faster than XML.
     //    Generous 2× margin vs the ~30× reality keeps it robust to CI jitter. ──
@@ -210,10 +207,10 @@ fn compact_usc_prx_gz_smaller_than_source() {
         );
         measured += 1;
     }
-    // No on-disk title within the cap (a plain checkout) — the succinct codec's
-    // correctness is still covered by the inline-fixture sibling
-    // `compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent` (fast lane).
-    if measured == 0 {
-        eprintln!("compact_usc gate: no on-disk USC title within the cap — skipped");
-    }
+    // A title MUST be on disk within the cap — absence is a real failure (CI
+    // provisions via `pr4xis update`), not a skip. The succinct codec's
+    // correctness over synthetic fixtures is also covered by the inline-fixture
+    // sibling `compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent`
+    // (fast lane), but this gate must still run over the REAL corpus.
+    require_provisioned(measured, "usc");
 }
