@@ -364,6 +364,26 @@ pub fn load_raw_source_prx_gated(
     Ok(blob)
 }
 
+/// Zero-copy twin of [`load_raw_source_prx_gated`]: verify the succinct bytes
+/// against `archive_pin`, then return the payload `blob` AS A BORROWED SLICE of
+/// `prx` rather than an owned `Vec`. The envelope is uncompressed LEB128 framing
+/// (no rkyv, no gzip), so the payload is a contiguous sub-slice — which lets the
+/// embedded-`.prx` text accessor hand back a `&str` that borrows the `'static`
+/// `include_bytes!` array, instead of leaking a fresh allocation on every call
+/// (the `no_std`/wasm re-parse path calls the accessor per use). Same fail-closed
+/// gate; nothing is borrowed until the content address verifies.
+pub fn load_raw_source_prx_gated_borrowed<'a>(
+    prx: &'a [u8],
+    archive_pin: &LockDigest,
+    key: &str,
+) -> Result<&'a [u8], RawSourcePrxError> {
+    verify_content_address(prx, archive_pin, key)?;
+    let mut pos = 0usize;
+    let _name = get_blob(prx, &mut pos)?;
+    let _version = get_blob(prx, &mut pos)?;
+    get_blob(prx, &mut pos)
+}
+
 /// Load ONE registered raw-source entry's bytes from its committed `.prx`
 /// through the fail-closed `[compact_archive_signatures]` gate — the single
 /// generalized raw-source load mechanism every phase-2 `include_*!` site is
@@ -469,16 +489,29 @@ pub fn raw_source_bytes_embedded(name: &str, version: &str, embedded_prx: &[u8])
     })
 }
 
-/// Text form of [`raw_source_bytes_embedded`] — leaks the decoded UTF-8 to
-/// `&'static str` (process-lifetime, identical to the `include_str!` static it
-/// replaces). The accessor every text raw-source (`XSD`/`DTD`/`XHTML`/spec/`TSV`/
-/// glyph list) repoints to. Panics if the committed bytes are not UTF-8.
+/// Text form of [`raw_source_bytes_embedded`] — returns the decoded UTF-8 as a
+/// `&str` that BORROWS `embedded_prx` (zero-copy), so a per-call `no_std`/wasm
+/// accessor (`wm_state_vocabulary` / `english_irregulars` re-parse on every call)
+/// allocates and leaks NOTHING. Because `embedded_prx` is the `'static`
+/// `include_bytes!` array at every call site, the borrow is `'static` in practice
+/// — the same `include_str!` semantics it replaces, now without the per-call
+/// `Box::leak`. The accessor every text raw-source (`XSD`/`DTD`/`XHTML`/spec/
+/// `TSV`/glyph list) repoints to. Fail-closed: panics on an unpinned source, a
+/// gate mismatch, or non-UTF-8 committed bytes.
 #[must_use]
-pub fn raw_source_text_embedded(name: &str, version: &str, embedded_prx: &[u8]) -> &'static str {
-    let bytes = raw_source_bytes_embedded(name, version, embedded_prx);
-    let s = String::from_utf8(bytes)
-        .unwrap_or_else(|e| panic!("raw-source `{name}` committed bytes are not UTF-8: {e}"));
-    alloc::boxed::Box::leak(s.into_boxed_str())
+pub fn raw_source_text_embedded<'a>(name: &str, version: &str, embedded_prx: &'a [u8]) -> &'a str {
+    let key = format!("{name}@{version}");
+    let Some(pin) = lock_compact_archive_signature(name, version) else {
+        panic!(
+            "raw-source `{key}`: no praxis.lock [compact_archive_signatures] pin — \
+             run `pr4xis compile --compact --lock` to pin the committed .prx"
+        )
+    };
+    let blob = load_raw_source_prx_gated_borrowed(embedded_prx, pin, &key).unwrap_or_else(|e| {
+        panic!("raw-source `{key}`: embedded committed .prx failed the content gate: {e}")
+    });
+    core::str::from_utf8(blob)
+        .unwrap_or_else(|e| panic!("raw-source `{name}` committed bytes are not UTF-8: {e}"))
 }
 
 /// Every registered raw-source entry — the set [`is_raw_source_content_type`]
