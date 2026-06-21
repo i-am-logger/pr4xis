@@ -52,7 +52,7 @@
 //! XML element names. The walker consults
 //! [`crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance`]
 //! built once from the bundled USLM XSD via
-//! [`crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD`]
+//! [`crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd`]
 //! and [`crate::formal::meta::xsd::from_xsd_parser::project_from_xsd_text`].
 //!
 //! The dispatch surface — every site where the walker chooses a

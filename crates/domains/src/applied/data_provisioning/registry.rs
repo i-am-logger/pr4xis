@@ -4,7 +4,7 @@
 //! Both texts are recovered from the committed registry MANIFEST `.prx`
 //! (`include_bytes!` of `data/registry/praxis-registry.prx`, admitted only
 //! through the fail-closed baked-root content gate
-//! [`load_registry_manifest`](super::registry_prx::load_registry_manifest)) and
+//! [`super::registry_prx::load_registry_manifest`]) and
 //! parsed lazily on first access via `OnceLock`. The `.prx` is the SOLE carrier
 //! of the manifest in the published crate — no raw `praxis.toml` / `praxis.lock`
 //! ships. The schema and parsing rules are described inline below; the
