@@ -56,34 +56,37 @@ pub fn class_iri(fragment: &str) -> String {
 pub fn reference_model()
 -> &'static crate::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary {
     use crate::applied::data_provisioning::registry::by_name;
-    use crate::social::software::markup::xml::owl::loaded_vocabularies::load_owl_vocabulary;
+    use crate::social::software::markup::xml::owl::loaded_vocabularies::load_owl_vocabulary_embedded;
     use crate::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
     use std::sync::OnceLock;
 
+    // The committed compact `.prx.gz`, EMBEDDED with `include_bytes!` — the
+    // wasm-safe load path (`reference_model` grounds the `ComposedReasoner` in
+    // every build, wasm32 included, where there is no `std::fs`). The generalized
+    // `load_owl_vocabulary` reads the `.prx.gz` from the registry/workspace path,
+    // which a wasm build can't reach; embedding the bytes (as the pre-
+    // generalization `olia::reference_model` did) keeps the SAME gated mechanism
+    // (`load_owl_vocabulary_embedded` → `load_compact_prx_gz_gated` against the
+    // `[compact_archive_signatures]` pin) without the filesystem. NO 1.2 MB OWL
+    // re-parse, NO raw-`.owl` fallback.
+    const OLIA_COMPACT_PRX_GZ: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/ontologies/olia-2026-04-09.prx.gz"
+    ));
+
     static MODEL: OnceLock<LoadedOwlVocabulary> = OnceLock::new();
     MODEL.get_or_init(|| {
-        // The generalized path: the committed compact `.prx.gz` for the `olia`
-        // registry source, gunzipped + content-gated against the `praxis.lock`
-        // `[compact_archive_signatures]` pin + succinct-decoded — NO 1.2 MB OWL
-        // re-parse, NO raw-`.owl` fallback. The OWL sibling of
-        // `english_loaded()`'s compact-archive fast load, sharing the exact
-        // `load_owl_vocabulary` mechanism every SPAR/PROV-O vocab uses.
         let entry = by_name("olia")
             .expect("the `olia` OntologyVocabulary must be registered in praxis.toml");
-        match load_owl_vocabulary(entry) {
-            Ok(Some(vocab)) => vocab,
-            Ok(None) => panic!(
-                "olia::reference_model(): the committed compact .prx.gz for `olia@{}` is \
-                 not on disk or not pinned in praxis.lock [compact_archive_signatures] — \
-                 run `pr4xis update` then `pr4xis compile --compact --lock`",
-                entry.version
-            ),
-            Err(e) => panic!(
-                "olia::reference_model(): the committed compact .prx.gz for `olia@{}` \
-                 failed the [compact_archive_signatures] content gate: {e}",
-                entry.version
-            ),
-        }
+        load_owl_vocabulary_embedded("olia", &entry.version, OLIA_COMPACT_PRX_GZ).unwrap_or_else(
+            |e| {
+                panic!(
+                    "olia::reference_model(): the embedded compact .prx.gz for `olia@{}` \
+                     failed the [compact_archive_signatures] content gate: {e}",
+                    entry.version
+                )
+            },
+        )
     })
 }
 

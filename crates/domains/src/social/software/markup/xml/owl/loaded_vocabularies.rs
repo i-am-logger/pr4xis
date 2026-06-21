@@ -175,6 +175,34 @@ pub fn load_owl_vocabulary(
     load_compact_prx_gz_gated(&prx_gz, pin, &key).map(Some)
 }
 
+/// Load an OWL vocabulary from an **embedded** committed `.prx.gz` blob — the
+/// `no_std`/wasm-safe twin of [`load_owl_vocabulary`], the OWL sibling of
+/// [`raw_source_bytes_embedded`]. `load_owl_vocabulary` reads the committed
+/// `.prx.gz` via `std::fs` (the registry/workspace path), which has no filesystem
+/// on `wasm32` — so a vocab a wasm build must auto-load (`olia::reference_model`,
+/// grounding the `ComposedReasoner`) embeds its `.prx.gz` with `include_bytes!`
+/// and hands it here instead, exactly as the OLD `olia::reference_model` did
+/// before the registry-driven generalization. Same fail-closed gate
+/// ([`load_compact_prx_gz_gated`] against the `[compact_archive_signatures]` pin);
+/// the bytes are always present (embedded), so there is no graceful-skip `None`
+/// arm — an unpinned source or a gate mismatch is a defect, surfaced as `Err`.
+///
+/// [`raw_source_bytes_embedded`]: crate::applied::data_provisioning::raw_source_prx::raw_source_bytes_embedded
+pub fn load_owl_vocabulary_embedded(
+    name: &str,
+    version: &str,
+    embedded_prx_gz: &[u8],
+) -> Result<LoadedOwlVocabulary, super::prx::PrxError> {
+    let key = format!("{name}@{version}");
+    let Some(pin) = lock_compact_archive_signature(name, version) else {
+        panic!(
+            "OWL vocabulary `{key}`: no praxis.lock [compact_archive_signatures] pin — \
+             run `pr4xis compile --compact --lock` to pin the committed .prx.gz"
+        )
+    };
+    load_compact_prx_gz_gated(embedded_prx_gz, pin, &key)
+}
+
 /// Hydrate every registered [`OntologyVocabulary`][ov] source into a
 /// `name → LoadedOwlVocabulary` map, materialised once per process behind a
 /// `OnceLock`.
