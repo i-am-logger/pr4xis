@@ -20,29 +20,16 @@ use pr4xis_domains::social::software::markup::xml::uslm::axioms::{
     axiom_every_section_has_num, axiom_hierarchy_strictly_nested, axiom_ref_hrefs_well_formed,
     axiom_section_identifiers_unique, section_identifier_to_statute_name,
 };
-use praxis_corpus_tests::{UslmCorpus, load_uslm_corpus};
+use praxis_corpus_tests::{UslmCorpus, corpus_or_fail, load_uslm_corpus};
 
 /// Title 28, parsed once. `None` if the giant is not on disk (fresh checkout
-/// before `pr4xis update`); each test then skips gracefully.
+/// before `pr4xis update`); each test then HARD-FAILS via `corpus_or_fail!` (tests do not skip).
 static TITLE_28: LazyLock<Option<UslmCorpus>> =
     LazyLock::new(|| load_uslm_corpus("legal/uscode/usc_title_28/usc_title_28-pl-119-90.xml"));
 
-/// Borrow the shared corpus, or return early with a SKIP note when absent.
-macro_rules! corpus_or_skip {
-    () => {
-        match &*TITLE_28 {
-            Some(c) => c,
-            None => {
-                eprintln!("SKIP: Title 28 USLM not on disk (run `pr4xis update`)");
-                return;
-            }
-        }
-    };
-}
-
 #[test]
 fn full_title_28_parses_with_expected_section_count() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_28, "usc_title_28");
     assert_eq!(title.identifier, "/us/usc/t28");
     assert_eq!(title.number, 28);
     assert!(
@@ -69,7 +56,7 @@ fn full_title_28_every_section_has_unique_identifier() {
     // LRC editorial convention — see `axiom_section_identifiers_unique`).
     // Delegate the LRC-documented-duplicate accommodation to that
     // axiom rather than duplicating the logic here.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_28, "usc_title_28");
     axiom_section_identifiers_unique(title).expect(
         "SectionIdentifiersUnique-or-LRC-documented-duplicates must hold for full Title 28",
     );
@@ -86,7 +73,7 @@ fn full_title_28_has_exactly_one_lrc_documented_duplicate_at_section_1932() {
     // If a future LRC release adds more URN duplicates, this test
     // surfaces it so the audit doc can update — duplicates are
     // visible, not silent.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_28, "usc_title_28");
     let mut by_urn: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for s in &title.sections {
         *by_urn.entry(s.identifier.as_str()).or_insert(0) += 1;
@@ -104,7 +91,7 @@ fn full_title_28_has_exactly_one_lrc_documented_duplicate_at_section_1932() {
 
 #[test]
 fn full_title_28_every_section_satisfies_every_axiom() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_28, "usc_title_28");
 
     axiom_every_section_has_num(title).expect("EverySectionHasNum must hold for full Title 28");
     axiom_every_container_has_identifier(title)
@@ -120,7 +107,7 @@ fn full_title_28_every_section_satisfies_every_axiom() {
 
 #[test]
 fn full_title_28_every_section_lifts_to_statute() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_28, "usc_title_28");
 
     let mut failed = 0usize;
     let mut first_failure: Option<(String, String)> = None;
@@ -146,7 +133,7 @@ fn full_title_28_every_section_lifts_to_statute() {
 fn full_title_28_known_sections_present() {
     // Sentinel sections directly relevant to the SOX whistleblower
     // case's federal-court procedural posture.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_28, "usc_title_28");
     let ids: std::collections::HashSet<&str> = title
         .sections
         .iter()
@@ -232,7 +219,7 @@ fn full_title_28_codegen_and_runtime_agree_on_section_1658() {
     // collateral-statute-of-limitations analysis — Lawson v. FMR
     // LLC's discussion of which SOL applies to a § 1514A claim
     // turned on § 1658 vs SOX § 1514A's internal 180-day clock.
-    let UslmCorpus { xml, title } = corpus_or_skip!();
+    let UslmCorpus { xml, title } = corpus_or_fail!(TITLE_28, "usc_title_28");
     let section = title
         .section("/us/usc/t28/s1658")
         .expect("§ 1658 must be present");

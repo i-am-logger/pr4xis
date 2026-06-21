@@ -11,8 +11,9 @@
 //! fast-lane per-test cap. The cheap in-memory cousin
 //! (`usc_title1_graph_faithful_reconstructs_source_byte_exact`) stays in-crate.
 //!
-//! USC titles are externally provisioned (`pr4xis update`), so a plain checkout
-//! that hasn't provisioned Title 1 skips gracefully.
+//! USC titles are externally provisioned (`pr4xis update`); CI provisions them,
+//! so a plain checkout that hasn't provisioned Title 1 HARD-FAILS via `require`
+//! naming `pr4xis update usc_title_1` — tests do not skip.
 
 use pr4xis_domains::formal::meta::well_behaved_lens::{
     CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
@@ -22,7 +23,7 @@ use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
 };
 use pr4xis_runtime::address::ContentAddress;
 
-use praxis_corpus_tests::workspace_root;
+use praxis_corpus_tests::{require, workspace_root};
 
 /// The registry `(name, version)` of the PROVEN graph-faithful title.
 const T1_NAME: &str = "usc_title_1";
@@ -31,7 +32,8 @@ const T1_URL: &str =
     "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc01@119-90.zip";
 
 /// The LITERAL on-disk Title 1 USLM file — the raw published bytes EXACTLY, CRLFs
-/// included. `None` when the corpus is not provisioned (graceful skip).
+/// included. `None` when the corpus is not provisioned; the caller routes that
+/// `None` through [`require`] to HARD-FAIL (tests do not skip).
 fn real_title1_source() -> Option<Vec<u8>> {
     let path = workspace_root()
         .join("crates/domains/data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml");
@@ -54,9 +56,7 @@ fn real_title1_source() -> Option<Vec<u8>> {
 /// registered `UslmGraphFaithfulLens`, and it carries NO `write_uslm` gap.
 #[test]
 fn usc_title1_graph_faithful_prx_round_trip_over_real_corpus() {
-    let Some(source) = real_title1_source() else {
-        return; // not provisioned on disk — skip gracefully
-    };
+    let source = require(real_title1_source(), "usc_title_1");
 
     // Emit the graph-faithful envelope: typed ontology + concrete-syntax
     // complement, NO raw blob.

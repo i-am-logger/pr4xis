@@ -27,29 +27,16 @@ use pr4xis_domains::social::software::markup::xml::uslm::axioms::{
     axiom_section_identifiers_unique, is_lrc_duplicate_numbering_footnote,
     section_identifier_to_statute_name,
 };
-use praxis_corpus_tests::{UslmCorpus, load_uslm_corpus};
+use praxis_corpus_tests::{UslmCorpus, corpus_or_fail, load_uslm_corpus};
 
 /// Title 5, parsed once. `None` if the giant is not on disk (fresh checkout
-/// before `pr4xis update`); each test then skips gracefully.
+/// before `pr4xis update`); each test then HARD-FAILS via `corpus_or_fail!` (tests do not skip).
 static TITLE_5: LazyLock<Option<UslmCorpus>> =
     LazyLock::new(|| load_uslm_corpus("legal/uscode/usc_title_5/usc_title_5-pl-119-90.xml"));
 
-/// Borrow the shared corpus, or return early with a SKIP note when absent.
-macro_rules! corpus_or_skip {
-    () => {
-        match &*TITLE_5 {
-            Some(c) => c,
-            None => {
-                eprintln!("SKIP: Title 5 USLM not on disk (run `pr4xis update`)");
-                return;
-            }
-        }
-    };
-}
-
 #[test]
 fn full_title_5_parses_with_expected_section_count() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_5, "usc_title_5");
     assert_eq!(title.identifier, "/us/usc/t5");
     assert_eq!(title.number, 5);
     assert!(
@@ -72,7 +59,7 @@ fn full_title_5_parses_with_expected_section_count() {
 
 #[test]
 fn full_title_5_every_section_has_unique_identifier() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_5, "usc_title_5");
     axiom_section_identifiers_unique(title)
         .expect("SectionIdentifiersUnique-or-LRC-documented-duplicates must hold for full Title 5");
 }
@@ -88,7 +75,7 @@ fn full_title_5_section_3598_is_identical_heading_lrc_duplicate() {
     // grounds on that footnote rather than on heading-distinctness
     // (which 28 U.S.C. § 1932 and 5 U.S.C. § 5757 satisfy but § 3598
     // does not). Regression guard for the M4.δ.8 finding.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_5, "usc_title_5");
     let occ: Vec<&UsCodeSection> = title
         .sections
         .iter()
@@ -150,7 +137,7 @@ fn full_title_5_section_3598_is_identical_heading_lrc_duplicate() {
 
 #[test]
 fn full_title_5_every_section_satisfies_every_axiom() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_5, "usc_title_5");
 
     axiom_every_section_has_num(title).expect("EverySectionHasNum must hold for full Title 5");
     axiom_every_container_has_identifier(title)
@@ -166,7 +153,7 @@ fn full_title_5_every_section_satisfies_every_axiom() {
 
 #[test]
 fn full_title_5_every_section_lifts_to_statute() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_5, "usc_title_5");
 
     let mut failed = 0usize;
     let mut first_failure: Option<(String, String)> = None;
@@ -192,7 +179,7 @@ fn full_title_5_every_section_lifts_to_statute() {
 fn full_title_5_known_sections_present() {
     // Sentinel sections forming the harassment-timeline tree's
     // transparency + federal-whistleblower backbone.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_5, "usc_title_5");
     let ids: std::collections::HashSet<&str> = title
         .sections
         .iter()
@@ -260,7 +247,7 @@ fn full_title_5_codegen_and_runtime_agree_on_foia() {
     // for the harassment-timeline tree's FOIA work. Runtime XML
     // loading (M4.δ.7.a) must produce the same term set the build-
     // time codegen path would have.
-    let UslmCorpus { xml, title } = corpus_or_skip!();
+    let UslmCorpus { xml, title } = corpus_or_fail!(TITLE_5, "usc_title_5");
     let section = title
         .section("/us/usc/t5/s552")
         .expect("§ 552 must be present");

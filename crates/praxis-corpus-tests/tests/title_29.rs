@@ -20,29 +20,16 @@ use pr4xis_domains::social::software::markup::xml::uslm::axioms::{
     axiom_every_section_has_num, axiom_hierarchy_strictly_nested, axiom_ref_hrefs_well_formed,
     axiom_section_identifiers_unique, section_identifier_to_statute_name,
 };
-use praxis_corpus_tests::{UslmCorpus, load_uslm_corpus};
+use praxis_corpus_tests::{UslmCorpus, corpus_or_fail, load_uslm_corpus};
 
 /// Title 29, parsed once. `None` if the title is not on disk (fresh checkout
-/// before `pr4xis update`); each test then skips gracefully.
+/// before `pr4xis update`); each test then HARD-FAILS via `corpus_or_fail!` (tests do not skip).
 static TITLE_29: LazyLock<Option<UslmCorpus>> =
     LazyLock::new(|| load_uslm_corpus("legal/uscode/usc_title_29/usc_title_29-pl-119-90.xml"));
 
-/// Borrow the shared corpus, or return early with a SKIP note when absent.
-macro_rules! corpus_or_skip {
-    () => {
-        match &*TITLE_29 {
-            Some(c) => c,
-            None => {
-                eprintln!("SKIP: Title 29 USLM not on disk (run `pr4xis update`)");
-                return;
-            }
-        }
-    };
-}
-
 #[test]
 fn full_title_29_parses_with_expected_section_count() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_29, "usc_title_29");
     assert_eq!(title.identifier, "/us/usc/t29");
     assert_eq!(title.number, 29);
     assert!(
@@ -63,7 +50,7 @@ fn full_title_29_parses_with_expected_section_count() {
 
 #[test]
 fn full_title_29_every_section_has_unique_identifier() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_29, "usc_title_29");
     axiom_section_identifiers_unique(title).expect(
         "SectionIdentifiersUnique-or-LRC-documented-duplicates must hold for full Title 29",
     );
@@ -71,7 +58,7 @@ fn full_title_29_every_section_has_unique_identifier() {
 
 #[test]
 fn full_title_29_every_section_satisfies_every_axiom() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_29, "usc_title_29");
 
     axiom_every_section_has_num(title).expect("EverySectionHasNum must hold for full Title 29");
     axiom_every_container_has_identifier(title)
@@ -87,7 +74,7 @@ fn full_title_29_every_section_satisfies_every_axiom() {
 
 #[test]
 fn full_title_29_every_section_lifts_to_statute() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_29, "usc_title_29");
 
     let mut failed = 0usize;
     let mut first_failure: Option<(String, String)> = None;
@@ -113,7 +100,7 @@ fn full_title_29_every_section_lifts_to_statute() {
 fn full_title_29_known_sections_present() {
     // Sentinel sections directly relevant to the SOX whistleblower
     // case's labor-law backbone.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_29, "usc_title_29");
     let ids: std::collections::HashSet<&str> = title
         .sections
         .iter()
@@ -190,7 +177,7 @@ fn full_title_29_codegen_and_runtime_agree_on_section_660() {
     // procedural-framework-by-reference chain. SOX § 806 imports
     // OSHA's procedures via 49 U.S.C. § 42121(b), which references
     // back to OSHA's administrative scheme rooted here.
-    let UslmCorpus { xml, title } = corpus_or_skip!();
+    let UslmCorpus { xml, title } = corpus_or_fail!(TITLE_29, "usc_title_29");
     let section = title
         .section("/us/usc/t29/s660")
         .expect("§ 660 must be present");

@@ -19,29 +19,16 @@ use pr4xis_domains::social::software::markup::xml::uslm::axioms::{
     axiom_section_identifiers_unique, section_identifier_to_statute_name,
 };
 use pr4xis_domains::social::software::markup::xml::uslm::{ContainerKind, UsCodeTitleId};
-use praxis_corpus_tests::{UslmCorpus, load_uslm_corpus};
+use praxis_corpus_tests::{UslmCorpus, corpus_or_fail, load_uslm_corpus};
 
 /// Title 49, parsed once. `None` if the giant is not on disk (fresh checkout
-/// before `pr4xis update`); each test then skips gracefully.
+/// before `pr4xis update`); each test then HARD-FAILS via `corpus_or_fail!` (tests do not skip).
 static TITLE_49: LazyLock<Option<UslmCorpus>> =
     LazyLock::new(|| load_uslm_corpus("legal/uscode/usc_title_49/usc_title_49-pl-119-90.xml"));
 
-/// Borrow the shared corpus, or return early with a SKIP note when absent.
-macro_rules! corpus_or_skip {
-    () => {
-        match &*TITLE_49 {
-            Some(c) => c,
-            None => {
-                eprintln!("SKIP: Title 49 USLM not on disk (run `pr4xis update`)");
-                return;
-            }
-        }
-    };
-}
-
 #[test]
 fn full_title_49_parses_with_expected_section_count() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     assert_eq!(title.identifier, "/us/usc/t49");
     assert_eq!(title.number, 49);
     assert!(
@@ -58,7 +45,7 @@ fn full_title_49_parses_with_expected_section_count() {
 
 #[test]
 fn full_title_49_every_section_has_unique_identifier() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let mut seen = std::collections::HashSet::new();
     for s in &title.sections {
         assert!(seen.insert(&s.identifier), "duplicate: {}", s.identifier);
@@ -67,7 +54,7 @@ fn full_title_49_every_section_has_unique_identifier() {
 
 #[test]
 fn full_title_49_every_section_satisfies_every_axiom() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     axiom_every_section_has_num(title).expect("EverySectionHasNum");
     axiom_every_container_has_identifier(title).expect("EveryContainerHasIdentifier");
     axiom_child_identifier_extends_parent(title).expect("ChildIdentifierExtendsParent");
@@ -78,7 +65,7 @@ fn full_title_49_every_section_satisfies_every_axiom() {
 
 #[test]
 fn full_title_49_every_section_lifts_to_statute() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let mut failed = 0usize;
     let mut first_failure: Option<(String, String)> = None;
     for s in &title.sections {
@@ -101,7 +88,7 @@ fn full_title_49_every_section_lifts_to_statute() {
 
 #[test]
 fn full_title_49_known_sections_present() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let ids: std::collections::HashSet<&str> = title
         .sections
         .iter()
@@ -113,7 +100,7 @@ fn full_title_49_known_sections_present() {
 
 #[test]
 fn full_title_49_codegen_and_runtime_agree_on_air21() {
-    let UslmCorpus { xml, title } = corpus_or_skip!();
+    let UslmCorpus { xml, title } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let section = title
         .section("/us/usc/t49/s42121")
         .expect("§ 42121 must be present");
@@ -136,7 +123,7 @@ fn full_title_49_codegen_and_runtime_agree_on_air21() {
 
 #[test]
 fn hierarchy_has_published_subtitle_part_chapter_counts_for_title_49() {
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let subtitles = t.containers_of_kind(ContainerKind::Subtitle);
     let parts = t.containers_of_kind(ContainerKind::Part);
     let subparts = t.containers_of_kind(ContainerKind::Subpart);
@@ -170,7 +157,7 @@ fn quoted_content_sections_dont_leak_into_published_sections() {
     // being collected as real sections. With Tier-3, those become
     // UsCodeSectionRef inside the quote's body, and the published
     // sections list is unaffected.
-    let UslmCorpus { title: t, .. } = corpus_or_skip!();
+    let UslmCorpus { title: t, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     // Every published section has a non-empty identifier.
     for s in &t.sections {
         assert!(
@@ -201,7 +188,7 @@ fn quoted_content_sections_dont_leak_into_published_sections() {
 
 #[test]
 fn title_49_real_corpus_has_olrc_meta_block() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let meta = title
         .meta
         .as_ref()
@@ -217,7 +204,7 @@ fn every_section_urn_starts_with_its_title_urn_t49() {
     // doesn't form a tree and citation traversal breaks. Multi-URN
     // identifiers (combined ranges) are skipped — they're a separate
     // construct outside the single-URN composition rule.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let title_urn = title.identifier.as_str();
     for s in &title.sections {
         if s.identifier.contains(' ') {
@@ -235,7 +222,7 @@ fn every_section_urn_starts_with_its_title_urn_t49() {
 fn title_id_round_trips_via_urn_for_title_18_and_49_t49() {
     // Building a UsCodeTitleId from the parsed title's URN must
     // yield the same number as `UsCodeTitle.number`.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_49, "usc_title_49");
     let expected_number = 49u32;
     let id =
         UsCodeTitleId::try_from_urn(&title.identifier).expect("title URN is a valid UsCodeTitleId");

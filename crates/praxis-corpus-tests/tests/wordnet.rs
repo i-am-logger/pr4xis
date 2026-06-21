@@ -13,12 +13,15 @@
 //! run over BOTH on-disk WN-LMF sources — the tiny `us_legal_lexicon` (instant)
 //! and the 89 MB `english_wordnet` — so they iterate [`WnCorpus::sources`]. The
 //! remaining gates are `english_wordnet`-only and borrow [`WnCorpus::english`].
-//! Every source is fetched (`pr4xis update`), not committed, so each test skips
-//! gracefully when its corpus is absent on a fresh checkout.
+//! Every source is fetched (`pr4xis update`), not committed; CI provisions it,
+//! so an absent corpus is a real failure — each test HARD-FAILS (via `require` /
+//! `require_provisioned`) naming the `pr4xis update <corpus>` to run, never skips.
 
 use std::sync::LazyLock;
 
-use praxis_corpus_tests::{WnCorpus, load_wordnet_corpus, workspace_root};
+use praxis_corpus_tests::{
+    WnCorpus, load_wordnet_corpus, require, require_provisioned, workspace_root,
+};
 
 use pr4xis::codegen::wordnet::parse_wordnet_xml;
 use pr4xis_domains::applied::data_provisioning::registry::{
@@ -51,7 +54,7 @@ use pr4xis_domains::social::software::markup::xml::owl::prx::prx_archive_address
 use pr4xis_runtime::address::ContentAddress;
 
 /// The WN-LMF corpus, parsed once. `sources` is empty on a fresh checkout that
-/// hasn't provisioned the XML (`pr4xis update`); each test then skips gracefully.
+/// hasn't provisioned the XML (`pr4xis update`); each test then HARD-FAILS via `require` (tests do not skip).
 static WORDNET: LazyLock<WnCorpus> = LazyLock::new(load_wordnet_corpus);
 
 /// `english_wordnet` 2025 release coordinates — the on-disk corpus's registered
@@ -87,13 +90,10 @@ fn gz_len(bytes: &[u8]) -> usize {
 /// The codec is LOSSLESS over the compact core
 /// (`from_succinct(to_succinct(c)) == c`) and the `.prx` is smaller than the
 /// raw source. Reads the tiny lexicon (instant) + 89 MB english (one parse);
-/// graceful skip if absent.
+/// HARD-FAIL via `require` if absent (tests do not skip).
 #[test]
 fn succinct_codec_roundtrip_and_smaller() {
-    if WORDNET.sources.is_empty() {
-        eprintln!("SKIP: no WN-LMF source on disk");
-        return;
-    }
+    require_provisioned(WORDNET.sources.len(), "wordnet");
     let mut measured = 0usize;
     for s in &WORDNET.sources {
         let name = s.name;
@@ -140,10 +140,7 @@ fn succinct_codec_roundtrip_and_smaller() {
 /// index) — the full embed/download → gunzip → decode → reason pipeline.
 #[test]
 fn prx_gz_round_trips_to_english() {
-    if WORDNET.sources.is_empty() {
-        eprintln!("SKIP: no WN-LMF source on disk");
-        return;
-    }
+    require_provisioned(WORDNET.sources.len(), "wordnet");
     let mut measured = 0usize;
     for s in &WORDNET.sources {
         let name = s.name;
@@ -220,13 +217,10 @@ fn prx_gz_round_trips_to_english() {
 /// `praxis.lock` `[compact_archive_signatures]` pin (required when the corpus is
 /// provisioned): the regression teeth on the pin `english_loaded()` trusts — a
 /// codec change that silently invalidated it fails here, demanding a deliberate
-/// KAT bump. Graceful skip when the 89 MB corpus is not provisioned.
+/// KAT bump. HARD-FAILS via `require` when the 89 MB corpus is not provisioned (tests do not skip).
 #[test]
 fn compact_english_prx_keystone_gate_over_real_corpus() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
     let source = &en.source;
     let text = core::str::from_utf8(source).expect("WN-LMF source is UTF-8");
 
@@ -338,13 +332,10 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
 /// `English::from_wordnet` parse of the on-disk source: a rich corpus
 /// (>100k concepts), an identical `concept_count`, and an identical
 /// word→concept index. The runtime's chosen path must produce the authoritative
-/// English. Graceful skip when the 89 MB corpus is not provisioned.
+/// English. HARD-FAILS via `require` when the 89 MB corpus is not provisioned (tests do not skip).
 #[test]
 fn english_loaded_dispatcher_matches_from_wordnet() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
 
     // The authoritative reference: a fresh parse + materialization of the
     // on-disk source — the same English every other gate measures against.
@@ -374,14 +365,11 @@ fn english_loaded_dispatcher_matches_from_wordnet() {
 /// The compact integer-addressed core is REASONING-EQUIVALENT to the source
 /// `WordNet`: `from_wordnet` over the original and over `decode(encode(wn))`
 /// build the same `English` (same concept count and word→concept index).
-/// Reads the tiny lexicon (instant) + the 89 MB english (one parse); graceful
-/// skip if absent.
+/// Reads the tiny lexicon (instant) + the 89 MB english (one parse); HARD-FAILS
+/// via `require` if absent (tests do not skip).
 #[test]
 fn compact_is_reasoning_equivalent_and_small() {
-    if WORDNET.sources.is_empty() {
-        eprintln!("SKIP: no WN-LMF source on disk");
-        return;
-    }
+    require_provisioned(WORDNET.sources.len(), "wordnet");
     let mut measured = 0usize;
     for s in &WORDNET.sources {
         let name = s.name;
@@ -423,17 +411,14 @@ fn compact_is_reasoning_equivalent_and_small() {
 
 /// The full Open English WordNet 2025 corpus (≈89 MB on disk) emits and
 /// round-trips through the gate, materializing a rich [`English`] whose
-/// `concept_count` matches `English::from_wordnet`. Gated behind the
-/// on-disk file with a graceful skip — a plain checkout that hasn't
-/// provisioned the data emits nothing here, the same graceful-skip
-/// doctrine `loaded_vocabularies` and the emitters use. Heavy, so it is
-/// the on-disk-only corroboration of the cheap sample round-trip above.
+/// `concept_count` matches `English::from_wordnet`. Gated on the on-disk
+/// file via `require` — a plain checkout that hasn't provisioned the data
+/// HARD-FAILS here naming `pr4xis update english_wordnet` (tests do not
+/// skip). Heavy, so it is the on-disk-only corroboration of the cheap
+/// sample round-trip above.
 #[test]
 fn wordnet_full_corpus_emit_then_load_matches_from_wordnet() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
     let source = &en.source;
     let reference = English::from_wordnet(&en.wn);
 
@@ -476,15 +461,12 @@ fn wordnet_full_corpus_emit_then_load_matches_from_wordnet() {
 ///
 /// AND the completeness meter reports `english_wordnet` graph-faithful (its
 /// declared tier is `ByteExactGraphFaithful` via the registered
-/// `WordNetLmfLens`, and it carries NO `write_wordnet` gap). Gated behind the
-/// on-disk corpus with a graceful skip — a plain checkout that hasn't
-/// provisioned the ≈89 MB XML skips, the same doctrine the emitters use.
+/// `WordNetLmfLens`, and it carries NO `write_wordnet` gap). Gated on the
+/// on-disk corpus via `require` — a plain checkout that hasn't provisioned the
+/// ≈89 MB XML HARD-FAILS naming `pr4xis update english_wordnet` (tests do not skip).
 #[test]
 fn wordnet_graph_faithful_prx_round_trip_over_real_corpus() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
     let source = &en.source;
 
     // Emit the graph-faithful envelope: typed ontology + concrete-syntax
@@ -582,15 +564,13 @@ fn wordnet_graph_faithful_prx_round_trip_over_real_corpus() {
 /// ontology plus a concrete-syntax complement, with NO stored raw blob /
 /// stored DOM).
 ///
-/// Gated behind the on-disk file with a graceful skip (the same doctrine
+/// Gated on the on-disk file via `require` (the same doctrine
 /// `wordnet_full_corpus_emit_then_load_matches_from_wordnet` uses) — a plain
-/// checkout that has not provisioned the ≈89 MB XML emits nothing here.
+/// checkout that has not provisioned the ≈89 MB XML HARD-FAILS here naming
+/// `pr4xis update english_wordnet` (tests do not skip).
 #[test]
 fn wordnet_reconstruct_byte_exact_over_real_corpus() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
     let source = &en.source;
     let src = core::str::from_utf8(source).expect("WordNet XML is UTF-8");
 
@@ -640,10 +620,7 @@ fn wordnet_reconstruct_byte_exact_over_real_corpus() {
 /// lookups ('dog', 'entity') resolve. Borrows the shared parse.
 #[test]
 fn load_full_wordnet() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
     let wn = &en.wn;
 
     let taxonomy = wn.taxonomy_relations();
@@ -687,10 +664,7 @@ fn load_full_wordnet() {
 /// codegen's `entity_count` (each synset becomes an `EntityDef`).
 #[test]
 fn codegen_and_runtime_paths_agree_on_synset_count() {
-    let Some(en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let en = require(WORDNET.english(), "english_wordnet");
 
     // Runtime path (the shared parse).
     let runtime_wn = &en.wn;
@@ -716,8 +690,9 @@ fn codegen_and_runtime_paths_agree_on_synset_count() {
 /// `[archive_signatures]` is a SHARED keyspace (OWL + USC + WordNet pin
 /// alongside each other), so this anchor test owns ONLY the `Language`
 /// partition — exactly as the OWL anchor owns `OntologyVocabulary` and the USC
-/// anchor owns `UsCodeTitle`. Gated on the bundled XML with a graceful skip: a
-/// checkout that hasn't provisioned a lexicon emits nothing for it.
+/// anchor owns `UsCodeTitle`. Gated on the bundled XML via `require_provisioned`:
+/// a checkout that hasn't provisioned ANY lexicon HARD-FAILS naming
+/// `pr4xis update wordnet` (tests do not skip).
 ///
 /// Heavy producer (re-emits the 89 MB English lexicon `.prx`): lifted out of the
 /// `pr4xis-domains` `#[cfg(test)]` module into this heavy-corpus lane so the fast
@@ -773,6 +748,10 @@ fn wordnet_archive_anchors_match_lock() {
             "{key} must have an [archive_signatures] pin"
         );
     }
+    // A lexicon MUST be on disk — with NONE provisioned `emitted` and
+    // `lang_keys` are both empty and the equality above passes vacuously. CI
+    // provisions via `pr4xis update`, so emptiness is a real failure, not a skip.
+    require_provisioned(emitted.len(), "wordnet");
 }
 
 /// THE B1 GROUNDING GATE — "is a dog an animal" answered over the REAL loaded
@@ -785,14 +764,11 @@ fn wordnet_archive_anchors_match_lock() {
 /// decided over THAT ontology's materialized Subsumption closure (via typed
 /// `ConceptRef`s the English lexicon resolves) — not English's bespoke
 /// `hypernym_closure`. The SUBSTRATE SPLIT is gone: a loaded `.prx` is now an
-/// addressable, traversable graph a generic engine reasons over. Graceful skip
+/// addressable, traversable graph a generic engine reasons over. HARD-FAIL via `require`
 /// when the 89 MB corpus is not provisioned.
 #[test]
 fn b1_gate_is_a_dog_an_animal_over_the_real_loaded_english_prx() {
-    let Some(_en) = WORDNET.english() else {
-        eprintln!("SKIP: WordNet not on disk");
-        return;
-    };
+    let _en = require(WORDNET.english(), "english_wordnet");
 
     // The real loaded English — the same one the chat grounds over.
     let english = english_loaded();

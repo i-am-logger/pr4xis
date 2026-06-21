@@ -19,29 +19,16 @@ use pr4xis_domains::social::software::markup::xml::uslm::axioms::{
     axiom_every_section_has_num, axiom_hierarchy_strictly_nested, axiom_ref_hrefs_well_formed,
     axiom_section_identifiers_unique, section_identifier_to_statute_name,
 };
-use praxis_corpus_tests::{UslmCorpus, load_uslm_corpus};
+use praxis_corpus_tests::{UslmCorpus, corpus_or_fail, load_uslm_corpus};
 
 /// Title 15, parsed once. `None` if the giant is not on disk (fresh checkout
-/// before `pr4xis update`); each test then skips gracefully.
+/// before `pr4xis update`); each test then HARD-FAILS via `corpus_or_fail!` (tests do not skip).
 static TITLE_15: LazyLock<Option<UslmCorpus>> =
     LazyLock::new(|| load_uslm_corpus("legal/uscode/usc_title_15/usc_title_15-pl-119-90.xml"));
 
-/// Borrow the shared corpus, or return early with a SKIP note when absent.
-macro_rules! corpus_or_skip {
-    () => {
-        match &*TITLE_15 {
-            Some(c) => c,
-            None => {
-                eprintln!("SKIP: Title 15 USLM not on disk (run `pr4xis update`)");
-                return;
-            }
-        }
-    };
-}
-
 #[test]
 fn full_title_15_parses_with_expected_section_count() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_15, "usc_title_15");
     assert_eq!(title.identifier, "/us/usc/t15");
     assert_eq!(title.number, 15);
     assert!(
@@ -63,7 +50,7 @@ fn full_title_15_parses_with_expected_section_count() {
 
 #[test]
 fn full_title_15_every_section_has_unique_identifier() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_15, "usc_title_15");
     let mut seen = std::collections::HashSet::new();
     for s in &title.sections {
         assert!(
@@ -76,7 +63,7 @@ fn full_title_15_every_section_has_unique_identifier() {
 
 #[test]
 fn full_title_15_every_section_satisfies_every_axiom() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_15, "usc_title_15");
 
     axiom_every_section_has_num(title).expect("EverySectionHasNum must hold for full Title 15");
     axiom_every_container_has_identifier(title)
@@ -92,7 +79,7 @@ fn full_title_15_every_section_satisfies_every_axiom() {
 
 #[test]
 fn full_title_15_every_section_lifts_to_statute() {
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_15, "usc_title_15");
 
     let mut failed = 0usize;
     let mut first_failure: Option<(String, String)> = None;
@@ -119,7 +106,7 @@ fn full_title_15_known_sections_present() {
     // Sentinel sections directly relevant to the SOX whistleblower
     // case. Failure here means the LRC's release point drifted or
     // our slicing is wrong.
-    let UslmCorpus { title, .. } = corpus_or_skip!();
+    let UslmCorpus { title, .. } = corpus_or_fail!(TITLE_15, "usc_title_15");
     let ids: std::collections::HashSet<&str> = title
         .sections
         .iter()
@@ -223,7 +210,7 @@ fn full_title_15_codegen_and_runtime_agree_on_rule_10b5() {
     // Act § 10, the Rule 10b-5 enabling statute). Verify codegen
     // and runtime extract the same term IDs for it — the same
     // contract Title 49's air21_42121 satisfies.
-    let UslmCorpus { xml, title } = corpus_or_skip!();
+    let UslmCorpus { xml, title } = corpus_or_fail!(TITLE_15, "usc_title_15");
     let section = title
         .section("/us/usc/t15/s78j")
         .expect("§ 78j must be present");

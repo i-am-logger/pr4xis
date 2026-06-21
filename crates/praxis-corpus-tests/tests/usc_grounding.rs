@@ -8,8 +8,9 @@
 //!     → an English `ontolex:Form` atom.
 //!
 //! Nothing here is a bespoke string side-channel and nothing outside the lens is
-//! English-specific. USC titles are externally provisioned (`pr4xis update`), so a
-//! plain checkout skips gracefully.
+//! English-specific. USC titles are externally provisioned (`pr4xis update`); CI
+//! provisions them, so a plain checkout HARD-FAILS via `require` naming
+//! `pr4xis update usc` — tests do not skip.
 
 use pr4xis_domains::applied::data_provisioning::registry::data_sources;
 use pr4xis_domains::cognitive::linguistics::english::bridge::{
@@ -25,10 +26,11 @@ use pr4xis_domains::social::software::markup::xml::uslm::{UsCode, read_uslm_titl
 use pr4xis_runtime::definition::EdgeTarget;
 use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
 use pr4xis_runtime::ontology::relations_kind;
-use praxis_corpus_tests::workspace_root;
+use praxis_corpus_tests::{require, workspace_root};
 
 /// Load the first provisioned USC title as a `UsCode`, or `None` on a fresh
-/// checkout (skip gracefully).
+/// checkout — callers route the `None` through [`require`] to HARD-FAIL (tests
+/// do not skip).
 fn first_provisioned_title() -> Option<UsCode> {
     let root = workspace_root();
     for entry in data_sources() {
@@ -49,10 +51,7 @@ fn first_provisioned_title() -> Option<UsCode> {
 /// — into a real English `ontolex:Form` atom, resolved by the generic resolver.
 #[test]
 fn a_real_statute_provision_grounds_into_an_english_form_atom() {
-    let Some(usc) = first_provisioned_title() else {
-        eprintln!("SKIP: no USC title provisioned");
-        return;
-    };
+    let usc = require(first_provisioned_title(), "usc");
     let english = english_loaded();
 
     // 1. Project the title into the generic Archive (provisions as Definition nodes).
@@ -109,10 +108,7 @@ fn a_real_statute_provision_grounds_into_an_english_form_atom() {
 /// mereology over a nested title (the unit test only had the flat `UsCode::sample`).
 #[test]
 fn the_real_title_projects_a_parthood_mereology() {
-    let Some(usc) = first_provisioned_title() else {
-        eprintln!("SKIP: no USC title provisioned");
-        return;
-    };
+    let usc = require(first_provisioned_title(), "usc");
     // (1) The RAW structural projection: the Composes mereology edges are
     // referentially closed (the §9 heading/citation lexicalization edges ride
     // alongside; the praxis relabel is the functor's job, below).

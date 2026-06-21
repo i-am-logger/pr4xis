@@ -9,8 +9,9 @@
 //! `ANCHOR_EMIT_SIZE_CAP` is preserved — it still bounds which titles are emitted
 //! so the giants (Title 42 ≈ 108 MB) are anchored by the full-corpus
 //! `pr4xis compile` CI step and `loaded()`'s fail-closed gate, not re-emitted
-//! here. USC titles are externally provisioned (`pr4xis update`), so a plain
-//! checkout has none on disk and both gates skip gracefully.
+//! here. USC titles are externally provisioned (`pr4xis update`); CI provisions
+//! them, so each gate HARD-FAILS (via `require_provisioned`) if NONE are on disk
+//! within the cap — tests do not skip.
 
 use pr4xis_domains::applied::data_provisioning::registry::{
     LockDigest, data_sources, lock_archive_signature, lock_compact_archive_signature,
@@ -20,7 +21,7 @@ use pr4xis_domains::social::software::markup::xml::owl::prx::prx_archive_address
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
     compact_prx_archive_address, emit_compact_usc_prx_gz, emit_usc_prx_gz,
 };
-use praxis_corpus_tests::workspace_root;
+use praxis_corpus_tests::{require_provisioned, workspace_root};
 
 /// Skip titles whose XML exceeds this — keeps the per-test emit bounded while
 /// still covering the footnote-heading titles (18 ≈ 12 MB, 28 ≈ 8 MB) whose
@@ -43,6 +44,7 @@ const ANCHOR_EMIT_SIZE_CAP: u64 = 16 * 1024 * 1024;
 #[test]
 fn usc_archive_anchors_match_lock() {
     let root = workspace_root();
+    let mut checked = 0usize;
     for entry in data_sources() {
         if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
             continue;
@@ -52,7 +54,7 @@ fn usc_archive_anchors_match_lock() {
         };
         let path = root.join(entry.local_path());
         let Ok(meta) = std::fs::metadata(&path) else {
-            continue; // not provisioned on disk — skip gracefully
+            continue; // not provisioned this run — covered when on disk
         };
         if meta.len() > ANCHOR_EMIT_SIZE_CAP {
             continue; // too large for the per-test budget — see the const doc
@@ -68,7 +70,11 @@ fn usc_archive_anchors_match_lock() {
             entry.name,
             entry.version
         );
+        checked += 1;
     }
+    // A pinned title within the cap MUST be on disk — with none, the loop
+    // asserted nothing (a false-green). CI provisions via `pr4xis update`.
+    require_provisioned(checked, "usc");
 }
 
 /// COMPACT ARCHIVE ANCHOR — for every on-disk title within the budget that has a
@@ -76,7 +82,8 @@ fn usc_archive_anchors_match_lock() {
 /// re-derives EXACTLY that pin. The portable (toolchain-independent) compact
 /// sibling of `usc_archive_anchors_match_lock`; keeps the committed compact pins
 /// honest — a stale or wrong pin (or a codec change that shifts the bytes) fails
-/// closed here. Skips titles > the cap and titles not on disk.
+/// closed here. Leaves out titles > the cap and titles not on disk this run, but
+/// HARD-FAILS via `require_provisioned` if NONE are on disk within the cap.
 #[test]
 fn compact_usc_archive_anchors_match_lock() {
     let root = workspace_root();
@@ -108,7 +115,7 @@ fn compact_usc_archive_anchors_match_lock() {
         );
         checked += 1;
     }
-    if checked == 0 {
-        eprintln!("compact anchor: no pinned on-disk USC title within the cap — skipped");
-    }
+    // A pinned title within the cap MUST be on disk — with none, the loop
+    // asserted nothing (a false-green). CI provisions via `pr4xis update`.
+    require_provisioned(checked, "usc");
 }
