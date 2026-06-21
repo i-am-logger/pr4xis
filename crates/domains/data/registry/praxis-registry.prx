@@ -1,4 +1,4 @@
-��# praxis.toml — Praxis external-data registry manifest.
+��# praxis.toml — Praxis external-data registry manifest.
 #
 # Cargo-precedent naming: this file is the manifest; `praxis.lock` (M2)
 # pins the expected content hashes per (name, version). Lives at the
@@ -558,7 +558,7 @@ version     = "2025"
 type        = "ColorSchemeVocabulary"
 url         = "https://github.com/i-am-logger/tinted-schemes.git"
 local_path  = "themes/tinted-schemes-2025.themes"
-description = "Base16/Base24 named color-scheme collection — the Tinted Theming `tinted-schemes` corpus (one YAML palette per named scheme; base00..base0F for Base16, base00..base17 for Base24). FETCHED from the i-am-logger/tinted-schemes fork (a community dataset fork), archived into a single deterministic `.themes` blob by `theme_collection::archive_directory` over the `base16/` + `base24/` scheme trees, and shipped as the committed content-addressed `.prx`. The substrate the theming validator scans to certify the praxis luminance-monotonicity + WCAG-AA-contrast axioms over real-world palettes. Cite: Tinted Theming, Base16 Styling Guidelines + Base24 specification, <https://github.com/tinted-theming/home>; W3C WCAG 2.1 §1.4.3."
+description = "Base16/Base24 named color-scheme collection — the Tinted Theming `tinted-schemes` corpus (one YAML palette per named scheme; base00..base0F for Base16, base00..base17 for Base24). Provenance: the i-am-logger/tinted-schemes fork (a community dataset fork). BUNDLED source-of-truth — a git-clone-and-archive is NOT byte-reproducible against the pin (the fork moves; archive ordering differs), unlike the single-file HTTP sources, so the deterministic `.themes` archive (`theme_collection::archive_directory` over the `base16/` + `base24/` trees) is git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, and present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-cloning the moving fork (re-sync the fork deliberately via `pr4xis update tinted_schemes --lock`). Shipped as the committed content-addressed `.prx`. The substrate the theming validator scans to certify the praxis luminance-monotonicity + WCAG-AA-contrast axioms over real-world palettes. Cite: Tinted Theming, Base16 Styling Guidelines + Base24 specification, <https://github.com/tinted-theming/home>; W3C WCAG 2.1 §1.4.3."
 
 # English irregular-forms slice — REGENERATED from the registered AGID source
 # (`--ignored regenerate_english_irregulars_tsv`); the runtime morphological-

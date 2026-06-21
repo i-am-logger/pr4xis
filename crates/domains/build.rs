@@ -178,7 +178,7 @@ fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
 /// against this BAKED root instead, exactly as the runtime
 /// `load_registry_manifest` does.
 const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "c36a853c3296167bab1cec69a9b1b0919ac393de8023de7d5530ba925f104b0b";
+    "bb9b3d4d43b1a06fddaf31064a9c6c4a6a6c61c9f8ecb0dbdfaf52235cfafb30";
 
 /// Decode the committed registry MANIFEST `.prx`
 /// (`crates/domains/data/registry/praxis-registry.prx`) into its
