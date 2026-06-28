@@ -45,7 +45,11 @@ impl Rgb {
     /// Parse hex color string (#RRGGBB or RRGGBB).
     pub fn from_hex(hex: &str) -> Option<Self> {
         let hex = hex.strip_prefix('#').unwrap_or(hex);
-        if hex.len() != 6 {
+        // Length AND ASCII: the byte-index slices below are valid char
+        // boundaries only when every char is one byte. A 6-byte string with a
+        // multibyte char (e.g. "aébcd") would otherwise panic slicing
+        // mid-character — `from_hex` is public and must be total.
+        if hex.len() != 6 || !hex.is_ascii() {
             return None;
         }
         let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
@@ -137,5 +141,20 @@ impl Rgb {
     pub fn grayscale(&self) -> Rgb {
         let l = (self.luminance() * 255.0) as u8;
         Rgb::new(l, l, l)
+    }
+}
+
+#[cfg(test)]
+mod totality_tests {
+    use super::Rgb;
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn from_hex_is_total_over_non_ascii() {
+        // 6-BYTE strings containing a multibyte char must return None, not
+        // panic slicing mid-character. `from_hex` is public and must be total.
+        assert!(Rgb::from_hex("aébcd").is_none()); // é occupies bytes 1..3
+        assert!(Rgb::from_hex("ééé").is_none()); // 3×2 = 6 bytes
+        assert!(Rgb::from_hex("ff8800").is_some()); // valid ASCII still parses
     }
 }

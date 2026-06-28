@@ -974,8 +974,12 @@ fn run_chat() {
         stdout.flush().unwrap();
 
         let mut input = String::new();
-        if stdin.lock().read_line(&mut input).unwrap() == 0 {
-            break;
+        match stdin.lock().read_line(&mut input) {
+            Ok(0) => break, // EOF
+            Ok(_) => {}
+            // Non-UTF-8 / read error on stdin: skip the line rather than panic
+            // (read_line returns Err on invalid UTF-8).
+            Err(_) => continue,
         }
 
         let input = input.trim();
