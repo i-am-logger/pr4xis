@@ -453,35 +453,43 @@ mod tests {
     use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TransductionCategory>();
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         TransductionOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bundle_contains_tip_link_proteins() {
         assert!(BundleContainsTipLinkProteins.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tmcs_are_met_components() {
         assert!(TMCsAreMETComponents.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bm_motion_causes_nerve_activation() {
         assert!(BMMotionCausesNerveActivation.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn depolarization_causes_electromotility() {
         assert!(DepolarizationCausesElectromotility.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn endocochlear_potential_positive() {
         assert!(EndocochlearPotentialIsPositive.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prestin_ohc_specific() {
         assert!(PrestiIsOHCSpecific.verify().is_ok());
@@ -503,4 +511,6 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

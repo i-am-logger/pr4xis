@@ -108,6 +108,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_tab_separated_rows() {
         let input = "# a comment\n\
@@ -123,6 +124,7 @@ mod tests {
         assert_eq!(rows[1], vec!["above", "_NET_WM_STATE_ABOVE", "EWMH 1.5 §5"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn comments_and_blanks_dropped() {
         let input = "\n#first\n  # indented comment\nx\ty\n\n";
@@ -130,6 +132,7 @@ mod tests {
         assert_eq!(rows, vec![vec!["x".to_string(), "y".to_string()]]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fields_are_trimmed_and_crlf_safe() {
         let input = "a \t b\t c\r\n";
@@ -137,12 +140,14 @@ mod tests {
         assert_eq!(rows, vec![vec!["a", "b", "c"]]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_rejects_non_utf8_fail_closed() {
         let err = decode(&[0xff, 0xfe, 0x00]).expect_err("invalid UTF-8 must fail");
         assert!(matches!(err, PlaintextTsvError::NotUtf8(_)), "got {err:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn decode_round_trips_utf8_text() {
         let bytes = "k1\tv1\nk2\tv2\n".as_bytes();
@@ -237,4 +242,12 @@ mod tests {
             prop_assert_eq!(decoded, rows);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_tsv_records_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(prop_comments_and_blanks_are_invisible, Deterministic);
+    pr4xis::register_praxis_value!(
+        prop_tsv_round_trips_through_raw_source_prx,
+        Deterministic,
+        Extensible
+    );
 }

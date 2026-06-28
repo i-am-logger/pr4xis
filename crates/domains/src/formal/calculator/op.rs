@@ -49,7 +49,12 @@ impl UnaryOp {
                 }
             }
             UnaryOp::Square => match val {
-                Value::Rational(n, d) => Value::rational(n * n, d * d),
+                // Checked square with float fallback — an unchecked `n * n` would
+                // overflow-panic (debug) / wrap to a wrong answer (release).
+                Value::Rational(n, d) => match (n.checked_mul(*n), d.checked_mul(*d)) {
+                    (Some(num), Some(den)) => Value::rational(num, den),
+                    _ => Value::float(val.to_f64() * val.to_f64()),
+                },
                 Value::Float(f) => Value::float(f * f),
             },
             UnaryOp::Reciprocal => val.reciprocal(),
@@ -232,9 +237,21 @@ impl BinaryOp {
 fn add(a: &Value, b: &Value) -> Result<Value, CalcError> {
     match (a, b) {
         (Value::Rational(an, ad), Value::Rational(bn, bd)) => {
-            let den = ad * bd;
-            let num = an * bd + bn * ad;
-            Value::rational(num, den)
+            // Exact rational add when the i64 num/den fit; otherwise fall back to
+            // float. Unchecked i64 arithmetic here would panic on overflow (debug)
+            // or silently wrap to a wrong answer (release) — both dishonest. Honest:
+            // lose precision gracefully, never crash or confabulate.
+            match (
+                ad.checked_mul(*bd),
+                an.checked_mul(*bd),
+                bn.checked_mul(*ad),
+            ) {
+                (Some(den), Some(t1), Some(t2)) => match t1.checked_add(t2) {
+                    Some(num) => Value::rational(num, den),
+                    None => Value::float(a.to_f64() + b.to_f64()),
+                },
+                _ => Value::float(a.to_f64() + b.to_f64()),
+            }
         }
         _ => Value::float(a.to_f64() + b.to_f64()),
     }
@@ -242,7 +259,13 @@ fn add(a: &Value, b: &Value) -> Result<Value, CalcError> {
 
 fn multiply(a: &Value, b: &Value) -> Result<Value, CalcError> {
     match (a, b) {
-        (Value::Rational(an, ad), Value::Rational(bn, bd)) => Value::rational(an * bn, ad * bd),
+        (Value::Rational(an, ad), Value::Rational(bn, bd)) => {
+            // Checked rational multiply with float fallback — see `add`.
+            match (an.checked_mul(*bn), ad.checked_mul(*bd)) {
+                (Some(num), Some(den)) => Value::rational(num, den),
+                _ => Value::float(a.to_f64() * b.to_f64()),
+            }
+        }
         _ => Value::float(a.to_f64() * b.to_f64()),
     }
 }

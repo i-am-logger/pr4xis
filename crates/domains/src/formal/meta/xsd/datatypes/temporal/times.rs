@@ -368,6 +368,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn date_time_parse_and_canonical() {
         let v = parse_date_time("2002-10-10T12:30:45.250-05:00").unwrap();
@@ -379,6 +380,7 @@ mod tests {
         assert_eq!(canonical_date_time(&v), "2002-10-10T12:30:45.25-05:00");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn end_of_day_rolls_forward() {
         assert_eq!(
@@ -389,6 +391,7 @@ mod tests {
         assert_eq!(canonical_time(&parse_time("24:00:00").unwrap()), "00:00:00");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn fractional_seconds_strip_trailing_zeros() {
         assert_eq!(
@@ -401,6 +404,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn utc_offset_normalizes_to_z() {
         assert_eq!(
@@ -409,22 +413,26 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn date_time_stamp_requires_tz() {
         assert!(parse_date_time_stamp("2002-10-10T12:00:00Z").is_some());
         assert!(parse_date_time_stamp("2002-10-10T12:00:00").is_none());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_fixpoint() {
         assert!(DateTimeCanonicalIsFixpoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_stamp_requires_tz() {
         assert!(DateTimeStampRequiresTimezone.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_rejects_malformed() {
         assert!(DateTimeLexicalRejectsMalformed.verify().is_ok());
@@ -479,4 +487,7 @@ mod tests {
             prop_assert!(parse_date_time(&canonical_date_time(&v)).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_date_time_canonical_fixpoint, Deterministic);
+    pr4xis::register_praxis_value!(prop_date_time_canonical_in_lexical_space, Deterministic);
 }

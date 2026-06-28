@@ -6,32 +6,38 @@ use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Quality};
 use proptest::prelude::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws_hold() {
     assert_category_laws::<FunctorSynthesizerCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     FunctorSynthesizerOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_functor_law_has_both_axioms_holds() {
     assert!(FunctorLawHasBothAxioms.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_pipeline_reaches_convergence_holds() {
     assert!(PipelineReachesConvergence.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_identity_and_composition_complementary_holds() {
     assert!(IdentityAndCompositionAreComplementary.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn both_functor_axioms_subsume_functor_law() {
     let sub: alloc::vec::Vec<_> = FunctorSynthesizerCategory::morphisms()
@@ -44,6 +50,7 @@ fn both_functor_axioms_subsume_functor_law() {
     assert!(sub.contains(&(C::CompositionPreservation, C::FunctorLaw)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pipeline_first_and_last_present() {
     let causation: alloc::vec::Vec<_> = FunctorSynthesizerCategory::morphisms()
@@ -56,6 +63,7 @@ fn pipeline_first_and_last_present() {
     assert!(causation.contains(&(C::IterateCycle, C::DetectConvergence)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lineage_quality_total_on_named_concepts() {
     let lineage = FunctorSynthesizerLineage;
@@ -104,3 +112,7 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+pr4xis::register_praxis_value!(prop_lineage_returns_string, Verifiable);
+pr4xis::register_praxis_value!(prop_opposition_symmetric, Verifiable);

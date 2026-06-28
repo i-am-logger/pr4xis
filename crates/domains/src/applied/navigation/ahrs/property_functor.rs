@@ -68,11 +68,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_hold() {
         assert_functor_laws::<AhrsToProperty>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn every_filter_produces_attitude() {
         for filter in [

@@ -415,51 +415,61 @@ pr4xis::register_axiom!(
 mod axiom_tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn get_put_axiom_holds() {
         assert!(XmlLensGetPutLaw.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn put_get_axiom_holds() {
         assert!(XmlLensPutGetLaw.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn predefined_entities_axiom_holds() {
         assert!(XmlPredefinedEntitiesAreRecognised.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn element_type_match_axiom_holds() {
         assert!(XmlElementTypeMatchEnforced.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unique_att_spec_axiom_holds() {
         assert!(XmlUniqueAttSpecEnforced.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn end_of_line_normalization_axiom_holds() {
         assert!(XmlEndOfLineNormalizationEnforced.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn attribute_value_normalization_axiom_holds() {
         assert!(XmlAttributeValueNormalizationEnforced.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn general_entity_resolution_axiom_holds() {
         assert!(XmlGeneralEntityResolutionEnforced.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn first_entity_declaration_wins_axiom_holds() {
         assert!(XmlFirstEntityDeclarationBinds.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parser_passes_conformance_canon_axiom_holds() {
         let outcomes = super::super::conformance::run_canon_corpus();

@@ -132,6 +132,7 @@ impl MorphologicalRule {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn apply_prefix() {
         let rule = MorphologicalRule {
@@ -146,6 +147,7 @@ mod tests {
         assert_eq!(rule.apply("happy"), "unhappy");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn apply_suffix() {
         let rule = MorphologicalRule {
@@ -160,6 +162,7 @@ mod tests {
         assert_eq!(rule.apply("quick"), "quickly");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn invert_prefix_strips_match() {
         let rule = MorphologicalRule {
@@ -174,6 +177,7 @@ mod tests {
         assert_eq!(rule.invert("unhappy"), vec!["happy".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invert_prefix_no_match_returns_empty() {
         let rule = MorphologicalRule {
@@ -188,6 +192,7 @@ mod tests {
         assert!(rule.invert("happy").is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn invert_suffix_strips_match() {
         let rule = MorphologicalRule {
@@ -202,6 +207,7 @@ mod tests {
         assert_eq!(rule.invert("dogs"), vec!["dog".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invert_never_returns_empty_string() {
         // `s` itself is len == suffix len — must not produce "".
@@ -306,4 +312,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(property_invert_no_empty, Honest);
+    pr4xis::register_praxis_value!(property_invert_candidates_are_shorter, Verifiable);
+    pr4xis::register_praxis_value!(property_apply_then_invert_recovers_stem, Deterministic);
 }

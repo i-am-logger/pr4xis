@@ -434,27 +434,32 @@ mod tests {
     use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<GeodesyCategory>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn ned_to_enu_functor_laws() {
         assert_functor_laws::<NedToEnuFunctor>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         GeodesyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_coordinate_systems() {
         assert_eq!(GeodesyConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn ned_swap_returns_enu() {
         assert_eq!(
@@ -462,6 +467,7 @@ mod tests {
             GeodesyConcept::Enu
         );
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn enu_swap_returns_ned() {
         assert_eq!(
@@ -469,6 +475,7 @@ mod tests {
             GeodesyConcept::Ned
         );
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn geodetic_is_fixed() {
         assert_eq!(
@@ -476,6 +483,7 @@ mod tests {
             GeodesyConcept::Geodetic
         );
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn ecef_is_fixed() {
         assert_eq!(
@@ -484,6 +492,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn component_count_total() {
         let q = ComponentCount;
@@ -492,6 +501,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ned_enu_are_opposed() {
         let opposed: Vec<_> = GeodesyCategory::morphisms()
@@ -503,34 +513,42 @@ mod tests {
         assert!(opposed.contains(&(GeodesyConcept::Enu, GeodesyConcept::Ned)));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn geodetic_ecef_roundtrip_holds() {
         assert!(GeodeticEcefRoundtrip.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn ned_enu_roundtrip_holds() {
         assert!(NedEnuRoundtrip.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ned_enu_isometry_holds() {
         assert!(NedEnuIsometry.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn great_circle_symmetry_holds() {
         assert!(GreatCircleSymmetry.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn great_circle_self_zero_holds() {
         assert!(GreatCircleSelfZero.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn great_circle_triangle_inequality_holds() {
         assert!(GreatCircleTriangleInequality.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn wgs84_consistency_holds() {
         assert!(Wgs84Consistency.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn ned_enu_functor_identity_holds() {
         assert!(NedEnuFunctorIdentity.verify().is_ok());
@@ -575,4 +593,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_component_count_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_ned_enu_involutive, Deterministic);
+    pr4xis::register_praxis_value!(prop_opposition_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

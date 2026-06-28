@@ -212,12 +212,14 @@ mod tests {
         t
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_valid_theme_passes() {
         let failures = valid_theme().validate();
         assert!(failures.is_empty(), "failures: {:?}", failures);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_empty_theme_fails() {
         let t = ThemePackage::new("empty", SchemeType::Base16);
@@ -225,6 +227,7 @@ mod tests {
         assert!(!failures.is_empty());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_missing_palette_fails() {
         let mut t = ThemePackage::new("broken", SchemeType::Base16);
@@ -234,6 +237,7 @@ mod tests {
         assert!(!failures.is_empty());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_missing_slots_fails() {
         let mut t = ThemePackage::new("incomplete", SchemeType::Base16);
@@ -247,6 +251,7 @@ mod tests {
         assert!(!failures.is_empty());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_duplicate_orders_fails() {
         let mut t = ThemePackage::new("dup-order", SchemeType::Base16);
@@ -266,6 +271,7 @@ mod tests {
         assert!(!failures.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn test_palette_access() {
         let t = valid_theme();
@@ -330,4 +336,9 @@ mod tests {
             prop_assert!(t.validate().is_empty());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_valid_theme_always_passes, Verifiable);
+    pr4xis::register_praxis_value!(prop_empty_theme_always_fails, Honest);
+    pr4xis::register_praxis_value!(prop_missing_base05_fails, Honest);
+    pr4xis::register_praxis_value!(prop_variant_count_matches, Verifiable);
 }

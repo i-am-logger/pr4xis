@@ -341,6 +341,7 @@ fn extract_encname_candidates(text: &str, out: &mut Vec<String>) {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_families_present() {
         // The cached accessor must populate without panicking,
@@ -362,6 +363,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn utf16_family_contains_all_canonical_w3c_names() {
         // The 16-bit Unicode label set the parser's
@@ -375,6 +377,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn utf16_family_predicate_is_case_insensitive() {
         // §4.3.3 RECOMMENDS case-insensitive matching of encoding
@@ -390,6 +393,7 @@ mod tests {
         assert!(families.is_utf16_family("ISO-10646-UCS-2"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn utf16_family_predicate_rejects_iana_only_short_alias() {
         // The bare "UCS-2" short form is an IANA alias of
@@ -404,6 +408,7 @@ mod tests {
         assert!(!families.is_utf16_family("ucs-2"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn utf8_family_contains_utf_8() {
         let families = loaded_xml_encoding_families();
@@ -413,6 +418,7 @@ mod tests {
         assert!(!families.is_utf8_family("UTF-16"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ucs4_family_contains_iso_10646_ucs_4() {
         let families = loaded_xml_encoding_families();
@@ -422,6 +428,7 @@ mod tests {
         assert!(!families.is_utf16_family("ISO-10646-UCS-4"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn extractor_rejects_prose_tokens() {
         // The §F table cells embed natural-language prose like
@@ -433,6 +440,7 @@ mod tests {
         assert_eq!(out, vec!["UTF-16".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extractor_handles_iso_10646_ucs_2_as_single_token() {
         // Per EncName [81], hyphenated compound names are single
@@ -448,6 +456,7 @@ mod tests {
         assert!(out.contains(&"ISO-10646-UCS-2".to_string()), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn locate_section_finds_charencoding() {
         // Spot-check the section locator on a synthetic fragment so
@@ -459,6 +468,7 @@ mod tests {
         assert!(section.contains("</div3>"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn extractor_fails_closed_on_missing_canonical_label() {
         // Per `feedback_corpus_wide_audit_on_load`: removing a
@@ -477,12 +487,14 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn extractor_fails_closed_on_missing_section_f() {
         let result = extract_encoding_families("<div3 id=\"charencoding\"></div3>");
         assert_eq!(result, Err(EncodingLabelExtractionError::FAnchorNotFound));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn extractor_fails_closed_on_missing_section_4_3_3() {
         let result = extract_encoding_families("<inform-div1 id=\"sec-guessing\"></inform-div1>");

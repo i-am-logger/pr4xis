@@ -22,6 +22,7 @@ mod tests {
     // Test 1: pharmacology -> molecular -> bioelectricity
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_pharma_to_molecular_to_bioelectric_composition() {
         use crate::natural::biomedical::bioelectricity::ontology::*;
@@ -91,6 +92,7 @@ mod tests {
     // Test 2: pharmacology -> immunology -> biology
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_pharma_to_immunology_to_biology_composition() {
         use crate::natural::biomedical::biology::ontology::*;
@@ -156,6 +158,7 @@ mod tests {
     // Test 3: pharmacology -> immunology -> bioelectricity
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_pharma_to_immunology_to_bioelectric_composition() {
         use crate::natural::biomedical::bioelectricity::ontology::*;
@@ -222,6 +225,7 @@ mod tests {
     // Test 4: bioelectricity -> regeneration -> biology
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_bioelectric_to_regeneration_to_biology_composition() {
         use crate::natural::biomedical::bioelectricity::ontology::*;
@@ -288,6 +292,7 @@ mod tests {
     // Test 5: electrophysiology -> bioelectricity -> regeneration (3-step)
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_electrophysiology_to_bioelectric_to_regeneration_composition() {
         use crate::natural::biomedical::bioelectricity::regeneration_functor::BioelectricToRegeneration;

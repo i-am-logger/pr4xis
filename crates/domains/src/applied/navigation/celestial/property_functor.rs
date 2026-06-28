@@ -64,11 +64,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_hold() {
         assert_functor_laws::<CelestialToProperty>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn star_tracker_produces_attitude() {
         assert_eq!(
@@ -77,6 +79,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn sun_sensor_produces_bearing() {
         assert_eq!(
@@ -85,6 +88,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn horizon_sensor_produces_elevation() {
         assert_eq!(

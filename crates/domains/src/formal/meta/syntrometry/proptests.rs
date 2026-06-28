@@ -279,3 +279,34 @@ proptest! {
         prop_assert!(saw_identity);
     }
 }
+
+// Property tests cannot be wrapped by the #[praxis_value] attribute (the
+// proptest! macro generates the test fns), so they declare their guarantee
+// with the companion declarative macro instead.
+pr4xis::register_praxis_value!(forward_functor_is_deterministic, Deterministic);
+pr4xis::register_praxis_value!(forward_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(
+    substrate_is_closed_under_round_trip,
+    Deterministic,
+    Verifiable
+);
+pr4xis::register_praxis_value!(aspekt_triple_product_invariant_under_sweep, Verifiable);
+pr4xis::register_praxis_value!(syntrix_is_leveled_invariant_under_sweep, Verifiable);
+pr4xis::register_praxis_value!(forward_functor_maps_morphisms_into_target, Extensible);
+pr4xis::register_praxis_value!(counit_round_trip_is_trivial, Deterministic);
+pr4xis::register_praxis_value!(unit_round_trip_stays_within_syntrometry, Deterministic);
+pr4xis::register_praxis_value!(
+    non_collapsed_concepts_are_round_trip_fixed_points,
+    Deterministic
+);
+pr4xis::register_praxis_value!(syntrometry_ontology_validates_consistently, Verifiable);
+pr4xis::register_praxis_value!(substrate_ontology_validates_consistently, Verifiable);
+pr4xis::register_praxis_value!(substrate_domain_axioms_hold_under_sweep, Verifiable);
+pr4xis::register_praxis_value!(meta_ontology_functor_maps_into_target, Extensible);
+pr4xis::register_praxis_value!(meta_ontology_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(staging_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(algebra_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(c1_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(dialectics_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(distinction_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(syntrometry_morphism_kinds_are_exhaustive, Verifiable);

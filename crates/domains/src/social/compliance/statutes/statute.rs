@@ -315,6 +315,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn happy_path_constructs() {
         let s =
@@ -326,6 +327,7 @@ mod tests {
         assert_eq!(s.relations().len(), 1);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn term_with_invalid_curie_id_rejected() {
         let mut data = minimal_data();
@@ -338,6 +340,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn relation_with_invalid_from_curie_rejected() {
         let mut data = minimal_data();
@@ -354,6 +357,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn relation_with_invalid_to_curie_rejected() {
         let mut data = minimal_data();
@@ -370,6 +374,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn dangling_relation_rejected() {
         let mut data = minimal_data();
@@ -385,6 +390,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_relation_kind_rejected() {
         let mut data = minimal_data();
@@ -400,6 +406,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_parameterless_relation_kinds_map() {
         // Every parameterless variant should round-trip through
@@ -431,6 +438,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn explicit_context_uri_propagates() {
         // The constructor must propagate the supplied `context_uri` to

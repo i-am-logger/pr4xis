@@ -2,16 +2,19 @@ use super::ontology::*;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<CommunicationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn eight_concepts() {
     assert_eq!(CommunicationConcept::variants().len(), 8);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sender_produces_message() {
     let m = CommunicationCategory::morphisms();
@@ -20,6 +23,7 @@ fn sender_produces_message() {
         && r.kind() == CommunicationRelationKind::Produces));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn noise_corrupts_channel() {
     let m = CommunicationCategory::morphisms();
@@ -28,6 +32,7 @@ fn noise_corrupts_channel() {
         && r.kind() == CommunicationRelationKind::Corrupts));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn feedback_is_cybernetic() {
     let m = CommunicationCategory::morphisms();
@@ -44,11 +49,13 @@ fn feedback_is_cybernetic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn jakobson_six_functions() {
     assert_eq!(JakobsonFunction::variants().len(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn phatic_focuses_on_channel() {
     assert_eq!(
@@ -57,6 +64,7 @@ fn phatic_focuses_on_channel() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn metalingual_focuses_on_code() {
     assert_eq!(
@@ -129,4 +137,11 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_jakobson_focuses_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_jakobson_injective, Verifiable);
+    pr4xis::register_praxis_value!(prop_shannon_chain, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

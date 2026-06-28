@@ -69,6 +69,7 @@ mod loaded_grammar_tests {
         )
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn att_value_negated_class_excludes_only_three_chars() {
         // Regression for the rhs_parser bug where the negated
@@ -84,16 +85,19 @@ mod loaded_grammar_tests {
         assert!(matches_all("'JavaBeans'", "AttValue"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn default_decl_required_matches() {
         assert!(matches_all("#REQUIRED", "DefaultDecl"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn default_decl_implied_matches() {
         assert!(matches_all("#IMPLIED", "DefaultDecl"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn default_decl_fixed_value_matches() {
         // §3.3 [60] DefaultDecl ::= ... | (('#FIXED' S)? AttValue)
@@ -101,22 +105,26 @@ mod loaded_grammar_tests {
         assert!(matches_all("#FIXED \"JavaBeans\"", "DefaultDecl"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn default_decl_bare_attvalue_double_quoted() {
         // §3.3 [60] DefaultDecl — bare AttValue (optional #FIXED omitted).
         assert!(matches_all("\"default\"", "DefaultDecl"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn default_decl_bare_attvalue_single_quoted() {
         assert!(matches_all("'default'", "DefaultDecl"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn att_value_with_double_quotes() {
         assert!(matches_all("\"foo\"", "AttValue"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn att_value_with_single_quotes() {
         assert!(matches_all("'foo'", "AttValue"));

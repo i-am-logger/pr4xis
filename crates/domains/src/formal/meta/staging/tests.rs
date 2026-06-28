@@ -17,11 +17,13 @@ use proptest::prelude::*;
 // Category laws and ontology validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<StagingCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     StagingOntology::validate()
@@ -32,6 +34,7 @@ fn ontology_validates() {
 // Entity surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fifteen_stage_concepts() {
     // 10 staging concepts + 5 pipeline-stage concepts.
@@ -42,6 +45,7 @@ fn fifteen_stage_concepts() {
 // Taxonomy: every program-kind is-a Program
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn interpreter_is_a_program() {
     let sub: Vec<_> = StagingCategory::morphisms()
@@ -52,6 +56,7 @@ fn interpreter_is_a_program() {
     assert!(sub.contains(&(StagingConcept::Interpreter, StagingConcept::Program)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn source_object_residual_are_programs() {
     let sub: Vec<_> = StagingCategory::morphisms()
@@ -72,6 +77,7 @@ fn source_object_residual_are_programs() {
 // Causation: Futamura projection chain
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn futamura_chain_reaches_cogen() {
     // The causal closure (OBO-RO transitive_over) includes the full chain.
@@ -90,6 +96,7 @@ fn futamura_chain_reaches_cogen() {
 // Qualities
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn static_input_is_static() {
     assert_eq!(
@@ -98,6 +105,7 @@ fn static_input_is_static() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dynamic_input_is_dynamic() {
     assert_eq!(
@@ -106,6 +114,7 @@ fn dynamic_input_is_dynamic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cogen_is_at_staging_level_three() {
     assert_eq!(
@@ -118,16 +127,19 @@ fn cogen_is_at_staging_level_three() {
 // Domain axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_futamura_chain_is_complete() {
     assert!(FutamuraChainIsComplete.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_each_projection_raises_staging_by_one() {
     assert!(EachProjectionRaisesStagingByOne.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in StagingOntology::axioms() {
@@ -201,3 +213,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_program_concept_has_temporality, Verifiable);
+pr4xis::register_praxis_value!(prop_staging_level_bounded, Verifiable);
+pr4xis::register_praxis_value!(prop_futamura_ladder_deltas_are_exact, Verifiable);
+pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);

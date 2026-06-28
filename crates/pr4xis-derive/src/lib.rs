@@ -3,7 +3,8 @@ mod ontology;
 use proc_macro::TokenStream;
 use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote;
+use quote::{format_ident, quote};
+use syn::parse::Parser;
 use syn::{Data, DeriveInput, Fields, Ident};
 
 /// Resolve the `pr4xis` crate path for use in generated code.
@@ -107,4 +108,77 @@ pub fn derive_concept(input: TokenStream) -> TokenStream {
 pub fn ontology(input: TokenStream) -> TokenStream {
     let def = syn::parse_macro_input!(input as ontology::OntologyDef);
     ontology::generate(def).into()
+}
+
+/// Declare which constitutional guarantee(s) a test witnesses.
+///
+/// The attribute leaves the test function untouched and registers a
+/// [`GuaranteeTag`](pr4xis::constitution::GuaranteeTag) into the
+/// [`CONSTITUTION_TESTS`](pr4xis::constitution::CONSTITUTION_TESTS) distributed
+/// slice, so the `constitution_coverage` meta-test can partition the suite by
+/// guarantee. The first ident is the *primary* (partition) guarantee; any
+/// further idents are *secondary* guarantees the same irreducible test also
+/// witnesses.
+///
+/// Place it **above** `#[test]` so it sees and re-emits the full test:
+///
+/// ```ignore
+/// #[pr4xis::praxis_value(Honest)]
+/// #[test]
+/// fn an_unknown_word_is_left_ungrounded() { /* ... */ }
+///
+/// #[pr4xis::praxis_value(Honest, Verifiable, Deterministic)]
+/// #[test]
+/// fn prop_mutated_prx_always_rejected() { /* ... */ }
+/// ```
+#[proc_macro_attribute]
+pub fn praxis_value(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let item_fn: syn::ItemFn = match syn::parse(item) {
+        Ok(f) => f,
+        Err(e) => return e.to_compile_error().into(),
+    };
+
+    let parser = syn::punctuated::Punctuated::<Ident, syn::Token![,]>::parse_terminated;
+    let guarantees: Vec<Ident> = match parser.parse(attr) {
+        Ok(p) => p.into_iter().collect(),
+        Err(e) => return e.to_compile_error().into(),
+    };
+
+    if guarantees.is_empty() {
+        return syn::Error::new(
+            Span::call_site(),
+            "praxis_value requires at least one guarantee, e.g. #[praxis_value(Honest)]",
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    let primary = &guarantees[0];
+    let secondary = &guarantees[1..];
+    let fn_name = &item_fn.sig.ident;
+    let fn_name_str = fn_name.to_string();
+    // Module-scoped: test fn names are unique within their module, so the
+    // registration static next to each one is too.
+    let static_name = format_ident!("__PRAXIS_VALUE_{}", fn_name);
+    let pr4xis = pr4xis_crate();
+
+    let expanded = quote! {
+        #item_fn
+
+        #[cfg(not(target_arch = "wasm32"))]
+        #[allow(non_upper_case_globals)]
+        #[#pr4xis::linkme::distributed_slice(#pr4xis::constitution::CONSTITUTION_TESTS)]
+        #[linkme(crate = #pr4xis::linkme)]
+        static #static_name: #pr4xis::constitution::GuaranteeTag =
+            #pr4xis::constitution::GuaranteeTag {
+                primary: #pr4xis::constitution::Guarantee::#primary,
+                secondary: &[ #( #pr4xis::constitution::Guarantee::#secondary ),* ],
+                // The attribute wraps a plain `#[test]` — a point-claim.
+                kind: #pr4xis::constitution::TestKind::Example,
+                module: module_path!(),
+                name: #fn_name_str,
+            };
+    };
+
+    expanded.into()
 }

@@ -154,28 +154,33 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<OccupancyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         OccupancyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_cell_states() {
         assert_eq!(OccupancyConcept::variants().len(), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn free_probability_under_half() {
         let (min, max) = OccupancyProbability.get(&OccupancyConcept::Free).unwrap();
         assert!(min >= 0.0 && max <= 0.5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn occupied_probability_over_half() {
         let (min, max) = OccupancyProbability
@@ -184,6 +189,7 @@ mod tests {
         assert!(min >= 0.5 && max <= 1.0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unknown_at_prior() {
         let (min, max) = OccupancyProbability
@@ -193,6 +199,7 @@ mod tests {
         assert_eq!(max, 0.5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn free_and_occupied_oppose() {
         let opp: Vec<_> = OccupancyCategory::morphisms()
@@ -204,11 +211,13 @@ mod tests {
         assert!(opp.contains(&(OccupancyConcept::Occupied, OccupancyConcept::Free)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn probability_bounded_axiom() {
         assert!(ProbabilityBounded.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn log_odds_deterministic_axiom() {
         assert!(LogOddsUpdateDeterministic.verify().is_ok());
@@ -264,4 +273,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_probability_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_probability_in_unit_interval, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

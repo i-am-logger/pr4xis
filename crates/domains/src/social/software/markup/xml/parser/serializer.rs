@@ -716,6 +716,7 @@ mod exact_tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn empty_element_form_is_honoured() {
         let d = doc(el("a", vec![]));
@@ -745,6 +746,7 @@ mod exact_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn nested_explicit_empty_child_keyed_by_index() {
         // `<root><a/></root>` with the child (pre-order index 1, after the root

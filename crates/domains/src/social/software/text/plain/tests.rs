@@ -21,6 +21,7 @@ fn assert_byte_exact(bytes: &[u8]) {
     assert_eq!(out, bytes, "put(get(b)) != b for {:?}", bytes);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fidelity_is_byte_exact() {
     assert_eq!(
@@ -29,11 +30,13 @@ fn fidelity_is_byte_exact() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn empty_input() {
     assert_byte_exact(b"");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn mixed_line_endings_preserved() {
     // Unix LF, Windows CRLF and classic-Mac CR survive verbatim — the
@@ -42,17 +45,20 @@ fn mixed_line_endings_preserved() {
     assert_byte_exact(b"unix\nwin\r\nmac\rtail");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn final_newline_present_and_absent() {
     assert_byte_exact(b"a\nb\n"); // terminated last line
     assert_byte_exact(b"a\nb"); // final incomplete line (POSIX §3.195)
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn empty_lines_preserved() {
     assert_byte_exact(b"a\n\n\nb\n");
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn utf8_bom_preserved() {
     let with_bom = "\u{FEFF}hello\n".as_bytes();
@@ -63,6 +69,7 @@ fn utf8_bom_preserved() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn no_bom_recorded_as_absent() {
     let no_bom = b"hello\n";
@@ -73,6 +80,7 @@ fn no_bom_recorded_as_absent() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn only_first_feff_is_bom_rest_is_content() {
     // The first U+FEFF is the signature; a second is ordinary content
@@ -84,11 +92,13 @@ fn only_first_feff_is_bom_rest_is_content() {
     assert!(doc.lines[0].content.starts_with('\u{FEFF}'));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn bom_only_document() {
     assert_byte_exact("\u{FEFF}".as_bytes());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn non_utf8_is_rejected_not_silently_dropped() {
     // A lone 0xFF is not valid UTF-8; get must error rather than lose
@@ -96,6 +106,7 @@ fn non_utf8_is_rejected_not_silently_dropped() {
     PlainTextLens::get(&[0xFF]).expect_err("invalid UTF-8 must error");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn terminator_byte_sequences() {
     assert_eq!(LineTerminator::Lf.as_bytes(), b"\n");
@@ -140,3 +151,6 @@ proptest! {
         prop_assert_eq!(out, bytes.to_vec());
     }
 }
+
+pr4xis::register_praxis_value!(proptest_byte_exact_arbitrary_utf8, Deterministic);
+pr4xis::register_praxis_value!(proptest_byte_exact_line_mixes, Deterministic);

@@ -504,17 +504,20 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<RelationsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         RelationsOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_relation_type_has_properties() {
         let role = RelationProperty;
@@ -540,21 +543,25 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_relation_types_axiom_holds() {
         assert!(TenCanonicalRelationTypes.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn seven_structural_properties_axiom_holds() {
         assert!(SevenStructuralProperties.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn opposition_is_symmetric_holds() {
         assert!(OppositionIsSymmetric.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn subsumption_is_antisymmetric_holds() {
         assert!(SubsumptionIsAntisymmetric.verify().is_ok());
@@ -566,6 +573,7 @@ mod tests {
     /// `regenerate_english_function_words_prx`. Run by hand when a
     /// `(R, Transitive, HasProperty)` edge is added/removed above:
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_relations_transitive_kinds_cache() {
@@ -602,6 +610,7 @@ mod tests {
     /// must equal `transitive_kinds()` read off the emitted+materialized Relations
     /// archive. If anyone adds/removes a `Transitive` edge without regenerating, or
     /// hand-edits a cache, this FAILS — closing the rule-7 second-declaration gap.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn relations_transitive_kinds_cache_matches_the_relations_ontology() {
         use pr4xis::ontology::meta::OntologyName;
@@ -648,6 +657,7 @@ mod tests {
     /// relation kind or a `HasProperty`/inter-kind edge changes above:
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_morphism_kinds_prx`.
     /// Then update `MORPHISM_KINDS_ROOT_HEX` in `pr4xis-runtime` to the printed root.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_morphism_kinds_prx() {
@@ -673,6 +683,7 @@ mod tests {
     /// root, to the SAME archive a fresh `emit::<RelationsCategory>()` produces; a
     /// kind or a `HasProperty`/inter-kind edge changed without regenerating FAILS
     /// here (closing the rule-7 second-declaration gap, as the transitive cache does).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn morphism_kinds_prx_matches_the_relations_ontology() {
         let fresh = pr4xis_runtime::emit::emit::<RelationsCategory>();
@@ -692,6 +703,7 @@ mod tests {
     /// Equivalence, Similarity are reflexive; Parthood (declared `Irreflexive`) is
     /// NOT. This is the `ComposedReasoner`'s source for the `reaches` `c == a`
     /// short-circuit, so it must track exactly what the ontology declares.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reflexive_relation_kinds_are_derived_from_the_declarations() {
         let reflexive: alloc::collections::BTreeSet<String> = super::reflexive_relation_kinds()
@@ -712,6 +724,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn relations_prx_carries_the_loaded_transitivity_the_runtime_reads() {
         // The "code is ontological" fix (doc §11), Step 1: the transitive

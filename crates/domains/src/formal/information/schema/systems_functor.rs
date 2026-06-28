@@ -80,11 +80,13 @@ mod tests {
     use pr4xis::category::Functor;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<SystemsToSchema>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn all_system_concepts_map() {
         for concept in SystemConcept::variants() {
@@ -92,6 +94,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn mapping_is_total() {
         assert_eq!(SystemConcept::variants().len(), 10);
@@ -106,6 +109,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn component_maps_to_entity_type() {
         assert_eq!(
@@ -114,6 +118,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn interaction_maps_to_morphism_type() {
         assert_eq!(
@@ -122,6 +127,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn state_maps_to_instance() {
         assert_eq!(
@@ -130,6 +136,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn constraint_maps_to_axiom() {
         assert_eq!(
@@ -138,6 +145,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn emergence_maps_to_algebra() {
         assert_eq!(

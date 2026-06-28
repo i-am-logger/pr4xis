@@ -98,6 +98,7 @@ impl Quality for PreservesCorrelations {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_architectures_have_descriptions() {
         let desc = ArchitectureDescription;
@@ -106,18 +107,21 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn centralized_preserves_correlations() {
         let q = PreservesCorrelations;
         assert_eq!(q.get(&FusionArchitecture::Centralized), Some(true));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn distributed_loses_correlations() {
         let q = PreservesCorrelations;
         assert_eq!(q.get(&FusionArchitecture::Distributed), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_architecture_variants() {
         assert_eq!(FusionArchitecture::variants().len(), 5);

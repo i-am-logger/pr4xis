@@ -119,21 +119,25 @@ fn sample_uslm_instance() -> XsdOntologyInstance {
 // Adjoint functor laws — both adjoints satisfy Mac Lane §I.3.
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn left_adjoint_functor_laws_pass() {
     assert_functor_laws::<LiftEnglishToXsd>();
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn right_adjoint_functor_laws_pass() {
     assert_functor_laws::<XsdToEnglish>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xsd_english_label_category_laws_pass() {
     assert_category_laws::<XsdEnglishLabelCategory>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xsd_category_laws_pass() {
     assert_category_laws::<XsdCategory>();
@@ -145,6 +149,7 @@ fn xsd_category_laws_pass() {
 // (Mac Lane §IV.4) the triangle identities collapse onto.
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn project_then_lift_is_identity_on_concepts() {
     for c in XsdConcept::variants() {
@@ -154,6 +159,7 @@ fn project_then_lift_is_identity_on_concepts() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn lift_then_project_is_identity_on_labels() {
     for l in XsdEnglishLabel::variants() {
@@ -181,6 +187,7 @@ fn lift_then_project_is_identity_on_labels() {
 // an equivalence (Mac Lane §IV.4): η and ε are identity natural
 // transformations.
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn r_triangle_identity_holds_per_concept() {
     // R-triangle component at every English label l (object of C):
@@ -203,6 +210,7 @@ fn r_triangle_identity_holds_per_concept() {
     }
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn l_triangle_identity_holds_per_concept() {
     // L-triangle component at every XSD concept c (object of D):
@@ -239,6 +247,7 @@ fn l_triangle_identity_holds_per_concept() {
 // the original morphism f (modulo round-trip through the bijection).
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn unit_is_natural_for_every_morphism_in_c() {
     for m in XsdEnglishLabelCategory::morphisms() {
@@ -256,6 +265,7 @@ fn unit_is_natural_for_every_morphism_in_c() {
     }
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn counit_is_natural_for_every_morphism_in_d() {
     for m in XsdCategory::morphisms() {
@@ -275,6 +285,7 @@ fn counit_is_natural_for_every_morphism_in_d() {
 // Adjunction meta — citation surfaces through `Provenance`.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn adjunction_meta_carries_citation() {
     let meta = <XsdEnglishAdjunction as Adjunction>::meta();
@@ -288,6 +299,7 @@ fn adjunction_meta_carries_citation() {
     assert!(meta.module_path.as_str().contains("xsd"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn left_adjoint_meta_carries_citation() {
     let meta = LiftEnglishToXsd::meta();
@@ -302,6 +314,7 @@ fn left_adjoint_meta_carries_citation() {
 // to a concept set that contains c.
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn canonical_phrase_round_trip_recovers_concept() {
     // For every XSD concept c, the canonical English phrase resolves
@@ -327,6 +340,7 @@ fn canonical_phrase_round_trip_recovers_concept() {
 // Runtime Lift — instance-level substring-matching component of F.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn runtime_lift_recovers_section_components() {
     let en = sample_english();
@@ -342,6 +356,7 @@ fn runtime_lift_recovers_section_components() {
     assert!(!names.contains(&"BlockType".to_string()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn runtime_lift_is_case_insensitive() {
     let en = sample_english();
@@ -354,6 +369,7 @@ fn runtime_lift_is_case_insensitive() {
     assert_eq!(upper_names, lower_names);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn runtime_lift_empty_term_returns_empty() {
     let en = sample_english();
@@ -362,6 +378,7 @@ fn runtime_lift_empty_term_returns_empty() {
     assert!(lift_english_term_to_schema_components("   ", &inst, &en).is_empty());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn runtime_lift_unknown_term_returns_empty() {
     let en = sample_english();
@@ -369,6 +386,7 @@ fn runtime_lift_unknown_term_returns_empty() {
     assert!(lift_english_term_to_schema_components("platypus", &inst, &en).is_empty());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn runtime_lift_on_empty_instance_returns_empty() {
     let en = sample_english();
@@ -376,6 +394,7 @@ fn runtime_lift_on_empty_instance_returns_empty() {
     assert!(lift_english_term_to_schema_components("section", &inst, &en).is_empty());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn lift_and_project_round_trip_carries_term_lemma() {
     // The composite (R ∘ L) applied to "section" must produce at
@@ -477,6 +496,13 @@ mod properties {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_round_trip_label_through_f_then_g, Deterministic);
+    pr4xis::register_praxis_value!(prop_round_trip_concept_through_g_then_f, Deterministic);
+    pr4xis::register_praxis_value!(prop_unit_is_identity_on_object, Verifiable);
+    pr4xis::register_praxis_value!(prop_counit_is_identity_on_object, Verifiable);
+    pr4xis::register_praxis_value!(prop_r_triangle, Extensible);
+    pr4xis::register_praxis_value!(prop_l_triangle, Extensible);
+
     proptest! {
         /// Property: the runtime Lift is deterministic — calling it
         /// twice on the same input yields the same output.
@@ -532,6 +558,10 @@ mod properties {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_lift_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_lift_monotone, Verifiable);
+    pr4xis::register_praxis_value!(prop_lift_is_sound, Verifiable);
 }
 
 // =============================================================================
@@ -546,6 +576,7 @@ mod properties {
 // term loader.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_uslm_section_term_lifts_to_section_declaration() {
     let en = sample_english();

@@ -20,11 +20,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<ArtifactIdentityCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     ArtifactIdentityOntology::validate()
@@ -35,11 +37,13 @@ fn ontology_validates() {
 // Entity surface — 25 total (1 root + 4 families + 20 leaves)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn twenty_five_identity_concepts() {
     assert_eq!(IdentityConcept::variants().len(), 25);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn four_families() {
     let families: Vec<_> = IdentityConcept::variants()
@@ -49,6 +53,7 @@ fn four_families() {
     assert_eq!(families.len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn twenty_leaves() {
     let leaves: Vec<_> = IdentityConcept::variants()
@@ -58,6 +63,7 @@ fn twenty_leaves() {
     assert_eq!(leaves.len(), 20);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn root_is_identity() {
     assert!(!is_family(&IdentityConcept::Identity));
@@ -68,6 +74,7 @@ fn root_is_identity() {
 // Taxonomy — every leaf has exactly one family ancestor at level 1
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_leaf_has_a_family_ancestor() {
     for concept in IdentityConcept::variants() {
@@ -86,6 +93,7 @@ fn every_leaf_has_a_family_ancestor() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn content_hash_family_has_five_leaves() {
     use IdentityConcept as I;
@@ -100,6 +108,7 @@ fn content_hash_family_has_five_leaves() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn persistent_identifier_family_has_four_leaves() {
     use IdentityConcept as I;
@@ -112,6 +121,7 @@ fn persistent_identifier_family_has_four_leaves() {
 // Qualities
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn content_hash_leaves_are_offline() {
     use IdentityConcept as I;
@@ -127,6 +137,7 @@ fn content_hash_leaves_are_offline() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn persistent_identifier_leaves_are_online() {
     use IdentityConcept as I;
@@ -136,6 +147,7 @@ fn persistent_identifier_leaves_are_online() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn self_describing_leaves_are_declarative() {
     use IdentityConcept as I;
@@ -155,31 +167,37 @@ fn self_describing_leaves_are_declarative() {
 // Domain axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_scheme_has_an_extractor() {
     assert!(EverySchemeHasAnExtractor.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_content_hash_is_injective() {
     assert!(ContentHashIsInjective.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_content_hash_is_offline() {
     assert!(ContentHashIsOffline.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_persistent_identifier_requires_resolver() {
     assert!(PersistentIdentifierRequiresResolver.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_self_describing_is_weakest_trust() {
     assert!(SelfDescribingIsWeakestTrust.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in ArtifactIdentityOntology::axioms() {
@@ -197,6 +215,7 @@ fn all_axioms_hold() {
 // RawHash extractor (real implementation)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn raw_hash_verifies_correct_sha256() {
     let bytes = b"hello pr4xis";
@@ -215,6 +234,7 @@ fn raw_hash_verifies_correct_sha256() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn raw_hash_rejects_wrong_sha256() {
     let claim = IdentityClaim {
@@ -227,6 +247,7 @@ fn raw_hash_rejects_wrong_sha256() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn raw_hash_rejects_non_sha256_claim_data() {
     let claim = IdentityClaim {
@@ -245,6 +266,7 @@ fn raw_hash_rejects_non_sha256_claim_data() {
 /// integrity). The empty-input digests are published, well-known vectors, so
 /// this checks each algorithm is wired correctly *independently* — it is not
 /// a self-referential round-trip through the function under test.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hash_hex_known_answers_empty_input() {
     use super::ontology::HashAlgorithm;
@@ -265,6 +287,7 @@ fn hash_hex_known_answers_empty_input() {
 /// The `HashAlgorithm` claim path verifies the true digest and rejects a
 /// mismatch for SHA-512 and BLAKE3 — the arms the legacy `ClaimData::Sha256`
 /// tests above do not exercise.
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn raw_hash_multi_algorithm_verify_and_reject() {
     use super::ontology::HashAlgorithm;
@@ -299,6 +322,7 @@ const SAMPLE_WORDNET_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
   </Lexicon>
 </LexicalResource>"#;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_attribute_verifies_wordnet_version() {
     let claim = IdentityClaim {
@@ -315,6 +339,7 @@ fn xml_attribute_verifies_wordnet_version() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn xml_attribute_rejects_wrong_version() {
     let claim = IdentityClaim {
@@ -331,6 +356,7 @@ fn xml_attribute_rejects_wrong_version() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn xml_attribute_unverifiable_when_element_missing() {
     let claim = IdentityClaim {
@@ -407,3 +433,7 @@ proptest! {
         prop_assert!(ok);
     }
 }
+
+pr4xis::register_praxis_value!(prop_raw_hash_is_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_raw_hash_detects_any_corruption, Honest);
+pr4xis::register_praxis_value!(prop_stub_claims_are_unverifiable, Honest);

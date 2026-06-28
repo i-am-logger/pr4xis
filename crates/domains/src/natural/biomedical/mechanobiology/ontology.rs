@@ -546,17 +546,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MechanobiologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MechanobiologyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 5 forces + 5 mechano-machinery + 4 frequency props + 4 cellular responses
@@ -568,26 +571,31 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_load_causes_signaling_axiom() {
         assert!(MechanicalLoadCausesSignaling.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn repetitive_stimulus_causes_frequency_response_axiom() {
         assert!(RepetitiveStimulusCausesFrequencyResponse.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanosensitive_channel_is_frequency_dependent_axiom() {
         assert!(MechanosensitiveChannelIsFrequencyDependent.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_gating_requires_tension_axiom() {
         assert!(ChannelGatingRequiresTension.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sustained_force_causes_adaptation_axiom() {
         assert!(SustainedForceCausesAdaptation.verify().is_ok());
@@ -595,6 +603,7 @@ mod tests {
 
     // -- Subsumption-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn forces_subsume_under_mechanical_force() {
         use MechanobiologyConcept::*;
@@ -618,6 +627,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_states_subsume_under_channel_state() {
         use MechanobiologyConcept::*;
@@ -641,6 +651,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_mechanobiology_event() {
         use MechanobiologyConcept::*;
@@ -671,6 +682,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_load_directly_causes_membrane_deformation() {
         assert!(causes(
@@ -679,6 +691,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_gating_causes_ion_influx() {
         assert!(causes(
@@ -687,6 +700,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sustained_force_causes_threshold_shift() {
         assert!(causes(
@@ -695,6 +709,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn intracellular_signaling_does_not_cause_mechanical_load() {
         assert!(!causes(
@@ -705,6 +720,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn open_and_closed_state_oppose() {
         let opps: Vec<_> = MechanobiologyCategory::morphisms()
@@ -722,6 +738,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn threshold_and_mechanoadaptation_oppose() {
         let opps: Vec<_> = MechanobiologyCategory::morphisms()
@@ -735,6 +752,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn open_does_not_oppose_inactivated() {
         let opps: Vec<_> = MechanobiologyCategory::morphisms()
@@ -750,6 +768,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn membrane_tension_threshold() {
         assert_eq!(
@@ -758,6 +777,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_threshold() {
         assert_eq!(
@@ -766,6 +786,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_is_frequency_dependent() {
         assert_eq!(
@@ -774,6 +795,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn open_state_not_frequency_dependent() {
         assert_eq!(
@@ -782,6 +804,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inactivation_time() {
         assert_eq!(
@@ -790,6 +813,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn open_state_requires_tension() {
         assert_eq!(
@@ -798,6 +822,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cytoskeletal_remodeling_no_tension() {
         assert_eq!(
@@ -877,4 +902,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_threshold_always_positive, Verifiable);
+    pr4xis::register_praxis_value!(prop_inactivation_time_positive, Verifiable);
 }

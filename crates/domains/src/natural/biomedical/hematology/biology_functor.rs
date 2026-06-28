@@ -106,16 +106,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<HematologyToBiology>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<HematologyToBiology>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in HematologyEntity::variants() {
@@ -129,6 +132,7 @@ mod tests {
     // adjunctions/composition_tests batch (the source is now a kinded
     // partial category per OBO-RO; `Composed` no longer exists).
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BiologicalEntity::variants();
@@ -143,6 +147,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_rbc_maps_to_cell() {
         assert_eq!(
@@ -151,6 +156,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_wbc_maps_to_cell() {
         assert_eq!(
@@ -159,6 +165,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_platelet_maps_to_cell() {
         assert_eq!(
@@ -167,6 +174,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_blood_plasma_maps_to_connective_tissue() {
         assert_eq!(
@@ -175,6 +183,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_whole_blood_maps_to_connective_tissue() {
         assert_eq!(
@@ -183,6 +192,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_albumin_maps_to_fibroblast() {
         assert_eq!(
@@ -191,6 +201,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_sodium_maps_to_cell() {
         assert_eq!(
@@ -199,6 +210,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_osmotic_pressure_maps_to_tissue() {
         assert_eq!(
@@ -207,6 +219,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_blood_component_abstract_maps_to_connective_tissue() {
         assert_eq!(

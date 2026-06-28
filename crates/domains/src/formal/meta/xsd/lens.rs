@@ -149,6 +149,7 @@ crate::register_lens!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn get_then_put_returns_original_bytes() {
         // GetPut on a minimal in-memory schema. Constant-complement
@@ -163,6 +164,7 @@ mod tests {
         assert_eq!(back, bytes);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn get_projects_xsd_components() {
         // The projector emits a SchemaDocument and an
@@ -189,6 +191,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn put_get_law_holds() {
         // The WellBehavedLens trait surface includes a convenience
@@ -201,6 +204,7 @@ mod tests {
         assert!(<XsdSchemaLens as WellBehavedLens>::assert_put_get_law(&bytes).is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn not_wellformed_xml_is_rejected() {
         let bytes = br#"<?xml version="1.0"?>
@@ -242,4 +246,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_get_never_panics_on_arbitrary_bytes, Honest);
+    pr4xis::register_praxis_value!(prop_get_put_canonical_on_success, Deterministic);
 }

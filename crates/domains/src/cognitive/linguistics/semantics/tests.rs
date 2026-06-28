@@ -40,6 +40,7 @@ fn word(text: &str) -> LexicalEntry {
 // Meaning representation tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn predicate_arity() {
     assert_eq!(Predicate::unary("run").arity, 1);
@@ -47,6 +48,7 @@ fn predicate_arity() {
     assert_eq!(Predicate::ternary("give").arity, 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn proposition_well_formed() {
     let prop = SemanticProposition::new(
@@ -67,6 +69,7 @@ fn proposition_well_formed() {
     assert_eq!(prop.patient().unwrap().name, "cat");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn proposition_not_well_formed() {
     let prop = SemanticProposition::new(
@@ -79,6 +82,7 @@ fn proposition_not_well_formed() {
     assert!(!prop.is_well_formed()); // binary predicate with 1 argument
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn proposition_negation() {
     let prop = SemanticProposition::new(Predicate::unary("run"), vec![]).negated();
@@ -86,6 +90,7 @@ fn proposition_negation() {
     assert!(prop.describe().starts_with("NOT "));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meaning_rep_composition() {
     let a = MeaningRep::Atomic(SemanticProposition::new(
@@ -108,6 +113,7 @@ fn meaning_rep_composition() {
     assert!(combined.is_well_formed());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meaning_rep_describe() {
     let prop = MeaningRep::Atomic(SemanticProposition::new(
@@ -204,6 +210,7 @@ fn build_sentence(words: &[&str]) -> SyntaxNode {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn interpret_intransitive() {
     // "the dog runs" → run(dog:Agent)
@@ -214,6 +221,7 @@ fn interpret_intransitive() {
     assert!(desc.contains("dog:Agent"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn interpret_transitive() {
     // "the dog sees the cat" → see(dog:Agent, cat:Patient)
@@ -225,6 +233,7 @@ fn interpret_transitive() {
     assert!(desc.contains("cat:Patient"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn interpret_well_formed() {
     let tree = build_sentence(&["the", "dog", "runs"]);
@@ -232,6 +241,7 @@ fn interpret_well_formed() {
     assert!(meaning.is_well_formed());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn semantic_roles_correct() {
     let tree = build_sentence(&["the", "dog", "sees", "the", "cat"]);

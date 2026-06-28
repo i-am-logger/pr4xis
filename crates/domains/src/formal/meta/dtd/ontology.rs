@@ -202,6 +202,7 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nine_concepts() {
         // DocumentTypeDefinition, MarkupDecl, ElementDecl, AttListDecl,
@@ -210,11 +211,13 @@ mod tests {
         assert_eq!(DtdConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_markup_decl_four_partition() {
         assert!(MarkupDeclFourPartition.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn entity_kind_quality_total_on_entity_sub_kinds() {
         assert!(EntityKindQuality.get(&DtdConcept::GeneralEntity).is_some());

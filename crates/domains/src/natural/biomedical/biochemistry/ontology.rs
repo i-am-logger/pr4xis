@@ -527,17 +527,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<BiochemistryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         BiochemistryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 6 signaling molecules + 2 second messengers + 5 processes
@@ -547,26 +550,31 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_entry_causes_gene_expression_axiom() {
         assert!(CalciumEntryCausesGeneExpression.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_entry_causes_no_production_axiom() {
         assert!(CalciumEntryCausesNOProduction.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_is_second_messenger_axiom() {
         assert!(CalciumIsSecondMessenger.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn camkii_is_kinase_axiom() {
         assert!(CaMKIIIsKinase.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn phosphorylation_requires_atp_axiom() {
         assert!(PhosphorylationRequiresATP.verify().is_ok());
@@ -574,6 +582,7 @@ mod tests {
 
     // -- Subsumption tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn signaling_molecules_subsume() {
         let subs: Vec<_> = BiochemistryCategory::morphisms()
@@ -596,6 +605,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_biochemical_event() {
         let subs: Vec<_> = BiochemistryCategory::morphisms()
@@ -620,6 +630,7 @@ mod tests {
 
     // -- Causation tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_entry_full_main_cascade() {
         for c in [
@@ -637,6 +648,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_entry_pkc_branch() {
         assert!(causes(
@@ -649,6 +661,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn atp_hydrolysis_causes_energy_release() {
         assert!(causes(
@@ -659,6 +672,7 @@ mod tests {
 
     // -- Opposition tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn atp_opposes_adp() {
         let opps: Vec<_> = BiochemistryCategory::morphisms()
@@ -670,6 +684,7 @@ mod tests {
         assert!(opps.contains(&(BiochemistryConcept::ADP, BiochemistryConcept::ATP)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn glycolysis_opposes_oxphos() {
         let opps: Vec<_> = BiochemistryCategory::morphisms()
@@ -685,6 +700,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn second_messengers_via_quality() {
         use BiochemistryConcept::*;
@@ -695,6 +711,7 @@ mod tests {
         assert_eq!(IsSecondMessenger.get(&CaMKII), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn kinases_via_quality() {
         use BiochemistryConcept::*;
@@ -703,6 +720,7 @@ mod tests {
         assert_eq!(IsKinase.get(&CalciumIon), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn requires_atp_via_quality() {
         use BiochemistryConcept::*;
@@ -711,6 +729,7 @@ mod tests {
         assert_eq!(RequiresATP.get(&SignalTransduction), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn time_scales_via_quality() {
         use BiochemistryConcept::*;
@@ -729,6 +748,7 @@ mod tests {
         assert_eq!(ProcessTimeScale.get(&Glycolysis), Some(TimeScale::Minutes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reversibility_via_quality() {
         use BiochemistryConcept::*;
@@ -821,4 +841,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_second_messenger_is_signaling_molecule, Verifiable);
+    pr4xis::register_praxis_value!(prop_kinase_is_signaling_molecule, Verifiable);
 }

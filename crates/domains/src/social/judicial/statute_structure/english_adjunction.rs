@@ -298,6 +298,7 @@ mod tests {
 
     // ── resolve_form_to_senses ───────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolves_known_lemma_to_one_sense() {
         let en = sample_english();
@@ -307,6 +308,7 @@ mod tests {
         assert_eq!(senses[0].reference.concept, "s-employer");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolves_polysemous_lemma_to_multiple_senses() {
         let en = sample_english();
@@ -320,6 +322,7 @@ mod tests {
         assert!(concepts.contains("s-court-yard"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_lemma_returns_empty() {
         let en = sample_english();
@@ -329,6 +332,7 @@ mod tests {
 
     // ── Lemmatization-backed resolution ─────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn plural_resolves_via_lemmatization() {
         // "employers" is not in the sample WordNet; "employer" is.
@@ -339,6 +343,7 @@ mod tests {
         assert_eq!(senses[0].reference.concept, "s-employer");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ies_to_y_plural_resolves_via_lemmatization() {
         // Add a quick "remedy" entry inline and check "remedies" resolves.
@@ -351,6 +356,7 @@ mod tests {
         assert_eq!(senses.len(), 2, "got {senses:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bigram_lookup_resolves_multi_word_lemma() {
         // Inline LMF with a multi-word entry — exactly the kind of
@@ -398,6 +404,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn surface_already_in_lexicon_skips_lemmatization() {
         // When the surface is canonical (in the lexicon), we get its
@@ -411,6 +418,7 @@ mod tests {
         assert_eq!(direct, via_resolve);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn senses_carry_english_wordnet_ontology_tag() {
         let en = sample_english();
@@ -421,6 +429,7 @@ mod tests {
 
     // ── resolve_lemmas_to_senses ─────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolves_multiple_forms() {
         let en = sample_english();
@@ -431,6 +440,7 @@ mod tests {
         assert!(mappings[1].is_resolved());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn preserves_form_in_mapping() {
         let en = sample_english();
@@ -439,6 +449,7 @@ mod tests {
         assert_eq!(mappings[0].form, en_form("employer"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_form_is_unresolved_but_present() {
         let en = sample_english();
@@ -450,6 +461,7 @@ mod tests {
 
     // ── resolve_term_name_to_senses (end-to-end) ─────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn end_to_end_covered_employer() {
         let en = sample_english();
@@ -461,6 +473,7 @@ mod tests {
         assert!(mappings[1].is_resolved());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn end_to_end_filters_stopwords() {
         // "Prohibition on Retaliation" strips "on" — only
@@ -476,6 +489,7 @@ mod tests {
         assert!(mappings[1].is_resolved());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn end_to_end_polysemy_propagates() {
         // "Court Action" → court has 2 senses, action has 0
@@ -489,6 +503,7 @@ mod tests {
         assert_eq!(mappings[1].senses.len(), 0);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn empty_term_name_yields_no_mappings() {
         let en = sample_english();
@@ -496,6 +511,7 @@ mod tests {
         assert!(mappings.is_empty());
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn print_sample_adjunction() {
         let en = sample_english();
@@ -595,4 +611,9 @@ mod tests {
             prop_assert!(mappings.is_empty());
         }
     }
+
+    pr4xis::register_praxis_value!(property_mapping_count_equals_lemma_count, Verifiable);
+    pr4xis::register_praxis_value!(property_mapping_form_matches_extracted_lemma, Verifiable);
+    pr4xis::register_praxis_value!(property_resolution_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(property_empty_term_yields_empty_mappings, Honest);
 }

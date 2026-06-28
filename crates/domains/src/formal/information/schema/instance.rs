@@ -109,22 +109,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<InstanceCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         InstanceOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nine_concepts() {
         assert_eq!(InstanceConcept::variants().len(), 9);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn instance_contains_populations() {
         let m = InstanceCategory::morphisms();
@@ -133,6 +137,7 @@ mod tests {
             && r.kind() == InstanceRelationKind::Contains));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_migration_functors() {
         // Spivak (2012) ΣF ⊣ ΔF ⊣ ΠF.
@@ -154,6 +159,7 @@ mod tests {
             && r.kind() == InstanceRelationKind::PushesForwardRight));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn migration_adjunction_chain() {
         // All three migration functors participate in MigrationAdjunction.
@@ -169,6 +175,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn instance_satisfies_constraints() {
         let m = InstanceCategory::morphisms();
@@ -203,4 +210,8 @@ mod tests {
             prop_assert!(IsMigrationFunctor.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_migration_functor_total, Verifiable);
 }

@@ -451,17 +451,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ChemistryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ChemistryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 6 states + 5 bonds + 5 properties + 4 solution components
@@ -471,21 +474,25 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dissolution_causes_ion_dissociation_axiom() {
         assert!(DissolutionCausesIonDissociation.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_base_causes_ph_change_axiom() {
         assert!(AcidBaseCausesPHChange.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn electrolytes_conduct_electricity_axiom() {
         assert!(ElectrolytesConductElectricity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bond_strength_order_axiom() {
         assert!(BondStrengthOrder.verify().is_ok());
@@ -493,6 +500,7 @@ mod tests {
 
     // -- Subsumption-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn states_of_matter_subsume_under_umbrella() {
         let subs: Vec<_> = ChemistryCategory::morphisms()
@@ -505,6 +513,7 @@ mod tests {
         assert!(subs.contains(&(ChemistryConcept::Colloid, ChemistryConcept::Liquid)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_chemical_event() {
         let subs: Vec<_> = ChemistryCategory::morphisms()
@@ -529,6 +538,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dissolution_causes_dissociation_via_kind() {
         assert!(causes(
@@ -537,6 +547,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn temperature_change_causes_phase_transition() {
         assert!(causes(
@@ -545,6 +556,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concentration_gradient_causes_diffusion() {
         assert!(causes(
@@ -555,6 +567,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn solvent_and_solute_oppose() {
         let opps: Vec<_> = ChemistryCategory::morphisms()
@@ -566,6 +579,7 @@ mod tests {
         assert!(opps.contains(&(ChemistryConcept::Solute, ChemistryConcept::Solvent)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ionic_and_covalent_oppose() {
         let opps: Vec<_> = ChemistryCategory::morphisms()
@@ -579,6 +593,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn electrolyte_conducts() {
         assert_eq!(
@@ -587,6 +602,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn plasma_conducts() {
         assert_eq!(
@@ -595,21 +611,25 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gas_does_not_conduct() {
         assert_eq!(ConductsElectricity.get(&ChemistryConcept::Gas), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn liquid_is_aqueous() {
         assert_eq!(IsAqueous.get(&ChemistryConcept::Liquid), Some(true));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn solid_not_aqueous() {
         assert_eq!(IsAqueous.get(&ChemistryConcept::Solid), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bond_strength_levels() {
         assert_eq!(
@@ -688,4 +708,11 @@ mod tests {
             prop_assert!(IsAqueous.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_conductivity_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_aqueous_total, Verifiable);
 }

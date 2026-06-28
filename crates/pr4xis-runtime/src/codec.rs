@@ -76,6 +76,35 @@ mod tests {
         assert_eq!(canonical_encode(&m).unwrap(), canonical_encode(&m).unwrap());
     }
 
+    // `canonical_decode` is the substrate's untrusted-input boundary — the `.prx`
+    // loader (and the wasm/web demo) deserialize ontologies through it. Honest at
+    // this boundary is totality: an adversarial archive must be REFUSED with an
+    // error, never drive an unbounded allocation from an attacker-declared length
+    // (the allocation-bomb DoS class). These feed a length prefix claiming 2^64-1
+    // items with no payload; a decoder that pre-allocates would OOM/abort, a
+    // robust one reads to EOF and returns Err.
+
+    #[test]
+    fn decode_refuses_huge_array_length_without_oom() {
+        // DAG-CBOR array header (major type 4), 8-byte length = u64::MAX.
+        let adversarial = [0x9b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+        assert!(canonical_decode::<Vec<u32>>(&adversarial).is_err());
+    }
+
+    #[test]
+    fn decode_refuses_huge_byte_string_length_without_oom() {
+        // DAG-CBOR byte-string header (major type 2), 8-byte length = u64::MAX.
+        let adversarial = [0x5b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+        assert!(canonical_decode::<Vec<u8>>(&adversarial).is_err());
+    }
+
+    #[test]
+    fn decode_refuses_huge_map_length_without_oom() {
+        // DAG-CBOR map header (major type 5), 8-byte length = u64::MAX.
+        let adversarial = [0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+        assert!(canonical_decode::<BTreeMap<String, u32>>(&adversarial).is_err());
+    }
+
     #[test]
     fn equal_values_share_an_address() {
         let v = ("functor", vec!["A", "B"], 3u8);

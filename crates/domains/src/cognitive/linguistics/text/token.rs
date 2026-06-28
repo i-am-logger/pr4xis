@@ -73,6 +73,7 @@ mod tests {
     use super::*;
     use crate::cognitive::linguistics::lambek::types::LambekType;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn token_with_sense() {
         let token = Token {
@@ -88,6 +89,7 @@ mod tests {
         assert_eq!(token.sense.as_ref().unwrap().concept, "Canine");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_to_legacy() {
         let token = Token {

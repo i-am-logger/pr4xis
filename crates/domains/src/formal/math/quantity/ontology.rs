@@ -299,11 +299,13 @@ fn canonical_dimensions() -> Vec<Dimension> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         pr4xis::category::laws::assert_category_laws::<QuantityCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         QuantityOntology::validate().unwrap();

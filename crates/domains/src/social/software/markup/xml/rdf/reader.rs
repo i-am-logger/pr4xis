@@ -931,6 +931,7 @@ mod tests {
 
     /// §2.13 typed-node form emits one `rdf:type` triple per node
     /// element whose name is not `rdf:Description`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn typed_node_form_emits_rdf_type() {
         let src = r#"<?xml version="1.0"?>
@@ -948,6 +949,7 @@ mod tests {
 
     /// §2.10 striped form — `rdf:Description` carries no implicit
     /// type triple; the explicit `rdf:type` child supplies the type.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn striped_form_emits_explicit_type() {
         let src = r#"<?xml version="1.0"?>
@@ -971,6 +973,7 @@ mod tests {
     }
 
     /// §2.11 — `rdf:about` is an absolute IRI subject identifier.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rdf_about_takes_absolute_iri() {
         let src = r#"<?xml version="1.0"?>
@@ -985,6 +988,7 @@ mod tests {
     }
 
     /// §2.12 — `rdf:ID` becomes `base#value`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rdf_id_resolves_against_base() {
         let src = r#"<?xml version="1.0"?>
@@ -1003,6 +1007,7 @@ mod tests {
 
     /// §2.14 — `rdf:nodeID` names a stable blank node; the same
     /// `nodeID` value used twice yields the same blank-node label.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn rdf_nodeid_produces_stable_blank() {
         let src = r#"<?xml version="1.0"?>
@@ -1021,6 +1026,7 @@ mod tests {
 
     /// §2.17 — `parseType="Collection"` materialises a cons list
     /// (`rdf:first`/`rdf:rest`/…/`rdf:nil`).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parse_type_collection_emits_cons_list() {
         let src = r#"<?xml version="1.0"?>
@@ -1058,6 +1064,7 @@ mod tests {
 
     /// §2.16 — `parseType="Resource"` introduces an inline blank-node
     /// subject for the nested predicate elements.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parse_type_resource_creates_inline_blank() {
         let src = r#"<?xml version="1.0"?>
@@ -1093,6 +1100,7 @@ mod tests {
 
     /// §2.15 — `parseType="Literal"` produces an XML-literal typed
     /// object whose datatype is `rdf:XMLLiteral`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parse_type_literal_produces_xml_literal_datatype() {
         let src = r#"<?xml version="1.0"?>
@@ -1124,6 +1132,7 @@ mod tests {
     /// XML 1.0 §2.12 — `xml:lang` is inherited along the element
     /// tree, so a child predicate element without its own `xml:lang`
     /// picks up the enclosing element's value as the literal's tag.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn xml_lang_inherits_to_inner_literals() {
         let src = r#"<?xml version="1.0"?>
@@ -1143,6 +1152,7 @@ mod tests {
 
     /// RDF/XML §2.5 — `rdf:datatype` on a literal property element
     /// produces a typed literal.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rdf_datatype_produces_typed_literal() {
         let src = r#"<?xml version="1.0"?>
@@ -1172,6 +1182,7 @@ mod tests {
 
     /// XML Base §3 — a child `xml:base` shadows the document base
     /// for relative IRI resolution within its subtree.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn xml_base_overrides_document_base() {
         let src = r#"<?xml version="1.0"?>
@@ -1199,6 +1210,7 @@ mod tests {
 
     /// RDF/XML §3.4 — an anonymous nested node element introduces a
     /// fresh blank-node object.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn anonymous_nested_node_introduces_blank() {
         let src = r#"<?xml version="1.0"?>
@@ -1219,6 +1231,7 @@ mod tests {
     }
 
     /// Predicate-element `rdf:resource` makes the object an IRI.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rdf_resource_makes_object_an_iri() {
         let src = r#"<?xml version="1.0"?>
@@ -1234,6 +1247,7 @@ mod tests {
 
     /// §2.5 — qualified property attributes on a node element are
     /// shorthand for plain-literal property triples.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_attributes_expand_to_plain_literals() {
         let src = r#"<?xml version="1.0"?>
@@ -1263,6 +1277,7 @@ mod tests {
     /// Two `read_rdf_xml` runs on the same input yield identical
     /// triples in identical order — the praxis determinism guarantee
     /// (cf. read_owl `a4afae37`).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn determinism_two_runs_match() {
         let src = r#"<?xml version="1.0"?>
@@ -1284,6 +1299,7 @@ mod tests {
     /// [`crate::social::software::markup::xml::rdf::ontology::LiteralsCannotBeSubjects`]
     /// axiom: no triple the reader emits ever carries a literal in
     /// subject position.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reader_never_emits_literal_as_subject() {
         // A document that exercises blanks, nested nodes, literals,
@@ -1317,6 +1333,7 @@ mod tests {
     /// triple counts are printed (not pinned to magic numbers, per
     /// `feedback_no_bounded_discovery_counts`). The corpus-wide audit
     /// disciplines `feedback_corpus_wide_audit_on_load`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn corpus_wide_six_owl_files_parse_to_triples() {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1553,4 +1570,8 @@ mod tests {
             prop_assert_eq!(t1, t2, "two reads on identical bytes diverged");
         }
     }
+
+    pr4xis::register_praxis_value!(prop_reader_accepts_generated_docs, Verifiable);
+    pr4xis::register_praxis_value!(prop_literals_never_subjects, Verifiable);
+    pr4xis::register_praxis_value!(prop_read_rdf_xml_is_deterministic, Deterministic);
 }

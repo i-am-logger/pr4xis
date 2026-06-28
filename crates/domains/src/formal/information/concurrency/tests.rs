@@ -8,16 +8,19 @@ use super::systems_functor::*;
 // Concurrency category tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn concurrency_category_laws() {
     assert_category_laws::<ConcurrencyCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn concurrency_has_10_concepts() {
     assert_eq!(ConcurrencyConcept::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn agent_acts_on_shared_resource() {
     let m = ConcurrencyCategory::morphisms();
@@ -26,6 +29,7 @@ fn agent_acts_on_shared_resource() {
         && r.kind() == ConcurrencyRelationKind::ActsOn));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synchronization_controls_agent() {
     let m = ConcurrencyCategory::morphisms();
@@ -37,6 +41,7 @@ fn synchronization_controls_agent() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn protocol_governs_action() {
     let m = ConcurrencyCategory::morphisms();
@@ -45,6 +50,7 @@ fn protocol_governs_action() {
         && r.kind() == ConcurrencyRelationKind::Governs));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn deadlock_arises_from_synchronization() {
     // Coffman, Elphick & Shoshani (1971) System Deadlocks.
@@ -60,12 +66,14 @@ fn deadlock_arises_from_synchronization() {
 // THE PROOF: Every system IS concurrent
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn systems_functor_laws_hold() {
     use pr4xis::category::laws::assert_functor_laws;
     assert_functor_laws::<SystemsToConcurrency>();
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn feedback_is_synchronization() {
     use crate::formal::systems::ontology::SystemConcept;
@@ -75,6 +83,7 @@ fn feedback_is_synchronization() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn emergence_is_race_condition() {
     use crate::formal::systems::ontology::SystemConcept;
@@ -130,4 +139,8 @@ mod prop {
             prop_assert_eq!(mapped, conc_id);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_systems_functor_valid, Extensible);
+    pr4xis::register_praxis_value!(prop_systems_functor_preserves_identity, Extensible);
 }

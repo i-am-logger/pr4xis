@@ -226,6 +226,7 @@ pub fn staging_label(staging: Staging) -> &'static str {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn catalog_covers_every_registered_source() {
         let catalog = source_catalog(&[]);
@@ -236,6 +237,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn empty_loaded_set_means_everything_available() {
         // With nothing reported loaded, the whole catalog is the
@@ -251,6 +253,7 @@ mod tests {
         assert!(catalog.iter().all(|s| s.staging.is_none()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_reported_source_is_marked_loaded() {
         // Pick a real registry name to report as loaded.
@@ -278,6 +281,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn an_unregistered_loaded_ontology_appears_in_the_catalog() {
         // §3: a LOADED ontology the registry never heard of (an embedded or
@@ -306,6 +310,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn availability_labels_are_stable() {
         assert_eq!(SourceAvailability::Loaded.label(), "loaded");
@@ -314,6 +319,7 @@ mod tests {
         assert!(!SourceAvailability::Available.is_loaded());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn staging_labels_are_stable() {
         assert_eq!(staging_label(Staging::Embedded), "embedded");

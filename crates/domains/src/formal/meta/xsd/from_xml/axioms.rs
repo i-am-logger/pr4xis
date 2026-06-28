@@ -371,36 +371,43 @@ pr4xis::register_axiom!(
 mod axiom_tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn schema_composition_axiom_holds() {
         assert!(XsdSchemaCompositionProjected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn identity_constraints_axiom_holds() {
         assert!(XsdIdentityConstraintsProjected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn annotation_axiom_holds() {
         assert!(XsdAnnotationProjected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn type_derivation_axiom_holds() {
         assert!(XsdTypeDerivationProjected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn model_groups_axiom_holds() {
         assert!(XsdModelGroupsProjected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn constraining_facets_axiom_holds() {
         assert!(XsdConstrainingFacetsProjected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn xsd11_content_additions_axiom_holds() {
         assert!(Xsd11ContentAdditionsProjected.verify().is_ok());

@@ -65,6 +65,7 @@ pub fn parse(bytes: &str) -> HashMap<String, u16> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_canonical_names() {
         let input = "\
@@ -82,6 +83,7 @@ mod tests {
         assert_eq!(map.get("quoteright"), Some(&0x2019));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn comments_and_empty_lines_skipped() {
         let input = "\n# this is a comment\n\nA;0041\n";
@@ -90,6 +92,7 @@ mod tests {
         assert_eq!(map.get("A"), Some(&0x0041));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multi_codepoint_uses_first() {
         let input = "ffi;0066 0066 0069\n";
@@ -97,6 +100,7 @@ mod tests {
         assert_eq!(map.get("ffi"), Some(&0x0066));
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn malformed_lines_skipped() {
         let input = "no_semicolon\nbad_hex;ZZZZ\nA;0041\n";
@@ -105,6 +109,7 @@ mod tests {
         assert_eq!(map.get("A"), Some(&0x0041));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parse_real_agl_population() {
         // Sanity check the actual embedded glyph list parses to

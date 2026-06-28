@@ -9,27 +9,32 @@ use crate::applied::navigation::ahrs::ontology::*;
 // Ontology
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn ahrs_category_laws() {
     assert_category_laws::<AhrsCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ahrs_ontology_validates() {
     AhrsOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gravity_gives_level_attitude_axiom() {
     assert!(GravityGivesLevelAttitude.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn magnetometer_gives_heading_axiom() {
     assert!(MagnetometerGivesHeading.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gyro_integration_drifts_axiom() {
     assert!(GyroIntegrationDrifts.verify().is_ok());
@@ -39,6 +44,7 @@ fn gyro_integration_drifts_axiom() {
 // Engine tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn zero_gyro_preserves_attitude() {
     let sit = AhrsSituation {
@@ -62,6 +68,7 @@ fn zero_gyro_preserves_attitude() {
     assert!((next.attitude.yaw - sit.attitude.yaw).abs() < 0.01);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn accel_at_rest_gives_level() {
     let sit = AhrsSituation {
@@ -91,6 +98,7 @@ fn accel_at_rest_gives_level() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mag_north_gives_zero_heading() {
     let sit = AhrsSituation {
@@ -114,6 +122,7 @@ fn mag_north_gives_zero_heading() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn negative_dt_rejected() {
     let sit = AhrsSituation {
@@ -132,6 +141,7 @@ fn negative_dt_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn zero_accel_rejected() {
     let sit = AhrsSituation {
@@ -270,4 +280,9 @@ mod proptest_proofs {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(gyro_update_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(time_monotonically_increases, Verifiable);
+    pr4xis::register_praxis_value!(gyro_update_pure_integration_no_alpha_blend, Verifiable);
+    pr4xis::register_praxis_value!(accel_correction_does_not_change_yaw, Verifiable);
 }

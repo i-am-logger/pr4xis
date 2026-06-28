@@ -265,6 +265,7 @@ mod tests {
     // Adjunction 1: MolecularBioelectricAdjunction
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_molecular_bioelectric_unit_is_valid() {
         let variants = MolecularEntity::variants();
@@ -285,6 +286,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_molecular_bioelectric_counit_is_valid() {
         let variants = BioelectricEntity::variants();
@@ -309,6 +311,7 @@ mod tests {
     // Adjunction 2: PharmacologyMolecularAdjunction
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_pharmacology_molecular_unit_is_valid() {
         let variants = PharmacologyEntity::variants();
@@ -329,6 +332,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_pharmacology_molecular_counit_is_valid() {
         let variants = MolecularEntity::variants();
@@ -353,6 +357,7 @@ mod tests {
     // Adjunction 3: BiologyBioelectricAdjunction
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_biology_bioelectric_unit_is_valid() {
         let variants = BiologicalEntity::variants();
@@ -373,6 +378,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_biology_bioelectric_counit_is_valid() {
         let variants = BioelectricEntity::variants();

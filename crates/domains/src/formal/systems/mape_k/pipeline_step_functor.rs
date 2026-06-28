@@ -198,6 +198,7 @@ mod tests {
     use pr4xis::category::Functor;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn pipeline_step_to_mape_k_laws_pass() {
         assert_functor_laws::<PipelineStepToMapeK>();
@@ -206,6 +207,7 @@ mod tests {
     /// The functor's meta carries its Lemon identity — same three-field
     /// shape as every other structural entity in the knowledge base
     /// (issue #148).
+    #[pr4xis::praxis_value(Verifiable, Explainable)]
     #[test]
     fn pipeline_step_functor_has_meta() {
         let meta = PipelineStepToMapeK::meta();
@@ -215,6 +217,7 @@ mod tests {
     }
 
     /// Concrete sanity: every expected step lands on its documented phase.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn step_assignments_match_literature() {
         use MapeKConcept as M;

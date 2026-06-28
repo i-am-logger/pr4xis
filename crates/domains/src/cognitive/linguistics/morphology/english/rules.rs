@@ -229,6 +229,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rules_have_unique_affixes_and_cover_the_core() {
         // Structural invariant (audit 2026-06-12 D-12), replacing the brittle
@@ -257,6 +258,7 @@ mod tests {
     /// (`-s`/`-ed`/`-ing`) are paradigmatic, not derivational, so they are NOT in
     /// CatVar — grounded by Quirk et al. 1985 instead. `#[ignore]`d: reads the
     /// fetched CatVar source (gitignored); skips gracefully if absent.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     #[ignore]
     fn derivational_affixes_are_attested_in_catvar() {
@@ -307,6 +309,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_rule_well_typed() {
         for rule in english_rules() {
@@ -402,4 +405,14 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(
+        property_every_english_rule_apply_then_invert_recovers_stem,
+        Deterministic
+    );
+    pr4xis::register_praxis_value!(property_english_rules_have_unique_affixes, Verifiable);
+    pr4xis::register_praxis_value!(
+        property_english_rule_affixes_are_lowercase_ascii,
+        Verifiable
+    );
 }

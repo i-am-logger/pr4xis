@@ -274,11 +274,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<Pr4xisSubstrateCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn endofunctor_is_functor_holds() {
         assert!(
@@ -288,6 +290,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn product_category_is_category_holds() {
         assert!(
@@ -297,6 +300,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn graded_object_is_entity_holds() {
         assert!(
@@ -306,6 +310,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn subobject_is_morphism_holds() {
         assert!(
@@ -315,6 +320,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         Pr4xisSubstrateOntology::validate().unwrap();

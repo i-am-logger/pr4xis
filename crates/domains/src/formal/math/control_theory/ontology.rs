@@ -257,22 +257,26 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ControlTheoryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ControlTheoryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn seven_control_concepts() {
         assert_eq!(ControlTheoryConcept::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_description_total() {
         let q = ConceptDescription;
@@ -281,16 +285,19 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn negative_feedback_stabilizes_holds() {
         assert!(NegativeFeedbackStabilizes.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn error_converges_to_zero_holds() {
         assert!(ErrorConvergesToZero.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bibo_stability_definition_holds() {
         assert!(BIBOStabilityDefinition.verify().is_ok());
@@ -327,4 +334,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_concept_description_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

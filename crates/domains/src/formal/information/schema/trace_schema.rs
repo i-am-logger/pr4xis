@@ -188,22 +188,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TraceSchemaCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         TraceSchemaOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eight_elements() {
         assert_eq!(TraceSchemaConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn morphism_traversal_records_source() {
         let m = TraceSchemaCategory::morphisms();
@@ -215,6 +219,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn entity_access_has_timestamp() {
         let m = TraceSchemaCategory::morphisms();
@@ -226,6 +231,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn traversal_refines_access() {
         let m = TraceSchemaCategory::morphisms();
@@ -237,6 +243,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn trace_instance_accumulates() {
         let mut ti = TraceInstance::default();
@@ -247,6 +254,7 @@ mod tests {
         assert_eq!(ti.entries[1].operation, "is_a");
     }
 
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn serialize_format() {
         let mut ti = TraceInstance::default();
@@ -281,4 +289,8 @@ mod tests {
             prop_assert!(IsProvDecoration.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_prov_decoration_total, Verifiable);
 }

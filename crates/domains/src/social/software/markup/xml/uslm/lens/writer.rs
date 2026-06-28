@@ -1212,6 +1212,7 @@ mod tests {
     /// element AND every `#PCDATA` text value in exact order, not merely a
     /// backbone the old diff-Ok gate could reconcile while the regenerated text
     /// was corrupt.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_s2_reconstruct_is_byte_exact() {
         let Some(frag) = real_title1_section("/us/usc/t1/s2") else {
@@ -1221,6 +1222,7 @@ mod tests {
     }
 
     /// Second real section so the byte-exact gate is not single-instance.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_s4_reconstruct_is_byte_exact() {
         let Some(frag) = real_title1_section("/us/usc/t1/s4") else {
@@ -1240,6 +1242,7 @@ mod tests {
     /// value and records attributes as source-side overrides, never comparing
     /// them. The byte-exact gate above catches exactly that class of writer/model
     /// corruption — proven RED here.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn corrupted_mixed_breaks_byte_exact_gate() {
         let Some(frag) = real_title1_section("/us/usc/t1/s2") else {
@@ -1301,6 +1304,7 @@ mod tests {
     /// is explicitly NOT a writer-faithfulness gate; the byte-exact gates above
     /// are. Kept because the covered family really exercises interleaved text ↔
     /// element children, which the writer must then reproduce.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reader_model_sourcecredit_mixed_content_is_genuinely_interleaved() {
         let Some(frag) = real_title1_section("/us/usc/t1/s2") else {
@@ -1353,6 +1357,7 @@ mod tests {
     /// byte-exact gates above are the writer-faithfulness proof. The writer emits
     /// a whitespace-free `<content><p>…</p></content>`; reconstruction re-splices
     /// the source's `\n` runs as `InsertText` white-space residue.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reader_model_content_block_paragraph_is_positional() {
         let Some(frag) = real_title1_section("/us/usc/t1/s2") else {
@@ -1392,6 +1397,7 @@ mod tests {
     /// the SUBDIVISION backbone (the `<subsection>` recursion U2 adds) is
     /// faithful on a real published section: every subsection `<num>` /
     /// `<content>` regenerates in exact source order.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_s8_reconstruct_is_byte_exact() {
         let Some(frag) = real_title1_section("/us/usc/t1/s8") else {
@@ -1426,6 +1432,7 @@ mod tests {
     }
 
     /// The § 201 byte-exact gate proper — see `real_title1_s201_*` doc above.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_s201_subdivision_recursion_is_byte_exact() {
         let Some(frag) = real_title1_section_201() else {
@@ -1447,6 +1454,7 @@ mod tests {
     /// is the U2 analogue of `corrupted_mixed_breaks_byte_exact_gate`: it
     /// proves the new subdivision writer reproduces the EXACT text of a deep
     /// leaf, not merely a backbone the positional diff could reconcile.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn corrupted_subdivision_content_breaks_byte_exact_gate() {
         let Some(frag) = real_title1_section_201() else {
@@ -1507,6 +1515,7 @@ mod tests {
     /// subtree no longer fails closed — it regenerates. This is the U1→U2
     /// transition: the family that was `UncoveredFamily { "subsection" }` in
     /// slice U1 now writes without error.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn covered_subsection_regenerates() {
         const WITH_SUBSECTION: &str = "<section identifier=\"/us/usc/t1/s7\">\
@@ -1547,6 +1556,7 @@ mod tests {
     /// NOTES backbone (the `<notes>`/`<note>` family U3 adds) is faithful on a
     /// real published section: each note body regenerates node-for-node in
     /// source order from [`UsCodeNote::body_mixed`].
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_s210_with_notes_reconstruct_is_byte_exact() {
         let Some(frag) = real_title1_section("/us/usc/t1/s210") else {
@@ -1569,6 +1579,7 @@ mod tests {
     /// interleaving several `<ref>` and `<date>` children. Reconstructs
     /// BYTE-FOR-BYTE, proving the per-note ordered backbone over a multi-note
     /// block.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_s105_with_notes_reconstruct_is_byte_exact() {
         let Some(frag) = real_title1_section("/us/usc/t1/s105") else {
@@ -1588,6 +1599,7 @@ mod tests {
     /// `corrupted_mixed_breaks_byte_exact_gate` / the U2 subdivision meta-test:
     /// it proves the new notes writer reproduces the EXACT text of a note-body
     /// leaf, not merely a backbone the positional diff could reconcile.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn corrupted_note_content_breaks_byte_exact_gate() {
         let Some(frag) = real_title1_section("/us/usc/t1/s210") else {
@@ -1669,6 +1681,7 @@ mod tests {
     /// sequence `<heading>` then `<p>`, with the `<p>` interleaving literal prose
     /// and a `<ref>`. Asserts the READER's model; the byte-exact gates above are
     /// the writer-faithfulness proof. The DERIVED flat views still hold.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reader_model_note_body_is_genuinely_mixed_content() {
         let Some(frag) = real_title1_section("/us/usc/t1/s210") else {
@@ -1739,6 +1752,7 @@ mod tests {
     /// family that was `UncoveredFamily { "notes" }` in slices U1 + U2 now
     /// writes without error, emitting the `<notes>`/`<note>` backbone in source
     /// order after `<sourceCredit>`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn covered_notes_regenerates() {
         const WITH_NOTES: &str = "<section identifier=\"/us/usc/t1/s7\">\
@@ -1791,6 +1805,7 @@ mod tests {
     /// [`UslmWriteError::UncoveredFamily`] rather than emitting a short backbone
     /// the diff would silently mismatch. Proves the fail-closed boundary still
     /// has teeth now that notes are covered.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn uncovered_continuation_fails_closed() {
         const WITH_CONTINUATION: &str = "<section identifier=\"/us/usc/t1/s7\">\
@@ -1863,6 +1878,7 @@ mod tests {
     ///
     /// On failure it reports the EXACT first byte-diff (a bounded 80-byte window)
     /// so an uncaptured concrete-syntax species or uncovered family names itself.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn real_title1_full_uscdoc_reconstruct_is_byte_exact() {
         let Some(frag) = real_title1_literal() else {
@@ -1896,6 +1912,7 @@ mod tests {
     /// has the `<uscDoc>` root whose first two element children are `<meta>` then
     /// `<main>`, and that `<main>` carries a `<title>` whose first two element
     /// children are `<num>` then `<heading>`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_uscdoc_wrapper_skeleton_regenerates() {
         let Some(frag) = real_title1_lf_normalized() else {
@@ -1927,6 +1944,7 @@ mod tests {
     /// the §/subdivision/note corruption meta-tests: proves the wrapper writer
     /// reproduces the EXACT text of a deep document leaf, not merely a backbone
     /// the positional diff could reconcile.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn corrupted_uscdoc_backbone_breaks_byte_exact_gate() {
         let Some(frag) = real_title1_lf_normalized() else {
@@ -1972,6 +1990,7 @@ mod tests {
     /// non-canonical `start_tag_order` (proving the co-location handling fires).
     /// Asserts the generic byte-kernel additions are exercised by the real
     /// document, not merely present.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_uscdoc_prolog_pi_and_root_colocation_are_captured() {
         let Some(frag) = real_title1_lf_normalized() else {
@@ -2036,6 +2055,7 @@ mod tests {
     /// This is the U5 proof at the residue level (the whole-document gate
     /// [`real_title1_full_uscdoc_reconstruct_is_byte_exact`] proves the bytes; this
     /// proves the §2.11 form is the thing that closed the gap — it has teeth).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn literal_title1_crlf_round_trips_via_eol_form() {
         let Some(src) = real_title1_literal() else {

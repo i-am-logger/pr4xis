@@ -3,57 +3,68 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::temporal::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn time_system_category_laws() {
     assert_category_laws::<TimeCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn time_ontology_validates() {
     TimeOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn total_order() {
     assert!(TotalOrder.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_non_negativity() {
     assert!(DurationNonNegativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_identity() {
     assert!(DurationIdentity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_antisymmetry() {
     assert!(DurationAntisymmetry.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_additivity() {
     assert!(DurationAdditivity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn allen_exhaustive() {
     assert!(AllenExhaustive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn allen_inverse_law() {
     assert!(AllenInverseLaw.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Deterministic)]
 #[test]
 fn gps_tai_conversion() {
     assert!(GpsTaiConversion.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tt_tai_conversion() {
     assert!(TtTaiConversion.verify().is_ok());
@@ -193,4 +204,16 @@ mod proptest_proofs {
             prop_assert!((tt_via_tai - tt_direct).abs() < 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(duration_to_self_is_zero, Verifiable);
+    pr4xis::register_praxis_value!(duration_antisymmetry, Verifiable);
+    pr4xis::register_praxis_value!(duration_additivity, Verifiable);
+    pr4xis::register_praxis_value!(advance_then_duration_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(advance_retreat_identity, Deterministic);
+    pr4xis::register_praxis_value!(duration_vector_space_additive_identity, Verifiable);
+    pr4xis::register_praxis_value!(duration_vector_space_additive_inverse, Verifiable);
+    pr4xis::register_praxis_value!(duration_vector_space_commutativity, Verifiable);
+    pr4xis::register_praxis_value!(allen_inverse_holds, Verifiable);
+    pr4xis::register_praxis_value!(gps_tai_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(gps_tt_via_tai, Deterministic);
 }

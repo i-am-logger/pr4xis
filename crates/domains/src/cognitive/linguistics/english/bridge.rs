@@ -284,6 +284,7 @@ mod tests {
         EdgeTarget::Local(name.to_string())
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn projects_every_synset_as_a_node() {
         // English::sample() = dog, cat, mammal, animal (nouns) + run, see (verbs)
@@ -299,6 +300,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_synset_carries_its_hypernym_edge_and_gloss() {
         let archive = project_archive(&English::sample());
@@ -315,6 +317,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_taxonomy_root_has_no_outgoing_edges() {
         // `animal` is the top of the sample taxonomy — no hypernym.
@@ -328,6 +331,7 @@ mod tests {
         assert_eq!(animal.lexical.as_deref(), Some("a living organism"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_archive_is_referentially_closed() {
         // Every hypernym edge target must be a declared node — the precondition
@@ -350,6 +354,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_is_a_chain_is_present_as_generating_edges() {
         // dog ⊑ mammal ⊑ animal must appear as two raw hypernym generators that
@@ -367,6 +372,7 @@ mod tests {
 
     // --- piece 3: the functor carried as data, applied ---
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn the_functor_loads_from_its_committed_prx_fail_closed() {
         // The projection LIVES in `english_functor.prx` (Track C #203): the loader
@@ -404,6 +410,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn applying_the_functor_relabels_synset_kinds_into_praxis_kinds() {
         let source = project_archive(&English::sample());
@@ -433,6 +440,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_relabeled_archive_is_still_referentially_closed() {
         // apply carries edge targets unchanged, so the functor's image is closed
@@ -454,6 +462,7 @@ mod tests {
 
     // --- piece 4: the bridge to a RuntimeOntology + the grounding gate ---
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn the_bridge_materializes_a_runtime_ontology() {
         let onto = english_runtime_ontology(&English::sample()).expect("English materializes");
@@ -475,6 +484,7 @@ mod tests {
     /// the GENERIC RuntimeOntology — its materialized Subsumption closure, via
     /// typed `ConceptRef`s resolved through English's lexicon. The claim IS the
     /// Verdict (pattern-matched, never `.is_ok()`).
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn gate_is_a_dog_an_animal_over_the_runtime_ontology() {
         let english = English::sample();
@@ -512,6 +522,7 @@ mod tests {
         assert!(!any_animal_is_a_dog, "animal is-a dog must refute");
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn the_runtime_answer_agrees_with_english_is_a() {
         // The bridge is FAITHFUL: the generic engine's verdict matches English's
@@ -541,6 +552,7 @@ mod tests {
     use alloc::collections::BTreeMap;
     use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_grounding_archive_carries_form_atoms_beside_the_synsets() {
         let english = English::sample();
@@ -564,6 +576,7 @@ mod tests {
     /// atom "dog" by content address, resolves through the connected
     /// `english_wordnet` archive (G3a), and the resolved target IS an `ontolex:Form`
     /// — never a sense. The sense-deferral is structural and machine-checked.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn a_denotes_floor_edge_resolves_to_a_form_atom_never_a_sense() {
         let english = English::sample();
@@ -620,6 +633,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn a_synset_atom_is_not_a_written_form_floor_target() {
         // Grounding a denotes floor into a SYNSET (a concept) would be a sense-level

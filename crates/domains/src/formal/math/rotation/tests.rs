@@ -6,41 +6,49 @@ use crate::formal::math::rotation::ontology::{
     RotationCategory, RotationOntology, UnitNormClosure,
 };
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn rotation_category_laws() {
     assert_category_laws::<RotationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rotation_ontology_validates() {
     RotationOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn so3_closure() {
     assert!(UnitNormClosure.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn so3_associativity() {
     assert!(Associativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn so3_identity() {
     assert!(IdentityElement.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn so3_inverse() {
     assert!(InverseExists.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dcm_is_proper_rotation() {
     assert!(DcmOrthogonality.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn quaternion_dcm_roundtrip() {
     assert!(QuaternionDcmRoundtrip.verify().is_ok());
@@ -50,6 +58,7 @@ fn quaternion_dcm_roundtrip() {
 // H1: Zero quaternion returns identity instead of NaN
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn zero_quaternion_returns_identity() {
     let q = crate::formal::math::rotation::quaternion::Quaternion::new(0.0, 0.0, 0.0, 0.0);
@@ -58,6 +67,7 @@ fn zero_quaternion_returns_identity() {
     assert!(!q.w().is_nan(), "w should not be NaN");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn zero_quaternion_normalize_returns_identity() {
     let zero_q = crate::formal::math::rotation::quaternion::Quaternion::new(0.0, 0.0, 0.0, 0.0);
@@ -158,6 +168,15 @@ mod proptest_proofs {
             prop_assert!((v_quat[2] - v_dcm[2]).abs() < 1e-9);
         }
     }
+
+    pr4xis::register_praxis_value!(unit_norm_preserved_under_composition, Verifiable);
+    pr4xis::register_praxis_value!(composition_is_associative, Verifiable);
+    pr4xis::register_praxis_value!(inverse_yields_identity, Verifiable);
+    pr4xis::register_praxis_value!(dcm_is_orthogonal, Verifiable);
+    pr4xis::register_praxis_value!(dcm_determinant_is_one, Verifiable);
+    pr4xis::register_praxis_value!(quaternion_dcm_roundtrip_preserves_rotation, Deterministic);
+    pr4xis::register_praxis_value!(rotate_vector_preserves_norm, Verifiable);
+    pr4xis::register_praxis_value!(dcm_and_quaternion_rotate_same, Verifiable);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +187,7 @@ mod proptest_proofs {
 // the ontology claims unit-norm, now the type guarantees it.
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn type_enforces_unit_norm_new() {
     // Zero input must produce unit quaternion (identity)
@@ -195,6 +215,7 @@ fn type_enforces_unit_norm_new() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn type_enforces_unit_norm_from_axis_angle() {
     // Unit axis
@@ -230,6 +251,7 @@ fn type_enforces_unit_norm_from_axis_angle() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn type_enforces_unit_norm_from_euler_321() {
     let q = crate::formal::math::rotation::quaternion::Quaternion::from_euler_321(1.0, 0.5, 0.3);
@@ -239,6 +261,7 @@ fn type_enforces_unit_norm_from_euler_321() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn type_enforces_unit_norm_from_dcm() {
     // Identity DCM
@@ -258,6 +281,7 @@ fn type_enforces_unit_norm_from_dcm() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn type_enforces_unit_norm_identity() {
     let q = crate::formal::math::rotation::quaternion::Quaternion::identity();
@@ -267,6 +291,7 @@ fn type_enforces_unit_norm_identity() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn accessors_return_components() {
     let q = crate::formal::math::rotation::quaternion::Quaternion::new(1.0, 2.0, 3.0, 4.0);

@@ -135,22 +135,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<StorageCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         StorageOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eleven_concepts() {
         assert_eq!(StorageConcept::variants().len(), 11);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn repository_contains_stores() {
         let m = StorageCategory::morphisms();
@@ -159,6 +163,7 @@ mod tests {
             && r.kind() == StorageRelationKind::Contains));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_store_backends_specialize_store() {
         let m = StorageCategory::morphisms();
@@ -179,6 +184,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn materialize_realize_roundtrip() {
         // Gupta & Mumick (1995).
@@ -188,6 +194,7 @@ mod tests {
             && r.kind() == StorageRelationKind::Roundtrip));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn static_no_hot_reload() {
         assert_eq!(
@@ -231,4 +238,8 @@ mod tests {
             prop_assert_eq!(v.is_some(), is_backend);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_hot_reload_partial, Honest, Verifiable);
 }

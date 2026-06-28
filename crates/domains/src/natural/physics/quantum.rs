@@ -171,6 +171,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_minimum_uncertainty() {
         let p = QuantumParticle::minimum_uncertainty();
@@ -178,6 +179,7 @@ mod tests {
         assert!((p.uncertainty_product() - HBAR / 2.0).abs() < 1e-40);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_measure_position_increases_momentum_uncertainty() {
         let e = new_minimum_uncertainty()
@@ -188,6 +190,7 @@ mod tests {
         assert!(e.situation().heisenberg_holds());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_zero_uncertainty_blocked() {
         assert!(
@@ -197,6 +200,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_hydrogen_levels() {
         assert!((hydrogen_energy_level(1) - (-13.6)).abs() < 1e-10);
@@ -241,4 +245,10 @@ mod tests {
             prop_assert!(hydrogen_energy_level(n + 1) > hydrogen_energy_level(n));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_heisenberg_holds, Verifiable);
+    pr4xis::register_praxis_value!(prop_position_momentum_tradeoff, Verifiable);
+    pr4xis::register_praxis_value!(prop_photon_proportional, Verifiable);
+    pr4xis::register_praxis_value!(prop_hydrogen_negative, Verifiable);
+    pr4xis::register_praxis_value!(prop_hydrogen_monotonic, Verifiable);
 }

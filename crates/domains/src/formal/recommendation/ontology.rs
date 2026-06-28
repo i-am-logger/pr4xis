@@ -274,17 +274,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<RecommendationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         RecommendationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_reaches_action_proposal() {
         let caus: Vec<_> = RecommendationCategory::morphisms()
@@ -298,6 +301,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn accept_opposes_reject() {
         let opp: Vec<_> = RecommendationCategory::morphisms()
@@ -308,6 +312,7 @@ mod tests {
         assert!(opp.contains(&(RecommendationConcept::Accept, RecommendationConcept::Reject)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn outcomes_classify_as_decision_outcome() {
         use RecommendationConcept as R;
@@ -321,6 +326,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn confidence_levels() {
         use RecommendationConcept as R;
@@ -334,6 +340,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_axioms_hold() {
         for axiom in RecommendationOntology::axioms() {
@@ -378,4 +385,8 @@ mod tests {
             prop_assert_eq!(v.is_some(), is_type);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_confidence_total_on_types, Verifiable);
 }

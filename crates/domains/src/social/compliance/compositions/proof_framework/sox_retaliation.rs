@@ -120,6 +120,7 @@ pub fn framework() -> &'static ProofFramework {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn framework_constructs() {
         let fw = framework();
@@ -128,6 +129,7 @@ mod tests {
         assert_eq!(fw.cross_references().len(), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bundles_sox_and_air21() {
         let fw = framework();
@@ -135,6 +137,7 @@ mod tests {
         assert!(fw.statute_by_name("air21_42121").is_some());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn both_statutes_tagged_federal_statute() {
         let fw = framework();
@@ -148,6 +151,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_cross_references_from_sox_to_air21() {
         let fw = framework();
@@ -157,6 +161,7 @@ mod tests {
         assert_eq!(to_air21, 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn no_cross_references_from_air21() {
         // SOX imports AIR21, not vice versa.
@@ -164,6 +169,7 @@ mod tests {
         assert_eq!(fw.cross_references_from("air21_42121").count(), 0);
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn b2c_requires_burden_framework() {
         let fw = framework();
@@ -177,6 +183,7 @@ mod tests {
         assert!(cr.rationale.text.contains("1514A(b)(2)(C)"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn b2a_requires_investigation() {
         let fw = framework();
@@ -189,6 +196,7 @@ mod tests {
         assert_eq!(cr.to_term.value(), "air21_42121:b_2");
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn causation_implies_merits_contributing_factor() {
         let fw = framework();
@@ -201,6 +209,7 @@ mod tests {
         assert_eq!(cr.to_term.value(), "air21_42121:b_2_B_iii");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_cross_reference_resolves() {
         // Property: framework().new() already enforces this, but the
@@ -226,6 +235,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn description_cites_cross_reference_statutes() {
         let desc = &framework().description().text;
@@ -233,6 +243,7 @@ mod tests {
         assert!(desc.contains("42121"));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn framework_is_idempotent() {
         let a = framework() as *const _;
@@ -240,6 +251,7 @@ mod tests {
         assert!(core::ptr::eq(a, b));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_cross_reference_carries_rationale() {
         for cr in framework().cross_references() {

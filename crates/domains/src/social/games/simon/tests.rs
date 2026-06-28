@@ -25,6 +25,7 @@ fn arb_seed() -> impl Strategy<Value = u64> {
 // Basic game tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_new_game_starts_showing() {
     let game = Game::new(42);
@@ -33,6 +34,7 @@ fn test_new_game_starts_showing() {
     assert_eq!(game.sequence_length(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_sequence_grows_each_round() {
     let mut game = Game::new(42);
@@ -46,6 +48,7 @@ fn test_sequence_grows_each_round() {
     assert_eq!(game.round(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_correct_input_advances() {
     let mut game = Game::new(42);
@@ -55,6 +58,7 @@ fn test_correct_input_advances() {
     assert!(matches!(result, RoundResult::RoundComplete { round: 1 }));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_wrong_input_game_over() {
     let mut game = Game::new(42);
@@ -69,6 +73,7 @@ fn test_wrong_input_game_over() {
     assert!(matches!(game.state(), GameState::GameOver { .. }));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cannot_input_during_showing() {
     let mut game = Game::new(42);
@@ -76,6 +81,7 @@ fn test_cannot_input_during_showing() {
     assert_eq!(result, RoundResult::InvalidState);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cannot_advance_during_input() {
     let mut game = Game::new(42);
@@ -83,6 +89,7 @@ fn test_cannot_advance_during_input() {
     assert!(game.next_round().is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cannot_advance_after_game_over() {
     let mut game = Game::new(42);
@@ -96,6 +103,7 @@ fn test_cannot_advance_after_game_over() {
     assert!(game.next_round().is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_replay_gives_correct_sequence() {
     let game = Game::new(42);
@@ -107,6 +115,7 @@ fn test_replay_gives_correct_sequence() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_multi_round_game() {
     let mut game = Game::new(42);
@@ -285,10 +294,25 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_new_game_is_showing, Verifiable);
+pr4xis::register_praxis_value!(prop_new_game_one_element, Verifiable);
+pr4xis::register_praxis_value!(prop_correct_first_input_completes, Verifiable);
+pr4xis::register_praxis_value!(prop_wrong_input_game_over, Honest);
+pr4xis::register_praxis_value!(prop_game_over_reports_expected, Verifiable);
+pr4xis::register_praxis_value!(prop_sequence_grows_by_one, Verifiable);
+pr4xis::register_praxis_value!(prop_sequence_prefix_preserved, Verifiable);
+pr4xis::register_praxis_value!(prop_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_no_input_during_showing, Honest);
+pr4xis::register_praxis_value!(prop_no_restart_after_game_over, Honest);
+pr4xis::register_praxis_value!(prop_no_advance_from_showing, Honest);
+pr4xis::register_praxis_value!(prop_all_colors_valid, Verifiable);
+pr4xis::register_praxis_value!(prop_replay_matches_sequence, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_play_round_one() {
     let e = new_simon(42);
@@ -302,6 +326,7 @@ fn engine_play_round_one() {
     assert_eq!(e.step(), 3);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_invalid_state_rejected() {
     let e = new_simon(42);
@@ -310,6 +335,7 @@ fn engine_invalid_state_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_back_forward() {
     let e = new_simon(42);
@@ -320,6 +346,7 @@ fn engine_back_forward() {
     assert_eq!(e.step(), 1);
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn engine_trace() {
     let e = new_simon(42);

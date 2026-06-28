@@ -54,6 +54,7 @@ mod tests {
     use pr4xis::category::Adjunction;
     use pr4xis::category::entity::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn unit_is_valid() {
         for obj in KnowledgeConcept::variants() {
@@ -71,6 +72,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn counit_is_valid() {
         for obj in LemonConcept::variants() {
@@ -88,6 +90,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn gap_analysis() {
         let knowledge_variants = KnowledgeConcept::variants();

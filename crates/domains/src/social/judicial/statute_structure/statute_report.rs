@@ -383,6 +383,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn report_renders_every_section() {
         let structural = fixture_structural();
@@ -426,6 +427,7 @@ mod tests {
         assert!(report.contains("DefinitionDrift"));
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn report_with_no_paraphrases_omits_section() {
         let structural = fixture_structural();

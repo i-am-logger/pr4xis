@@ -86,16 +86,19 @@ mod tests {
     /// Verify both functor laws (identity + composition preservation).
     /// Daubert prong 2 (testable methodology): structural correctness
     /// of the cross-ontology mapping.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<BioelectricToBiology>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BioelectricToBiology>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BioelectricEntity::variants() {
@@ -106,6 +109,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BiologicalEntity::variants();
@@ -120,6 +124,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_potential_maps_to_squamous_epithelial() {
         assert_eq!(
@@ -128,6 +133,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_voltage_gradient_maps_to_squamous_epithelium() {
         assert_eq!(
@@ -136,6 +142,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cognitive_lightcone_maps_to_esophagus() {
         assert_eq!(
@@ -144,6 +151,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_target_morphology_maps_to_organism() {
         assert_eq!(
@@ -152,6 +160,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ion_channel_modulation_maps_to_basal_stem_cell() {
         assert_eq!(
@@ -160,6 +169,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_mechanical_stimulation_maps_to_basal_stem_cell() {
         assert_eq!(
@@ -168,6 +178,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_signal_maps_to_cell() {
         assert_eq!(
@@ -176,6 +187,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_network_maps_to_tissue() {
         assert_eq!(
@@ -184,6 +196,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_morphospace_maps_to_organism() {
         assert_eq!(

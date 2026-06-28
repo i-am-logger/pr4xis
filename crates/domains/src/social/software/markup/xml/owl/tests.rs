@@ -31,12 +31,14 @@ const SAMPLE_OWL: &str = r#"<?xml version="1.0"?>
   </owl:ObjectProperty>
 </rdf:RDF>"#;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_sample_owl() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
     assert_eq!(ont.class_count(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_class_has_label() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
@@ -44,12 +46,14 @@ fn owl_class_has_label() {
     assert_eq!(dog.label.as_deref(), Some("dog"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_subclass_taxonomy() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
     assert_eq!(ont.taxonomy.len(), 2); // Dog→Mammal, Mammal→Animal
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_subclasses_of() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
@@ -58,6 +62,7 @@ fn owl_subclasses_of() {
     assert_eq!(mammal_subs[0].label.as_deref(), Some("dog"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_superclasses_of() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
@@ -66,6 +71,7 @@ fn owl_superclasses_of() {
     assert!(dog_supers[0].contains("Mammal"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_property() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
@@ -97,6 +103,7 @@ const SAMPLE_PROPERTY_HIERARCHY_OWL: &str = r#"<?xml version="1.0"?>
   </owl:ObjectProperty>
 </rdf:RDF>"#;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_property_comment_read() {
     let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
@@ -107,6 +114,7 @@ fn owl_property_comment_read() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_subproperty_taxonomy() {
     let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
@@ -115,6 +123,7 @@ fn owl_subproperty_taxonomy() {
     assert_eq!(ont.property_taxonomy.len(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_subproperties_of() {
     let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
@@ -122,6 +131,7 @@ fn owl_subproperties_of() {
     assert_eq!(subs.len(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_superproperties_of() {
     let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
@@ -146,6 +156,7 @@ fn owl_superproperties_of() {
 /// arranged in an `rdfs:subPropertyOf` hierarchy. The bundled file MUST
 /// exist (it is committed under `data/ontologies/`), so this test reads
 /// it directly rather than skipping when absent.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn load_bundled_cito() {
     let path = concat!(
@@ -224,6 +235,7 @@ fn load_bundled_cito() {
 /// vary. Determinism here is the precondition for byte-reproducible
 /// `.prx.gz` artifacts (the `prx` reproducibility test), since rkyv
 /// serialises the Vecs in their stored order.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn read_owl_entity_order_is_deterministic() {
     let path = concat!(
@@ -280,6 +292,7 @@ fn read_owl_entity_order_is_deterministic() {
 /// rdf:resource=".../owl#Class"/>`). The bundled file MUST exist (it is
 /// committed under `data/ontologies/`), so this test reads it directly
 /// rather than skipping when absent.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn load_bundled_doco() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/ontologies/doco-1.3.owl");
@@ -343,6 +356,7 @@ fn load_bundled_doco() {
 /// such as `c4o:InTextReferencePointer` and `c4o:GlobalCitationCount`.
 /// Serialised in the typed-node RDF/XML form. The bundled file MUST
 /// exist, so this test reads it directly rather than skipping.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn load_bundled_c4o() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/ontologies/c4o-1.2.owl");
@@ -401,6 +415,7 @@ fn load_bundled_c4o() {
 /// `biro:isReferencedBy` object properties. Serialised in the typed-node
 /// RDF/XML form. The bundled file MUST exist, so this test reads it
 /// directly rather than skipping.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn load_bundled_biro() {
     let path = concat!(
@@ -457,6 +472,7 @@ fn load_bundled_biro() {
 /// (`<owl:Class>` / `<owl:ObjectProperty>` typed-node elements). The
 /// bundled file MUST exist, so this test reads it directly rather than
 /// skipping.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn load_bundled_prov_o() {
     let path = concat!(
@@ -509,6 +525,7 @@ fn load_bundled_prov_o() {
 // OLiA test — load the real linguistic ontology
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn load_olia() {
     // Source the OLiA OWL from the registered, CI-fetched `olia` corpus
@@ -630,6 +647,7 @@ fn load_olia() {
 /// counts` (the data determines the numbers, not the test). The new
 /// fields (`labels`/`comments`/`annotations`/class expressions) get
 /// audited alongside the classic counts.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rdf_triple_reader_structural_content_audit() {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -736,6 +754,7 @@ fn rdf_triple_reader_structural_content_audit() {
 ///
 /// This test walks every bundled OWL vocabulary through the
 /// categorical round-trip and reports per-vocab equivalence.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn categorical_round_trip_six_owl_vocabularies() {
     use crate::social::software::markup::xml::owl::reader::owl_equivalent;
@@ -890,6 +909,7 @@ fn categorical_round_trip_six_owl_vocabularies() {
 // OWL category law tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn owl_identity_law() {
     for obj in OwlConcept::variants() {
@@ -899,6 +919,7 @@ fn owl_identity_law() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn owl_composition_with_identity() {
     let morphisms = OwlCategory::morphisms();
@@ -913,6 +934,7 @@ fn owl_composition_with_identity() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn owl_associativity() {
     let morphisms = OwlCategory::morphisms();
@@ -935,6 +957,7 @@ fn owl_associativity() {
 // OWL vocabulary / concept lookup tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_from_iri_known() {
     assert_eq!(
@@ -951,11 +974,13 @@ fn owl_from_iri_known() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn owl_from_iri_unknown() {
     assert_eq!(OwlVocabulary::from_iri("http://example.org/foo"), None);
 }
 
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn owl_from_local_name() {
     assert_eq!(
@@ -969,6 +994,7 @@ fn owl_from_local_name() {
     assert_eq!(OwlVocabulary::from_local_name("UnknownThing"), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_concept_classification() {
     assert!(OwlConcept::Class.is_class_expression());
@@ -983,12 +1009,14 @@ fn owl_concept_classification() {
     assert!(!OwlConcept::Class.is_property_characteristic());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn owl_restriction_needs_property_axiom() {
     use pr4xis::ontology::Axiom;
     assert!(RestrictionNeedsProperty.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     use pr4xis::category::laws::assert_category_laws;
@@ -1062,4 +1090,9 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_class_expression_classification, Verifiable);
+    pr4xis::register_praxis_value!(prop_property_classification, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

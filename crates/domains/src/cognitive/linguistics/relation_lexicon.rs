@@ -127,6 +127,7 @@ pub fn relation_surface_index() -> BTreeMap<String, ConceptRef> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn the_lexicon_maps_part_of_to_parthood_fail_closed() {
         // The loaded map resolves the phrasal relational surface to the SAME

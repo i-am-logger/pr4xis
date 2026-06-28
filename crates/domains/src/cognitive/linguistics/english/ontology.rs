@@ -1126,6 +1126,7 @@ mod inflection_index_tests {
   </Lexicon>
 </LexicalResource>"#;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inflected_forms_index_to_lemma_concepts() {
         let wn = read_wordnet(INFLECTED_LMF).unwrap();
@@ -1144,6 +1145,7 @@ mod inflection_index_tests {
         assert_eq!(running_ids, run_ids, "running should map to same concepts");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn irregular_plural_forms_resolve() {
         let wn = read_wordnet(INFLECTED_LMF).unwrap();
@@ -1157,6 +1159,7 @@ mod inflection_index_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn wordnet_relations_loaded_for_derivation_pertainym_domain() {
         // Inline LMF exercising derivation (sense-level),
@@ -1220,6 +1223,7 @@ mod inflection_index_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn entries_without_form_elements_still_resolve() {
         const NO_FORMS_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>

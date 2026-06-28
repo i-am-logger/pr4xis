@@ -37,6 +37,7 @@ fn root_cite() -> PinpointCite {
 // LabelKind::from_label unit tests
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn label_lowercase_letter_at_top_level() {
     assert_eq!(
@@ -49,6 +50,7 @@ fn label_lowercase_letter_at_top_level() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn label_arabic_numeral() {
     assert_eq!(
@@ -61,6 +63,7 @@ fn label_arabic_numeral() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn label_uppercase_letter() {
     assert_eq!(
@@ -73,6 +76,7 @@ fn label_uppercase_letter() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn label_lowercase_roman_multi_char() {
     // Multi-char lowercase romans are unambiguous.
@@ -94,6 +98,7 @@ fn label_lowercase_roman_multi_char() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn label_single_i_disambiguated_by_context() {
     // (i) at top level = letter.
@@ -108,6 +113,7 @@ fn label_single_i_disambiguated_by_context() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn label_uppercase_roman_multi_char() {
     assert_eq!(
@@ -120,11 +126,13 @@ fn label_uppercase_roman_multi_char() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn label_rejects_empty() {
     assert_eq!(LabelKind::from_label("", 0), None);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn label_rejects_mixed_case() {
     assert_eq!(LabelKind::from_label("Aa", 0), None);
@@ -135,6 +143,7 @@ fn label_rejects_mixed_case() {
 // roman_to_u32 unit tests
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn roman_basics() {
     assert_eq!(roman_to_u32("i"), Some(1));
@@ -152,6 +161,7 @@ fn roman_basics() {
     assert_eq!(roman_to_u32("xx"), Some(20));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn roman_rejects_invalid() {
     assert_eq!(roman_to_u32("abc"), None);
@@ -162,6 +172,7 @@ fn roman_rejects_invalid() {
 // Parser unit tests — small inputs
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_empty_text_produces_root_only() {
     let tree = parse_statute_text("", root_cite(), "test://").unwrap();
@@ -169,6 +180,7 @@ fn parse_empty_text_produces_root_only() {
     assert!(tree.root.children.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_text_with_no_markers_attaches_to_root() {
     let tree = parse_statute_text(
@@ -181,6 +193,7 @@ fn parse_text_with_no_markers_attaches_to_root() {
     assert_eq!(tree.root.text.text, "Just some prose without any markers.");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_single_subsection() {
     let tree = parse_statute_text("(a) The text of subsection a.", root_cite(), "test://").unwrap();
@@ -191,6 +204,7 @@ fn parse_single_subsection() {
     assert_eq!(a.text.text, "The text of subsection a.");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_ignores_inline_prose_references() {
     // Prose like "subsection (a)" mid-text should NOT be treated as
@@ -216,6 +230,7 @@ fn parse_ignores_inline_prose_references() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_two_top_level_siblings() {
     let tree = parse_statute_text(
@@ -229,6 +244,7 @@ fn parse_two_top_level_siblings() {
     assert_eq!(tree.root.children[1].id.segments.last().unwrap().label, "b");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_nested_three_levels() {
     let text = "(a) Outer\n(1) middle\n(A) inner.";
@@ -242,6 +258,7 @@ fn parse_nested_three_levels() {
     assert_eq!(inner.id.segments.last().unwrap().label, "A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_back_to_top_after_nested() {
     let text = "(a) sub-a\n(1) paragraph\n(A) inner\n(b) sub-b.";
@@ -251,6 +268,7 @@ fn parse_back_to_top_after_nested() {
     assert_eq!(tree.root.children[1].id.segments.last().unwrap().label, "b");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_roman_clause_inside_subparagraph() {
     let text = "(a) outer\n(1) para\n(A) sub\n(i) first roman\n(ii) second roman.";
@@ -268,6 +286,7 @@ fn parse_roman_clause_inside_subparagraph() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_depth_skip_returns_error() {
     // (A) at top level with no (a)(1) parent context.
@@ -275,6 +294,7 @@ fn parse_depth_skip_returns_error() {
     assert!(matches!(result, Err(ParseError::DepthSkip { .. })));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_ignores_parenthetical_in_prose() {
     // "(15 U.S.C. 78l)" looks like a marker but the label
@@ -287,6 +307,7 @@ fn parse_ignores_parenthetical_in_prose() {
     assert!(tree.root.children[0].text.text.contains("(15 U.S.C. 78l)"));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_back_to_top_requires_newline_separator() {
     // Without a newline separator, "(b)" mid-line is treated as a
@@ -302,6 +323,7 @@ fn parse_back_to_top_requires_newline_separator() {
 // Invariant tests over small parsed trees
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn invariants_hold_on_simple_tree() {
     let text = "(a) sub-a (1) p1 (2) p2 (b) sub-b.";
@@ -313,6 +335,7 @@ fn invariants_hold_on_simple_tree() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn canonical_order_check_catches_reverse() {
     // Construct manually: (b) before (a) — invariant violation.
@@ -353,6 +376,7 @@ fn canonical_order_check_catches_reverse() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parent_child_monotonic_check_catches_skip() {
     use super::parser::{ClauseNode, ClauseTree};
@@ -483,6 +507,14 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_parse_succeeds_on_canonical_input, Verifiable);
+pr4xis::register_praxis_value!(prop_invariants_hold, Verifiable);
+pr4xis::register_praxis_value!(prop_parse_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_cites_alphanumeric, Verifiable);
+pr4xis::register_praxis_value!(prop_monotonic_depth, Verifiable);
+pr4xis::register_praxis_value!(prop_labels_unique, Verifiable);
+pr4xis::register_praxis_value!(prop_label_to_ord_consistent_for_romans, Verifiable);
+
 // ─────────────────────────────────────────────────────────────────────
 // Real-corpus tests against the canonical-text fixtures
 // ─────────────────────────────────────────────────────────────────────
@@ -504,6 +536,7 @@ fn air21_root() -> PinpointCite {
         .push(PinpointCitationConcept::Section, "42121")
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_1514a_canonical() {
     let tree = parse_statute_text(SOX_CANONICAL, sox_root(), "praxis-lock://sox_1514a@2002");
@@ -529,6 +562,7 @@ fn parse_sox_1514a_canonical() {
     assert_eq!(labels, vec!["a", "b", "c", "d", "e"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_satisfies_all_invariants() {
     let tree =
@@ -551,6 +585,7 @@ fn parse_sox_satisfies_all_invariants() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_air21_42121_canonical() {
     let tree = parse_statute_text(
@@ -570,6 +605,7 @@ fn parse_air21_42121_canonical() {
     assert_eq!(labels, vec!["a", "b"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_air21_satisfies_all_invariants() {
     let tree = parse_statute_text(
@@ -596,6 +632,7 @@ fn parse_air21_satisfies_all_invariants() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_air21_finds_four_clause_burden_framework() {
     // The user's case-relevant test: § 42121(b)(2)(B) has four
@@ -647,6 +684,7 @@ fn parse_air21_finds_four_clause_burden_framework() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_finds_reporting_channels() {
     // § 1514A(a)(1) has three reporting channels (A), (B), (C).
@@ -671,6 +709,7 @@ fn parse_sox_finds_reporting_channels() {
     assert_eq!(labels, vec!["A", "B", "C"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_finds_burden_of_proof_subsection() {
     // § 1514A(b)(2)(C) — burdens of proof per AIR21.
@@ -686,6 +725,7 @@ fn parse_sox_finds_burden_of_proof_subsection() {
     assert!(node.text.text.contains("42121"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_finds_arbitration_subsection() {
     // § 1514A(e)(2) — invalidity of predispute arbitration.
@@ -700,6 +740,7 @@ fn parse_sox_finds_arbitration_subsection() {
     assert!(node.text.text.to_lowercase().contains("arbitration"));
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn print_parse_summary() {
     // Informational — visible with `cargo test -- --nocapture`.

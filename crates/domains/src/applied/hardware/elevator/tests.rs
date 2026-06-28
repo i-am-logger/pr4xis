@@ -22,6 +22,7 @@ fn arb_requests(num_floors: usize, max_requests: usize) -> impl Strategy<Value =
 // Basic setup tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_building_creation() {
     let building = Building::new(10, 3, 1000);
@@ -30,6 +31,7 @@ fn test_building_creation() {
     assert!(building.pending_requests.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_elevator_starts_at_ground() {
     let building = Building::new(10, 1, 1000);
@@ -38,6 +40,7 @@ fn test_elevator_starts_at_ground() {
     assert_eq!(building.elevators[0].door, DoorState::Closed);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_invalid_request_rejected() {
     let mut building = Building::new(10, 1, 1000);
@@ -46,6 +49,7 @@ fn test_invalid_request_rejected() {
     assert!(building.request(Request::new(0, 15, 80)).is_err()); // destination out of range
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_valid_request_accepted() {
     let mut building = Building::new(10, 1, 1000);
@@ -57,6 +61,7 @@ fn test_valid_request_accepted() {
 // Elevator enforcement tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cannot_move_with_doors_open() {
     let mut elevator = Elevator::new(0, 1000, 10);
@@ -66,12 +71,14 @@ fn test_cannot_move_with_doors_open() {
     assert!(elevator.move_one().is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cannot_board_with_doors_closed() {
     let mut elevator = Elevator::new(0, 1000, 10);
     assert!(elevator.board(80).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cannot_exceed_capacity() {
     let mut elevator = Elevator::new(0, 200, 10);
@@ -80,6 +87,7 @@ fn test_cannot_exceed_capacity() {
     assert!(elevator.board(100).is_err()); // 150 + 100 > 200
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_direction_commitment_up() {
     let mut elevator = Elevator::new(0, 1000, 10);
@@ -89,6 +97,7 @@ fn test_direction_commitment_up() {
     assert!(!elevator.add_stop(2)); // below — rejected
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_direction_commitment_down() {
     let mut elevator = Elevator::new(0, 1000, 10);
@@ -98,6 +107,7 @@ fn test_direction_commitment_down() {
     assert!(!elevator.add_stop(8)); // above — rejected
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_idle_accepts_any_stop() {
     let mut elevator = Elevator::new(0, 1000, 10);
@@ -111,6 +121,7 @@ fn test_idle_accepts_any_stop() {
 // Dispatch tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_nearest_car_dispatch() {
     let mut building = Building::new(10, 2, 1000);
@@ -123,6 +134,7 @@ fn test_nearest_car_dispatch() {
     assert_eq!(assignments[0].0, 1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_dispatch_respects_capacity() {
     let mut building = Building::new(10, 2, 100);
@@ -138,6 +150,7 @@ fn test_dispatch_respects_capacity() {
 // Simulation tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_single_request_completes() {
     let mut building = Building::new(10, 1, 1000);
@@ -148,6 +161,7 @@ fn test_single_request_completes() {
     assert!(building.elevators[0].is_idle());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_multiple_requests_complete() {
     let mut building = Building::new(10, 2, 1000);
@@ -311,10 +325,24 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_same_floor_rejected, Honest);
+pr4xis::register_praxis_value!(prop_out_of_range_rejected, Honest);
+pr4xis::register_praxis_value!(prop_valid_request_accepted, Verifiable);
+pr4xis::register_praxis_value!(prop_never_exceeds_capacity, Honest);
+pr4xis::register_praxis_value!(prop_floor_in_bounds, Honest);
+pr4xis::register_praxis_value!(prop_doors_closed_when_idle, Honest);
+pr4xis::register_praxis_value!(prop_no_starvation, Verifiable);
+pr4xis::register_praxis_value!(prop_direction_commitment_up, Honest);
+pr4xis::register_praxis_value!(prop_direction_commitment_down, Honest);
+pr4xis::register_praxis_value!(prop_dispatch_assigns_all, Verifiable);
+pr4xis::register_praxis_value!(prop_dispatch_respects_capacity, Honest);
+pr4xis::register_praxis_value!(prop_nearest_is_actually_nearest, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_request_dispatch_run() {
     let e = new_building(10, 2, 4);
@@ -330,6 +358,7 @@ fn engine_request_dispatch_run() {
     assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_invalid_request_rejected() {
     let e = new_building(5, 1, 2);
@@ -338,6 +367,7 @@ fn engine_invalid_request_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_out_of_range_rejected() {
     let e = new_building(5, 1, 2);
@@ -345,6 +375,7 @@ fn engine_out_of_range_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_back_forward() {
     let e = new_building(10, 1, 4);
@@ -359,6 +390,7 @@ fn engine_back_forward() {
     assert_eq!(e.step(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_trace_records_all() {
     let e = new_building(5, 1, 2);

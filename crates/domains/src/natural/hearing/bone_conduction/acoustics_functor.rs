@@ -90,11 +90,13 @@ mod tests {
     use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, FinitelyGenerated};
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<AcousticsToBoneConduction>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn identity_preservation() {
         for obj in AcousticEntity::variants() {
@@ -106,6 +108,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn sound_wave_maps_to_skull_vibration() {
         assert_eq!(
@@ -114,6 +117,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn cortical_bone_maps_to_mastoid() {
         assert_eq!(
@@ -122,6 +126,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = BoneCondEntity::variants();

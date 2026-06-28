@@ -325,37 +325,44 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MereologyTheoryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MereologyTheoryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn proper_part_axiom_holds() {
         assert!(ProperPartIsStrictPart.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn atom_gunk_dual_holds() {
         assert!(AtomAndGunkAreDual.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn supplementation_constrains_holds() {
         assert!(SupplementationConstrainsProperPart.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sum_is_binary_fusion_holds() {
         assert!(SumIsBinaryFusion.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fusion_produces_whole_holds() {
         assert!(FusionProducesWhole.verify().is_ok());

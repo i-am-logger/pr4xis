@@ -86,11 +86,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_pass() {
         assert_functor_laws::<InferenceRulesToProofTheory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn modus_ponens_maps_to_sequent() {
         assert_eq!(
@@ -99,6 +101,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn cut_rule_maps_to_cut() {
         assert_eq!(

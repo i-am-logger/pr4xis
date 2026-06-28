@@ -656,17 +656,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<PathologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         PathologyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 8 disease states + 2 stages + 3 classifications + 4 processes
@@ -678,41 +681,49 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tissue_insult_causes_neoplasia_axiom() {
         assert!(TissueInsultCausesNeoplasia.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tissue_insult_causes_stricture_axiom() {
         assert!(TissueInsultCausesStricture.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dysplasia_is_premalignant_axiom() {
         assert!(DysplasiaIsPremalignant.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn normal_has_no_malignant_potential_axiom() {
         assert!(NormalHasNoMalignantPotential.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn neoplasia_is_malignant_axiom() {
         assert!(NeoplasiaIsMalignant.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn metaplasia_is_reversible_axiom() {
         assert!(MetaplasiaIsReversible.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acute_reversible_neoplasia_irreversible_axiom() {
         assert!(AcuteReversibleNeoplasiaIrreversible.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn normal_is_polarized_axiom() {
         assert!(NormalIsPolarized.verify().is_ok());
@@ -720,6 +731,7 @@ mod tests {
 
     // -- Subsumption-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn disease_states_subsume_under_disease_state_umbrella() {
         use PathologyConcept::*;
@@ -746,6 +758,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_pathology_event() {
         use PathologyConcept::*;
@@ -776,6 +789,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tissue_insult_directly_causes_acute_response() {
         assert!(causes(
@@ -784,6 +798,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn chronic_adaptation_causes_fibrotic_remodeling() {
         assert!(causes(
@@ -792,6 +807,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn high_grade_progression_causes_neoplastic_transformation() {
         assert!(causes(
@@ -800,6 +816,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn neoplastic_transformation_does_not_cause_tissue_insult() {
         assert!(!causes(
@@ -810,6 +827,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn normal_and_neoplasia_oppose() {
         let opps: Vec<_> = PathologyCategory::morphisms()
@@ -821,6 +839,7 @@ mod tests {
         assert!(opps.contains(&(PathologyConcept::Neoplasia, PathologyConcept::Normal)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn benign_and_malignant_oppose() {
         let opps: Vec<_> = PathologyCategory::morphisms()
@@ -831,6 +850,7 @@ mod tests {
         assert!(opps.contains(&(PathologyConcept::Benign, PathologyConcept::Malignant)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lowgrade_and_highgrade_oppose() {
         let opps: Vec<_> = PathologyCategory::morphisms()
@@ -841,6 +861,7 @@ mod tests {
         assert!(opps.contains(&(PathologyConcept::LowGrade, PathologyConcept::HighGrade)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn normal_does_not_oppose_benign() {
         let opps: Vec<_> = PathologyCategory::morphisms()
@@ -853,12 +874,14 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioelectric_correlate_normal_polarized() {
         let vmem = BioelectricCorrelate.get(&PathologyConcept::Normal).unwrap();
         assert!(vmem < -40.0, "normal must be polarised, got {}", vmem);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioelectric_correlate_dysplasia_depolarized() {
         let vmem = BioelectricCorrelate
@@ -867,6 +890,7 @@ mod tests {
         assert!(vmem > -20.0, "dysplasia must be depolarised, got {}", vmem);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioelectric_correlate_neoplasia_strongly_depolarized() {
         let vmem = BioelectricCorrelate
@@ -879,6 +903,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dysplasia_requires_intervention() {
         assert_eq!(
@@ -887,6 +912,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acute_injury_self_resolving() {
         assert_eq!(
@@ -969,4 +995,13 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(
+        prop_malignant_potential_defined_for_disease_states,
+        Verifiable
+    );
 }

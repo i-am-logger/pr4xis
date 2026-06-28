@@ -195,12 +195,14 @@ mod tests {
         vs
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_variant_count() {
         assert_eq!(catppuccin_variants().len(), 4);
         assert_eq!(yoga_variants().len(), 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_darker() {
         let vs = catppuccin_variants();
@@ -210,6 +212,7 @@ mod tests {
         assert_eq!(vs.darker("mocha"), None); // darkest
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_lighter() {
         let vs = catppuccin_variants();
@@ -219,6 +222,7 @@ mod tests {
         assert_eq!(vs.lighter("latte"), None); // lightest
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_default_for_polarity() {
         let vs = catppuccin_variants();
@@ -226,6 +230,7 @@ mod tests {
         assert_eq!(vs.default_for_polarity(Polarity::Dark), Some("frappe")); // first dark
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_unique_orders() {
         assert!(
@@ -244,6 +249,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_duplicate_orders_fail() {
         let mut vs = VariantSet::new("broken");
@@ -252,6 +258,7 @@ mod tests {
         assert!(UniqueOrders { variants: vs }.verify().is_err());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_navigation_roundtrip() {
         assert!(
@@ -270,6 +277,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_polarity_complete() {
         assert!(
@@ -371,4 +379,16 @@ mod tests {
             prop_assert!(vs.lighter(lightest).is_none());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_darker_increases_order, Verifiable);
+    pr4xis::register_praxis_value!(prop_lighter_decreases_order, Verifiable);
+    pr4xis::register_praxis_value!(prop_navigation_stays_in_set, Verifiable);
+    pr4xis::register_praxis_value!(prop_roundtrip_navigation, Deterministic);
+    pr4xis::register_praxis_value!(
+        prop_random_variant_set_with_unique_orders_validates,
+        Verifiable,
+        Deterministic
+    );
+    pr4xis::register_praxis_value!(prop_darkest_has_no_darker, Honest);
+    pr4xis::register_praxis_value!(prop_lightest_has_no_lighter, Honest);
 }

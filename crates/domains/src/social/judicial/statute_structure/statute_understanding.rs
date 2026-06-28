@@ -442,6 +442,7 @@ mod tests {
     use super::*;
     use crate::social::software::markup::xml::lmf::ontology::LmfPos;
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn lmf_pos_maps_noun_verb_adjective_adverb() {
         assert_eq!(lmf_pos_to_pos_tag(LmfPos::Noun), Some(PosTag::Noun));
@@ -453,12 +454,14 @@ mod tests {
         assert_eq!(lmf_pos_to_pos_tag(LmfPos::Adverb), Some(PosTag::Adverb));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn lmf_pos_other_maps_to_none() {
         // Other has no published OLiA equivalent in our enum.
         assert_eq!(lmf_pos_to_pos_tag(LmfPos::Other), None);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn resolve_legal_role_empty_input_returns_none() {
         // Empty / whitespace-only input is rejected before any
@@ -468,6 +471,7 @@ mod tests {
         assert_eq!(resolve_legal_role("   ", &usc), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolve_legal_role_substring_matches_section_heading() {
         // Layer 3 substring matching against the loaded corpus.
@@ -485,6 +489,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn resolve_legal_role_returns_none_when_no_match() {
         // No heading in the sample fixture contains "platypus".
@@ -492,6 +497,7 @@ mod tests {
         assert_eq!(resolve_legal_role("platypus", &usc), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_statutory_term_of_art_classifies_abbreviations() {
         assert!(is_statutory_term_of_art("SOX"));
@@ -503,6 +509,7 @@ mod tests {
         assert!(!is_statutory_term_of_art("AT"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_statutory_term_of_art_classifies_section_markers() {
         assert!(is_statutory_term_of_art("1514A"));
@@ -519,6 +526,7 @@ mod tests {
         assert!(!is_statutory_term_of_art("18"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolution_status_partitions_are_disjoint() {
         // Property: every TermLexicalResolution is in exactly one
@@ -556,6 +564,7 @@ mod tests {
         ]
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_registered_statute_understanding_constructs() {
         // Smoke: understand_statute runs end-to-end on every loaded
@@ -570,6 +579,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_registered_statute_has_no_unresolved_lemmas() {
         // Layer-1 corpus invariant: across every registered statute,
@@ -606,6 +616,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_registered_statute_has_some_wordnet_resolution() {
         // Sanity: at least one term in each statute has at least one
@@ -636,6 +647,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_registered_statute_carries_urn_provenance() {
         // Layer 5 invariant: every term's name.context_uri is the
@@ -669,6 +681,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_registered_statute_relation_counts_balance() {
         // Layer 4 invariant: sum of inbound = sum of outbound
@@ -697,6 +710,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn legal_role_layer_resolves_against_loaded_us_code() {
         // Layer 3 resolution is driven by the build-time loaded
@@ -780,6 +794,7 @@ mod tests {
     /// every Tier 2+ ontology load must come with a corpus-wide
     /// audit that walks every record through the understanding
     /// pipeline. Spot-checks don't count.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn corpus_wide_gap_audit_no_unresolved_lemmas() {
         use std::collections::BTreeMap;

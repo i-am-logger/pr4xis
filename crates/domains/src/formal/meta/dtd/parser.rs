@@ -198,6 +198,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_minimal_element_decl() {
         let dtd = b"<!ELEMENT root (#PCDATA)>";
@@ -208,6 +209,7 @@ mod tests {
         assert_eq!(decls[0].body, "(#PCDATA)");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_attlist_decl() {
         let dtd = b"<!ATTLIST elem id ID #REQUIRED>";
@@ -217,6 +219,7 @@ mod tests {
         assert_eq!(decls[0].name, "elem");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_general_entity() {
         let dtd = br#"<!ENTITY copy "(c)">"#;
@@ -226,6 +229,7 @@ mod tests {
         assert_eq!(decls[0].name, "copy");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_parameter_entity() {
         let dtd = br#"<!ENTITY % shared "common">"#;
@@ -235,6 +239,7 @@ mod tests {
         assert_eq!(decls[0].name, "shared");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_notation() {
         let dtd = br#"<!NOTATION jpeg PUBLIC "image/jpeg" "viewer">"#;
@@ -244,6 +249,7 @@ mod tests {
         assert_eq!(decls[0].name, "jpeg");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn skips_comments() {
         let dtd = b"<!-- header --><!ELEMENT root EMPTY>";
@@ -320,6 +326,11 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_recognises_any_well_formed_decl, Verifiable);
+    pr4xis::register_praxis_value!(prop_parameter_entity_strips_percent, Verifiable);
+    pr4xis::register_praxis_value!(prop_sequence_count_preserved, Verifiable);
+
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_wn_lmf_dtd() {
         // Sanity check against the bundled WN-LMF 1.3 DTD: the parser

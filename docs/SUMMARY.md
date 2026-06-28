@@ -19,6 +19,7 @@
 
 # Understand
 
+- [The Constitution](understand/constitution.md)
 - [Concepts](understand/concepts.md)
 - [Architecture](understand/architecture.md)
 - [Test Architecture](understand/test-architecture.md)

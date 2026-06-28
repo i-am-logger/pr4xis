@@ -114,6 +114,7 @@ impl From<String> for SourceTextRef {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn new_constructs_unbound_ref() {
         let r = SourceTextRef::new("the employee may file");
@@ -122,6 +123,7 @@ mod tests {
         assert!(!r.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn with_context_binds_to_uri() {
         let r =
@@ -133,18 +135,21 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn empty_is_detected() {
         assert!(SourceTextRef::new("").is_empty());
         assert!(!SourceTextRef::new("a").is_empty());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn from_str_round_trips() {
         let r: SourceTextRef = "shall not retaliate".into();
         assert_eq!(r.as_str(), "shall not retaliate");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn from_owned_string() {
         let r: SourceTextRef = String::from("180 days").into();

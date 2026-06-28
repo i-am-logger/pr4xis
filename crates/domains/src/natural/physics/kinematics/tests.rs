@@ -3,52 +3,62 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::natural::physics::kinematics::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn kinematics_category_laws() {
     assert_category_laws::<KinematicsCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kinematics_ontology_validates() {
     KinematicsOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn velocity_is_derivative_of_position() {
     assert!(VelocityIsDerivativeOfPosition.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn acceleration_is_derivative_of_velocity() {
     assert!(AccelerationIsDerivativeOfVelocity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constant_velocity_propagation() {
     assert!(ConstantVelocityPropagation.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constant_acceleration_propagation() {
     assert!(ConstantAccelerationPropagation.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn velocity_update_under_acceleration() {
     assert!(VelocityUpdateUnderAcceleration.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn static_model_invariance() {
     assert!(StaticModelInvariance.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn speed_non_negative() {
     assert!(SpeedNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn velocity_addition_commutative() {
     assert!(VelocityAdditionCommutative.verify().is_ok());
@@ -180,4 +190,13 @@ mod proptest_proofs {
             prop_assert!((next.velocity.vz - state.velocity.vz).abs() < 1e-12);
         }
     }
+
+    pr4xis::register_praxis_value!(speed_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(velocity_addition_is_commutative, Verifiable);
+    pr4xis::register_praxis_value!(static_model_preserves_position, Verifiable);
+    pr4xis::register_praxis_value!(constant_velocity_displacement_is_linear, Verifiable);
+    pr4xis::register_praxis_value!(constant_velocity_preserves_speed, Verifiable);
+    pr4xis::register_praxis_value!(acceleration_changes_velocity_linearly, Verifiable);
+    pr4xis::register_praxis_value!(free_fall_position, Verifiable);
+    pr4xis::register_praxis_value!(propagate_zero_dt_is_identity, Verifiable);
 }

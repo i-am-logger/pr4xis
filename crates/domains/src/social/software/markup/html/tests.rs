@@ -23,6 +23,7 @@ use proptest::prelude::*;
 /// appears in the loaded ontology's element set. Spot-check uses
 /// the elements named in the schema's `<xs:element name=...>`
 /// declarations.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_xhtml_1_0_strict_elements_in_loaded_inventory() {
     // Per Pemberton et al. 2002 §A.1, XHTML 1.0 Strict defines 77
@@ -117,6 +118,7 @@ fn axiom_xhtml_1_0_strict_elements_in_loaded_inventory() {
 
 /// Every XHTML 1.0 Strict attribute well-known from Pemberton et al.
 /// 2002 §A.2 appears in the loaded ontology's attribute set.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_xhtml_1_0_strict_attributes_in_loaded_inventory() {
     for at in [
@@ -132,6 +134,7 @@ fn axiom_xhtml_1_0_strict_attributes_in_loaded_inventory() {
 
 /// Content categories are a closed enumeration per WHATWG HTML LS
 /// §3.2.5 — exactly 7 leaves under HtmlContentCategory.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_content_categories_are_seven_per_whatwg_3_2_5() {
     use pr4xis::category::{Arrow, Category};
@@ -151,6 +154,7 @@ fn axiom_content_categories_are_seven_per_whatwg_3_2_5() {
 
 /// HTML name lookup is case-insensitive per WHATWG HTML LS §13.1.2
 /// + HTML 4.01 §3.2.2.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_name_lookup_case_insensitive_per_whatwg_13_1_2() {
     for el in ["img", "IMG", "Img", "ImG", "iMg"] {
@@ -166,6 +170,7 @@ fn axiom_name_lookup_case_insensitive_per_whatwg_13_1_2() {
 
 /// The bundled XSD is the W3C-published XHTML 1.0 Strict schema —
 /// targets the canonical XHTML 1.0 namespace.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_bundled_xsd_targets_xhtml_1_0_namespace() {
     assert!(
@@ -176,6 +181,7 @@ fn axiom_bundled_xsd_targets_xhtml_1_0_namespace() {
 
 /// HTML5-only sectioning + media elements are NOT in the loaded
 /// inventory — documenting the M4.η.1.a follow-up scope.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_html5_only_elements_absent_per_m4_eta_1_a_scope() {
     for el in [
@@ -193,11 +199,13 @@ fn axiom_html5_only_elements_absent_per_m4_eta_1_a_scope() {
 // Functor / category laws
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws_pass_on_html_category() {
     assert_category_laws::<HtmlCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     use pr4xis::logic::proof::Counterexample;
@@ -209,6 +217,7 @@ fn ontology_validates() {
     });
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_concept_reaches_root_via_is_a() {
     // Mac Lane §I.3 functor identity preservation flavor: every
@@ -315,3 +324,10 @@ proptest! {
         prop_assert!(is_html_attribute(&entry.to_uppercase()));
     }
 }
+
+pr4xis::register_praxis_value!(prop_case_fold_factors_through_element, Deterministic);
+pr4xis::register_praxis_value!(prop_case_fold_factors_through_attribute, Deterministic);
+pr4xis::register_praxis_value!(prop_total_function, Honest);
+pr4xis::register_praxis_value!(prop_load_idempotent, Deterministic);
+pr4xis::register_praxis_value!(prop_loaded_element_round_trip, Deterministic);
+pr4xis::register_praxis_value!(prop_loaded_attribute_round_trip, Deterministic);

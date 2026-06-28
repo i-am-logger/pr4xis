@@ -10,6 +10,7 @@ pub mod algebra;
 pub mod artifact_identity;
 pub mod categorical_structure;
 pub mod citation_quality;
+pub mod constitution_coverage;
 pub mod dtd;
 pub mod gap_analysis;
 pub mod identifier_format;

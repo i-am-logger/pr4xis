@@ -259,6 +259,7 @@ mod tests {
     /// object into the arguments — `Question{ "part of", [X, Y] }`. The lift fires
     /// only because `relation_for_surface("part of")` is loaded (ComposedReasoner
     /// carries the relation lexicon); on plain English it would not.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_x_part_of_y_interprets_to_a_relational_question() {
         let en = ComposedReasoner::new(English::sample(), Vec::new());
@@ -304,6 +305,7 @@ mod tests {
     /// The plain copula "is X a Y" is UNCHANGED: the argument is a bare entity NP
     /// (not a relational `Func`), so the predicate stays the copula "is" (→ the
     /// Subsumption default at dispatch). Proves the lift does not fire spuriously.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_x_a_y_keeps_the_copula_predicate() {
         let en = ComposedReasoner::new(English::sample(), Vec::new());

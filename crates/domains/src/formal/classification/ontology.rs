@@ -363,37 +363,44 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ClassificationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ClassificationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn seven_linnaean_ranks_holds() {
         assert!(SevenLinnaeanRanks.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn kind_is_category_holds() {
         assert!(KindIsCategory.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn linnaean_subordination_chain_holds() {
         assert!(LinnaeanSubordinationChain.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn differentia_distinguishes_species_holds() {
         assert!(DifferentiaDistinguishesSpecies.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn species_may_be_individual_holds() {
         assert!(SpeciesMayBeIndividual.verify().is_ok());

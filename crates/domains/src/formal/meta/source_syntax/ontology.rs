@@ -182,22 +182,26 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SourceSyntaxCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SourceSyntaxOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fifteen_concepts() {
         assert_eq!(SourceSyntaxConcept::variants().len(), 15);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_description_total() {
         let q = ConceptDescription;
@@ -208,6 +212,7 @@ mod tests {
 
     /// Every byte-affecting decision is subsumed by `ConcreteSyntaxDecision`
     /// — the residue is exactly the twelve leaf species, nothing floating.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn twelve_decisions_under_the_genus() {
         use SourceSyntaxConcept as C;

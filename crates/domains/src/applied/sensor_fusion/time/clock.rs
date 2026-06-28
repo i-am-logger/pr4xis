@@ -79,6 +79,7 @@ impl SensorClock {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ideal_clock_zero_offset() {
         let clock = SensorClock::ideal(SensorType::GnssReceiver);
@@ -86,6 +87,7 @@ mod tests {
         assert!((clock.to_system_time(100.0) - 100.0).abs() < 1e-15);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn round_trip_time_conversion() {
         let clock = SensorClock::new(
@@ -99,6 +101,7 @@ mod tests {
         assert!((recovered - system_time).abs() < 1e-12);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn offset_correction() {
         let clock = SensorClock::new(SensorType::GnssReceiver, ClockModel::ideal(), 0.1);
@@ -106,6 +109,7 @@ mod tests {
         assert!((clock.to_system_time(100.1) - 100.0).abs() < 1e-12);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn predicted_error_ideal_is_zero() {
         let clock = SensorClock::ideal(SensorType::IMU);

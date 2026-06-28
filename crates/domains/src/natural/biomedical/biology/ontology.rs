@@ -728,11 +728,13 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<BiologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         BiologyOntology::validate()
@@ -741,41 +743,49 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_cells_are_cell() {
         assert!(AllCellsAreCell.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn esophagus_has_squamous_epithelium() {
         assert!(EsophagusHasSquamousEpithelium.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epithelium_has_stem_cells() {
         assert!(EpitheliumHasStemCells.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_levels_represented() {
         assert!(AllLevelsRepresented.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanosensitivity_is_multiscale() {
         assert!(MechanosensitivityIsMultiscale.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn stem_cell_differentiation_axiom() {
         assert!(StemCellDifferentiation.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_causes_metaplasia() {
         assert!(AcidCausesMetaplasia.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inflammation_causes_fibrosis() {
         assert!(InflammationCausesFibrosis.verify().is_ok());
@@ -783,16 +793,19 @@ mod tests {
 
     // -- Cross-domain equivalence tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn macrophage_m1_cross_domain() {
         assert!(MacrophageM1CrossDomainEquivalence.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn macrophage_m2_cross_domain() {
         assert!(MacrophageM2CrossDomainEquivalence.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn fibroblast_cross_domain() {
         assert!(FibroblastCrossDomainEquivalence.verify().is_ok());
@@ -800,6 +813,7 @@ mod tests {
 
     // -- Subsumption / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn squamous_epithelial_is_a_cell() {
         assert!(is_a(
@@ -808,16 +822,19 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn osteocyte_is_a_cell() {
         assert!(is_a(BiologyConcept::Osteocyte, BiologyConcept::Cell));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn esophagus_is_a_organ() {
         assert!(is_a(BiologyConcept::Esophagus, BiologyConcept::Organ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cell_is_not_tissue() {
         assert!(!is_a(BiologyConcept::Cell, BiologyConcept::Tissue));
@@ -825,18 +842,21 @@ mod tests {
 
     // -- Parthood / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn organism_transitively_contains_squamous_epithelial() {
         let parts = parts_of(BiologyConcept::Organism);
         assert!(parts.contains(&BiologyConcept::SquamousEpithelial));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn esophagus_transitively_contains_basal_stem_cell() {
         let parts = parts_of(BiologyConcept::Esophagus);
         assert!(parts.contains(&BiologyConcept::BasalStemCell));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_transitively_contains_osteocyte() {
         let parts = parts_of(BiologyConcept::Bone);
@@ -845,6 +865,7 @@ mod tests {
 
     // -- Causation / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn stem_cell_division_causes_organ_development() {
         assert!(causes(
@@ -853,6 +874,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_damage_causes_metaplastic_change() {
         assert!(causes(
@@ -861,6 +883,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inflammation_causes_fibrosis_direct() {
         assert!(causes(
@@ -871,6 +894,7 @@ mod tests {
 
     // -- Opposition tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn squamous_opposes_columnar() {
         let opps: Vec<_> = BiologyCategory::morphisms()
@@ -888,6 +912,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn m1_opposes_m2() {
         let opps: Vec<_> = BiologyCategory::morphisms()
@@ -898,6 +923,7 @@ mod tests {
         assert!(opps.contains(&(BiologyConcept::MacrophageM1, BiologyConcept::MacrophageM2)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cell_opposes_organism() {
         let opps: Vec<_> = BiologyCategory::morphisms()
@@ -911,6 +937,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn basal_stem_cell_is_proliferative() {
         assert_eq!(
@@ -919,6 +946,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn osteocyte_is_mechanosensitive() {
         assert_eq!(
@@ -927,6 +955,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn macrophage_not_mechanosensitive() {
         assert_eq!(
@@ -935,6 +964,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn organization_level_fibroblast_is_cellular() {
         assert_eq!(
@@ -943,6 +973,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn organization_level_organism() {
         assert_eq!(
@@ -1042,4 +1073,11 @@ mod tests {
             let _ = IsProliferative.get(&c);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_organization_level_total_on_anatomy, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_proliferative_partial, Honest);
 }

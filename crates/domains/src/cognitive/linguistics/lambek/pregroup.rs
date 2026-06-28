@@ -577,21 +577,25 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use pr4xis::logic::Axiom;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn pregroup_category_laws() {
         assert_category_laws::<PregroupCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn left_contraction_holds() {
         assert!(LeftContraction.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn right_contraction_holds() {
         assert!(RightContraction.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_dog_runs() {
         // the:n^r·np  dog:n  runs:np^l·s
@@ -762,6 +766,7 @@ mod tests {
         assert!(parse(&types), "the dog runs should parse");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn she_sees_the_dog() {
         // she: np
@@ -789,6 +794,7 @@ mod tests {
         assert!(parse(&types), "she sees the dog should parse");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_big_dog_runs() {
         // the: np · n^l
@@ -817,12 +823,14 @@ mod tests {
         assert!(parse(&types), "the big dog runs should parse");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn bare_noun_doesnt_parse() {
         let types = vec![svo::noun()];
         assert!(!parse(&types), "bare noun should not parse as sentence");
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn pregroup_notation() {
         let det = PregroupType::new(vec![
@@ -838,18 +846,21 @@ mod tests {
 
     use super::super::types::svo as lambek_svo;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_noun() {
         let pg = lambek_to_pregroup(&lambek_svo::noun());
         assert_eq!(pg, svo::noun());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_proper_noun() {
         let pg = lambek_to_pregroup(&lambek_svo::proper_noun());
         assert_eq!(pg, svo::proper_noun());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_determiner() {
         // Lambek: NP/N → pregroup: np · n^l
@@ -857,6 +868,7 @@ mod tests {
         assert_eq!(pg, svo::determiner());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_intransitive_verb() {
         // Lambek: NP\S → pregroup: np^r · s
@@ -864,6 +876,7 @@ mod tests {
         assert_eq!(pg, svo::intransitive_verb());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_preserves_parsing() {
         // If Lambek types parse, their pregroup images should also parse.
@@ -885,6 +898,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_transitive_parses() {
         // "she sees the dog": np + tv + det + noun
@@ -906,6 +920,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_adjective_parses() {
         // "the big dog runs": det + adj + noun + iv

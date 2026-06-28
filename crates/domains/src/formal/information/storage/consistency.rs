@@ -62,16 +62,19 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws_hold() {
         assert_category_laws::<ConsistencyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_eight_models() {
         assert_eq!(ConsistencyConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn linearizable_weakens_to_sequential() {
         let m = ConsistencyCategory::morphisms();
@@ -80,6 +83,7 @@ mod tests {
             && r.kind == ConsistencyRelationKind::Weakens));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sequential_weakens_to_causal() {
         let m = ConsistencyCategory::morphisms();
@@ -91,6 +95,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn linearizable_and_serializable_incomparable() {
         let m = ConsistencyCategory::morphisms();
@@ -102,6 +107,7 @@ mod tests {
             && r.kind == ConsistencyRelationKind::Weakens));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eventual_is_weakest() {
         // Reachability in the `Weakens` partial order. Per #166 (partial
@@ -146,6 +152,7 @@ mod tests {
         false
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn session_guarantees_weaken_to_eventual() {
         let m = ConsistencyCategory::morphisms();
@@ -159,6 +166,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn causal_implies_session_guarantees() {
         let m = ConsistencyCategory::morphisms();
@@ -170,6 +178,7 @@ mod tests {
             && r.kind == ConsistencyRelationKind::Weakens));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn linearizable_reaches_eventual_transitively() {
         // Lin → SeqCons → Causal → {Pram, MR, RYW} → Eventual.

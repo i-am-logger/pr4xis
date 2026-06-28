@@ -229,6 +229,7 @@ mod tests {
     /// "canonical idempotent" check; we cannot feed `canonical`'s output
     /// (N-Quads) back into `canonical` (which parses RDF/XML), so
     /// determinism is the well-defined fixed-point property to pin.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn canonical_is_deterministic_cito() {
         let bytes = std::fs::read(concat!(
@@ -258,6 +259,7 @@ mod tests {
     /// graph-identity `canonical` no longer hashes — kept as its own
     /// harness (the floor's `assert_put_get_law` is the constant-
     /// complement identity, so the typed-view check lives here).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn typed_view_round_trip_cito() {
         let path = concat!(
@@ -274,6 +276,7 @@ mod tests {
 
     /// Typed-view round-trip on PROV-O — exercises punning (OWL 2 §5.2)
     /// plus large annotation density.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn typed_view_round_trip_prov_o() {
         let path = concat!(
@@ -287,6 +290,7 @@ mod tests {
     /// Emit the canonical-form content digest of each bundled OWL
     /// vocabulary. Pair with `dump_unpinned_signatures` to update
     /// the `[canonical_signatures]` block of `praxis.lock`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dump_owl_canonical_signatures() {
         let manifest = env!("CARGO_MANIFEST_DIR");
@@ -309,6 +313,7 @@ mod tests {
 
     /// Typed-view round-trip on OLiA — the largest bundled vocab
     /// (1.3k classes, DTD entities, deep restriction graph).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn typed_view_round_trip_olia() {
         let path = concat!(
@@ -409,4 +414,7 @@ mod tests {
             );
         }
     }
+
+    pr4xis::register_praxis_value!(prop_put_get_law, Deterministic);
+    pr4xis::register_praxis_value!(prop_get_put_law, Deterministic);
 }

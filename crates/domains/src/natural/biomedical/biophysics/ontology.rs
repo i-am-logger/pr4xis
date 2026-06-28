@@ -550,17 +550,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<BiophysicsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         BiophysicsOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 7 mech + 6 wave + 4 piezo + 3 membrane + 4 media + 5 umbrellas + 10 events = 39
@@ -569,26 +572,31 @@ mod tests {
 
     // -- Domain-axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vibration_causes_mechanotransduction_axiom() {
         assert!(VibrationCausesMechanotransduction.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn piezoelectric_follows_deformation_axiom() {
         assert!(PiezoelectricFollowsDeformation.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_matrix_is_piezoelectric_axiom() {
         assert!(BoneMatrixIsPiezoelectric.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_impedance_greater_than_soft_tissue_axiom() {
         assert!(BoneImpedanceGreaterThanSoftTissue.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn impedance_mismatch_causes_reflection_axiom() {
         assert!(ImpedanceMismatchCausesReflection.verify().is_ok());
@@ -604,6 +612,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_properties_subsume() {
         let subs = subsumptions();
@@ -627,6 +636,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn wave_properties_subsume() {
         let subs = subsumptions();
@@ -646,6 +656,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn piezoelectric_properties_subsume() {
         let subs = subsumptions();
@@ -663,6 +674,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn direct_and_converse_subsume_piezoelectric_effect() {
         let subs = subsumptions();
@@ -676,6 +688,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn media_subsume_biological_medium() {
         let subs = subsumptions();
@@ -693,6 +706,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_biophysical_event() {
         let subs = subsumptions();
@@ -714,6 +728,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn external_vibration_causes_wave_propagation_directly() {
         let direct: Vec<_> = BiophysicsCategory::morphisms()
@@ -727,6 +742,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vibration_to_mechanotransduction_chain() {
         assert!(causes_transitively(
@@ -735,6 +751,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deformation_to_local_electric_field() {
         // TissueDeformation → PiezoelectricChargeGeneration → LocalElectricField
@@ -746,6 +763,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn direct_opposes_converse_piezoelectric() {
         let opps: Vec<_> = BiophysicsCategory::morphisms()
@@ -763,6 +781,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn elasticity_opposes_viscosity() {
         let opps: Vec<_> = BiophysicsCategory::morphisms()
@@ -773,6 +792,7 @@ mod tests {
         assert!(opps.contains(&(BiophysicsConcept::Elasticity, BiophysicsConcept::Viscosity)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn stress_opposes_strain() {
         let opps: Vec<_> = BiophysicsCategory::morphisms()
@@ -788,6 +808,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_impedance_value() {
         assert_eq!(
@@ -796,6 +817,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn soft_tissue_impedance_value() {
         assert_eq!(
@@ -804,6 +826,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fluid_impedance_value() {
         assert_eq!(
@@ -812,6 +835,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_is_piezoelectric() {
         assert_eq!(
@@ -820,6 +844,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn soft_tissue_is_not_piezoelectric() {
         assert_eq!(
@@ -828,6 +853,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_media_transmit_vibration() {
         for medium in [
@@ -845,6 +871,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_wave_frequency_range() {
         assert_eq!(
@@ -853,6 +880,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resonance_frequency_range() {
         assert_eq!(
@@ -930,4 +958,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_impedance_positive, Verifiable);
+    pr4xis::register_praxis_value!(prop_frequency_range_min_lt_max, Verifiable);
 }

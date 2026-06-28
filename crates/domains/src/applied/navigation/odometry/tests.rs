@@ -9,27 +9,32 @@ use crate::applied::navigation::odometry::ontology::*;
 // Ontology
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn odometry_category_laws() {
     assert_category_laws::<OdometryCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn odometry_ontology_validates() {
     OdometryOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn drift_is_unbounded_axiom() {
     assert!(DriftIsUnbounded.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relative_motion_only_axiom() {
     assert!(RelativeMotionOnly.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn slip_corrupts_wheel_odometry_axiom() {
     assert!(SlipCorruptsWheelOdometry.verify().is_ok());
@@ -39,6 +44,7 @@ fn slip_corrupts_wheel_odometry_axiom() {
 // Engine tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn stationary_robot_stays_put() {
     let sit = OdometrySituation {
@@ -62,6 +68,7 @@ fn stationary_robot_stays_put() {
     assert!((next.pose.y).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn drive_forward_moves_in_heading_direction() {
     let sit = OdometrySituation {
@@ -87,6 +94,7 @@ fn drive_forward_moves_in_heading_direction() {
     assert!((next.distance_traveled - 10.0).abs() < 0.01);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn wheel_tick_straight_line() {
     let sit = OdometrySituation {
@@ -116,6 +124,7 @@ fn wheel_tick_straight_line() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn wheel_tick_turn_in_place() {
     let sit = OdometrySituation {
@@ -146,6 +155,7 @@ fn wheel_tick_turn_in_place() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn error_grows_with_distance() {
     let sit = OdometrySituation {
@@ -177,6 +187,7 @@ fn error_grows_with_distance() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn negative_dt_rejected() {
     let sit = OdometrySituation {
@@ -280,4 +291,8 @@ mod proptest_proofs {
             prop_assert!((r1.pose.heading - r2.pose.heading).abs() < 1e-15);
         }
     }
+
+    pr4xis::register_praxis_value!(distance_traveled_monotonically_increases, Verifiable);
+    pr4xis::register_praxis_value!(error_never_decreases, Verifiable);
+    pr4xis::register_praxis_value!(dead_reckoning_is_deterministic, Deterministic);
 }

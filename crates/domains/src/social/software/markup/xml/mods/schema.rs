@@ -51,6 +51,7 @@ pub fn loaded_mods_3_8() -> &'static str {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_mods_returns_published_xsd_root() {
         let bytes = loaded_mods_3_8();
@@ -72,6 +73,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mods_bytes_match_lock_hash() {
         use pr4xis_runtime::address::ContentAddress;

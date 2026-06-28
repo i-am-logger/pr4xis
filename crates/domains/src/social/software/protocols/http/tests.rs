@@ -21,6 +21,7 @@ fn arb_action() -> impl Strategy<Value = ConnectionAction> {
     ]
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_safe_methods() {
     assert!(Method::Get.is_safe());
@@ -28,6 +29,7 @@ fn test_safe_methods() {
     assert!(!Method::Post.is_safe());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_idempotent_methods() {
     assert!(Method::Get.is_idempotent());
@@ -35,18 +37,21 @@ fn test_idempotent_methods() {
     assert!(!Method::Post.is_idempotent());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_add_body_to_get() {
     let req = Request::new(Method::Get, "/api");
     assert!(req.with_body(vec![1]).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_can_add_body_to_post() {
     let req = Request::new(Method::Post, "/api");
     assert!(req.with_body(vec![1]).is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn test_status_classes() {
     assert_eq!(StatusCode::OK.class(), StatusClass::Success);
@@ -54,6 +59,7 @@ fn test_status_classes() {
     assert!(StatusCode::new(99).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_connection_happy_path() {
     let conn = Connection::new(3)
@@ -72,6 +78,7 @@ fn test_connection_happy_path() {
     assert!(conn.is_terminal());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_send_before_connect() {
     assert!(
@@ -81,6 +88,7 @@ fn test_cant_send_before_connect() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_error_and_retry() {
     let conn = Connection::new(3)
@@ -93,6 +101,7 @@ fn test_error_and_retry() {
     assert_eq!(conn.retries, 1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_max_retries_exhausted() {
     let conn = Connection::new(1)
@@ -108,6 +117,7 @@ fn test_max_retries_exhausted() {
     assert!(conn.apply(ConnectionAction::Retry).is_err());
 }
 
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn test_closed_is_terminal() {
     let conn = Connection::new(3).apply(ConnectionAction::Close).unwrap();
@@ -203,10 +213,23 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_safe_is_idempotent, Verifiable);
+pr4xis::register_praxis_value!(prop_body_not_safe, Verifiable);
+pr4xis::register_praxis_value!(prop_body_enforcement, Honest);
+pr4xis::register_praxis_value!(prop_status_class_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_status_categories, Verifiable);
+pr4xis::register_praxis_value!(prop_invalid_status_rejected, Honest);
+pr4xis::register_praxis_value!(prop_starts_idle, Verifiable);
+pr4xis::register_praxis_value!(prop_closed_rejects_all, Honest);
+pr4xis::register_praxis_value!(prop_retry_increments, Verifiable);
+pr4xis::register_praxis_value!(prop_retries_bounded, Verifiable);
+pr4xis::register_praxis_value!(prop_keep_alive_reuse, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_full_request_cycle() {
     let e = new_connection(3);
@@ -225,6 +248,7 @@ fn engine_full_request_cycle() {
     assert_eq!(e.step(), 6);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_invalid_transition_rejected() {
     let e = new_connection(3);
@@ -233,6 +257,7 @@ fn engine_invalid_transition_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_back_forward() {
     let e = new_connection(3);
@@ -244,6 +269,7 @@ fn engine_back_forward() {
     assert_eq!(e.step(), 2);
 }
 
+#[pr4xis::praxis_value(Explainable, Honest)]
 #[test]
 fn engine_trace_on_failure() {
     let e = new_connection(3);

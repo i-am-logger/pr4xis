@@ -462,11 +462,13 @@ mod tests {
 
     // ── SchemeType ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_4_scheme_types() {
         assert_eq!(SchemeType::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_slot_counts() {
         assert_eq!(SchemeType::Base16.slot_count(), 16);
@@ -475,26 +477,31 @@ mod tests {
         assert_eq!(SchemeType::Ansi16.slot_count(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_base16_has_16_slots() {
         assert_eq!(SchemeType::Base16.slots().len(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_base24_has_24_slots() {
         assert_eq!(SchemeType::Base24.slots().len(), 24);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vogix16_has_16_slots() {
         assert_eq!(SchemeType::Vogix16.slots().len(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ansi16_has_16_slots() {
         assert_eq!(SchemeType::Ansi16.slots().len(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_base16_slots_are_subset_of_base24() {
         let base16 = SchemeType::Base16.slots();
@@ -504,6 +511,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_base24_extends_base16() {
         assert!(SchemeType::Base24.extends_base16());
@@ -514,16 +522,19 @@ mod tests {
 
     // ── Vogix16 ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_16_vogix16_semantics() {
         assert_eq!(Vogix16Semantic::variants().len(), 16);
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_vogix16_bijection() {
         assert!(Vogix16Bijection.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vogix16_functional_count() {
         let functional: Vec<_> = Vogix16Semantic::variants()
@@ -533,6 +544,7 @@ mod tests {
         assert_eq!(functional.len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vogix16_keys() {
         assert_eq!(Vogix16Semantic::Success.key(), "success");
@@ -560,6 +572,7 @@ mod tests {
         assert_eq!(Vogix16Semantic::ForegroundBright.key(), "foreground_bright");
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_vogix16_mapping() {
         assert_eq!(Vogix16Semantic::Success.to_slot(), ColorSlot::Base08);
@@ -569,11 +582,13 @@ mod tests {
 
     // ── ANSI16 ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_16_ansi_colors() {
         assert_eq!(Ansi16Color::variants().len(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ansi_indices_0_to_15() {
         let indices: Vec<u8> = Ansi16Color::variants().iter().map(|c| c.index()).collect();
@@ -582,21 +597,25 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_ansi16_bijection() {
         assert!(Ansi16Bijection.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_ansi_base16_consistency() {
         assert!(AnsiBase16Consistency.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_sgr_ranges() {
         assert!(SgrRanges.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ansi_keys() {
         assert_eq!(Ansi16Color::Black.key(), "color00");
@@ -604,6 +623,7 @@ mod tests {
         assert_eq!(Ansi16Color::BrightWhite.key(), "color15");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ansi_sgr_values() {
         assert_eq!(Ansi16Color::Black.sgr_fg(), 30);
@@ -612,6 +632,7 @@ mod tests {
         assert_eq!(Ansi16Color::BrightWhite.sgr_fg(), 97);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_bright_partition() {
         let normal: Vec<_> = Ansi16Color::variants()
@@ -679,4 +700,11 @@ mod tests {
             prop_assert_eq!(slot.ansi_index(), Some(color.index()));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_ansi_index_bounded, Verifiable);
+    pr4xis::register_praxis_value!(prop_sgr_fg_in_valid_range, Verifiable);
+    pr4xis::register_praxis_value!(prop_sgr_bg_in_valid_range, Verifiable);
+    pr4xis::register_praxis_value!(prop_sgr_bg_fg_offset_10, Verifiable);
+    pr4xis::register_praxis_value!(prop_vogix16_to_slot_preserves_role, Extensible);
+    pr4xis::register_praxis_value!(prop_ansi_base16_roundtrip, Deterministic);
 }

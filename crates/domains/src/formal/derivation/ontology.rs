@@ -336,17 +336,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DerivationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DerivationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_stages_form_causal_chain() {
         use DerivationConcept as D;
@@ -368,6 +371,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn premise_transitively_reaches_knowledge_extension() {
         let causation: Vec<_> = DerivationCategory::morphisms()
@@ -381,6 +385,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn modes_subsume_derivation_type() {
         use DerivationConcept as D;
@@ -400,6 +405,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deduction_opposes_abduction() {
         let opp: Vec<_> = DerivationCategory::morphisms()
@@ -410,6 +416,7 @@ mod tests {
         assert!(opp.contains(&(DerivationConcept::Deduction, DerivationConcept::Abduction)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn soundness_opposes_completeness() {
         let opp: Vec<_> = DerivationCategory::morphisms()
@@ -423,16 +430,19 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deduction_monotonic_abduction_not_holds() {
         assert!(DeductionMonotonicAbductionNot.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deduction_preserves_truth_induction_not_holds() {
         assert!(DeductionPreservesTruthInductionNot.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deduction_requires_all_abduction_not_holds() {
         assert!(DeductionRequiresAllAbductionNot.verify().is_ok());
@@ -493,4 +503,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_monotonicity_total_on_modes, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

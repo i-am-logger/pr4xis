@@ -12,32 +12,38 @@ use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 use crate::applied::sensor_fusion::state::information::InformationEstimate;
 use crate::applied::sensor_fusion::state::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn estimation_category_laws() {
     assert_category_laws::<StateEstimationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn state_estimation_ontology_validates() {
     StateEstimationOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn covariance_is_psd() {
     assert!(CovarianceIsPSD.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn information_roundtrip() {
     assert!(InformationRoundtrip.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn information_fusion_additive() {
     assert!(InformationFusionAdditive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn std_dev_is_sqrt_of_diagonal() {
     let p = Matrix::diagonal(&[4.0, 9.0, 16.0]);
@@ -46,6 +52,7 @@ fn std_dev_is_sqrt_of_diagonal() {
     assert!((covariance::std_dev(&p, 2) - 4.0).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn diagonal_covariance_has_zero_correlation() {
     let p = Matrix::diagonal(&[4.0, 9.0]);
@@ -53,6 +60,7 @@ fn diagonal_covariance_has_zero_correlation() {
     assert!(rho.abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn information_fusion_reduces_uncertainty() {
     let e1 = StateEstimate::new(Vector::new(vec![10.0]), Matrix::new(1, 1, vec![4.0]), 0.0);
@@ -70,6 +78,7 @@ fn information_fusion_reduces_uncertainty() {
 // Statistics wiring: confidence intervals on state estimates
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn confidence_interval_contains_mean() {
     let est = StateEstimate::new(
@@ -85,6 +94,7 @@ fn confidence_interval_contains_mean() {
     assert!(ci1.contains(10.0), "CI should contain mean 10.0: {:?}", ci1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn confidence_interval_widens_with_higher_level() {
     let est = StateEstimate::new(Vector::new(vec![0.0]), Matrix::new(1, 1, vec![4.0]), 0.0);
@@ -110,6 +120,7 @@ fn confidence_interval_widens_with_higher_level() {
 // H6: StateEstimate::new rejects dimension-mismatched inputs in every profile
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn state_estimate_new_valid_dimensions() {
     // This should always work
@@ -125,6 +136,7 @@ fn state_estimate_new_valid_dimensions() {
 // H7: confidence_interval with out-of-bounds index returns None
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn confidence_interval_out_of_bounds_returns_none() {
     let est = StateEstimate::new(Vector::new(vec![5.0]), Matrix::new(1, 1, vec![4.0]), 0.0);
@@ -216,6 +228,12 @@ mod proptest_proofs {
             prop_assert!((est.state.get(0) - est2.state.get(0)).abs() < 1e-8);
         }
     }
+
+    pr4xis::register_praxis_value!(confidence_interval_always_contains_mean, Verifiable);
+    pr4xis::register_praxis_value!(confidence_interval_99_wider_than_95, Verifiable);
+    pr4xis::register_praxis_value!(symmetrize_produces_symmetric, Deterministic);
+    pr4xis::register_praxis_value!(total_uncertainty_is_trace, Verifiable);
+    pr4xis::register_praxis_value!(information_roundtrip_preserves_state, Deterministic);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +244,7 @@ mod proptest_proofs {
 // via struct literal, forcing them through new() which validates dimensions.
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_axiom_state_estimate_new_produces_valid_estimate() {
     use crate::formal::math::linear_algebra::positive_definite;
@@ -261,6 +280,7 @@ fn meta_axiom_state_estimate_new_produces_valid_estimate() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_axiom_state_estimate_non_exhaustive_enforces_constructor() {
     // This test documents that #[non_exhaustive] is applied.

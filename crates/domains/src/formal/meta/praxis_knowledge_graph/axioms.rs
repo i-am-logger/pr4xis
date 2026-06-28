@@ -591,6 +591,7 @@ mod tests {
     /// axiom name) while still asserting it is PRESENT in `domain_axioms()` (the
     /// cheap non-vacuity check), so the axiom set stays complete and the costly
     /// pass is run exactly once, by its owner. All other legs run in full.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_domain_axioms_hold() {
         // Guard against a future vacuous AxiomBindingComplete: the re-bind
@@ -627,6 +628,7 @@ mod tests {
     /// Prints the [`GraphSnapshotReproducible`] fixture's MerkleRoot so a
     /// conscious GraphVersion bump (an address-preimage or rkyv-layout
     /// change) can re-bless [`GRAPH_SNAPSHOT_KAT_ROOT`].
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore = "prints the snapshot KAT root for re-pinning; not an assertion"]
     fn print_graph_snapshot_kat_root() {

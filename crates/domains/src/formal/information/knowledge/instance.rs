@@ -427,6 +427,7 @@ pr4xis::register_axiom!(
 mod self_reference {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_system_identity_is_a_self_referent() {
         // The system's own name denotes itself.
@@ -434,6 +435,7 @@ mod self_reference {
         assert!(is_self_referent("praxis"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn second_person_indexicals_denote_the_addressee_system() {
         // In a single-agent self-model the addressee IS the system, so the
@@ -442,12 +444,14 @@ mod self_reference {
         assert!(is_self_referent("yourself"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn an_unrelated_word_is_not_a_self_referent() {
         assert!(!is_self_referent("dog"));
         assert!(!is_self_referent(""));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_identity_name_is_in_the_self_referent_set() {
         // The set is derived from the self-model identity, not re-spelled.
@@ -500,6 +504,7 @@ mod wire_surface {
         serde_json::from_str(json).expect("self_describe must emit valid JSON")
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn each_source_record_carries_the_field_names_the_chat_ui_reads() {
         // Field names the chat UI consumes (docs/chat/index.html) for
@@ -528,6 +533,7 @@ mod wire_surface {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn availability_field_takes_only_loaded_or_available() {
         // The UI compares `s.availability === 'loaded'` to decide
@@ -553,6 +559,7 @@ mod wire_surface {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_source_count_equals_count_of_loaded_records() {
         // The header pill (`{loaded}/{total} SOURCES LOADED`) reads

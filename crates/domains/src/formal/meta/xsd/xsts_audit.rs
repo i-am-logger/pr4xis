@@ -457,6 +457,7 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn audit_runs() {
         // Either the extracted tree is present (in which case the
@@ -482,11 +483,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_holds() {
         assert!(XstsCorpusAuditPasses.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn case_from_schema_test_walks_typed_xml() {
         // Verify the ontological walker recognises a synthesised
@@ -518,6 +521,7 @@ mod tests {
         assert!(out[1].schema_path.ends_with("bad.xsd"));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn loaded_xsts_is_either_cached_or_absent() {
         // The accessor returns Some when the extracted tree is on

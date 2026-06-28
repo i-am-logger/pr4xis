@@ -17,11 +17,13 @@ use proptest::prelude::*;
 // Category laws + validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<LegalActorCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     LegalActorOntology::validate()
@@ -32,6 +34,7 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nineteen_concepts() {
     // Root + 4 families + 7 Party + 5 Adjudicator + 2 Witness = 19.
@@ -39,6 +42,7 @@ fn nineteen_concepts() {
     assert_eq!(LegalActorConcept::variants().len(), 19);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn seven_party_leaves() {
     assert_eq!(party_leaves().len(), 7);
@@ -48,6 +52,7 @@ fn seven_party_leaves() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn five_adjudicator_leaves() {
     assert_eq!(adjudicator_leaves().len(), 5);
@@ -57,6 +62,7 @@ fn five_adjudicator_leaves() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn two_witness_leaves() {
     assert_eq!(witness_leaves().len(), 2);
@@ -66,6 +72,7 @@ fn two_witness_leaves() {
 // Actor-name parser
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_plaintiff() {
     assert_eq!(parse_actor("plaintiff"), Some(LegalActorConcept::Plaintiff));
@@ -73,6 +80,7 @@ fn parse_plaintiff() {
     assert_eq!(parse_actor("PLAINTIFF"), Some(LegalActorConcept::Plaintiff));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_employer_not_recognized() {
     // "employer" is a SOX-domain-specific term, not a general litigation
@@ -80,6 +88,7 @@ fn parse_employer_not_recognized() {
     assert_eq!(parse_actor("employer"), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_attorney_aliases() {
     assert_eq!(parse_actor("attorney"), Some(LegalActorConcept::Counsel));
@@ -87,6 +96,7 @@ fn parse_attorney_aliases() {
     assert_eq!(parse_actor("counsel"), Some(LegalActorConcept::Counsel));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_expert_witness_compound() {
     assert_eq!(
@@ -103,16 +113,19 @@ fn parse_expert_witness_compound() {
 // CarriesBurden quality
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn plaintiff_carries_burden() {
     assert_eq!(CarriesBurden.get(&LegalActorConcept::Plaintiff), Some(true));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn judge_does_not_carry_burden() {
     assert_eq!(CarriesBurden.get(&LegalActorConcept::Judge), Some(false));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn expert_witness_does_not_carry_burden() {
     assert_eq!(
@@ -121,6 +134,7 @@ fn expert_witness_does_not_carry_burden() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn family_concepts_are_abstract() {
     assert_eq!(CarriesBurden.get(&LegalActorConcept::Party), None);
@@ -132,21 +146,25 @@ fn family_concepts_are_abstract() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_party_adjudicator_opposition() {
     assert!(PartyAdjudicatorOpposition.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_counsel_witness_opposition() {
     assert!(CounselWitnessOpposition.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_only_parties_carry_burden() {
     assert!(OnlyPartiesCarryBurden.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in LegalActorOntology::axioms() {
@@ -185,3 +203,6 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_burden_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_burden_iff_party, Verifiable);

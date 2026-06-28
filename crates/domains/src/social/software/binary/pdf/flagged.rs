@@ -432,6 +432,7 @@ mod tests {
         bytes
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn do_referencing_image_xobject_reclassifies_to_image() {
         let bytes = pdf_with_xobject("Image", b"/Im0 Do\n");
@@ -444,6 +445,7 @@ mod tests {
         assert_eq!(flagged[0].dimensions, Some((240.0, 180.0)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn do_referencing_form_xobject_keeps_form_classification() {
         let bytes = pdf_with_xobject("Form", b"/Im0 Do\n");
@@ -454,6 +456,7 @@ mod tests {
         assert!(flagged[0].note.contains("/Form"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vector_path_painting_flagged() {
         // Build a page with a fill-rectangle op. No XObject ref.
@@ -491,6 +494,7 @@ mod tests {
         assert!(flagged[0].note.contains("operator f"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn page_with_only_text_yields_empty_flagged_list() {
         // Page with a text-only content stream, no /Do, no /re.
@@ -526,6 +530,7 @@ mod tests {
         assert!(flagged.is_empty());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn page_out_of_range_returns_named_error() {
         let bytes = pdf_with_xobject("Image", b"");
@@ -540,6 +545,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn flag_document_is_deterministic() {
         let bytes = pdf_with_xobject("Image", b"/Im0 Do\n100 100 50 50 re\nf\n/Im0 Do\n");
@@ -555,6 +561,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn image_dimensions_are_captured_from_xobject_dict() {
         let bytes = pdf_with_xobject("Image", b"/Im0 Do\n");
@@ -564,6 +571,7 @@ mod tests {
         assert_eq!(flagged[0].dimensions, Some((240.0, 180.0)));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_subtype_is_flagged_with_descriptive_note() {
         let bytes = pdf_with_xobject("PS", b"/Im0 Do\n");
@@ -580,6 +588,7 @@ mod tests {
     /// in `/Resources /XObject` must return the typed
     /// `XObjectResolutionFailed` error, never silently emit an
     /// empty flag or panic.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn do_with_missing_xobject_resource_returns_named_error() {
         // Build a page whose content stream invokes /Missing but
@@ -632,6 +641,7 @@ mod tests {
     /// a content stream that doesn't reference any XObjects, must
     /// flag without panicking — the missing dict is a normal
     /// case for text-only pages.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn page_with_resources_but_no_xobject_dict_handles_gracefully() {
         use lopdf::{Document, Object, Stream, dictionary};
@@ -817,6 +827,12 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_flag_is_deterministic_across_fill_counts, Deterministic);
+    pr4xis::register_praxis_value!(prop_flag_count_equals_painting_op_count, Verifiable);
+    pr4xis::register_praxis_value!(prop_image_dimensions_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(prop_flagged_page_numbers_are_one_indexed, Verifiable);
+
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multiple_pages_walked_in_order() {
         // Build a 2-page doc; page 1 has an image, page 2 has a

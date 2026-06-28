@@ -17,11 +17,13 @@ use proptest::prelude::*;
 // Category laws + ontology validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<PinpointCitationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     PinpointCitationOntology::validate()
@@ -32,12 +34,14 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn seven_concepts() {
     // Root + 6 levels.
     assert_eq!(PinpointCitationConcept::variants().len(), 7);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn six_leaves() {
     assert_eq!(leaves().len(), 6);
@@ -47,6 +51,7 @@ fn six_leaves() {
 // PinpointCite parser (Bluebook §3.3)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_subsection() {
     // SOX 1514A's prohibition-on-retaliation subsection is "(a)".
@@ -56,6 +61,7 @@ fn parse_sox_subsection() {
     assert_eq!(cite.segments[0].label, "a");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_sox_180_day_sol_pinpoint() {
     // The 180-day SOL is at 18 U.S.C. § 1514A(b)(2)(D) — three nested levels.
@@ -72,6 +78,7 @@ fn parse_sox_180_day_sol_pinpoint() {
     assert_eq!(cite.segments[2].label, "D");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_four_levels_deep() {
     let cite = PinpointCite::parse_subdivisions("(a)(1)(A)(ii)").unwrap();
@@ -80,18 +87,21 @@ fn parse_four_levels_deep() {
     assert_eq!(cite.segments[3].label, "ii");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_rejects_unmatched_paren() {
     assert!(PinpointCite::parse_subdivisions("(a").is_none());
     assert!(PinpointCite::parse_subdivisions("a)").is_none());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_rejects_special_chars() {
     assert!(PinpointCite::parse_subdivisions("(a-b)").is_none());
     assert!(PinpointCite::parse_subdivisions("(a/b)").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_empty_string_yields_empty_cite() {
     let cite = PinpointCite::parse_subdivisions("").unwrap();
@@ -99,12 +109,14 @@ fn parse_empty_string_yields_empty_cite() {
     assert_eq!(cite.to_bluebook(), "");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn parse_to_bluebook_round_trips() {
     let cite = PinpointCite::parse_subdivisions("(b)(2)(D)").unwrap();
     assert_eq!(cite.to_bluebook(), "(b)(2)(D)");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn builder_pattern_works() {
     let cite = PinpointCite::new()
@@ -118,11 +130,13 @@ fn builder_pattern_works() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_nesting_depth_strict_total_order() {
     assert!(NestingDepthIsStrictTotalOrder.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in PinpointCitationOntology::axioms() {
@@ -166,3 +180,6 @@ proptest! {
         prop_assert_eq!(close, seg_count);
     }
 }
+
+pr4xis::register_praxis_value!(prop_nesting_depth_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_bluebook_paren_count, Verifiable);

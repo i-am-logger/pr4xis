@@ -204,7 +204,12 @@ pub fn encode_collection(files: &[ThemeFile]) -> Vec<u8> {
 pub fn decode(bytes: &[u8]) -> Result<ThemeCollection, ThemeCollectionError> {
     let mut pos = 0usize;
     let count = get_u64(bytes, &mut pos)? as usize;
-    let mut out: ThemeCollection = Vec::with_capacity(count);
+    // Bound the pre-allocation by the bytes that remain: every entry costs at
+    // least two length-prefix varints (≥ 2 bytes), so a `count` larger than the
+    // buffer is already malformed and `get_blob` below refuses it cleanly. This
+    // keeps the optimisation for honest archives while refusing — not aborting
+    // on a multi-petabyte allocation — for an adversarial count prefix.
+    let mut out: ThemeCollection = Vec::with_capacity(count.min(bytes.len()));
     let mut prev: Option<String> = None;
     for _ in 0..count {
         let path_bytes = get_blob(bytes, &mut pos)?;
@@ -302,6 +307,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn encode_decode_round_trips_exact() {
         let files = vec![
@@ -323,6 +329,7 @@ mod tests {
         assert_eq!(back, expect);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn encode_is_deterministic_regardless_of_input_order() {
         let a = vec![
@@ -337,6 +344,7 @@ mod tests {
         assert_eq!(encode_collection(&a), encode_collection(&b));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn empty_collection_round_trips() {
         let blob = encode_collection(&[]);
@@ -346,6 +354,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_rejects_truncated_archive_without_panic() {
         let files = vec![tf("base16/x/default.yaml", b"some yaml bytes here")];
@@ -358,6 +367,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable, Deterministic)]
     #[test]
     fn decode_rejects_non_canonical_order_fail_closed() {
         // Hand-build an archive with entries out of sorted order; the decoder
@@ -401,4 +411,6 @@ mod tests {
             prop_assert_eq!(encode_collection(&back), blob);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_collection_round_trips, Deterministic);
 }

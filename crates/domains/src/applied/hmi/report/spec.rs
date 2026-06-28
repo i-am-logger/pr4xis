@@ -325,11 +325,13 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_theme_report_has_8_fields() {
         assert_eq!(theme_report_fields().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_best_encoding_ratio_is_position() {
         assert_eq!(
@@ -338,6 +340,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_best_encoding_nominal_not_position() {
         // Nominal should use color or shape, not position
@@ -347,21 +350,25 @@ mod tests {
         assert!(best.is_some());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_default_spec_is_optimal() {
         assert!(DefaultIsOptimal.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_default_spec_is_valid() {
         assert!(DefaultIsValid.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_override_warns() {
         assert!(OverrideWarns.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_override_updates_assignment() {
         let mut spec = ReportSpec::from_fields("test", theme_report_fields());
@@ -375,6 +382,7 @@ mod tests {
         assert!(!lum.auto);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_invalid_encoding_detected() {
         let mut spec = ReportSpec::from_fields("test", theme_report_fields());
@@ -384,6 +392,7 @@ mod tests {
         assert!(!issues.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_no_warnings_for_default() {
         let spec = ReportSpec::from_fields("test", theme_report_fields());
@@ -421,4 +430,8 @@ mod tests {
             prop_assert!(warning.is_none());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_default_always_optimal, Verifiable);
+    pr4xis::register_praxis_value!(prop_default_always_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_override_to_same_no_warning, Verifiable);
 }

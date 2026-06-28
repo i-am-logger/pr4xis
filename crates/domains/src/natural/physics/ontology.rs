@@ -150,26 +150,31 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_14_laws() {
         assert_eq!(PhysicsConcept::variants().len(), 14);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_category_laws() {
         pr4xis::category::laws::assert_category_laws::<PhysicsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_all_branches() {
         assert!(AllBranchesRepresented.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_maxwell_derives_c() {
         assert!(MaxwellDerivesC.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_4_maxwell_equations() {
         let branch = LawBranch;
@@ -180,6 +185,7 @@ mod tests {
         assert_eq!(em_laws.len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_3_newton_laws() {
         let branch = LawBranch;
@@ -190,6 +196,7 @@ mod tests {
         assert_eq!(mech.len(), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         PhysicsOntology::validate()

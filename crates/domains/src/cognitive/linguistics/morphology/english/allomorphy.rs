@@ -124,6 +124,7 @@ fn ends_in_doubled_consonant(s: &str) -> bool {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rule_set_nonempty_and_named() {
         let rules = english_allomorphy_rules();
@@ -138,6 +139,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn silent_e_restores_for_ed_consonant() {
         let out = silent_e_restoration("bak", "baked", "ed");
@@ -146,6 +148,7 @@ mod tests {
         assert_eq!(out, vec!["provide".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn silent_e_inert_after_vowel() {
         // 'y' is word-final-vowel per Spencer §5.2 — "played" does
@@ -154,24 +157,28 @@ mod tests {
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn silent_e_inert_for_unrelated_suffix() {
         let out = silent_e_restoration("quick", "quickly", "ly");
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn doubled_consonant_undoubles_for_ing() {
         let out = doubled_consonant_undoubling("runn", "running", "ing");
         assert_eq!(out, vec!["run".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn y_to_i_past_recovers_cry() {
         let out = y_to_i_alternation_past("cri", "cried", "ed");
         assert_eq!(out, vec!["cry".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn y_to_i_past_inert_for_non_ied_surface() {
         // "tested" + "ed" should NOT trigger the y/i alternation —
@@ -184,6 +191,7 @@ mod tests {
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn y_to_i_past_inert_for_wrong_suffix() {
         // suffix == "s" should NOT trigger the past-tense rule
@@ -192,6 +200,7 @@ mod tests {
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn y_to_i_past_inert_for_short_surface() {
         // 3-char surface "ied" — len <= 3 must bail. Closes
@@ -200,48 +209,56 @@ mod tests {
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn y_to_i_plural_recovers_city() {
         let out = y_to_i_alternation_plural("citi", "cities", "s");
         assert_eq!(out, vec!["city".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn y_to_i_plural_inert_for_non_ies_surface() {
         let out = y_to_i_alternation_plural("dog", "dogs", "s");
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn y_to_i_plural_inert_for_wrong_suffix() {
         let out = y_to_i_alternation_plural("cri", "cried", "ed");
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn y_to_i_plural_inert_for_short_surface() {
         let out = y_to_i_alternation_plural("", "ies", "s");
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn es_restoration_recovers_box() {
         let out = es_to_e_restoration("box", "boxes", "s");
         assert_eq!(out, vec!["box".to_string()]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn es_restoration_inert_for_non_es_surface() {
         let out = es_to_e_restoration("dog", "dogs", "s");
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn es_restoration_inert_for_wrong_suffix() {
         let out = es_to_e_restoration("test", "tested", "ed");
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn es_restoration_inert_for_short_surface() {
         // len <= 2 surface: "es" alone must bail.
@@ -249,6 +266,7 @@ mod tests {
         assert!(out.is_empty(), "got {out:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn all_rules_callable_through_table() {
         for rule in english_allomorphy_rules() {
@@ -344,4 +362,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(property_allomorphy_outputs_never_empty, Verifiable);
+    pr4xis::register_praxis_value!(property_allomorphy_outputs_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(property_silent_e_only_fires_for_vowel_initial, Honest);
+    pr4xis::register_praxis_value!(property_every_rule_has_non_empty_citation, Verifiable);
 }

@@ -79,11 +79,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_hold() {
         assert_functor_laws::<OdometryToProperty>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn wheel_encoder_measures_position() {
         assert_eq!(
@@ -92,6 +94,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn inertial_odometry_primary_output_is_velocity() {
         assert_eq!(

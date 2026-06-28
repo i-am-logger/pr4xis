@@ -578,6 +578,7 @@ mod tests {
 
     // --- PipelineTrace Monoid laws ---
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn pipeline_trace_monoid_left_identity() {
         let trace = PipelineTrace::single(PipelineStep::TOKENIZE, "5 tokens", true);
@@ -585,6 +586,7 @@ mod tests {
         assert_eq!(result.entries.len(), trace.entries.len());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn pipeline_trace_monoid_right_identity() {
         let trace = PipelineTrace::single(PipelineStep::TOKENIZE, "5 tokens", true);
@@ -592,6 +594,7 @@ mod tests {
         assert_eq!(result.entries.len(), 1);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn pipeline_trace_monoid_associativity() {
         let a = PipelineTrace::single(PipelineStep::TOKENIZE, "tok", true);
@@ -605,6 +608,7 @@ mod tests {
 
     // --- TracedPipeline (Writer monad over PipelineTrace) ---
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn traced_pipeline_bind_accumulates_trace() {
         let step1: TracedPipeline<usize> = pr4xis::category::Writer::new(
@@ -625,6 +629,7 @@ mod tests {
         assert_eq!(result.log.entries[1].step, PipelineStep::PARSE);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn traced_pipeline_tell_appends_trace() {
         let computation: TracedPipeline<&str> = pr4xis::category::Writer::pure("hello");
@@ -637,6 +642,7 @@ mod tests {
         assert_eq!(result.log.entries.len(), 1);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn traced_pipeline_map_preserves_trace() {
         let step: TracedPipeline<i32> = pr4xis::category::Writer::new(
@@ -648,6 +654,7 @@ mod tests {
         assert_eq!(result.log.entries.len(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn traced_pipeline_from_traceable() {
         use super::super::trace_impls;
@@ -664,6 +671,7 @@ mod tests {
         assert!(trace.entries[0].success);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reasoned_over_names_loaded_ontologies_and_keeps_the_success_bit() {
         use super::super::trace_impls;
@@ -710,6 +718,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn pipeline_steps_map_to_diagnostics() {
         // Every step maps to a valid diagnostic concept
@@ -731,6 +740,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn pipeline_steps_map_to_provenance() {
         // All steps map to Activity (they are all PROV Activities)
@@ -746,6 +756,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn trace_entry_from_step() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::PARSE, "success → S[q]", true);
@@ -754,6 +765,7 @@ mod tests {
         assert!(entry.success);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_trace_accumulates() {
         let mut trace = PipelineTrace::default();
@@ -767,6 +779,7 @@ mod tests {
         assert_eq!(trace.entries[2].ontology(), "MontagueOntology");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn serialize_format() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::PARSE, "failed", false);
@@ -774,6 +787,7 @@ mod tests {
         assert_eq!(entry.serialize(), expected);
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn every_step_has_ontology_name() {
         let steps = [
@@ -796,6 +810,7 @@ mod tests {
 
     // --- The functor preserves the diagnostic cycle ---
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn input_steps_map_to_observation_phase() {
         // Tokenize → TraceContext (observation context)
@@ -805,6 +820,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn parse_maps_to_test() {
         // Parsing IS a test — it tests whether the input is grammatical
@@ -814,6 +830,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn interpretation_maps_to_hypothesis() {
         // The meaning is a hypothesis about what the user intended
@@ -823,6 +840,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn knowledge_gathering_maps_to_evidence() {
         // Looking up facts IS gathering evidence
@@ -836,6 +854,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn realization_maps_to_remedy() {
         // The generated response IS the remedy — it addresses the user's need
@@ -847,6 +866,7 @@ mod tests {
 
     // --- Functor connection tests ---
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn tokenize_connects_to_communication() {
         let conns = functor_connections(PipelineStep::TOKENIZE);
@@ -857,6 +877,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn tokenize_connects_to_control() {
         let conns = functor_connections(PipelineStep::TOKENIZE);
@@ -867,6 +888,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn interpret_connects_to_drt_and_dialogue() {
         let conns = functor_connections(PipelineStep::INTERPRET);
@@ -878,6 +900,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn metacognition_connects_to_diagnostics_and_control() {
         let conns = functor_connections(PipelineStep::METACOGNITION);
@@ -893,6 +916,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn all_participating_ontologies_includes_functors() {
         let mut trace = PipelineTrace::default();
@@ -915,6 +939,7 @@ mod tests {
         assert!(all.contains(&"Diagnostics (Reiter)"));
     }
 
+    #[pr4xis::praxis_value(Explainable, Extensible)]
     #[test]
     fn serialize_with_functors_shows_connections() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::TOKENIZE, "5 tokens", true);
@@ -923,6 +948,7 @@ mod tests {
         assert!(s.contains("→Control (Wiener)"));
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_step_has_functor_connections() {
         // Every pipeline step should connect to at least one other ontology via functor

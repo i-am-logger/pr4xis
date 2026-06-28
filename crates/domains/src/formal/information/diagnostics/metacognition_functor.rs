@@ -74,11 +74,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<DiagnosticsToMetacognition>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn symptom_is_gap() {
         assert_eq!(
@@ -87,6 +89,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn remedy_is_repair() {
         assert_eq!(
@@ -95,6 +98,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn diagnosis_is_epistemic_assessment() {
         assert_eq!(

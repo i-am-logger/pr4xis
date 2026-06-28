@@ -12,6 +12,7 @@ use super::super::ontology::XsdConcept;
 use super::project_from_xml_document;
 use crate::social::software::markup::xml::parser::grammar::parse_document;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_a_single_xsd_element_declaration() {
     let xsd = r#"<?xml version="1.0"?>
@@ -28,6 +29,7 @@ fn projects_a_single_xsd_element_declaration() {
     assert_eq!(instance.named[0].local_name, "foo");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_six_xsd_declaration_kinds() {
     let xsd = r#"<?xml version="1.0"?>
@@ -60,6 +62,7 @@ fn projects_six_xsd_declaration_kinds() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_substitution_group_head_on_element_declarations() {
     let xsd = r#"<?xml version="1.0"?>
@@ -77,6 +80,7 @@ fn projects_substitution_group_head_on_element_declarations() {
     assert_eq!(note.substitution_group_head.as_deref(), Some("block"));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn ignores_ref_only_declarations() {
     // W3C XSD 1.1 Part 1 §3.3.3 — an `<xsd:element ref="…">` is a
@@ -92,6 +96,7 @@ fn ignores_ref_only_declarations() {
     assert_eq!(instance.elements.len(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dispatches_on_namespace_uri_not_prefix() {
     // The XSD namespace can be bound to any prefix per W3C XML
@@ -111,6 +116,7 @@ fn dispatches_on_namespace_uri_not_prefix() {
     assert_eq!(instance.elements[0].local_name, "e");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn skips_non_xsd_namespace_elements() {
     // Elements outside the XSD namespace are not schema components,
@@ -131,6 +137,7 @@ fn skips_non_xsd_namespace_elements() {
     assert_eq!(names, vec!["real"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn handles_default_namespace_binding_for_xsd() {
     // XSD can be the default namespace too — common in some
@@ -145,6 +152,7 @@ fn handles_default_namespace_binding_for_xsd() {
     assert_eq!(instance.elements[0].local_name, "e");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_real_uslm_xsd_via_praxis_xml() {
     // Read the bundled USLM 1.0.18 XSD through praxis-xml + the
@@ -188,6 +196,7 @@ fn projects_real_uslm_xsd_via_praxis_xml() {
 // W3C XSD 1.1 Part 1 §4.2 Schema composition + §3.15 Annotations.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_xsd_import_directive() {
     // W3C XSD 1.1 Part 1 §4.2.6 — <xs:import namespace=... schemaLocation=...>.
@@ -206,6 +215,7 @@ fn projects_xsd_import_directive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_xsd_import_without_schema_location() {
     // §4.2.6.1: schemaLocation is a hint, not required.
@@ -224,6 +234,7 @@ fn projects_xsd_import_without_schema_location() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_xsd_include_directive() {
     // W3C XSD 1.1 Part 1 §4.2.3 — <xs:include schemaLocation=...>.
@@ -241,6 +252,7 @@ fn projects_xsd_include_directive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_xsd_redefine_directive() {
     // W3C XSD 1.1 Part 1 §4.2.4 — <xs:redefine schemaLocation=...>.
@@ -258,6 +270,7 @@ fn projects_xsd_redefine_directive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_xsd_override_directive() {
     // W3C XSD 1.1 Part 1 §4.2.5 — <xs:override schemaLocation=...>.
@@ -275,6 +288,7 @@ fn projects_xsd_override_directive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_top_level_annotation_with_documentation() {
     // W3C XSD 1.1 Part 1 §3.15 — <xs:annotation>/<xs:documentation>.
@@ -294,6 +308,7 @@ fn projects_top_level_annotation_with_documentation() {
     assert!(instance.annotations[0].appinfo.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_annotation_with_appinfo() {
     // §3.15.1 — <xs:appinfo> machine-readable application info.
@@ -311,6 +326,7 @@ fn projects_annotation_with_appinfo() {
     assert_eq!(ann.documentation, vec!["human prose".to_string()]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_nested_annotation_on_element_declaration() {
     // §3.15 — annotations attach to any schema component. Here an
@@ -336,6 +352,7 @@ fn projects_nested_annotation_on_element_declaration() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_real_uslm_xsd_annotations_and_imports() {
     // The bundled USLM 1.0.18 XSD has multiple <xs:annotation>
@@ -363,6 +380,7 @@ fn projects_real_uslm_xsd_annotations_and_imports() {
 // W3C XSD 1.1 Part 1 §3.4 type derivation + §3.8 model groups + §3.16 varieties.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_model_groups() {
     // §3.8 sequence / choice / all + §3.10 any wildcard.
@@ -388,6 +406,7 @@ fn projects_model_groups() {
     assert!(instance.components.contains(&XsdConcept::Wildcard));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_complex_content_extension_with_base() {
     // §3.4.2 complexContent + §3.4.6 extension(base=...).
@@ -410,6 +429,7 @@ fn projects_complex_content_extension_with_base() {
     assert_eq!(instance.derivations[0].base.as_deref(), Some("BaseType"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_simple_content_restriction_with_base() {
     // §3.4.2 simpleContent + §3.4.6 restriction(base=...).
@@ -432,6 +452,7 @@ fn projects_simple_content_restriction_with_base() {
     assert_eq!(instance.derivations[0].base.as_deref(), Some("xs:string"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_simple_type_list_and_union() {
     // §3.16 / Part 2 §4.1.2 — list + union varieties.
@@ -450,6 +471,7 @@ fn projects_simple_type_list_and_union() {
     assert!(instance.components.contains(&XsdConcept::UnionType));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_real_uslm_xsd_derivations() {
     // The bundled USLM XSD uses complexContent/simpleContent +
@@ -472,6 +494,7 @@ fn projects_real_uslm_xsd_derivations() {
 // W3C XSD 1.1 Part 2 §4.3 constraining facets.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_string_facets() {
     // §4.3.1–.6 — length/min/max/pattern/enumeration/whiteSpace.
@@ -502,6 +525,7 @@ fn projects_string_facets() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_numeric_range_and_digit_facets() {
     // §4.3.7–.12 — min/max inclusive/exclusive, total/fraction digits.
@@ -532,6 +556,7 @@ fn projects_numeric_range_and_digit_facets() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_xsd11_facets() {
     // XSD 1.1 additions: §4.3.14 explicitTimezone, §4.3.13 assertion.
@@ -554,6 +579,7 @@ fn projects_xsd11_facets() {
 // W3C XSD 1.1 Part 1 §3.11 identity constraints.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_key_with_selector_and_field() {
     // §3.11.1 key + §3.11.2 selector/field.
@@ -573,6 +599,7 @@ fn projects_key_with_selector_and_field() {
     assert!(c.contains(&XsdConcept::Field));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_keyref_and_unique() {
     // §3.11.1 keyref + unique.
@@ -595,6 +622,7 @@ fn projects_keyref_and_unique() {
     assert!(c.contains(&XsdConcept::KeyRef));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_complex_type_assertion() {
     // §3.13 — `<xs:assert>` is an XSD 1.1 complex-type assertion.
@@ -610,6 +638,7 @@ fn projects_complex_type_assertion() {
     assert!(c.contains(&XsdConcept::Assert));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projects_open_content_and_default_open_content() {
     // §3.4.2.2 openContent on a complex type + §3.16.2 schema-level
@@ -628,6 +657,7 @@ fn projects_open_content_and_default_open_content() {
     assert!(c.contains(&XsdConcept::DefaultOpenContent));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn matches_text_scanner_on_simple_schema() {
     // The praxis-native projection and the legacy text-scanner

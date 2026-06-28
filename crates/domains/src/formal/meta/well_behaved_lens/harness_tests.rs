@@ -7,6 +7,7 @@ use super::super::lens_trait::{FailureStage, LensLawFailure};
 use super::*;
 use pr4xis::ontology::Axiom;
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn ci_gate_passes() {
     // The CI gate axiom (the ALWAYS-RUN fast lane): every entry in
@@ -29,6 +30,7 @@ fn ci_gate_passes() {
     assert!(verdict.is_ok(), "round-trip harness reported hard failures");
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn ci_gate_passes_giants() {
     // The SLOW-lane companion to `ci_gate_passes`: it includes the oversize
@@ -68,6 +70,7 @@ fn ci_gate_passes_giants() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn oversize_deferred_is_not_a_failure() {
     // The oversize deferral is an explicit CI-budget choice, NOT a failed or
@@ -96,6 +99,7 @@ fn structural_witness_registrations() -> [LensRegistration; 3] {
     ]
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn harness_returns_one_entry_per_registration() {
     // STRUCTURAL post-condition: the harness emits exactly one result per
@@ -106,6 +110,7 @@ fn harness_returns_one_entry_per_registration() {
     assert_eq!(results.len(), regs.len());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn harness_results_sorted_by_key() {
     // STRUCTURAL post-condition: the harness orders its results by key. The
@@ -122,6 +127,7 @@ fn harness_results_sorted_by_key() {
     assert_eq!(regs[1].key, "a_witness@1");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn harness_outcome_is_failure_classifies_correctly() {
     // Non-failure outcomes.
@@ -172,6 +178,7 @@ fn harness_outcome_is_failure_classifies_correctly() {
     assert!(HarnessOutcome::ByteLawViolated(byte_failure).is_failure());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ci_gate_axiom_metadata_cites_literature() {
     let meta = RoundTripHarnessAllVerified.meta();
@@ -282,6 +289,7 @@ fn witness_registration<L: super::super::WellBehavedLens>(
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn verify_byte_exact_reports_byte_law_violated_for_broken_witness() {
     // A byte-exact witness whose `put(get(b)) != b` must surface as
@@ -300,6 +308,7 @@ fn verify_byte_exact_reports_byte_law_violated_for_broken_witness() {
     assert!(outcome.is_failure());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn verify_byte_exact_dispatches_through_fidelity() {
     // `verify_loaded_bytes` must route a ByteExactGraphFaithful lens to the
@@ -318,6 +327,7 @@ fn verify_byte_exact_dispatches_through_fidelity() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn verify_byte_exact_reports_unpinned_when_law_holds_but_no_pin() {
     // An identity byte-exact witness satisfies `put(get(b)) == b`. With no

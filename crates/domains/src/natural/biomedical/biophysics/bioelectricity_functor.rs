@@ -103,16 +103,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<BiophysicsToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BiophysicsToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BiophysicsEntity::variants() {
@@ -123,6 +126,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // The migrated Biophysics category is kinded and partial (#166):
@@ -161,6 +165,7 @@ mod tests {
 
     // -- Specific mapping tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_collagen_piezoelectricity_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -169,6 +174,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cell_membrane_strain_maps_to_membrane_potential() {
         assert_eq!(
@@ -177,6 +183,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cell_deformation_maps_to_membrane_potential() {
         assert_eq!(
@@ -185,6 +192,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_mechanical_wave_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -193,6 +201,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_acoustic_impedance_maps_to_signal() {
         assert_eq!(
@@ -201,6 +210,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bone_matrix_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -209,6 +219,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_soft_tissue_maps_to_current_morphology() {
         assert_eq!(
@@ -217,6 +228,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cell_membrane_maps_to_membrane_potential() {
         assert_eq!(
@@ -225,6 +237,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_fluid_medium_maps_to_transepithelial_potential() {
         assert_eq!(
@@ -233,6 +246,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_capacitance_maps_to_membrane_potential() {
         assert_eq!(
@@ -241,6 +255,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_piezoelectric_effect_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -249,6 +264,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_biological_medium_maps_to_morphospace() {
         assert_eq!(
@@ -257,6 +273,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();

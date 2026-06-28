@@ -42,11 +42,13 @@ pub fn is_zip(bytes: &[u8]) -> bool {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recognises_pkzip_magic() {
         assert!(is_zip(&[0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_non_zip() {
         assert!(!is_zip(b"<xml/>"));
@@ -55,6 +57,7 @@ mod tests {
         assert!(!is_zip(&[0x50, 0x4B, 0x03])); // truncated
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recognises_bundled_ooxml_schema_archive() {
         // The bundled OOXML schema archive is a real PKZIP file; the magic-prefix

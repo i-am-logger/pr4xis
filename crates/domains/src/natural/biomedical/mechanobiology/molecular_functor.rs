@@ -103,16 +103,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<MechanobiologyToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<MechanobiologyToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in MechanobiologyEntity::variants() {
@@ -126,6 +129,7 @@ mod tests {
     /// Composition preservation over a Causation chain that actually
     /// composes: MechanicalLoad -> MembraneDeformation -> ChannelGating
     /// compose under Causation-transitivity.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_causation_chain() {
         let f = MechanobiologyRelation {
@@ -149,6 +153,7 @@ mod tests {
         assert_eq!(mapped_composed, composed_mapped);
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();
@@ -165,6 +170,7 @@ mod tests {
 
     // -- Specific mapping tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_mechanosensitive_channel_maps_to_piezo1() {
         assert_eq!(
@@ -173,6 +179,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_calcium_transient_maps_to_calcium() {
         assert_eq!(
@@ -181,6 +188,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_tension_maps_to_mechanosensitive() {
         assert_eq!(
@@ -189,6 +197,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_substrate_stiffness_maps_to_collagen() {
         assert_eq!(
@@ -197,6 +206,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_open_state_maps_to_piezo1() {
         assert_eq!(
@@ -205,6 +215,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_closed_state_maps_to_piezo1() {
         assert_eq!(
@@ -213,6 +224,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_focal_adhesion_maps_to_protein() {
         assert_eq!(
@@ -221,6 +233,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_frequency_filtering_maps_to_mechanosensitive() {
         assert_eq!(
@@ -229,6 +242,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_channel_state_maps_to_piezo1() {
         assert_eq!(
@@ -237,6 +251,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cellular_response_maps_to_calcium() {
         assert_eq!(

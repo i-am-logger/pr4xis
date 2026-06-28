@@ -123,6 +123,7 @@ mod tests {
     /// > "pr4xis sits in a lineage from Spencer-Brown through Heim. The
     /// > lineage is not asserted from research — it is verified by a
     /// > functor whose laws are checked at test time."
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn lineage_functor_laws_pass() {
         assert_functor_laws::<SyntrometryToPr4xisSubstrate>();

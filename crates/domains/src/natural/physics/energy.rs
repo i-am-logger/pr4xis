@@ -158,6 +158,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_drop_converts_pe_to_ke() {
         let e = new_system(1.0, 0.0, 10.0)
@@ -168,6 +169,7 @@ mod tests {
         assert!((e.situation().height - 5.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_energy_conserved_on_drop() {
         let e0 = new_system(1.0, 0.0, 10.0).unwrap();
@@ -177,18 +179,21 @@ mod tests {
         assert!((e_before - e_after).abs() < 0.01);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_cant_drop_below_ground() {
         let e = new_system(1.0, 0.0, 5.0).unwrap();
         assert!(e.next(EnergyAction::Drop { delta_h: 10.0 }).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_cant_rise_without_ke() {
         let e = new_system(1.0, 0.0, 5.0).unwrap(); // no velocity = no KE
         assert!(e.next(EnergyAction::Rise { delta_h: 1.0 }).is_err());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_rise_then_drop_roundtrip() {
         let e = new_system(1.0, 10.0, 0.0)
@@ -226,4 +231,8 @@ mod tests {
             prop_assert!(e.situation().height >= 0.0);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_energy_conserved, Verifiable);
+    pr4xis::register_praxis_value!(prop_ke_nonneg, Verifiable);
+    pr4xis::register_praxis_value!(prop_height_nonneg, Verifiable);
 }

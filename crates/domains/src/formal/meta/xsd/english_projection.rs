@@ -1042,16 +1042,19 @@ mod tests {
 
     // ── Category + functor laws ──────────────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn target_category_laws_pass() {
         assert_category_laws::<XsdEnglishLabelCategory>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn xsd_to_english_functor_laws_pass() {
         assert_functor_laws::<XsdToEnglish>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_preserves_identity_explicit() {
         // Mac Lane §I.3 functor-identity law spelled out: every
@@ -1067,6 +1070,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn functor_meta_carries_citation() {
         let meta = XsdToEnglish::meta();
@@ -1080,6 +1084,7 @@ mod tests {
 
     // ── Object map — every XSD concept lands on a label ──────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn project_concept_is_total() {
         // Bijection: 54 concepts → 54 labels, all distinct.
@@ -1093,6 +1098,7 @@ mod tests {
         assert_eq!(seen.len(), 54);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn canonical_english_phrase_resolves_for_every_concept() {
         // Every canonical phrase tokenises to ≥1 content lemma that
@@ -1117,11 +1123,13 @@ mod tests {
 
     // ── split_identifier — PascalCase / snake_case / dotted ──────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_pascal_case() {
         assert_eq!(split_identifier("ComplexType"), vec!["complex", "type"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_camel_case() {
         assert_eq!(
@@ -1130,21 +1138,25 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_snake_case() {
         assert_eq!(split_identifier("import_loc"), vec!["import", "loc"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_kebab_case() {
         assert_eq!(split_identifier("any-type"), vec!["any", "type"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_namespace_prefix() {
         assert_eq!(split_identifier("xs:any"), vec!["xs", "any"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_acronym_then_word() {
         // "XMLParser" — uppercase run followed by a lowercase letter
@@ -1152,16 +1164,19 @@ mod tests {
         assert_eq!(split_identifier("XMLParser"), vec!["xml", "parser"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_pure_lower() {
         assert_eq!(split_identifier("section"), vec!["section"]);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn split_empty() {
         assert!(split_identifier("").is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_digits_separate_from_letters() {
         // "v1Schema" → "v", "1", "schema"
@@ -1172,6 +1187,7 @@ mod tests {
 
     // ── project_name — names resolve through WordNet ─────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_word_name_resolves() {
         let en = sample_english();
@@ -1181,6 +1197,7 @@ mod tests {
         assert_eq!(mappings[0].form.written_rep, "section");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pascal_case_name_resolves_per_token() {
         let en = sample_english();
@@ -1192,6 +1209,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn namespace_prefix_strips_in_resolution() {
         let en = sample_english();
@@ -1211,6 +1229,7 @@ mod tests {
         assert_eq!(proj.label, XsdEnglishLabel::Wildcard);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn name_with_no_content_words_returns_empty() {
         let en = sample_english();
@@ -1222,6 +1241,7 @@ mod tests {
 
     // ── project_documentation — prose tokenises and resolves ─────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn documentation_prose_resolves() {
         let en = sample_english();
@@ -1242,6 +1262,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn documentation_prose_filters_stopwords() {
         let en = sample_english();
@@ -1250,6 +1271,7 @@ mod tests {
         assert!(mappings.is_empty());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn documentation_prose_deduplicates() {
         let en = sample_english();
@@ -1260,6 +1282,7 @@ mod tests {
 
     // ── NamedComponentProjection ────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn named_component_carries_kind_label_name() {
         let en = sample_english();
@@ -1289,6 +1312,7 @@ mod tests {
     /// this list is recognised by [`is_uslm_vocabulary`], which loads
     /// from the bundled USLM XSD source-of-truth — not from a hand-
     /// curated Rust list.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_prior_failing_uslm_names_resolve_via_whole_name() {
         // USLM-1.0.18.xsd documented declarations (line numbers in
@@ -1328,6 +1352,7 @@ mod tests {
     /// regardless of whether decomposition leaves any subword
     /// unresolved. This is the M4.η.4 ordering invariant: whole-name
     /// match short-circuits the recognition chain.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_whole_name_match_short_circuits_decomposition() {
         let en = sample_english();
@@ -1358,6 +1383,7 @@ mod tests {
     /// §I.3 functor composition preserves the image; the
     /// decomposition pass is composed *after* whole-name, never
     /// before — so composition can only widen the recognised set.)
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_law_recognition_order_monotone() {
         let en = sample_english();
@@ -1395,6 +1421,7 @@ mod tests {
     /// English head-noun phrases of X and Y both project to non-
     /// empty resolved mappings — the lexical projection preserves
     /// the "is-named" relation across the subsumption hierarchy.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn axiom_projection_respects_category_structure() {
         let en = sample_english();
@@ -1526,6 +1553,13 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_split_identifier_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_split_tokens_are_lowercase, Verifiable);
+    pr4xis::register_praxis_value!(prop_project_name_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_project_documentation_token_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(prop_project_concept_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_functor_preserves_identity_per_concept, Extensible);
+
     // =============================================================================
     // USLM smoke tests — exercise the projection on the bundled USLM-1.0.18.xsd
     // via the cached full English WordNet.
@@ -1620,6 +1654,7 @@ mod tests {
     ///    `feedback_bottom_up_loaded_not_encoded`: closing the gap
     ///    means extending the registered authoritative sources, not
     ///    allow-listing names in Rust code.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn uslm_schema_names_resolve_through_english() {
         let xsd_src = std::fs::read_to_string(USLM_XSD_PATH)
@@ -1666,6 +1701,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn uslm_canonical_phrases_resolve_through_bundled_wordnet() {
         // Every XSD concept's canonical English head-noun phrase
@@ -1688,6 +1724,7 @@ mod tests {
     /// lemmas through WordNet. Sample two well-known documented
     /// elements; the bulk-coverage version would require an XML
     /// parse of the schema, which is the codegen path's job.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_documentation_prose_lemmatizes_cleanly() {
         // Two representative documentation blocks taken verbatim from

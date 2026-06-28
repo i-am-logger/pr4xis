@@ -326,17 +326,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ChessCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ChessOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fourteen_concepts() {
         // 6 piece kinds + ChessPiece + SlidingPiece + LeapingPiece +
@@ -344,6 +347,7 @@ mod tests {
         assert_eq!(ChessConcept::variants().len(), 14);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn piece_kinds_subsume_chess_piece() {
         let sub: Vec<_> = ChessCategory::morphisms()
@@ -367,6 +371,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn shannon_sliding_vs_leaping() {
         // Shannon (1950): Q/R/B are sliders; N/K/P are leapers.
@@ -395,6 +400,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn two_sides_oppose() {
         let opposed: Vec<_> = ChessCategory::morphisms()
@@ -406,6 +412,7 @@ mod tests {
         assert!(opposed.contains(&(ChessConcept::BlackSide, ChessConcept::WhiteSide)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn piece_at_quality_works() {
         let q = PieceAt {
@@ -416,6 +423,7 @@ mod tests {
         assert!(q.get(&Square::new(4, 3)).is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mobility_quality_works() {
         let q = Mobility {
@@ -425,6 +433,7 @@ mod tests {
         assert_eq!(q.get(&Square::new(0, 0)), None); // rook blocked
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn attacked_by_quality_works() {
         let q = AttackedBy {
@@ -434,6 +443,7 @@ mod tests {
         assert_eq!(q.get(&Square::new(3, 2)), Some(true)); // d3 attacked by e2 pawn
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn king_safety_holds_on_starting_position() {
         match (KingSafety {
@@ -449,6 +459,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn one_king_per_side_on_start() {
         assert!(
@@ -460,6 +471,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn max_pieces_on_start() {
         assert!(
@@ -471,6 +483,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn shannon_movement_class_total_on_pieces() {
         let q = ShannonMovementClass;
@@ -540,4 +553,13 @@ mod tests {
             prop_assert!(axiom.verify().is_ok());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_shannon_movement_class_total_on_pieces, Verifiable);
+    pr4xis::register_praxis_value!(
+        prop_one_king_per_side_invariant_under_starting_position,
+        Verifiable
+    );
 }

@@ -243,6 +243,7 @@ mod tests {
     use super::super::super::morphology::SemanticEffect;
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn olia_iri_round_trip() {
         let iri = "http://purl.org/olia/olia.owl#Noun";
@@ -250,6 +251,7 @@ mod tests {
         assert_eq!(olia_to_pos(iri), Some(PosTag::Noun));
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn canonical_olia_fragment_round_trips() {
         // The PosTag → OLiA-top-class anchor round-trips through `from_fragment`
@@ -272,6 +274,7 @@ mod tests {
 
     // ── SemanticEffect → OLiA cross-functor ─────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn number_change_maps_to_olia_number_singular_plural() {
         let frags = semantic_effect_to_olia_fragments(SemanticEffect::NumberChange);
@@ -280,6 +283,7 @@ mod tests {
         assert!(frags.contains(&"Plural"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn tense_change_maps_to_olia_tense_axis() {
         let frags = semantic_effect_to_olia_fragments(SemanticEffect::TenseChange);
@@ -289,6 +293,7 @@ mod tests {
         assert!(frags.contains(&"Future"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn progressive_maps_to_olia_progressive_aspect() {
         let frags = semantic_effect_to_olia_fragments(SemanticEffect::Progressive);
@@ -296,12 +301,14 @@ mod tests {
         assert!(frags.contains(&"ProgressiveAspect"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn negation_maps_to_olia_negative_particle() {
         let frags = semantic_effect_to_olia_fragments(SemanticEffect::Negation);
         assert!(frags.contains(&"NegativeParticle"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn pos_change_has_no_olia_feature_mapping() {
         // PosChange is a category-edge, not an OLiA feature.
@@ -309,12 +316,14 @@ mod tests {
         assert!(frags.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn repetition_has_no_olia_feature_mapping() {
         let frags = semantic_effect_to_olia_fragments(SemanticEffect::Repetition);
         assert!(frags.is_empty());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_semantic_effect_handled() {
         // Coverage: every variant must be callable through the
@@ -397,6 +406,10 @@ mod tests {
             prop_assert_eq!(unique.len(), frags.len());
         }
     }
+
+    pr4xis::register_praxis_value!(property_olia_fragments_are_valid_class_names, Verifiable);
+    pr4xis::register_praxis_value!(property_olia_fragments_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(property_olia_fragments_are_unique, Verifiable);
 }
 
 #[cfg(all(test, feature = "prx"))]
@@ -430,6 +443,7 @@ mod prx_fast_load {
     /// OWL. `#[ignore]` — run manually (`cargo test -p pr4xis-domains -- --ignored
     /// regenerate_olia_compact_prx`) when the OWL changes; the committed
     /// artifact is what `reference_model` loads at runtime.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_olia_compact_prx() {
@@ -451,6 +465,7 @@ mod prx_fast_load {
 
     /// The runtime loads OLiA and resolves the interrogative classes the
     /// OLiA→CCG functor keys on (fast path once the `.prx.gz` is wired in).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolves_the_interrogative_classes() {
         for fragment in [
@@ -471,6 +486,7 @@ mod prx_fast_load {
     /// not regenerated) is caught. Verifies WITHOUT a shipped raw: the raw is
     /// read from disk (fetched via `pr4xis update`); its absence FAILS in
     /// `fetched_olia_owl`, never skips.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bundled_prx_matches_the_owl() {
         use crate::social::software::markup::xml::owl::reader::read_owl;
@@ -493,6 +509,7 @@ mod from_fragment_subsumption {
     /// hierarchy: top classes match exactly, and ~1300 subclasses resolve by
     /// `rdfs:subClassOf` closure — none enumerated in Rust. Ordering (Copula/
     /// AuxiliaryVerb before Verb, Article before Determiner) must hold.
+    #[pr4xis::praxis_value(Verifiable, Extensible, Honest)]
     #[test]
     fn subclasses_resolve_by_owl_closure() {
         // Top classes (exact match, no OWL needed).

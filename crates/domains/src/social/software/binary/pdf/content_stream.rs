@@ -303,6 +303,7 @@ mod tests {
         s.as_bytes().to_vec()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn empty_stream_yields_empty_walk() {
         let w = walk_content_stream(b"").expect("empty stream is valid");
@@ -310,6 +311,7 @@ mod tests {
         assert!(w.graphics_events.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_tj_captures_text_event() {
         let bytes = stream("BT\n/F1 12 Tf\n(Hello world) Tj\nET\n");
@@ -320,6 +322,7 @@ mod tests {
         assert_eq!(w.text_events[0].bytes, b"Hello world");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tj_outside_text_object_still_captured() {
         // PDF spec calls this malformed but lopdf surfaces it; we
@@ -331,6 +334,7 @@ mod tests {
         assert_eq!(w.text_events[0].bytes, b"loose text");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tj_array_concatenates_string_segments_dropping_numbers() {
         // TJ array: ["Hello" -100 " " "world"]
@@ -341,6 +345,7 @@ mod tests {
         assert_eq!(w.text_events[0].bytes, b"Hello world");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn quote_apostrophe_operator_treated_like_tj() {
         let bytes = stream("BT\n/F2 10 Tf\n(next line) '\nET\n");
@@ -350,6 +355,7 @@ mod tests {
         assert_eq!(w.text_events[0].bytes, b"next line");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn double_quote_takes_third_operand_as_string() {
         // ": aw ac str  — third operand is the string."
@@ -359,6 +365,7 @@ mod tests {
         assert_eq!(w.text_events[0].bytes, b"with spacing");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tf_changes_current_font() {
         let bytes = stream("BT\n/F1 12 Tf\n(first) Tj\n/F2 14 Tf\n(second) Tj\nET\n");
@@ -370,6 +377,7 @@ mod tests {
         assert_eq!(w.text_events[1].font_size, 14.0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn do_operator_records_form_xobject_event() {
         let bytes = stream("/Im0 Do\n");
@@ -380,6 +388,7 @@ mod tests {
         assert_eq!(w.graphics_events[0].detail, "Im0");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn paint_operators_record_vector_path_events() {
         // Build a small path then paint it: rectangle then fill.
@@ -392,6 +401,7 @@ mod tests {
         assert_eq!(w.graphics_events[0].operator, "f");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn stroke_and_fill_both_recorded() {
         let bytes = stream("100 100 m\n200 200 l\nS\n50 50 60 60 re\nf\n");
@@ -401,6 +411,7 @@ mod tests {
         assert_eq!(w.graphics_events[1].operator, "f");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn text_and_graphics_separately_collected() {
         let bytes = stream("BT\n/F1 12 Tf\n(label) Tj\nET\n100 100 50 50 re\nf\n/Im0 Do\n");
@@ -414,6 +425,7 @@ mod tests {
         assert!(kinds.contains(&FlaggedKind::FormXObject));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn malformed_stream_handled_without_corruption() {
         // Garbage bytes. lopdf is permissive — it may accept this
@@ -425,6 +437,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn walk_is_deterministic_on_same_input() {
         let bytes = stream("BT\n/F1 12 Tf\n[(Hello) -50 (world)] TJ\nET\n50 50 100 100 re\nf\n");
@@ -530,4 +543,11 @@ mod tests {
             prop_assert_eq!(w.text_events[0].font_size, size as f32);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_walk_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_tj_round_trips_payload_bytes, Deterministic);
+    pr4xis::register_praxis_value!(prop_n_tj_calls_yield_n_text_events, Verifiable);
+    pr4xis::register_praxis_value!(prop_n_fills_yield_n_vector_path_events, Verifiable);
+    pr4xis::register_praxis_value!(prop_random_bytes_never_panic, Honest);
+    pr4xis::register_praxis_value!(prop_tf_changes_current_font_for_following_tj, Verifiable);
 }

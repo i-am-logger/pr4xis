@@ -123,4 +123,18 @@ mod tests {
             prop_assert_eq!(symmetric_difference(&a, &a), empty);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_union_commutative, Verifiable);
+    pr4xis::register_praxis_value!(prop_intersection_commutative, Verifiable);
+    pr4xis::register_praxis_value!(prop_union_identity, Verifiable);
+    pr4xis::register_praxis_value!(prop_intersection_empty, Verifiable);
+    pr4xis::register_praxis_value!(prop_union_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_intersection_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_subset_of_union, Verifiable);
+    pr4xis::register_praxis_value!(prop_intersection_subset, Verifiable);
+    pr4xis::register_praxis_value!(prop_de_morgan, Verifiable);
+    pr4xis::register_praxis_value!(prop_distributive, Verifiable);
+    pr4xis::register_praxis_value!(prop_inclusion_exclusion, Verifiable);
+    pr4xis::register_praxis_value!(prop_symmetric_diff_commutative, Verifiable);
+    pr4xis::register_praxis_value!(prop_symmetric_diff_self_empty, Verifiable);
 }

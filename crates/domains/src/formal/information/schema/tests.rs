@@ -74,4 +74,11 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_schema_contains_components, Verifiable);
+    pr4xis::register_praxis_value!(prop_instance_from_schema, Verifiable);
+    pr4xis::register_praxis_value!(prop_presentation_algebra_adjunction, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

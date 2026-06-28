@@ -4,37 +4,44 @@ use pr4xis::category::entity::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<LemonCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     LemonOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn six_concepts() {
     assert_eq!(LemonConcept::variants().len(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn denotes_property_chain_holds() {
     assert!(DenotesIsPropertyChain.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn canonical_form_is_functional() {
     assert!(CanonicalFormIsFunctional.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reference_is_functional() {
     assert!(ReferenceIsFunctional.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn three_way_bridge_exists() {
     let m = LemonCategory::morphisms();
@@ -58,6 +65,7 @@ fn three_way_bridge_exists() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lexicon_contains_entries() {
     let m = LemonCategory::morphisms();
@@ -66,6 +74,7 @@ fn lexicon_contains_entries() {
         && r.kind == LemonRelationKind::Entry));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lexicon_reaches_all_concepts() {
     // The Lemon model (W3C OntoLex 2016) is rooted at Lexicon; every
@@ -97,6 +106,7 @@ fn lexicon_reaches_all_concepts() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_domain_axioms_hold() {
     for axiom in LemonOntology::axioms() {
@@ -140,4 +150,7 @@ mod prop {
             prop_assert!(has_identity);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_morphisms, Deterministic);
 }

@@ -483,6 +483,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn collapses_a_known_multiword_surface_into_one_proper_noun() {
         // "ice cream" is a known surface → its two tokens collapse into ONE
@@ -500,6 +501,7 @@ mod tests {
         assert_eq!(out[1].word, "is");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn never_collapses_with_a_degenerate_window_or_no_match() {
         let tokens = vec![tok("ice"), tok("cream")];
@@ -514,6 +516,7 @@ mod tests {
         assert_eq!(out2.len(), 2, "no matching surface → no collapse");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn longest_match_wins() {
         // Both "new york" and "new york city" are surfaces — the LONGEST one wins
@@ -527,6 +530,7 @@ mod tests {
         assert_eq!(out[0].word, "new york city");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn an_uncollapsed_token_keeps_its_type_and_alternatives() {
         // The no-collapse path must reproduce the pipeline's prior type_sets

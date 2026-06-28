@@ -104,16 +104,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<PharmacologyToImmunology>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<PharmacologyToImmunology>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in PharmacologyEntity::variants() {
@@ -127,6 +130,7 @@ mod tests {
     /// Composition preservation over a Subsumption chain that actually
     /// composes in the new partial-category API: Ivermectin -> IonChannelModulator
     /// -> DrugClass compose under Subsumption-transitivity.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_subsumption_chain() {
         let f = PharmacologyRelation {
@@ -150,6 +154,7 @@ mod tests {
         assert_eq!(mapped_composed, composed_mapped);
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = ImmunologyEntity::variants();
@@ -164,6 +169,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_anti_inflammatory_maps_to_resolution() {
         assert_eq!(
@@ -172,6 +178,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_hyperpolarization_maps_to_tissue_repair() {
         assert_eq!(
@@ -180,6 +187,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_depolarization_maps_to_acute_inflammation() {
         assert_eq!(
@@ -188,6 +196,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ion_channel_modulator_maps_to_immune_cell() {
         assert_eq!(
@@ -196,6 +205,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_morphoceutical_maps_to_tissue_repair() {
         assert_eq!(
@@ -204,6 +214,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_proton_pump_inhibitor_maps_to_resolution() {
         assert_eq!(
@@ -212,6 +223,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_gap_junction_opening_maps_to_tissue_repair() {
         assert_eq!(
@@ -220,6 +232,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_gap_junction_closing_maps_to_chronic_inflammation() {
         assert_eq!(
@@ -228,6 +241,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ivermectin_maps_to_tissue_repair() {
         assert_eq!(
@@ -236,6 +250,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_decamethonium_maps_to_acute_inflammation() {
         assert_eq!(
@@ -244,6 +259,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_analogy_translates_anti_inflammatory() {
         assert_eq!(

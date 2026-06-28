@@ -215,6 +215,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_additions_are_1_1() {
         for c in xsd_1_1_additions() {
@@ -223,6 +224,7 @@ mod tests {
         assert_eq!(xsd_1_1_additions().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn other_concepts_are_1_0() {
         let adds = xsd_1_1_additions();
@@ -233,6 +235,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fibers_nest() {
         let v10 = concepts_in_version(XsdVersion::V1_0);
@@ -242,6 +245,7 @@ mod tests {
         assert_eq!(v11.len(), XsdConcept::variants().len());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn xsd_is_a_versioned_artifact() {
         let art = xsd_as_versioned_artifact();
@@ -254,16 +258,19 @@ mod tests {
         assert!(art.localize("2.0").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_monotone() {
         assert!(XsdVersionEvolutionIsMonotone.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_additions_difference() {
         assert!(XsdAdditionsAreFiberDifference.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn axiom_consumes_adjunction() {
         assert!(XsdConsumesVersionAdjunction.verify().is_ok());
@@ -282,4 +289,6 @@ mod tests {
             prop_assert_eq!(v10.contains(&c), introduced_in(c) == XsdVersion::V1_0);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_membership_matches_introduction, Verifiable);
 }

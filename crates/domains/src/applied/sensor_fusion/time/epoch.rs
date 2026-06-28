@@ -68,6 +68,7 @@ impl FusionEpoch {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn age_positive_for_older_measurement() {
         let epoch = FusionEpoch::from_gps_seconds(100.0, SensorType::GnssReceiver);
@@ -76,6 +77,7 @@ mod tests {
         assert!((age - 5.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_stale_detects_old_measurement() {
         let epoch = FusionEpoch::from_gps_seconds(100.0, SensorType::GnssReceiver);
@@ -84,6 +86,7 @@ mod tests {
         assert_eq!(epoch.is_stale(&now, 5.0), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn duration_since_same_system() {
         let e1 = FusionEpoch::from_gps_seconds(100.0, SensorType::IMU);
@@ -92,6 +95,7 @@ mod tests {
         assert!((dt - 0.5).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn duration_since_different_system_returns_none() {
         let e1 = FusionEpoch::new(Instant::new(100.0, TimeSystem::GPS), SensorType::IMU);
@@ -99,6 +103,7 @@ mod tests {
         assert!(e2.duration_since(&e1).is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn same_sensor_check() {
         let e1 = FusionEpoch::from_gps_seconds(100.0, SensorType::IMU);

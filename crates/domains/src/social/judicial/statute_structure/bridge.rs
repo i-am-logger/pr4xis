@@ -661,6 +661,7 @@ mod tests {
         Some(path)
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn matched_term_when_path_exists_in_tree() {
         let tree =
@@ -681,6 +682,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn paraphrase_when_name_not_in_body() {
         let tree = parse_statute_text("(a) prose without keyword", root_cite(), "test://").unwrap();
@@ -698,6 +700,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unmatched_when_path_not_in_tree() {
         let tree = parse_statute_text("(a) some text", root_cite(), "test://").unwrap();
@@ -716,6 +719,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn uncovered_clause_when_no_lock_term_maps_to_it() {
         let tree = parse_statute_text("(a) first\n(b) second", root_cite(), "test://").unwrap();
@@ -727,6 +731,7 @@ mod tests {
         assert_eq!(report.uncovered_clause_count(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multiple_lock_terms_can_map_to_same_clause() {
         let tree = parse_statute_text("(a) body text", root_cite(), "test://").unwrap();
@@ -746,6 +751,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invalid_curie_mapper_returns_invalid_curie_reason() {
         let tree = parse_statute_text("(a) body", root_cite(), "test://").unwrap();
@@ -769,6 +775,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deep_path_navigation() {
         // (a)(1)(A) path.
@@ -787,6 +794,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn empty_lock_data_produces_empty_term_results() {
         let tree = parse_statute_text("(a) body", root_cite(), "test://").unwrap();
@@ -796,6 +804,7 @@ mod tests {
         assert_eq!(report.uncovered_clause_count(), 1);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn tree_with_no_subdivisions_produces_no_clause_results() {
         let tree = parse_statute_text("Just prose, no markers.", root_cite(), "test://").unwrap();
@@ -809,6 +818,7 @@ mod tests {
 
     // ── Canonical-heading population + classification ─────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn canonical_heading_populated_when_heading_pattern_present() {
         let tree = parse_statute_text(
@@ -830,6 +840,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn canonical_heading_none_when_no_pattern() {
         let tree =
@@ -847,6 +858,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_heading_agrees_on_equal_case_insensitive() {
         assert_eq!(
@@ -855,6 +867,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_heading_agrees_when_heading_contains_lock_name() {
         assert_eq!(
@@ -863,6 +876,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_heading_agrees_when_lock_name_contains_heading() {
         assert_eq!(
@@ -874,6 +888,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_heading_diverges_when_disjoint() {
         assert_eq!(
@@ -882,6 +897,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_heading_no_heading_when_none() {
         assert_eq!(
@@ -928,6 +944,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracted_requires_matches_lock_requires() {
         let extracted = vec![make_candidate(
@@ -948,6 +965,7 @@ mod tests {
         assert_eq!(report.no_match_count(), 0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracted_affirmative_defense_matches_lock_kind() {
         // Use SOX-style CURIEs (avoid roman-numeral ambiguity in the
@@ -965,6 +983,7 @@ mod tests {
         assert_eq!(report.lock_backed_count(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracted_requires_no_match_when_path_differs() {
         let extracted = vec![make_candidate(
@@ -980,6 +999,7 @@ mod tests {
         assert_eq!(report.no_match_count(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracted_requires_matches_exhaustion_required_for() {
         // lock_kinds_for(Requires) includes ExhaustionRequiredFor.
@@ -995,6 +1015,7 @@ mod tests {
         assert_eq!(report.lock_backed_count(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn lock_kinds_for_requires() {
         let kinds = lock_kinds_for(RelationKind::Requires);
@@ -1002,12 +1023,14 @@ mod tests {
         assert!(kinds.contains(&"ExhaustionRequiredFor"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn lock_kinds_for_affirmative_defense_to() {
         let kinds = lock_kinds_for(RelationKind::AffirmativeDefenseTo);
         assert_eq!(kinds, &["AffirmativeDefenseTo"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn paths_equal_case_insensitive_basic() {
         assert!(paths_equal_case_insensitive(

@@ -155,22 +155,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MeasurementCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MeasurementOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_concepts() {
         assert_eq!(MeasurementConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn result_carries_uncertainty() {
         // VIM 2.9 axiom — non-negotiable.
@@ -180,6 +184,7 @@ mod tests {
             && r.kind() == MeasurementRelationKind::Carries));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn measurement_produces_result() {
         let m = MeasurementCategory::morphisms();
@@ -191,6 +196,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn result_has_traceability() {
         // VIM 2.41.
@@ -200,6 +206,7 @@ mod tests {
             && r.kind() == MeasurementRelationKind::TracesTo));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn indication_corrected_to_result() {
         // VIM 4.1: instrument indication → corrected result.
@@ -212,6 +219,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nominal_permits_only_mode() {
         assert!(!ScaleKind::Nominal.permits_mean());
@@ -219,6 +227,7 @@ mod tests {
         assert!(!ScaleKind::Nominal.permits_ratio());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ratio_permits_everything() {
         assert!(ScaleKind::Ratio.permits_mean());
@@ -273,4 +282,10 @@ mod tests {
             prop_assert_eq!(v.is_some(), c == MeasurementConcept::Result);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_scale_hierarchy, Verifiable);
+    pr4xis::register_praxis_value!(prop_result_carries_uncertainty, Verifiable);
+    pr4xis::register_praxis_value!(prop_scale_quality_partial, Honest, Verifiable);
 }

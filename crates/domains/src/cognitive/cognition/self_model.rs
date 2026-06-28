@@ -244,6 +244,7 @@ mod tests {
     use pr4xis::category::Category;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_identity_law() {
         for obj in SelfModelConcept::variants() {
@@ -254,6 +255,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic, Extensible)]
     #[test]
     fn category_composition_with_identity() {
         let morphisms = SelfModelCategory::morphisms();
@@ -271,11 +273,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_ten_concepts() {
         assert_eq!(SelfModelConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eigenform_loop_exists() {
         let morphisms = SelfModelCategory::morphisms();
@@ -297,6 +301,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn eigenform_is_fixed_point() {
         // Self(Self) = Self: the fixed point is witnessed by the existence
@@ -319,6 +324,7 @@ mod tests {
         assert!(has_reenter, "Eigenform must re-enter SelfModel");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn awareness_levels_are_ordered() {
         assert!(AwarenessLevel::MetaSelf.subsumes(&AwarenessLevel::Stimulus));
@@ -328,6 +334,7 @@ mod tests {
 
     // === Functor law tests ===
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_to_metacognition_preserves_identity() {
         // F(id_A) = id_{F(A)}
@@ -341,6 +348,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_to_epistemics_preserves_identity() {
         for obj in SelfModelConcept::variants() {
@@ -351,6 +359,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_to_metacognition_covers_all_concepts() {
         // Every SelfModel concept maps to a valid MetaCognitionConcept
@@ -365,6 +374,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn functor_to_epistemics_self_model_is_known_known() {
         // A system with a self-model knows itself — KnownKnown
@@ -375,6 +385,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn functor_to_epistemics_justification_is_known_unknown() {
         // Justification reveals what the system knows it doesn't know
@@ -387,6 +398,7 @@ mod tests {
 
     // === Autopoiesis tests (Maturana-Varela) ===
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn operational_closure_grounds_eigenform() {
         // Autopoiesis enables self-observation: OperationalClosure → Eigenform
@@ -400,6 +412,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn self_model_maintains_operational_closure() {
         // The system IS its self-producing organization
@@ -413,6 +426,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn autopoiesis_to_eigenform_path() {
         // SelfModel → OperationalClosure → Eigenform (autopoiesis enables
@@ -438,6 +452,7 @@ mod tests {
 
     // === Concurrency functor tests ===
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn functor_to_concurrency_self_model_is_agent() {
         // The system is ONE agent — single thread
@@ -446,6 +461,7 @@ mod tests {
         assert_eq!(mapped, ConcurrencyConcept::Agent);
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_to_concurrency_covers_all_concepts() {
         for obj in SelfModelConcept::variants() {
@@ -460,6 +476,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn functor_to_concurrency_no_deadlock() {
         // Single agent cannot deadlock — no concept maps to Deadlock
@@ -474,6 +491,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn functor_to_concurrency_no_race_condition() {
         // Single agent cannot race — no concept maps to RaceCondition
@@ -490,6 +508,7 @@ mod tests {
 
     // === Double description tests (Bateson) ===
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn double_description_requires_both_views() {
         // Bateson: valid self-image needs two views — self AND context

@@ -631,26 +631,31 @@ mod tests {
 
     // ── Entity tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_7_visual_variables() {
         assert_eq!(VisualVariable::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_6_perceptual_tasks() {
         assert_eq!(PerceptualTask::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_4_data_levels() {
         assert_eq!(DataLevel::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_8_geom_types() {
         assert_eq!(GeomType::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ratio_supports_bar_and_line() {
         let geoms = suitable_geoms(DataLevel::Ratio);
@@ -658,12 +663,14 @@ mod tests {
         assert!(geoms.contains(&GeomType::Line));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_nominal_supports_pie() {
         let geoms = suitable_geoms(DataLevel::Nominal);
         assert!(geoms.contains(&GeomType::Pie));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ratio_no_pie() {
         // Pie charts are for proportions (nominal), not magnitudes (ratio)
@@ -671,6 +678,7 @@ mod tests {
         assert!(!geoms.contains(&GeomType::Pie));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_every_geom_has_use_case() {
         let uc = GeomUseCase;
@@ -679,11 +687,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_3_interaction_levels() {
         assert_eq!(InteractionLevel::variants().len(), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_7_grammar_layers() {
         assert_eq!(GrammarLayer::variants().len(), 7);
@@ -691,6 +701,7 @@ mod tests {
 
     // ── Quality tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_position_is_quantitative() {
         let p = BertinProperties.get(&VisualVariable::Position).unwrap();
@@ -700,6 +711,7 @@ mod tests {
         assert!(p.ordered);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_color_not_ordered() {
         let p = BertinProperties.get(&VisualVariable::Color).unwrap();
@@ -708,6 +720,7 @@ mod tests {
         assert!(p.selective); // can isolate categories
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_shape_only_associative() {
         let p = BertinProperties.get(&VisualVariable::Shape).unwrap();
@@ -717,6 +730,7 @@ mod tests {
         assert!(!p.quantitative);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_position_rank_1() {
         assert_eq!(
@@ -725,6 +739,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_shading_rank_6() {
         assert_eq!(
@@ -733,6 +748,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_grammar_pipeline_order() {
         let order = PipelineOrder;
@@ -749,6 +765,7 @@ mod tests {
 
     // ── Encoding suitability tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ratio_includes_position() {
         let suitable = suitable_encodings(DataLevel::Ratio);
@@ -756,6 +773,7 @@ mod tests {
         assert!(suitable.contains(&VisualVariable::Size));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_nominal_includes_color_and_shape() {
         let suitable = suitable_encodings(DataLevel::Nominal);
@@ -763,6 +781,7 @@ mod tests {
         assert!(suitable.contains(&VisualVariable::Shape));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ordinal_includes_value_and_position() {
         let suitable = suitable_encodings(DataLevel::Ordinal);
@@ -772,41 +791,49 @@ mod tests {
 
     // ── Axiom tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_position_unique() {
         assert!(PositionUnique.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ranking_strictly_ordered() {
         assert!(RankingStrictlyOrdered.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_position_most_accurate() {
         assert!(PositionMostAccurate.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_color_least_accurate() {
         assert!(ColorLeastAccurate.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_mantra_three_levels() {
         assert!(ManthaThreeLevels.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_grammar_seven_layers() {
         assert!(GrammarSevenLayers.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ratio_needs_quantitative() {
         assert!(RatioNeedsQuantitative.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_nominal_uses_color_and_shape() {
         assert!(NominalUsesColorAndShape.verify().is_ok());
@@ -862,4 +889,11 @@ mod tests {
             prop_assert!(a < b, "pipeline layers must be strictly ordered");
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_variable_has_properties, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_task_has_rank, Verifiable);
+    pr4xis::register_praxis_value!(prop_ranks_unique, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_data_level_has_encodings, Verifiable);
+    pr4xis::register_praxis_value!(prop_higher_data_level_fewer_encodings, Verifiable);
+    pr4xis::register_praxis_value!(prop_grammar_layers_strictly_increasing, Verifiable);
 }

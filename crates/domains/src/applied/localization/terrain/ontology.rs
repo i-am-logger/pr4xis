@@ -181,22 +181,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TerrainCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         TerrainOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_terrain_features() {
         assert_eq!(TerrainConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn peak_curvature_signature() {
         assert_eq!(
@@ -205,6 +209,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn valley_curvature_signature() {
         assert_eq!(
@@ -213,6 +218,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn peak_valley_oppose() {
         let opp: Vec<_> = TerrainCategory::morphisms()
@@ -224,16 +230,19 @@ mod tests {
         assert!(opp.contains(&(TerrainConcept::Valley, TerrainConcept::Peak)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn peak_curvature_axiom_holds() {
         assert!(PeakCurvatureNegative.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn valley_curvature_axiom_holds() {
         assert!(ValleyCurvaturePositive.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn saddle_curvatures_axiom_holds() {
         assert!(SaddleCurvaturesOpposite.verify().is_ok());
@@ -291,4 +300,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_curvature_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_curvature_signs_bounded, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

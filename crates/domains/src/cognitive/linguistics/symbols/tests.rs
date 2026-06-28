@@ -10,28 +10,33 @@ use super::special;
 // Script tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn latin_has_52_letters() {
     let latin = latin();
     assert_eq!(latin.letter_count(), 52); // 26 upper + 26 lower
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn latin_is_ltr() {
     assert_eq!(latin().direction, Direction::LeftToRight);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hebrew_is_rtl() {
     assert_eq!(hebrew().direction, Direction::RightToLeft);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hebrew_has_27_letters() {
     let hebrew = hebrew();
     assert_eq!(hebrew.letter_count(), 27); // 22 basic + 5 final forms (sofit)
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn arabic_numerals_has_10_digits() {
     let nums = arabic_numerals();
@@ -41,6 +46,7 @@ fn arabic_numerals_has_10_digits() {
     assert!(!nums.contains('a'));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn latin_contains_a_not_aleph() {
     let latin = latin();
@@ -49,6 +55,7 @@ fn latin_contains_a_not_aleph() {
     assert!(!latin.contains('\u{05D0}')); // aleph
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hebrew_contains_aleph_not_a() {
     let hebrew = hebrew();
@@ -61,6 +68,7 @@ fn hebrew_contains_aleph_not_a() {
 // Character classification tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn character_categories() {
     let upper_a = Character::new('A', "A", UnicodeCategory::UppercaseLetter);
@@ -80,6 +88,7 @@ fn character_categories() {
 // Punctuation tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn period_terminates_sentence() {
     let p = punctuation::period();
@@ -91,6 +100,7 @@ fn period_terminates_sentence() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn question_mark_expects_response() {
     let q = punctuation::question_mark();
@@ -98,6 +108,7 @@ fn question_mark_expects_response() {
     assert!(q.expects_response());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn comma_is_not_sentence_ending() {
     let c = punctuation::comma();
@@ -105,12 +116,14 @@ fn comma_is_not_sentence_ending() {
     assert_eq!(c.function, punctuation::PunctuationFunction::Separator);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn standard_punctuation_count() {
     let marks = punctuation::standard_punctuation();
     assert_eq!(marks.len(), 12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sentence_ending_marks() {
     let marks = punctuation::standard_punctuation();
@@ -122,6 +135,7 @@ fn sentence_ending_marks() {
 // Numeral tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn arabic_numerals_base_10() {
     let arabic = numeral::arabic();
@@ -129,6 +143,7 @@ fn arabic_numerals_base_10() {
     assert_eq!(arabic.digits.len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn arabic_numeral_values() {
     let arabic = numeral::arabic();
@@ -137,6 +152,7 @@ fn arabic_numeral_values() {
     assert_eq!(arabic.value_of('a'), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn roman_numerals() {
     let roman = numeral::roman();
@@ -150,6 +166,7 @@ fn roman_numerals() {
 // Special symbol tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn common_symbols_exist() {
     let symbols = special::common_symbols();
@@ -159,6 +176,7 @@ fn common_symbols_exist() {
     assert!(symbols.iter().any(|s| s.character == '='));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn angle_bracket_is_general() {
     // '<' is General because its meaning depends on language context
@@ -250,4 +268,13 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_latin_all_letters, Verifiable);
+    pr4xis::register_praxis_value!(prop_arabic_digit_in_range, Verifiable);
+    pr4xis::register_praxis_value!(prop_punctuation_function_coverage, Verifiable);
+    pr4xis::register_praxis_value!(prop_scripts_disjoint, Verifiable);
+    pr4xis::register_praxis_value!(prop_latin_case_pairs, Verifiable);
+    pr4xis::register_praxis_value!(prop_sentence_endings_position, Verifiable);
+    pr4xis::register_praxis_value!(prop_arabic_contiguous, Verifiable);
+    pr4xis::register_praxis_value!(prop_punctuation_unique_chars, Verifiable);
 }

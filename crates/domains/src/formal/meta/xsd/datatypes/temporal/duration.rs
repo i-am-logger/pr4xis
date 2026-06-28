@@ -438,12 +438,14 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn full_duration_round_trips() {
         let v = parse_duration("P1Y2M3DT4H5M6.250S").unwrap();
         assert_eq!(v.canonical_duration(), "P1Y2M3DT4H5M6.25S");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn carries_normalize() {
         assert_eq!(
@@ -460,6 +462,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn zero_durations() {
         assert_eq!(parse_duration("PT0S").unwrap().canonical_duration(), "PT0S");
@@ -472,6 +475,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn negative_duration() {
         assert_eq!(parse_duration("-P1Y").unwrap().canonical_duration(), "-P1Y");
@@ -482,6 +486,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn month_vs_minute_disambiguation() {
         // 'M' before T is months; after T is minutes.
@@ -489,6 +494,7 @@ mod tests {
         assert_eq!(parse_duration("PT1M").unwrap().canonical_duration(), "PT1M");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn subtype_restrictions() {
         assert!(parse_year_month_duration("P1Y2M").is_some());
@@ -497,6 +503,7 @@ mod tests {
         assert!(parse_day_time_duration("P1Y").is_none());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn arbitrary_precision_within_u128() {
         // A very large month count normalizes correctly.
@@ -505,16 +512,19 @@ mod tests {
         assert_eq!(v.canonical_duration(), "P83333333333Y4M");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_fixpoint() {
         assert!(DurationCanonicalIsFixpoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_subtype_restrictions() {
         assert!(DurationSubtypeRestrictions.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_rejects_malformed() {
         assert!(DurationLexicalRejectsMalformed.verify().is_ok());
@@ -583,4 +593,7 @@ mod tests {
             prop_assert!(parse_duration(&v.canonical_duration()).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_duration_canonical_fixpoint, Deterministic);
+    pr4xis::register_praxis_value!(prop_duration_canonical_in_lexical_space, Deterministic);
 }

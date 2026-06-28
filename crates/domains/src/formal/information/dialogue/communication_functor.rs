@@ -101,11 +101,13 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<DialogueToCommunication>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn participant_maps_to_sender() {
         assert_eq!(
@@ -114,6 +116,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn utterance_maps_to_message() {
         assert_eq!(
@@ -122,6 +125,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn grounding_maps_to_feedback() {
         assert_eq!(
@@ -130,6 +134,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn all_dialogue_concepts_map() {
         // Every dialogue concept must map to a valid communication concept

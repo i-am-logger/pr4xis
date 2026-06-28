@@ -452,41 +452,49 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SpellingErrorCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn identical_strings() {
         assert_eq!(damerau_levenshtein("dog", "dog"), 0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_substitution() {
         assert_eq!(damerau_levenshtein("dog", "doo"), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_insertion() {
         assert_eq!(damerau_levenshtein("dg", "dog"), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_deletion() {
         assert_eq!(damerau_levenshtein("dogg", "dog"), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_transposition() {
         assert_eq!(damerau_levenshtein("dgo", "dog"), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multiple_edits() {
         assert_eq!(damerau_levenshtein("kitten", "sitting"), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn empty_strings() {
         assert_eq!(damerau_levenshtein("", ""), 0);
@@ -494,6 +502,7 @@ mod tests {
         assert_eq!(damerau_levenshtein("", "abc"), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn closest_matches_finds_dog() {
         let candidates = vec!["dog", "dig", "log", "cat"];
@@ -502,12 +511,14 @@ mod tests {
         assert_eq!(matches[0].0, "dog");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_edit_is_performance() {
         assert_eq!(classify_etiology("dog", "dgo"), ErrorEtiology::Performance);
         assert_eq!(classify_etiology("the", "teh"), ErrorEtiology::Performance);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multi_edit_is_competence() {
         // "elefant" for "elephant" — distance 2 (ph→f, drop h)
@@ -517,21 +528,25 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn etiology_has_two_variants() {
         assert_eq!(ErrorEtiology::variants().len(), 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn linguistic_level_has_four_variants() {
         assert_eq!(LinguisticLevel::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn edit_operation_has_six_variants() {
         assert_eq!(EditOperation::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn orthographic_depth_determines_errors() {
         // Shallow orthography → performance errors dominate
@@ -633,5 +648,13 @@ mod tests {
                 );
             }
         }
+
+        pr4xis::register_praxis_value!(prop_distance_identity, Verifiable);
+        pr4xis::register_praxis_value!(prop_distance_symmetry, Verifiable);
+        pr4xis::register_praxis_value!(prop_distance_non_negative, Verifiable);
+        pr4xis::register_praxis_value!(prop_triangle_inequality, Verifiable);
+        pr4xis::register_praxis_value!(prop_distance_upper_bound, Verifiable);
+        pr4xis::register_praxis_value!(prop_single_substitution_is_one, Verifiable);
+        pr4xis::register_praxis_value!(prop_etiology_always_classifies, Verifiable);
     }
 }

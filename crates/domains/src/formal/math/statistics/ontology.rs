@@ -168,11 +168,13 @@ impl Ontology for StatisticsOntology {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         pr4xis::category::laws::assert_category_laws::<StatisticsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         StatisticsOntology::validate().unwrap();

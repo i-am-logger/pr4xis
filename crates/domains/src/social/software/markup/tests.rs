@@ -6,11 +6,13 @@ use super::ontology::*;
 // Markup Category tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn markup_category_laws() {
     assert_category_laws::<MarkupCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn document_contains_element() {
     let morphisms = MarkupCategory::morphisms();
@@ -20,6 +22,7 @@ fn document_contains_element() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn element_contains_text() {
     let morphisms = MarkupCategory::morphisms();
@@ -29,6 +32,7 @@ fn element_contains_text() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn element_contains_attribute() {
     let morphisms = MarkupCategory::morphisms();
@@ -42,6 +46,7 @@ fn element_contains_attribute() {
 // MarkupNode tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn build_simple_document() {
     let doc = MarkupNode::document(vec![MarkupNode::element(
@@ -59,6 +64,7 @@ fn build_simple_document() {
     assert_eq!(doc.depth(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn find_elements() {
     let doc = MarkupNode::document(vec![MarkupNode::element(
@@ -83,6 +89,7 @@ fn find_elements() {
     assert_eq!(items.len(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn text_content() {
     let doc = MarkupNode::element(
@@ -93,6 +100,7 @@ fn text_content() {
     assert_eq!(doc.text_content(), "hello world");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attribute_lookup() {
     let elem = MarkupNode::element("div", vec![("class", "main"), ("id", "top")], vec![]);
@@ -101,18 +109,21 @@ fn attribute_lookup() {
     assert_eq!(elem.attribute("missing"), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn well_formed_document() {
     let doc = MarkupNode::document(vec![MarkupNode::element("root", vec![], vec![])]);
     assert!(is_well_formed(&doc));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn not_well_formed_no_root() {
     let doc = MarkupNode::document(vec![MarkupNode::comment("just a comment")]);
     assert!(!is_well_formed(&doc));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn not_well_formed_multiple_roots() {
     let doc = MarkupNode::document(vec![
@@ -122,6 +133,7 @@ fn not_well_formed_multiple_roots() {
     assert!(!is_well_formed(&doc));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn comment_is_preserved() {
     let node = MarkupNode::comment("this is a comment");
@@ -216,4 +228,12 @@ mod prop {
             prop_assert_eq!(node.text_content(), s);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_exists, Deterministic);
+    pr4xis::register_praxis_value!(prop_document_contains_all, Verifiable);
+    pr4xis::register_praxis_value!(prop_element_nests, Verifiable);
+    pr4xis::register_praxis_value!(prop_leaves_dont_contain_elements, Verifiable);
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_node_count_positive, Verifiable);
+    pr4xis::register_praxis_value!(prop_text_roundtrip, Deterministic);
 }

@@ -76,6 +76,7 @@ pub fn constant_velocity_process_noise(n_pos: usize, dt: f64, q: f64) -> Matrix 
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn constant_velocity_transition_1d() {
         let f = constant_velocity_transition(1, 0.1);
@@ -87,6 +88,7 @@ mod tests {
         assert!((f.get(1, 1) - 1.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn constant_velocity_transition_2d() {
         let f = constant_velocity_transition(2, 1.0);
@@ -100,6 +102,7 @@ mod tests {
         assert!((f.get(1, 3) - 1.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn process_noise_is_symmetric() {
         let q = constant_velocity_process_noise(2, 0.1, 1.0);
@@ -119,6 +122,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn process_noise_positive_diagonal() {
         let q = constant_velocity_process_noise(3, 0.5, 2.0);

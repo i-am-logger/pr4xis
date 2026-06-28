@@ -9,18 +9,21 @@ fn arb_direction() -> impl Strategy<Value = usize> {
 // Signal enforcement tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_signal_starts_red() {
     let signal = Signal::new(30, 5, 30);
     assert_eq!(signal.state, SignalState::Red);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_advance_before_min_time() {
     let signal = Signal::new(30, 5, 30);
     assert!(signal.apply(SignalAction::Advance).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_advance_after_min_red() {
     let mut signal = Signal::new(30, 5, 30);
@@ -31,6 +34,7 @@ fn test_advance_after_min_red() {
     assert_eq!(next.state, SignalState::Green);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_green_to_yellow() {
     let mut signal = Signal::new(3, 2, 5);
@@ -45,6 +49,7 @@ fn test_green_to_yellow() {
     assert_eq!(next.state, SignalState::Yellow);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_yellow_to_red() {
     let mut signal = Signal::new(3, 2, 5);
@@ -63,6 +68,7 @@ fn test_yellow_to_red() {
     assert_eq!(next.state, SignalState::Red);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_full_cycle() {
     let mut signal = Signal::new(3, 2, 5);
@@ -84,6 +90,7 @@ fn test_full_cycle() {
     assert_eq!(signal.state, SignalState::Red);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_malfunction_from_any_state() {
     let signal = Signal::new(30, 5, 30);
@@ -91,6 +98,7 @@ fn test_malfunction_from_any_state() {
     assert_eq!(mal.state, SignalState::BlinkingYellow);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_recover_goes_to_red() {
     let signal = Signal::new(30, 5, 30);
@@ -99,12 +107,14 @@ fn test_recover_goes_to_red() {
     assert_eq!(recovered.state, SignalState::Red);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_recover_from_normal() {
     let signal = Signal::new(30, 5, 30);
     assert!(signal.apply(SignalAction::Recover).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_left_arrow_phase() {
     let mut signal = Signal::new(30, 5, 30).with_left_arrow(10);
@@ -115,6 +125,7 @@ fn test_left_arrow_phase() {
     assert_eq!(next.state, SignalState::LeftArrow);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_off_and_on() {
     let signal = Signal::new(30, 5, 30);
@@ -124,6 +135,7 @@ fn test_off_and_on() {
     assert_eq!(on.state, SignalState::Red);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_turn_on_when_already_on() {
     let signal = Signal::new(30, 5, 30);
@@ -134,12 +146,14 @@ fn test_cant_turn_on_when_already_on() {
 // Intersection enforcement tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_intersection_starts_safe() {
     let intersection = Intersection::four_way(30, 5, 30);
     assert!(intersection.is_safe());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_create_conflicting_greens() {
     let mut intersection = Intersection::four_way(3, 2, 5);
@@ -156,6 +170,7 @@ fn test_cant_create_conflicting_greens() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_non_conflicting_can_both_be_green() {
     let mut intersection = Intersection::four_way(3, 2, 5);
@@ -329,10 +344,27 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_starts_red, Verifiable);
+pr4xis::register_praxis_value!(prop_cant_advance_early, Honest);
+pr4xis::register_praxis_value!(prop_malfunction_always_allowed, Verifiable);
+pr4xis::register_praxis_value!(prop_recover_only_from_malfunction, Honest);
+pr4xis::register_praxis_value!(prop_recovery_is_red, Verifiable);
+pr4xis::register_praxis_value!(prop_tick_preserves_state, Verifiable);
+pr4xis::register_praxis_value!(prop_tick_increments, Verifiable);
+pr4xis::register_praxis_value!(prop_green_only_to_yellow, Verifiable);
+pr4xis::register_praxis_value!(prop_yellow_only_to_red, Verifiable);
+pr4xis::register_praxis_value!(prop_intersection_starts_safe, Verifiable);
+pr4xis::register_praxis_value!(prop_tick_preserves_safety, Verifiable);
+pr4xis::register_praxis_value!(prop_advance_never_conflicts, Verifiable);
+pr4xis::register_praxis_value!(prop_invalid_direction_rejected, Honest);
+pr4xis::register_praxis_value!(prop_turn_on_is_red, Verifiable);
+pr4xis::register_praxis_value!(prop_advance_resets_ticks, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_tick_sequence() {
     let e = new_intersection(3, 1, 3);
@@ -343,6 +375,7 @@ fn engine_tick_sequence() {
     // terminates as a domain invariant.
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_back_forward() {
     let e = new_intersection(3, 1, 3);
@@ -355,6 +388,7 @@ fn engine_back_forward() {
     assert_eq!(e.step(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_advance_and_tick() {
     let e = new_intersection(3, 1, 3);
@@ -370,6 +404,7 @@ fn engine_advance_and_tick() {
     assert!(e.step() > 0);
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn engine_trace_records_actions() {
     let e = new_intersection(3, 1, 3);

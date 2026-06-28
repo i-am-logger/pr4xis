@@ -5,27 +5,32 @@ use pr4xis::ontology::Ontology;
 use crate::applied::underwater::acoustic::engine::*;
 use crate::applied::underwater::acoustic::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn acoustic_category_laws() {
     assert_category_laws::<AcousticCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn acoustic_ontology_validates() {
     AcousticOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sound_speed_positive_holds() {
     assert!(SoundSpeedPositive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn range_non_negative_holds() {
     assert!(RangeNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mackenzie_typical_surface_sound_speed() {
     // Typical ocean surface: T=15C, S=35 PSU, D=0m -> ~1507 m/s
@@ -37,6 +42,7 @@ fn mackenzie_typical_surface_sound_speed() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sound_speed_increases_with_depth() {
     let c_shallow = mackenzie_sound_speed(15.0, 35.0, 0.0);
@@ -47,6 +53,7 @@ fn sound_speed_increases_with_depth() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn range_from_travel_time_basic() {
     let range = range_from_travel_time(0.1, 1500.0);
@@ -56,6 +63,7 @@ fn range_from_travel_time_basic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn usbl_fix_to_cartesian_straight_down() {
     let fix = UsblFix {
@@ -69,6 +77,7 @@ fn usbl_fix_to_cartesian_straight_down() {
     assert!((pos[2] - (-100.0)).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn lbl_trilateration_requires_three_transponders() {
     let transponders = vec![[0.0, 0.0, 0.0], [100.0, 0.0, 0.0]];
@@ -102,4 +111,7 @@ mod proptest_proofs {
             prop_assert!(range >= 0.0, "range must be non-negative");
         }
     }
+
+    pr4xis::register_praxis_value!(sound_speed_always_positive, Verifiable);
+    pr4xis::register_praxis_value!(range_non_negative_property, Verifiable);
 }

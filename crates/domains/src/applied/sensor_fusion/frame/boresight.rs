@@ -100,12 +100,14 @@ impl Boresight {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn identity_boresight_has_zero_magnitude() {
         let b = Boresight::identity(ReferenceFrame::IMU, ReferenceFrame::Body);
         assert!(b.magnitude() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn apply_identity_preserves_vector() {
         let b = Boresight::identity(ReferenceFrame::IMU, ReferenceFrame::Body);
@@ -116,6 +118,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn inverse_compose_gives_identity() {
         let q = Quaternion::from_axis_angle([0.0, 0.0, 1.0], 0.01); // 0.01 rad ~ 0.57 deg
@@ -125,6 +128,7 @@ mod tests {
         assert!(composed.magnitude() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn compose_requires_matching_frames() {
         let b1 = Boresight::identity(ReferenceFrame::IMU, ReferenceFrame::Body);
@@ -132,6 +136,7 @@ mod tests {
         assert!(b1.compose(&b2).is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn magnitude_matches_axis_angle() {
         let angle = 0.05; // ~2.86 degrees
@@ -140,6 +145,7 @@ mod tests {
         assert!((b.magnitude() - angle).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn calibration_quality_clamped() {
         let b = Boresight::new(

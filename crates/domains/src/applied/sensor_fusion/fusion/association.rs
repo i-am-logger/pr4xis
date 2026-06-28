@@ -112,6 +112,7 @@ impl Quality for ComplexityClass {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_strategies_have_assignment_type() {
         let q = AssignmentType;
@@ -120,12 +121,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn jpda_is_soft_assignment() {
         let q = AssignmentType;
         assert_eq!(q.get(&AssociationStrategy::JPDA), Some(Assignment::Soft));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nn_is_linear() {
         let q = ComplexityClass;
@@ -135,6 +138,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_strategy_variants() {
         assert_eq!(AssociationStrategy::variants().len(), 5);

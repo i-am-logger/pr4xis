@@ -176,22 +176,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<AlignmentCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         AlignmentOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eleven_concepts() {
         assert_eq!(AlignmentConcept::variants().len(), 11);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn alignment_contains_correspondences() {
         let m = AlignmentCategory::morphisms();
@@ -200,6 +204,7 @@ mod tests {
             && r.kind() == AlignmentRelationKind::Contains));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lifecycle_order() {
         let m = AlignmentCategory::morphisms();
@@ -215,6 +220,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn merge_consumes_alignment() {
         // Zimmermann (2006) pushout of alignment span.
@@ -224,6 +230,7 @@ mod tests {
             && r.kind() == AlignmentRelationKind::Consumes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn coherence_validates_alignment() {
         // Meilicke et al. (2007).
@@ -233,11 +240,13 @@ mod tests {
             && r.kind() == AlignmentRelationKind::Validates));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn equivalence_is_symmetric() {
         assert!(SemanticRelation::Equivalence.is_symmetric());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn subsumption_inverse() {
         assert_eq!(
@@ -250,6 +259,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn inverse_of_inverse_is_identity() {
         for rel in [
@@ -263,6 +273,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_matching_types() {
         let types = [
@@ -311,4 +322,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_lifecycle_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_semantic_inverse_involutive, Deterministic);
 }

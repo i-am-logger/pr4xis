@@ -557,6 +557,7 @@ mod tests {
 
     // ── boolean ──────────────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn boolean_lexical_space() {
         assert_eq!(parse_boolean("true"), Some(true));
@@ -568,6 +569,7 @@ mod tests {
         assert_eq!(parse_boolean(""), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn boolean_canonical() {
         assert_eq!(canonical_boolean(true), "true");
@@ -576,6 +578,7 @@ mod tests {
 
     // ── decimal ──────────────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn decimal_parse_and_canonical() {
         let cases = [
@@ -597,6 +600,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decimal_rejects_malformed() {
         for bad in ["", "+", "-", ".", "1.2.3", "1e3", "abc", "+.", " 1"] {
@@ -604,6 +608,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn decimal_value_equality_ignores_lexical_form() {
         assert_eq!(parse_decimal("1.0"), parse_decimal("1"));
@@ -613,6 +618,7 @@ mod tests {
 
     // ── integer family ───────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn integer_parse_and_canonical() {
         let v = parse_integer("-007").unwrap();
@@ -620,6 +626,7 @@ mod tests {
         assert!(!v.canonical_integer().unwrap().contains('.'));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn integer_rejects_decimal_point() {
         assert!(parse_integer("1.0").is_none());
@@ -627,6 +634,7 @@ mod tests {
         assert!(parse_integer(".5").is_none());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn bounded_integer_boundaries() {
         use XsdDatatypeConcept as D;
@@ -645,6 +653,7 @@ mod tests {
         assert!(parse_typed_numeric(D::UnsignedLong, huge).is_none());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn sign_bounded_integers() {
         use XsdDatatypeConcept as D;
@@ -660,26 +669,31 @@ mod tests {
 
     // ── axioms ───────────────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_boolean_canonical() {
         assert!(BooleanCanonicalIsTrueFalse.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_decimal_fixpoint() {
         assert!(DecimalCanonicalIsFixpoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_integer_no_point() {
         assert!(IntegerCanonicalHasNoPoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn axiom_bounded_ranges() {
         assert!(BoundedIntegerRangesRespected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_lexical_rejects_malformed() {
         assert!(NumericLexicalRejectsMalformed.verify().is_ok());
@@ -736,4 +750,8 @@ mod tests {
             prop_assert_eq!(reparsed.as_ref(), Some(&v));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_decimal_canonical_fixpoint, Deterministic);
+    pr4xis::register_praxis_value!(prop_decimal_canonical_in_lexical_space, Deterministic);
+    pr4xis::register_praxis_value!(prop_integer_canonical_fixpoint, Deterministic);
 }

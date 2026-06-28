@@ -1062,22 +1062,26 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DataProvisioningCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DataProvisioningOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn seven_concepts() {
         assert_eq!(DataProvisioningConcept::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn canonical_encoding_covers_every_leaf() {
         use crate::formal::meta::source_taxonomy::ontology::is_leaf;
@@ -1092,6 +1096,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn family_dir_partitions_legal_and_lexicon() {
         use SourceTaxonomyConcept as C;

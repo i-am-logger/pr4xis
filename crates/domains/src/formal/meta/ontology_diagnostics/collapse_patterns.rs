@@ -210,6 +210,7 @@ mod tests {
 
     // -- Molecular -> Bioelectric tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_signal_is_highest_absorption() {
         let report = analyze_molecular_to_bioelectric_collapse();
@@ -235,6 +236,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_recommendation_for_high_loss() {
         // The molecular->bioelectric functor has ~85% collapse.
@@ -254,6 +256,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_fan_in_correlates_with_loss() {
         // Higher fan-in targets contribute more to overall collapse.
@@ -282,6 +285,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_acceptable_abstraction_for_moderate_loss() {
         // Verify the recommendation logic: <40% collapse -> AcceptableAbstraction.
@@ -312,6 +316,7 @@ mod tests {
 
     // -- Acoustics -> Biophysics tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_acoustics_biophysics_has_absorption() {
         let report = analyze_acoustics_to_biophysics_collapse();
@@ -321,6 +326,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_acoustics_biophysics_collapse_is_nonzero() {
         let report = analyze_acoustics_to_biophysics_collapse();
@@ -330,6 +336,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_absorption_points_sorted_by_fan_in() {
         let report = analyze_molecular_to_bioelectric_collapse();
@@ -343,6 +350,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_recommendation_thresholds() {
         // Unit tests for the recommend function at boundary values.

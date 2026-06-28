@@ -569,22 +569,26 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<LinearAlgebraCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         LinearAlgebraOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nine_concepts() {
         assert_eq!(LinearAlgebraConcept::variants().len(), 9);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn structure_dimension_total() {
         let q = StructureDimension;
@@ -593,6 +597,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn matrix_axioms_hold() {
         assert!(MultiplicationAssociativity.verify().is_ok());
@@ -601,6 +606,7 @@ mod tests {
         assert!(TransposeProduct.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn det_axioms_hold() {
         assert!(DetNormalization.verify().is_ok());
@@ -608,12 +614,14 @@ mod tests {
         assert!(DetTranspose.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eigenvalue_axioms_hold() {
         assert!(TraceEigenvalueSum.verify().is_ok());
         assert!(DetEigenvalueProduct.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pd_axioms_hold() {
         assert!(CholeskyFactorization.verify().is_ok());
@@ -652,4 +660,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_structure_dimension_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

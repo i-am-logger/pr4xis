@@ -152,11 +152,13 @@ pub fn test_low_pass_filter(alpha: f64) -> FirstOrderLowPass {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         pr4xis::category::laws::assert_category_laws::<SignalProcessingCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SignalProcessingOntology::validate().unwrap();

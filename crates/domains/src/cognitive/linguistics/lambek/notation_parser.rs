@@ -195,6 +195,7 @@ mod tests {
     /// category the grammar uses, `parse(t.notation()) == Some(t)`. This is what
     /// makes "categories carried as notation strings" honest loaded data rather
     /// than a relocated match.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn round_trips_every_svo_category() {
         let categories = [
@@ -226,6 +227,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_the_interrogative_categories_verbatim() {
         assert_eq!(parse_category("S[wq]/(NP\\S)"), Some(svo::wh_what()));
@@ -240,6 +242,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn atoms_and_features() {
         assert_eq!(parse_category("S"), Some(LambekType::s()));
@@ -249,6 +252,7 @@ mod tests {
         assert_eq!(parse_category("S[dcl]"), Some(LambekType::s_dcl()));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn associativity_matches_notation() {
         // `/` left-associative, `\` right-associative — same shape notation emits.
@@ -262,6 +266,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn malformed_input_fails_closed() {
         for bad in ["", "X", "S[bogus]", "NP/", "(NP\\S", "NP S", "S[wq]/NP)"] {

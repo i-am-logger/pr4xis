@@ -673,11 +673,13 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MorphospaceCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MorphospaceOntology::validate()
@@ -686,46 +688,55 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_attractors_have_vmem_ranges() {
         assert!(AllAttractorsHaveVmemRanges.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn healthy_is_most_polarized() {
         assert!(HealthyIsMostPolarized.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn severity_increases_with_depolarization() {
         assert!(SeverityIncreasesWithDepolarization.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_causes_dysplasia() {
         assert!(AcidCausesDysplasia.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanotransduction_causes_repair() {
         assert!(MechanotransductionCausesRepair.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_removal_causes_repair() {
         assert!(AcidRemovalCausesRepair.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn two_mechanism_gj_requirement() {
         assert!(TwoMechanismGJRequirement.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn only_mechanical_is_hardware_accessible() {
         assert!(OnlyMechanicalIsHardwareAccessible.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_attractor_states() {
         assert!(FiveAttractorStates.verify().is_ok());
@@ -733,6 +744,7 @@ mod tests {
 
     // -- Subsumption / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn repair_pathways_classified() {
         for pathway in [
@@ -745,6 +757,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_ranges_match_chernet_levin_2013() {
         assert_eq!(
@@ -769,6 +782,7 @@ mod tests {
 
     // -- Causal chain tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_damage_chain() {
         for e in [
@@ -786,6 +800,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanotransduction_repair_chain() {
         for e in [
@@ -800,6 +815,7 @@ mod tests {
 
     // -- Opposition tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn healthy_opposes_dysplastic() {
         let opps: Vec<_> = MorphospaceCategory::morphisms()
@@ -811,6 +827,7 @@ mod tests {
         assert!(opps.contains(&(MorphospaceConcept::Dysplastic, MorphospaceConcept::Healthy)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn polarized_opposes_depolarized() {
         let opps: Vec<_> = MorphospaceCategory::morphisms()
@@ -828,6 +845,7 @@ mod tests {
 
     /// Gralnek et al. (2006): PPI-mediated acid removal heals via the
     /// GJ-independent basal-turnover pathway.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn literature_gralnek_2006_basal_turnover_gj_independent() {
         assert_eq!(
@@ -838,6 +856,7 @@ mod tests {
 
     /// Levin (2015): gap-junction blockade alters morphology (proves
     /// bistability in morphospace).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn literature_levin_2015_gj_blockade_bistability() {
         assert!(causes(
@@ -926,4 +945,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_attractor_vmem_min_lt_max, Verifiable);
+    pr4xis::register_praxis_value!(prop_severity_vmem_monotonicity, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

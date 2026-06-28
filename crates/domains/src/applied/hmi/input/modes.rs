@@ -300,16 +300,19 @@ mod tests {
 
     // ── Structure tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_default_has_5_modes() {
         assert_eq!(default_graph().modes.len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_default_root_is_app() {
         assert_eq!(default_graph().root, ModeId::new("app"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_valid_transitions() {
         let g = default_graph();
@@ -318,6 +321,7 @@ mod tests {
         assert!(g.is_valid_transition(&ModeId::new("app"), &ModeId::new("console")));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_invalid_transitions() {
         let g = default_graph();
@@ -328,6 +332,7 @@ mod tests {
         assert!(!g.is_valid_transition(&ModeId::new("arrange"), &ModeId::new("theme")));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_console_reachable_from_all() {
         let g = default_graph();
@@ -340,6 +345,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_all_modes_can_reach_app() {
         let g = default_graph();
@@ -355,6 +361,7 @@ mod tests {
 
     // ── Quality tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_catchall() {
         let g = default_graph();
@@ -365,6 +372,7 @@ mod tests {
         assert!(!g.modes[&ModeId::new("console")].catchall);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_depth() {
         let g = default_graph();
@@ -375,6 +383,7 @@ mod tests {
         assert_eq!(g.modes[&ModeId::new("theme")].depth, 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parent() {
         let g = default_graph();
@@ -391,24 +400,28 @@ mod tests {
 
     // ── Axiom tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_no_dead_states() {
         let g = default_graph();
         assert!(NoDeadStates { graph: g }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_root_reachable() {
         let g = default_graph();
         assert!(RootReachable { graph: g }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_root_no_parent() {
         let g = default_graph();
         assert!(RootNoParent { graph: g }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_validate_default_passes() {
         let g = default_graph();
@@ -416,6 +429,7 @@ mod tests {
         assert!(failures.is_empty(), "failures: {:?}", failures);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_dead_state_detected() {
         let mut g = ModeGraph::new(ModeId::new("root"));
@@ -430,6 +444,7 @@ mod tests {
         assert!(NoDeadStates { graph: g }.verify().is_err());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_unreachable_detected() {
         let mut g = ModeGraph::new(ModeId::new("root"));
@@ -447,6 +462,7 @@ mod tests {
 
     // ── Custom mode graph test ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_custom_graph_validates() {
         let mut g = ModeGraph::new(ModeId::new("normal"));
@@ -560,4 +576,11 @@ mod tests {
             prop_assert!(reachable.contains(mode));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_root_always_in_reachable, Verifiable);
+    pr4xis::register_praxis_value!(prop_default_graph_all_modes_reach_app, Verifiable);
+    pr4xis::register_praxis_value!(prop_orphan_node_fails_validation, Honest);
+    pr4xis::register_praxis_value!(prop_island_node_fails_reachability, Honest);
+    pr4xis::register_praxis_value!(prop_chain_graph_validates, Verifiable);
+    pr4xis::register_praxis_value!(prop_reachable_set_includes_self, Verifiable);
 }

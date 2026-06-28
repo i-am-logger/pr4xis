@@ -297,6 +297,7 @@ mod tests {
         Identifier::curie(curie.to_string()).expect("valid CURIE")
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn happy_path_constructs() {
         let statutes: Vec<&'static Statute> = vec![sox_1514a::statute(), air21_42121::statute()];
@@ -332,6 +333,7 @@ mod tests {
         assert_eq!(fw.cross_references().len(), 1);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_from_source_rejected() {
         let statutes: Vec<&'static Statute> = vec![sox_1514a::statute()];
@@ -362,6 +364,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn dangling_from_term_rejected() {
         let statutes: Vec<&'static Statute> = vec![sox_1514a::statute(), air21_42121::statute()];
@@ -396,6 +399,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn missing_authority_strength_rejected() {
         let statutes: Vec<&'static Statute> = vec![sox_1514a::statute()];
@@ -415,6 +419,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn cross_reference_kind_parse() {
         assert_eq!(

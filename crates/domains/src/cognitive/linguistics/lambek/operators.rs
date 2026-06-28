@@ -286,6 +286,7 @@ mod tests {
 
     // ── Loader invariants ─────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn vocabulary_loads_the_operator_set() {
         let v = load();
@@ -305,6 +306,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn plus_loads_as_arith1_nary_number() {
         let v = load();
@@ -317,6 +319,7 @@ mod tests {
         assert_eq!(plus.result_sort, ResultSort::Number);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minus_loads_both_binary_and_unary_readings() {
         // `-` is BOTH binary subtraction and unary negation — two loaded
@@ -331,6 +334,7 @@ mod tests {
 
     // ── The type is derived AND reduces (in repo constructors) ─────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn arithmetic_infix_is_the_coordination_schema_and_reduces_to_np() {
         // The LOADED category for '+' (n-ary number) is (NP\NP)/NP — Steedman's
@@ -352,6 +356,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn relation_infix_reduces_to_a_sentence() {
         // The LOADED category for '<' (binary truth) is (NP\S)/NP — a proposition.
@@ -367,6 +372,7 @@ mod tests {
         assert!(result.is_sentence(), "10 < 20 is a claim (a sentence)");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_loaded_operator_reduces_to_its_result_sort() {
         // Coverage over the WHOLE bundle (not just +, <): each operator's
@@ -410,6 +416,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unary_prefix_takes_one_operand() {
         // The LOADED unary reading of '-' is NP/NP — prefix unary minus.
@@ -426,6 +433,7 @@ mod tests {
 
     // ── Number-literal recognizer ──────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn number_literals_are_recognized() {
         for s in ["10", "0", "3", "20", "3.14", "100"] {

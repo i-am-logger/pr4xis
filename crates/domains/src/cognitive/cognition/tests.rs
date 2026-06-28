@@ -44,16 +44,19 @@ where
 // Distinction tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn distinction_category_laws() {
     assert_category_laws::<DistinctionCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn distinction_has_6_elements() {
     assert_eq!(DistinctionConcept::variants().len(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mark_creates_boundary() {
     let m = DistinctionCategory::morphisms();
@@ -62,6 +65,7 @@ fn mark_creates_boundary() {
         && r.kind == DistinctionRelationKind::Creates));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn void_precedes_mark() {
     let m = DistinctionCategory::morphisms();
@@ -71,6 +75,7 @@ fn void_precedes_mark() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reentry_is_self_reference() {
     let m = DistinctionCategory::morphisms();
@@ -79,6 +84,7 @@ fn reentry_is_self_reference() {
         && r.kind == DistinctionRelationKind::AppliesTo));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn draw_distinction_works() {
     let (marked, unmarked) = draw_distinction("this", "that");
@@ -86,6 +92,7 @@ fn draw_distinction_works() {
     assert_eq!(unmarked, "that");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 #[should_panic]
 fn draw_distinction_requires_difference() {
@@ -96,16 +103,19 @@ fn draw_distinction_requires_difference() {
 // Epistemics tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn epistemic_category_laws() {
     assert_category_laws::<EpistemicCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn epistemic_has_4_states() {
     assert_eq!(EpistemicConcept::variants().len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn observation_detects_gap() {
     let m = EpistemicCategory::morphisms();
@@ -114,6 +124,7 @@ fn observation_detects_gap() {
         && r.kind == EpistemicRelationKind::Observation));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn learning_fills_gap() {
     let m = EpistemicCategory::morphisms();
@@ -122,6 +133,7 @@ fn learning_fills_gap() {
         && r.kind == EpistemicRelationKind::Learning));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn repair_fixes_access() {
     let m = EpistemicCategory::morphisms();
@@ -130,24 +142,28 @@ fn repair_fixes_access() {
         && r.kind == EpistemicRelationKind::Repair));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_known_known() {
     let state = classify_result(true, true, Some("dog is a mammal"));
     assert_eq!(state, EpistemicConcept::KnownKnown);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_known_unknown() {
     let state = classify_result::<&str>(true, false, None);
     assert_eq!(state, EpistemicConcept::KnownUnknown);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_unknown_known() {
     let state = classify_result::<&str>(false, true, None);
     assert_eq!(state, EpistemicConcept::UnknownKnown);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_unknown_unknown() {
     let state = classify_result::<&str>(false, false, None);
@@ -158,16 +174,19 @@ fn classify_unknown_unknown() {
 // Metacognition tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn metacognition_category_laws() {
     assert_category_laws::<MetaCognitionCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn metacognition_has_10_concepts() {
     assert_eq!(MetaCognitionConcept::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_observes_object() {
     let m = MetaCognitionCategory::morphisms();
@@ -176,6 +195,7 @@ fn meta_observes_object() {
         && r.kind == MetaCognitionRelationKind::Observes));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn evaluation_detects_gap() {
     let m = MetaCognitionCategory::morphisms();
@@ -184,6 +204,7 @@ fn evaluation_detects_gap() {
         && r.kind == MetaCognitionRelationKind::Detects));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gap_triggers_repair_or_clarification() {
     let m = MetaCognitionCategory::morphisms();
@@ -196,6 +217,7 @@ fn gap_triggers_repair_or_clarification() {
     ));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_reaches_clarification() {
     // The full loop: MetaLevel → ... → Clarification. Per #166 the
@@ -393,6 +415,21 @@ mod prop {
             prop_assert!(chain);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_epistemic_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_meta_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_known_known_reachable, Verifiable);
+    pr4xis::register_praxis_value!(prop_meta_reaches_all, Verifiable);
+    pr4xis::register_praxis_value!(prop_distinction_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_boundary_separates_both, Verifiable);
+    pr4xis::register_praxis_value!(prop_void_reaches_mark, Verifiable);
+    pr4xis::register_praxis_value!(prop_reentry_reaches_both_spaces, Verifiable);
+    pr4xis::register_praxis_value!(prop_observe_then_learn, Verifiable);
+    pr4xis::register_praxis_value!(prop_forgetting_recoverable, Verifiable);
+    pr4xis::register_praxis_value!(prop_classify_exhaustive, Verifiable);
+    pr4xis::register_praxis_value!(prop_gap_never_stuck, Verifiable);
+    pr4xis::register_praxis_value!(prop_monitoring_before_evaluation, Verifiable);
+    pr4xis::register_praxis_value!(prop_evaluation_informs_control, Verifiable);
 
     fn arb_distinction() -> impl Strategy<Value = DistinctionConcept> {
         prop_oneof![

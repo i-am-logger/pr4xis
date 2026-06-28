@@ -573,17 +573,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<BioelectricCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         BioelectricOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nineteen_concepts() {
         // 4 signals + 3 networks + 3 morphospace + 5 interventions + 4 abstract = 19.
@@ -592,46 +595,55 @@ mod tests {
 
     // -- Domain axioms --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioelectric_code_axiom() {
         assert!(BioelectricCodeAxiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gap_junction_communication_axiom() {
         assert!(GapJunctionCommunicationAxiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn repolarization_repair_axiom() {
         assert!(RepolarizationRepairAxiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn two_mechanism_repair_axiom() {
         assert!(TwoMechanismRepairAxiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tame_hierarchy_axiom() {
         assert!(TAMEHierarchyAxiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cognitive_lightcone_axiom() {
         assert!(CognitiveLightconeAxiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_stimulation_only_hardware_accessible() {
         assert!(MechanicalStimulationIsHardwareAccessible.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_tame_levels_represented() {
         assert!(AllTAMELevelsRepresented.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn target_morphology_cross_domain_equivalence() {
         assert!(TargetMorphologyCrossDomainEquivalence.verify().is_ok());
@@ -639,6 +651,7 @@ mod tests {
 
     // -- Subsumption / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn signals_subsume_under_signal() {
         let subs: Vec<_> = BioelectricCategory::morphisms()
@@ -660,6 +673,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interventions_subsume_under_intervention() {
         for c in [
@@ -679,6 +693,7 @@ mod tests {
 
     // -- Opposition tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ion_channel_modulation_opposes_ppi() {
         let opps: Vec<_> = BioelectricCategory::morphisms()
@@ -696,6 +711,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn signal_opposes_intervention() {
         let opps: Vec<_> = BioelectricCategory::morphisms()
@@ -708,6 +724,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn membrane_potential_is_molecular() {
         assert_eq!(
@@ -716,6 +733,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cognitive_lightcone_is_organ_level() {
         assert_eq!(
@@ -724,6 +742,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_stim_hardware_accessible() {
         assert_eq!(
@@ -732,6 +751,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ion_channel_modulation_not_gj_dependent() {
         assert_eq!(
@@ -744,6 +764,7 @@ mod tests {
 
     /// Chernet & Levin (2013): GlyR-mediated hyperpolarisation is
     /// cell-autonomous (no GJs needed).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn literature_chernet_levin_2013_glyr_no_gj() {
         assert!(is_a(
@@ -757,6 +778,7 @@ mod tests {
     }
 
     /// Fields & Levin (2022): the TAME ladder has exactly 5 ordered levels.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn literature_levin_2022_tame_five_levels_ordered() {
         let levels = CompetencyLevel::variants();
@@ -819,4 +841,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_operating_level_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

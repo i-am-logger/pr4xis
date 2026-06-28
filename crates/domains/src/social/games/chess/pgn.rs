@@ -190,6 +190,7 @@ pub fn replay_pgn(pgn: &str) -> Result<Board, String> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_simple_game() {
         let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bc4";
@@ -197,6 +198,7 @@ mod tests {
         assert_eq!(moves.len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_scholars_mate() {
         let pgn = "1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7#";
@@ -204,6 +206,7 @@ mod tests {
         assert!(board.is_checkmate());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_fools_mate() {
         let pgn = "1. f3 e5 2. g4 Qh4#";
@@ -211,6 +214,7 @@ mod tests {
         assert!(board.is_checkmate());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_castling() {
         let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. O-O";
@@ -218,6 +222,7 @@ mod tests {
         assert_eq!(moves.len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_with_headers() {
         let pgn = r#"[Event "Test"]
@@ -229,6 +234,7 @@ mod tests {
         assert_eq!(moves.len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_with_result() {
         let pgn = "1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0";
@@ -249,6 +255,7 @@ mod tests {
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {}: {}", path, e))
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_pgn_fools_mate() {
         let pgn = load_game("fools_mate.pgn");
@@ -256,6 +263,7 @@ mod tests {
         assert!(board.is_checkmate());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_pgn_scholars_mate() {
         let pgn = load_game("scholars_mate.pgn");
@@ -263,6 +271,7 @@ mod tests {
         assert!(board.is_checkmate());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_pgn_opera_game() {
         let pgn = load_game("opera_game.pgn");
@@ -273,6 +282,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_pgn_immortal_game() {
         let pgn = load_game("immortal_game.pgn");
@@ -283,6 +293,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_pgn_evergreen_game() {
         let pgn = load_game("evergreen_game.pgn");

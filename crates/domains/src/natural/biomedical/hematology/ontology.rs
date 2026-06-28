@@ -585,11 +585,13 @@ mod tests {
         })
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<HematologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         HematologyOntology::validate()
@@ -598,36 +600,43 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whole_blood_contains_plasma() {
         assert!(WholeBloodContainsPlasma.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn plasma_contains_all_electrolytes() {
         assert!(PlasmaContainsAllElectrolytes.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sodium_is_dominant_cation() {
         assert!(SodiumIsDominantCation.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn blood_ph_regulated() {
         assert!(BloodPHRegulated.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hemorrhage_causes_electrolyte_imbalance() {
         assert!(HemorrhageCausesElectrolyteImbalance.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inflammation_causes_albumin_decrease() {
         assert!(InflammationCausesAlbuminDecrease.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn coagulation_produces_fibrin() {
         assert!(CoagulationProducesFibrin.verify().is_ok());
@@ -635,6 +644,7 @@ mod tests {
 
     // -- Subsumption / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn blood_plasma_is_a_blood_component() {
         assert!(is_a(
@@ -643,6 +653,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn albumin_is_a_plasma_protein() {
         assert!(is_a(
@@ -651,6 +662,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sodium_is_a_plasma_electrolyte() {
         assert!(is_a(
@@ -659,6 +671,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hematocrit_is_a_blood_property() {
         assert!(is_a(
@@ -669,21 +682,25 @@ mod tests {
 
     // -- Mereology / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whole_blood_contains_rbc() {
         assert!(parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::RedBloodCell));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whole_blood_transitively_contains_sodium() {
         assert!(parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::SodiumPlasma));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whole_blood_transitively_contains_albumin() {
         assert!(parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::Albumin));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn plasma_contains_fibrinogen() {
         assert!(parts_of(HematologyConcept::BloodPlasma).contains(&HematologyConcept::Fibrinogen));
@@ -691,6 +708,7 @@ mod tests {
 
     // -- Opposition tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn albumin_opposes_globulin() {
         let opps: Vec<_> = HematologyCategory::morphisms()
@@ -702,6 +720,7 @@ mod tests {
         assert!(opps.contains(&(HematologyConcept::Globulin, HematologyConcept::Albumin)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rbc_opposes_wbc() {
         let opps: Vec<_> = HematologyCategory::morphisms()
@@ -717,6 +736,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn electrolyte_concentrations_match_guyton_hall() {
         assert_eq!(
@@ -741,6 +761,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fibrinogen_is_clotting_factor() {
         assert_eq!(
@@ -749,6 +770,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn platelet_is_clotting_factor() {
         assert_eq!(
@@ -757,6 +779,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn albumin_not_clotting_factor() {
         assert_eq!(
@@ -765,6 +788,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sodium_affects_osmolarity() {
         assert_eq!(
@@ -773,6 +797,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn albumin_affects_osmolarity() {
         // Oncotic pressure (Guyton & Hall 2020).
@@ -784,6 +809,7 @@ mod tests {
 
     // -- Causal chain tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hemorrhage_transitively_causes_electrolyte_imbalance() {
         assert!(causes(
@@ -792,6 +818,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inflammation_transitively_causes_albumin_decrease() {
         assert!(causes(
@@ -800,6 +827,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_base_disturbance_causes_ph_correction() {
         assert!(causes(
@@ -808,6 +836,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn coagulation_causes_fibrin_formation() {
         assert!(causes(
@@ -877,4 +906,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_clotting_factor_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_affects_osmolarity_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

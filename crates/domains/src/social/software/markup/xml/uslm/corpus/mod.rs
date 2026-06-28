@@ -783,6 +783,7 @@ mod tests {
         references: &[],
     };
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn from_codegen_materialises_every_section() {
         let usc = UsCode::from_codegen(&FIXTURE_DATA);
@@ -790,6 +791,7 @@ mod tests {
         assert_eq!(usc.all_sections().len(), 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn section_urn_is_typed_uslm() {
         let usc = UsCode::from_codegen(&FIXTURE_DATA);
@@ -798,6 +800,7 @@ mod tests {
         assert_eq!(s.urn.value(), "/us/usc/t18/s1514A");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn section_by_urn_finds_loaded_section() {
         let usc = UsCode::from_codegen(&FIXTURE_DATA);
@@ -807,6 +810,7 @@ mod tests {
         assert_eq!(s.heading, "Whistleblower protection program");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn section_by_urn_rejects_non_uslm_identifier() {
         let usc = UsCode::from_codegen(&FIXTURE_DATA);
@@ -817,6 +821,7 @@ mod tests {
         assert!(usc.section_by_urn(&curie).is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn title_number_extracts_from_urn() {
         let usc = UsCode::from_codegen(&FIXTURE_DATA);
@@ -824,6 +829,7 @@ mod tests {
         assert_eq!(usc.all_sections()[1].title_number(), Some(49));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn from_codegen_default_yields_empty_subdivisions() {
         // The fixture path passes `aux=&[]` implicitly; sections

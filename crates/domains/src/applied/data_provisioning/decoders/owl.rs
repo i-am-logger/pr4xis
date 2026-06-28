@@ -99,6 +99,7 @@ mod tests {
         })
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn decoder_round_trips_cito_bytes() {
         let ont = decode(cito_owl().as_bytes())
@@ -110,6 +111,7 @@ mod tests {
         assert!(ont.property_count() > 30);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decoder_rejects_invalid_utf8() {
         let err = decode(&[0xFF, 0xFE, 0xFD]).expect_err("invalid UTF-8 must be rejected");

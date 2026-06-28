@@ -359,6 +359,7 @@ mod tests {
     // Molecular-Bioelectric gap analysis
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_molecular_bioelectric_gaps_exist() {
         let report = analyze_molecular_bioelectric();
@@ -373,6 +374,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_molecular_bioelectric_unit_loss_ratio() {
         let report = analyze_molecular_bioelectric();
@@ -395,6 +397,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_molecular_bioelectric_counit_loss_ratio() {
         let report = analyze_molecular_bioelectric();
@@ -406,6 +409,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_kv_is_unit_gap() {
         let report = analyze_molecular_bioelectric();
@@ -419,6 +423,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_potential_is_counit_gap() {
         let report = analyze_molecular_bioelectric();
@@ -432,6 +437,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_unit_loss_greater_than_counit_loss() {
         // PREDICTION: molecular→bioelectric loses more than bioelectric→molecular
@@ -456,6 +462,7 @@ mod tests {
     // the molecular ontology (e.g. KvHasTwoFunctionalRoles) before being
     // reinstated as a gap-resolution proof.
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_piezo_gap_is_resolved_by_context() {
         let report = analyze_molecular_bioelectric();
@@ -475,6 +482,7 @@ mod tests {
     // Pharmacology-Molecular gap analysis
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_pharmacology_molecular_gaps_exist() {
         let report = analyze_pharmacology_molecular();
@@ -485,12 +493,14 @@ mod tests {
     // Biology-Bioelectric gap analysis
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_biology_bioelectric_gaps_exist() {
         let report = analyze_biology_bioelectric();
         assert!(!report.unit_gaps.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_biology_bioelectric_many_cells_collapse() {
         // Multiple cell types should collapse to MembranePotential
@@ -517,6 +527,7 @@ mod tests {
     // Cross-adjunction comparison
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_all_adjunctions_have_gaps() {
         let mol_bio = analyze_molecular_bioelectric();
@@ -539,6 +550,7 @@ mod tests {
         // ALL adjunctions detect gaps — the methodology works universally
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_print_all_gap_reports() {
         let mb = analyze_molecular_bioelectric();
@@ -596,6 +608,7 @@ mod tests {
         eprintln!("--- END ---\n");
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_loss_ratios_are_asymmetric() {
         // The unit loss should differ from counit loss for each adjunction
@@ -613,6 +626,7 @@ mod tests {
     // Intermediate domain hypothesis: biochemistry reduces loss
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_biochemistry_bioelectric_loss() {
         let loss = analyze_biochemistry_bioelectric_loss();
@@ -628,6 +642,7 @@ mod tests {
         // If so, the intermediate domain hypothesis holds.
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_print_biochemistry_bioelectric_mapping() {
         use crate::natural::biomedical::biochemistry::bioelectricity_functor::BiochemistryToBioelectric;
@@ -645,6 +660,7 @@ mod tests {
     // Full chain measurement: acoustics → biophysics → molecular → bioelectricity
     // -----------------------------------------------------------------------
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_full_chain_collapse_measurement() {
         use crate::natural::biomedical::acoustics::biophysics_functor::AcousticsToBiophysics;
@@ -782,6 +798,7 @@ mod tests {
     /// Syntrometry → Staging collapses Heim's finer grain into Futamura's
     /// coarser vocabulary. Expected 6+ collapses (many concepts land at
     /// Program).
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_syntrometry_to_staging_collapse_is_measured() {
         use crate::formal::meta::staging::ontology::StageConcept;
@@ -812,6 +829,7 @@ mod tests {
 
     /// Phase 5: Syntrometry → Algebra maps Heim's operators onto Goguen /
     /// Zimmermann ontology-algebra primitives.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_syntrometry_to_algebra_collapse_is_measured() {
         use crate::formal::meta::algebra::ontology::AlgebraConcept;
@@ -840,6 +858,7 @@ mod tests {
     /// — pairs that share a diagnostic role collapse to the same `MetaEntity`
     /// bucket (e.g., Syncolator/Composer/permutations → Functor;
     /// Coordination/Reflexivity → NaturalTransformation).
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_syntrometry_to_meta_ontology_collapse_is_six() {
         use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
@@ -871,6 +890,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_syntrometry_substrate_intentional_collapses() {
         let report = analyze_syntrometry_substrate();

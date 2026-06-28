@@ -5,27 +5,32 @@ use pr4xis::ontology::Ontology;
 use crate::applied::underwater::auv::engine::*;
 use crate::applied::underwater::auv::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn auv_category_laws() {
     assert_category_laws::<AuvCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn auv_ontology_validates() {
     AuvOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn depth_non_negative_holds() {
     assert!(DepthNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dvl_requires_bottom_lock_holds() {
     assert!(DvlRequiresBottomLock.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dead_reckoning_straight_north() {
     let state = AuvState {
@@ -46,6 +51,7 @@ fn dead_reckoning_straight_north() {
     assert!((new_state.depth - 10.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dead_reckoning_straight_east() {
     let state = AuvState {
@@ -65,6 +71,7 @@ fn dead_reckoning_straight_east() {
     assert!((new_state.east - 10.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn distance_2d_basic() {
     let a = AuvState {
@@ -82,6 +89,7 @@ fn distance_2d_basic() {
     assert!((distance_2d(&a, &b) - 5.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn distance_3d_basic() {
     let a = AuvState {
@@ -135,4 +143,7 @@ mod proptest_proofs {
             prop_assert!(distance_2d(&a, &b) >= 0.0);
         }
     }
+
+    pr4xis::register_praxis_value!(zero_velocity_preserves_position, Verifiable);
+    pr4xis::register_praxis_value!(distance_is_non_negative, Verifiable);
 }

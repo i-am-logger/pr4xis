@@ -41,6 +41,7 @@ fn word(text: &str) -> LexicalEntry {
 // Parse tree structure tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn syntax_node_text() {
     let tree = SyntaxNode::Branch {
@@ -53,6 +54,7 @@ fn syntax_node_text() {
     assert_eq!(tree.text(), "the dog");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn syntax_node_head_noun() {
     let tree = SyntaxNode::Branch {
@@ -68,6 +70,7 @@ fn syntax_node_head_noun() {
     assert_eq!(head.pos_tag(), PosTag::Noun);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn syntax_node_depth() {
     let leaf = SyntaxNode::Leaf { entry: word("dog") };
@@ -80,6 +83,7 @@ fn syntax_node_depth() {
     assert_eq!(np.depth(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn syntax_node_word_count() {
     let tree = SyntaxNode::Branch {
@@ -107,6 +111,7 @@ fn syntax_node_word_count() {
 // Engine tests — valid parses
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_simple_sentence() {
     // "the dog runs"
@@ -143,6 +148,7 @@ fn parse_simple_sentence() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_with_adjective() {
     // "the big dog runs quickly"
@@ -185,6 +191,7 @@ fn parse_with_adjective() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_plural_agreement() {
     // "the dogs run" — plural subject + plural verb
@@ -221,6 +228,7 @@ fn parse_plural_agreement() {
 // Engine tests — violations
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn reject_verb_in_noun_phrase() {
     let e = new_parse();
@@ -241,6 +249,7 @@ fn reject_verb_in_noun_phrase() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn reject_agreement_violation() {
     // "the dog run" — singular subject + plural verb
@@ -273,6 +282,7 @@ fn reject_agreement_violation() {
     // assert!(result.is_err()); // Re-enable when verb inflection is loaded
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn reject_close_empty_stack() {
     let e = new_parse();
@@ -280,6 +290,7 @@ fn reject_close_empty_stack() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn reject_action_after_complete() {
     let e = new_parse();
@@ -316,6 +327,7 @@ fn reject_action_after_complete() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn parse_back_forward() {
     let e = new_parse();

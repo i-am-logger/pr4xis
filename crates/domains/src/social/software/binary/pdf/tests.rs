@@ -18,11 +18,13 @@ use proptest::prelude::*;
 // Category + ontology
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<PdfCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     PdfOntology::validate()
@@ -33,6 +35,7 @@ fn ontology_validates() {
 // Concept surface — every variant is enumerable.
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn concept_variants_are_24() {
     // Document, Header, Body, CrossReferenceSection, Trailer,
@@ -51,16 +54,19 @@ fn concept_variants_are_24() {
 // Symbols — magic bytes are the spec-published values.
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn header_magic_is_pdf_prefix() {
     assert_eq!(PdfSymbols::header_magic(), b"%PDF-");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn eof_marker_is_double_percent_eof() {
     assert_eq!(PdfSymbols::eof_marker(), b"%%EOF");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn keyword_bytes_match_spec() {
     assert_eq!(PdfSymbols::xref_keyword(), b"xref");
@@ -77,31 +83,37 @@ fn keyword_bytes_match_spec() {
 // Axioms — each one is present, has a citation, and verifies.
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_file_structure_well_formed_verifies() {
     assert!(FileStructureWellFormed.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_indirect_references_resolve_verifies() {
     assert!(IndirectReferencesResolve.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_filter_chain_terminates_verifies() {
     assert!(FilterChainTerminates.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_encoding_is_total_verifies() {
     assert!(EncodingIsTotal.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_image_content_must_be_flagged_verifies() {
     assert!(ImageContentMustBeFlagged.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_axiom_carries_iso_or_praxis_citation() {
     let axioms = PdfOntology::axioms();
@@ -119,6 +131,7 @@ fn every_axiom_carries_iso_or_praxis_citation() {
 // Structural invariants on the morphism catalog.
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn document_contains_the_four_file_parts() {
     use PdfConcept::*;
@@ -132,6 +145,7 @@ fn document_contains_the_four_file_parts() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn trailer_references_catalog() {
     use PdfConcept::*;
@@ -142,6 +156,7 @@ fn trailer_references_catalog() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn catalog_references_page_tree() {
     use PdfConcept::*;
@@ -152,6 +167,7 @@ fn catalog_references_page_tree() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn page_references_content_stream_and_resources() {
     use PdfConcept::*;
@@ -160,6 +176,7 @@ fn page_references_content_stream_and_resources() {
     assert!(ms.contains(&PdfEdge::references(Page, Resources)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn font_references_descriptor_encoding_and_tounicode() {
     use PdfConcept::*;
@@ -169,6 +186,7 @@ fn font_references_descriptor_encoding_and_tounicode() {
     assert!(ms.contains(&PdfEdge::references(Font, ToUnicodeCmap)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xobject_contains_image_and_form_variants() {
     use PdfConcept::*;
@@ -177,6 +195,7 @@ fn xobject_contains_image_and_form_variants() {
     assert!(ms.contains(&PdfEdge::contains(XObject, FormXObject)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn streams_can_carry_filter_chains() {
     use PdfConcept::*;
@@ -189,6 +208,7 @@ fn streams_can_carry_filter_chains() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn page_tree_is_recursive() {
     use PdfConcept::*;
@@ -199,6 +219,7 @@ fn page_tree_is_recursive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn structure_tree_is_recursive() {
     use PdfConcept::*;
@@ -216,6 +237,7 @@ fn structure_tree_is_recursive() {
 // Quality
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_text_bearing_covers_content_streams_and_form_xobjects() {
     let q = IsTextBearing;
@@ -224,6 +246,7 @@ fn is_text_bearing_covers_content_streams_and_form_xobjects() {
     assert!(q.get(&PdfConcept::StructureElement).is_some());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_text_bearing_excludes_image_xobject_and_filter_chain() {
     let q = IsTextBearing;
@@ -236,6 +259,7 @@ fn is_text_bearing_excludes_image_xobject_and_filter_chain() {
 // Flagged content surface
 // ─────────────────────────────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn flagged_kind_covers_every_non_text_class() {
     // The five non-text kinds the extractor must surface — adding a
@@ -259,6 +283,7 @@ fn flagged_kind_covers_every_non_text_class() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn flagged_content_carries_required_fields() {
     let f = FlaggedContent {
@@ -318,3 +343,8 @@ proptest! {
         prop_assert!(PdfCategory::compose(&f, &g).is_none());
     }
 }
+
+pr4xis::register_praxis_value!(prop_every_morphism_named, Explainable);
+pr4xis::register_praxis_value!(prop_identity_is_self_edge, Deterministic);
+pr4xis::register_praxis_value!(prop_compose_with_identity_is_noop, Deterministic);
+pr4xis::register_praxis_value!(prop_compose_mixed_kinds_fails, Honest);

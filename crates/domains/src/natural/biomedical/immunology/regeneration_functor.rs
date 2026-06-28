@@ -105,16 +105,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<ImmunologyToRegeneration>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<ImmunologyToRegeneration>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in ImmunologyEntity::variants() {
@@ -129,6 +132,7 @@ mod tests {
     // adjunctions/composition_tests batch (the source is now a kinded
     // partial category per OBO-RO; `Composed` no longer exists).
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m1_maps_to_wound_epithelium() {
         assert_eq!(
@@ -137,6 +141,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m2_maps_to_epithelial_restitution() {
         assert_eq!(
@@ -145,6 +150,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_acute_inflammation_maps_to_wound_epithelium() {
         assert_eq!(
@@ -153,6 +159,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_chronic_inflammation_maps_to_bistability() {
         assert_eq!(
@@ -161,6 +168,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_fibrosis_maps_to_blastema() {
         assert_eq!(
@@ -169,6 +177,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_fibroblast_maps_to_blastema() {
         assert_eq!(
@@ -177,6 +186,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_tnf_alpha_maps_to_pattern_memory() {
         assert_eq!(
@@ -185,6 +195,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_immune_cell_abstract_maps_to_structure() {
         assert_eq!(
@@ -193,6 +204,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_inflammatory_state_abstract_maps_to_regeneration_type() {
         assert_eq!(
@@ -201,6 +213,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = RegenerationEntity::variants();

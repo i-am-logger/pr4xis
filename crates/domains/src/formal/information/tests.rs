@@ -7,11 +7,13 @@ use super::ontology::*;
 // Category tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn info_category_laws() {
     assert_category_laws::<InfoCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn info_has_8_units() {
     assert_eq!(InfoConcept::variants().len(), 8);
@@ -26,6 +28,7 @@ fn info_has_8_units() {
 /// target — so `reaches(part, whole, Parthood)` holds, matching the USC corpus
 /// bridge and the "is X part of Y" chat query. The OLD whole→part orientation
 /// (which answered "is X part of Y" backwards) must NOT be present.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn has_a_desugars_to_a_part_to_whole_parthood_edge() {
     let m = InfoCategory::morphisms();
@@ -45,6 +48,7 @@ fn has_a_desugars_to_a_part_to_whole_parthood_edge() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn byte_composed_of_bits() {
     // part→whole (BFO:0000050): a Bit is PART of a Byte (source=part, target=whole).
@@ -54,6 +58,7 @@ fn byte_composed_of_bits() {
         && r.kind() == InfoRelationKind::Parthood));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn word_composed_of_bytes() {
     // part→whole: a Byte is PART of a Word.
@@ -63,6 +68,7 @@ fn word_composed_of_bytes() {
         && r.kind() == InfoRelationKind::Parthood));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn word_transitively_composed_of_bits() {
     // Same-kind transitive closure (OBO-RO `transitive_over`): part→whole, so a
@@ -78,6 +84,7 @@ fn word_transitively_composed_of_bits() {
 // Taxonomic relationships (is-a → Subsumption kind)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reference_is_a_word() {
     let m = InfoCategory::morphisms();
@@ -86,6 +93,7 @@ fn reference_is_a_word() {
         && r.kind() == InfoRelationKind::Subsumption));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn text_is_a_sequence() {
     let m = InfoCategory::morphisms();
@@ -94,6 +102,7 @@ fn text_is_a_sequence() {
         && r.kind() == InfoRelationKind::Subsumption));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn truth_value_equivalent_to_bit() {
     // Shannon (1948).
@@ -107,6 +116,7 @@ fn truth_value_equivalent_to_bit() {
 // Reference tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ref32_size() {
     let r: Ref32 = Ref::new(42);
@@ -115,6 +125,7 @@ fn ref32_size() {
     assert_eq!(r.max_addressable(), (1u64 << 32) - 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ref64_size() {
     let r: Ref64 = Ref::new(999);
@@ -122,6 +133,7 @@ fn ref64_size() {
     assert_eq!(r.max_addressable(), u64::MAX);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ref32_sufficient_for_wordnet() {
     let r: Ref32 = Ref::new(0);
@@ -133,6 +145,7 @@ fn ref32_sufficient_for_wordnet() {
 // Classification tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn atomics() {
     assert!(InfoConcept::Bit.is_atomic());
@@ -142,6 +155,7 @@ fn atomics() {
     assert!(!InfoConcept::Reference.is_atomic());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn structured() {
     assert!(InfoConcept::Byte.is_structured());
@@ -186,4 +200,8 @@ mod prop {
             prop_assert!(r.max_addressable() > id);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_atomic_or_structured, Verifiable);
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_ref32_sufficient, Verifiable);
 }

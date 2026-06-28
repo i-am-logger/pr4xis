@@ -96,22 +96,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TameCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         TameOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_five_levels() {
         assert_eq!(TameConcept::variants().len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ladder_is_subsumption() {
         // Molecular ↪ Cellular ↪ Tissue ↪ Organ ↪ Organism via Subsumption.
@@ -126,6 +130,7 @@ mod tests {
         assert!(subs.contains(&(TameConcept::Organ, TameConcept::Organism)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn degrees_of_freedom_total() {
         let dof = DegreesOfFreedom;
@@ -175,4 +180,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_dof_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

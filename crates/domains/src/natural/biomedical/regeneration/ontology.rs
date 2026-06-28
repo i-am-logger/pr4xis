@@ -649,17 +649,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<RegenerationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         RegenerationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 5 reg types + 7 pattern concepts + 3 structures
@@ -671,31 +674,37 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn injury_causes_restoration_axiom() {
         assert!(InjuryCausesRestoration.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioelectric_causes_pattern_axiom() {
         assert!(BioelectricCausesPattern.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gap_junction_causes_collective_decision_axiom() {
         assert!(GapJunctionCausesCollectiveDecision.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epimorphic_requires_blastema_and_nerve_axiom() {
         assert!(EpimorphicRequiresBlastemaAndNerve.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epithelial_restitution_no_bioelectric_axiom() {
         assert!(EpithelialRestitutionNoBioelectric.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bistability_is_reversible_pattern_concept_axiom() {
         assert!(BistabilityIsReversiblePatternConcept.verify().is_ok());
@@ -703,6 +712,7 @@ mod tests {
 
     // -- Subsumption-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn regeneration_types_subsume_under_umbrella() {
         use RegenerationConcept::*;
@@ -721,6 +731,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn body_axes_subsume_under_body_axis() {
         use RegenerationConcept::*;
@@ -729,6 +740,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn structures_subsume_under_structure() {
         use RegenerationConcept::*;
@@ -737,6 +749,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_regeneration_event() {
         use RegenerationConcept::*;
@@ -763,6 +776,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn injury_directly_causes_wound_closure() {
         assert!(causes(
@@ -771,6 +785,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nerve_signaling_causes_blastema_formation() {
         assert!(causes(
@@ -779,6 +794,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioelectric_signal_to_polarity_determination() {
         assert!(causes(
@@ -787,6 +803,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn morphological_restoration_does_not_cause_injury() {
         assert!(!causes(
@@ -797,6 +814,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epimorphic_and_epithelial_restitution_oppose() {
         let opps: Vec<_> = RegenerationCategory::morphisms()
@@ -814,6 +832,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn blastema_and_wound_epithelium_oppose() {
         let opps: Vec<_> = RegenerationCategory::morphisms()
@@ -827,6 +846,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epimorphic_does_not_oppose_morphallactic() {
         let opps: Vec<_> = RegenerationCategory::morphisms()
@@ -842,6 +862,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epimorphic_requires_blastema() {
         assert_eq!(
@@ -850,6 +871,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn morphallactic_no_blastema() {
         assert_eq!(
@@ -858,6 +880,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn compensatory_no_nerve_supply() {
         assert_eq!(
@@ -866,6 +889,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn anatomical_polarity_is_reversible() {
         assert_eq!(
@@ -874,6 +898,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epithelial_restitution_is_fastest() {
         assert_eq!(
@@ -882,6 +907,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn epimorphic_requires_bioelectric_signal() {
         assert_eq!(
@@ -890,6 +916,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_regeneration_types_have_model_organism() {
         use RegenerationConcept::*;
@@ -973,4 +1000,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_regeneration_type_has_speed, Verifiable);
 }

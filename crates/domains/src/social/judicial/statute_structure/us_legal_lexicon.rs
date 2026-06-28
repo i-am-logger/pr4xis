@@ -115,6 +115,7 @@ mod tests {
 
     // ── Loader invariants ────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexicon_loads_with_nonzero_entries() {
         // The bundled file is a tracked invariant; loading produces a
@@ -126,6 +127,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexicon_lowercased() {
         // Every entry is stored lowercase so case-fold matching works.
@@ -136,6 +138,7 @@ mod tests {
 
     // ── Axiom: GPO Style Manual 2016 §9.20 month coverage ────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_gpo_style_manual_month_abbreviations_present() {
         // GPO Style Manual 2016 §9.20: months abbreviated as Jan., Feb.,
@@ -153,6 +156,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_full_month_names_present() {
         // The full month names appear in USC heading text where dates
@@ -176,6 +180,7 @@ mod tests {
 
     // ── Axiom: GPO Style Manual 2016 Ch. 9 citation abbreviations ────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_gpo_citation_abbreviations_present() {
         // "Stat." (Statutes-at-Large), "div." (division), "ch." (chapter),
@@ -192,6 +197,7 @@ mod tests {
 
     // ── Axiom: ISO 3166-2:US state names ─────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_iso_3166_us_state_names_present() {
         // ISO 3166-2:US enumerates the 50 U.S. states + DC. Sample
@@ -206,6 +212,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_iso_3166_us_territories_present() {
         // Five inhabited U.S. territories per ISO 3166-2:US + Compact
@@ -220,6 +227,7 @@ mod tests {
 
     // ── Axiom: Federal Register Document Drafting Handbook agency acronyms ─
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_federal_agency_acronyms_present() {
         // Federal Register Document Drafting Handbook 2017 §4.1 lists
@@ -234,6 +242,7 @@ mod tests {
 
     // ── Axiom: Huddleston & Pullum 2002 productive compounds ─────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_productive_compounds_present() {
         // Huddleston & Pullum 2002 Ch. 19 §4 — N+N compounds and
@@ -259,6 +268,7 @@ mod tests {
 
     // ── Axiom: Black's Law Dictionary legal terms-of-art ─────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_blacks_law_terms_of_art_present() {
         // Black's Law Dictionary 11th ed. (2019) — bounded U.S. legal
@@ -273,6 +283,7 @@ mod tests {
 
     // ── Axiom: case-insensitivity ─────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_lookup_is_case_insensitive() {
         // Per the lookup contract, case-fold matching applies.
@@ -283,6 +294,7 @@ mod tests {
         assert!(is_in_legal_lexicon("FAA"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_empty_input_rejected() {
         // Empty / whitespace inputs are not in the lexicon.
@@ -291,6 +303,7 @@ mod tests {
 
     // ── Negative axiom: general-English words ARE NOT in the lexicon ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_general_english_not_in_lexicon() {
         // The lexicon is *complementary* to WordNet — it must not
@@ -316,6 +329,7 @@ mod tests {
     //   2. Composition consistency: lookup(case_fold(x)) == lookup(x)
     //      for all x — the case-fold normalisation factors through.
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn functor_law_identity_preservation() {
         // Same input must always produce same output across repeated
@@ -329,6 +343,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn functor_law_case_fold_factors_through() {
         // For every input, the result is invariant under case folding.
@@ -344,6 +359,7 @@ mod tests {
 
     // ── Concurrency: OnceLock thread-safety ──────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn concurrency_lazy_init_under_threads() {
         // Mirror the function-words concurrency test: every thread
@@ -438,4 +454,9 @@ mod tests {
             prop_assert!(!is_in_legal_lexicon("\t"));
         }
     }
+
+    pr4xis::register_praxis_value!(property_case_fold_factors_through, Deterministic);
+    pr4xis::register_praxis_value!(property_total_function, Honest);
+    pr4xis::register_praxis_value!(property_every_stored_lemma_recognized, Verifiable);
+    pr4xis::register_praxis_value!(property_empty_not_recognized, Honest);
 }

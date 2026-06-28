@@ -386,22 +386,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<KinematicsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         KinematicsOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_quantities() {
         assert_eq!(KinematicsConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn derivative_chain_is_causation() {
         let causes: Vec<_> = KinematicsCategory::morphisms()
@@ -414,6 +418,7 @@ mod tests {
         assert!(causes.contains(&(KinematicsConcept::Acceleration, KinematicsConcept::Jerk)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn derivative_order_total() {
         let q = DerivativeOrder;
@@ -424,6 +429,7 @@ mod tests {
         assert_eq!(q.get(&KinematicsConcept::Jerk), Some(3));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn si_unit_total() {
         let q = SiUnit;
@@ -432,41 +438,49 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn velocity_is_derivative_of_position_holds() {
         assert!(VelocityIsDerivativeOfPosition.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acceleration_is_derivative_of_velocity_holds() {
         assert!(AccelerationIsDerivativeOfVelocity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn constant_velocity_propagation_holds() {
         assert!(ConstantVelocityPropagation.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn constant_acceleration_propagation_holds() {
         assert!(ConstantAccelerationPropagation.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn velocity_update_under_acceleration_holds() {
         assert!(VelocityUpdateUnderAcceleration.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn static_model_invariance_holds() {
         assert!(StaticModelInvariance.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn speed_non_negative_holds() {
         assert!(SpeedNonNegative.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn velocity_addition_commutative_holds() {
         assert!(VelocityAdditionCommutative.verify().is_ok());
@@ -496,4 +510,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_derivative_order_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_si_unit_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

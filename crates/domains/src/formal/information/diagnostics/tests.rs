@@ -93,4 +93,12 @@ mod prop {
                 && r.target() == DiagnosticConcept::Evidence));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_symptom_reaches_diagnosis_via_hypothesis, Verifiable);
+    pr4xis::register_praxis_value!(prop_residual_triggers_symptom, Verifiable);
+    pr4xis::register_praxis_value!(prop_diagnosis_has_outputs, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_diagnostic_feedback_loop, Verifiable);
 }

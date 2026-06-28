@@ -714,17 +714,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MolecularCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MolecularOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 5 ions + 3 voltage-gated + 3 mechanosensitive + 2 ligand-gated + 2 gap
@@ -734,36 +737,43 @@ mod tests {
 
     // -- Domain-axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn piezo1_is_mechanosensitive_channel_axiom() {
         assert!(Piezo1IsMechanosensitiveChannel.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn trpv4_in_esophagus_axiom() {
         assert!(TRPV4InEsophagus.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanosensitive_channels_pass_calcium_axiom() {
         assert!(MechanosensitiveChannelsPassCalcium.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_stress_causes_morphology_axiom() {
         assert!(MechanicalStressCausesMorphology.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acid_causes_vmem_shift_axiom() {
         assert!(AcidCausesVmemShift.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn glyr_causes_hyperpolarization_axiom() {
         assert!(GlyRCausesHyperpolarization.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nernst_potentials_consistent_axiom() {
         assert!(NernstPotentialsConsistent.verify().is_ok());
@@ -779,6 +789,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ions_subsume_under_ion() {
         let subs = subsumptions();
@@ -797,6 +808,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_families_subsume_under_ion_channel() {
         let subs = subsumptions();
@@ -814,6 +826,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_mechanotransduction_event() {
         let subs = subsumptions();
@@ -851,6 +864,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_stress_causes_piezo1_opening() {
         assert!(direct_causes().contains(&(
@@ -859,6 +873,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_influx_causes_vmem_shift() {
         assert!(
@@ -867,6 +882,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn causal_chain_mechanical_to_morphology_length() {
         let effs = causal_effects(MolecularConcept::MechanicalStress);
@@ -879,6 +895,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_shift_has_multiple_causes() {
         // VmemShift is reached transitively from CalciumInflux, KvInhibition,
@@ -905,6 +922,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sodium_opposes_potassium() {
         let opps = oppositions();
@@ -912,12 +930,14 @@ mod tests {
         assert!(opps.contains(&(MolecularConcept::Potassium, MolecularConcept::Sodium)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn calcium_opposes_chloride() {
         let opps = oppositions();
         assert!(opps.contains(&(MolecularConcept::Calcium, MolecularConcept::Chloride)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nav_opposes_kv() {
         let opps = oppositions();
@@ -926,6 +946,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ion_charges() {
         use MolecularConcept::*;
@@ -937,6 +958,7 @@ mod tests {
         assert_eq!(IonCharge.get(&Nav), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn equilibrium_potentials() {
         use MolecularConcept::*;
@@ -947,6 +969,7 @@ mod tests {
         assert_eq!(EquilibriumPotential.get(&Proton), Some(-24.0));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn expressed_in_esophagus() {
         use MolecularConcept::*;
@@ -964,6 +987,7 @@ mod tests {
         assert_eq!(expressed.len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_activation_consistency() {
         // Every concept with an activation mechanism must subsume under IonChannel.
@@ -986,6 +1010,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_selectivity_consistency() {
         // Every concept with an ion selectivity selects an Ion.
@@ -1070,4 +1095,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_channel_has_selectivity_if_activated, Verifiable);
+    pr4xis::register_praxis_value!(prop_ion_has_charge, Verifiable);
 }

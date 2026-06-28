@@ -267,11 +267,13 @@ impl FinitelyGenerated for Polarity {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_24_slots() {
         assert_eq!(ColorSlot::variants().len(), 24);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_16_base16_slots() {
         let base16_count = ColorSlot::variants()
@@ -281,6 +283,7 @@ mod tests {
         assert_eq!(base16_count, 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_8_base24_extension_slots() {
         let ext_count = ColorSlot::variants()
@@ -290,6 +293,7 @@ mod tests {
         assert_eq!(ext_count, 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_roles_cover_all_slots() {
         for slot in ColorSlot::variants() {
@@ -297,6 +301,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ansi_mapping_16_slots() {
         let mapped: Vec<_> = ColorSlot::variants()
@@ -310,6 +315,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ramp_positions() {
         let ramp: Vec<_> = ColorSlot::variants()
@@ -323,6 +329,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_bright_variants() {
         let brights: Vec<_> = ColorSlot::variants()
@@ -332,11 +339,13 @@ mod tests {
         assert_eq!(brights.len(), 6); // 6 bright variants (no bright orange/brown)
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_polarity_variants() {
         assert_eq!(Polarity::variants().len(), 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_semantic_roles() {
         assert_eq!(SemanticRole::variants().len(), 5);

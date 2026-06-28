@@ -27,11 +27,13 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_4_colors() {
         assert_eq!(SimonColor::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_button_index() {
         assert_eq!(ButtonIndex.get(&SimonColor::Red), Some(0));

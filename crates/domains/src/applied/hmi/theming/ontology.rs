@@ -303,11 +303,13 @@ mod tests {
         p
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_category_laws() {
         pr4xis::category::laws::assert_category_laws::<ThemingCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_slot_role_quality() {
         let role = SlotRole;
@@ -316,6 +318,7 @@ mod tests {
         assert_eq!(role.get(&ColorSlot::Base08), Some(SemanticRole::Accent));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ansi_quality() {
         let ansi = AnsiIndex;
@@ -326,24 +329,28 @@ mod tests {
         assert_eq!(ansi.individuals_with().len(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_monotonicity() {
         let palette = dark_palette();
         assert!(LuminanceMonotonicity { palette }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_wcag_foreground_contrast() {
         let palette = dark_palette();
         assert!(WcagForegroundContrast { palette }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_detect_polarity_dark() {
         let palette = dark_palette();
         assert_eq!(detect_polarity(&palette), Some(Polarity::Dark));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_detect_polarity_light() {
         let mut palette = dark_palette();
@@ -351,6 +358,7 @@ mod tests {
         assert_eq!(detect_polarity(&palette), Some(Polarity::Light));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ramp_position_quality() {
         let ramp = RampPosition;

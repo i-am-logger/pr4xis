@@ -606,17 +606,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ElectrophysiologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ElectrophysiologyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 8 techniques + 6 quantities + 6 recording modes + 3 abstract = 23
@@ -625,41 +628,49 @@ mod tests {
 
     // -- Domain-axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn non_invasive_method_exists_axiom() {
         assert!(NonInvasiveMethodExists.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multiscale_methods_axiom() {
         assert!(MultiscaleMethods.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_in_vivo_method_exists_axiom() {
         assert!(VmemInVivoMethodExists.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn patch_clamp_gold_standard_axiom() {
         assert!(PatchClampGoldStandard.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bioimpedance_non_invasive_axiom() {
         assert!(BioimpedanceNonInvasive.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn optical_methods_no_contact_axiom() {
         assert!(OpticalMethodsNoContact.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_and_non_vmem_techniques_axiom() {
         assert!(VmemAndNonVmemTechniques.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn invasive_implies_contact_axiom() {
         assert!(InvasiveImpliesContact.verify().is_ok());
@@ -675,6 +686,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn techniques_subsume_under_measurement_technique() {
         let subs = subsumptions();
@@ -696,6 +708,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn quantities_subsume_under_measured_quantity() {
         let subs = subsumptions();
@@ -715,6 +728,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn modes_subsume_under_recording_mode() {
         let subs = subsumptions();
@@ -744,6 +758,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn patch_clamp_opposes_optical_mapping() {
         let opps = oppositions();
@@ -757,6 +772,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn current_clamp_opposes_voltage_clamp() {
         let opps = oppositions();
@@ -766,6 +782,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resting_opposes_action_potential() {
         let opps = oppositions();
@@ -777,6 +794,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn invasive_count() {
         let q = IsInvasive;
@@ -792,6 +810,7 @@ mod tests {
         assert_eq!(non_invasive.len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_measuring_techniques() {
         use ElectrophysiologyConcept::*;
@@ -807,6 +826,7 @@ mod tests {
         assert!(v.contains(&OpticalMapping));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn in_vivo_techniques() {
         use ElectrophysiologyConcept::*;
@@ -819,6 +839,7 @@ mod tests {
         assert!(v.contains(&VoltageSensitiveDye));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn spatial_resolution_all_scales_covered() {
         let q = SpatialResolution;
@@ -837,6 +858,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn contact_vs_noncontact_consistency() {
         use ElectrophysiologyConcept::*;
@@ -930,4 +952,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_technique_has_invasiveness, Verifiable);
+    pr4xis::register_praxis_value!(prop_invasive_implies_contact, Verifiable);
 }

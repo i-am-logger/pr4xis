@@ -4,38 +4,45 @@ use pr4xis::ontology::{Axiom, Ontology};
 use crate::social::military::electronic_warfare::engine::*;
 use crate::social::military::electronic_warfare::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn ew_category_laws() {
     assert_category_laws::<EwCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ew_ontology_validates() {
     EwOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn aoa_bounded_holds() {
     assert!(AoaBounded.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tdoa_requires_sensor_pair_holds() {
     assert!(TdoaRequiresSensorPair.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn wrap_angle_within_range() {
     let a = wrap_angle(4.0);
     assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&a));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn wrap_angle_identity_in_range() {
     let a = 1.5;
     assert!((wrap_angle(a) - a).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn aoa_triangulation_perpendicular() {
     let m1 = AoaMeasurement {
@@ -57,6 +64,7 @@ fn aoa_triangulation_perpendicular() {
     assert!((pos[1] - 0.0).abs() < 1e-6, "expected y~0, got {}", pos[1]);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn aoa_parallel_returns_none() {
     let m1 = AoaMeasurement {
@@ -72,6 +80,7 @@ fn aoa_parallel_returns_none() {
     assert!(aoa_triangulation(&m1, &m2).is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tdoa_residual_at_true_position() {
     let meas = TdoaMeasurement {
@@ -121,4 +130,7 @@ mod proptest_proofs {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(wrap_angle_always_in_range, Verifiable);
+    pr4xis::register_praxis_value!(tdoa_range_difference_sign, Verifiable);
 }

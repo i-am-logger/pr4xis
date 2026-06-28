@@ -408,16 +408,19 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DialecticsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DialecticsOntology::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hegelian_triad_holds() {
         assert!(
@@ -427,6 +430,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn aristotelian_square_has_four_vertices_holds() {
         assert!(
@@ -436,6 +440,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn synthesis_has_sublation_holds() {
         assert!(
@@ -445,6 +450,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn thesis_antithesis_oppose_holds() {
         assert!(
@@ -454,6 +460,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn adorno_refuses_synthesis_holds() {
         assert!(
@@ -463,6 +470,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dialetheism_needs_paraconsistency_holds() {
         assert!(

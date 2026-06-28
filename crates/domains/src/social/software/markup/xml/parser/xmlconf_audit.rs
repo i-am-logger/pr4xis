@@ -593,6 +593,7 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn case_from_test_walks_typed_xml() {
         // Verify the ontological walker recognises a synthesised
@@ -619,6 +620,7 @@ mod tests {
         assert_eq!(out[3].case_type, XmlConfType::Error);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn loaded_xmlconf_is_either_cached_or_absent() {
         match loaded_xmlconf() {
@@ -633,6 +635,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn audit_runs_and_reports() {
         match run_audit() {
@@ -663,6 +666,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_holds() {
         assert!(XmlConfCorpusAuditPasses.verify().is_ok());

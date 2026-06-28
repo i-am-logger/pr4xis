@@ -3,72 +3,86 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::linear_algebra::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn linear_algebra_category_laws() {
     assert_category_laws::<LinearAlgebraCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn linear_algebra_ontology_validates() {
     LinearAlgebraOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn multiplication_associativity() {
     assert!(MultiplicationAssociativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn multiplication_identity() {
     assert!(MultiplicationIdentity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn transpose_involution() {
     assert!(TransposeInvolution.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn transpose_product() {
     assert!(TransposeProduct.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn det_normalization() {
     assert!(DetNormalization.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn det_multiplicativity() {
     assert!(DetMultiplicativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn det_transpose() {
     assert!(DetTranspose.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn trace_eigenvalue_sum() {
     assert!(TraceEigenvalueSum.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn det_eigenvalue_product() {
     assert!(DetEigenvalueProduct.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cholesky_factorization() {
     assert!(CholeskyFactorization.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn psd_quadratic_form() {
     assert!(PsdQuadraticForm.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn joseph_preserves_psd() {
     assert!(JosephPreservesPsd.verify().is_ok());
@@ -78,6 +92,7 @@ fn joseph_preserves_psd() {
 // H4: solve_lower/upper_triangular return None on zero diagonal
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn solve_lower_triangular_zero_diagonal_returns_none() {
     use crate::formal::math::linear_algebra::decomposition;
@@ -89,6 +104,7 @@ fn solve_lower_triangular_zero_diagonal_returns_none() {
     assert!(result.is_none(), "zero diagonal should return None");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn solve_upper_triangular_zero_diagonal_returns_none() {
     use crate::formal::math::linear_algebra::decomposition;
@@ -100,6 +116,7 @@ fn solve_upper_triangular_zero_diagonal_returns_none() {
     assert!(result.is_none(), "zero diagonal should return None");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn solve_spd_singular_returns_none() {
     use crate::formal::math::linear_algebra::decomposition;
@@ -115,6 +132,7 @@ fn solve_spd_singular_returns_none() {
 // H5: QR eigenvalue non-convergence returns NaN
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn eigenvalues_symmetric_converges_for_well_conditioned() {
     use crate::formal::math::linear_algebra::eigenvalue;
@@ -139,6 +157,7 @@ fn eigenvalues_symmetric_converges_for_well_conditioned() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_positive_definite_uses_cholesky() {
     use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -341,4 +360,24 @@ mod proptest_proofs {
             prop_assert!((lhs - rhs).abs() < 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(vec_addition_commutativity, Deterministic);
+    pr4xis::register_praxis_value!(vec_addition_associativity, Deterministic);
+    pr4xis::register_praxis_value!(vec_additive_identity, Verifiable);
+    pr4xis::register_praxis_value!(vec_additive_inverse, Verifiable);
+    pr4xis::register_praxis_value!(vec_scalar_compatibility, Verifiable);
+    pr4xis::register_praxis_value!(vec_multiplicative_identity, Verifiable);
+    pr4xis::register_praxis_value!(vec_distributivity_vectors, Verifiable);
+    pr4xis::register_praxis_value!(vec_distributivity_scalars, Verifiable);
+    pr4xis::register_praxis_value!(matrix_transpose_involution, Deterministic);
+    pr4xis::register_praxis_value!(matrix_transpose_product, Verifiable);
+    pr4xis::register_praxis_value!(det_of_identity_is_one, Verifiable);
+    pr4xis::register_praxis_value!(det_transpose_invariance, Verifiable);
+    pr4xis::register_praxis_value!(det_multiplicativity, Verifiable);
+    pr4xis::register_praxis_value!(pd_matrix_has_positive_eigenvalues, Verifiable);
+    pr4xis::register_praxis_value!(pd_quadratic_form_is_positive, Verifiable);
+    pr4xis::register_praxis_value!(cholesky_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(cholesky_is_lower_triangular, Verifiable);
+    pr4xis::register_praxis_value!(symmetrize_produces_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(trace_is_linear, Verifiable);
 }

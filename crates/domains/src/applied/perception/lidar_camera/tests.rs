@@ -8,27 +8,32 @@ use crate::applied::perception::lidar_camera::calibration::{
 use crate::applied::perception::lidar_camera::engine::*;
 use crate::applied::perception::lidar_camera::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn lidar_camera_category_laws() {
     assert_category_laws::<LidarCameraCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lidar_camera_ontology_validates() {
     LidarCameraOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projection_preserves_ordering_holds() {
     assert!(ProjectionPreservesOrdering.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pipeline_is_sequential_holds() {
     assert!(PipelineIsSequential.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn identity_calibration_preserves_point() {
     let cal = ExtrinsicCalibration::identity();
@@ -38,6 +43,7 @@ fn identity_calibration_preserves_point() {
     assert!((result[2] - 3.0).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn camera_projection_behind_camera_returns_none() {
     let intrinsic = CameraIntrinsics {
@@ -50,6 +56,7 @@ fn camera_projection_behind_camera_returns_none() {
     assert!(intrinsic.project([1.0, 1.0, 0.0]).is_none());
 }
 
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn project_lidar_points_filters_behind_camera() {
     let extrinsic = ExtrinsicCalibration::identity();
@@ -78,6 +85,7 @@ fn project_lidar_points_filters_behind_camera() {
     assert!((projected[0].depth - 5.0).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn association_matches_points_in_bbox() {
     let projected = vec![
@@ -111,6 +119,7 @@ fn association_matches_points_in_bbox() {
 // H8: NaN depths do not panic in fuse_detections
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn fuse_detections_nan_depth_no_panic() {
     let detections = vec![CameraDetection {
@@ -167,4 +176,7 @@ mod proptest_proofs {
             prop_assert!(result.is_some(), "point in front of camera should project");
         }
     }
+
+    pr4xis::register_praxis_value!(identity_calibration_is_identity, Verifiable);
+    pr4xis::register_praxis_value!(projection_depth_preserved, Verifiable);
 }

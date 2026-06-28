@@ -282,6 +282,7 @@ mod tests {
     /// Daubert prong 2 (testable methodology): the cross-ontology
     /// mapping must preserve identity and composition — the
     /// categorical functor laws.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<ChessToConcurrency>();

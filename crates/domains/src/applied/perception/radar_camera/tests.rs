@@ -5,27 +5,32 @@ use pr4xis::ontology::Ontology;
 use crate::applied::perception::radar_camera::engine::*;
 use crate::applied::perception::radar_camera::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn radar_camera_category_laws() {
     assert_category_laws::<RadarCameraCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn radar_camera_ontology_validates() {
     RadarCameraOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn both_modalities_required_holds() {
     assert!(BothModalitiesRequired.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fused_output_is_terminal_holds() {
     assert!(FusedOutputIsTerminal.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn azimuth_to_image_center() {
     // Azimuth 0 should map to image center
@@ -33,6 +38,7 @@ fn azimuth_to_image_center() {
     assert!((x - 320.0).abs() < 1e-6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn radar_camera_association() {
     let frame = AlignedFrame {
@@ -62,6 +68,7 @@ fn radar_camera_association() {
 // H8: NaN confidence does not panic in associate_radar_camera
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn associate_radar_camera_nan_confidence_no_panic() {
     let frame = AlignedFrame {
@@ -133,4 +140,7 @@ mod proptest_proofs {
             prop_assert!(fused.is_empty(), "no camera objects means no fused detections");
         }
     }
+
+    pr4xis::register_praxis_value!(azimuth_maps_within_image, Verifiable);
+    pr4xis::register_praxis_value!(association_never_panics, Honest);
 }

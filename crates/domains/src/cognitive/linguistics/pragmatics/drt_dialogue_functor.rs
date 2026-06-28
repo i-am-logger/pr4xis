@@ -71,11 +71,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<ReferenceToDialogue>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn drs_is_dialogue_state() {
         assert_eq!(
@@ -84,6 +86,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn binding_is_grounding() {
         assert_eq!(

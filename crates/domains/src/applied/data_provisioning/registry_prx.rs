@@ -227,6 +227,7 @@ mod tests {
     /// a source) or after `pr4xis update --lock` rewrites `praxis.lock`:
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_praxis_registry_prx`.
     /// The drift guard below FAILS until the printed root is baked in.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_praxis_registry_prx() {
@@ -250,6 +251,7 @@ mod tests {
     /// `praxis.toml`/`praxis.lock` drifted from the committed registry `.prx`
     /// without regenerating; the round-trip (emit → load == parsed manifest) is the
     /// integrity claim. Pairs the morphism-kinds drift guard at the registry layer.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn committed_registry_prx_matches_workspace_root_manifest() {
         let (toml_path, lock_path) = workspace_manifest_paths();
@@ -290,6 +292,7 @@ mod tests {
     /// (so [`load_registry_manifest`] admits it and returns NON-EMPTY manifest
     /// text), and a WRONG baked root would refuse it. This is the bootstrap-gate
     /// twin of `the_functor_loads_from_its_committed_prx_fail_closed`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn registry_prx_loads_against_its_baked_root_fail_closed() {
         let (toml, lock) =
@@ -372,4 +375,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_registry_encode_decode_round_trips, Deterministic);
+    pr4xis::register_praxis_value!(prop_mutated_registry_prx_rejected_by_baked_root, Honest);
 }

@@ -79,6 +79,7 @@ pub fn position_observation_matrix(n_pos: usize, state_dim: usize) -> Matrix {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn innovation_zero_when_perfect() {
         let h = Matrix::new(1, 1, vec![1.0]);
@@ -88,6 +89,7 @@ mod tests {
         assert!((nu.get(0)).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn innovation_nonzero_on_mismatch() {
         let h = Matrix::new(1, 1, vec![1.0]);
@@ -97,6 +99,7 @@ mod tests {
         assert!((nu.get(0) - 2.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn innovation_covariance_includes_both_sources() {
         let h = Matrix::new(1, 1, vec![1.0]);
@@ -107,6 +110,7 @@ mod tests {
         assert!((s.get(0, 0) - 5.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn position_observation_2d_state4() {
         let h = position_observation_matrix(2, 4);

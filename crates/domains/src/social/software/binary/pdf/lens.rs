@@ -186,6 +186,7 @@ mod tests {
         bytes
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn get_then_put_returns_original_bytes() {
         let bytes = sample_pdf_with_text();
@@ -194,6 +195,7 @@ mod tests {
         assert_eq!(back, bytes);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn get_extracts_some_text() {
         let bytes = sample_pdf_with_text();
@@ -207,6 +209,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn get_emits_one_page_text_per_page() {
         let bytes = sample_pdf_with_text();
@@ -216,12 +219,14 @@ mod tests {
         assert!(!target.extraction.pages.is_empty());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn put_get_law_holds() {
         let bytes = sample_pdf_with_text();
         assert!(<PdfLens as WellBehavedLens>::assert_put_get_law(&bytes).is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_non_pdf_bytes() {
         let bytes = b"not a pdf".to_vec();
@@ -244,4 +249,6 @@ mod tests {
             let _ = <PdfLens as WellBehavedLens>::get(&bytes);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_get_never_panics_on_arbitrary_bytes, Honest);
 }

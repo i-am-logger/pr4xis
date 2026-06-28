@@ -321,23 +321,27 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SensorCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SensorOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn twenty_two_sensor_concepts() {
         // 5 modality abstractions + 17 concrete sensors = 22.
         assert_eq!(SensorConcept::variants().len(), 22);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn modality_axes_oppose() {
         let opp: Vec<_> = SensorCategory::morphisms()
@@ -352,6 +356,7 @@ mod tests {
         assert!(opp.contains(&(SensorConcept::ActiveSensor, SensorConcept::PassiveSensor)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn imu_parts_include_accel_and_gyro() {
         let parts = parts_of(SensorConcept::IMU);
@@ -359,12 +364,14 @@ mod tests {
         assert!(parts.contains(&SensorConcept::Gyroscope));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ahrs_includes_magnetometer() {
         let parts = parts_of(SensorConcept::AHRS);
         assert!(parts.contains(&SensorConcept::Magnetometer));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn accelerometer_is_proprioceptive() {
         assert_eq!(
@@ -373,26 +380,31 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn camera_is_not_proprioceptive() {
         assert_eq!(IsProprioceptive.get(&SensorConcept::Camera), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn accelerometer_is_sensor_axiom() {
         assert!(AccelerometerIsSensor.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn imu_composition_axiom() {
         assert!(ImuComposition.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn radar_dual_classification_axiom() {
         assert!(RadarDualClassification.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn camera_is_passive_axiom() {
         assert!(CameraIsPassive.verify().is_ok());
@@ -454,4 +466,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_is_proprioceptive_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

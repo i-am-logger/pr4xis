@@ -109,16 +109,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<MolecularToPharmacology>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<MolecularToPharmacology>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in MolecularEntity::variants() {
@@ -129,6 +132,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = PharmacologyEntity::variants();
@@ -143,6 +147,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_glyr_maps_to_ivermectin() {
         assert_eq!(
@@ -151,6 +156,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_proton_maps_to_omeprazole() {
         assert_eq!(
@@ -159,6 +165,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_kv_maps_to_minoxidil() {
         assert_eq!(
@@ -167,6 +174,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cx43_maps_to_gap_junction_modulator() {
         assert_eq!(
@@ -175,6 +183,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_piezo1_maps_to_mechanosensitive_modulator() {
         assert_eq!(
@@ -183,6 +192,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_collagen_maps_to_morphoceutical() {
         assert_eq!(

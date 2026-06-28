@@ -93,6 +93,7 @@ mod tests {
     use super::*;
     use pr4xis_runtime::address::ContentAddress;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn known_glyph_names_resolve() {
         assert_eq!(glyph_name_to_unicode("A"), Some(0x0041));
@@ -103,12 +104,14 @@ mod tests {
         assert_eq!(glyph_name_to_unicode("Aacute"), Some(0x00C1));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_glyph_name_returns_none() {
         assert_eq!(glyph_name_to_unicode("definitely_not_a_glyph"), None);
         assert_eq!(glyph_name_to_unicode(""), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn table_has_full_agl_population() {
         let table = glyph_name_table();
@@ -119,6 +122,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn embedded_address_matches_pinned_hash() {
         let hex = ContentAddress::of(glyph_list_bytes().as_bytes()).to_hex();

@@ -155,27 +155,32 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<BioelectricEventCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         BioelectricEventOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_seven_events() {
         assert_eq!(BioelectricEventConcept::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_chain_reachable() {
         assert!(IonChannelOpeningReachesAnatomicalChange.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_change_reaches_pattern_formation() {
         assert!(causes(
@@ -184,6 +189,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ion_channel_opening_reaches_anatomical_change() {
         assert!(causes(
@@ -233,4 +239,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_event_scale_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_causation_targets_valid, Verifiable);
 }

@@ -683,11 +683,13 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ImmunologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ImmunologyOntology::validate()
@@ -696,41 +698,49 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn injury_causes_repair() {
         assert!(InjuryCausesRepair.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn chronic_stimulus_causes_fibrosis() {
         assert!(ChronicStimulusCausesFibrosis.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vibration_causes_m1_to_m2() {
         assert!(VibrationCausesM1ToM2.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn m1_m2_mutually_exclusive() {
         assert!(M1M2MutuallyExclusive.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cytokine_branches_disjoint() {
         assert!(CytokineBranchesDisjoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn m1_to_m2_leads_to_repair() {
         assert!(M1ToM2LeadsToRepair.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_immune_cells_classified() {
         assert!(AllImmuneCellsClassified.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inflammation_time_scales() {
         assert!(InflammationTimeScales.verify().is_ok());
@@ -738,6 +748,7 @@ mod tests {
 
     // -- Subsumption / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cells_classified_correctly() {
         use ImmunologyConcept::*;
@@ -755,6 +766,7 @@ mod tests {
         assert!(!is_a(Fibroblast, ImmuneCell));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cytokines_are_cytokines() {
         use ImmunologyConcept::*;
@@ -765,6 +777,7 @@ mod tests {
 
     // -- Opposition tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn m1_opposes_m2() {
         let opps: Vec<_> = ImmunologyCategory::morphisms()
@@ -782,6 +795,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tnf_alpha_opposes_il10() {
         let opps: Vec<_> = ImmunologyCategory::morphisms()
@@ -794,6 +808,7 @@ mod tests {
 
     // -- Causal chain tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_healing_cascade() {
         use ImmunologyConcept::*;
@@ -812,6 +827,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fibrosis_path_does_not_reach_repair() {
         use ImmunologyConcept::*;
@@ -819,6 +835,7 @@ mod tests {
         assert!(!causes(ChronicStimulus, RepairCompletion));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_stimulation_reaches_repair() {
         use ImmunologyConcept::*;
@@ -828,6 +845,7 @@ mod tests {
 
     // -- Polarisation tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn polarization_states() {
         use ImmunologyConcept::*;
@@ -841,6 +859,7 @@ mod tests {
         assert_eq!(ps.get(&Neutrophil), Some(PolarizationValue::NotApplicable));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vibration_modulable_events() {
         use ImmunologyConcept::*;
@@ -854,6 +873,7 @@ mod tests {
 
     /// Weinheimer-Haus et al. (2014): 45 Hz WBV shifts macrophage
     /// polarisation toward M2 in diabetic mouse wounds.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn literature_weinheimer_haus_2014_wbv_m1_to_m2() {
         use ImmunologyConcept::*;
@@ -863,6 +883,7 @@ mod tests {
 
     /// Yu et al. (2019) PMID:31247969: WBV induces omental macrophage
     /// polarisation shift — vibration modulates the immune response.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn literature_yu_2019_wbv_immune_modulation() {
         use ImmunologyConcept::*;
@@ -934,4 +955,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_immune_cell_m1_m2_mutual_exclusivity, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

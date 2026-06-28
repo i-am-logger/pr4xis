@@ -92,10 +92,12 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<NeuroscienceToMusic>();
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn mismatch_negativity_maps_to_surprise() {
         assert_eq!(
@@ -103,6 +105,7 @@ mod tests {
             MusicEntity::Surprise
         );
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = MusicEntity::variants();

@@ -19,11 +19,13 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<Air21ProofStandardCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     Air21ProofStandardOntology::validate()
@@ -34,12 +36,14 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn two_concepts_one_leaf() {
     assert_eq!(Air21ProofStandardConcept::variants().len(), 2);
     assert_eq!(leaves().len(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn contributing_factor_is_only_leaf() {
     assert!(is_leaf(Air21ProofStandardConcept::ContributingFactor));
@@ -50,6 +54,7 @@ fn contributing_factor_is_only_leaf() {
 // Air21StringencyOf — tier 0 below reference partition
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn contributing_factor_is_tier_zero() {
     assert_eq!(
@@ -58,6 +63,7 @@ fn contributing_factor_is_tier_zero() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn root_has_no_tier() {
     assert_eq!(
@@ -66,6 +72,7 @@ fn root_has_no_tier() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn contributing_factor_strictly_below_reference_preponderance() {
     let air21 = Air21StringencyOf
@@ -80,6 +87,7 @@ fn contributing_factor_strictly_below_reference_preponderance() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn contributing_factor_below_all_reference_tiers() {
     let air21 = Air21StringencyOf
@@ -102,21 +110,25 @@ fn contributing_factor_below_all_reference_tiers() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_partition_completeness() {
     assert!(PartitionCompleteness.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_contributing_factor_below_reference_partition() {
     assert!(ContributingFactorBelowReferencePartition.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_reference_min_tier_coherence() {
     assert!(ReferenceMinTierCoherence.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in Air21ProofStandardOntology::axioms() {

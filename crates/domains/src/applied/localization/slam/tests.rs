@@ -5,27 +5,32 @@ use pr4xis::ontology::Ontology;
 use crate::applied::localization::slam::engine::*;
 use crate::applied::localization::slam::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn slam_category_laws() {
     assert_category_laws::<SlamCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn slam_ontology_validates() {
     SlamOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constraint_reduces_uncertainty_holds() {
     assert!(ConstraintReducesUncertainty.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loop_closure_connects_poses_holds() {
     assert!(LoopClosureConnectsPoses.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pose_graph_construction() {
     let mut graph = PoseGraph::new();
@@ -43,6 +48,7 @@ fn pose_graph_construction() {
     assert_eq!(graph.num_constraints(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn perfect_odometry_has_zero_error() {
     let mut graph = PoseGraph::new();
@@ -63,6 +69,7 @@ fn perfect_odometry_has_zero_error() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loop_closure_adds_constraint() {
     let mut graph = PoseGraph::new();
@@ -120,4 +127,7 @@ mod proptest_proofs {
             prop_assert_eq!(graph.num_constraints(), n);
         }
     }
+
+    pr4xis::register_praxis_value!(perfect_odometry_zero_error, Verifiable);
+    pr4xis::register_praxis_value!(adding_edge_increases_constraint_count, Verifiable);
 }

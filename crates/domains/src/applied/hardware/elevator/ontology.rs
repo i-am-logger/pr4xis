@@ -215,17 +215,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ElevatorCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ElevatorOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_concepts() {
         // Floor, GroundFloor, UpperFloor, Shaft, Car, DoorAssembly,
@@ -233,21 +236,25 @@ mod tests {
         assert_eq!(ElevatorConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ground_floor_index_height_zero() {
         assert_eq!(HeightFromGround.get(&FloorIndex(0)), Some(0));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn floor_index_height_matches_index() {
         assert_eq!(HeightFromGround.get(&FloorIndex(5)), Some(5));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn floor_index_default_building_ten_floors() {
         assert_eq!(FloorIndex::variants().len(), MAX_FLOORS);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn floor_taxonomy_ground_and_upper_subsume_floor() {
         let sub: Vec<_> = ElevatorCategory::morphisms()
@@ -259,6 +266,7 @@ mod tests {
         assert!(sub.contains(&(ElevatorConcept::UpperFloor, ElevatorConcept::Floor)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ground_upper_floors_oppose() {
         let opp: Vec<_> = ElevatorCategory::morphisms()
@@ -269,6 +277,7 @@ mod tests {
         assert!(opp.contains(&(ElevatorConcept::GroundFloor, ElevatorConcept::UpperFloor)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hall_and_car_calls_oppose() {
         let opp: Vec<_> = ElevatorCategory::morphisms()
@@ -280,11 +289,13 @@ mod tests {
         assert!(opp.contains(&(ElevatorConcept::CarCall, ElevatorConcept::HallCall)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ground_floor_is_lowest_axiom_holds() {
         assert!(GroundFloorIsLowest.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_concept_has_tradition() {
         let q = ElevatorTradition;
@@ -346,4 +357,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_tradition_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_height_matches_index, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

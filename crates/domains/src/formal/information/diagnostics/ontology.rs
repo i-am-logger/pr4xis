@@ -160,22 +160,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DiagnosticCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DiagnosticOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_concepts() {
         assert_eq!(DiagnosticConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn symptom_generates_hypothesis() {
         // Reiter (1987) §3.
@@ -185,6 +189,7 @@ mod tests {
             && r.kind() == DiagnosticRelationKind::Generates));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hypothesis_requires_test() {
         let m = DiagnosticCategory::morphisms();
@@ -193,6 +198,7 @@ mod tests {
             && r.kind() == DiagnosticRelationKind::Requires));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_produces_evidence() {
         let m = DiagnosticCategory::morphisms();
@@ -201,6 +207,7 @@ mod tests {
             && r.kind() == DiagnosticRelationKind::Produces));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn evidence_updates_hypothesis() {
         let m = DiagnosticCategory::morphisms();
@@ -209,6 +216,7 @@ mod tests {
             && r.kind() == DiagnosticRelationKind::Updates));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn residual_triggers_symptom() {
         // Gertler (1998).
@@ -218,6 +226,7 @@ mod tests {
             && r.kind() == DiagnosticRelationKind::Triggers));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn diagnosis_prescribes_remedy() {
         // Kephart & Chess (2003) MAPE-K Execute.
@@ -227,6 +236,7 @@ mod tests {
             && r.kind() == DiagnosticRelationKind::Prescribes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn trace_context_contextualizes_symptom() {
         let m = DiagnosticCategory::morphisms();
@@ -238,6 +248,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn observability_levels_distinct() {
         assert_ne!(
@@ -250,6 +261,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn diagnostic_feedback_loop_present() {
         // Hypothesis → Test → Evidence → Hypothesis (Bayesian update).
@@ -295,4 +307,8 @@ mod tests {
             prop_assert_eq!(v.is_some(), on_workflow);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_diagnostic_status_total_on_workflow, Verifiable);
 }

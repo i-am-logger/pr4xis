@@ -68,11 +68,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<CommunicationToControl>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn sender_is_controller() {
         assert_eq!(
@@ -81,6 +83,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn feedback_is_feedback_loop() {
         assert_eq!(
@@ -89,6 +92,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn code_is_model() {
         // Conant & Ashby (1970): the shared code IS the model.

@@ -71,6 +71,7 @@ const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 // LMF Reader tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_sample_lmf() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -78,6 +79,7 @@ fn read_sample_lmf() {
     assert_eq!(wn.entry_count(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_has_definition() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -85,6 +87,7 @@ fn synset_has_definition() {
     assert_eq!(dog.definitions[0], "a domesticated carnivore");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_has_example() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -92,6 +95,7 @@ fn synset_has_example() {
     assert_eq!(run.examples[0], "she ran to the store");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_pos() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -101,6 +105,7 @@ fn synset_pos() {
     assert_eq!(big.pos, LmfPos::Adjective);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_word() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -109,6 +114,7 @@ fn lookup_word() {
     assert_eq!(dog_synsets[0].id, "synset-dog-n-01");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn big_and_large_share_synset() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -117,6 +123,7 @@ fn big_and_large_share_synset() {
     assert_eq!(big_synsets[0].id, large_synsets[0].id); // same synset = synonyms
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn morphological_forms() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -139,6 +146,7 @@ fn morphological_forms() {
 // Reasoning ontology mapping tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_relations() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -150,6 +158,7 @@ fn taxonomy_relations() {
     assert!(taxonomy.contains(&("synset-mammal-n-01", "synset-animal-n-01")));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn opposition_relations() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -160,6 +169,7 @@ fn opposition_relations() {
     assert!(opposition.contains(&("small-a-01", "big-a-01")));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_type_classification() {
     assert!(SynsetRelationType::Hypernym.is_taxonomy());
@@ -174,12 +184,14 @@ fn synset_relation_type_classification() {
     assert!(!SynsetRelationType::Causes.is_taxonomy());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sense_relation_type_classification() {
     assert!(SenseRelationType::Antonym.is_opposition());
     assert!(!SenseRelationType::Pertainym.is_opposition());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn lmf_pos_roundtrip() {
     for code in ["n", "v", "a", "r"] {
@@ -234,12 +246,17 @@ mod prop {
             prop_assert!(LmfPos::variants().contains(&pos));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_pos_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(prop_open_class_is_content, Verifiable);
+    pr4xis::register_praxis_value!(prop_all_variants_exist, Verifiable);
 }
 
 // =============================================================================
 // Each LmfReadError variant exercised (uniform-depth uplift vs USLM)
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn error_xml_on_malformed_input() {
     let err = reader::read_wordnet("<not<<>valid").expect_err("malformed XML must fail");
@@ -249,6 +266,7 @@ fn error_xml_on_malformed_input() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn error_structure_on_no_lexicon_element() {
     // Well-formed XML with no <Lexicon> child of root.
@@ -266,6 +284,7 @@ fn error_structure_on_no_lexicon_element() {
 // Edge cases — empty containers (uniform-depth uplift vs USLM)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lexicon_with_zero_synsets_and_entries_parses() {
     let xml = r##"<LexicalResource><Lexicon id="empty" language="en"/></LexicalResource>"##;
@@ -274,6 +293,7 @@ fn lexicon_with_zero_synsets_and_entries_parses() {
     assert_eq!(wn.entry_count(), 0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_with_no_relations_parses() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><Synset id="s1" partOfSpeech="n"><Definition>x</Definition></Synset></Lexicon></LexicalResource>"##;
@@ -283,6 +303,7 @@ fn synset_with_no_relations_parses() {
     assert!(s.relations.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn entry_with_no_senses_parses() {
     // LMF allows orphan entries (lemma without a sense). Verify
@@ -293,6 +314,7 @@ fn entry_with_no_senses_parses() {
     assert!(wn.entries[0].senses.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sense_with_no_relations_parses() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e1"><Lemma writtenForm="x" partOfSpeech="n"/><Sense id="s1" synset="syn1"/></LexicalEntry></Lexicon></LexicalResource>"##;
@@ -316,6 +338,7 @@ fn lmf_with_synset_relation(rel_type: &str) -> String {
     )
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_hypernym_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("hypernym")).unwrap();
@@ -325,6 +348,7 @@ fn synset_relation_hypernym_round_trips() {
     assert_eq!(src.relations[0].target, "dst");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_hyponym_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("hyponym")).unwrap();
@@ -332,6 +356,7 @@ fn synset_relation_hyponym_round_trips() {
     assert_eq!(src.relations[0].rel_type, SynsetRelationType::Hyponym);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_holo_member_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("holo_member")).unwrap();
@@ -339,6 +364,7 @@ fn synset_relation_holo_member_round_trips() {
     assert_eq!(src.relations[0].rel_type, SynsetRelationType::HoloMember);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_mero_part_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("mero_part")).unwrap();
@@ -346,6 +372,7 @@ fn synset_relation_mero_part_round_trips() {
     assert_eq!(src.relations[0].rel_type, SynsetRelationType::MeroPart);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_causes_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("causes")).unwrap();
@@ -353,6 +380,7 @@ fn synset_relation_causes_round_trips() {
     assert_eq!(src.relations[0].rel_type, SynsetRelationType::Causes);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_entails_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("entails")).unwrap();
@@ -360,6 +388,7 @@ fn synset_relation_entails_round_trips() {
     assert_eq!(src.relations[0].rel_type, SynsetRelationType::Entails);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synset_relation_similar_round_trips() {
     let wn = reader::read_wordnet(&lmf_with_synset_relation("similar")).unwrap();
@@ -367,6 +396,7 @@ fn synset_relation_similar_round_trips() {
     assert_eq!(src.relations[0].rel_type, SynsetRelationType::Similar);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn synset_relation_unknown_collapses_to_other() {
     let wn =
@@ -382,6 +412,7 @@ fn synset_relation_unknown_collapses_to_other() {
 // Non-ASCII text round-trip (uniform-depth uplift vs USLM)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn unicode_in_definition_preserved() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><Synset id="s1" partOfSpeech="n"><Definition>déjà vu — the feeling of having “been here before”</Definition></Synset></Lexicon></LexicalResource>"##;
@@ -392,6 +423,7 @@ fn unicode_in_definition_preserved() {
     assert!(d.contains('“'), "curly quote lost: {d:?}");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn unicode_in_lemma_preserved() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e"><Lemma writtenForm="café" partOfSpeech="n"/><Sense id="s" synset="syn"/></LexicalEntry></Lexicon></LexicalResource>"##;
@@ -403,6 +435,7 @@ fn unicode_in_lemma_preserved() {
 // Sense relations — each kind individually (uniform-depth uplift)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sense_relation_antonym_round_trips() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e"><Lemma writtenForm="big" partOfSpeech="a"/><Sense id="big-a-01" synset="s"><SenseRelation relType="antonym" target="small-a-01"/></Sense></LexicalEntry></Lexicon></LexicalResource>"##;
@@ -413,6 +446,7 @@ fn sense_relation_antonym_round_trips() {
     assert_eq!(sense.relations[0].target, "small-a-01");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn sense_relation_unknown_collapses_to_other() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e"><Lemma writtenForm="x" partOfSpeech="n"/><Sense id="x-01" synset="s"><SenseRelation relType="nonsense_reltype" target="y"/></Sense></LexicalEntry></Lexicon></LexicalResource>"##;
@@ -570,3 +604,11 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(
+    prop_arbitrary_synsets_entries_count_preserved,
+    Deterministic
+);
+pr4xis::register_praxis_value!(prop_arbitrary_relations_round_trip, Deterministic);
+pr4xis::register_praxis_value!(prop_arbitrary_lmf_parse_is_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_lemma_pos_round_trips, Deterministic);

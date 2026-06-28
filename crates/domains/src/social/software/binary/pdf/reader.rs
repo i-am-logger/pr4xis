@@ -294,6 +294,7 @@ mod tests {
         bytes
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invalid_header_returns_named_error() {
         let err = read_pdf_bytes(b"not a pdf").unwrap_err();
@@ -303,12 +304,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn empty_input_returns_invalid_header() {
         let err = read_pdf_bytes(b"").unwrap_err();
         assert!(matches!(err, PdfReadError::InvalidHeader { .. }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minimal_pdf_parses_to_structural_quadruple() {
         let bytes = minimal_pdf();
@@ -323,6 +326,7 @@ mod tests {
         assert!(concepts.contains(&PdfConcept::Page));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minimal_pdf_has_one_page() {
         let bytes = minimal_pdf();
@@ -330,6 +334,7 @@ mod tests {
         assert_eq!(doc.page_count, 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minimal_pdf_header_is_pdf_1_4() {
         let bytes = minimal_pdf();
@@ -337,6 +342,7 @@ mod tests {
         assert_eq!(doc.version, (1, 4));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minimal_pdf_catalog_id_is_a_valid_object_reference() {
         let bytes = minimal_pdf();
@@ -347,6 +353,7 @@ mod tests {
         assert!(doc.inner().get_object(doc.catalog_id).is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minimal_pdf_has_no_info_dictionary() {
         let bytes = minimal_pdf();
@@ -354,6 +361,7 @@ mod tests {
         assert_eq!(doc.info_id, None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minimal_pdf_indirect_object_count() {
         let bytes = minimal_pdf();
@@ -364,6 +372,7 @@ mod tests {
         assert!(doc.indirect_object_count() >= 4);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn read_is_deterministic_on_same_bytes() {
         let bytes = minimal_pdf();
@@ -381,6 +390,7 @@ mod tests {
     /// path where lopdf accepts the magic prefix but rejects the
     /// downstream structure. Must return a typed parse error,
     /// never silent corruption or panic.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn pdf_with_header_only_then_garbage_returns_named_error() {
         let bytes: Vec<u8> = b"%PDF-1.4\nthis is not a valid PDF body at all".to_vec();
@@ -401,6 +411,7 @@ mod tests {
     /// PDF that declares `/Encrypt` in its trailer must be
     /// rejected with the typed UnsupportedEncryption variant —
     /// never silently parsed as plaintext.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn pdf_with_encrypt_entry_returns_unsupported_encryption() {
         use lopdf::{Document, Object, dictionary};
@@ -535,4 +546,9 @@ mod tests {
             prop_assert_eq!(c1, c2);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_non_pdf_prefix_returns_invalid_header, Honest);
+    pr4xis::register_praxis_value!(prop_minimal_pdf_read_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_truncated_pdf_never_silently_succeeds, Honest);
+    pr4xis::register_praxis_value!(prop_structural_concepts_are_stable, Deterministic);
 }

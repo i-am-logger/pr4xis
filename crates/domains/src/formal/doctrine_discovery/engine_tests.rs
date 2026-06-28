@@ -25,6 +25,7 @@ fn canonical_context() -> FormalContext<&'static str, &'static str> {
     )
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn discover_returns_lattice_clusters() {
     // Per the FCA tests, the canonical context has 3 concepts.
@@ -32,6 +33,7 @@ fn discover_returns_lattice_clusters() {
     assert_eq!(disc.cluster_count(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_count_is_positive_for_nontrivial_context() {
     // has_limbs in this context implies all of {needs_water,
@@ -45,6 +47,7 @@ fn implication_count_is_positive_for_nontrivial_context() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn has_limbs_closure_implies_full_attribute_set() {
     // Hand-verifiable: among the four objects, only `dog` has
@@ -68,6 +71,7 @@ fn has_limbs_closure_implies_full_attribute_set() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn discover_is_deterministic() {
     let ctx = canonical_context();
@@ -78,6 +82,7 @@ fn discover_is_deterministic() {
     assert_eq!(a.subsumption_order, b.subsumption_order);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn empty_context_yields_minimal_discovery() {
     let ctx: FormalContext<&str, &str> = FormalContext::from_matrix(vec![], vec![], vec![]);
@@ -88,6 +93,7 @@ fn empty_context_yields_minimal_discovery() {
     assert_eq!(disc.implication_count(), 0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attribute_extractor_closure_works() {
     // Use a closure as an AttributeExtractor — confirms the blanket
@@ -113,21 +119,25 @@ fn attribute_extractor_closure_works() {
 // Layer 2 — registered axioms verify.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_discovered_clusters_match_lattice_holds() {
     assert!(DiscoveredClustersMatchLattice.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_implication_is_context_valid_holds() {
     assert!(EveryImplicationIsContextValid.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_canonical_basis_is_subsumption_minimal_holds() {
     assert!(CanonicalBasisIsSubsumptionMinimal.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_discovery_is_deterministic_holds() {
     assert!(DiscoveryIsDeterministic.verify().is_ok());
@@ -216,3 +226,9 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(property_cluster_count_equals_lattice_size, Verifiable);
+pr4xis::register_praxis_value!(property_every_implication_is_valid, Verifiable);
+pr4xis::register_praxis_value!(property_discovery_deterministic, Deterministic);
+pr4xis::register_praxis_value!(property_basis_size_bounded_by_attribute_count, Verifiable);
+pr4xis::register_praxis_value!(property_subsumption_order_irreflexive, Verifiable);

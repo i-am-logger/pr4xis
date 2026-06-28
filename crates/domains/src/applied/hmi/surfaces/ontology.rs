@@ -334,11 +334,13 @@ mod tests {
 
     // ── Surface type tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_surface_capabilities() {
         assert_eq!(SurfaceCapability::variants().len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_terminal_has_ansi16() {
         let t = SurfaceType::new("terminal", vec![SurfaceCapability::Ansi16]);
@@ -348,18 +350,21 @@ mod tests {
 
     // ── Transform tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_hex_transform() {
         let rgb = Rgb::new(255, 128, 0);
         assert_eq!(apply_transform(&rgb, &ColorTransform::Hex), "#ff8000");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_hex_no_hash() {
         let rgb = Rgb::new(255, 128, 0);
         assert_eq!(apply_transform(&rgb, &ColorTransform::HexNoHash), "ff8000");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_hyprland_rgb() {
         let rgb = Rgb::new(255, 128, 0);
@@ -369,6 +374,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_glsl_float() {
         let rgb = Rgb::new(255, 0, 0);
@@ -378,6 +384,7 @@ mod tests {
 
     // ── Functor tests ──
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_terminal_functor_produces_16_entries() {
         let f = terminal_functor();
@@ -387,6 +394,7 @@ mod tests {
         assert!(!config.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_border_functor_produces_2_entries() {
         let f = border_functor();
@@ -399,6 +407,7 @@ mod tests {
         assert!(config.contains_key("inactive_border"));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_led_functor_produces_1_entry() {
         let f = led_functor();
@@ -408,6 +417,7 @@ mod tests {
         assert!(config.contains_key("ring_color"));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_functor_deterministic() {
         // Same palette → same config (always)
@@ -418,6 +428,7 @@ mod tests {
         assert_eq!(c1, c2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_functor_different_palettes_different_config() {
         let f = border_functor();
@@ -432,6 +443,7 @@ mod tests {
 
     // ── Natural transformation axiom ──
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_theme_change_naturality() {
         let axiom = ThemeChangeNaturality {
@@ -440,6 +452,7 @@ mod tests {
         assert!(axiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_naturality_with_full_palette() {
         let mut p1 = test_palette_dark();
@@ -616,4 +629,14 @@ mod tests {
             prop_assert_eq!(hypr, format!("rgb({})", no_hash));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_hex_transform_length, Verifiable);
+    pr4xis::register_praxis_value!(prop_hex_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(prop_functor_preserves_slot_count, Extensible);
+    pr4xis::register_praxis_value!(prop_transform_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_naturality_random_palettes, Extensible);
+    pr4xis::register_praxis_value!(prop_empty_palette_empty_config, Extensible);
+    pr4xis::register_praxis_value!(prop_functor_output_keys_are_from_mappings, Extensible);
+    pr4xis::register_praxis_value!(prop_hex_no_hash_is_hex_without_hash, Verifiable);
+    pr4xis::register_praxis_value!(prop_hyprland_rgb_wraps_hex, Verifiable);
 }

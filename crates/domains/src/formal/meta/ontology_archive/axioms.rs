@@ -932,6 +932,7 @@ pr4xis::register_axiom!(IntegrityClaimVerifiable, "W3C (2016) Subresource Integr
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_archive_axioms_hold() {
         assert!(MerkleHashDeterministic.verify().is_ok());
@@ -944,6 +945,7 @@ mod tests {
         assert!(IntegrityClaimVerifiable.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn source_hash_faithfulness_rejects_a_lying_envelope() {
         // A counterexample envelope whose raw blob disagrees with its pin
@@ -962,6 +964,7 @@ mod tests {
     /// whose raw blob disagrees with its pin is rejected by
     /// `usc_reconstruct_source` (so the widened axiom can FAIL on a USC defect,
     /// not just pass).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_reconstruct_source_rejects_a_lying_envelope() {
         let mut envelope = witness_usc_envelope("usc-liar", b"honest usc source");
@@ -978,6 +981,7 @@ mod tests {
     /// envelope whose raw blob disagrees with its pin is rejected by
     /// `wn_reconstruct_source` (so the widened axiom can FAIL on a WordNet
     /// defect, not just pass).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn wn_reconstruct_source_rejects_a_lying_envelope() {
         let mut envelope = witness_wordnet_envelope("wn-liar", b"honest wn source");

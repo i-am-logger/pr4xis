@@ -716,6 +716,7 @@ mod tests {
         hex::encode(h.finalize())
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn run_extractor_raw_hash_verifies() {
         let claim = IdentityClaim {
@@ -726,6 +727,7 @@ mod tests {
         assert!(matches!(result, VerificationResult::Verified(_)));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn run_extractor_raw_hash_mismatch() {
         let claim = IdentityClaim {
@@ -738,6 +740,7 @@ mod tests {
         assert!(matches!(result, VerificationResult::Mismatch { .. }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn run_extractor_xml_attribute_verifies() {
         let claim = IdentityClaim {
@@ -752,6 +755,7 @@ mod tests {
         assert!(matches!(result, VerificationResult::Verified(_)));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn run_extractor_xml_attribute_mismatch() {
         let claim = IdentityClaim {
@@ -766,6 +770,7 @@ mod tests {
         assert!(matches!(result, VerificationResult::Mismatch { .. }));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn run_extractor_stub_concept_is_unverifiable() {
         let claim = IdentityClaim {
@@ -778,6 +783,7 @@ mod tests {
         assert!(matches!(result, VerificationResult::Unverifiable { .. }));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn run_extractor_wrong_data_shape_is_unverifiable() {
         let claim = IdentityClaim {
@@ -790,6 +796,7 @@ mod tests {
         assert!(matches!(result, VerificationResult::Unverifiable { .. }));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn verify_bytes_fails_on_empty_identity() {
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
@@ -808,6 +815,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn verify_bytes_passes_on_real_wordnet_entry() {
         let wordnet =
@@ -831,6 +839,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn fetch_entry_check_only_missing_returns_missing() {
         let tmp = tempdir_path();
@@ -845,6 +854,7 @@ mod tests {
         assert!(matches!(outcome, FetchOutcome::MissingAndCheckOnly { .. }));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn fetch_entry_offline_missing_returns_offline() {
         let tmp = tempdir_path();
@@ -859,6 +869,7 @@ mod tests {
         assert!(matches!(outcome, FetchOutcome::MissingAndOffline { .. }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fetch_outcome_is_ok_only_for_success_variants() {
         assert!(FetchOutcome::AlreadyVerified { name: "x".into() }.is_ok());
@@ -951,6 +962,9 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_raw_hash_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(prop_raw_hash_detects_wrong_hash, Honest);
+
     // --- ZIP extraction (PKWARE APPNOTE.TXT 6.3.10; DEFLATE RFC 1951) ---
 
     /// Assemble a minimal single-member PKZIP archive (local header +
@@ -1007,6 +1021,7 @@ mod tests {
         z
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unzip_extracts_sole_stored_xml() {
         let payload = b"<uscDoc/>";
@@ -1014,6 +1029,7 @@ mod tests {
         assert_eq!(unzip_single_xml(&zip).unwrap(), payload);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unzip_extracts_deflated_xml() {
         use flate2::Compression;
@@ -1027,12 +1043,14 @@ mod tests {
         assert_eq!(unzip_single_xml(&zip).unwrap(), payload);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unzip_errors_when_no_xml_member() {
         let zip = build_single_entry_zip(b"readme.txt", 0, b"hi", 2);
         assert!(unzip_single_xml(&zip).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unzip_errors_on_non_zip_bytes() {
         assert!(unzip_single_xml(b"<not a zip>").is_err());
@@ -1048,6 +1066,7 @@ mod tests {
 
     use std::cell::Cell;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn with_retry_returns_on_first_success() {
         let calls = Cell::new(0u32);
@@ -1059,6 +1078,7 @@ mod tests {
         assert_eq!(calls.get(), 1, "no retries needed on initial success");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn with_retry_recovers_from_transient_failure() {
         // Simulate a transient TCP RST: first attempt fails, second
@@ -1077,6 +1097,7 @@ mod tests {
         assert_eq!(calls.get(), 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn with_retry_propagates_last_error_after_attempts_exhausted() {
         // A permanent failure (e.g. 404) doesn't recover. The harness
@@ -1099,6 +1120,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn backoff_schedule_is_exponential() {
         // Jacobson 1988 exponential schedule — doubles per attempt.

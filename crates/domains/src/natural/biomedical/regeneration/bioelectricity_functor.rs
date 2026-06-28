@@ -98,16 +98,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<RegenerationToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<RegenerationToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in RegenerationEntity::variants() {
@@ -124,6 +127,7 @@ mod tests {
     /// under Causation-transitivity. After mapping, both become Subsumption
     /// arrows in the target; same-kind transitive composition keeps
     /// F(g∘f) == F(g)∘F(f).
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_causation_chain() {
         let f = RegenerationRelation {
@@ -153,6 +157,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_target_morphology_maps_directly() {
         assert_eq!(
@@ -161,6 +166,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_anatomical_polarity_maps_to_membrane_potential() {
         assert_eq!(
@@ -169,6 +175,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ap_axis_maps_to_voltage_gradient() {
         assert_eq!(
@@ -177,6 +184,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_pattern_memory_maps_to_gap_junction_network() {
         assert_eq!(
@@ -185,6 +193,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bistability_maps_to_morphogenetic_field() {
         assert_eq!(
@@ -193,6 +202,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_nerve_supply_maps_to_bioelectric_circuit() {
         assert_eq!(
@@ -201,6 +211,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_epimorphic_maps_to_current_morphology() {
         assert_eq!(
@@ -209,6 +220,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_regeneration_type_abstract_maps_to_morphospace() {
         assert_eq!(
@@ -217,6 +229,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_body_axis_abstract_maps_to_signal() {
         assert_eq!(
@@ -225,6 +238,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_pattern_concept_abstract_maps_to_network() {
         assert_eq!(
@@ -233,6 +247,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();

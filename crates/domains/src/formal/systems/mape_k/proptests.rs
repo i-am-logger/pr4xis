@@ -94,3 +94,13 @@ proptest! {
         );
     }
 }
+
+pr4xis::register_praxis_value!(four_phase_cycle_invariant, Verifiable);
+pr4xis::register_praxis_value!(loop_is_closed_invariant, Verifiable);
+pr4xis::register_praxis_value!(every_phase_consults_knowledge_invariant, Verifiable);
+pr4xis::register_praxis_value!(ontology_validates_consistently, Verifiable);
+pr4xis::register_praxis_value!(identity_composes_with_identity, Deterministic);
+pr4xis::register_praxis_value!(pipeline_step_functor_is_deterministic, Deterministic);
+pr4xis::register_praxis_value!(pipeline_step_functor_preserves_identity, Extensible);
+pr4xis::register_praxis_value!(no_step_is_knowledge, Verifiable);
+pr4xis::register_praxis_value!(no_step_is_abstract_phase, Verifiable);

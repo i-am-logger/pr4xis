@@ -62,11 +62,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_hold() {
         assert_functor_laws::<GnssToProperty>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn pseudorange_measures_range() {
         assert_eq!(
@@ -75,6 +77,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn doppler_measures_velocity() {
         assert_eq!(

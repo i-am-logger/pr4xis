@@ -339,22 +339,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<FusionCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         FusionOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_fusion_phases() {
         assert_eq!(FusionConcept::variants().len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn predict_and_update_oppose() {
         let opp: Vec<_> = FusionCategory::morphisms()
@@ -366,26 +370,31 @@ mod tests {
         assert!(opp.contains(&(FusionConcept::Updated, FusionConcept::Predicted)));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn determinism_axiom_holds() {
         assert!(Determinism.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn predict_increases_uncertainty_axiom() {
         assert!(PredictIncreasesUncertainty.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn update_reduces_uncertainty_axiom() {
         assert!(UpdateReducesUncertainty.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn covariance_invariant_axiom() {
         assert!(CovarianceInvariant.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn phase_description_total() {
         for c in FusionConcept::variants() {
@@ -440,4 +449,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_phase_description_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

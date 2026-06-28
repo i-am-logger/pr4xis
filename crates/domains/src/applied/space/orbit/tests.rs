@@ -6,27 +6,32 @@ use crate::applied::space::orbit::engine::*;
 use crate::applied::space::orbit::ontology::*;
 use crate::applied::space::orbit::propagator::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn orbit_category_laws() {
     assert_category_laws::<OrbitCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn orbit_ontology_validates() {
     OrbitOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn eccentricity_bounded_holds() {
     assert!(EccentricityBounded.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn semi_major_axis_positive_holds() {
     assert!(SemiMajorAxisPositive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn leo_orbit_is_bound() {
     // ISS-like orbit: ~408 km altitude, ~7.66 km/s
@@ -37,6 +42,7 @@ fn leo_orbit_is_bound() {
     assert!(is_bound_orbit(&state), "LEO orbit should be bound");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn energy_conservation_during_propagation() {
     // Circular orbit at ~7000 km radius
@@ -62,6 +68,7 @@ fn energy_conservation_during_propagation() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn propagation_preserves_radius_for_circular_orbit() {
     let r = 7000.0;
@@ -80,6 +87,7 @@ fn propagation_preserves_radius_for_circular_orbit() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn radar_to_eci_at_zenith() {
     let obs = RadarObservation {
@@ -128,4 +136,7 @@ mod proptest_proofs {
                 "range should be preserved: {} vs {}", computed_range, range);
         }
     }
+
+    pr4xis::register_praxis_value!(bound_orbit_has_negative_energy, Verifiable);
+    pr4xis::register_praxis_value!(radar_range_preserved, Verifiable);
 }

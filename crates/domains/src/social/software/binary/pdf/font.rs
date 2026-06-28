@@ -456,6 +456,7 @@ mod tests {
 
     // ── StandardEncodingName parsing ──────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parse_known_encoding_names() {
         assert_eq!(
@@ -472,6 +473,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_encoding_name_returns_none() {
         assert_eq!(StandardEncodingName::from_pdf_name("HelloEncoding"), None);
@@ -480,12 +482,14 @@ mod tests {
 
     // ── decode_bytes with Standard encodings ──────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn winansi_ascii_is_passthrough() {
         let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
         assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn winansi_decodes_high_byte_to_latin1_supplement() {
         let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
@@ -497,18 +501,21 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pdfdoc_ascii_is_passthrough() {
         let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::PdfDoc));
         assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn macroman_ascii_is_passthrough() {
         let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::MacRoman));
         assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn standard_ascii_is_passthrough() {
         let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::Standard));
@@ -517,6 +524,7 @@ mod tests {
 
     // ── Identity / CIDFont ────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn identity_two_bytes_per_code_decodes_as_utf16be() {
         let font = font_with_encoding(FontEncoding::Identity);
@@ -526,6 +534,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn identity_odd_byte_count_returns_named_error() {
         let font = font_with_encoding(FontEncoding::Identity);
@@ -537,6 +546,7 @@ mod tests {
 
     // ── FontBuiltIn ───────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn font_builtin_passthrough_is_latin1() {
         let font = font_with_encoding(FontEncoding::FontBuiltIn);
@@ -548,6 +558,7 @@ mod tests {
 
     // ── /Differences resolves via Adobe Glyph List ─────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn differences_applies_emdash_override() {
         // GPO PDFs declare WinAnsi + /Differences mapping
@@ -563,6 +574,7 @@ mod tests {
         assert_eq!(decode_bytes(&font, &[0xD0]).unwrap(), "\u{2014}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn differences_preserves_unoverridden_winansi_entries() {
         // ASCII bytes pass through to themselves even with a
@@ -577,6 +589,7 @@ mod tests {
         assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn differences_with_curly_quotes_overrides_winansi() {
         // Real-world GPO override: byte 39 → quoteright (U+2019),
@@ -597,6 +610,7 @@ mod tests {
         assert_eq!(decode_bytes(&font, &[0x60]).unwrap(), "\u{2018}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn differences_unknown_glyph_name_maps_to_none() {
         // Unknown glyph names produce `None` at the override
@@ -614,6 +628,7 @@ mod tests {
 
     // ── ToUnicode CMap end-to-end (the unblocked path) ────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn to_unicode_cmap_decodes_via_cmap_map() {
         // Hand-built ToUnicodeCMap: byte 0x01 → U+2014 (em-dash).
@@ -633,6 +648,7 @@ mod tests {
 
     // ── Determinism ───────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn decode_is_deterministic_on_same_input() {
         let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
@@ -644,6 +660,7 @@ mod tests {
 
     // ── resolve_font from a synthetic font dict ───────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolve_font_with_winansi_encoding_name() {
         use lopdf::{Document, dictionary};
@@ -663,6 +680,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolve_font_with_identity_h_encoding() {
         use lopdf::{Document, dictionary};
@@ -677,6 +695,7 @@ mod tests {
         assert!(matches!(font.encoding, FontEncoding::Identity));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolve_font_with_pdfdoc_encoding_is_standard_variant() {
         use lopdf::{Document, dictionary};
@@ -693,6 +712,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolve_font_without_encoding_yields_builtin() {
         use lopdf::{Document, dictionary};
@@ -706,6 +726,7 @@ mod tests {
         assert!(matches!(font.encoding, FontEncoding::FontBuiltIn));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn resolve_font_without_subtype_returns_named_error() {
         use lopdf::{Document, dictionary};
@@ -717,6 +738,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn resolve_font_with_unknown_encoding_name_returns_named_error() {
         use lopdf::{Document, dictionary};
@@ -874,4 +896,16 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_standard_decode_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_winansi_ascii_is_identity, Verifiable);
+    pr4xis::register_praxis_value!(
+        prop_identity_round_trips_basic_multilingual_plane,
+        Deterministic
+    );
+    pr4xis::register_praxis_value!(prop_identity_rejects_odd_length, Honest);
+    pr4xis::register_praxis_value!(prop_font_builtin_is_latin1_identity, Verifiable);
+    pr4xis::register_praxis_value!(prop_empty_differences_matches_base, Verifiable);
+    pr4xis::register_praxis_value!(prop_differences_at_high_bytes_preserves_ascii, Verifiable);
+    pr4xis::register_praxis_value!(prop_canonical_encoding_names_round_trip, Verifiable);
 }

@@ -73,16 +73,19 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws_hold() {
         assert_category_laws::<BenchmarkCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_twelve_concepts() {
         assert_eq!(BenchmarkConcept::variants().len(), 12);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn setup_precedes_warmup() {
         let m = BenchmarkCategory::morphisms();
@@ -91,6 +94,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Precedes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn warmup_precedes_steady_state() {
         let m = BenchmarkCategory::morphisms();
@@ -99,6 +103,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Precedes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn steady_state_reachable_from_setup() {
         // Setup → Warmup → SteadyState — same-kind `Precedes` chain. Not a
@@ -131,6 +136,7 @@ mod tests {
         false
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn baseline_requires_confidence_interval() {
         let m = BenchmarkCategory::morphisms();
@@ -139,6 +145,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Requires));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn candidate_requires_confidence_interval() {
         let m = BenchmarkCategory::morphisms();
@@ -147,6 +154,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Requires));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn invocation_contains_iterations() {
         let m = BenchmarkCategory::morphisms();
@@ -155,6 +163,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::ContainsIterations));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn baseline_and_candidate_produce_effect_size() {
         let m = BenchmarkCategory::morphisms();
@@ -166,6 +175,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::ComparesTo));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn effect_size_determines_verdict() {
         let m = BenchmarkCategory::morphisms();
@@ -177,6 +187,7 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Determines));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn baseline_reaches_regression() {
         // Baseline → EffectSize → Regression — heterogeneous-kind chain
@@ -187,6 +198,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn benchmark_contains_phases() {
         let m = BenchmarkCategory::morphisms();

@@ -3,57 +3,68 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::natural::geodesy::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn geodesy_category_laws() {
     assert_category_laws::<GeodesyCategory>();
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn ned_to_enu_endofunctor_laws() {
     assert_functor_laws::<NedToEnuFunctor>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn geodesy_ontology_validates() {
     GeodesyOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn geodetic_ecef_roundtrip() {
     assert!(GeodeticEcefRoundtrip.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn ned_enu_roundtrip() {
     assert!(NedEnuRoundtrip.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ned_enu_isometry() {
     assert!(NedEnuIsometry.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn great_circle_symmetry() {
     assert!(GreatCircleSymmetry.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn great_circle_self_zero() {
     assert!(GreatCircleSelfZero.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn great_circle_triangle_inequality() {
     assert!(GreatCircleTriangleInequality.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn wgs84_consistency() {
     assert!(Wgs84Consistency.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn ned_enu_functor_identity() {
     assert!(NedEnuFunctorIdentity.verify().is_ok());
@@ -164,4 +175,12 @@ mod proptest_proofs {
                 "ellipsoid equation = {} (should be 1.0)", ellipsoid_eq);
         }
     }
+
+    pr4xis::register_praxis_value!(geodetic_ecef_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(ned_enu_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(ned_enu_preserves_distance, Verifiable);
+    pr4xis::register_praxis_value!(great_circle_distance_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(great_circle_distance_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(great_circle_to_self_is_zero, Verifiable);
+    pr4xis::register_praxis_value!(ecef_is_on_ellipsoid_surface_when_alt_zero, Verifiable);
 }

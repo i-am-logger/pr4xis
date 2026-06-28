@@ -99,6 +99,7 @@ pub fn is_valid_transition(from: FusionTrackStatus, to: FusionTrackStatus) -> bo
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_statuses_have_descriptions() {
         let desc = TrackStatusDescription;
@@ -107,18 +108,21 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lost_does_not_accept_updates() {
         let q = AcceptsUpdates;
         assert_eq!(q.get(&FusionTrackStatus::Lost), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn active_accepts_updates() {
         let q = AcceptsUpdates;
         assert_eq!(q.get(&FusionTrackStatus::Active), Some(true));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn valid_transitions() {
         use FusionTrackStatus::*;
@@ -128,6 +132,7 @@ mod tests {
         assert!(is_valid_transition(Active, Lost));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invalid_transitions() {
         use FusionTrackStatus::*;
@@ -135,6 +140,7 @@ mod tests {
         assert!(!is_valid_transition(Lost, Coasting));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_status_variants() {
         assert_eq!(FusionTrackStatus::variants().len(), 3);

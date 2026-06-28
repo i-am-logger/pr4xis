@@ -252,6 +252,7 @@ mod tests {
 
     // ── Unit tests on relation_kinds_for ─────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn requires_cross_ref_maps_to_requires_phrase() {
         assert_eq!(
@@ -260,6 +261,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn composes_cross_ref_has_no_phrase_correspondence() {
         assert_eq!(
@@ -268,6 +270,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn implies_cross_ref_maps_to_affirmative_defense_to() {
         assert_eq!(
@@ -278,6 +281,7 @@ mod tests {
 
     // ── Real-corpus: sox_retaliation composition audit ───────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sox_retaliation_audit_produces_one_result_per_cross_reference() {
         let framework = sox_retaliation::framework();
@@ -289,6 +293,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sox_retaliation_b2a_requires_is_phrase_backed() {
         // The b2a → 42121:b2 Requires cross-reference is grounded by
@@ -315,6 +320,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sox_retaliation_a_v4_implies_is_doctrinal_only() {
         // The a_v4 → 42121:b2b_iii Implies cross-reference is
@@ -337,6 +343,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sox_retaliation_count_breakdown() {
         // sox_retaliation has 3 cross-references:
@@ -356,12 +363,14 @@ mod tests {
     // pre-conditions hold). `statute()` is infallible — panics if
     // the URN isn't in the loaded UsCode corpus — so we just touch
     // each instance and assert the registered names round-trip.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn statutes_load() {
         assert_eq!(sox_1514a::statute().name(), "sox_1514a");
         assert_eq!(air21_42121::statute().name(), "air21_42121");
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn print_composition_audit_summary() {
         let framework = sox_retaliation::framework();

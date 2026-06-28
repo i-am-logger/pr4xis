@@ -482,47 +482,57 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<AnatomyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         AnatomyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn forty_three_concepts() {
         assert_eq!(AnatomyConcept::variants().len(), 43);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_ossicles_holds() {
         assert!(ThreeOssicles.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cochlea_contains_hair_cells_holds() {
         assert!(CochleaContainsHairCells.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ear_contains_hair_cells_holds() {
         assert!(EarContainsHairCells.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cochlea_has_three_scalae_holds() {
         assert!(CochleaHasThreeScalae.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_regions_represented_holds() {
         assert!(AllRegionsRepresented.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hair_cells_mechanically_active_holds() {
         assert!(HairCellsAreMechanicallyActive.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn outer_ear_opposes_inner_ear() {
         let opposed: Vec<_> = AnatomyCategory::morphisms()
@@ -534,10 +544,12 @@ mod tests {
         assert!(opposed.contains(&(AnatomyConcept::Endolymph, AnatomyConcept::Perilymph)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn malleus_is_ossicle() {
         assert!(is_a(AnatomyConcept::Malleus, AnatomyConcept::Ossicle));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inner_hair_cell_is_hair_cell() {
         assert!(is_a(
@@ -545,10 +557,12 @@ mod tests {
             AnatomyConcept::HairCell
         ));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cochlea_is_inner_ear() {
         assert!(is_a(AnatomyConcept::Cochlea, AnatomyConcept::InnerEar));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn endolymph_is_cochlear_fluid() {
         assert!(is_a(
@@ -557,32 +571,38 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ear_contains_cochlea_transitively() {
         let parts = parts_of(AnatomyConcept::Ear);
         assert!(parts.contains(&AnatomyConcept::Cochlea));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cochlea_contains_basilar_membrane() {
         let parts = parts_of(AnatomyConcept::Cochlea);
         assert!(parts.contains(&AnatomyConcept::BasilarMembrane));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cochlea_contains_organ_of_corti() {
         let parts = parts_of(AnatomyConcept::Cochlea);
         assert!(parts.contains(&AnatomyConcept::OrganOfCorti));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn organ_of_corti_contains_ihc() {
         let parts = parts_of(AnatomyConcept::OrganOfCorti);
         assert!(parts.contains(&AnatomyConcept::InnerHairCell));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn middle_ear_contains_stapes() {
         let parts = parts_of(AnatomyConcept::MiddleEar);
         assert!(parts.contains(&AnatomyConcept::Stapes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pinna_is_external() {
         assert_eq!(
@@ -590,6 +610,7 @@ mod tests {
             Some(AnatomicalRegion::External)
         );
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn stapes_is_middle_ear_region() {
         assert_eq!(
@@ -597,6 +618,7 @@ mod tests {
             Some(AnatomicalRegion::MiddleEarRegion)
         );
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cochlea_is_inner_ear_region() {
         assert_eq!(
@@ -604,6 +626,7 @@ mod tests {
             Some(AnatomicalRegion::InnerEarRegion)
         );
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn auditory_cortex_is_neural() {
         assert_eq!(
@@ -611,6 +634,7 @@ mod tests {
             Some(AnatomicalRegion::Neural)
         );
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn tympanic_membrane_is_mechanically_active() {
         assert_eq!(
@@ -618,6 +642,7 @@ mod tests {
             Some(true)
         );
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eustachian_tube_is_not_mechanically_active() {
         assert_eq!(
@@ -625,6 +650,7 @@ mod tests {
             Some(false)
         );
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ear_canal_resonance() {
         assert_eq!(
@@ -654,4 +680,7 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_is_a_reflexive, Verifiable);
+    pr4xis::register_praxis_value!(prop_region_is_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

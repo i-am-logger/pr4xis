@@ -101,12 +101,14 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::{assert_functor_laws, fully_faithful_law_axioms};
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn archive_into_graph_is_a_functor() {
         // Identity + composition preservation (Mac Lane CWM Ch. II §1).
         assert_functor_laws::<ArchiveIntoGraph>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn archive_into_graph_is_fully_faithful() {
         // Beyond functoriality: faithful (injective on each hom-set) + full

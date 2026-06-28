@@ -171,6 +171,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_single_path() {
         let path = Path {
@@ -184,6 +185,7 @@ mod tests {
         assert_eq!(e.situation().paths.len(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_two_paths_interfere() {
         // Two paths with action difference = π: destructive interference
@@ -204,6 +206,7 @@ mod tests {
         assert!(e.situation().total_amplitude.real.abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_constructive_interference() {
         // Two paths with same action: constructive interference
@@ -224,6 +227,7 @@ mod tests {
         assert!((e.situation().probability() - 4.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_free_particle_action() {
         let positions = vec![0.0, 1.0, 2.0];
@@ -232,6 +236,7 @@ mod tests {
         assert!((s - 1.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_reset() {
         let p = Path {
@@ -247,6 +252,7 @@ mod tests {
         assert!((e.situation().probability() - 0.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_amplitude_from_phase() {
         let a = Amplitude::from_phase(0.0);
@@ -307,4 +313,10 @@ mod tests {
             prop_assert!((ratio - expected).abs() < 1e-6);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_unit_amplitude, Verifiable);
+    pr4xis::register_praxis_value!(prop_euler_formula, Verifiable);
+    pr4xis::register_praxis_value!(prop_probability_nonneg, Verifiable);
+    pr4xis::register_praxis_value!(prop_stationary_zero_action, Verifiable);
+    pr4xis::register_praxis_value!(prop_action_scales_with_mass, Verifiable);
 }

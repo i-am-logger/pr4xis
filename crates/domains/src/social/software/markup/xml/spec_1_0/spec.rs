@@ -55,6 +55,7 @@ pub fn loaded_xml_1_0_fifth_edition() -> &'static str {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_spec_starts_with_xml_declaration() {
         // The bundled spec opens with the W3C XML 1.0 §2.8 XML
@@ -72,6 +73,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_grammar_loads_with_all_live_productions() {
         // M5.ζ.2 acceptance test — every live <prod> block in the
@@ -180,6 +182,7 @@ mod tests {
         total
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn spec_bytes_match_lock_hash() {
         use pr4xis_runtime::address::ContentAddress;

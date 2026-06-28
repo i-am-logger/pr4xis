@@ -155,6 +155,7 @@ fn extract_attlist_enum(body: &str, attr_name: &str) -> Option<Vec<String>> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dtd_bytes_are_non_empty() {
         assert!(!loaded_wn_lmf_dtd().is_empty());
@@ -162,6 +163,7 @@ mod tests {
         assert!(loaded_wn_lmf_dtd().contains("LexicalResource"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recognises_canonical_wn_lmf_elements() {
         // These five concepts ground the LMF runtime types in
@@ -173,6 +175,7 @@ mod tests {
         assert!(is_wn_lmf_element("Sense"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracts_partofspeech_enum_from_loaded_dtd() {
         // The WN-LMF 1.3 DTD's <!ATTLIST Lemma> and <!ATTLIST Synset>
@@ -189,6 +192,7 @@ mod tests {
         assert_eq!(pos_synset, pos_lemma);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracts_synset_relation_reltype_enum() {
         // WN-LMF 1.3 SynsetRelation declares ~70 relType values;
@@ -211,6 +215,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extracts_sense_relation_reltype_enum() {
         let rel = wn_lmf_attlist_enum_values("SenseRelation", "relType").unwrap();
@@ -222,12 +227,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn returns_none_for_unknown_element_or_attribute() {
         assert!(wn_lmf_attlist_enum_values("Nonexistent", "relType").is_none());
         assert!(wn_lmf_attlist_enum_values("Synset", "nonexistent_attr").is_none());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_non_wn_lmf_names() {
         assert!(!is_wn_lmf_element("xs:element"));
@@ -235,6 +242,7 @@ mod tests {
         assert!(!is_wn_lmf_element(""));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_dtd_matches_praxis_lock_hash() {
         // The pin in praxis.lock is the content digest of the bundled
@@ -280,4 +288,7 @@ mod tests {
             proptest::prop_assert_eq!(is_wn_lmf_element(&name), expected);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_is_wn_lmf_element_total, Honest);
+    pr4xis::register_praxis_value!(prop_is_wn_lmf_element_agrees_with_parsed_schema, Verifiable);
 }

@@ -6,32 +6,38 @@ use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology};
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<OmvCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     OmvOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ten_concepts() {
     assert_eq!(OmvConcept::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn artefact_has_formality_level_holds() {
     assert!(ArtefactHasFormalityLevel.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn artefact_has_analytics_holds() {
     assert!(ArtefactHasAnalytics.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn semantic_artefact_connects_to_all_metadata() {
     let m = OmvCategory::morphisms();
@@ -91,4 +97,9 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

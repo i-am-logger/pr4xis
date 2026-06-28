@@ -29,6 +29,7 @@ use proptest::prelude::*;
 /// §2.11 declares exactly 11 information items. The build-time
 /// loader produces these from the published rec; the axiom asserts
 /// the count.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_eleven_information_items_per_cowan_tobin_2004() {
     let items = information_items();
@@ -43,6 +44,7 @@ fn axiom_eleven_information_items_per_cowan_tobin_2004() {
 
 /// Every canonical information-item name from Cowan & Tobin 2004
 /// §2.1–§2.11 is in the loaded inventory.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_canonical_information_item_names_present() {
     for phrase in [
@@ -68,6 +70,7 @@ fn axiom_canonical_information_item_names_present() {
 /// W3C xml.xsd declares the four reserved-namespace attributes
 /// (`xml:lang`, `xml:space`, `xml:base`, `xml:id`) per Bray et al.
 /// 2009 Namespaces in XML 1.0 §3.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_four_xml_namespace_attributes_per_bray_et_al_2009() {
     let names = reserved_attribute_names();
@@ -82,6 +85,7 @@ fn axiom_four_xml_namespace_attributes_per_bray_et_al_2009() {
 
 /// Each of the four canonical `xml:*` reserved attribute local-
 /// names appears in the loaded inventory.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_xml_reserved_attribute_local_names_present() {
     for name in ["base", "id", "lang", "space"] {
@@ -95,6 +99,7 @@ fn axiom_xml_reserved_attribute_local_names_present() {
 /// XML Information Set §2 partitions every part of an XML document
 /// into one of the information items — the ontology's
 /// `XmlInformationItem` root is `is_a`-reachable from every leaf.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_non_root_concept_reaches_xml_information_item() {
     use pr4xis::category::{Arrow, Category};
@@ -121,6 +126,7 @@ fn axiom_every_non_root_concept_reaches_xml_information_item() {
 /// document information set has exactly one DocumentItem at its
 /// root. The enum-variant uniqueness encodes this at the type
 /// level.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_document_item_is_unique_variant_per_xml_1_0_2_1() {
     let variants = Xml10Concept::variants();
@@ -137,6 +143,7 @@ fn axiom_document_item_is_unique_variant_per_xml_1_0_2_1() {
 /// Spot-check the W3C-published rec anchor format. The Cowan &
 /// Tobin 2004 rec assigns anchors like `infoitem.document`,
 /// `infoitem.element`, etc. on each `<a name="...">` link target.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_w3c_anchor_format_consistent_with_infoset_rec() {
     let items = information_items();
@@ -152,6 +159,7 @@ fn axiom_w3c_anchor_format_consistent_with_infoset_rec() {
 /// The W3C-published rec's section numbering uses `2.1`–`2.11` for
 /// the 11 information items (§2 is the umbrella). Every loaded
 /// item's section starts with `"2."`.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_section_numbers_under_section_two() {
     let items = information_items();
@@ -168,11 +176,13 @@ fn axiom_section_numbers_under_section_two() {
 // Functor / category laws
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws_pass_on_xml_10_category() {
     assert_category_laws::<Xml10Category>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     use pr4xis::logic::proof::Counterexample;
@@ -184,6 +194,7 @@ fn ontology_validates() {
     });
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn functor_xml_10_to_english_identity_preservation() {
     // Per Mac Lane §I.3: F(id_X) = id_F(X). The canonical-phrase
@@ -196,6 +207,7 @@ fn functor_xml_10_to_english_identity_preservation() {
     }
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn functor_xml_10_to_english_composition_law() {
     // For every concept with a canonical phrase, the phrase is
@@ -308,3 +320,10 @@ proptest! {
         prop_assert!(is_information_item_phrase(&entry.to_uppercase()));
     }
 }
+
+pr4xis::register_praxis_value!(prop_case_fold_reserved_attribute, Deterministic);
+pr4xis::register_praxis_value!(prop_case_fold_information_item, Deterministic);
+pr4xis::register_praxis_value!(prop_total_function, Honest);
+pr4xis::register_praxis_value!(prop_load_idempotent, Deterministic);
+pr4xis::register_praxis_value!(prop_reserved_attribute_round_trip, Deterministic);
+pr4xis::register_praxis_value!(prop_information_item_round_trip, Deterministic);

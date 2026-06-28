@@ -7,11 +7,13 @@ use crate::formal::math::geometry::ontology::*;
 // Category law verification
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn geometry_category_laws() {
     assert_category_laws::<EuclideanGeometryCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn geometry_ontology_validates() {
     EuclideanGeometryOntology::validate()
@@ -22,21 +24,25 @@ fn geometry_ontology_validates() {
 // Metric space axioms (individual proofs)
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn metric_non_negativity() {
     assert!(MetricNonNegativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn metric_identity_of_indiscernibles() {
     assert!(MetricIdentity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn metric_symmetry() {
     assert!(MetricSymmetry.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn metric_triangle_inequality() {
     assert!(TriangleInequality.verify().is_ok());
@@ -46,11 +52,13 @@ fn metric_triangle_inequality() {
 // Euclidean theorems
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn triangle_angle_sum_is_pi() {
     assert!(TriangleAngleSum.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pythagorean_theorem() {
     assert!(PythagoreanTheorem.verify().is_ok());
@@ -60,11 +68,13 @@ fn pythagorean_theorem() {
 // Vector space axioms
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn vector_addition_is_commutative() {
     assert!(VectorAdditionCommutativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn vector_addition_is_associative() {
     assert!(VectorAdditionAssociativity.verify().is_ok());
@@ -74,16 +84,19 @@ fn vector_addition_is_associative() {
 // Inner/cross product laws
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn dot_product_is_commutative() {
     assert!(DotProductCommutativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn cross_product_is_anticommutative() {
     assert!(CrossProductAnticommutativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cross_product_is_perpendicular() {
     assert!(CrossProductPerpendicularity.verify().is_ok());
@@ -93,6 +106,7 @@ fn cross_product_is_perpendicular() {
 // Projection
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn projection_is_idempotent() {
     assert!(ProjectionIdempotent.verify().is_ok());
@@ -102,6 +116,7 @@ fn projection_is_idempotent() {
 // Hilbert betweenness
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn betweenness_is_symmetric() {
     assert!(BetweennessSymmetry.verify().is_ok());
@@ -115,6 +130,7 @@ fn betweenness_is_symmetric() {
 // H10: Plane::project_point with zero normal does not panic
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn plane_project_point_zero_normal_no_panic() {
     use crate::formal::math::geometry::plane::Plane;
@@ -416,4 +432,35 @@ mod proptest_proofs {
             prop_assert!(ac <= ab + bc + 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(distance_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(distance_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(distance_triangle_inequality, Verifiable);
+    pr4xis::register_praxis_value!(distance_to_self_is_zero, Verifiable);
+    pr4xis::register_praxis_value!(addition_commutativity, Deterministic, Verifiable);
+    pr4xis::register_praxis_value!(addition_associativity, Deterministic, Verifiable);
+    pr4xis::register_praxis_value!(additive_identity, Verifiable);
+    pr4xis::register_praxis_value!(additive_inverse, Verifiable);
+    pr4xis::register_praxis_value!(scalar_multiplication_identity, Verifiable);
+    pr4xis::register_praxis_value!(scalar_multiplication_compatibility, Verifiable);
+    pr4xis::register_praxis_value!(scalar_distributivity_over_vectors, Verifiable);
+    pr4xis::register_praxis_value!(scalar_distributivity_over_field, Verifiable);
+    pr4xis::register_praxis_value!(dot_product_commutative, Deterministic, Verifiable);
+    pr4xis::register_praxis_value!(cross_product_anticommutative, Deterministic, Verifiable);
+    pr4xis::register_praxis_value!(cross_product_perpendicular_to_both, Verifiable);
+    pr4xis::register_praxis_value!(lagrange_identity, Verifiable);
+    pr4xis::register_praxis_value!(rotation_preserves_norm, Deterministic, Verifiable);
+    pr4xis::register_praxis_value!(projection_is_idempotent, Deterministic, Verifiable);
+    pr4xis::register_praxis_value!(
+        projection_plus_rejection_equals_original,
+        Deterministic,
+        Verifiable
+    );
+    pr4xis::register_praxis_value!(rejection_is_perpendicular_to_basis, Verifiable);
+    pr4xis::register_praxis_value!(triangle_angle_sum_is_pi, Verifiable);
+    pr4xis::register_praxis_value!(triangle_inequality_holds_for_sides, Verifiable);
+    pr4xis::register_praxis_value!(congruence_is_reflexive, Verifiable);
+    pr4xis::register_praxis_value!(distance_2d_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(distance_2d_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(manhattan_satisfies_triangle_inequality, Verifiable);
 }

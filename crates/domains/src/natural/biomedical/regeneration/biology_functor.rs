@@ -102,16 +102,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<RegenerationToBiology>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<RegenerationToBiology>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in RegenerationEntity::variants() {
@@ -125,6 +128,7 @@ mod tests {
     /// Composition preservation over a Subsumption chain that actually
     /// composes: AnteriorPosteriorAxis -> BodyAxis -> PatternConcept
     /// compose under Subsumption-transitivity.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_subsumption_chain() {
         let f = RegenerationRelation {
@@ -148,6 +152,7 @@ mod tests {
         assert_eq!(mapped_composed, composed_mapped);
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BiologicalEntity::variants();
@@ -162,6 +167,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_epimorphic_maps_to_tissue() {
         assert_eq!(
@@ -170,6 +176,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_morphallactic_maps_to_tissue() {
         assert_eq!(
@@ -178,6 +185,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_blastema_maps_to_tissue() {
         assert_eq!(
@@ -186,6 +194,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_wound_epithelium_maps_to_squamous_epithelium() {
         assert_eq!(
@@ -194,6 +203,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_nerve_supply_maps_to_neural_tissue() {
         assert_eq!(
@@ -202,6 +212,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_target_morphology_maps_to_organism() {
         assert_eq!(
@@ -210,6 +221,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_anterior_posterior_axis_maps_to_organism() {
         assert_eq!(
@@ -218,6 +230,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_analogy_translates_epimorphic() {
         assert_eq!(

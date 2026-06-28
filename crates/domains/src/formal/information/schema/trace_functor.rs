@@ -86,11 +86,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<SchemaToTraceSchema>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn entity_type_maps_to_entity_access() {
         assert_eq!(
@@ -99,6 +101,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn morphism_type_maps_to_traversal() {
         assert_eq!(
@@ -107,6 +110,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn axiom_maps_to_status() {
         assert_eq!(
@@ -115,6 +119,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn instance_maps_to_output() {
         assert_eq!(
@@ -123,6 +128,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn presentation_maps_to_input() {
         assert_eq!(

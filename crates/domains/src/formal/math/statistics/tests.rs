@@ -3,26 +3,31 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::statistics::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn statistical_category_laws() {
     assert_category_laws::<StatisticsCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn statistics_ontology_validates() {
     StatisticsOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mse_decomposition_holds() {
     assert!(MSEDecomposition.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn confidence_monotonicity_holds() {
     assert!(ConfidenceMonotonicity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn type_i_type_ii_tradeoff_holds() {
     assert!(TypeITypeIITradeoff.verify().is_ok());
@@ -113,4 +118,10 @@ mod proptest_proofs {
             prop_assert!((se_large - se_expected).abs() < 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(mse_decomposition_for_random_data, Verifiable);
+    pr4xis::register_praxis_value!(wider_ci_higher_confidence, Verifiable);
+    pr4xis::register_praxis_value!(p_value_bounded, Verifiable);
+    pr4xis::register_praxis_value!(sample_variance_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(standard_error_decreases_with_n, Verifiable);
 }
