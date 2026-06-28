@@ -469,11 +469,17 @@ fn split_off_hex(s: &str, byte_pos: usize) -> Result<(u32, &str), ParseRhsError>
 struct TokenParser<'a> {
     tokens: &'a [Token],
     idx: usize,
+    /// Recursion depth of `parse_alternation`, bounded by `MAX_RHS_DEPTH`.
+    depth: usize,
 }
 
 impl<'a> TokenParser<'a> {
     fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, idx: 0 }
+        Self {
+            tokens,
+            idx: 0,
+            depth: 0,
+        }
     }
 
     fn peek(&self) -> Option<&Token> {
@@ -500,6 +506,23 @@ impl<'a> TokenParser<'a> {
     /// Adjacent character-class branches fold into a single
     /// `Term::CharClass`.
     fn parse_alternation(&mut self) -> Result<Term, ParseRhsError> {
+        // Bound the mutual recursion (parse_alternation → … → '(' →
+        // parse_alternation): a pathologically nested grammar RHS would
+        // otherwise overflow the stack. 256 is far beyond the W3C XML grammar.
+        const MAX_RHS_DEPTH: usize = 256;
+        self.depth += 1;
+        if self.depth > MAX_RHS_DEPTH {
+            self.depth -= 1;
+            return Err(ParseRhsError::UnbalancedParen {
+                position: self.pos_byte(),
+            });
+        }
+        let result = self.parse_alternation_inner();
+        self.depth -= 1;
+        result
+    }
+
+    fn parse_alternation_inner(&mut self) -> Result<Term, ParseRhsError> {
         let first = self.parse_sequence()?;
         if !matches!(self.peek().map(|t| &t.tok), Some(Tok::Pipe)) {
             return Ok(first);

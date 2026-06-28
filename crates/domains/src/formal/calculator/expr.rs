@@ -34,15 +34,25 @@ impl Expr {
 
     /// Evaluate the expression to a value.
     pub fn eval(&self, angle_mode: AngleMode) -> Result<Value, CalcError> {
+        self.eval_bounded(angle_mode, 0)
+    }
+
+    fn eval_bounded(&self, angle_mode: AngleMode, depth: u32) -> Result<Value, CalcError> {
+        // Bound the recursion so a deeply-nested expression tree cannot overflow
+        // the stack (256 is far beyond any real expression).
+        const MAX_EVAL_DEPTH: u32 = 256;
+        if depth > MAX_EVAL_DEPTH {
+            return Err(CalcError::Overflow);
+        }
         match self {
             Expr::Lit(v) => Ok(v.clone()),
             Expr::Unary(op, expr) => {
-                let val = expr.eval(angle_mode)?;
+                let val = expr.eval_bounded(angle_mode, depth + 1)?;
                 op.apply(&val, angle_mode)
             }
             Expr::Binary(op, lhs, rhs) => {
-                let l = lhs.eval(angle_mode)?;
-                let r = rhs.eval(angle_mode)?;
+                let l = lhs.eval_bounded(angle_mode, depth + 1)?;
+                let r = rhs.eval_bounded(angle_mode, depth + 1)?;
                 op.apply(&l, &r)
             }
         }

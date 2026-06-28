@@ -90,7 +90,7 @@ pub fn split_trailing_timezone(s: &str) -> Option<(&str, Timezone)> {
     }
     // A signed `hh:mm` suffix is the only source of ':' in the
     // date-family grammars, so a trailing `[+-]dd:dd` is unambiguous.
-    if s.len() >= 6 {
+    if s.len() >= 6 && s.is_char_boundary(s.len() - 6) {
         let cand = &s[s.len() - 6..];
         let b = cand.as_bytes();
         let shaped = (b[0] == b'+' || b[0] == b'-')

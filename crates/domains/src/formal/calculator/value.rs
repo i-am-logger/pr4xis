@@ -170,5 +170,6 @@ pub fn gcd(mut a: u64, mut b: u64) -> u64 {
 
 /// Least common multiple.
 pub fn lcm(a: u64, b: u64) -> u64 {
-    a / gcd(a, b) * b
+    // Saturate rather than overflow-panic when the LCM exceeds u64.
+    (a / gcd(a, b)).saturating_mul(b)
 }

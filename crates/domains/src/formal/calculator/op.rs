@@ -291,5 +291,11 @@ fn isqrt(n: i64) -> i64 {
     }
     let s = (n as f64).sqrt() as i64;
     // Correct for floating point errors
-    if (s + 1) * (s + 1) == n { s + 1 } else { s }
+    // Checked: (s+1)² overflows i64 for n near i64::MAX; on overflow the square
+    // is necessarily > n, so the correction does not apply and we keep s.
+    if (s + 1).checked_mul(s + 1) == Some(n) {
+        s + 1
+    } else {
+        s
+    }
 }
