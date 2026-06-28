@@ -4,6 +4,8 @@ pr4xis holds five properties about its own reasoning. They are not features offe
 
 Each guarantee is stated three ways: the **promise** it makes, the **enforcer** in code that makes it true, the **violation** that would break it. Each ends in a command that re-derives it. Nothing here is asserted; it is checked at test time.
 
+For the literature and reasoning behind the values — the enforcement ladder, what grounds each, and why `Consistent` — see [the research grounding](../research/constitution-grounding.md).
+
 ## Verifiable
 
 - **Promise** — every claim carries its source. Nothing is asserted without a citation back to an authoritative origin.
