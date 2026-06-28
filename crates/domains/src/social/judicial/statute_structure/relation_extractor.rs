@@ -130,9 +130,18 @@ fn detect_in_body(cite: &PinpointCite, body: &str, out: &mut Vec<RelationCandida
                 continue;
             }
             // Extract verbatim phrase from the original (case-preserving) body.
-            let matched_phrase = body[abs_pos..abs_pos + phrase.len()].to_string();
+            // `abs_pos` indexes the LOWERCASED body; if case-folding changed byte
+            // lengths it may not be a char boundary in the original, so guard the
+            // slices with `.get()` rather than panic.
+            let matched_phrase = match body.get(abs_pos..abs_pos + phrase.len()) {
+                Some(m) => m.to_string(),
+                None => {
+                    search_start = abs_pos + phrase.len();
+                    continue;
+                }
+            };
             let target_start = abs_pos + phrase.len();
-            let target_text = extract_target(&body[target_start..]);
+            let target_text = extract_target(body.get(target_start..).unwrap_or(""));
             out.push(RelationCandidate {
                 from_cite: cite.clone(),
                 kind: *kind,
@@ -179,18 +188,16 @@ fn is_word_byte(b: u8) -> bool {
 /// whichever comes first. Leading whitespace is trimmed.
 fn extract_target(rest: &str) -> String {
     let trimmed = rest.trim_start();
-    let max = 200.min(trimmed.len());
-    let slice = &trimmed[..max];
-    // Find a clause-ending terminator.
-    let mut end = slice.len();
-    for (i, c) in slice.char_indices() {
-        if c == '.' || c == ';' {
-            // Sentence-ish boundary — stop here.
+    // Scan char boundaries (never a raw byte index): stop at the first
+    // clause-ending terminator, or at the first boundary past 200 bytes.
+    let mut end = trimmed.len();
+    for (i, c) in trimmed.char_indices() {
+        if i >= 200 || c == '.' || c == ';' {
             end = i;
             break;
         }
     }
-    slice[..end].trim().to_string()
+    trimmed[..end].trim().to_string()
 }
 
 // ─────────────────────────────────────────────────────────────────────

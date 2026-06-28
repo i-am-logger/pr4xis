@@ -27,7 +27,8 @@ impl Note {
 
     /// Transpose by semitones. Returns None if out of MIDI range.
     pub fn transpose(&self, semitones: i16) -> Option<Note> {
-        let new = self.0 as i16 + semitones;
+        // Widen to i32 so the add cannot overflow before the range test.
+        let new = self.0 as i32 + semitones as i32;
         if (0..=127).contains(&new) {
             Some(Note(new as u8))
         } else {

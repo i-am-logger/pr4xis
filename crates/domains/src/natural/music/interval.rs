@@ -22,7 +22,9 @@ impl Interval {
 
     /// Compose two intervals (add semitones).
     pub fn compose(&self, other: Interval) -> Interval {
-        Interval(self.0 + other.0)
+        // Saturate rather than overflow-panic when the composed semitone count
+        // exceeds a u8 (intervals are bounded in practice; this stays total).
+        Interval(self.0.saturating_add(other.0))
     }
 
     /// Inversion: the complement to an octave.

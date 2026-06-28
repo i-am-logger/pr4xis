@@ -76,12 +76,16 @@ fn resolve_san(board: &Board, san: &str) -> Result<(Square, Square), String> {
         return Err(format!("move too short: {}", san));
     }
 
-    // Determine target square (always the last two chars)
-    let target_file = bytes[len - 2] - b'a';
-    let target_rank = bytes[len - 1] - b'1';
-    if target_file >= 8 || target_rank >= 8 {
+    // Determine target square (always the last two chars). Validate the
+    // file/rank bytes BEFORE subtracting so a malformed move (e.g. "12") cannot
+    // underflow the u8.
+    let file_byte = bytes[len - 2];
+    let rank_byte = bytes[len - 1];
+    if !(b'a'..=b'h').contains(&file_byte) || !(b'1'..=b'8').contains(&rank_byte) {
         return Err(format!("invalid target square in: {}", san));
     }
+    let target_file = file_byte - b'a';
+    let target_rank = rank_byte - b'1';
     let to = Square::new(target_file, target_rank);
 
     // Determine piece kind
@@ -109,13 +113,18 @@ fn resolve_san(board: &Board, san: &str) -> Result<(Square, Square), String> {
         .map(|b| b - b'a');
     let disambig_rank: Option<u8> = middle
         .bytes()
-        .find(|b| b.is_ascii_digit())
+        .find(|b| (b'1'..=b'8').contains(b)) // only valid ranks; b - b'1' cannot underflow
         .map(|b| b - b'1');
 
     // For pawn captures, the first char is the source file
     let pawn_source_file: Option<u8> =
         if piece_kind == PieceKind::Pawn && disambig_start == 0 && san_clean.contains('x') {
-            Some(bytes[0] - b'a')
+            let f = bytes[0];
+            if (b'a'..=b'h').contains(&f) {
+                Some(f - b'a')
+            } else {
+                None
+            }
         } else {
             disambig_file
         };

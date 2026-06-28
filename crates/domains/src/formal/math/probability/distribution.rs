@@ -48,14 +48,19 @@ impl DiscreteDistribution {
         self.probabilities.len()
     }
 
-    /// Probability of outcome i.
+    /// Probability of outcome i. An out-of-range index is not an outcome of this
+    /// distribution, so its probability is 0 (total, never a panic).
     pub fn prob(&self, i: usize) -> f64 {
-        self.probabilities[i]
+        self.probabilities.get(i).copied().unwrap_or(0.0)
     }
 
-    /// Probability of an event (set of outcomes by index).
+    /// Probability of an event (set of outcomes by index). Out-of-range indices
+    /// contribute 0.
     pub fn event_prob(&self, indices: &[usize]) -> f64 {
-        indices.iter().map(|&i| self.probabilities[i]).sum()
+        indices
+            .iter()
+            .filter_map(|&i| self.probabilities.get(i))
+            .sum()
     }
 
     /// Complement probability: P(A^c) = 1 - P(A).

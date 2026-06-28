@@ -29,10 +29,10 @@ pub fn cassini(n: u64) -> i64 {
     if n == 0 {
         return 0;
     }
-    let fn_1 = fib(n - 1) as i64;
-    let fn_ = fib(n) as i64;
-    let fn1 = fib(n + 1) as i64;
-    fn_1 * fn1 - fn_ * fn_
+    // Cassini's identity F(n-1)F(n+1) - F(n)² = (-1)^n. Computing it via the
+    // products overflows i64 for large n (and `fib` itself overflows u64 beyond
+    // n=93), so return the closed form — correct for all n and always total.
+    if n.is_multiple_of(2) { 1 } else { -1 }
 }
 
 #[cfg(test)]

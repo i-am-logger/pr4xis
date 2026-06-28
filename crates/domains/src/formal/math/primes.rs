@@ -13,7 +13,8 @@ pub fn is_prime(n: u64) -> bool {
         return false;
     }
     let mut i = 5;
-    while i * i <= n {
+    // `i <= n / i` ⟺ `i*i <= n` (integer division), but never overflows.
+    while i <= n / i {
         if n.is_multiple_of(i) || n.is_multiple_of(i + 2) {
             return false;
         }
@@ -24,7 +25,13 @@ pub fn is_prime(n: u64) -> bool {
 
 /// Sieve of Eratosthenes: all primes up to n.
 pub fn sieve(n: usize) -> Vec<u64> {
-    let mut is_p = vec![true; n + 1];
+    // `n + 1` overflows to 0 at usize::MAX (then panics indexing the empty Vec);
+    // guard it. (Allocation is proportional to n by nature — the caller bounds
+    // n; no production path passes an untrusted n here.)
+    let Some(size) = n.checked_add(1) else {
+        return Vec::new();
+    };
+    let mut is_p = vec![true; size];
     is_p[0] = false;
     if n > 0 {
         is_p[1] = false;
@@ -48,13 +55,14 @@ pub fn goldbach(n: u64) -> Option<(u64, u64)> {
     if n <= 2 || !n.is_multiple_of(2) {
         return None;
     }
-    for p in sieve(n as usize) {
-        if p > n / 2 {
-            break;
-        }
-        if is_prime(n - p) {
+    // Test candidate primes p ≤ n/2 directly via is_prime — no sieve, so no
+    // O(n) allocation for large n.
+    let mut p = 2u64;
+    while p <= n / 2 {
+        if is_prime(p) && is_prime(n - p) {
             return Some((p, n - p));
         }
+        p += 1;
     }
     None
 }
@@ -63,7 +71,8 @@ pub fn goldbach(n: u64) -> Option<(u64, u64)> {
 pub fn factorize(mut n: u64) -> Vec<u64> {
     let mut factors = Vec::new();
     let mut d = 2;
-    while d * d <= n {
+    // `d <= n / d` ⟺ `d*d <= n` without overflow.
+    while d <= n / d {
         while n.is_multiple_of(d) {
             factors.push(d);
             n /= d;

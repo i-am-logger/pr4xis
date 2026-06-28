@@ -26,7 +26,7 @@ impl Quality for NoteName {
     type Value = String;
 
     fn get(&self, pc: &PitchClass) -> Option<String> {
-        Some(Note(pc.0 + 60).name().to_string()) // use octave 4 for naming
+        Some(Note((pc.0 % 12) + 60).name().to_string()) // octave 4; %12 keeps the add in range
     }
 }
 
