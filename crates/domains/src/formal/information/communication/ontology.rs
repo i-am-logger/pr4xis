@@ -154,22 +154,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<CommunicationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         CommunicationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eight_concepts() {
         assert_eq!(CommunicationConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sender_produces_message() {
         assert!(CommunicationCategory::morphisms().iter().any(|m| {
@@ -179,6 +183,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn noise_corrupts_channel() {
         assert!(CommunicationCategory::morphisms().iter().any(|m| {
@@ -188,6 +193,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn feedback_loop_present() {
         let m = CommunicationCategory::morphisms();
@@ -204,11 +210,13 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn jakobson_six_functions() {
         assert_eq!(JakobsonFunction::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn phatic_focuses_on_channel() {
         assert_eq!(
@@ -217,6 +225,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn metalingual_focuses_on_code() {
         assert_eq!(
@@ -279,4 +288,11 @@ mod tests {
                 && r.target() == CommunicationConcept::Channel));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_identity_self_morphism, Deterministic);
+    pr4xis::register_praxis_value!(prop_jakobson_focuses_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_jakobson_injective, Verifiable);
+    pr4xis::register_praxis_value!(prop_shannon_chain, Verifiable);
 }

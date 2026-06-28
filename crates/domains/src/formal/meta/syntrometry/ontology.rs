@@ -422,16 +422,19 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SyntrometryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SyntrometryOntology::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn aspekt_triple_product_axiom_holds() {
         assert!(
@@ -441,6 +444,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn synkolator_is_korporator_axiom_holds() {
         assert!(
@@ -450,6 +454,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn syntrix_is_leveled_axiom_holds() {
         assert!(
@@ -459,6 +464,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn metroplex_contains_syntrix_and_levels_holds() {
         assert!(
@@ -468,6 +474,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn maxime_converges_toward_telecenter_holds() {
         assert!(
@@ -477,6 +484,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn telecenter_is_synkolator_fixed_point_holds() {
         assert!(

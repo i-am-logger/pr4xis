@@ -353,35 +353,41 @@ mod tests {
 
     const MINIMAL_ROOT: &str = "<r/>";
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prolog_with_no_extras_parses() {
         assert!(read_xml(MINIMAL_ROOT).is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prolog_with_xml_decl_parses() {
         let s = format!("<?xml version=\"1.0\"?>{MINIMAL_ROOT}");
         assert!(read_xml(&s).is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prolog_with_comment_parses() {
         let s = format!("<!-- hi --> {MINIMAL_ROOT}");
         assert!(read_xml(&s).is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prolog_with_xml_decl_and_comment_parses() {
         let s = format!("<?xml version=\"1.0\"?>\n<!-- doc -->\n{MINIMAL_ROOT}");
         assert!(read_xml(&s).is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prolog_with_multiple_comments_parses() {
         let s = format!("<!--a--><!--b--><!--c-->{MINIMAL_ROOT}");
         assert!(read_xml(&s).is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unclosed_prolog_comment_errors_cleanly() {
         let s = format!("<!-- never-closed {MINIMAL_ROOT}");
@@ -392,6 +398,7 @@ mod tests {
     // ── Adversarial-input properties (compliance: no panic on
     // ── malformed input) ──────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn adversarial_random_bytes_never_panic() {
         // FRE 901 + Daubert prong 3: when input is malformed,
@@ -527,4 +534,14 @@ mod tests {
             prop_assert!(read_xml(&s).is_ok());
         }
     }
+
+    pr4xis::register_praxis_value!(property_random_input_never_panics, Honest);
+    pr4xis::register_praxis_value!(property_random_tags_never_panic, Honest);
+    pr4xis::register_praxis_value!(property_truncated_input_never_panics, Honest);
+    pr4xis::register_praxis_value!(property_prolog_with_arbitrary_comments_parses, Verifiable);
+    pr4xis::register_praxis_value!(property_xml_decl_position_invariant, Verifiable);
+    pr4xis::register_praxis_value!(
+        property_self_closing_root_with_attributes_parses,
+        Verifiable
+    );
 }

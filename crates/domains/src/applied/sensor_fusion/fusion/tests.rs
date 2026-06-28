@@ -15,32 +15,38 @@ use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 // Ontology validation — includes DETERMINISM axiom
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn fusion_category_laws() {
     assert_category_laws::<FusionCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fusion_ontology_validates() {
     FusionOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_determinism() {
     assert!(Determinism.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_predict_increases_uncertainty() {
     assert!(PredictIncreasesUncertainty.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_update_reduces_uncertainty() {
     assert!(UpdateReducesUncertainty.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_covariance_invariant() {
     assert!(CovarianceInvariant.verify().is_ok());
@@ -68,6 +74,7 @@ fn simple_1d_filter() -> (StateEstimate, Matrix, Matrix, Matrix, Matrix) {
     (initial, f, q, h, r)
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fusion_engine_predict_increases_uncertainty() {
     let (initial, f, q, _h, _r) = simple_1d_filter();
@@ -91,6 +98,7 @@ fn fusion_engine_predict_increases_uncertainty() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fusion_engine_update_reduces_uncertainty() {
     let (initial, f, q, h, r) = simple_1d_filter();
@@ -126,6 +134,7 @@ fn fusion_engine_update_reduces_uncertainty() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fusion_engine_covariance_stays_psd() {
     let (initial, f, q, h, r) = simple_1d_filter();
@@ -158,6 +167,7 @@ fn fusion_engine_covariance_stays_psd() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fusion_engine_state_converges_to_measurement() {
     let (initial, f, q, h, r) = simple_1d_filter();
@@ -193,6 +203,7 @@ fn fusion_engine_state_converges_to_measurement() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn fusion_engine_negative_dt_rejected() {
     let (initial, f, q, _h, _r) = simple_1d_filter();
@@ -207,6 +218,7 @@ fn fusion_engine_negative_dt_rejected() {
     assert!(result.is_err(), "negative dt should be rejected");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn fusion_engine_dimension_mismatch_rejected() {
     let (initial, _f, _q, _h, _r) = simple_1d_filter();
@@ -222,6 +234,7 @@ fn fusion_engine_dimension_mismatch_rejected() {
     assert!(result.is_err(), "dimension mismatch should be rejected");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn fusion_engine_back_forward() {
     let (initial, f, q, h, r) = simple_1d_filter();
@@ -254,6 +267,7 @@ fn fusion_engine_back_forward() {
     assert_ne!(engine.situation(), &state_after_predict); // should be after update
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn fusion_engine_trace_records_all_steps() {
     let (initial, f, q, h, r) = simple_1d_filter();
@@ -609,12 +623,24 @@ mod proptest_proofs {
             prop_assert!(engine.situation().estimate.state.data == state_after_update);
         }
     }
+
+    pr4xis::register_praxis_value!(fusion_is_deterministic_predict, Deterministic);
+    pr4xis::register_praxis_value!(fusion_is_deterministic_update, Deterministic);
+    pr4xis::register_praxis_value!(fusion_is_deterministic_full_cycle, Deterministic);
+    pr4xis::register_praxis_value!(predict_never_decreases_uncertainty, Verifiable);
+    pr4xis::register_praxis_value!(update_never_increases_uncertainty, Verifiable);
+    pr4xis::register_praxis_value!(covariance_stays_psd_random_sequence, Verifiable);
+    pr4xis::register_praxis_value!(covariance_stays_psd_2d, Verifiable);
+    pr4xis::register_praxis_value!(negative_dt_always_rejected, Honest);
+    pr4xis::register_praxis_value!(state_converges_to_measurement, Verifiable);
+    pr4xis::register_praxis_value!(back_forward_preserves_state, Deterministic);
 }
 
 // ---------------------------------------------------------------------------
 // C1: Singular innovation covariance returns Err
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn singular_innovation_covariance_returns_err() {
     // Create a state with zero covariance (P=0) and zero measurement noise (R=0).
@@ -657,6 +683,7 @@ fn singular_innovation_covariance_returns_err() {
 // C2: DimensionConsistency column checks
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn dimension_consistency_rejects_non_square_process_noise() {
     let (initial, f, _q, _h, _r) = simple_1d_filter();
@@ -675,6 +702,7 @@ fn dimension_consistency_rejects_non_square_process_noise() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn dimension_consistency_rejects_non_square_measurement_noise() {
     let (initial, _f, _q, h, _r) = simple_1d_filter();
@@ -697,6 +725,7 @@ fn dimension_consistency_rejects_non_square_measurement_noise() {
 // H11: solve_spd failure propagation test
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn solve_spd_failure_propagates_to_engine() {
     // S = HPH^T + R. If P=0 and R=0, then S=0, which is singular.
@@ -784,4 +813,6 @@ mod proptest_cv_model {
             );
         }
     }
+
+    pr4xis::register_praxis_value!(fusion_with_cv_model, Verifiable);
 }

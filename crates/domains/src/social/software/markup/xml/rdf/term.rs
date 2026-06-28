@@ -119,6 +119,7 @@ mod tests {
 
     /// Each concrete term variant maps to the corresponding kind in the
     /// meta-ontology (W3C RDF 1.1 §3 mapping).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn term_kinds_match_meta_ontology() {
         assert_eq!(RdfTerm::Iri("x".into()).kind(), RdfNodeKind::IriResource);
@@ -149,6 +150,7 @@ mod tests {
 
     /// Subject-admissibility tracks the
     /// [`super::ontology::LiteralsCannotBeSubjects`] axiom.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn subject_admissibility_excludes_literals() {
         assert!(RdfTerm::Iri("x".into()).can_be_subject());

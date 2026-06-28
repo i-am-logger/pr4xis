@@ -609,6 +609,7 @@ mod tests {
     /// typed-LMF structures. A missing attribute or wrong element name
     /// surfaces as a `synsets`/`entries` field mismatch — that is the
     /// whole point of the structure round-trip.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn write_wordnet_document_round_trips_typed_lmf() {
         let wn = read_wordnet(SAMPLE).unwrap();
@@ -639,6 +640,7 @@ mod tests {
     /// projection surfaces as a field mismatch. This is the gate that
     /// proves the schema-completion: nothing the reader now captures is
     /// silently lost on the way back out.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn rich_fragment_round_trips_full_model() {
         let wn = read_wordnet(RICH).unwrap();
@@ -730,6 +732,7 @@ mod tests {
     /// canonical serializer alone closes the loop; the non-canonical
     /// residue (a writer that also emits `SyntaxDecisions`) is SLICE 1's
     /// `serialize_document_exact` concern, not exercised here.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn rich_fragment_canonical_serialization_is_byte_exact() {
         let wn = read_wordnet(RICH).unwrap();
@@ -777,6 +780,7 @@ mod tests {
     /// `xmlns:dc`, inter-element white-space) plus the `&apos;` form and the
     /// multi-line attribute indentation — the same machinery the 89 MB corpus
     /// gate runs at scale.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn reconstruct_real_shaped_fragment_byte_exact() {
         let (wn, complement) = capture_wn_complement(REAL_SHAPED).expect("capture");
@@ -833,6 +837,7 @@ mod tests {
     /// and (2) reconstruct the source BYTE-FOR-BYTE by reapplying it. Without the
     /// child-order species this source would `Complement`-error (the old floor
     /// degrade). The proof the new residue does its job.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn reconstruct_child_permuted_lexicon_byte_exact() {
         let (wn, complement) = capture_wn_complement(CHILD_PERMUTED).expect("capture");
@@ -855,6 +860,7 @@ mod tests {
     /// `us_legal_lexicon`) records NOTHING in the child-order residue. Proves the
     /// species is purely additive: a writer-ordered source is byte-identical to
     /// the pre-residue path. `SAMPLE_WN_LMF`-shaped, entries-then-synsets.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn child_order_residue_is_noop_for_dtd_ordered_source() {
         let (_wn, complement) = capture_wn_complement(REAL_SHAPED).expect("capture");
@@ -870,6 +876,7 @@ mod tests {
     /// the reconstruction DIVERGE — the gate has teeth (it is not a vacuous
     /// pass-through). Swapping two entries in the permutation produces a different
     /// child order, so the reconstructed bytes are NOT the source.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn child_order_corruption_diverges() {
         let (wn, mut complement) = capture_wn_complement(CHILD_PERMUTED).expect("capture");
@@ -901,6 +908,7 @@ mod tests {
     /// `capture_wn_complement` surfaces a `Complement` error rather than
     /// silently producing a residue that drops content. Honest-partial over
     /// fake-green at the type level.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn capture_fails_closed_on_backbone_divergence() {
         // A `<Mystery>` element under `<Lexicon>` is not in the WN-LMF model;

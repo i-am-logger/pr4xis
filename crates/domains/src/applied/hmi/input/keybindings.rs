@@ -1752,12 +1752,14 @@ mod tests {
 
     // ── KeyCombo tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_key_combo_display() {
         let combo = KeyCombo::new(Key::Letter('c')).with_mod(Modifier::Ctrl);
         assert_eq!(combo.display(), "Ctrl + C");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_key_combo_multi_mod() {
         let combo = KeyCombo::new(Key::Letter('s'))
@@ -1766,6 +1768,7 @@ mod tests {
         assert_eq!(combo.display(), "Shift + Ctrl + S");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_key_combo_no_duplicate_mods() {
         let combo = KeyCombo::new(Key::Letter('a'))
@@ -1774,6 +1777,7 @@ mod tests {
         assert_eq!(combo.modifiers.len(), 1);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_key_combo_sorted_mods() {
         let combo = KeyCombo::new(Key::Letter('a'))
@@ -1789,6 +1793,7 @@ mod tests {
 
     // ── Preset tests ──
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macos_remap() {
         let rs = macos_remap();
@@ -1798,24 +1803,28 @@ mod tests {
         assert_eq!(result.key, Key::Letter('c'));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_macos_remap_complete() {
         let rs = macos_remap();
         assert!(MacosRemapComplete { remaps: rs }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_macos_remap_injective() {
         let rs = macos_remap();
         assert!(RemapInjective { remaps: rs }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vim_preset_no_conflicts() {
         let bs = vim_preset();
         assert!(NoConflicts { bindings: bs }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vim_preset_has_hjkl() {
         let bs = vim_preset();
@@ -1828,6 +1837,7 @@ mod tests {
         assert!(keys.contains(&&Key::Letter('l')));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vim_preset_modes_have_bindings() {
         let bs = vim_preset();
@@ -1844,6 +1854,7 @@ mod tests {
 
     // ── Conflict detection ──
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_conflict_detected() {
         let mut bs = BindingSet::new("conflicting");
@@ -1871,6 +1882,7 @@ mod tests {
         assert_eq!(bs.conflicts().len(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_same_key_different_mode_no_conflict() {
         let mut bs = BindingSet::new("multi-mode");
@@ -1892,6 +1904,7 @@ mod tests {
 
     // ── CUA preset ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_cua_preset_no_conflicts() {
         assert!(
@@ -1903,6 +1916,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_cua_is_wm_not_inapp() {
         // The WM-paradigm cua binds the global window-management keys (Alt+Tab /
@@ -1926,6 +1940,7 @@ mod tests {
 
     // ── emacs preset ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_emacs_preset_no_conflicts() {
         assert!(
@@ -1937,6 +1952,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_emacs_has_readline() {
         let bs = emacs_preset();
@@ -1951,6 +1967,7 @@ mod tests {
 
     // ── i3 preset ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_i3_preset_no_conflicts() {
         assert!(
@@ -1962,6 +1979,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_i3_has_workspaces() {
         let bs = i3_preset();
@@ -1976,6 +1994,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_i3_has_hjkl_focus() {
         let bs = i3_preset();
@@ -1988,6 +2007,7 @@ mod tests {
         assert!(names.contains(&"focus_down"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_i3_resize_mode() {
         let bs = i3_preset();
@@ -1998,6 +2018,7 @@ mod tests {
 
     // ── tmux preset ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_tmux_preset_no_conflicts() {
         assert!(
@@ -2009,6 +2030,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_tmux_has_window_management() {
         let bs = tmux_preset();
@@ -2021,6 +2043,7 @@ mod tests {
         assert!(names.contains(&"detach"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_tmux_prefix_is_reachable_and_exitable() {
         // The previous preset shipped a tmux-prefix mode that NOTHING entered and
@@ -2059,6 +2082,7 @@ mod tests {
 
     // ── Cross-preset tests ──
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_all_presets_no_conflicts() {
         for (name, bs) in [
@@ -2077,6 +2101,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vogix_preset_has_focus_and_workspaces() {
         let bs = vogix_preset();
@@ -2097,6 +2122,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn vogix_commands_realize_to_expected_dispatchers() {
         let bs = vogix_preset();
@@ -2125,6 +2151,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn desktop_maximize_realizes_to_fullscreen_mode_one() {
         // The maximize-vs-fullscreen fix at the binding level: windows/linux
@@ -2147,6 +2174,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_desktop_presets_have_window_switch() {
         // Each desktop paradigm binds a window-switch verb.
@@ -2239,4 +2267,11 @@ mod tests {
             prop_assert!(axiom.verify().is_ok());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_macos_remap_always_ctrl, Verifiable, Extensible);
+    pr4xis::register_praxis_value!(prop_remap_preserves_key, Verifiable, Extensible);
+    pr4xis::register_praxis_value!(prop_display_contains_key, Verifiable);
+    pr4xis::register_praxis_value!(prop_no_duplicate_mods_after_double_add, Deterministic);
+    pr4xis::register_praxis_value!(prop_mods_always_sorted, Deterministic);
+    pr4xis::register_praxis_value!(prop_binding_set_no_conflicts_when_unique_keys, Verifiable);
 }

@@ -163,22 +163,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SingleTargetCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SingleTargetOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_state_components() {
         assert_eq!(SingleTargetConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn position_3d() {
         assert_eq!(
@@ -187,6 +191,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn turnrate_scalar() {
         assert_eq!(
@@ -195,6 +200,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn position_causes_velocity() {
         let caus: Vec<_> = SingleTargetCategory::morphisms()
@@ -205,11 +211,13 @@ mod tests {
         assert!(caus.contains(&(SingleTargetConcept::Position, SingleTargetConcept::Velocity)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn velocity_derives_axiom_holds() {
         assert!(VelocityDerivesFromPosition.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn acceleration_derives_axiom_holds() {
         assert!(AccelerationDerivesFromVelocity.verify().is_ok());
@@ -252,4 +260,9 @@ mod tests {
             prop_assert!(d >= 1);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_dimension_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_dimension_positive, Verifiable);
 }

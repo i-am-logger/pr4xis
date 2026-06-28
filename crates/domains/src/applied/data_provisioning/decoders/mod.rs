@@ -24,6 +24,9 @@ pub mod xml_lmf;
 pub mod xml_xsd;
 pub mod zip_archive;
 
+#[cfg(test)]
+mod totality_proptests;
+
 /// Does a decoder exist for this content type? Used by the
 /// `DecoderTotalityPerKind` axiom.
 ///

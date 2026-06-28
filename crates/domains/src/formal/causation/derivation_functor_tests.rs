@@ -25,11 +25,13 @@ use pr4xis::ontology::Axiom;
 // Layer 1 — structural functor laws (Mac Lane §I.3).
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn functor_laws() {
     assert_functor_laws::<CausationToDerivation>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kind_is_forgetful() {
     // Five `Cause` subtypes (Sufficient/Necessary/Proximate/Distal/
@@ -38,6 +40,7 @@ fn kind_is_forgetful() {
     assert_eq!(CausationToDerivation::KIND, FunctorKind::Forgetful);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_has_literature_citation() {
     let meta = CausationToDerivation::meta();
@@ -57,26 +60,31 @@ fn meta_has_literature_citation() {
 // source file is checked directly.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn axiom_effect_is_abductive_premise() {
     assert!(EffectIsAbductivePremise.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn axiom_cause_is_abductive_conclusion() {
     assert!(CauseIsAbductiveConclusion.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn axiom_counterfactual_dependence_grounds_conclusion() {
     assert!(CounterfactualDependenceGroundsConclusion.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn axiom_intervention_is_inference_rule() {
     assert!(InterventionIsInferenceRule.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn axiom_causal_graph_is_composed_abduction() {
     assert!(CausalGraphIsComposedAbduction.verify().is_ok());
@@ -87,6 +95,7 @@ fn axiom_causal_graph_is_composed_abduction() {
 // projection promised by the module-level docs.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn effect_projects_to_premise() {
     assert_eq!(
@@ -95,6 +104,7 @@ fn effect_projects_to_premise() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn all_cause_subtypes_collapse_to_conclusion() {
     use CausationConcept as C;
@@ -114,6 +124,7 @@ fn all_cause_subtypes_collapse_to_conclusion() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn counterfactual_pair_projects_to_justification() {
     use CausationConcept as C;
@@ -126,6 +137,7 @@ fn counterfactual_pair_projects_to_justification() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn intervention_projects_to_inference_rule() {
     assert_eq!(
@@ -134,6 +146,7 @@ fn intervention_projects_to_inference_rule() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn preemption_and_overdetermination_project_to_proof_step() {
     use CausationConcept as C;
@@ -146,6 +159,7 @@ fn preemption_and_overdetermination_project_to_proof_step() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn causal_graph_projects_to_composition() {
     assert_eq!(
@@ -158,6 +172,7 @@ fn causal_graph_projects_to_composition() {
 // Layer 3 — relation-kind dispatch.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn canonical_kinds_preserved() {
     use CausationRelationKind as S;
@@ -183,6 +198,7 @@ fn canonical_kinds_preserved() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn custom_kinds_project_to_canonical() {
     use CausationRelationKind as S;
@@ -222,6 +238,7 @@ fn custom_kinds_project_to_canonical() {
 // (Cause, Effect, Produces) edge: end-to-end check.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn produces_edge_realises_abductive_schema() {
     // Peirce (1903) Lecture VII:
@@ -239,6 +256,7 @@ fn produces_edge_realises_abductive_schema() {
     assert_eq!(projected.kind, DerivationRelationKind::Causation);
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn intervention_acts_on_cause_realises_pearl_do() {
     // Pearl (2000) §3.4: do(X) acts on a cause to read off effects.
@@ -254,6 +272,7 @@ fn intervention_acts_on_cause_realises_pearl_do() {
     assert_eq!(projected.kind, DerivationRelationKind::Causation);
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn counterfactual_grounds_cause_realises_lewis() {
     // Lewis (1973): the counterfactual grounds the causal claim.
@@ -395,3 +414,11 @@ proptest! {
         prop_assert_eq!(a, b);
     }
 }
+
+pr4xis::register_praxis_value!(
+    property_object_map_total_and_codomain_restricted,
+    Extensible
+);
+pr4xis::register_praxis_value!(property_kind_map_into_canonical, Extensible);
+pr4xis::register_praxis_value!(property_identity_preservation, Extensible);
+pr4xis::register_praxis_value!(property_object_map_deterministic, Deterministic);

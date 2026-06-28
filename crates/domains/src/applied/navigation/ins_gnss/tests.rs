@@ -11,32 +11,38 @@ use crate::applied::navigation::ins_gnss::state::InsGnssStateCategory;
 // Ontology
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn coupling_category_laws() {
     assert_category_laws::<InsGnssCategory>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn ins_gnss_state_category_laws() {
     assert_category_laws::<InsGnssStateCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ins_gnss_ontology_validates() {
     InsGnssOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn coasting_degrades_axiom() {
     assert!(CoastingDegrades.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gnss_update_reduces_error_axiom() {
     assert!(GnssUpdateReducesError.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tighter_coupling_better_axiom() {
     assert!(TighterCouplingBetter.verify().is_ok());
@@ -46,6 +52,7 @@ fn tighter_coupling_better_axiom() {
 // Coupling tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loosely_coupled_needs_4_satellites() {
     let mode = CouplingMode::for_level(CouplingLevel::LooselyCoupled);
@@ -54,6 +61,7 @@ fn loosely_coupled_needs_4_satellites() {
     assert!(mode.can_operate(8));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tightly_coupled_needs_1_satellite() {
     let mode = CouplingMode::for_level(CouplingLevel::TightlyCoupled);
@@ -62,12 +70,14 @@ fn tightly_coupled_needs_1_satellite() {
     assert!(mode.can_operate(4));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn deeply_coupled_needs_0_satellites() {
     let mode = CouplingMode::for_level(CouplingLevel::DeeplyCoupled);
     assert!(mode.can_operate(0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn coasting_error_grows_quadratically() {
     let bias = 0.01; // 1 mg in m/s^2
@@ -78,6 +88,7 @@ fn coasting_error_grows_quadratically() {
     assert!((ratio - 4.0).abs() < 0.01, "ratio = {}", ratio);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kalman_update_reduces_variance() {
     let prior = 100.0; // 10m 1-sigma
@@ -90,6 +101,7 @@ fn kalman_update_reduces_variance() {
 // Engine tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ins_propagation_increases_error() {
     let sit = InsGnssSituation {
@@ -106,6 +118,7 @@ fn ins_propagation_increases_error() {
     assert!(next.time_since_gnss > sit.time_since_gnss);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gnss_update_reduces_position_error() {
     let sit = InsGnssSituation {
@@ -130,6 +143,7 @@ fn gnss_update_reduces_position_error() {
     assert_eq!(next.state, InsGnssState::NavigationMode);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn loosely_coupled_rejects_insufficient_satellites() {
     let sit = InsGnssSituation {
@@ -230,4 +244,12 @@ mod proptest_proofs {
                 "GNSS should reduce error: {} vs {}", next.position_error, sit.position_error);
         }
     }
+
+    pr4xis::register_praxis_value!(coasting_error_is_monotonic_in_time, Verifiable);
+    pr4xis::register_praxis_value!(
+        kalman_update_always_reduces_or_maintains_variance,
+        Verifiable
+    );
+    pr4xis::register_praxis_value!(ins_propagation_never_decreases_error, Verifiable);
+    pr4xis::register_praxis_value!(gnss_update_always_improves_position, Verifiable);
 }

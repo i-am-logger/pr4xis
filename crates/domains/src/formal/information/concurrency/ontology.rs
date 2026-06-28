@@ -116,22 +116,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ConcurrencyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ConcurrencyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_concepts() {
         assert_eq!(ConcurrencyConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn agent_acts_on_shared_resource() {
         assert!(ConcurrencyCategory::morphisms().iter().any(|m| {
@@ -141,6 +145,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deadlock_arises_from_synchronization() {
         // Coffman, Elphick & Shoshani (1971).
@@ -150,6 +155,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn race_condition_arises_from_shared_resource() {
         // Lamport (1978).
@@ -159,6 +165,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hazards_marked() {
         assert_eq!(IsHazard.get(&ConcurrencyConcept::Deadlock), Some(true));
@@ -192,4 +199,8 @@ mod tests {
             prop_assert!(IsHazard.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_hazard_total, Verifiable);
 }

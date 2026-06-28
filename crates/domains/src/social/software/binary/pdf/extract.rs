@@ -383,6 +383,7 @@ mod tests {
 
     // ── End-to-end through Phases 2-5 ─────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn extract_decodes_winansi_ascii_round_trip() {
         let bytes = pdf_one_page_winansi_tj("Hello world");
@@ -393,6 +394,7 @@ mod tests {
         assert!(ext.pages[0].flagged.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_document_full_text_joins_pages_with_blank_line() {
         let bytes = pdf_one_page_winansi_tj("page one");
@@ -402,6 +404,7 @@ mod tests {
         assert_eq!(ext.full_text(), "page one");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_chunk_carries_page_and_font_name() {
         let bytes = pdf_one_page_winansi_tj("abc");
@@ -417,6 +420,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn missing_font_yields_failed_resolve_chunk() {
         // Build a page that references font /F1 but /Resources
@@ -455,6 +459,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn extract_is_deterministic_on_same_input() {
         let bytes = pdf_one_page_winansi_tj("determinism check");
@@ -464,6 +469,7 @@ mod tests {
         assert_eq!(e1, e2);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn page_out_of_range_returns_named_error() {
         let bytes = pdf_one_page_winansi_tj("x");
@@ -479,6 +485,7 @@ mod tests {
 
     // ── Section-boundary slicing (Bluebook §3.3) ───────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn slice_to_section_returns_section_body() {
         let text =
@@ -489,12 +496,14 @@ mod tests {
         assert!(!sliced.contains("Definitions"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn slice_to_section_returns_none_when_marker_missing() {
         let text = "no statute section here";
         assert!(slice_to_section(text, "§ 1514A").is_none());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn slice_to_section_is_idempotent() {
         let text = "§ 1514A. Header.\n(a) Whistleblower.\n§ 1515. Next section.";
@@ -503,6 +512,7 @@ mod tests {
         assert_eq!(once, twice);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn slice_to_section_preserves_subsection_pinpoints_within() {
         let text = "§ 1514A. Header.\n(a) Subsection.\n(b)(2)(C) Burden of proof.\n§ 1515. Next.";
@@ -511,6 +521,7 @@ mod tests {
         assert!(!sliced.contains("§ 1515"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn slice_to_section_stops_at_next_distinct_section() {
         let text = "§ 1514A. First.\nbody A.\n§ 1515. Second.\nbody B.";
@@ -633,4 +644,11 @@ mod tests {
             prop_assert_eq!(ext.flagged_count(), 0);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_ascii_round_trips_through_pipeline, Deterministic);
+    pr4xis::register_praxis_value!(prop_extract_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_chunk_page_matches_parent_page, Verifiable);
+    pr4xis::register_praxis_value!(prop_slice_to_section_is_substring, Verifiable);
+    pr4xis::register_praxis_value!(prop_slice_to_section_is_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_text_only_page_has_zero_flagged, Verifiable);
 }

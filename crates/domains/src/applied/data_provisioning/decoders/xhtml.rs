@@ -80,6 +80,7 @@ mod tests {
     const XML_INFOSET_PRX: &[u8] =
         include_bytes!("../../../../data/markup-schemas/xml/xml-infoset.prx");
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn decoder_round_trips_xml_infoset_bytes() {
         use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
@@ -91,6 +92,7 @@ mod tests {
         assert_eq!(doc.root.name.local, "html");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decoder_rejects_invalid_utf8() {
         let bad_bytes = [0xff, 0xfe, 0xfd, 0xfc];

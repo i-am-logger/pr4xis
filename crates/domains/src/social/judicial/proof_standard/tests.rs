@@ -17,11 +17,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<ProofStandardCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     ProofStandardOntology::validate()
@@ -32,12 +34,14 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn four_concepts() {
     // Root + 3 leaves.
     assert_eq!(ProofStandardConcept::variants().len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn three_leaves() {
     assert_eq!(leaves().len(), 3);
@@ -47,6 +51,7 @@ fn three_leaves() {
 // Stringency ordering
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn preponderance_lowest() {
     assert_eq!(
@@ -55,6 +60,7 @@ fn preponderance_lowest() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn beyond_reasonable_doubt_highest() {
     assert_eq!(
@@ -63,6 +69,7 @@ fn beyond_reasonable_doubt_highest() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn preponderance_below_clear_and_convincing() {
     let p = StringencyOf
@@ -79,6 +86,7 @@ fn preponderance_below_clear_and_convincing() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn at_least_as_stringent_is_total() {
     assert_eq!(
@@ -97,6 +105,7 @@ fn at_least_as_stringent_is_total() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn root_has_no_stringency() {
     assert_eq!(StringencyOf.get(&ProofStandardConcept::ProofStandard), None);
@@ -106,21 +115,25 @@ fn root_has_no_stringency() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_partition_completeness() {
     assert!(PartitionCompleteness.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_stringency_total_on_leaves() {
     assert!(StringencyIsTotalOnLeaves.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_beyond_reasonable_doubt_most_stringent() {
     assert!(BeyondReasonableDoubtIsMostStringent.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in ProofStandardOntology::axioms() {
@@ -193,3 +206,9 @@ proptest! {
         prop_assert_eq!(tiers.len(), original_len);
     }
 }
+
+pr4xis::register_praxis_value!(prop_stringency_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_at_least_reflexive, Verifiable);
+pr4xis::register_praxis_value!(prop_at_least_antisymmetric, Verifiable);
+pr4xis::register_praxis_value!(prop_at_least_transitive, Verifiable);
+pr4xis::register_praxis_value!(prop_tiers_unique, Verifiable);

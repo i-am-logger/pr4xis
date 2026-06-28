@@ -4,32 +4,38 @@ use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::ontology::{Axiom, Ontology};
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<GroundingCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     GroundingOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nineteen_concepts() {
     assert_eq!(GroundingConcept::variants().len(), 19);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_acts_classified() {
     assert!(AllActsClassified.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn presentation_has_consequence() {
     assert!(PresentationHasConsequence.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn common_ground_has_contributions() {
     let parts: Vec<_> = GroundingCategory::morphisms()
@@ -42,6 +48,7 @@ fn common_ground_has_contributions() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn info_state_has_gameboard() {
     let parts: Vec<_> = GroundingCategory::morphisms()
@@ -55,6 +62,7 @@ fn info_state_has_gameboard() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gameboard_has_qud() {
     let parts: Vec<_> = GroundingCategory::morphisms()
@@ -83,4 +91,6 @@ mod prop {
             prop_assert_eq!(GroundingCategory::compose(&id, &id), Some(id));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
 }

@@ -82,10 +82,12 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<AnatomyToVestibular>();
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn ihc_maps_to_type_i() {
         assert_eq!(
@@ -93,6 +95,7 @@ mod tests {
             VestibularEntity::TypeIHairCell
         );
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = VestibularEntity::variants();

@@ -6,17 +6,20 @@ use crate::applied::tracking::single_target::engine::*;
 use crate::applied::tracking::single_target::motion_model;
 use crate::applied::tracking::single_target::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn target_state_category_laws() {
     assert_category_laws::<SingleTargetCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn single_target_ontology_validates() {
     SingleTargetOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cv_tracker_converges_to_true_position() {
     let mut engine = new_cv_tracker_1d(0.0, 0.0, 100.0, 0.1, 1.0);
@@ -43,6 +46,7 @@ fn cv_tracker_converges_to_true_position() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cv_tracker_covariance_stays_psd() {
     let mut engine = new_cv_tracker_1d(0.0, 0.0, 100.0, 0.1, 1.0);
@@ -58,6 +62,7 @@ fn cv_tracker_covariance_stays_psd() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cv_motion_model_identity_at_zero_dt() {
     let (f, q) = motion_model::constant_velocity_1d(0.0, 0.1);
@@ -70,18 +75,21 @@ fn cv_motion_model_identity_at_zero_dt() {
     assert!(q.get(0, 0).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cv_motion_model_process_noise_is_symmetric() {
     let (_, q) = motion_model::constant_velocity_1d(1.0, 0.5);
     assert!(q.is_symmetric(1e-12));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ca_motion_model_process_noise_is_symmetric() {
     let (_, q) = motion_model::constant_acceleration_1d(1.0, 0.5);
     assert!(q.is_symmetric(1e-12));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn cv_2d_model_is_block_diagonal() {
     let (f, q) = motion_model::constant_velocity_2d(1.0, 0.5);
@@ -137,4 +145,9 @@ mod proptest_proofs {
             prop_assert!(e1.situation().estimate.state.data == e2.situation().estimate.state.data);
         }
     }
+
+    pr4xis::register_praxis_value!(cv_model_process_noise_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(ca_model_process_noise_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(cv_model_transition_at_zero_dt_is_identity, Verifiable);
+    pr4xis::register_praxis_value!(tracker_is_deterministic, Deterministic);
 }

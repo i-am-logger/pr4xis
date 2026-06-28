@@ -179,21 +179,25 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_number_systems() {
         assert_eq!(NumberConcept::variants().len(), 5);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<NumberCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn containment_chain_holds() {
         assert!(ContainmentChain.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn division_supported_in_q_r_c() {
         // Three of the five (Q, R, C) form fields.
@@ -205,6 +209,7 @@ mod tests {
         assert_eq!(count, 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn negative_sqrt_only_in_complex() {
         let q = SupportsNegativeSqrt;
@@ -215,6 +220,7 @@ mod tests {
         assert_eq!(count, 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn domain_ordering() {
         let order = DomainOrder;
@@ -224,6 +230,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         NumberOntology::validate()

@@ -3,36 +3,43 @@ use pr4xis::category::entity::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<PlanningCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     PlanningOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fourteen_concepts() {
     assert_eq!(PlanningConcept::variants().len(), 14);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn bdi_produces_intention() {
     assert!(BdiProducesIntention.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn effect_updates_common_ground() {
     assert!(EffectUpdatesCommonGround.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn goals_specialize() {
     assert!(GoalsSpecialize.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_concepts_have_role() {
     for c in PlanningConcept::variants() {
@@ -40,6 +47,7 @@ fn all_concepts_have_role() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn plan_reaches_common_ground() {
     // Plan → Action → … → CommonGround spans heterogeneous kinds. Per #166

@@ -4,32 +4,38 @@ use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<AlgebraCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     AlgebraOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fourteen_concepts() {
     assert_eq!(AlgebraConcept::variants().len(), 14);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn adjoint_triple_holds() {
     assert!(AdjointTriple.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn coproduct_product_dual_holds() {
     assert!(CoproductProductDual.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn coproduct_is_a_colimit() {
     let sub: Vec<_> = AlgebraCategory::morphisms()
@@ -40,6 +46,7 @@ fn coproduct_is_a_colimit() {
     assert!(sub.contains(&(AlgebraConcept::Coproduct, AlgebraConcept::Colimit)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn product_is_a_limit() {
     let sub: Vec<_> = AlgebraCategory::morphisms()
@@ -50,6 +57,7 @@ fn product_is_a_limit() {
     assert!(sub.contains(&(AlgebraConcept::Product, AlgebraConcept::Limit)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pushout_needs_span() {
     let parts: Vec<_> = AlgebraCategory::morphisms()
@@ -61,6 +69,7 @@ fn pushout_needs_span() {
     assert!(parts.contains(&(AlgebraConcept::Span, AlgebraConcept::Pushout)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_operation_total() {
     let q = IsOperation;
@@ -108,3 +117,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+pr4xis::register_praxis_value!(prop_is_operation_total, Verifiable);
+pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);

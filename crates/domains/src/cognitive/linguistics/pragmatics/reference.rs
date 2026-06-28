@@ -95,21 +95,25 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use pr4xis::category::{Category, FinitelyGenerated};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ReferenceCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eight_concepts() {
         assert_eq!(ReferenceConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_centering_transitions() {
         assert_eq!(CenteringTransition::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn drs_contains_referents() {
         let morphisms = ReferenceCategory::morphisms();
@@ -118,6 +122,7 @@ mod tests {
             && m.kind == ReferenceRelationKind::Contains));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn anaphor_resolves_to_referent() {
         let morphisms = ReferenceCategory::morphisms();
@@ -130,6 +135,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn centering_links_states() {
         let morphisms = ReferenceCategory::morphisms();
@@ -142,6 +148,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn accessibility_reaches_referents() {
         // Per #166 the auto-generated kind no longer emits `Composed`;

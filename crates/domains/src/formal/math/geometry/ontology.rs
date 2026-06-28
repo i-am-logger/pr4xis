@@ -706,23 +706,27 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<EuclideanGeometryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         EuclideanGeometryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_geometric_concepts() {
         // Hilbert's three primitives + Ray/Segment/Vector + Angle/Triangle/Circle/Sphere.
         assert_eq!(EuclideanGeometryConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn dimension_quality_total() {
         let q = GeometricDimension;
@@ -731,6 +735,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn dof_quality_total() {
         let q = DegreesOfFreedom;
@@ -739,6 +744,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hilbert_incidence_present() {
         // Hilbert Group I: Point on Line, Point on Plane, Line in Plane.
@@ -753,6 +759,7 @@ mod tests {
         assert!(inc.contains(&(E::Line, E::Plane)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn metric_axioms_hold() {
         assert!(MetricNonNegativity.verify().is_ok());
@@ -761,18 +768,21 @@ mod tests {
         assert!(TriangleInequality.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn euclidean_theorems_hold() {
         assert!(TriangleAngleSum.verify().is_ok());
         assert!(PythagoreanTheorem.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vector_space_axioms_hold() {
         assert!(VectorAdditionCommutativity.verify().is_ok());
         assert!(VectorAdditionAssociativity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inner_and_cross_product_laws_hold() {
         assert!(DotProductCommutativity.verify().is_ok());
@@ -780,11 +790,13 @@ mod tests {
         assert!(CrossProductPerpendicularity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn projection_idempotent_holds() {
         assert!(ProjectionIdempotent.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn betweenness_symmetry_holds() {
         assert!(BetweennessSymmetry.verify().is_ok());
@@ -825,4 +837,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_dimension_total, Explainable, Verifiable);
+    pr4xis::register_praxis_value!(prop_dof_total, Explainable, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable, Honest);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

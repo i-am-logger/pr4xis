@@ -211,22 +211,26 @@ mod tests {
 
     // ── Unit: word-boundary + target extraction ──────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn at_word_boundary_handles_string_start() {
         assert!(at_word_boundary("hello world", 0, 5));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn at_word_boundary_handles_string_end() {
         assert!(at_word_boundary("hello world", 6, 5));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn at_word_boundary_rejects_mid_word() {
         // "ell" inside "hello" — not a boundary on either side.
         assert!(!at_word_boundary("hello", 1, 3));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_target_stops_at_period() {
         assert_eq!(
@@ -235,11 +239,13 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_target_stops_at_semicolon() {
         assert_eq!(extract_target(" foo bar; more"), "foo bar");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_target_truncates_long_text() {
         let long = "x".repeat(500);
@@ -249,6 +255,7 @@ mod tests {
 
     // ── Unit: detect_in_body produces candidates ─────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn detects_shall_be_governed_by() {
         let mut out = Vec::new();
@@ -263,6 +270,7 @@ mod tests {
         assert_eq!(out[0].target_text, "section 42121(b) of title 49");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn detects_shall_be_governed_under() {
         let mut out = Vec::new();
@@ -276,6 +284,7 @@ mod tests {
         assert_eq!(out[0].phrase, "shall be governed under");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn detects_notwithstanding() {
         let mut out = Vec::new();
@@ -288,6 +297,7 @@ mod tests {
         assert_eq!(out[0].kind, RelationKind::AffirmativeDefenseTo);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn detects_except_as() {
         let mut out = Vec::new();
@@ -300,6 +310,7 @@ mod tests {
         assert_eq!(out[0].kind, RelationKind::Excludes);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn detects_multiple_phrases_in_one_body() {
         let mut out = Vec::new();
@@ -314,6 +325,7 @@ mod tests {
         assert!(kinds.contains(&RelationKind::AffirmativeDefenseTo));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn no_match_when_phrase_not_present() {
         let mut out = Vec::new();
@@ -325,6 +337,7 @@ mod tests {
         assert!(out.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn case_insensitive_match() {
         let mut out = Vec::new();
@@ -338,6 +351,7 @@ mod tests {
         assert_eq!(out[0].phrase, "SHALL BE GOVERNED BY");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn word_boundary_rejects_embedded_substring() {
         let mut out = Vec::new();
@@ -350,6 +364,7 @@ mod tests {
 
     // ── extract_relations tree-walking tests ─────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_skips_root() {
         let tree = parse_statute_text(
@@ -363,6 +378,7 @@ mod tests {
         assert!(rels.is_empty(), "got: {rels:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_walks_nested_children() {
         let text = "(a) outer body\n(1) inner body shall be governed by section 42121(b).";
@@ -392,6 +408,7 @@ mod tests {
             .push(PinpointCitationConcept::Section, "42121")
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_sox_finds_governed_by_cross_references() {
         let tree =
@@ -424,6 +441,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_sox_governed_by_attributed_to_b2a_and_b2c() {
         let tree =
@@ -447,6 +465,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_air21_finds_notwithstanding_in_burden_clause_ii() {
         let tree = parse_statute_text(
@@ -480,6 +499,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_extracted_relation_from_cite_is_findable() {
         // Property: every from_cite resolves to a node in the tree.
@@ -495,6 +515,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn print_relation_summary() {
         let sox =

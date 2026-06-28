@@ -95,10 +95,12 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<PathologyToDevices>();
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn conductive_maps_to_baha() {
         assert_eq!(
@@ -106,6 +108,7 @@ mod tests {
             DeviceEntity::BoneAnchoredHearingAid
         );
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn neuropathy_maps_to_ci() {
         assert_eq!(
@@ -113,6 +116,7 @@ mod tests {
             DeviceEntity::CochlearImplant
         );
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = DeviceEntity::variants();

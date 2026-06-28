@@ -122,22 +122,26 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SystemCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SystemOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_system_concepts() {
         assert_eq!(SystemConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cybernetic_loop_classification() {
         let q = IsCyberneticLoop;
@@ -192,4 +196,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_cybernetic_loop_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

@@ -60,11 +60,13 @@ impl Quality for IsConsonant {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_12_pitch_classes() {
         assert_eq!(PitchClass::variants().len(), 12);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_note_name_quality() {
         let quality = NoteName;
@@ -72,6 +74,7 @@ mod tests {
         assert_eq!(quality.get(&PitchClass(9)), Some("A".to_string()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_natural_quality() {
         let quality = IsNatural;
@@ -79,6 +82,7 @@ mod tests {
         assert_eq!(quality.get(&PitchClass(1)), Some(false)); // C#
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_consonant_quality() {
         let quality = IsConsonant;

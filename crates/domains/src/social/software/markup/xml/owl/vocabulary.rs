@@ -762,6 +762,7 @@ mod tests {
 
     // ── from_codegen round-trip on the real bundled CiTO ─────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn from_codegen_round_trips_cito() {
         let vocab = cito_vocabulary();
@@ -821,6 +822,7 @@ mod tests {
     /// two paths from two distinct parses therefore proves both the functor
     /// equivalence *and* that `read_owl` is order-stable across parses — a
     /// stronger guarantee than sharing one parse would give.
+    #[pr4xis::praxis_value(Extensible, Deterministic)]
     #[test]
     fn from_owl_ontology_equals_from_codegen_on_cito() {
         let owl = cito_2_8_1_owl();
@@ -859,6 +861,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn classes_and_properties_partition_entities() {
         let vocab = cito_vocabulary();
@@ -892,12 +895,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws_hold_on_cito() {
         ensure_cito_installed();
         assert_category_laws::<OwlVocabularyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn category_morphisms_include_identities_and_subsumptions() {
         ensure_cito_installed();
@@ -1133,4 +1138,8 @@ mod tests {
             prop_assert_eq!(via_owl, via_codegen);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_from_codegen_preserves_entities_and_edges, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumes_is_transitive, Verifiable);
+    pr4xis::register_praxis_value!(prop_from_owl_ontology_equals_from_codegen, Extensible);
 }

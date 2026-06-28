@@ -123,12 +123,14 @@ fn arb_severity() -> impl Strategy<Value = Severity> {
 // Source tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_source_tier_ordering() {
     assert!(SourceTier::tier1() < SourceTier::tier2());
     assert!(SourceTier::tier2() < SourceTier::tier3());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_severity_ordering() {
     assert!(Severity::Info < Severity::Critical);
@@ -138,6 +140,7 @@ fn test_severity_ordering() {
 // Rich enum tests — Answer
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_answer_yes_carries_context() {
     let answer = Answer::Yes {
@@ -148,6 +151,7 @@ fn test_answer_yes_carries_context() {
     assert_eq!(answer.tag(), AnswerTag::Yes);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_answer_partial_carries_context() {
     let answer = Answer::Partial {
@@ -162,6 +166,7 @@ fn test_answer_partial_carries_context() {
 // Rich enum tests — MotionStatus
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_pending_carries_filed_date() {
     let status = MotionStatus::Pending {
@@ -172,6 +177,7 @@ fn test_motion_pending_carries_filed_date() {
     assert_eq!(status.tag(), StatusTag::Pending);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_granted_carries_judge() {
     let status = MotionStatus::Granted {
@@ -182,6 +188,7 @@ fn test_motion_granted_carries_judge() {
     assert!(status.is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_lifecycle_with_act() {
     let motion = test_pending_motion();
@@ -213,6 +220,7 @@ fn test_motion_lifecycle_with_act() {
     assert!(motion.status.is_terminal());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_grant_pending_motion() {
     let motion = test_pending_motion();
@@ -228,6 +236,7 @@ fn test_cant_grant_pending_motion() {
 // Rich enum tests — CasePhase
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_filed_carries_court() {
     let phase = CasePhase::Filed {
@@ -238,6 +247,7 @@ fn test_case_filed_carries_court() {
     assert!(!phase.is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_closed_carries_reason() {
     let phase = CasePhase::Closed {
@@ -253,6 +263,7 @@ fn test_case_closed_carries_reason() {
 // Case lifecycle tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_full_case_lifecycle() {
     let mut case = Case::new("Smith v. Corp");
@@ -291,6 +302,7 @@ fn test_full_case_lifecycle() {
     assert_eq!(case.phase.tag(), PhaseTag::PostTrial);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_settlement_with_terms() {
     let mut case = Case::new("Test");
@@ -310,6 +322,7 @@ fn test_settlement_with_terms() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_dismissal_with_prejudice() {
     let mut case = Case::new("Test");
@@ -331,6 +344,7 @@ fn test_dismissal_with_prejudice() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_act_on_closed_case() {
     let mut case = Case::new("Test");
@@ -352,6 +366,7 @@ fn test_cant_act_on_closed_case() {
 // Element tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_element_all_met() {
     let check = ElementCheck {
@@ -385,6 +400,7 @@ fn test_element_all_met() {
     assert_eq!(check.tally(), (2, 0, 0, 0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_element_not_all_met() {
     let check = ElementCheck {
@@ -421,6 +437,7 @@ fn test_element_not_all_met() {
 // Ontology tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ontology_registry() {
     let mut registry = OntologyRegistry::new();
@@ -641,6 +658,24 @@ proptest! {
         }
     }
 }
+pr4xis::register_praxis_value!(prop_terminal_no_transitions, Verifiable);
+pr4xis::register_praxis_value!(prop_non_terminal_has_transitions, Verifiable);
+pr4xis::register_praxis_value!(prop_phase_terminal_no_transitions, Verifiable);
+pr4xis::register_praxis_value!(prop_only_closed_terminal, Verifiable);
+pr4xis::register_praxis_value!(prop_severity_total, Verifiable);
+pr4xis::register_praxis_value!(prop_tier_ordering, Verifiable);
+pr4xis::register_praxis_value!(prop_only_yes_is_met, Verifiable);
+pr4xis::register_praxis_value!(prop_tally_sums, Verifiable);
+pr4xis::register_praxis_value!(prop_all_met_iff_all_yes, Verifiable);
+pr4xis::register_praxis_value!(prop_new_case_prefiling, Verifiable);
+pr4xis::register_praxis_value!(prop_filing_transitions, Verifiable);
+pr4xis::register_praxis_value!(prop_settlement_closes, Verifiable);
+pr4xis::register_praxis_value!(prop_dismissal_closes, Verifiable);
+pr4xis::register_praxis_value!(prop_authority_weight, Verifiable);
+pr4xis::register_praxis_value!(prop_constitution_highest, Verifiable);
+pr4xis::register_praxis_value!(prop_terminal_motion_rejects_all, Honest);
+pr4xis::register_praxis_value!(prop_pending_can_oppose, Verifiable);
+pr4xis::register_praxis_value!(prop_filed_date_preserved, Verifiable);
 
 // =============================================================================
 // Helper factories for new tests
@@ -758,6 +793,7 @@ fn test_law_firm() -> Concept {
 // fact.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_value_currency() {
     let v = FactValue::Currency {
@@ -772,6 +808,7 @@ fn test_fact_value_currency() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_value_percentage() {
     let v = FactValue::Percentage {
@@ -787,6 +824,7 @@ fn test_fact_value_percentage() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_value_count() {
     let v = FactValue::Count {
@@ -799,6 +837,7 @@ fn test_fact_value_count() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_value_duration() {
     let v = FactValue::Duration {
@@ -812,6 +851,7 @@ fn test_fact_value_duration() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_value_rating() {
     let v = FactValue::Rating {
@@ -823,12 +863,14 @@ fn test_fact_value_rating() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_value_text() {
     let v = FactValue::Text("arbitrary text".into());
     assert_eq!(v, FactValue::Text("arbitrary text".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_date_precision_variants() {
     assert_eq!(DatePrecision::Exact, DatePrecision::Exact);
@@ -837,6 +879,7 @@ fn test_date_precision_variants() {
     assert_ne!(DatePrecision::Year, DatePrecision::Approximate);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_narrative_step_and_narrative() {
     let step = NarrativeStep {
@@ -855,6 +898,7 @@ fn test_narrative_step_and_narrative() {
     assert_eq!(narrative.significance, "establishes timeline");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_with_all_fields() {
     let fact = Fact {
@@ -880,6 +924,7 @@ fn test_fact_with_all_fields() {
     assert_eq!(fact.severity, Some(Severity::Critical));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_temporal_proximity() {
     let from = test_fact("complaint filed");
@@ -894,6 +939,7 @@ fn test_temporal_proximity() {
     assert_eq!(proximity.significance, "suspicious timing");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_integrity_issue_backdated() {
     let issue = IntegrityIssue::Backdated {
@@ -906,6 +952,7 @@ fn test_integrity_issue_backdated() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_integrity_issue_created_after_litigation() {
     let issue = IntegrityIssue::CreatedAfterLitigation {
@@ -921,6 +968,7 @@ fn test_integrity_issue_created_after_litigation() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_integrity_issue_unsigned_and_incomplete() {
     let unsigned = IntegrityIssue::Unsigned;
@@ -934,6 +982,7 @@ fn test_integrity_issue_unsigned_and_incomplete() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_integrity() {
     let integrity = DocumentIntegrity {
@@ -947,6 +996,7 @@ fn test_document_integrity() {
     assert_eq!(integrity.issues.len(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_severity_all_orderings() {
     assert!(Severity::Info < Severity::Low);
@@ -960,6 +1010,7 @@ fn test_severity_all_orderings() {
 // rule.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_rule_construction() {
     let rule = Rule {
@@ -981,6 +1032,7 @@ fn test_rule_construction() {
     assert_eq!(rule.consequence.recommendation, Recommendation::Sanction);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_fact_exists() {
     let cond = Condition::FactExists(FactMatcher::ClaimContains("fraud".into()));
@@ -991,6 +1043,7 @@ fn test_condition_fact_exists() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_temporal_proximity_within() {
     let cond = Condition::TemporalProximityWithin {
@@ -1003,12 +1056,14 @@ fn test_condition_temporal_proximity_within() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_severity_at_least() {
     let cond = Condition::SeverityAtLeast(Severity::High);
     assert_eq!(cond, Condition::SeverityAtLeast(Severity::High));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_all_of() {
     let cond = Condition::AllOf(vec![
@@ -1020,6 +1075,7 @@ fn test_condition_all_of() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_any_of() {
     let cond = Condition::AnyOf(vec![
@@ -1031,6 +1087,7 @@ fn test_condition_any_of() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_not() {
     let inner = Condition::FactExists(FactMatcher::Any);
@@ -1040,6 +1097,7 @@ fn test_condition_not() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_term_satisfied() {
     let cond = Condition::TermSatisfied("retaliation:protected_activity".into());
@@ -1049,6 +1107,7 @@ fn test_condition_term_satisfied() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fact_matcher_variants() {
     let _ = FactMatcher::ClaimContains("test".into());
@@ -1065,6 +1124,7 @@ fn test_fact_matcher_variants() {
     let _ = FactMatcher::Any;
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_consequence_and_recommendation() {
     let consequence = Consequence {
@@ -1082,6 +1142,7 @@ fn test_consequence_and_recommendation() {
     assert_ne!(Recommendation::Sanction, Recommendation::NoAction);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_rule_evaluation_triggered() {
     let eval = RuleEvaluation {
@@ -1100,6 +1161,7 @@ fn test_rule_evaluation_triggered() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_rule_evaluation_not_triggered() {
     let eval = RuleEvaluation {
@@ -1120,6 +1182,7 @@ fn test_rule_evaluation_not_triggered() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_rule_evaluation_partial() {
     let eval = RuleEvaluation {
@@ -1136,6 +1199,7 @@ fn test_rule_evaluation_partial() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_condition_status_variants() {
     let met = ConditionStatus::Met;
@@ -1173,6 +1237,7 @@ fn test_condition_status_variants() {
 // finding.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_finding_construction() {
     let finding = test_finding("Backdating discovered");
@@ -1183,6 +1248,7 @@ fn test_finding_construction() {
     assert!(finding.analyzed_at.is_some());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_finding_without_optional_fields() {
     let finding = Finding {
@@ -1198,6 +1264,7 @@ fn test_finding_without_optional_fields() {
     assert!(finding.facts.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_contradiction() {
     let contradiction = Contradiction {
@@ -1211,6 +1278,7 @@ fn test_contradiction() {
     assert_eq!(contradiction.claimed_by.name(), "Defendant");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ruling_merits_granted() {
     let ruling = Ruling::Merits(MeritsRuling {
@@ -1230,6 +1298,7 @@ fn test_ruling_merits_granted() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ruling_merits_denied() {
     let ruling = MeritsRuling {
@@ -1247,6 +1316,7 @@ fn test_ruling_merits_denied() {
     assert!(ruling.judge.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ruling_merits_granted_in_part() {
     let outcome = MeritsOutcome::GrantedInPart {
@@ -1259,6 +1329,7 @@ fn test_ruling_merits_granted_in_part() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ruling_procedural_dismissed_with_prejudice() {
     let ruling = Ruling::Procedural(ProceduralRuling {
@@ -1280,6 +1351,7 @@ fn test_ruling_procedural_dismissed_with_prejudice() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_procedural_outcome_variants() {
     let dwop = ProceduralOutcome::DismissedWithoutPrejudice {
@@ -1321,6 +1393,7 @@ fn test_procedural_outcome_variants() {
 // argument.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_argument_construction() {
     let arg = Argument {
@@ -1339,6 +1412,7 @@ fn test_argument_construction() {
     assert_eq!(arg.standards.len(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_counterargument_weak() {
     let ca = Counterargument {
@@ -1351,6 +1425,7 @@ fn test_counterargument_weak() {
     assert!(matches!(ca.strength, CounterStrength::Weak { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_counterargument_moderate() {
     let ca = Counterargument {
@@ -1363,6 +1438,7 @@ fn test_counterargument_moderate() {
     assert!(matches!(ca.strength, CounterStrength::Moderate { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_counterargument_strong() {
     let ca = Counterargument {
@@ -1377,6 +1453,7 @@ fn test_counterargument_strong() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_check_item() {
     let item = CheckItem {
@@ -1391,6 +1468,7 @@ fn test_check_item() {
     assert_eq!(item.evidence.len(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_argument_with_counterarguments_and_checklist() {
     let arg = Argument {
@@ -1454,6 +1532,7 @@ fn test_argument_with_counterarguments_and_checklist() {
 // source.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_source_tier_constructors() {
     assert_eq!(SourceTier::tier1().0, 1);
@@ -1462,6 +1541,7 @@ fn test_source_tier_constructors() {
     assert_eq!(SourceTier::tier4().0, 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_source_tier_full_ordering() {
     assert!(SourceTier::tier1() < SourceTier::tier2());
@@ -1470,6 +1550,7 @@ fn test_source_tier_full_ordering() {
     assert!(SourceTier::tier1() < SourceTier::tier4());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_source_ref_with_url() {
     let sr = test_source_ref();
@@ -1477,6 +1558,7 @@ fn test_source_ref_with_url() {
     assert_eq!(sr.tier, SourceTier::tier2());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_source_ref_without_url() {
     let sr = SourceRef {
@@ -1487,6 +1569,7 @@ fn test_source_ref_without_url() {
     assert!(sr.url.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_verification_verified() {
     let v = Verification::Verified {
@@ -1506,6 +1589,7 @@ fn test_verification_verified() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_verification_partial() {
     let v = Verification::Partial {
@@ -1517,6 +1601,7 @@ fn test_verification_partial() {
     assert!(matches!(v, Verification::Partial { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_verification_unverified() {
     let v1 = Verification::Unverified { reason: None };
@@ -1527,6 +1612,7 @@ fn test_verification_unverified() {
     assert!(matches!(v2, Verification::Unverified { reason: Some(_) }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_verification_stale() {
     let verified_at = now() - chrono::Duration::days(365);
@@ -1544,6 +1630,7 @@ fn test_verification_stale() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_court_docket() {
     let dt = DocumentType::CourtDocket {
@@ -1563,6 +1650,7 @@ fn test_document_type_court_docket() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_press_article() {
     let dt = DocumentType::PressArticle {
@@ -1573,6 +1661,7 @@ fn test_document_type_press_article() {
     assert!(matches!(dt, DocumentType::PressArticle { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_legal_opinion() {
     let dt = DocumentType::LegalOpinion {
@@ -1582,6 +1671,7 @@ fn test_document_type_legal_opinion() {
     assert!(matches!(dt, DocumentType::LegalOpinion { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_exhibit() {
     let dt = DocumentType::Exhibit {
@@ -1594,6 +1684,7 @@ fn test_document_type_exhibit() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_declaration() {
     let dt = DocumentType::Declaration {
@@ -1603,6 +1694,7 @@ fn test_document_type_declaration() {
     assert!(matches!(dt, DocumentType::Declaration { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_policy_report() {
     let dt = DocumentType::PolicyReport {
@@ -1612,6 +1704,7 @@ fn test_document_type_policy_report() {
     assert!(matches!(dt, DocumentType::PolicyReport { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_regulatory_filing() {
     let dt = DocumentType::RegulatoryFiling {
@@ -1622,6 +1715,7 @@ fn test_document_type_regulatory_filing() {
     assert!(matches!(dt, DocumentType::RegulatoryFiling { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_spreadsheet() {
     let dt = DocumentType::Spreadsheet {
@@ -1631,6 +1725,7 @@ fn test_document_type_spreadsheet() {
     assert!(matches!(dt, DocumentType::Spreadsheet { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_recording() {
     let dt = DocumentType::Recording {
@@ -1649,6 +1744,7 @@ fn test_document_type_recording() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_document_type_website() {
     let dt = DocumentType::Website {
@@ -1658,6 +1754,7 @@ fn test_document_type_website() {
     assert!(matches!(dt, DocumentType::Website { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_archive() {
     let archive = Archive {
@@ -1670,6 +1767,7 @@ fn test_archive() {
     assert!(archive.sha256.is_some());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_archive_minimal() {
     let archive = Archive {
@@ -1681,6 +1779,7 @@ fn test_archive_minimal() {
     assert!(archive.text_path.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_source_full() {
     let source = Source {
@@ -1713,36 +1812,42 @@ fn test_source_full() {
 // entity.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_entity_name_person() {
     let e = test_movant();
     assert_eq!(e.name(), "Plaintiff");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_entity_name_corporation() {
     let e = test_corporation();
     assert_eq!(e.name(), "Acme Corp");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_entity_name_law_firm() {
     let e = test_law_firm();
     assert_eq!(e.name(), "Smith & Associates");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_entity_name_agency() {
     let e = test_agency();
     assert_eq!(e.name(), "SEC");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_entity_name_court() {
     let e = test_court();
     assert_eq!(e.name(), "District Court");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_court_with_district_and_circuit() {
     let court = Concept::Court(Court {
@@ -1757,6 +1862,7 @@ fn test_court_with_district_and_circuit() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_person_with_organization() {
     let firm = Concept::LawFirm(LawFirm {
@@ -1777,6 +1883,7 @@ fn test_person_with_organization() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_corporate_structure_public() {
     let corp = Corporation {
@@ -1788,6 +1895,7 @@ fn test_corporate_structure_public() {
     assert!(matches!(corp.structure, CorporateStructure::PublicCompany));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_corporate_structure_subsidiary() {
     let parent = test_corporation();
@@ -1804,6 +1912,7 @@ fn test_corporate_structure_subsidiary() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_corporate_structure_spinoff() {
     let parent = test_corporation();
@@ -1814,6 +1923,7 @@ fn test_corporate_structure_spinoff() {
     assert!(matches!(spin, CorporateStructure::SpinOff { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_corporate_structure_joint_venture() {
     let jv = CorporateStructure::JointVenture {
@@ -1824,12 +1934,14 @@ fn test_corporate_structure_joint_venture() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_corporate_structure_partnership_and_private() {
     let _ = CorporateStructure::Partnership;
     let _ = CorporateStructure::Private;
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_tenure() {
     let current = Tenure::Current {
@@ -1843,6 +1955,7 @@ fn test_tenure() {
     assert!(matches!(former, Tenure::Former { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_representation_status() {
     let current = RepresentationStatus::Current {
@@ -1855,6 +1968,7 @@ fn test_representation_status() {
     assert!(matches!(former, RepresentationStatus::Former { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_relationship_corporate() {
     let rel = Relationship::Corporate {
@@ -1875,6 +1989,7 @@ fn test_relationship_corporate() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_relationship_employment() {
     let rel = Relationship::Employment {
@@ -1893,6 +2008,7 @@ fn test_relationship_employment() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_relationship_legal() {
     let rel = Relationship::Legal {
@@ -1908,6 +2024,7 @@ fn test_relationship_legal() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_relationship_supply_chain() {
     let rel = Relationship::SupplyChain {
@@ -1930,6 +2047,7 @@ fn test_relationship_supply_chain() {
 // authority.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_authority_weight_all_variants() {
     let constitution = Authority::Constitution {
@@ -1986,6 +2104,7 @@ fn test_authority_weight_all_variants() {
     assert_eq!(professional.weight(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_authority_weight_decreasing() {
     let weights = [
@@ -2045,6 +2164,7 @@ fn test_authority_weight_decreasing() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_statute_construction() {
     let s = test_statute();
@@ -2053,6 +2173,7 @@ fn test_statute_construction() {
     assert!(s.text.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_law_construction() {
     let cl = test_case_law();
@@ -2060,6 +2181,7 @@ fn test_case_law_construction() {
     assert!(cl.quote.is_some());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_precedent() {
     let established = test_case_law();
@@ -2089,6 +2211,7 @@ fn test_precedent() {
     assert!(precedent.overruled.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_citation_statute() {
     let c = Citation::Statute {
@@ -2106,6 +2229,7 @@ fn test_citation_statute() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_citation_regulation() {
     let c = Citation::Regulation {
@@ -2116,6 +2240,7 @@ fn test_citation_regulation() {
     assert!(matches!(c, Citation::Regulation { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_citation_case_law() {
     let c = Citation::CaseLaw {
@@ -2132,6 +2257,7 @@ fn test_citation_case_law() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_citation_supreme_court() {
     let c = Citation::SupremeCourt {
@@ -2143,6 +2269,7 @@ fn test_citation_supreme_court() {
     assert!(matches!(c, Citation::SupremeCourt { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_citation_professional_rule() {
     let c = Citation::ProfessionalRule {
@@ -2152,6 +2279,7 @@ fn test_citation_professional_rule() {
     assert!(matches!(c, Citation::ProfessionalRule { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_citation_administrative_ruling() {
     let c = Citation::AdministrativeRuling {
@@ -2162,11 +2290,13 @@ fn test_citation_administrative_ruling() {
     assert!(matches!(c, Citation::AdministrativeRuling { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binding_status() {
     assert_ne!(BindingStatus::Binding, BindingStatus::Persuasive);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_jurisdiction_variants() {
     let federal = Jurisdiction::Federal;
@@ -2181,6 +2311,7 @@ fn test_jurisdiction_variants() {
     assert_ne!(state, international);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_appellate_authority_with_precedent() {
     let established = test_case_law();
@@ -2208,6 +2339,7 @@ fn test_appellate_authority_with_precedent() {
 // ontology.rs tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ontology_registry_get_category() {
     let mut registry = OntologyRegistry::new();
@@ -2223,12 +2355,14 @@ fn test_ontology_registry_get_category() {
     assert!(registry.get_category("nonexistent").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ontology_registry_default() {
     let registry = OntologyRegistry::default();
     assert!(registry.categories.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_ontology_registry_multiple_categories() {
     let mut registry = OntologyRegistry::new();
@@ -2279,6 +2413,7 @@ fn test_ontology_registry_multiple_categories() {
     assert!(registry.get_term("nonexistent").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_legal_term_full() {
     let term = LegalTerm {
@@ -2340,6 +2475,7 @@ fn test_legal_term_full() {
 // trichotomy with no single-primary-source attestation; deleted per the
 // bottom-up-loaded principle.
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_proof_standard_variants() {
     assert_ne!(
@@ -2363,6 +2499,7 @@ fn test_proof_standard_variants() {
 // `Duration { unit: Identifier, count: u32 }` is exercised through
 // `Deadline` integration tests below.
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_evidence_type_variants() {
     let types = [
@@ -2383,12 +2520,14 @@ fn test_evidence_type_variants() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_requirement_level_variants() {
     assert_ne!(RequirementLevel::Required, RequirementLevel::Recommended);
     assert_ne!(RequirementLevel::Recommended, RequirementLevel::Optional);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_validation_completeness_variants() {
     let complete = ValidationCompleteness::Complete;
@@ -2402,6 +2541,7 @@ fn test_validation_completeness_variants() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_legal_relation() {
     let rel = LegalRelation {
@@ -2420,6 +2560,7 @@ fn test_legal_relation() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_relation_type_variants() {
     let _ = RelationType::Requires;
@@ -2445,6 +2586,7 @@ fn test_relation_type_variants() {
     let _ = RelationType::ExhaustionRequiredFor;
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_legal_category_with_relations() {
     let cat = LegalCategory {
@@ -2495,6 +2637,7 @@ fn test_legal_category_with_relations() {
 // ontology.rs — Category trait, Quality, Axiom tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_phase_tag_entity_variants() {
     let variants = <PhaseTag as FinitelyGenerated>::variants();
@@ -2503,6 +2646,7 @@ fn test_phase_tag_entity_variants() {
     assert!(variants.contains(&PhaseTag::Closed));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_phase_transition_rel_source_target() {
     use pr4xis::category::Arrow;
@@ -2514,12 +2658,14 @@ fn test_phase_transition_rel_source_target() {
     assert_eq!(rel.target(), PhaseTag::Discovery);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn case_lifecycle_category_laws() {
     use pr4xis::category::laws::assert_category_laws;
     assert_category_laws::<CaseLifecycleCategory>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_case_lifecycle_category_identity() {
     let id = CaseLifecycleCategory::identity(&PhaseTag::Discovery);
@@ -2527,6 +2673,7 @@ fn test_case_lifecycle_category_identity() {
     assert_eq!(id.to, PhaseTag::Discovery);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_case_lifecycle_category_compose_valid() {
     let f = PhaseTransitionRel {
@@ -2544,6 +2691,7 @@ fn test_case_lifecycle_category_compose_valid() {
     assert_eq!(c.to, PhaseTag::Discovery);
 }
 
+#[pr4xis::praxis_value(Honest, Deterministic)]
 #[test]
 fn test_case_lifecycle_category_compose_invalid() {
     let f = PhaseTransitionRel {
@@ -2559,6 +2707,7 @@ fn test_case_lifecycle_category_compose_invalid() {
     assert!(composed.is_none());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_case_lifecycle_category_morphisms_include_identities() {
     let morphisms = CaseLifecycleCategory::morphisms();
@@ -2571,6 +2720,7 @@ fn test_case_lifecycle_category_morphisms_include_identities() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_lifecycle_category_morphisms_include_direct_transitions() {
     let morphisms = CaseLifecycleCategory::morphisms();
@@ -2586,6 +2736,7 @@ fn test_case_lifecycle_category_morphisms_include_direct_transitions() {
     }));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_case_lifecycle_category_morphisms_include_composites() {
     let morphisms = CaseLifecycleCategory::morphisms();
@@ -2596,6 +2747,7 @@ fn test_case_lifecycle_category_morphisms_include_composites() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_is_terminal_phase_quality() {
     let q = IsTerminalPhase;
@@ -2605,6 +2757,7 @@ fn test_is_terminal_phase_quality() {
     assert!(q.get(&PhaseTag::Trial).is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_only_closed_is_terminal_axiom() {
     let axiom = OnlyClosedIsTerminal;
@@ -2615,6 +2768,7 @@ fn test_only_closed_is_terminal_axiom() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_no_dead_phases_axiom() {
     let axiom = NoDeadPhases;
@@ -2634,6 +2788,7 @@ fn test_no_dead_phases_axiom() {
 // terminal/phase state is queried directly through Case::phase and
 // PhaseTag::is_terminal, both of which remain.
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_phase_transition_precondition_on_closed() {
     let precond = PhaseTransition;
@@ -2655,6 +2810,7 @@ fn test_phase_transition_precondition_on_closed() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_phase_transition_precondition_wrong_phase_for_file() {
     let precond = PhaseTransition;
@@ -2674,6 +2830,7 @@ fn test_phase_transition_precondition_wrong_phase_for_file() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_phase_transition_precondition_valid_action() {
     let precond = PhaseTransition;
@@ -2691,6 +2848,7 @@ fn test_phase_transition_precondition_valid_action() {
     assert!(result.is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_phase_transition_precondition_invalid_transition() {
     let precond = PhaseTransition;
@@ -2704,6 +2862,7 @@ fn test_phase_transition_precondition_invalid_transition() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_phase_transition_file_motion_in_wrong_phase() {
     let precond = PhaseTransition;
@@ -2718,6 +2877,7 @@ fn test_phase_transition_file_motion_in_wrong_phase() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_phase_transition_file_motion_in_valid_phase() {
     let precond = PhaseTransition;
@@ -2740,6 +2900,7 @@ fn test_phase_transition_file_motion_in_valid_phase() {
 // `describe()` — descriptive metadata lives on the Proof/Counterexample
 // meta() returned by check().
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_new_case_engine() {
     let engine = new_case("Test v. Corp");
@@ -2747,6 +2908,7 @@ fn test_new_case_engine() {
     assert_eq!(engine.step(), 0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_next_valid() {
     let engine = new_case("Test v. Corp");
@@ -2760,6 +2922,7 @@ fn test_engine_next_valid() {
     assert_eq!(engine.step(), 1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_next_invalid() {
     let engine = new_case("Test v. Corp");
@@ -2774,6 +2937,7 @@ fn test_engine_next_invalid() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_back_and_forward() {
     let engine = new_case("Test v. Corp");
@@ -2805,6 +2969,7 @@ fn test_engine_back_and_forward() {
     assert_eq!(engine.step(), 2);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_back_at_beginning() {
     let engine = new_case("Test v. Corp");
@@ -2812,6 +2977,7 @@ fn test_engine_back_at_beginning() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_forward_without_back() {
     let engine = new_case("Test v. Corp");
@@ -2825,6 +2991,7 @@ fn test_engine_forward_without_back() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_trace() {
     let engine = new_case("Test v. Corp");
@@ -2843,6 +3010,7 @@ fn test_engine_trace() {
     assert!(last.situation_after.is_some());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_trace_with_violation() {
     let engine = new_case("Test v. Corp");
@@ -2863,6 +3031,7 @@ fn test_engine_trace_with_violation() {
     assert!(violation_entries[0].situation_after.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_trace_dump() {
     let engine = new_case("Test v. Corp");
@@ -2881,6 +3050,7 @@ fn test_engine_trace_dump() {
     assert!(entries[0].applied(), "the File action should have applied");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_try_next_valid() {
     let engine = new_case("Test v. Corp");
@@ -2891,6 +3061,7 @@ fn test_engine_try_next_valid() {
     assert!(result.is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_try_next_invalid() {
     let engine = new_case("Test v. Corp");
@@ -2922,6 +3093,7 @@ fn test_engine_try_next_invalid() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_full_lifecycle() {
     let engine = new_case("Smith v. Corp");
@@ -2959,6 +3131,7 @@ fn test_engine_full_lifecycle() {
     assert!(!engine.situation().phase.tag().is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_settlement_is_terminal() {
     let engine = new_case("Test v. Corp");
@@ -2979,6 +3152,7 @@ fn test_engine_settlement_is_terminal() {
     assert_eq!(engine.situation().phase.tag(), PhaseTag::Closed);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_no_action_after_terminal() {
     let engine = new_case("Test v. Corp");
@@ -3002,6 +3176,7 @@ fn test_engine_no_action_after_terminal() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_next_clears_future() {
     let engine = new_case("Test v. Corp");
@@ -3035,6 +3210,7 @@ fn test_engine_next_clears_future() {
 // Additional lifecycle / decision edge case tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_deny_from_under_advisement() {
     let motion = test_pending_motion();
@@ -3060,6 +3236,7 @@ fn test_motion_deny_from_under_advisement() {
     assert!(motion.status.is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_grant_in_part() {
     let motion = test_pending_motion();
@@ -3086,6 +3263,7 @@ fn test_motion_grant_in_part() {
     assert!(motion.status.is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_declare_moot_from_pending() {
     let motion = test_pending_motion();
@@ -3099,6 +3277,7 @@ fn test_motion_declare_moot_from_pending() {
     assert!(motion.status.is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_withdraw_from_pending() {
     let motion = test_pending_motion();
@@ -3112,6 +3291,7 @@ fn test_motion_withdraw_from_pending() {
     assert!(motion.status.is_terminal());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_withdraw_without_reason() {
     let motion = test_pending_motion();
@@ -3126,6 +3306,7 @@ fn test_motion_withdraw_without_reason() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_motion_type_variants() {
     let _ = MotionType::PreliminaryInjunction {
@@ -3154,6 +3335,7 @@ fn test_motion_type_variants() {
     };
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_appeal_lifecycle() {
     let mut case = Case::new("Test v. Corp");
@@ -3187,6 +3369,7 @@ fn test_case_appeal_lifecycle() {
     assert_eq!(case.phase.tag(), PhaseTag::Appeal);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_events_are_recorded() {
     let mut case = Case::new("Test");
@@ -3205,6 +3388,7 @@ fn test_case_events_are_recorded() {
     assert_eq!(case.events.len(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_action_result_variants() {
     let ok = ActionResult::Ok {
@@ -3227,6 +3411,7 @@ fn test_action_result_variants() {
     assert!(!error.is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_close_reason_variants() {
     let settlement = CloseReason::Settlement {
@@ -3249,6 +3434,7 @@ fn test_close_reason_variants() {
     assert!(matches!(voluntary, CloseReason::Voluntary));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_impact_variants() {
     let positive = Impact::Positive {
@@ -3269,6 +3455,7 @@ fn test_impact_variants() {
     assert!(matches!(critical, Impact::Critical { .. }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_stakeholder_and_risk_comparison() {
     let stakeholder = Stakeholder {
@@ -3291,6 +3478,7 @@ fn test_stakeholder_and_risk_comparison() {
     assert_eq!(risk.stakeholders[0].if_denied.len(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_case_file_motion_and_rule_on_it() {
     let mut case = Case::new("Test");
@@ -3317,6 +3505,7 @@ fn test_case_file_motion_and_rule_on_it() {
     assert_eq!(case.motions[0].status.tag(), StatusTag::Opposed);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_case_rule_on_motion_not_found() {
     let mut case = Case::new("Test");
@@ -3426,3 +3615,9 @@ proptest! {
         prop_assert_eq!(recs[idx], recs[idx]);
     }
 }
+pr4xis::register_praxis_value!(prop_authority_weight_bounded, Verifiable);
+pr4xis::register_praxis_value!(prop_entity_name_nonempty, Explainable);
+pr4xis::register_praxis_value!(prop_source_tier_consistent, Verifiable);
+pr4xis::register_praxis_value!(prop_category_left_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_category_right_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_recommendation_eq, Verifiable);

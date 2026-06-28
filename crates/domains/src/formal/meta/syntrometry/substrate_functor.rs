@@ -66,6 +66,7 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
 
     /// Every substrate primitive has a canonical syntrometric representative.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_substrate_primitive_maps() {
         for p in Pr4xisSubstrateConcept::variants() {

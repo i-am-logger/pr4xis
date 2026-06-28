@@ -297,16 +297,19 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn engine_category_laws() {
         assert_category_laws::<EngineCategory>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn control_to_engine_functor_laws() {
         assert_functor_laws::<ControlToEngine>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn plant_maps_to_situation() {
         assert_eq!(
@@ -315,6 +318,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn model_maps_to_ontology() {
         // Conant-Ashby: the model IS the ontology
@@ -324,6 +328,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn feedback_maps_to_engine_cycle() {
         assert_eq!(

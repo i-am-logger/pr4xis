@@ -278,6 +278,7 @@ mod tests {
             .expect("default graph has a transition out of root")
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn starts_at_root_not_sticky() {
         let g = graph();
@@ -286,6 +287,7 @@ mod tests {
         assert!(!eng.situation().sticky);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn momentary_enter_then_release_returns_to_root() {
         let g = graph();
@@ -303,6 +305,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sticky_enter_ignores_release_but_exits_explicitly() {
         let g = graph();
@@ -317,6 +320,7 @@ mod tests {
         assert_eq!(eng.situation().mode, g.root, "explicit exit always works");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn illegal_transition_is_rejected() {
         let g = graph();
@@ -333,6 +337,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axioms_hold() {
         QuasimodeRevertsToRoot
@@ -401,4 +406,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_exit_to_root_always_reaches_root, Verifiable);
+    pr4xis::register_praxis_value!(prop_only_legal_modes_are_entered, Honest);
 }

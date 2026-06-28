@@ -86,16 +86,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<MolecularToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<MolecularToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         // For every molecular entity, mapping the identity morphism should yield
@@ -108,6 +111,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // The migrated Molecular category is kinded and partial (#166):
@@ -144,6 +148,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();
@@ -158,6 +163,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_piezo1_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -166,6 +172,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_piezo2_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -174,6 +181,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_trpv4_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -182,6 +190,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_nav_maps_to_ion_channel_modulation() {
         assert_eq!(
@@ -190,6 +199,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_glyr_maps_to_ion_channel_modulation() {
         assert_eq!(
@@ -198,6 +208,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cx26_maps_to_gap_junction_modulation() {
         assert_eq!(
@@ -206,6 +217,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cx43_maps_to_gap_junction_modulation() {
         assert_eq!(
@@ -214,6 +226,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_calcium_maps_to_signal() {
         assert_eq!(
@@ -222,6 +235,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_collagen_maps_to_mechanical_stimulation() {
         assert_eq!(

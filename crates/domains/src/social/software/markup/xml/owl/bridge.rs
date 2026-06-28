@@ -268,6 +268,7 @@ mod tests {
         LoadedOwlVocabulary::from_owl_ontology(&ont)
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn project_emits_raw_owl_generators_not_praxis_kinds() {
         // The structural projection carries the RAW OWL names — never a baked
@@ -296,6 +297,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn projection_preserves_the_concept_and_subsumption_stats() {
         // The catalog counts CONCEPTS (non-Form nodes) and SUBSUMPTION edges — the
@@ -326,6 +328,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible, Honest)]
     #[test]
     fn the_functor_loads_from_its_committed_prx_fail_closed() {
         // The projection LIVES in `owl_functor.prx` (Track C #203): the loader
@@ -362,6 +365,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn pipeline_materializes_a_real_subsumption_closure() {
         // The full functor-as-data pipeline: raw 'subsumes' → apply → 'Subsumption'

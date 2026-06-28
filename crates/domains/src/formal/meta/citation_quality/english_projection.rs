@@ -285,16 +285,19 @@ mod tests {
     use pr4xis::category::Functor;
     use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn target_category_laws_pass() {
         assert_category_laws::<CitationQualityEnglishLabelCategory>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_pass() {
         assert_functor_laws::<CitationQualityToEnglish>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_preserves_identity_explicit() {
         for c in CitationQualityConcept::variants() {
@@ -310,6 +313,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn project_concept_is_injective() {
         let labels: Vec<_> = CitationQualityConcept::variants()
@@ -326,6 +330,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable, Deterministic)]
     #[test]
     fn every_concept_has_nonempty_english_phrase() {
         for c in CitationQualityConcept::variants() {
@@ -341,6 +346,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn functor_meta_carries_citation() {
         let meta = CitationQualityToEnglish::meta();
@@ -393,4 +399,12 @@ mod tests {
             prop_assert_eq!(canonical_english_phrase(a), label_phrase(project_concept(a)));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_functor_preserves_composition, Extensible);
+    pr4xis::register_praxis_value!(prop_functor_preserves_identity, Extensible);
+    pr4xis::register_praxis_value!(
+        prop_object_map_injective_and_phrase_roundtrips,
+        Deterministic,
+        Verifiable
+    );
 }

@@ -480,37 +480,44 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ResilienceCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ResilienceOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn circuit_breaker_three_states_axiom_holds() {
         assert!(CircuitBreakerThreeStates.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn brooker_jitter_axiom_holds() {
         assert!(BrookerJitterStrategiesExist.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn otp_supervision_axiom_holds() {
         assert!(OtpSupervisionStrategies.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn circuit_breaker_transitions_axiom_holds() {
         assert!(CircuitBreakerTransitionsExist.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn roc_patterns_axiom_holds() {
         assert!(RocPatternsClassified.verify().is_ok());

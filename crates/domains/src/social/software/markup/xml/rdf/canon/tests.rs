@@ -10,6 +10,7 @@ use alloc::{format, string::String};
 /// `:p :q _:e0 . :p :r _:e1 . _:e0 :s :u . _:e1 :t :u .` canonicalizes
 /// with all-unique first-degree hashes, so each blank node gets a stable
 /// `c14n{N}` purely from the first-degree pass (no N-degree recursion).
+#[pr4xis::praxis_value(Verifiable, Deterministic)]
 #[test]
 fn spec_unique_hashes_example() {
     let input = "\
@@ -34,6 +35,7 @@ _:e1 <http://example.com/#t> <http://example.com/#u> .
 /// final issued map is `{e2: c14n0, e3: c14n1, e1: c14n2, e0: c14n3}`. We
 /// assert the resulting canonical form is the spec's serialized output and
 /// that the issued map matches those canonical labels.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn spec_shared_hashes_example() {
     let input = "\
@@ -61,6 +63,7 @@ _:e2 <http://example.com/#r> _:e3 .
 /// canonicalize to byte-identical output — the defining property of
 /// canonicalization (REC §3, dataset isomorphism). This is the cyclic case
 /// a content-addressed labelling cannot handle.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn isomorphic_relabelling_is_invariant() {
     let a = "\
@@ -79,6 +82,7 @@ _:y <http://ex/p> _:x .
 /// Simple-literal datatype elision (REC §"A Canonical form of N-Quads"):
 /// an explicit `^^xsd:string` MUST be dropped, so it is indistinguishable
 /// from a bare simple literal.
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn xsd_string_datatype_is_elided() {
     let with_dt =
@@ -101,6 +105,7 @@ fn xsd_string_datatype_is_elided() {
 ///    blank-node list of length 9 (9! = 362_880 > the 40_320 default), so
 ///    even with a generous call budget it is refused at the permutation
 ///    factorial guard, exactly as the negative suite test requires.
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn complexity_cap_errors_typed() {
     // Three mutually symmetric blank nodes — each pair shares a hash, so
@@ -154,6 +159,7 @@ _:e2 <http://ex/p> _:e1 .
 }
 
 /// Malformed N-Quads is a typed parse error, not a panic.
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn malformed_input_is_typed_error() {
     assert!(matches!(
@@ -170,6 +176,7 @@ fn malformed_input_is_typed_error() {
 /// re-serialization of a literal with control characters and a UCHAR must
 /// re-escape per the appendix table (`\t` ECHAR, control via lowercase
 /// `\u` + UPPER hex).
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn canonical_literal_escaping() {
     // Tab (ECHAR), a U+0001 control (UCHAR), and a native astral char.
@@ -183,6 +190,7 @@ fn canonical_literal_escaping() {
 
 /// Duplicate input triples collapse to one quad (a dataset is a *set*):
 /// REC ca.2 / the suite's test076.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn duplicate_triples_collapse() {
     let input = "\
@@ -196,6 +204,7 @@ fn duplicate_triples_collapse() {
 /// Named graphs: a quad in a named graph keeps its fourth component, and a
 /// blank-node graph name participates in canonicalization (REC §4.4.3
 /// step 2 treats it as a blank-node component).
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn named_graph_and_blank_graph_name() {
     let input = "\
@@ -216,6 +225,7 @@ _:b <http://ex/p> <http://ex/o> _:b .
 /// SHA-384 selection (the suite's test075) yields a *different* canonical
 /// labelling decision space than SHA-256 in general, but for an
 /// all-unique-hash graph both must still succeed and be idempotent.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sha384_algorithm_runs() {
     let input = "_:a <http://ex/p> <http://ex/o> .\n";

@@ -105,6 +105,7 @@ mod tests {
 
     use crate::cognitive::linguistics::english::bridge::{FORM_KIND, project_archive_with_forms};
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn grounds_only_the_content_words_english_knows() {
         // "a dog is an animal" — content words dog, animal (a/is/an are stopwords);
@@ -123,6 +124,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn an_unknown_word_is_left_ungrounded() {
         // "dog" grounds; "xyzzy" is not a written form English knows → no pointer.
@@ -136,6 +138,7 @@ mod tests {
     /// `AtomResolver`) into the word's `ontolex:Form` atom in `english_wordnet`,
     /// and the resolved target IS a Form (never a sense). The producer + G3a
     /// resolver + G3b-1 Form layer, joined.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_produced_pointer_resolves_to_a_form_atom() {
         let english = English::sample();
@@ -172,6 +175,7 @@ mod tests {
     /// English-hardcoding outside the lens; the same `ground` would carry a `cites`
     /// lens over the same substrate. This is the ontological replacement for the
     /// reverted string side-channel.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_content_archive_grounds_via_the_lens_and_resolves_to_forms() {
         use pr4xis_runtime::archive::Archive;

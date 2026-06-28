@@ -95,10 +95,12 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<EnvironmentToPathology>();
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn noise_dose_maps_to_hair_cell_loss() {
         assert_eq!(
@@ -106,6 +108,7 @@ mod tests {
             PathologyEntity::HairCellLoss
         );
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = PathologyEntity::variants();

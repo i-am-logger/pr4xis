@@ -17,11 +17,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<RequirementLevelCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     RequirementLevelOntology::validate()
@@ -32,11 +34,13 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn four_concepts() {
     assert_eq!(RequirementLevelConcept::variants().len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn three_leaves() {
     assert_eq!(leaves().len(), 3);
@@ -46,6 +50,7 @@ fn three_leaves() {
 // RFC 2119 parser
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_must_as_required() {
     assert_eq!(
@@ -54,6 +59,7 @@ fn parse_must_as_required() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_shall_as_required() {
     assert_eq!(
@@ -62,6 +68,7 @@ fn parse_shall_as_required() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_should_as_recommended() {
     assert_eq!(
@@ -70,6 +77,7 @@ fn parse_should_as_recommended() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_may_as_optional() {
     assert_eq!(
@@ -78,6 +86,7 @@ fn parse_may_as_optional() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parse_case_insensitive() {
     assert_eq!(
@@ -90,6 +99,7 @@ fn parse_case_insensitive() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_returns_none_on_non_keyword() {
     assert_eq!(parse_rfc2119("dog"), None);
@@ -100,6 +110,7 @@ fn parse_returns_none_on_non_keyword() {
 // Strictness ordering
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn strictness_ordering() {
     let o = Strictness.get(&RequirementLevelConcept::Optional).unwrap();
@@ -110,6 +121,7 @@ fn strictness_ordering() {
     assert!(o < r && r < q);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn root_has_no_strictness() {
     assert_eq!(
@@ -122,21 +134,25 @@ fn root_has_no_strictness() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_partition_completeness() {
     assert!(PartitionCompleteness.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_strictness_is_total_order() {
     assert!(StrictnessIsTotalOrder.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_required_and_optional_are_duals() {
     assert!(RequiredAndOptionalAreDuals.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in RequirementLevelOntology::axioms() {
@@ -178,3 +194,6 @@ proptest! {
         prop_assert_eq!(parse_rfc2119("OPTIONAL"), Some(RequirementLevelConcept::Optional));
     }
 }
+
+pr4xis::register_praxis_value!(prop_strictness_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_canonical_keywords_round_trip, Verifiable);

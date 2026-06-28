@@ -11,37 +11,44 @@ use crate::applied::navigation::celestial::ontology::*;
 // Ontology
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn celestial_body_category_laws() {
     assert_category_laws::<CelestialBodyCategory>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn celestial_observable_category_laws() {
     assert_category_laws::<CelestialObservableCategory>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn celestial_sensor_category_laws() {
     assert_category_laws::<CelestialCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn celestial_ontology_validates() {
     CelestialOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn two_sights_fix_axiom() {
     assert!(TwoSightsFix.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn star_tracker_most_accurate_axiom() {
     assert!(StarTrackerMostAccurate.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn atmospheric_refraction_axiom() {
     assert!(AtmosphericRefraction.verify().is_ok());
@@ -51,6 +58,7 @@ fn atmospheric_refraction_axiom() {
 // Engine tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn add_observation_increases_count() {
     let sit = CelestialSituation {
@@ -71,6 +79,7 @@ fn add_observation_increases_count() {
     assert_eq!(next.step, 1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn invalid_altitude_rejected() {
     let sit = CelestialSituation {
@@ -89,6 +98,7 @@ fn invalid_altitude_rejected() {
     assert!(apply_celestial(&sit, &CelestialAction::Observe(obs)).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn fix_needs_2_observations() {
     let sit = CelestialSituation {
@@ -106,6 +116,7 @@ fn fix_needs_2_observations() {
     assert!(apply_celestial(&sit, &CelestialAction::ComputeFix).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fix_with_two_observations() {
     // Assumed position: 45 N, 0 E
@@ -169,6 +180,7 @@ fn fix_with_two_observations() {
 // H2: asin domain clamping — extreme values should not produce NaN
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn celestial_fix_does_not_nan_on_extreme_declination() {
     // Extreme declinations can push sin_hc outside [-1,1] due to floating point.
@@ -208,6 +220,7 @@ fn celestial_fix_does_not_nan_on_extreme_declination() {
 // H3: Pole guard — fix at exactly 90 degrees latitude returns Err
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn celestial_fix_at_north_pole_returns_err() {
     let sit = CelestialSituation {
@@ -321,4 +334,8 @@ mod proptest_proofs {
             prop_assert_eq!(r1.step, r2.step);
         }
     }
+
+    pr4xis::register_praxis_value!(observation_count_monotonically_increases, Verifiable);
+    pr4xis::register_praxis_value!(valid_altitude_always_accepted, Verifiable);
+    pr4xis::register_praxis_value!(add_observation_is_deterministic, Deterministic);
 }

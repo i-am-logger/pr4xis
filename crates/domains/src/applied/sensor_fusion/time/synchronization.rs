@@ -88,6 +88,7 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interpolate_midpoint() {
         let (value, alpha) = interpolate(0.0, 10.0, 1.0, 20.0, 0.5);
@@ -95,6 +96,7 @@ mod tests {
         assert!((alpha - 0.5).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interpolate_at_endpoints() {
         let (v0, a0) = interpolate(0.0, 10.0, 1.0, 20.0, 0.0);
@@ -106,18 +108,21 @@ mod tests {
         assert!((a1 - 1.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extrapolate_forward() {
         let result = extrapolate(100.0, 2.0, 0.5);
         assert!((result - 101.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nearest_neighbor_returns_measurement() {
         let v = align_measurement(1.0, 42.0, 1.1, SyncStrategy::NearestNeighbor);
         assert!((v - 42.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sync_error_nearest_neighbor() {
         // At 100 Hz (period=0.01s) with max rate 10 m/s:
@@ -126,6 +131,7 @@ mod tests {
         assert!((err - 0.05).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sync_error_interpolation() {
         // At 100 Hz (period=0.01s) with max acceleration 10 m/s^2:
@@ -134,11 +140,13 @@ mod tests {
         assert!((err - 0.000125).abs() < 1e-12);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sync_error_extrapolation_unbounded() {
         assert!(max_sync_error(SyncStrategy::Extrapolation, 0.01, 10.0).is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sync_strategy_variants() {
         let variants = SyncStrategy::variants();

@@ -516,11 +516,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<CaseLifecycleCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         CaseLifecycleOntology::validate()

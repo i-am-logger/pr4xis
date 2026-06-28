@@ -6,11 +6,13 @@ use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::Axiom;
 use proptest::prelude::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws_hold() {
     assert_category_laws::<RuleAlgebraCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     RuleAlgebraOntology::validate()
@@ -21,16 +23,19 @@ fn ontology_validates() {
 // Domain axioms.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_implication_is_rule_shape_holds() {
     assert!(ImplicationIsRuleShape.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_deontic_square_opposes_holds() {
     assert!(DeonticSquareOpposes.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_strict_defeasible_oppose_holds() {
     assert!(StrictDefeasibleOppose.verify().is_ok());
@@ -40,6 +45,7 @@ fn axiom_strict_defeasible_oppose_holds() {
 // Structural spot checks.
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible, Verifiable)]
 #[test]
 fn rule_shapes_subsume_implication_or_rule_shape() {
     let sub: Vec<_> = RuleAlgebraCategory::morphisms()
@@ -55,6 +61,7 @@ fn rule_shapes_subsume_implication_or_rule_shape() {
     assert!(sub.contains(&(C::Implication, C::RuleShape)));
 }
 
+#[pr4xis::praxis_value(Extensible, Verifiable)]
 #[test]
 fn deontic_flavours_all_subsume_deontic_flavour() {
     let sub: Vec<_> = RuleAlgebraCategory::morphisms()
@@ -68,6 +75,7 @@ fn deontic_flavours_all_subsume_deontic_flavour() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pipeline_stages_form_chain() {
     let causation: Vec<_> = RuleAlgebraCategory::morphisms()
@@ -88,6 +96,7 @@ fn pipeline_stages_form_chain() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn deontic_square_is_symmetric() {
     let opp: Vec<_> = RuleAlgebraCategory::morphisms()
@@ -100,6 +109,7 @@ fn deontic_square_is_symmetric() {
     assert!(opp.contains(&(C::Prohibition, C::Obligation)));
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn lineage_quality_total_on_named_concepts() {
     use RuleAlgebraConcept as C;
@@ -166,3 +176,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+pr4xis::register_praxis_value!(prop_lineage_returns_string, Explainable);
+pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+pr4xis::register_praxis_value!(prop_opposition_symmetric, Verifiable);

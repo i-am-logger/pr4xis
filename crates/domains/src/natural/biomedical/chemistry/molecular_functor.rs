@@ -101,16 +101,19 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<ChemistryToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<ChemistryToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in ChemistryConcept::variants() {
@@ -121,6 +124,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // The migrated Chemistry category is kinded and partial (per OBO-RO,
@@ -159,6 +163,7 @@ mod tests {
 
     // -- Specific mapping tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_electrolyte_maps_to_ion() {
         assert_eq!(
@@ -167,6 +172,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_buffer_maps_to_ion() {
         assert_eq!(
@@ -175,6 +181,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_solvent_maps_to_sodium() {
         assert_eq!(
@@ -183,6 +190,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ionic_bond_maps_to_ion() {
         assert_eq!(
@@ -191,6 +199,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_covalent_bond_maps_to_protein() {
         assert_eq!(
@@ -199,6 +208,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_hydrogen_bond_maps_to_protein() {
         assert_eq!(
@@ -207,6 +217,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ph_maps_to_proton() {
         assert_eq!(
@@ -215,6 +226,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_osmolarity_maps_to_sodium() {
         assert_eq!(
@@ -223,6 +235,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_solid_maps_to_collagen() {
         assert_eq!(
@@ -231,6 +244,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_liquid_maps_to_mucin() {
         assert_eq!(
@@ -239,6 +253,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_gel_maps_to_mucin() {
         assert_eq!(
@@ -247,6 +262,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_plasma_maps_to_calcium() {
         assert_eq!(
@@ -255,6 +271,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();

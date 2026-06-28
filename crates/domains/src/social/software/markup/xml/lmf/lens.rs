@@ -224,6 +224,7 @@ mod tests {
 
     /// The lens's byte-exact PutGet law holds on the sample: `put(get(b)) == b`
     /// byte-for-byte — the law the harness runs for `english_wordnet`.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn wordnet_lmf_lens_is_byte_exact() {
         WordNetLmfLens::assert_byte_exact_law(SAMPLE.as_bytes())
@@ -232,6 +233,7 @@ mod tests {
 
     /// The lens declares the graph-faithful tier — the const the completeness
     /// meter reads to flip `english_wordnet` off the floor.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn wordnet_lmf_lens_declares_graph_faithful() {
         assert_eq!(
@@ -244,6 +246,7 @@ mod tests {
     /// `canonical` is the identity (a byte-exact lens's source is its own
     /// canonical form) — provided only for trait totality, never used by the
     /// byte-exact harness path.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn wordnet_lmf_canonical_is_identity() {
         let c = WordNetLmfLens::canonical(SAMPLE.as_bytes()).expect("canonical");

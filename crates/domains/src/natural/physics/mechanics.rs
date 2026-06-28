@@ -153,6 +153,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_f_equals_ma() {
         let e = new_particle(10.0)
@@ -165,6 +166,7 @@ mod tests {
         assert!((e.situation().velocity - 10.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_free_fall() {
         let e = new_particle(1.0)
@@ -174,6 +176,7 @@ mod tests {
         assert!((e.situation().velocity - 19.62).abs() < 0.01);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_negative_duration_blocked() {
         let e = new_particle(1.0).unwrap();
@@ -223,4 +226,10 @@ mod tests {
             prop_assert!((f12 - f21).abs() / scale < 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_fma, Verifiable);
+    pr4xis::register_praxis_value!(prop_mass_conserved, Verifiable);
+    pr4xis::register_praxis_value!(prop_ke_nonneg, Verifiable);
+    pr4xis::register_praxis_value!(prop_zero_force_preserves_v, Verifiable);
+    pr4xis::register_praxis_value!(prop_gravity_symmetric, Verifiable);
 }

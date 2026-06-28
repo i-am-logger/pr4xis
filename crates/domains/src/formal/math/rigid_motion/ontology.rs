@@ -176,6 +176,7 @@ fn canonical_poses() -> Vec<Pose> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         RigidMotionOntology::validate().unwrap();

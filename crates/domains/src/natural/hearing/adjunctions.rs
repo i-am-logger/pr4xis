@@ -655,27 +655,33 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn signal_to_acoustics_functor_laws() {
         assert_functor_laws::<SignalProcessingToAcoustics>();
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn pathology_to_anatomy_functor_laws() {
         assert_functor_laws::<PathologyToAnatomy>();
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn music_to_psychoacoustics_functor_laws() {
         assert_functor_laws::<MusicToPsychoacoustics>();
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn devices_to_pathology_functor_laws() {
         assert_functor_laws::<DevicesToPathology>();
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn anatomy_to_pathology_functor_laws() {
         assert_functor_laws::<AnatomyToPathology>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn analysis_synthesis_unit_wellformed() {
         for obj in AcousticEntity::variants() {
@@ -685,6 +691,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn health_disease_unit_wellformed() {
         for obj in AnatomyConcept::variants() {
@@ -694,6 +701,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn bottom_up_top_down_unit_wellformed() {
         for obj in PsychoacousticEntity::variants() {
@@ -703,6 +711,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn diagnosis_treatment_unit_wellformed() {
         for obj in PathologyEntity::variants() {

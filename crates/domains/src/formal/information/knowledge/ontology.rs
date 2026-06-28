@@ -106,17 +106,20 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<KnowledgeCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         KnowledgeOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_identity_law() {
         for obj in KnowledgeConcept::variants() {
@@ -126,6 +129,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_composition_with_identity() {
         for m in &KnowledgeCategory::morphisms() {
@@ -136,11 +140,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_six_concepts() {
         assert_eq!(KnowledgeConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn knowledge_base_catalogs_vocabulary() {
         assert!(
@@ -152,6 +158,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vocabulary_derived_from_datasource() {
         assert!(
@@ -194,4 +201,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_is_structural_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

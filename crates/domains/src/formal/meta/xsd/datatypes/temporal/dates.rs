@@ -374,6 +374,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn date_parse_and_canonical() {
         let v = parse_date("2002-10-10-05:00").unwrap();
@@ -384,6 +385,7 @@ mod tests {
         assert_eq!(canonical_date(&v).as_deref(), Some("2002-10-10-05:00"));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn utc_offset_normalizes_to_z() {
         let a = parse_date("2002-10-10+00:00").unwrap();
@@ -392,6 +394,7 @@ mod tests {
         assert_eq!(canonical_date(&a).as_deref(), Some("2002-10-10Z"));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn negative_and_large_years() {
         assert_eq!(
@@ -408,6 +411,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gregorian_subtypes() {
         assert!(parse_g_year_month("2002-10").is_some());
@@ -420,16 +424,19 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_date_fixpoint() {
         assert!(DateCanonicalIsFixpoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn axiom_day_of_month() {
         assert!(DayOfMonthValidity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_rejects_malformed() {
         assert!(DateLexicalRejectsMalformed.verify().is_ok());
@@ -480,4 +487,7 @@ mod tests {
             prop_assert!(parse_date(&canon).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_date_canonical_fixpoint, Deterministic);
+    pr4xis::register_praxis_value!(prop_date_canonical_in_lexical_space, Deterministic);
 }

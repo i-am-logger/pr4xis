@@ -18,11 +18,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<SourceTaxonomyCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     SourceTaxonomyOntology::validate()
@@ -33,6 +35,7 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn thirty_three_concepts() {
     // Lexicon family (9): Source, Lexicon, Language, DomainLexicon,
@@ -58,11 +61,13 @@ fn thirty_three_concepts() {
     assert_eq!(SourceTaxonomyConcept::variants().len(), 33);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn root_is_source() {
     assert!(ancestors_of(SourceTaxonomyConcept::Source).is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn language_ancestors_reach_source_via_lexicon() {
     let anc = ancestors_of(SourceTaxonomyConcept::Language);
@@ -70,6 +75,7 @@ fn language_ancestors_reach_source_via_lexicon() {
     assert!(anc.contains(&SourceTaxonomyConcept::Source));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn legal_lexicon_is_a_domain_lexicon() {
     let anc = ancestors_of(SourceTaxonomyConcept::LegalLexicon);
@@ -78,6 +84,7 @@ fn legal_lexicon_is_a_domain_lexicon() {
     assert!(anc.contains(&SourceTaxonomyConcept::Source));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn statute_is_a_legal_corpus() {
     let anc = ancestors_of(SourceTaxonomyConcept::Statute);
@@ -89,6 +96,7 @@ fn statute_is_a_legal_corpus() {
 // Family predicates
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_legal_corpus_recognizes_subtree() {
     use SourceTaxonomyConcept as C;
@@ -107,6 +115,7 @@ fn is_legal_corpus_recognizes_subtree() {
     assert!(!is_legal_corpus(C::LegalLexicon));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_lexicon_recognizes_subtree() {
     use SourceTaxonomyConcept as C;
@@ -122,6 +131,7 @@ fn is_lexicon_recognizes_subtree() {
     assert!(!is_lexicon(C::Statute));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_leaf_agrees_with_the_loaded_is_a_graph() {
     use SourceTaxonomyConcept as C;
@@ -157,6 +167,7 @@ fn is_leaf_agrees_with_the_loaded_is_a_graph() {
 // Adjunction graph
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn statute_adjoins_to_legal_lexicon_regulation_procedure() {
     let targets = adjoint_targets(SourceTaxonomyConcept::Statute);
@@ -165,12 +176,14 @@ fn statute_adjoins_to_legal_lexicon_regulation_procedure() {
     assert!(targets.contains(&SourceTaxonomyConcept::ProceduralRule));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn legal_lexicon_adjoins_to_language() {
     let targets = adjoint_targets(SourceTaxonomyConcept::LegalLexicon);
     assert!(targets.contains(&SourceTaxonomyConcept::Language));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn case_law_adjoins_to_statute_regulation_lexicon() {
     let targets = adjoint_targets(SourceTaxonomyConcept::CaseLaw);
@@ -179,6 +192,7 @@ fn case_law_adjoins_to_statute_regulation_lexicon() {
     assert!(targets.contains(&SourceTaxonomyConcept::LegalLexicon));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constitutional_article_adjoins_to_statute_and_case_law() {
     let targets = adjoint_targets(SourceTaxonomyConcept::ConstitutionalArticle);
@@ -186,6 +200,7 @@ fn constitutional_article_adjoins_to_statute_and_case_law() {
     assert!(targets.contains(&SourceTaxonomyConcept::CaseLaw));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn schema_vocabulary_adjoins_to_language() {
     // Schema-vocabulary names anchor in WordNet (via productive
@@ -197,6 +212,7 @@ fn schema_vocabulary_adjoins_to_language() {
     assert!(targets.contains(&SourceTaxonomyConcept::Language));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_schema_definition_adjoins_to_schema_vocabulary() {
     // W3C XSD 1.1 Part 1 §3: an XSD schema declares its
@@ -207,6 +223,7 @@ fn xml_schema_definition_adjoins_to_schema_vocabulary() {
     assert!(targets.contains(&SourceTaxonomyConcept::SchemaVocabulary));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_schema_definition_adjoins_to_uscodetitle() {
     // The USLM XSD instance grounds the UsCodeTitle ontology — the
@@ -218,6 +235,7 @@ fn xml_schema_definition_adjoins_to_uscodetitle() {
     assert!(targets.contains(&SourceTaxonomyConcept::UsCodeTitle));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn schema_spec_family_subsumption() {
     // SchemaSpec descends from Source; XmlSchemaDefinition descends
@@ -234,6 +252,7 @@ fn schema_spec_family_subsumption() {
 // Qualities
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hart_primary_classification() {
     use SourceTaxonomyConcept as C;
@@ -246,6 +265,7 @@ fn hart_primary_classification() {
     assert_eq!(q.get(&C::ProceduralRule), Some(HartRuleKind::Primary));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hart_secondary_classification() {
     use SourceTaxonomyConcept as C;
@@ -255,6 +275,7 @@ fn hart_secondary_classification() {
     assert_eq!(q.get(&C::LegalLexicon), Some(HartRuleKind::Secondary));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hart_not_applicable_for_non_legal_concepts() {
     use SourceTaxonomyConcept as C;
@@ -267,26 +288,31 @@ fn hart_not_applicable_for_non_legal_concepts() {
 // Domain axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_source_taxonomy_well_formed() {
     assert!(SourceTaxonomyWellFormed.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_adjoint_edge_typed() {
     assert!(EveryAdjointEdgeTyped.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_legal_adjunctions_terminate_in_language() {
     assert!(LegalAdjunctionsTerminateInLanguage.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_primary_secondary_distinction() {
     assert!(PrimarySecondaryDistinction.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in SourceTaxonomyOntology::axioms() {
@@ -300,6 +326,7 @@ fn all_axioms_hold() {
 // Parser boundary (string ↔ concept)
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn parse_concept_round_trips_every_variant() {
     for c in SourceTaxonomyConcept::variants() {
@@ -313,6 +340,7 @@ fn parse_concept_round_trips_every_variant() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parse_concept_rejects_unknown_names() {
     assert!(parse_concept("NotAConcept").is_none());
@@ -379,3 +407,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_every_arrow_named, Explainable);
+pr4xis::register_praxis_value!(prop_every_concept_reaches_source, Verifiable);
+pr4xis::register_praxis_value!(prop_hart_rule_total_on_legal_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_is_a_is_acyclic, Verifiable);

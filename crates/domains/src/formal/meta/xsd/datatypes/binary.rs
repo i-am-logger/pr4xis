@@ -355,6 +355,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hex_binary_basics() {
         assert_eq!(
@@ -370,6 +371,7 @@ mod tests {
         assert!(parse_hex_binary("F").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn base64_basics() {
         assert_eq!(parse_base64_binary("TWFu").unwrap(), b"Man");
@@ -381,12 +383,14 @@ mod tests {
         assert!(parse_base64_binary("====").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn any_uri_collapses() {
         assert_eq!(parse_any_uri("  a  b "), "a b");
         assert_eq!(parse_any_uri("http://x/y"), "http://x/y");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn qname_structure() {
         let q = parse_qname("xs:string").unwrap();
@@ -398,16 +402,19 @@ mod tests {
         assert!(parse_qname("9:x").is_none());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_hex() {
         assert!(HexBinaryRoundTrips.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_base64() {
         assert!(Base64BinaryRoundTrips.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_uri_qname() {
         assert!(UriAndQNameLexical.verify().is_ok());
@@ -433,4 +440,7 @@ mod tests {
             prop_assert_eq!(canonical_base64_binary(&back), canon);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_hex_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(prop_base64_round_trip, Deterministic);
 }

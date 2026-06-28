@@ -4,32 +4,38 @@ use pr4xis::ontology::{Axiom, Ontology};
 use crate::applied::localization::terrain::engine::*;
 use crate::applied::localization::terrain::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn terrain_category_laws() {
     assert_category_laws::<TerrainCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn terrain_ontology_validates() {
     TerrainOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn peak_curvature_negative_holds() {
     assert!(PeakCurvatureNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn valley_curvature_positive_holds() {
     assert!(ValleyCurvaturePositive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn saddle_curvatures_opposite_holds() {
     assert!(SaddleCurvaturesOpposite.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dem_peak_detection() {
     // 3x3 grid with center higher than all neighbors
@@ -44,6 +50,7 @@ fn dem_peak_detection() {
     assert_eq!(feature, Some(TerrainConcept::Peak));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dem_valley_detection() {
     #[rustfmt::skip]
@@ -57,6 +64,7 @@ fn dem_valley_detection() {
     assert_eq!(feature, Some(TerrainConcept::Valley));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn dem_border_returns_none() {
     let elevations = vec![1.0; 9];
@@ -64,6 +72,7 @@ fn dem_border_returns_none() {
     assert_eq!(dem.classify_feature(0, 0), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn terrain_match_perfect_profile() {
     #[rustfmt::skip]
@@ -110,4 +119,7 @@ mod proptest_proofs {
             prop_assert!(score >= 0.0, "match score must be non-negative");
         }
     }
+
+    pr4xis::register_praxis_value!(peak_always_detected_when_center_is_max, Verifiable);
+    pr4xis::register_praxis_value!(match_score_non_negative, Verifiable);
 }

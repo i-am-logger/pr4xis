@@ -152,6 +152,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_3_4_5() {
         let e = new_triangle(3.0, 4.0).unwrap();
@@ -159,6 +160,7 @@ mod tests {
         assert!(e.situation().theorem_holds());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_scale_preserves_theorem() {
         let e = new_triangle(3.0, 4.0)
@@ -169,6 +171,7 @@ mod tests {
         assert!((e.situation().a - 6.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_set_leg_recomputes() {
         let e = new_triangle(3.0, 4.0)
@@ -178,6 +181,7 @@ mod tests {
         assert!(e.situation().theorem_holds());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_negative_blocked() {
         let e = new_triangle(3.0, 4.0).unwrap();
@@ -190,6 +194,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_undo_redo() {
         let e = new_triangle(3.0, 4.0)
@@ -233,4 +238,10 @@ mod tests {
             prop_assert!(result.is_err());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_theorem_always_holds, Verifiable);
+    pr4xis::register_praxis_value!(prop_theorem_after_scale, Verifiable);
+    pr4xis::register_praxis_value!(prop_hypotenuse_longest, Verifiable);
+    pr4xis::register_praxis_value!(prop_triangle_inequality, Verifiable);
+    pr4xis::register_praxis_value!(prop_negative_blocked, Honest);
 }

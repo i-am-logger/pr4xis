@@ -6,11 +6,13 @@ use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Quality};
 use proptest::prelude::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws_hold() {
     assert_category_laws::<DoctrineDiscoveryCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     DoctrineDiscoveryOntology::validate()
@@ -21,11 +23,13 @@ fn ontology_validates() {
 // Domain axioms.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_outputs_classify_as_discovery_output_holds() {
     assert!(OutputsClassifyAsDiscoveryOutput.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_pipeline_is_linear_chain_holds() {
     assert!(PipelineIsLinearChain.verify().is_ok());
@@ -35,6 +39,7 @@ fn axiom_pipeline_is_linear_chain_holds() {
 // Structural spot checks.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn inputs_classify_under_discovery_input() {
     let sub: alloc::vec::Vec<_> = DoctrineDiscoveryCategory::morphisms()
@@ -52,6 +57,7 @@ fn inputs_classify_under_discovery_input() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pipeline_first_and_last_present() {
     let causation: alloc::vec::Vec<_> = DoctrineDiscoveryCategory::morphisms()
@@ -66,6 +72,7 @@ fn pipeline_first_and_last_present() {
     assert!(causation.contains(&(C::AbductiveLift, C::OutputAssembly)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lineage_quality_total_on_named_concepts() {
     let lineage = DoctrineDiscoveryLineage;
@@ -116,3 +123,7 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+pr4xis::register_praxis_value!(prop_lineage_returns_string, Verifiable);
+pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);

@@ -137,22 +137,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SchemaCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SchemaOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eleven_concepts() {
         assert_eq!(SchemaConcept::variants().len(), 11);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn schema_contains_entity_types() {
         let m = SchemaCategory::morphisms();
@@ -161,6 +165,7 @@ mod tests {
             && r.kind() == SchemaRelationKind::ContainsEntity));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn instance_is_functor_from_schema() {
         let m = SchemaCategory::morphisms();
@@ -169,6 +174,7 @@ mod tests {
             && r.kind() == SchemaRelationKind::InstantiatedFrom));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn presentation_evaluates_to_algebra() {
         let m = SchemaCategory::morphisms();
@@ -177,6 +183,7 @@ mod tests {
             && r.kind() == SchemaRelationKind::Evaluates));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mda_level_total() {
         for c in SchemaConcept::variants() {
@@ -210,4 +217,8 @@ mod tests {
             prop_assert!(MdaLevelQuality.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_mda_level_total, Verifiable);
 }

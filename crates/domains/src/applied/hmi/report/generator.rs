@@ -549,6 +549,7 @@ mod tests {
         ]
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_json_output() {
         let json = to_json(&sample_results(), "test");
@@ -560,6 +561,7 @@ mod tests {
         assert!(json.contains("\"luminance\":"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_html_output() {
         let html = to_html(&sample_results(), "test");
@@ -570,6 +572,7 @@ mod tests {
         assert!(html.contains("luminance_ramp"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_html_is_self_contained() {
         let html = to_html(&sample_results(), "test");
@@ -579,6 +582,7 @@ mod tests {
         assert!(html.contains("<script>"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_generate_real_report() {
         use crate::applied::hmi::report::validator::scan_loaded_themes;
@@ -687,4 +691,10 @@ mod tests {
             prop_assert!(json.contains(&expected), "monotone count mismatch");
         }
     }
+
+    pr4xis::register_praxis_value!(prop_json_contains_all_themes, Verifiable);
+    pr4xis::register_praxis_value!(prop_json_total_matches, Verifiable);
+    pr4xis::register_praxis_value!(prop_html_contains_all_themes, Verifiable);
+    pr4xis::register_praxis_value!(prop_html_is_valid_structure, Verifiable);
+    pr4xis::register_praxis_value!(prop_json_monotone_count_correct, Verifiable);
 }

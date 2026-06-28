@@ -71,11 +71,13 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_six_concepts() {
         assert_eq!(GnssConstellationConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<GnssConstellationCategory>();

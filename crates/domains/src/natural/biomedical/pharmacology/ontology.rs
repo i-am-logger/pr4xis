@@ -689,17 +689,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<PharmacologyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         PharmacologyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 7 drug classes + 5 agents + 4 targets + 5 effects
@@ -710,36 +713,43 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn drug_administration_causes_vmem_shift_axiom() {
         assert!(DrugAdministrationCausesVmemShift.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gj_modulator_causes_collective_reprogramming_axiom() {
         assert!(GJModulatorCausesCollectiveReprogramming.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ivermectin_is_hyperpolarizing_axiom() {
         assert!(IvermectinIsHyperpolarizing.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn omeprazole_is_not_morphoceutical_axiom() {
         assert!(OmeprazoleIsNotMorphoceutical.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn morphoceuticals_target_anatomy_axiom() {
         assert!(MorphoceuticalsTargetAnatomy.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanosensitive_is_endogenous_axiom() {
         assert!(MechanosensitiveIsEndogenous.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_agent_has_target_axiom() {
         assert!(EveryAgentHasTarget.verify().is_ok());
@@ -747,6 +757,7 @@ mod tests {
 
     // -- Subsumption-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn agents_subsume_under_agent_umbrella() {
         use PharmacologyConcept::*;
@@ -770,6 +781,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn drug_classes_subsume_under_drug_class_umbrella() {
         use PharmacologyConcept::*;
@@ -795,6 +807,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_pharmacology_event() {
         use PharmacologyConcept::*;
@@ -825,6 +838,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn drug_administration_directly_causes_target_binding() {
         assert!(causes(
@@ -833,6 +847,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ion_flux_change_causes_vmem_shift() {
         assert!(causes(
@@ -841,6 +856,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gj_modulator_binding_causes_state_change() {
         assert!(causes(
@@ -849,6 +865,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vmem_shift_does_not_cause_drug_administration() {
         assert!(!causes(
@@ -859,6 +876,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hyperpolarization_and_depolarization_oppose() {
         let opps: Vec<_> = PharmacologyCategory::morphisms()
@@ -876,6 +894,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gj_opening_and_closing_oppose() {
         let opps: Vec<_> = PharmacologyCategory::morphisms()
@@ -889,6 +908,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn blocker_and_opener_oppose() {
         let opps: Vec<_> = PharmacologyCategory::morphisms()
@@ -902,6 +922,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hyperpolarization_does_not_oppose_gj_opening() {
         let opps: Vec<_> = PharmacologyCategory::morphisms()
@@ -917,6 +938,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ivermectin_targets_receptor() {
         assert_eq!(
@@ -925,6 +947,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn omeprazole_targets_transporter() {
         assert_eq!(
@@ -933,6 +956,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn glibenclamide_is_depolarizing() {
         assert_eq!(
@@ -941,6 +965,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minoxidil_is_hyperpolarizing() {
         assert_eq!(
@@ -949,6 +974,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn omeprazole_is_vmem_neutral() {
         assert_eq!(
@@ -957,6 +983,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn minoxidil_is_otc() {
         assert_eq!(
@@ -965,6 +992,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ivermectin_requires_prescription() {
         assert_eq!(
@@ -973,6 +1001,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn morphoceutical_class_is_morphoceutical() {
         assert_eq!(
@@ -1056,4 +1085,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_agents_have_drug_target, Verifiable);
 }

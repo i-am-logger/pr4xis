@@ -12,16 +12,19 @@ use super::reader;
 // XML Category tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_category_laws() {
     assert_category_laws::<XmlCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_has_10_node_kinds() {
     assert_eq!(XmlNodeKind::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn document_contains_element() {
     let m = XmlCategory::morphisms();
@@ -31,6 +34,7 @@ fn document_contains_element() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn element_contains_cdata() {
     let m = XmlCategory::morphisms();
@@ -44,6 +48,7 @@ fn element_contains_cdata() {
 // XML Symbol tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_special_chars() {
     let chars = XmlSymbols::special_chars();
@@ -52,6 +57,7 @@ fn xml_special_chars() {
     assert!(chars.iter().any(|(c, _)| *c == '&'));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_entities() {
     let entities = XmlSymbols::entities();
@@ -64,6 +70,7 @@ fn xml_entities() {
 // XML Reader tests — reading through ontological understanding
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_simple_element() {
     let doc = reader::read_xml("<root/>").unwrap();
@@ -71,6 +78,7 @@ fn read_simple_element() {
     assert!(doc.root.children.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_element_with_text() {
     let doc = reader::read_xml("<greeting>hello world</greeting>").unwrap();
@@ -82,6 +90,7 @@ fn read_element_with_text() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_element_with_attributes() {
     let doc = reader::read_xml(r#"<div class="main" id="top"/>"#).unwrap();
@@ -92,6 +101,7 @@ fn read_element_with_attributes() {
     assert_eq!(doc.root.attributes[1].value, "top");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_nested_elements() {
     let xml = r#"<root><child1/><child2><grandchild/></child2></root>"#;
@@ -105,6 +115,7 @@ fn read_nested_elements() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_with_xml_declaration() {
     let xml = r#"<?xml version="1.0" encoding="UTF-8"?><root/>"#;
@@ -113,6 +124,7 @@ fn read_with_xml_declaration() {
     assert_eq!(doc.encoding, Some("UTF-8".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_with_comment() {
     let xml = "<root><!-- a comment --><child/></root>";
@@ -124,6 +136,7 @@ fn read_with_comment() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_with_cdata() {
     let xml = "<root><![CDATA[<not>xml</not>]]></root>";
@@ -134,6 +147,7 @@ fn read_with_cdata() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_entity_unescaping() {
     let xml = "<root>a &lt; b &amp; c</root>";
@@ -141,6 +155,7 @@ fn read_entity_unescaping() {
     assert_eq!(doc.root.children[0].text_content(), "a < b & c");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn read_namespace() {
     let xml = r#"<root xmlns:ns="http://example.com"><ns:child/></root>"#;
@@ -156,6 +171,7 @@ fn read_namespace() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn xml_to_markup_conversion() {
     let doc = reader::read_xml("<root><child>text</child></root>").unwrap();
@@ -163,6 +179,7 @@ fn xml_to_markup_conversion() {
     assert_eq!(markup.text_content(), "text");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn find_all_elements() {
     let xml = r#"<root><item id="1"/><group><item id="2"/></group><item id="3"/></root>"#;
@@ -171,12 +188,14 @@ fn find_all_elements() {
     assert_eq!(items.len(), 3);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn read_error_unclosed_tag() {
     let result = reader::read_xml("<root><unclosed>");
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xml_name_qualified() {
     let name = XmlName::with_prefix("ns", "element");
@@ -251,4 +270,9 @@ mod prop {
             prop_assert_eq!(doc.root.name.local, name);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_element_contains_content, Verifiable);
+    pr4xis::register_praxis_value!(prop_entities_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_closing_empty, Verifiable);
 }

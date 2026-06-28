@@ -1568,6 +1568,7 @@ mod tests {
 
     // ── Realization snapshots (the single wire boundary) ──
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn realize_focus_directions() {
         assert_eq!(realize(&WmAction::focus(Direction::Left)), "movefocus, l");
@@ -1576,6 +1577,7 @@ mod tests {
         assert_eq!(realize(&WmAction::focus(Direction::Down)), "movefocus, d");
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn realize_resize_axes() {
         assert_eq!(
@@ -1588,6 +1590,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn realize_workspace_targets() {
         assert_eq!(
@@ -1610,6 +1613,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn realize_special_workspace_hide() {
         // macOS-style hide: a silent move to a named special workspace.
@@ -1630,6 +1634,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn realize_monitor_and_mru_workspace() {
         // The monitor/output dimension Hyprland realizes natively.
@@ -1654,11 +1659,13 @@ mod tests {
 
     // ── The second backend: SwayRealization (generality is load-bearing) ──
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn sway_realization_is_a_functor() {
         assert_functor_laws::<SwayRealization>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn sway_realizes_the_hyprland_gaps_and_vice_versa() {
         // The SAME source action Hyprland gaps, sway realizes NATIVELY — the proof
@@ -1691,6 +1698,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn sway_realize_strings() {
         assert_eq!(sway_realize(&WmAction::focus_parent()), "focus parent");
@@ -1727,6 +1735,7 @@ mod tests {
 
     // ── The three fixes ──
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn fullscreen_maximize_minimize_are_distinct_verbs() {
         // Three distinct intents → three distinct dispatchers. Maximize is
@@ -1739,6 +1748,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn fix_float_pin_is_two_dispatch_exec_batch() {
         let cmd = HyprlandRealization::map_morphism(&ActionWord(vec![
@@ -1754,11 +1764,13 @@ mod tests {
 
     // ── Functor + ontology validation ──
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn realization_is_a_functor() {
         assert_functor_laws::<HyprlandRealization>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lowering_is_total() {
         LoweringTotal
@@ -1766,6 +1778,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("not total: {}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn window_state_actions_distinct() {
         WindowStateActionsDistinct
@@ -1773,6 +1786,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn composite_sequence_preserved() {
         CompositeSequencePreserved
@@ -1780,6 +1794,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whole_ontology_validates() {
         WindowActionOntology::validate()
@@ -1872,4 +1887,11 @@ mod tests {
             prop_assert_eq!(left, right);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_realization_is_homomorphism, Extensible);
+    pr4xis::register_praxis_value!(prop_sway_is_homomorphism, Extensible);
+    pr4xis::register_praxis_value!(prop_realization_preserves_identity, Extensible);
+    pr4xis::register_praxis_value!(prop_single_action_realizes_nonempty, Verifiable);
+    pr4xis::register_praxis_value!(prop_realization_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(prop_action_concat_associative, Deterministic);
 }

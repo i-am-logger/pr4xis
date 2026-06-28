@@ -158,6 +158,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_additions_are_1_1() {
         for c in datatype_1_1_additions() {
@@ -166,6 +167,7 @@ mod tests {
         assert_eq!(datatype_1_1_additions().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fibers_nest_and_baseline_is_46() {
         let v10 = datatypes_in_version(XsdVersion::V1_0);
@@ -175,6 +177,7 @@ mod tests {
         assert_eq!(v11.len(), 50);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn datatypes_are_a_versioned_artifact() {
         let art = xsd_datatypes_as_versioned_artifact();
@@ -186,11 +189,13 @@ mod tests {
         assert_eq!(art.localize("1.1").map(|f| f.realization.len()), Some(50));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_monotone() {
         assert!(DatatypeEvolutionIsMonotone.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn axiom_consumes_adjunction() {
         assert!(DatatypesConsumeVersionAdjunction.verify().is_ok());
@@ -207,4 +212,6 @@ mod tests {
             prop_assert_eq!(v10.contains(&c), introduced_in(c) == XsdVersion::V1_0);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_membership_matches_introduction, Verifiable);
 }

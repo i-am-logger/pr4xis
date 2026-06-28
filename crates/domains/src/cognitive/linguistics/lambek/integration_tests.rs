@@ -91,6 +91,7 @@ mod tests {
     // These MUST pass — they're what the chatbot needs to work
     // =========================================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_dog_runs() {
         let en = english();
@@ -101,6 +102,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_big_dog_runs() {
         let en = english();
@@ -111,6 +113,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn chart_parses_question() {
         let en = english();
@@ -145,6 +148,7 @@ mod tests {
         assert!(result.success, "chart should parse 'is a dog a mammal'");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_a_dog_a_mammal() {
         let en = english();
@@ -155,6 +159,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_a_dog_an_animal() {
         let en = english();
@@ -165,6 +170,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn what_is_a_dog() {
         let en = english();
@@ -175,6 +181,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_dog_is_big() {
         let en = english();
@@ -189,6 +196,7 @@ mod tests {
     // Extended sentence suite — the grammar must handle these
     // =========================================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn she_sees_the_dog() {
         let en = english();
@@ -199,6 +207,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_cat_runs() {
         let en = english();
@@ -209,6 +218,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_big_cat_runs() {
         let en = english();
@@ -219,6 +229,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_dog_sees_the_cat() {
         let en = english();
@@ -229,6 +240,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_a_cat_an_animal() {
         let en = english();
@@ -243,6 +255,7 @@ mod tests {
     // ignored test; deleted with the never-use-ignore sweep. See
     // memory: project-known-ontology-gaps-from-ignore-cleanup.
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_big_dog_sees_the_small_cat() {
         let en = english();
@@ -253,6 +266,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_dog_is_an_animal() {
         let en = english();
@@ -268,6 +282,7 @@ mod tests {
     // never-use-ignore sweep. See memory:
     // project-known-ontology-gaps-from-ignore-cleanup.
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn she_runs() {
         let en = english();
@@ -278,6 +293,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn he_sees_her() {
         let en = english();
@@ -294,6 +310,7 @@ mod tests {
     // awfmilton (the #169 bug report + research framed this).
     // =========================================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hyphenated_and_slashed_words_are_not_split_by_operator_glyphs() {
         // `-` and `/` are operator glyphs, but a glyph BETWEEN two letters is
@@ -322,6 +339,7 @@ mod tests {
         assert_eq!(math, vec!["10", "+", "10"]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn operator_glyph_survives_tokenization() {
         // The bug: `+` was stripped as punctuation, leaving "what is 10 10".
@@ -342,6 +360,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn what_is_10_plus_10() {
         // The headline #169 case: a wh-question whose complement is an
@@ -354,6 +373,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn what_is_10_plus_10_glued() {
         // Glued form: the tokenizer splits "10+10" at the loaded glyph.
@@ -365,6 +385,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_relation_reduces_to_a_sentence() {
         // A relational operator's result sort is `truth` → `(NP\S)/NP`, so
@@ -376,6 +397,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn iso_unicode_operators_parse() {
         // The full vocabulary the bundle loads includes the ISO 80000-2 glyphs
@@ -390,6 +412,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_trailing_question_mark_still_trims() {
         // The tokenizer gate is "is this a LOADED operator glyph?", not
@@ -410,6 +433,7 @@ mod tests {
     // category reduces the sentence. Pronoun / determiner / adverb each.
     // =========================================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn what_is_a_dog_via_the_functor() {
         // Pronoun: "what" → InterrogativePronoun → S[wq]/(NP\S), through the
@@ -423,6 +447,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn which_dog_is_a_mammal() {
         // Determiner: "which" → InterrogativeDeterminer → (S[wq]/(NP\S))/N.
@@ -434,6 +459,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn where_is_the_dog() {
         // Adverb: "where" → InterrogativeAdverb → S[wq]/(S[q]/PP); the fronted
@@ -446,6 +472,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn when_why_how_questions_reduce() {
         // The rest of the interrogative adverbs, same mechanism (#169 follow-on).
@@ -461,6 +488,7 @@ mod tests {
     // comes from the loaded OLiA→CCG functor, same as everything else.
     // =========================================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_subject_relative_clause_reduces() {
         // "the dog that runs" : the(NP/N) dog(N) that((NP\NP)/(NP\S)) runs(NP\S)
@@ -478,6 +506,7 @@ mod tests {
     // Debug: show what types the tokenizer assigns with full WordNet
     // =========================================================================
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn debug_token_types() {
         let en = english();

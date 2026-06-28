@@ -569,3 +569,21 @@ pub(crate) fn serialize_quad(quad: &Quad) -> String {
     out.push('\n');
     out
 }
+
+#[cfg(test)]
+mod totality_tests {
+    use super::parse_nquads;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Honest at the N-Quads input boundary: ∀ string the line-based parser
+        /// returns `Ok`/`Err`, never panics (no index-out-of-bounds on the
+        /// char-cursor for adversarial input).
+        #[test]
+        fn prop_parse_nquads_is_total(s in any::<String>()) {
+            let _ = parse_nquads(&s);
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_parse_nquads_is_total, Honest);
+}

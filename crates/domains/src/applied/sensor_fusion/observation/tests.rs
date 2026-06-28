@@ -13,27 +13,32 @@ use crate::applied::sensor_fusion::observation::likelihood;
 use crate::applied::sensor_fusion::observation::observation_model::LinearObservationModel;
 use crate::applied::sensor_fusion::observation::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn observation_category_laws() {
     assert_category_laws::<ObservationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn observation_ontology_validates() {
     ObservationOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn innovation_zero_at_prediction() {
     assert!(InnovationZeroAtPrediction.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gate_accepts_mean() {
     assert!(GateAcceptsMean.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn outlier_rejected_by_gate() {
     let h = LinearObservationModel::identity(2);
@@ -47,6 +52,7 @@ fn outlier_rejected_by_gate() {
     assert!(!gate.accept(&inn));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn likelihood_positive_at_mean() {
     let h = LinearObservationModel::identity(2);
@@ -59,6 +65,7 @@ fn likelihood_positive_at_mean() {
     assert!(l > 0.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn likelihood_decreases_with_distance() {
     let h = LinearObservationModel::identity(1);
@@ -82,6 +89,7 @@ fn likelihood_decreases_with_distance() {
 // Statistics wiring: hypothesis-test gating
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn gate_as_hypothesis_test_agrees_with_validation_gate() {
     use crate::applied::sensor_fusion::observation::gating::gate_as_hypothesis_test;
@@ -223,4 +231,15 @@ mod proptest_proofs {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(
+        gate_hypothesis_test_agrees_with_accept,
+        Extensible,
+        Verifiable
+    );
+    pr4xis::register_praxis_value!(nis_zero_always_passes_hypothesis_test, Verifiable);
+    pr4xis::register_praxis_value!(innovation_at_prediction_is_zero, Verifiable);
+    pr4xis::register_praxis_value!(gate_always_accepts_at_mean, Verifiable);
+    pr4xis::register_praxis_value!(likelihood_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(nis_is_non_negative, Verifiable);
 }

@@ -176,22 +176,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SensorTimeCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SensorTimeOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_sync_strategies() {
         assert_eq!(SensorTimeConcept::variants().len(), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extrapolation_opposes_bounded_strategies() {
         let opp: Vec<_> = SensorTimeCategory::morphisms()
@@ -209,6 +213,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn error_boundedness_total() {
         for s in SensorTimeConcept::variants() {
@@ -216,16 +221,19 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nearest_neighbor_bounded_axiom() {
         assert!(NearestNeighborBounded.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interpolation_bounded_axiom() {
         assert!(InterpolationBounded.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extrapolation_unbounded_axiom() {
         assert!(ExtrapolationUnbounded.verify().is_ok());
@@ -282,4 +290,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_error_boundedness_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_only_extrapolation_unbounded, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

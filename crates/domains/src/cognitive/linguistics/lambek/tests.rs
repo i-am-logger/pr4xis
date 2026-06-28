@@ -38,6 +38,7 @@ const SAMPLE_TOKENIZE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 // Type reduction tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn forward_application() {
     // NP/N + N → NP ("the" + "dog" → NP)
@@ -45,6 +46,7 @@ fn forward_application() {
     assert_eq!(result, Some(LambekType::np()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn backward_application() {
     // NP + NP\S → S ("dog" + "runs" → S)
@@ -52,6 +54,7 @@ fn backward_application() {
     assert_eq!(result, Some(LambekType::s()));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn no_reduction() {
     // N + NP → None (can't combine noun with noun phrase)
@@ -59,6 +62,7 @@ fn no_reduction() {
     assert_eq!(result, None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn adjective_noun() {
     // N/N + N → N ("big" + "dog" → N)
@@ -66,6 +70,7 @@ fn adjective_noun() {
     assert_eq!(result, Some(LambekType::n()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn transitive_verb_takes_object() {
     // (NP\S)/NP + NP → NP\S ("sees" + "dog" → VP)
@@ -77,6 +82,7 @@ fn transitive_verb_takes_object() {
 // Sequence reduction tests — full sentences
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn the_dog_runs() {
     // the:NP/N + dog:N + runs:NP\S → S
@@ -99,6 +105,7 @@ fn the_dog_runs() {
     assert_eq!(result.final_type, Some(LambekType::s()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn the_big_dog_runs() {
     // the:NP/N + big:N/N + dog:N + runs:NP\S → S
@@ -124,6 +131,7 @@ fn the_big_dog_runs() {
     assert!(result.success, "expected S, got {:?}", result.remaining);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn she_sees_the_dog() {
     // she:NP + sees:(NP\S)/NP + the:NP/N + dog:N → S
@@ -149,6 +157,7 @@ fn she_sees_the_dog() {
     assert!(result.success, "expected S, got {:?}", result.remaining);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn dog_runs_not_sentence_alone() {
     // dog:N + runs:NP\S → can't reduce (N is not NP)
@@ -170,6 +179,7 @@ fn dog_runs_not_sentence_alone() {
 // Tokenizer tests — text to typed tokens via lexicon
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tokenize_simple() {
     let tokens = tokenize::tokenize("the dog runs", &sample_lang());
@@ -180,6 +190,7 @@ fn tokenize_simple() {
     assert_eq!(tokens[1].lambek_type, svo::noun());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tokenize_strips_punctuation() {
     let tokens = tokenize::tokenize("the dog runs.", &sample_lang());
@@ -187,6 +198,7 @@ fn tokenize_strips_punctuation() {
     assert_eq!(tokens[2].word, "runs");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tokenize_and_reduce() {
     // Full pipeline: text → tokens → reduction → S
@@ -195,6 +207,7 @@ fn tokenize_and_reduce() {
     assert!(result.success, "expected S, got {:?}", result.remaining);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tokenize_and_reduce_transitive() {
     // Verbs have both transitive and intransitive types in the language ontology.
@@ -222,6 +235,7 @@ fn tokenize_and_reduce_transitive() {
     assert!(result.success, "expected S, got {:?}", result.remaining);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn tokenize_and_reduce_adjective() {
     let tokens = tokenize::tokenize("the big dog runs", &sample_lang());
@@ -233,6 +247,7 @@ fn tokenize_and_reduce_adjective() {
 // Copula + adjective tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn a_dog_is_big() {
     // a:NP/N + dog:N + is:(NP\S)/NP + big:N/N
@@ -251,6 +266,7 @@ fn a_dog_is_big() {
     assert_eq!(tokens[3].lambek_type, svo::predicate_adjective()); // big → S[adj]\NP
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn a_dog_is_big_reduces() {
     let tokens = tokenize::tokenize("a dog is big", &sample_lang());
@@ -258,6 +274,7 @@ fn a_dog_is_big_reduces() {
     assert!(result.success, "expected S, got {:?}", result.remaining);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn spelling_correction_teh() {
     // "teh" is distance 1 from "the" — performance error (transposition)
@@ -265,6 +282,7 @@ fn spelling_correction_teh() {
     assert_eq!(tokens[0].lambek_type, svo::determiner());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_a_dog_a_mammal_question() {
     // Question formation: is at sentence start → question type
@@ -276,6 +294,7 @@ fn is_a_dog_a_mammal_question() {
     assert_eq!(result.final_type, Some(LambekType::q()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn what_is_a_dog() {
     let tokens = tokenize::tokenize("what is a dog", &sample_lang());
@@ -287,6 +306,7 @@ fn what_is_a_dog() {
 // Type notation tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn type_notation() {
     assert_eq!(LambekType::s().notation(), "S");
@@ -355,6 +375,12 @@ mod prop {
             prop_assert_eq!(result, Some(LambekType::s()));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_forward_application, Verifiable);
+    pr4xis::register_praxis_value!(prop_backward_application, Verifiable);
+    pr4xis::register_praxis_value!(prop_atoms_dont_reduce, Honest);
+    pr4xis::register_praxis_value!(prop_det_noun_gives_np, Verifiable);
+    pr4xis::register_praxis_value!(prop_np_iv_gives_s, Verifiable);
 }
 
 // =============================================================================
@@ -388,6 +414,7 @@ fn sample_english() -> English {
     English::from_wordnet(&wn)
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn montague_the_dog_runs() {
     // the:NP/N + dog:N + runs:NP\S → S
@@ -424,6 +451,7 @@ fn montague_the_dog_runs() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn montague_she_sees_the_dog() {
     let en = sample_english();
@@ -466,6 +494,7 @@ fn montague_she_sees_the_dog() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn montague_the_big_dog_runs() {
     let en = sample_english();
@@ -494,6 +523,7 @@ fn montague_the_big_dog_runs() {
     }
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn montague_describe() {
     let en = sample_english();

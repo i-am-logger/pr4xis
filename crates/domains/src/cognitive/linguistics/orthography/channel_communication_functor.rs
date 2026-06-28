@@ -62,11 +62,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<ChannelToCommunication>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn word_is_message() {
         assert_eq!(
@@ -75,6 +77,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn correction_is_feedback() {
         assert_eq!(

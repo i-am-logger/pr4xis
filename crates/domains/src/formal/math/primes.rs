@@ -81,6 +81,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_small_primes() {
         assert!(!is_prime(0));
@@ -91,12 +92,14 @@ mod tests {
         assert!(is_prime(97));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_sieve() {
         let primes = sieve(30);
         assert_eq!(primes, vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_goldbach() {
         for n in (4..100).step_by(2) {
@@ -107,6 +110,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_factorize() {
         assert_eq!(factorize(12), vec![2, 2, 3]);
@@ -160,4 +164,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_factorization_product, Deterministic);
+    pr4xis::register_praxis_value!(prop_factors_are_prime, Verifiable);
+    pr4xis::register_praxis_value!(prop_sieve_consistent, Verifiable);
+    pr4xis::register_praxis_value!(prop_goldbach, Verifiable);
+    pr4xis::register_praxis_value!(prop_primes_odd, Verifiable);
 }

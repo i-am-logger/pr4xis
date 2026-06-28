@@ -14,6 +14,7 @@ use crate::formal::math::rotation::quaternion::Quaternion;
 // Category law validation
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn frame_category_laws() {
     assert_category_laws::<FrameCategory>();
@@ -23,27 +24,32 @@ fn frame_category_laws() {
 // Ontology validation
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn frame_ontology_validates() {
     FrameOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_transforms_compose_associatively() {
     assert!(TransformsComposeAssociatively.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_identity_exists() {
     assert!(IdentityExists.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_transforms_invertible() {
     assert!(TransformsInvertible.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_all_frames_right_handed() {
     assert!(AllFramesRightHanded.verify().is_ok());
@@ -53,6 +59,7 @@ fn axiom_all_frames_right_handed() {
 // Boresight tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn boresight_compose_chain() {
     let q1 = Quaternion::from_axis_angle([1.0, 0.0, 0.0], 0.01);
@@ -75,6 +82,7 @@ fn boresight_compose_chain() {
 // Lever arm tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lever_arm_velocity_correction_orthogonal() {
     // Pure Z rotation with lever arm along X => velocity along Y
@@ -174,4 +182,9 @@ mod proptest_proofs {
             prop_assert!((la2.offset[2] - la.offset[2]).abs() < 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(identity_is_neutral, Deterministic);
+    pr4xis::register_praxis_value!(composition_associative, Deterministic);
+    pr4xis::register_praxis_value!(boresight_inverse_identity, Deterministic);
+    pr4xis::register_praxis_value!(lever_arm_double_inverse, Deterministic);
 }

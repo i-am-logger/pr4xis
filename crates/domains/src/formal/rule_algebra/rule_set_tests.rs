@@ -23,6 +23,7 @@ fn canonical_rule_set() -> RuleSet<&'static str> {
     ])
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_subsumption_basic() {
     // r0: ⊤ ⇒ a   subsumes   r1: {b} ⇒ a
@@ -32,12 +33,14 @@ fn implication_subsumption_basic() {
     assert!(!r1.subsumes(&r0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_subsumption_reflexive() {
     let r: Implication<&str> = Implication::assertoric(vec!["x"], vec!["y"]);
     assert!(r.subsumes(&r));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_subsumption_consequent_must_be_superset() {
     // r1: {a} ⇒ {x, y}   subsumes   r2: {a} ⇒ {x}
@@ -47,6 +50,7 @@ fn implication_subsumption_consequent_must_be_superset() {
     assert!(!r2.subsumes(&r1));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_subsumption_respects_deontic_dimension() {
     // Same antecedent + consequent, different deontic — neither
@@ -57,6 +61,7 @@ fn implication_subsumption_respects_deontic_dimension() {
     assert!(!f.subsumes(&o));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn implication_normalize_idempotent() {
     let r: Implication<&str> = Implication::new(
@@ -72,6 +77,7 @@ fn implication_normalize_idempotent() {
     assert_eq!(once.consequent(), &["x", "y"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_conflict_classic_deontic() {
     // Op(d) vs Fp(d) — von Wright canonical conflict.
@@ -81,6 +87,7 @@ fn implication_conflict_classic_deontic() {
     assert!(f.conflicts_with(&o));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_no_conflict_when_targets_differ() {
     // Op(a) vs Fp(b) — different targets, no conflict.
@@ -89,6 +96,7 @@ fn implication_no_conflict_when_targets_differ() {
     assert!(!o.conflicts_with(&f));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_no_conflict_when_antecedents_disjoint() {
     // Op(d) given x, Fp(d) given y — disjoint conditions, no conflict.
@@ -97,6 +105,7 @@ fn implication_no_conflict_when_antecedents_disjoint() {
     assert!(!o.conflicts_with(&f));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn implication_conflict_unconditional_rule_always_fires() {
     // Op(d) ⊤, Fp(d) given some condition — unconditional rule
@@ -108,6 +117,7 @@ fn implication_conflict_unconditional_rule_always_fires() {
     assert!(f.conflicts_with(&o));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rule_set_subsumption_order_identifies_strict_subsumers() {
     let rs = canonical_rule_set();
@@ -122,6 +132,7 @@ fn rule_set_subsumption_order_identifies_strict_subsumers() {
     assert!(!order.contains(&(2, 1)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rule_set_most_general_picks_unconditional() {
     let rs = canonical_rule_set();
@@ -132,6 +143,7 @@ fn rule_set_most_general_picks_unconditional() {
     assert!(mg.contains(&0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rule_set_conflicts_finds_deontic_pairs() {
     let rs = canonical_rule_set();
@@ -142,6 +154,7 @@ fn rule_set_conflicts_finds_deontic_pairs() {
     assert!(conf.contains(&(5, 6)));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn rule_set_normalize_dedupes() {
     let mut rs: RuleSet<&str> = RuleSet::from_rules(vec![
@@ -153,6 +166,7 @@ fn rule_set_normalize_dedupes() {
     assert_eq!(n.len(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable, Deterministic, Extensible)]
 #[test]
 fn rule_set_canonical_basis_drops_strictly_subsumed() {
     let rs = canonical_rule_set();
@@ -171,6 +185,7 @@ fn rule_set_canonical_basis_drops_strictly_subsumed() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn empty_rule_set_operations_are_total() {
     let rs: RuleSet<&str> = RuleSet::new();
@@ -185,31 +200,37 @@ fn empty_rule_set_operations_are_total() {
 // Layer 2 — registered axioms verify.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_subsumption_reflexive_holds() {
     assert!(SubsumptionReflexive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_subsumption_transitive_holds() {
     assert!(SubsumptionTransitive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Deterministic)]
 #[test]
 fn axiom_normalization_idempotent_holds() {
     assert!(NormalizationIdempotent.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_conflict_symmetric_holds() {
     assert!(ConflictSymmetric.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_deontic_conflict_detected_holds() {
     assert!(DeonticConflictDetected.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable, Deterministic)]
 #[test]
 fn axiom_canonical_basis_is_subset_holds() {
     assert!(CanonicalBasisIsSubset.verify().is_ok());
@@ -362,3 +383,19 @@ proptest! {
         prop_assert_eq!(once, twice);
     }
 }
+
+pr4xis::register_praxis_value!(property_subsumption_reflexive, Verifiable);
+pr4xis::register_praxis_value!(property_subsumption_transitive, Verifiable);
+pr4xis::register_praxis_value!(property_subsumption_antisymmetric_up_to_eq, Verifiable);
+pr4xis::register_praxis_value!(property_normalization_idempotent, Deterministic);
+pr4xis::register_praxis_value!(
+    property_normalization_preserves_subsumption,
+    Deterministic,
+    Verifiable
+);
+pr4xis::register_praxis_value!(property_conflict_symmetric, Verifiable);
+pr4xis::register_praxis_value!(property_conflict_irreflexive, Verifiable);
+pr4xis::register_praxis_value!(property_rule_set_order_matches_pairwise, Verifiable);
+pr4xis::register_praxis_value!(property_rule_set_conflicts_match_pairwise, Verifiable);
+pr4xis::register_praxis_value!(property_canonical_basis_size, Verifiable);
+pr4xis::register_praxis_value!(property_rule_set_normalize_idempotent, Deterministic);

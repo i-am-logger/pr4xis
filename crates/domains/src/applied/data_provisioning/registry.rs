@@ -772,12 +772,14 @@ mod parser_tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_empty_manifest() {
         let items = parse_praxis_toml("").unwrap();
         assert!(items.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_simple_source() {
         let text = r#"
@@ -795,6 +797,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert_eq!(item.raw.url, "https://example.com/wordnet.xml.gz");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_lock_file() {
         // One blake3-tagged pin (the emitted form), one bare legacy pin
@@ -824,6 +827,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lock_digest_parses_explicit_sha256_tag() {
         let d = LockDigest::parse(
@@ -833,6 +837,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert_eq!(d.algorithm, HashAlgorithm::Sha256);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lock_digest_rejects_unknown_tag_fail_closed() {
         // An unrecognized algorithm tag must fail closed NAMING the tag —
@@ -857,6 +862,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn lock_digest_round_trips_through_display() {
         // Display writes the tagged wire form; parse inverts it.
@@ -872,6 +878,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert_eq!(LockDigest::parse(&legacy.to_string()).unwrap(), legacy);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lock_digest_verifies_dispatches_by_algorithm() {
         // The one verify leg: the SAME bytes verify under a blake3 pin and
@@ -888,6 +895,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert!(!legacy.verifies(b"other bytes"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_empty_lock() {
         let lock = parse_praxis_lock("").unwrap();
@@ -895,6 +903,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert!(lock.canonical_signatures.is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_canonical_signatures_section() {
         let text = r#"
@@ -914,6 +923,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_byte_exact_signatures_section() {
         let text = r#"
@@ -931,6 +941,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_byte_exact_signature_without_matching_hash() {
         // A byte_exact_signature pins the byte-exact round-trip of an
@@ -948,6 +959,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_byte_exact_signature_not_equal_to_raw_hash() {
         // Byte-exactness means put(get(b)) == b, so the round-trip hash
@@ -967,6 +979,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_archive_signatures_section() {
         // The archive signature pins the compiled `.prx` envelope's content
@@ -989,6 +1002,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_archive_signature_without_matching_hash() {
         // An archive signature pins the compiled `.prx` of an already-hashed
@@ -1006,6 +1020,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_malformed_archive_signature() {
         let text = r#"
@@ -1022,6 +1037,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn accepts_snapshot_signature_without_hashes_entry() {
         // DELIBERATE ASYMMETRY vs [archive_signatures]: a snapshot is keyed by
@@ -1041,6 +1057,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_snapshot_signature_bad_hex() {
         // "not-a-hash" carries no `:`, so it parses as a bare legacy digest
@@ -1056,6 +1073,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_canonical_signature_without_matching_hash() {
         // A canonical_signature pins the lens output of an
@@ -1074,6 +1092,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_malformed_canonical_signature() {
         // Not 64 chars.
@@ -1105,6 +1124,7 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn is_lowercase_hex_digest_works() {
         // 64-char lowercase hex.
@@ -1123,6 +1143,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert!(!is_lowercase_hex_digest(&s));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn build_entry_rejects_unknown_type() {
         let item = RawSourceWithName {
@@ -1140,6 +1161,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert!(err.contains("unknown type"), "got: {err}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn build_entry_without_lock_yields_stub_identity() {
         // Sources registered in praxis.toml without a praxis.lock entry
@@ -1164,6 +1186,7 @@ url     = "https://example.com/wordnet.xml.gz"
         assert!(matches!(entry.identity.0[0].data, ClaimData::Stub { .. }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn build_entry_succeeds_with_lock_hash() {
         let item = RawSourceWithName {

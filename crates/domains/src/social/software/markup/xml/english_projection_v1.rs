@@ -88,6 +88,7 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vocabulary_recognizes_loaded_reserved_attributes() {
         // Every reserved attribute in the bundled xml.xsd is
@@ -98,6 +99,7 @@ mod tests {
         assert!(is_xml_10_vocabulary("id"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vocabulary_recognizes_loaded_information_items() {
         // The 11 information-item phrases.
@@ -121,12 +123,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn vocabulary_rejects_unrelated_strings() {
         assert!(!is_xml_10_vocabulary("zzz_definitely_not_in_xml_1_0"));
         assert!(!is_xml_10_vocabulary(""));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vocabulary_is_case_insensitive() {
         assert!(is_xml_10_vocabulary("LANG"));
@@ -135,6 +139,7 @@ mod tests {
         assert!(is_xml_10_vocabulary("Document"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn canonical_phrase_covers_every_information_item() {
         // Every information-item concept has a canonical phrase.
@@ -158,6 +163,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn reserved_attribute_concept_has_no_canonical_phrase() {
         // The reserved-attribute concept is instance-valued, not
@@ -166,6 +172,7 @@ mod tests {
         assert!(canonical_phrase(Xml10Concept::XmlReservedAttribute).is_none());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_law_identity_preservation() {
         // Looking up the same input twice gives the same answer —
@@ -177,6 +184,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_law_composition_with_lookup() {
         // For every concept c with a canonical phrase `p`, the

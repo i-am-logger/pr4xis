@@ -3,77 +3,92 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::probability::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn probability_category_laws() {
     assert_category_laws::<ProbabilityCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn probability_ontology_validates() {
     ProbabilityOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kolmogorov_non_negativity() {
     assert!(NonNegativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kolmogorov_normalization() {
     assert!(Normalization.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn empty_set_zero() {
     assert!(EmptySetZero.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn complement_rule() {
     assert!(ComplementRule.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn probability_bounds() {
     assert!(ProbabilityBounds.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn bayes_theorem() {
     assert!(BayesTheorem.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gaussian_fusion_reduces_variance() {
     assert!(GaussianFusionReducesVariance.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kl_divergence_non_negative() {
     assert!(KlDivergenceNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kl_divergence_zero_iff_equal() {
     assert!(KlDivergenceZeroIffEqual.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn entropy_non_negative() {
     assert!(EntropyNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uniform_maximizes_entropy() {
     assert!(UniformMaximizesEntropy.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mahalanobis_non_negative() {
     assert!(MahalanobisNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mahalanobis_reduces_to_euclidean() {
     assert!(MahalanobisReducesToEuclidean.verify().is_ok());
@@ -213,4 +228,19 @@ mod proptest_proofs {
             prop_assert!(d2 >= -1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(distribution_sums_to_one, Verifiable);
+    pr4xis::register_praxis_value!(distribution_all_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(complement_sums_to_one, Verifiable);
+    pr4xis::register_praxis_value!(bayesian_posteriors_sum_to_one, Verifiable);
+    pr4xis::register_praxis_value!(bayesian_posteriors_are_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(gaussian_fusion_reduces_variance, Verifiable);
+    pr4xis::register_praxis_value!(gaussian_pdf_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(gaussian_pdf_max_at_mean, Verifiable);
+    pr4xis::register_praxis_value!(log_odds_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(entropy_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(kl_self_is_zero, Verifiable);
+    pr4xis::register_praxis_value!(kl_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(mahalanobis_at_mean_is_zero, Verifiable);
+    pr4xis::register_praxis_value!(mahalanobis_is_non_negative, Verifiable);
 }

@@ -15,6 +15,7 @@ const SAMPLE_TITLE: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1
 
 // ── ontology types ────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn subdivision_kind_parses_canonical_tags() {
     assert_eq!(
@@ -44,6 +45,7 @@ fn subdivision_kind_parses_canonical_tags() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn subdivision_kind_rejects_non_uslm_tags() {
     assert_eq!(SubdivisionKind::parse("section"), None);
@@ -51,6 +53,7 @@ fn subdivision_kind_rejects_non_uslm_tags() {
     assert_eq!(SubdivisionKind::parse(""), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nesting_depth_orders_subdivisions_correctly() {
     use SubdivisionKind::*;
@@ -70,6 +73,7 @@ fn nesting_depth_orders_subdivisions_correctly() {
 
 // ── single-section reading ────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reads_single_section_slice() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -80,6 +84,7 @@ fn reads_single_section_slice() {
     assert!(s.heading.contains("Civil action"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn subsection_inside_section_parsed_with_chapeau() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -98,6 +103,7 @@ fn subsection_inside_section_parsed_with_chapeau() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nested_subparagraph_carries_content_not_chapeau() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -118,6 +124,7 @@ fn nested_subparagraph_carries_content_not_chapeau() {
 
 // ── title-level reading (walks parts / chapters to find <section>) ──
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn title_parses_metadata_and_finds_all_nested_sections() {
     let t = read_uslm_title(SAMPLE_TITLE).expect("parse");
@@ -131,6 +138,7 @@ fn title_parses_metadata_and_finds_all_nested_sections() {
     assert!(ids.contains(&"/us/usc/t18/ptI/ch1/s2"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn title_section_lookup_by_identifier() {
     let t = read_uslm_title(SAMPLE_TITLE).expect("parse");
@@ -141,6 +149,7 @@ fn title_section_lookup_by_identifier() {
 
 // ── error paths ───────────────────────────────────────────────
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn rejects_non_uslm_root() {
     let xml = r##"<other><stuff/></other>"##;
@@ -150,6 +159,7 @@ fn rejects_non_uslm_root() {
 
 // ── real-corpus check ─────────────────────────────────────────
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_real_sox_1514a_slice() {
     // § 1514A is sliced out of the fetched `usc_title_18` corpus (18 U.S.C.
@@ -233,6 +243,9 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_read_is_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_section_identifiers_stable, Deterministic);
+
 fn collect_all_identifiers(sections: &[UsCodeSection]) -> Vec<String> {
     let mut out = Vec::new();
     for s in sections {
@@ -265,60 +278,70 @@ fn collect_ids_sub(d: &UsCodeSubdivision, out: &mut Vec<String>) {
 // `axiom_*` structural validators now live in `super::axioms` (feature-gated
 // pub so the heavy-corpus test crate can use them); the `#[test]` wrappers below
 // exercise them on the inline sample + the real on-disk slice.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_section_has_num_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
     axiom_every_section_has_num(&t).expect("axiom must hold");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_section_has_num_on_real_slice() {
     let t = super::real_sox_1514a::title();
     axiom_every_section_has_num(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_container_has_identifier_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
     axiom_every_container_has_identifier(&t).expect("axiom must hold");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_container_has_identifier_on_real_slice() {
     let t = super::real_sox_1514a::title();
     axiom_every_container_has_identifier(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_child_identifier_extends_parent_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
     axiom_child_identifier_extends_parent(&t).expect("axiom must hold");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_child_identifier_extends_parent_on_real_slice() {
     let t = super::real_sox_1514a::title();
     axiom_child_identifier_extends_parent(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_hierarchy_strictly_nested_on_sample() {
     let t = read_uslm_title(SAMPLE_SECTION_SLICE).unwrap();
     axiom_hierarchy_strictly_nested(&t).expect("axiom must hold");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_hierarchy_strictly_nested_on_real_slice() {
     let t = super::real_sox_1514a::title();
     axiom_hierarchy_strictly_nested(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_section_identifiers_unique_on_sample_title() {
     let t = read_uslm_title(SAMPLE_TITLE).unwrap();
     axiom_section_identifiers_unique(&t).expect("axiom must hold");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lrc_duplicate_numbering_footnote_recognizes_the_idiom() {
     // The two real footnote phrasings the LRC uses on a re-used
@@ -343,6 +366,7 @@ fn lrc_duplicate_numbering_footnote_recognizes_the_idiom() {
     ));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_ref_hrefs_well_formed_on_real_slice() {
     let t = super::real_sox_1514a::title();
@@ -460,6 +484,14 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_parse_is_idempotent_across_fixtures, Deterministic);
+pr4xis::register_praxis_value!(prop_strict_nesting_holds_on_fixtures, Verifiable);
+pr4xis::register_praxis_value!(prop_section_identifiers_unique_on_fixtures, Verifiable);
+pr4xis::register_praxis_value!(prop_child_identifier_extends_parent_on_fixtures, Verifiable);
+pr4xis::register_praxis_value!(prop_section_lookup_matches_list_on_fixtures, Verifiable);
+pr4xis::register_praxis_value!(prop_unknown_subdivision_names_fail_closed, Honest);
+pr4xis::register_praxis_value!(prop_nesting_depth_is_total_ordering, Verifiable);
+
 // =============================================================================
 // Each UslmReadError variant exercised (M4.δ.1.d uplift)
 //
@@ -468,6 +500,7 @@ proptest! {
 // should fail-closed accidentally returns Ok.
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn error_xml_on_malformed_input() {
     let err = read_uslm_title("<not<<>valid").expect_err("malformed XML should fail");
@@ -477,6 +510,7 @@ fn error_xml_on_malformed_input() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn error_no_uscode_root_on_unrelated_xml() {
     // Well-formed XML, but no <uscDoc>, <title>, or <section>.
@@ -485,6 +519,7 @@ fn error_no_uscode_root_on_unrelated_xml() {
     assert_eq!(err, UslmReadError::NoUsCodeRoot);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn error_bad_title_number_on_non_integer_num() {
     let xml = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t99X"><num value="not-a-number">Title XX—</num><heading>NONSENSE</heading></title>"##;
@@ -510,6 +545,7 @@ fn section_with_one_subdivision(kind_tag: &str, num: &str, identifier_suffix: &s
     )
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_subsection_alone() {
     let xml = section_with_one_subdivision("subsection", "a", "/a");
@@ -519,6 +555,7 @@ fn parses_subsection_alone() {
     assert_eq!(s.children[0].kind, SubdivisionKind::Subsection);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_paragraph_alone() {
     // USLM allows <paragraph> directly under <section> when the
@@ -530,6 +567,7 @@ fn parses_paragraph_alone() {
     assert_eq!(s.children[0].kind, SubdivisionKind::Paragraph);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_subparagraph_alone() {
     let xml = section_with_one_subdivision("subparagraph", "A", "/A");
@@ -540,6 +578,7 @@ fn parses_subparagraph_alone() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_clause_alone() {
     let xml = section_with_one_subdivision("clause", "i", "/i");
@@ -547,6 +586,7 @@ fn parses_clause_alone() {
     assert_eq!(t.sections[0].children[0].kind, SubdivisionKind::Clause);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_subclause_alone() {
     let xml = section_with_one_subdivision("subclause", "I", "/I");
@@ -554,6 +594,7 @@ fn parses_subclause_alone() {
     assert_eq!(t.sections[0].children[0].kind, SubdivisionKind::Subclause);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_item_alone() {
     let xml = section_with_one_subdivision("item", "aa", "/aa");
@@ -561,6 +602,7 @@ fn parses_item_alone() {
     assert_eq!(t.sections[0].children[0].kind, SubdivisionKind::Item);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_subitem_alone() {
     let xml = section_with_one_subdivision("subitem", "AA", "/AA");
@@ -568,6 +610,7 @@ fn parses_subitem_alone() {
     assert_eq!(t.sections[0].children[0].kind, SubdivisionKind::Subitem);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn full_seven_level_nesting_parses() {
     // A USLM tree with all seven container levels nested in
@@ -601,6 +644,7 @@ fn full_seven_level_nesting_parses() {
 // Edge cases (M4.δ.1.d uplift)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn section_with_no_children_parses() {
     // Flat section — content only, no nested subdivisions.
@@ -615,6 +659,7 @@ fn section_with_no_children_parses() {
     assert!(s.chapeau.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn container_with_only_chapeau_no_content_no_children() {
     // Pathological but parseable: an empty introducer.
@@ -625,6 +670,7 @@ fn container_with_only_chapeau_no_content_no_children() {
     assert!(s.content.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn container_with_both_chapeau_and_content() {
     // USLM Schema permits both — chapeau introduces children, but
@@ -637,6 +683,7 @@ fn container_with_both_chapeau_and_content() {
     assert_eq!(s.content.as_deref().unwrap_or(""), "Tail body");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn empty_heading_string_yields_empty_heading() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading></heading><content>x</content></section>"##;
@@ -644,6 +691,7 @@ fn empty_heading_string_yields_empty_heading() {
     assert_eq!(t.sections[0].heading, "");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn subdivision_without_heading_returns_none() {
     let xml = section_with_one_subdivision("subsection", "a", "/a");
@@ -656,6 +704,7 @@ fn subdivision_without_heading_returns_none() {
 // Non-ASCII content (M4.δ.1.d uplift)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn unicode_em_dash_in_heading_preserved() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>Causation—the “because of” clause</heading><content>x</content></section>"##;
@@ -666,6 +715,7 @@ fn unicode_em_dash_in_heading_preserved() {
     assert!(h.contains('”'), "curly quote lost: {h:?}");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn unicode_section_sign_in_num_preserved() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>H</heading><content>The § symbol must round-trip in body text.</content></section>"##;
@@ -673,6 +723,7 @@ fn unicode_section_sign_in_num_preserved() {
     assert!(t.sections[0].content.as_deref().unwrap_or("").contains('§'));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn unicode_in_ref_text_preserved() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>H</heading><content>See <ref href="/us/usc/t15/s78">15 U.S.C. § 78</ref>.</content></section>"##;
@@ -689,6 +740,7 @@ fn unicode_in_ref_text_preserved() {
 // UsCodeRef text contents — assert actual text, not just count (M4.δ.1.d)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ref_text_is_visible_link_text_not_href() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>H</heading><content>See <ref href="/us/usc/t15/s78">15 U.S.C. 78</ref>.</content></section>"##;
@@ -698,6 +750,7 @@ fn ref_text_is_visible_link_text_not_href() {
     assert_eq!(r.text, "15 U.S.C. 78");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn footnote_backlinks_not_collected_as_refs() {
     // <ref class="footnoteRef" idref="fnX"> has idref, no href.
@@ -721,6 +774,7 @@ fn footnote_backlinks_not_collected_as_refs() {
 // This is the load-bearing architectural guarantee.
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn codegen_and_runtime_paths_produce_equivalent_term_set() {
     use crate::social::compliance::statutes::from_uslm::derive_structural;
@@ -754,6 +808,7 @@ fn codegen_and_runtime_paths_produce_equivalent_term_set() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn codegen_and_runtime_paths_produce_equivalent_relation_set() {
     use crate::social::compliance::statutes::from_uslm::derive_structural;
@@ -960,6 +1015,19 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(
+    prop_arbitrary_tree_roundtrip_preserves_container_count,
+    Deterministic
+);
+pr4xis::register_praxis_value!(
+    prop_arbitrary_tree_has_unique_identifiers_in_subtree,
+    Deterministic
+);
+pr4xis::register_praxis_value!(
+    prop_arbitrary_chapeau_and_content_counts_preserved,
+    Deterministic
+);
+
 fn count_subdivisions_in_tree(d: &UsCodeSubdivision) -> usize {
     1 + d
         .children
@@ -1012,6 +1080,7 @@ fn count_chapeau_content_in_arb(t: &ArbContainer) -> (usize, usize) {
 // ContainerKind enum coverage (M4.δ.4)
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic, Honest)]
 #[test]
 fn container_kind_parse_round_trips_canonical_tags() {
     for tag in ["subtitle", "part", "subpart", "chapter", "subchapter"] {
@@ -1022,6 +1091,7 @@ fn container_kind_parse_round_trips_canonical_tags() {
     assert!(ContainerKind::parse("clause").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn container_nesting_depth_orders_kinds_canonically() {
     use ContainerKind::*;
@@ -1041,6 +1111,7 @@ fn container_nesting_depth_orders_kinds_canonically() {
 // deferred until a non-USC corpus loads.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn heading_variant_parses_all_six_kinds() {
     assert_eq!(
@@ -1069,6 +1140,7 @@ fn heading_variant_parses_all_six_kinds() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn heading_variant_rejects_non_heading_tags() {
     assert_eq!(UsCodeHeadingVariant::parse("section"), None);
@@ -1076,6 +1148,7 @@ fn heading_variant_rejects_non_heading_tags() {
     assert_eq!(UsCodeHeadingVariant::parse(""), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn additional_container_parses_all_seven_kinds() {
     for (tag, expected) in [
@@ -1091,6 +1164,7 @@ fn additional_container_parses_all_seven_kinds() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn additional_container_rejects_usc_containers() {
     // USC titles use ContainerKind variants (Subtitle/Part/etc.),
@@ -1100,6 +1174,7 @@ fn additional_container_rejects_usc_containers() {
     assert_eq!(UsCodeAdditionalContainer::parse("chapter"), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn quoted_variant_parses_all_three_kinds() {
     assert_eq!(
@@ -1116,6 +1191,7 @@ fn quoted_variant_parses_all_three_kinds() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn quoted_variant_disjoint_from_quoted_content() {
     // <quotedContent> is the generic kind (already modeled); the
@@ -1123,6 +1199,7 @@ fn quoted_variant_disjoint_from_quoted_content() {
     assert_eq!(UsCodeQuotedVariant::parse("quotedContent"), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn legislative_formula_parses_all_six_kinds() {
     for (tag, expected) in [
@@ -1137,6 +1214,7 @@ fn legislative_formula_parses_all_six_kinds() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn form_element_parses_all_five_kinds() {
     for (tag, expected) in [
@@ -1159,6 +1237,7 @@ fn form_element_parses_all_five_kinds() {
 // amendment-in-progress (bill or public law).
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn amendment_kind_parses_ins_and_del() {
     assert_eq!(
@@ -1171,6 +1250,7 @@ fn amendment_kind_parses_ins_and_del() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn amendment_kind_rejects_non_amendment_tags() {
     assert_eq!(UsCodeAmendmentKind::parse("section"), None);
@@ -1178,6 +1258,7 @@ fn amendment_kind_rejects_non_amendment_tags() {
     assert_eq!(UsCodeAmendmentKind::parse(""), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_captures_ins_amendment_in_section() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/sA"><num value="A">A</num><heading>x</heading><ins>new text added</ins></section>"##;
@@ -1188,6 +1269,7 @@ fn reader_captures_ins_amendment_in_section() {
     assert_eq!(s.amendments[0].text, "new text added");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_captures_del_amendment_in_section() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/sB"><num value="B">B</num><heading>x</heading><del>obsolete text</del></section>"##;
@@ -1198,6 +1280,7 @@ fn reader_captures_del_amendment_in_section() {
     assert_eq!(s.amendments[0].text, "obsolete text");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_captures_amendments_in_subdivision() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/sC"><num value="C">C</num><heading>x</heading><subsection identifier="/us/usc/t18/sC/a"><num value="a">a</num><ins>inserted</ins><del>deleted</del></subsection></section>"##;
@@ -1210,6 +1293,7 @@ fn reader_captures_amendments_in_subdivision() {
     assert!(kinds.contains(&UsCodeAmendmentKind::Deletion));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_empty_amendments_for_section_without_diff_markup() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -1231,6 +1315,7 @@ fn reader_empty_amendments_for_section_without_diff_markup() {
 
 const SAMPLE_WITH_USLM_META: &str = r##"<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" identifier="/us/usc/t18"><meta><dc:title>Title 18</dc:title><docNumber>18</docNumber><docPublicationName>Online@119-90</docPublicationName><property role="is-positive-law">yes</property><dcterms:created>2026-05-04T10:22:41</dcterms:created></meta><main><title identifier="/us/usc/t18"><num value="18">18</num><heading>x</heading></title></main></uscDoc>"##;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn doc_number_parsed_into_meta() {
     let title = read_uslm_title(SAMPLE_WITH_USLM_META).expect("parse");
@@ -1238,6 +1323,7 @@ fn doc_number_parsed_into_meta() {
     assert_eq!(meta.doc_number.as_deref(), Some("18"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn doc_publication_name_carries_release_point() {
     let title = read_uslm_title(SAMPLE_WITH_USLM_META).expect("parse");
@@ -1245,6 +1331,7 @@ fn doc_publication_name_carries_release_point() {
     assert_eq!(meta.doc_publication_name.as_deref(), Some("Online@119-90"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn property_role_is_positive_law_captured() {
     let title = read_uslm_title(SAMPLE_WITH_USLM_META).expect("parse");
@@ -1254,6 +1341,7 @@ fn property_role_is_positive_law_captured() {
     assert_eq!(meta.properties[0].value, "yes");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_positive_law_method_returns_true_for_yes() {
     let title = read_uslm_title(SAMPLE_WITH_USLM_META).expect("parse");
@@ -1261,6 +1349,7 @@ fn is_positive_law_method_returns_true_for_yes() {
     assert_eq!(meta.is_positive_law(), Some(true));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_positive_law_method_returns_false_for_no() {
     let xml = r##"<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t42"><meta><property role="is-positive-law">no</property></meta><main><title identifier="/us/usc/t42"><num value="42">42</num><heading>x</heading></title></main></uscDoc>"##;
@@ -1269,6 +1358,7 @@ fn is_positive_law_method_returns_false_for_no() {
     assert_eq!(meta.is_positive_law(), Some(false));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_positive_law_method_returns_none_when_property_absent() {
     let xml = r##"<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t99"><meta></meta><main><title identifier="/us/usc/t99"><num value="99">99</num><heading>x</heading></title></main></uscDoc>"##;
@@ -1277,6 +1367,7 @@ fn is_positive_law_method_returns_none_when_property_absent() {
     assert_eq!(meta.is_positive_law(), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dcterms_created_routed_to_typed_field() {
     let title = read_uslm_title(SAMPLE_WITH_USLM_META).expect("parse");
@@ -1284,6 +1375,7 @@ fn dcterms_created_routed_to_typed_field() {
     assert_eq!(meta.dcterms_created.as_deref(), Some("2026-05-04T10:22:41"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dcterms_unknown_element_routed_to_other() {
     let xml = r##"<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" xmlns:dcterms="http://purl.org/dc/terms/" identifier="/us/usc/t99"><meta><dcterms:isPartOf>USC</dcterms:isPartOf></meta><main><title identifier="/us/usc/t99"><num value="99">99</num><heading>x</heading></title></main></uscDoc>"##;
@@ -1308,6 +1400,7 @@ fn dcterms_unknown_element_routed_to_other() {
 
 const SAMPLE_WITH_TABLE: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">18</num><heading>x</heading><table id="tbl1" class="TableOfDisposition" xmlns="http://www.w3.org/1999/xhtml"><thead><tr class="header"><th>Old §</th><th>New §</th></tr></thead><tbody><tr><td>1</td><td>3</td></tr><tr><td>2</td><td>5</td></tr></tbody></table></title>"##;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn table_block_parses_with_id_and_class() {
     let title = read_uslm_title(SAMPLE_WITH_TABLE).expect("parse");
@@ -1317,6 +1410,7 @@ fn table_block_parses_with_id_and_class() {
     assert_eq!(t.class.as_deref(), Some("TableOfDisposition"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn table_header_rows_separated_from_body_rows() {
     let title = read_uslm_title(SAMPLE_WITH_TABLE).expect("parse");
@@ -1325,6 +1419,7 @@ fn table_header_rows_separated_from_body_rows() {
     assert_eq!(t.body_rows.len(), 2, "two <tbody> rows");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn table_cells_discriminate_th_from_td() {
     let title = read_uslm_title(SAMPLE_WITH_TABLE).expect("parse");
@@ -1345,6 +1440,7 @@ fn table_cells_discriminate_th_from_td() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn table_cell_text_collected_per_cell() {
     let title = read_uslm_title(SAMPLE_WITH_TABLE).expect("parse");
@@ -1355,6 +1451,7 @@ fn table_cell_text_collected_per_cell() {
     assert_eq!(t.body_rows[1].cells[1].text, "5");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn table_cell_colspan_rowspan_parsed_as_u32() {
     let xml = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">18</num><heading>x</heading><table xmlns="http://www.w3.org/1999/xhtml"><tr><th colspan="2" rowspan="3">spanning header</th></tr></table></title>"##;
@@ -1364,6 +1461,7 @@ fn table_cell_colspan_rowspan_parsed_as_u32() {
     assert_eq!(cell.rowspan, Some(3));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn table_without_thead_collects_all_rows_as_body() {
     // Some tables have only <tr> children, no <thead>/<tbody>.
@@ -1374,6 +1472,7 @@ fn table_without_thead_collects_all_rows_as_body() {
     assert_eq!(t.body_rows.len(), 2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn table_idempotent_across_reparse() {
     let a = read_uslm_title(SAMPLE_WITH_TABLE).expect("parse");
@@ -1391,6 +1490,7 @@ fn table_idempotent_across_reparse() {
 
 const SAMPLE_WITH_TOC: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">18</num><heading>x</heading><toc role="threeColumnTOC" id="t1"><layout><header role="tocColumnHeader"><column>Part</column><column/><column>Sec.</column></header><tocItem><column><ref href="/us/usc/t18/ptI">I.</ref></column><column>Crimes</column><column><ref href="/us/usc/t18/s1">1</ref></column></tocItem><tocItem><column><ref href="/us/usc/t18/ptII">II.</ref></column><column>Criminal Procedure</column><column><ref href="/us/usc/t18/s3001">3001</ref></column></tocItem></layout></toc></title>"##;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn toc_block_parses_with_role_and_id() {
     let title = read_uslm_title(SAMPLE_WITH_TOC).expect("parse");
@@ -1400,6 +1500,7 @@ fn toc_block_parses_with_role_and_id() {
     assert_eq!(toc.identifier.as_deref(), Some("t1"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn toc_items_collected_in_document_order() {
     let title = read_uslm_title(SAMPLE_WITH_TOC).expect("parse");
@@ -1411,6 +1512,7 @@ fn toc_items_collected_in_document_order() {
     assert!(toc.items[1].text.contains("Criminal Procedure"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn toc_item_target_is_first_ref_href() {
     let title = read_uslm_title(SAMPLE_WITH_TOC).expect("parse");
@@ -1419,6 +1521,7 @@ fn toc_item_target_is_first_ref_href() {
     assert_eq!(toc.items[1].target.as_deref(), Some("/us/usc/t18/ptII"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn toc_item_collects_all_refs() {
     let title = read_uslm_title(SAMPLE_WITH_TOC).expect("parse");
@@ -1430,6 +1533,7 @@ fn toc_item_collects_all_refs() {
     assert!(hrefs.contains(&"/us/usc/t18/s1"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn toc_header_row_is_not_collected_as_item() {
     let title = read_uslm_title(SAMPLE_WITH_TOC).expect("parse");
@@ -1445,12 +1549,14 @@ fn toc_header_row_is_not_collected_as_item() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn toc_without_block_yields_empty_vec() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
     assert!(title.tocs.is_empty());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn toc_idempotent_across_reparse() {
     let a = read_uslm_title(SAMPLE_WITH_TOC).expect("parse");
@@ -1475,6 +1581,7 @@ fn toc_idempotent_across_reparse() {
 
 const SAMPLE_WITH_META: &str = r##"<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" identifier="/us/usc/t18"><meta><dc:title>Title 18</dc:title><dc:type>USCTitle</dc:type><dc:publisher>OLRC</dc:publisher><dc:creator>USCConverter 1.7.2</dc:creator></meta><main><title identifier="/us/usc/t18"><num value="18">Title 18—</num><heading>CRIMES</heading></title></main></uscDoc>"##;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_block_parsed_into_dublin_core_fields() {
     let title = read_uslm_title(SAMPLE_WITH_META).expect("parse");
@@ -1485,6 +1592,7 @@ fn meta_block_parsed_into_dublin_core_fields() {
     assert_eq!(meta.creator.as_deref(), Some("USCConverter 1.7.2"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_block_absent_yields_none() {
     // Bare slice without `<uscDoc>` / `<meta>` wrapper.
@@ -1492,6 +1600,7 @@ fn meta_block_absent_yields_none() {
     assert!(title.meta.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_block_unknown_dc_elements_surface_in_other_dc() {
     let xml = r##"<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" identifier="/us/usc/t99"><meta><dc:title>X</dc:title><dc:subject>statutes</dc:subject><dc:coverage>U.S.</dc:coverage></meta><main><title identifier="/us/usc/t99"><num value="99">99</num><heading>x</heading></title></main></uscDoc>"##;
@@ -1515,6 +1624,7 @@ fn meta_block_unknown_dc_elements_surface_in_other_dc() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn meta_block_ignores_non_dc_children() {
     // An unprefixed `<title>` inside `<meta>` is schema-non-conformant
@@ -1527,6 +1637,7 @@ fn meta_block_ignores_non_dc_children() {
     assert_eq!(meta.title.as_deref(), Some("Real DC Title"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_block_empty_dc_element_recorded_in_other_dc() {
     // An empty DC element shouldn't silently disappear — it might
@@ -1546,6 +1657,7 @@ fn meta_block_empty_dc_element_recorded_in_other_dc() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn meta_block_is_idempotent_across_reparse() {
     let a = read_uslm_title(SAMPLE_WITH_META).expect("parse");
@@ -1564,6 +1676,7 @@ fn meta_block_is_idempotent_across_reparse() {
 // reader the LRC vocabulary may have extended.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn note_kind_classifies_editorial_topic() {
     assert_eq!(
@@ -1572,6 +1685,7 @@ fn note_kind_classifies_editorial_topic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn note_kind_classifies_statutory_topic() {
     assert_eq!(
@@ -1580,6 +1694,7 @@ fn note_kind_classifies_statutory_topic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn note_kind_classifies_change_topics() {
     assert_eq!(
@@ -1592,6 +1707,7 @@ fn note_kind_classifies_change_topics() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn note_kind_classifies_enacting_topic() {
     assert_eq!(
@@ -1600,6 +1716,7 @@ fn note_kind_classifies_enacting_topic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn note_kind_classifies_footnote_via_type_attribute() {
     // `type="footnote"` wins over `topic` — footnotes are
@@ -1615,6 +1732,7 @@ fn note_kind_classifies_footnote_via_type_attribute() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn note_kind_returns_unrecognized_for_unmapped_topic() {
     assert_eq!(
@@ -1631,6 +1749,7 @@ fn note_kind_returns_unrecognized_for_unmapped_topic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn note_kind_method_on_uscodenote_uses_topic_and_type() {
     let xml = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">18</num><heading>x</heading><notes type="uscNote"><note topic="editorialNotes"><heading>E1</heading><p>editorial body</p></note><note topic="amendments"><heading>A1</heading><p>amendment text</p></note><note type="footnote"><p>fn body</p></note></notes></title>"##;
@@ -1661,6 +1780,7 @@ fn note_kind_method_on_uscodenote_uses_topic_and_type() {
 
 const SAMPLE_WITH_DEF: &str = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18/sX"><num value="X">§ X.</num><heading>Definitions</heading><def id="/us/usc/t18/sX/def-employee"><term refersTo="#emp">covered employee</term><content>means an individual employed by a covered employer.</content></def><def><term refersTo="#emp">employee</term><term>worker</term><content>shall include officers and agents.</content></def><marker name="anchor-1" class="label"/></section>"##;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_captures_def_block_with_single_term() {
     let title = read_uslm_title(SAMPLE_WITH_DEF).expect("parse");
@@ -1680,6 +1800,7 @@ fn reader_captures_def_block_with_single_term() {
     assert_eq!(first.terms[0].refers_to.as_deref(), Some("#emp"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_captures_def_block_with_multiple_terms() {
     let title = read_uslm_title(SAMPLE_WITH_DEF).expect("parse");
@@ -1694,6 +1815,7 @@ fn reader_captures_def_block_with_multiple_terms() {
     assert!(multi.terms.iter().any(|t| t.text == "worker"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_def_block_body_contains_definitional_prose() {
     let title = read_uslm_title(SAMPLE_WITH_DEF).expect("parse");
@@ -1706,6 +1828,7 @@ fn reader_def_block_body_contains_definitional_prose() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_captures_marker_with_name_and_class() {
     let title = read_uslm_title(SAMPLE_WITH_DEF).expect("parse");
@@ -1716,6 +1839,7 @@ fn reader_captures_marker_with_name_and_class() {
     assert_eq!(m.class.as_deref(), Some("label"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_term_refers_to_falls_back_to_hyphenated_attribute() {
     // LRC documentation gives both `refersTo` and `refers-to` in
@@ -1727,6 +1851,7 @@ fn reader_term_refers_to_falls_back_to_hyphenated_attribute() {
     assert_eq!(term.refers_to.as_deref(), Some("#alt"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_marker_without_name_yields_empty_string() {
     // Schema requires `name=`; if a malformed corpus omits it, the
@@ -1739,6 +1864,7 @@ fn reader_marker_without_name_yields_empty_string() {
     assert_eq!(s.markers[0].name, "");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn reader_def_blocks_idempotent_across_reparse() {
     let a = read_uslm_title(SAMPLE_WITH_DEF).expect("parse");
@@ -1753,6 +1879,7 @@ fn reader_def_blocks_idempotent_across_reparse() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_section_without_def_has_empty_def_blocks() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -1761,6 +1888,7 @@ fn reader_section_without_def_has_empty_def_blocks() {
     assert!(s.markers.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn reader_subdivision_can_carry_its_own_def_blocks() {
     // <def> nested inside a subsection's body — collected on the
@@ -1784,6 +1912,7 @@ fn reader_subdivision_can_carry_its_own_def_blocks() {
 // derived property of the URN, not a structural field.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_constructs_from_number_for_title_18() {
     let id = UsCodeTitleId::try_from_number(18).expect("Title 18");
@@ -1792,12 +1921,14 @@ fn uscodetitle_id_constructs_from_number_for_title_18() {
     assert_eq!(id.source_name(), "usc_title_18");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_constructs_from_urn_for_title_49() {
     let id = UsCodeTitleId::try_from_urn("/us/usc/t49").expect("Title 49");
     assert_eq!(id.number(), 49);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn uscodetitle_id_round_trips_through_source_name() {
     let id = UsCodeTitleId::try_from_source_name("usc_title_18").expect("parse");
@@ -1805,6 +1936,7 @@ fn uscodetitle_id_round_trips_through_source_name() {
     assert_eq!(id.number(), 18);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn uscodetitle_id_rejects_out_of_range_number() {
     assert!(matches!(
@@ -1817,6 +1949,7 @@ fn uscodetitle_id_rejects_out_of_range_number() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn uscodetitle_id_rejects_non_title_urn_paths() {
     // Section-level path, not a title path.
@@ -1831,6 +1964,7 @@ fn uscodetitle_id_rejects_non_title_urn_paths() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn uscodetitle_id_rejects_bad_urn_grammar() {
     // Missing `/us/` prefix → identifier_format rejects.
@@ -1840,6 +1974,7 @@ fn uscodetitle_id_rejects_bad_urn_grammar() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn uscodetitle_id_rejects_malformed_source_name() {
     assert!(matches!(
@@ -1852,6 +1987,7 @@ fn uscodetitle_id_rejects_malformed_source_name() {
     ));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_identifier_format_is_uslm_urn() {
     use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
@@ -1859,6 +1995,7 @@ fn uscodetitle_id_identifier_format_is_uslm_urn() {
     assert_eq!(id.identifier().format, IdentifierFormatConcept::UslmUrn);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_short_citation_is_bluebook_form() {
     // Bluebook 21st ed. Rule 12.1 — "18 U.S.C." (no trailing space).
@@ -1866,12 +2003,14 @@ fn uscodetitle_id_short_citation_is_bluebook_form() {
     assert_eq!(id.short_citation(), "18 U.S.C.");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_long_citation_is_english_noun_phrase() {
     let id = UsCodeTitleId::try_from_number(18).unwrap();
     assert_eq!(id.long_citation(), "title 18 of the United States Code");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn uscodetitle_id_eq_and_hash_by_urn() {
     use std::collections::HashSet;
@@ -1887,6 +2026,7 @@ fn uscodetitle_id_eq_and_hash_by_urn() {
     assert_eq!(s.len(), 1, "three constructors for Title 18 must collide");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_section_1514a_belongs_to_title_18() {
     // The section URN /us/usc/t18/s1514A starts with the title URN.
@@ -1911,6 +2051,7 @@ fn uscodetitle_id_section_1514a_belongs_to_title_18() {
 // (`<sup>`), and links (`<a href>`) without re-parsing.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn inline_kind_parses_canonical_tags() {
     assert_eq!(InlineKind::parse("inline"), Some(InlineKind::Inline));
@@ -1922,6 +2063,7 @@ fn inline_kind_parses_canonical_tags() {
     assert_eq!(InlineKind::parse("a"), Some(InlineKind::Anchor));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn inline_kind_rejects_non_inline_tags() {
     assert_eq!(InlineKind::parse("section"), None);
@@ -1930,6 +2072,7 @@ fn inline_kind_rejects_non_inline_tags() {
     assert_eq!(InlineKind::parse(""), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn subsection_heading_carries_small_caps_inline_run() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -1951,6 +2094,7 @@ fn subsection_heading_carries_small_caps_inline_run() {
     assert_eq!(run.href, None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn chapeau_plain_text_becomes_single_plain_text_run() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -1969,6 +2113,7 @@ fn chapeau_plain_text_becomes_single_plain_text_run() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn content_runs_match_flat_content_for_leaf_subdivision() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -1986,6 +2131,7 @@ fn content_runs_match_flat_content_for_leaf_subdivision() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn section_heading_runs_match_flat_heading() {
     let title = read_uslm_title(SAMPLE_SECTION_SLICE).expect("parse");
@@ -1996,6 +2142,7 @@ fn section_heading_runs_match_flat_heading() {
     assert_eq!(joined.trim(), s.heading.trim());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn unknown_inline_wrapper_falls_through_to_plain_text() {
     // An unrecognized inline wrapper (`<weird>...</weird>`) must
@@ -2013,6 +2160,7 @@ fn unknown_inline_wrapper_falls_through_to_plain_text() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn inline_runs_collapse_whitespace_in_text_nodes() {
     // Multi-line / multi-space text nodes collapse to single
@@ -2027,6 +2175,7 @@ fn inline_runs_collapse_whitespace_in_text_nodes() {
     assert_eq!(s.heading_runs[0].text, "many spaces here");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ref_inside_heading_becomes_plain_text_run_keeping_href() {
     // `<ref>` is a citation-graph element, not an inline ornament,
@@ -2044,6 +2193,7 @@ fn ref_inside_heading_becomes_plain_text_run_keeping_href() {
     assert_eq!(with_href[0].text, "Section 10A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn anchor_element_typed_as_inline_anchor() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/x"><num value="0">§ 0.</num><heading>visit <a href="https://www.house.gov">House.gov</a> for more</heading></section>"##;
@@ -2060,6 +2210,7 @@ fn anchor_element_typed_as_inline_anchor() {
     assert_eq!(anchors[0].href.as_deref(), Some("https://www.house.gov"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn italic_bold_sup_sub_each_get_their_typed_kind() {
     let xml = r##"<section xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/x"><num value="0">§ 0.</num><heading><i>it</i><b>bo</b><sup>up</sup><sub>dn</sub></heading></section>"##;
@@ -2073,6 +2224,7 @@ fn italic_bold_sup_sub_each_get_their_typed_kind() {
     assert!(kinds.contains(&InlineKind::Subscript));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn empty_inline_element_produces_no_run() {
     // `<inline></inline>` with no text content must not emit
@@ -2088,6 +2240,7 @@ fn empty_inline_element_produces_no_run() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn inline_runs_idempotent_under_reparse() {
     // Same bytes → same runs sequence (kind, text, class, href).
@@ -2131,6 +2284,7 @@ fn axiom_loaded_uslm_xsd() -> crate::formal::meta::xsd::from_xsd_parser::XsdOnto
     project_from_xsd_text(loaded_uslm_1_0_18_xsd())
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_container_kind_members_are_level_group_members() {
     // For every ContainerKind variant, the variant's USLM tag is a
@@ -2155,6 +2309,7 @@ fn axiom_container_kind_members_are_level_group_members() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_subdivision_kind_members_are_level_group_members() {
     // For every SubdivisionKind variant, the variant's USLM tag is a
@@ -2179,6 +2334,7 @@ fn axiom_subdivision_kind_members_are_level_group_members() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_uscode_additional_container_members_are_xsd_declared() {
     // For every UsCodeAdditionalContainer variant, the variant's
@@ -2202,6 +2358,7 @@ fn axiom_uscode_additional_container_members_are_xsd_declared() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_container_kind_from_xsd_element_matches_parse() {
     // For every ContainerKind variant's tag, the XSD-grounded
@@ -2220,6 +2377,7 @@ fn axiom_container_kind_from_xsd_element_matches_parse() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_subdivision_kind_from_xsd_element_matches_parse() {
     let xsd = axiom_loaded_uslm_xsd();
@@ -2233,6 +2391,7 @@ fn axiom_subdivision_kind_from_xsd_element_matches_parse() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn axiom_from_xsd_element_rejects_non_level_member_names() {
     // Names that are XSD-declared but NOT in the level family must
@@ -2261,6 +2420,7 @@ fn axiom_from_xsd_element_rejects_non_level_member_names() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn axiom_from_xsd_element_rejects_undeclared_names() {
     // Names that aren't declared by the loaded USLM XSD have no

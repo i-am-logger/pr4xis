@@ -4,26 +4,31 @@ use crate::formal::math::rigid_motion::ontology::{
     Associativity, CompositionConsistency, IdentityElement, InverseExists, RigidMotionOntology,
 };
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rigid_motion_ontology_validates() {
     RigidMotionOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn se3_associativity() {
     assert!(Associativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn se3_identity() {
     assert!(IdentityElement.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn se3_inverse() {
     assert!(InverseExists.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn se3_composition_consistency() {
     assert!(CompositionConsistency.verify().is_ok());
@@ -89,4 +94,11 @@ mod proptest_proofs {
             prop_assert!((d1 - d2).abs() < 1e-9);
         }
     }
+
+    pr4xis::register_praxis_value!(composition_is_associative, Deterministic);
+    pr4xis::register_praxis_value!(inverse_yields_identity, Deterministic);
+    pr4xis::register_praxis_value!(
+        transform_point_preserves_distance_under_pure_rotation,
+        Verifiable
+    );
 }

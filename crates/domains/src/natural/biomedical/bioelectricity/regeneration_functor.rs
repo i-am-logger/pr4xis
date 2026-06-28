@@ -85,16 +85,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<BioelectricToRegeneration>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BioelectricToRegeneration>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BioelectricEntity::variants() {
@@ -109,6 +112,7 @@ mod tests {
     // adjunctions/composition_tests batch (the source is now a kinded
     // partial category per OBO-RO; `Composed` no longer exists).
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = RegenerationEntity::variants();
@@ -123,6 +127,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_potential_maps_to_anatomical_polarity() {
         assert_eq!(
@@ -131,6 +136,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_voltage_gradient_maps_to_anterior_posterior_axis() {
         assert_eq!(
@@ -139,6 +145,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bioelectric_prepattern_maps_to_target_morphology() {
         assert_eq!(
@@ -147,6 +154,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_gap_junction_network_maps_to_pattern_memory() {
         assert_eq!(
@@ -155,6 +163,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cognitive_lightcone_maps_to_pattern_memory() {
         assert_eq!(
@@ -163,6 +172,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_target_morphology_maps_directly() {
         assert_eq!(
@@ -171,6 +181,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_current_morphology_maps_to_wound_epithelium() {
         assert_eq!(
@@ -179,6 +190,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_morphogenetic_field_maps_to_pattern_memory() {
         assert_eq!(
@@ -187,6 +199,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ion_channel_modulation_maps_to_bistability() {
         assert_eq!(
@@ -195,6 +208,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_signal_abstract_maps_to_pattern_concept() {
         assert_eq!(

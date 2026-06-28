@@ -13,6 +13,7 @@ fn arb_alpha() -> impl Strategy<Value = f64> {
 // RGB enforcement tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constants() {
     assert_eq!(Rgb::BLACK.luminance(), 0.0);
@@ -21,6 +22,7 @@ fn test_constants() {
     assert!(!Rgb::WHITE.is_dark());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_achromatic() {
     assert!(Rgb::BLACK.is_achromatic());
@@ -29,6 +31,7 @@ fn test_achromatic() {
     assert!(!Rgb::RED.is_achromatic());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_invert() {
     assert_eq!(Rgb::BLACK.invert(), Rgb::WHITE);
@@ -36,6 +39,7 @@ fn test_invert() {
     assert_eq!(Rgb::RED.invert(), Rgb::CYAN);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_wcag_contrast() {
     assert!(Rgb::BLACK.wcag_aa(Rgb::WHITE));
@@ -43,6 +47,7 @@ fn test_wcag_contrast() {
     assert!(!Rgb::new(128, 128, 128).wcag_aa(Rgb::new(140, 140, 140)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_additive_mixing() {
     assert_eq!(mix(Rgb::RED, Rgb::GREEN, MixMode::Additive), Rgb::YELLOW);
@@ -50,22 +55,26 @@ fn test_additive_mixing() {
     assert_eq!(mix(Rgb::GREEN, Rgb::BLUE, MixMode::Additive), Rgb::CYAN);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_multiply_with_black() {
     assert_eq!(mix(Rgb::RED, Rgb::BLACK, MixMode::Multiply), Rgb::BLACK);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_multiply_with_white() {
     assert_eq!(mix(Rgb::RED, Rgb::WHITE, MixMode::Multiply), Rgb::RED);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_blend_extremes() {
     assert_eq!(blend(Rgb::RED, Rgb::BLUE, 0.0), Rgb::RED);
     assert_eq!(blend(Rgb::RED, Rgb::BLUE, 1.0), Rgb::BLUE);
 }
 
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn test_mix_many() {
     let avg = mix_many(&[Rgb::BLACK, Rgb::WHITE]).unwrap();
@@ -73,12 +82,14 @@ fn test_mix_many() {
     assert_eq!(mix_many(&[]), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complement() {
     assert_eq!(complement(Rgb::RED), Rgb::CYAN);
     assert_eq!(complement(Rgb::BLACK), Rgb::WHITE);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_grayscale() {
     let gray = Rgb::RED.grayscale();
@@ -277,10 +288,40 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_luminance_range, Verifiable);
+pr4xis::register_praxis_value!(prop_black_darkest, Verifiable);
+pr4xis::register_praxis_value!(prop_double_invert, Deterministic);
+pr4xis::register_praxis_value!(prop_contrast_at_least_1, Verifiable);
+pr4xis::register_praxis_value!(prop_contrast_symmetric, Verifiable);
+pr4xis::register_praxis_value!(prop_self_contrast, Verifiable);
+pr4xis::register_praxis_value!(prop_max_contrast, Verifiable);
+pr4xis::register_praxis_value!(prop_grayscale_achromatic, Verifiable);
+pr4xis::register_praxis_value!(prop_achromatic_no_hue, Honest, Verifiable);
+pr4xis::register_praxis_value!(prop_pure_colors_have_hue, Verifiable);
+pr4xis::register_praxis_value!(prop_saturation_range, Verifiable);
+pr4xis::register_praxis_value!(prop_achromatic_zero_saturation, Verifiable);
+pr4xis::register_praxis_value!(prop_additive_black_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_additive_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_average_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_multiply_white_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_multiply_black_absorbs, Verifiable);
+pr4xis::register_praxis_value!(prop_multiply_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_screen_black_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_screen_white_absorbs, Verifiable);
+pr4xis::register_praxis_value!(prop_blend_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_blend_one, Verifiable);
+pr4xis::register_praxis_value!(prop_blend_self, Verifiable);
+pr4xis::register_praxis_value!(prop_mix_many_single, Verifiable);
+pr4xis::register_praxis_value!(prop_mix_many_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_complement_involution, Deterministic);
+pr4xis::register_praxis_value!(prop_wcag_aa_implies_large, Verifiable);
+pr4xis::register_praxis_value!(prop_wcag_aaa_implies_aa, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_invert_twice_returns_original() {
     let e = new_color(Rgb::new(100, 150, 200));
@@ -289,6 +330,7 @@ fn engine_invert_twice_returns_original() {
     assert_eq!(*e.situation(), Rgb::new(100, 150, 200));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_blend_invalid_alpha_rejected() {
     let e = new_color(Rgb::new(128, 128, 128));
@@ -299,6 +341,7 @@ fn engine_blend_invalid_alpha_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_mix_and_back() {
     let e = new_color(Rgb::new(255, 0, 0)); // Red
@@ -315,6 +358,7 @@ fn engine_mix_and_back() {
     assert_eq!(*e.situation(), mixed);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_set_channel() {
     let e = new_color(Rgb::new(0, 0, 0));
@@ -329,6 +373,7 @@ fn engine_set_channel() {
     assert_eq!(e.situation().g, 0);
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn engine_trace_records() {
     let e = new_color(Rgb::new(128, 128, 128));

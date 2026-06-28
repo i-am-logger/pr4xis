@@ -40,6 +40,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_first_10() {
         let expected = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
@@ -48,12 +49,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_golden_ratio() {
         let phi = golden_ratio();
         assert!((phi - 1.618033988749895).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_cassini_identity() {
         for n in 1..20 {
@@ -99,4 +102,10 @@ mod tests {
             prop_assert!(fib(n) >= fib(n - 1));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_recurrence, Verifiable);
+    pr4xis::register_praxis_value!(prop_cassini, Verifiable);
+    pr4xis::register_praxis_value!(prop_golden_ratio_convergence, Verifiable);
+    pr4xis::register_praxis_value!(prop_binet_matches_fib, Verifiable);
+    pr4xis::register_praxis_value!(prop_monotonic, Verifiable);
 }

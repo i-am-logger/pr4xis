@@ -242,6 +242,7 @@ mod tests {
     // Layer 1 — unit tests
     // =========================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn from_uslm_section_succeeds_on_sample() {
         let s = sample_section();
@@ -250,6 +251,7 @@ mod tests {
         assert_eq!(st.version(), "2002");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn term_count_equals_subdivision_count() {
         let s = sample_section();
@@ -258,6 +260,7 @@ mod tests {
         assert_eq!(st.terms().len(), expected);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn relation_count_equals_nested_subdivision_count() {
         // Every subdivision below the top level emits one
@@ -269,6 +272,7 @@ mod tests {
         assert_eq!(st.relations().len(), expected);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn no_root_term_only_subdivisions() {
         // The § itself isn't a term — `Statute::name()` carries
@@ -286,6 +290,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn subdivision_curies_follow_path_convention() {
         let s = sample_section();
@@ -302,6 +307,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fallback_name_used_when_heading_absent() {
         let s = sample_section();
@@ -319,6 +325,7 @@ mod tests {
     /// Axiom — every relation endpoint resolves to an existing
     /// term. `from_structural` enforces this; restated here to make
     /// the contract explicit.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_no_dangling_relations() {
         let s = sample_section();
@@ -336,6 +343,7 @@ mod tests {
     }
 
     /// Axiom — every term CURIE is unique within the statute.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_term_curies_unique() {
         let s = sample_section();
@@ -353,6 +361,7 @@ mod tests {
     /// Axiom — Composes relations form a forest. Each non-root
     /// term has at most one outgoing Composes edge (its parent),
     /// and the root has zero.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_composes_is_forest_at_most_one_parent_per_term() {
         let s = sample_section();
@@ -373,6 +382,7 @@ mod tests {
     /// Axiom — Composes graph is a forest where every chain
     /// terminates at a top-level subsection (one with no outgoing
     /// Composes edge). No term escapes its subdivision-tree root.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_every_term_reaches_a_top_level_subsection() {
         let s = sample_section();
@@ -412,6 +422,7 @@ mod tests {
     /// Axiom — for every Composes relation, the child CURIE
     /// local-part strictly extends the parent's by exactly one new
     /// underscore-separated path segment.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_composes_curie_is_strict_extension() {
         let s = sample_section();
@@ -441,6 +452,7 @@ mod tests {
 
     /// Axiom — the functor is deterministic. Same input → byte-
     /// identical term & relation lists.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_functor_is_deterministic() {
         let s = sample_section();
@@ -581,10 +593,18 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_name_version_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(prop_term_count_stable, Deterministic);
+    pr4xis::register_praxis_value!(prop_curie_prefix_swappable, Deterministic);
+    pr4xis::register_praxis_value!(prop_no_dangling_relations, Verifiable);
+    pr4xis::register_praxis_value!(prop_composes_is_forest, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_chain_terminates_at_top_level, Verifiable);
+
     // =========================================================
     // Real-corpus check — actual SOX § 1514A USLM slice
     // =========================================================
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn from_uslm_section_on_real_sox_1514a_slice() {
         // § 1514A is sliced out of the fetched `usc_title_18` corpus

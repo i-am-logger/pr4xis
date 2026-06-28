@@ -3,11 +3,13 @@ use crate::applied::tracking::radar::engine::is_scan_rate_adequate;
 use crate::applied::tracking::radar::ontology::*;
 use pr4xis::ontology::Axiom;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn range_non_negative() {
     assert!(RangeNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn polar_cartesian_roundtrip() {
     let (x, y) = polar_to_cartesian_2d(10.0, 0.5);
@@ -16,6 +18,7 @@ fn polar_cartesian_roundtrip() {
     assert!((az - 0.5).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn spherical_cartesian_roundtrip() {
     let (x, y, z) = spherical_to_cartesian(100.0, 0.3, 0.2);
@@ -25,6 +28,7 @@ fn spherical_cartesian_roundtrip() {
     assert!((el - 0.2).abs() < 1e-8);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn zero_azimuth_points_north() {
     let (x, y) = polar_to_cartesian_2d(10.0, 0.0);
@@ -36,6 +40,7 @@ fn zero_azimuth_points_north() {
 // Signal processing: Nyquist scan rate check
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fast_scan_rate_is_adequate() {
     // Target: 300 m/s at 10 km range
@@ -46,6 +51,7 @@ fn fast_scan_rate_is_adequate() {
     assert!(is_scan_rate_adequate(1.0, 300.0, 10_000.0));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn slow_scan_rate_is_inadequate() {
     // Target: 1000 m/s at 100 m range (very close, very fast)
@@ -127,4 +133,11 @@ mod proptest_proofs {
             prop_assert_eq!(y1.to_bits(), y2.to_bits());
         }
     }
+
+    pr4xis::register_praxis_value!(scan_rate_check_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(doubling_scan_rate_passes_if_original_does, Verifiable);
+    pr4xis::register_praxis_value!(polar_cartesian_roundtrip_random, Deterministic);
+    pr4xis::register_praxis_value!(spherical_cartesian_roundtrip_random, Deterministic);
+    pr4xis::register_praxis_value!(range_is_non_negative, Verifiable);
+    pr4xis::register_praxis_value!(coordinate_conversion_is_deterministic, Deterministic);
 }

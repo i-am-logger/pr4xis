@@ -88,6 +88,7 @@ mod tests {
     /// identifications land in pr4xis's C1 (Global Workspace Theory)
     /// ontology as a strict functor. The lineage from Heim's
     /// Maximentelezentrik to Dehaene's GWT is structurally verified.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn syntrometry_to_c1_laws_pass() {
         assert_functor_laws::<SyntrometryToC1>();

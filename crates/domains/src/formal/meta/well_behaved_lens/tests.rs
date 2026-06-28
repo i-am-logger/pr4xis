@@ -32,6 +32,7 @@ use super::lens_trait::{FailureStage, RoundTripFidelity, WellBehavedLens};
 // Layer 1 — canonical-form idempotence
 // ============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn json_canonical_idempotent_simple() {
     let input = br#"{"b":2,"a":1,"c":[3,2,1]}"#;
@@ -40,6 +41,7 @@ fn json_canonical_idempotent_simple() {
     assert_eq!(c1, c2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn json_canonical_sorts_keys() {
     let a = br#"{"b":2,"a":1}"#;
@@ -49,6 +51,7 @@ fn json_canonical_sorts_keys() {
     assert_eq!(ca, cb);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn json_canonical_strips_whitespace() {
     let a = br#"{ "a" : 1 , "b" : 2 }"#;
@@ -58,6 +61,7 @@ fn json_canonical_strips_whitespace() {
     assert_eq!(ca, cb);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn json_canonical_escapes_control_chars() {
     // Input contains an *escaped* U+0001 (``); the canonical
@@ -73,6 +77,7 @@ fn json_canonical_escapes_control_chars() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_canonical_idempotent_simple() {
     let input = br#"<r><a x="1" y="2"/></r>"#;
@@ -81,6 +86,7 @@ fn xml_canonical_idempotent_simple() {
     assert_eq!(c1, c2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_canonical_sorts_attributes() {
     let a = br#"<r y="2" x="1"/>"#;
@@ -90,6 +96,7 @@ fn xml_canonical_sorts_attributes() {
     assert_eq!(ca, cb);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_canonical_expands_empty_elements() {
     let input = br#"<r><a/></r>"#;
@@ -102,6 +109,7 @@ fn xml_canonical_expands_empty_elements() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_canonical_strips_xml_decl() {
     let with_decl = br#"<?xml version="1.0"?><r/>"#;
@@ -111,6 +119,7 @@ fn xml_canonical_strips_xml_decl() {
     assert_eq!(c_with, c_without);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_canonical_strips_comments() {
     let with_comment = br#"<r><!-- hi --><a/></r>"#;
@@ -120,6 +129,7 @@ fn xml_canonical_strips_comments() {
     assert_eq!(c_with, c_without);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn plain_text_canonical_idempotent() {
     let input = b"hello\r\nworld\r\n";
@@ -128,6 +138,7 @@ fn plain_text_canonical_idempotent() {
     assert_eq!(c1, c2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn plain_text_canonical_folds_line_endings() {
     let crlf = b"a\r\nb";
@@ -140,6 +151,7 @@ fn plain_text_canonical_folds_line_endings() {
     assert_eq!(c_cr, c_lf);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn plain_text_canonical_strips_bom() {
     let with_bom = "\u{FEFF}hello".as_bytes();
@@ -149,6 +161,7 @@ fn plain_text_canonical_strips_bom() {
     assert_eq!(c_with, c_without);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn plain_text_canonical_applies_nfkc() {
     // U+00C5 (Å, composed) vs U+0041 U+030A (A + combining ring
@@ -161,6 +174,7 @@ fn plain_text_canonical_applies_nfkc() {
     assert_eq!(c_comp, c_decomp);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn toml_canonical_idempotent() {
     let input = b"b = 2\na = 1\n";
@@ -169,6 +183,7 @@ fn toml_canonical_idempotent() {
     assert_eq!(c1, c2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn toml_canonical_sorts_keys() {
     let a = b"b = 2\na = 1\n";
@@ -178,6 +193,7 @@ fn toml_canonical_sorts_keys() {
     assert_eq!(ca, cb);
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn rdf_canonical_is_rdfc10_nquads() {
     use super::canonical::rdf;
@@ -244,6 +260,7 @@ impl WellBehavedLens for StringSource {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn signature_is_deterministic() {
     let input = b"hello world";
@@ -252,12 +269,14 @@ fn signature_is_deterministic() {
     assert_eq!(s1, s2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn assert_put_get_law_passes_for_identity_impl() {
     let input = b"hello world";
     StringSource::assert_put_get_law(input).expect("identity PutGet");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn assert_put_get_law_passes_for_crlf_input() {
     // The CRLF gets normalized to LF in canonical form, but get +
@@ -302,6 +321,7 @@ impl WellBehavedLens for DroppingStringSource {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn assert_put_get_law_detects_dropped_byte() {
     let input = b"hello world";
@@ -348,6 +368,7 @@ impl WellBehavedLens for ByteExactStringSource {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fidelity_defaults_to_floor_and_can_be_overridden() {
     // Existing lenses inherit the conservative default so nothing flips
@@ -362,12 +383,14 @@ fn fidelity_defaults_to_floor_and_can_be_overridden() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn assert_byte_exact_law_passes_for_identity_impl() {
     let input = b"hello world";
     ByteExactStringSource::assert_byte_exact_law(input).expect("identity byte-exact PutGet");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn assert_byte_exact_law_preserves_crlf_unlike_canonical() {
     // The byte-exact law is strictly stronger: CRLF must survive
@@ -377,6 +400,7 @@ fn assert_byte_exact_law_preserves_crlf_unlike_canonical() {
     ByteExactStringSource::assert_byte_exact_law(input).expect("crlf byte-exact");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn assert_byte_exact_law_detects_dropped_byte() {
     let input = b"hello world";
@@ -417,12 +441,14 @@ impl WellBehavedLens for JsonSource {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn json_put_get_law_synthetic() {
     let input = br#"{"name":"praxis","year":2026,"tags":["ontology","categories"]}"#;
     JsonSource::assert_put_get_law(input).expect("synthetic JSON PutGet");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn json_put_get_law_unordered_keys() {
     // Same content, different key order. get -> put may produce
@@ -454,6 +480,7 @@ impl WellBehavedLens for XmlSource {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn xml_put_get_law_synthetic() {
     let input = br#"<root><child id="1">hello</child><child id="2">world</child></root>"#;
@@ -489,6 +516,7 @@ impl WellBehavedLens for TomlSource {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn toml_put_get_law_synthetic() {
     let input =
@@ -544,6 +572,12 @@ proptest! {
             .unwrap_or_else(|e| panic!("byte-exact law failed on {:?}: {}", s, e));
     }
 }
+
+pr4xis::register_praxis_value!(proptest_json_canonical_idempotent, Deterministic);
+pr4xis::register_praxis_value!(proptest_plain_text_canonical_idempotent, Deterministic);
+pr4xis::register_praxis_value!(proptest_signature_deterministic, Deterministic);
+pr4xis::register_praxis_value!(proptest_string_source_put_get_law, Deterministic);
+pr4xis::register_praxis_value!(proptest_byte_exact_string_source_law, Deterministic);
 
 /// Strategy for arbitrary simple JSON values (no NaN/Infinity, no
 /// floats with extreme precision that would make ECMA-262 number

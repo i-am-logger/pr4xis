@@ -28,6 +28,7 @@ fn canonical_context() -> FormalContext<&'static str, &'static str> {
     )
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn projection_assigns_rank_to_every_concept() {
     let ctx = canonical_context();
@@ -38,6 +39,7 @@ fn projection_assigns_rank_to_every_concept() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn bottom_concept_gets_species_rank() {
     let ctx = canonical_context();
@@ -48,6 +50,7 @@ fn bottom_concept_gets_species_rank() {
     assert_eq!(rank, ClassificationConcept::Species);
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn top_concept_gets_highest_rank_present() {
     let ctx = canonical_context();
@@ -79,6 +82,7 @@ fn linnaean_order_for_test(c: ClassificationConcept) -> u8 {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn fiber_returns_concepts_in_that_rank() {
     let ctx = canonical_context();
@@ -89,6 +93,7 @@ fn fiber_returns_concepts_in_that_rank() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn populated_ranks_are_sorted_linnaean() {
     let ctx = canonical_context();
@@ -100,6 +105,7 @@ fn populated_ranks_are_sorted_linnaean() {
     assert_eq!(orders, sorted);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn populated_ranks_are_contiguous_on_canonical() {
     let ctx = canonical_context();
@@ -115,6 +121,7 @@ fn populated_ranks_are_contiguous_on_canonical() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn trivial_lattice_maps_to_kingdom() {
     // The "all bits true" 1×1 context degenerates to a single concept
@@ -129,16 +136,19 @@ fn trivial_lattice_maps_to_kingdom() {
 // Layer 2 — registered axioms.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_projection_is_total_holds() {
     assert!(ProjectionIsTotal.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn axiom_fibration_is_linnaean_monotone_holds() {
     assert!(FibrationIsLinnaeanMonotone.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_populated_ranks_are_contiguous_holds() {
     assert!(PopulatedRanksAreContiguous.verify().is_ok());
@@ -223,3 +233,9 @@ proptest! {
         prop_assert_eq!(a.ranks, b.ranks);
     }
 }
+
+pr4xis::register_praxis_value!(property_projection_total, Verifiable);
+pr4xis::register_praxis_value!(property_linnaean_monotonicity, Extensible);
+pr4xis::register_praxis_value!(property_populated_ranks_sorted, Verifiable);
+pr4xis::register_praxis_value!(property_fibers_partition, Verifiable);
+pr4xis::register_praxis_value!(property_assignment_deterministic, Deterministic);

@@ -253,6 +253,7 @@ fn binary_search_sorted<C: Ord>(xs: &[C], target: &C) -> Option<usize> {
 mod helper_tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn dedup_sorted_works() {
         assert_eq!(dedup_sorted(vec![3, 1, 2, 1, 3]), vec![1, 2, 3]);
@@ -260,6 +261,7 @@ mod helper_tests {
         assert_eq!(dedup_sorted(vec![5]), vec![5]);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_subset_sorted_works() {
         assert!(is_subset_sorted(&[1, 2], &[1, 2, 3]));
@@ -269,6 +271,7 @@ mod helper_tests {
         assert!(!is_subset_sorted(&[1, 2, 3], &[1, 2]));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn binary_search_sorted_works() {
         assert_eq!(binary_search_sorted(&[1, 2, 3, 5], &3), Some(2));

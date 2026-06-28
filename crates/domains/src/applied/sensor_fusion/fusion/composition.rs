@@ -105,6 +105,7 @@ impl Quality for CompositionDescription {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_strategies_have_descriptions() {
         let desc = CompositionDescription;
@@ -113,6 +114,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ci_consistent_under_unknown_correlation() {
         let q = ConsistentUnderUnknownCorrelation;
@@ -122,12 +124,14 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn information_fusion_not_consistent_under_unknown_correlation() {
         let q = ConsistentUnderUnknownCorrelation;
         assert_eq!(q.get(&CompositionStrategy::InformationFusion), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_composition_variants() {
         assert_eq!(CompositionStrategy::variants().len(), 3);

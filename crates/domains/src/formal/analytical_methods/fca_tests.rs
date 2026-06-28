@@ -34,6 +34,7 @@ fn canonical_context() -> FormalContext<&'static str, &'static str> {
     )
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn bitset_basic_operations() {
     let mut bs = BitSet::empty(10);
@@ -49,6 +50,7 @@ fn bitset_basic_operations() {
     assert_eq!(bs.to_vec(), vec![0, 3, 9]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn bitset_subset_and_intersect() {
     let mut a = BitSet::empty(8);
@@ -66,6 +68,7 @@ fn bitset_subset_and_intersect() {
     assert_eq!(u.to_vec(), vec![0, 2, 5]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn galois_extent_to_intent_works() {
     // Ganter-Wille canonical context. extent {dog} → intent {all 4}.
@@ -86,6 +89,7 @@ fn galois_extent_to_intent_works() {
     assert_eq!(intent.count(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn galois_intent_to_extent_works() {
     let ctx = canonical_context();
@@ -110,6 +114,7 @@ fn galois_intent_to_extent_works() {
     assert_eq!(extent, vec![0, 1]);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn closure_is_extensive_monotone_idempotent() {
     let ctx = canonical_context();
@@ -124,6 +129,7 @@ fn closure_is_extensive_monotone_idempotent() {
     assert_eq!(close, close2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lattice_includes_top_and_bottom() {
     let ctx = canonical_context();
@@ -140,6 +146,7 @@ fn lattice_includes_top_and_bottom() {
     assert_eq!(top_ext, 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lattice_has_expected_size_on_canonical_context() {
     // Hand-computed concepts of the 4×4 Ganter-Wille canonical
@@ -165,6 +172,7 @@ fn lattice_has_expected_size_on_canonical_context() {
     assert_eq!(intents.len(), lat.len(), "duplicate intents in lattice");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn hasse_diagram_is_transitive_reduction() {
     let ctx = canonical_context();
@@ -194,6 +202,7 @@ fn hasse_diagram_is_transitive_reduction() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lower_and_upper_covers_match_order_edges() {
     let ctx = canonical_context();
@@ -208,6 +217,7 @@ fn lower_and_upper_covers_match_order_edges() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn empty_context_produces_at_least_one_concept() {
     // Edge case: 0 objects, 0 attributes. The lattice degenerates to
@@ -217,6 +227,7 @@ fn empty_context_produces_at_least_one_concept() {
     assert!(!lat.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn single_object_single_attribute_context() {
     let ctx = FormalContext::from_matrix(vec!["x"], vec!["P"], vec![vec![true]]);
@@ -232,21 +243,25 @@ fn single_object_single_attribute_context() {
 // Layer 2 — registered axioms verify.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_galois_connection_law_holds() {
     assert!(GaloisConnectionLaw.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_double_derivation_is_closure_holds() {
     assert!(DoubleDerivationIsClosure.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_concept_lattice_is_complete_holds() {
     assert!(ConceptLatticeIsComplete.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_enumerated_concepts_are_closed_holds() {
     assert!(EnumeratedConceptsAreClosed.verify().is_ok());
@@ -384,10 +399,19 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(property_every_concept_is_closed, Verifiable);
+pr4xis::register_praxis_value!(property_concepts_distinct_by_intent, Verifiable);
+pr4xis::register_praxis_value!(property_galois_round_trip, Deterministic);
+pr4xis::register_praxis_value!(property_lattice_size_bounded, Verifiable);
+pr4xis::register_praxis_value!(property_hasse_diagram_transitive_reduction, Verifiable);
+pr4xis::register_praxis_value!(property_top_and_bottom_exist_and_dominate, Verifiable);
+pr4xis::register_praxis_value!(property_derivation_is_antitone, Verifiable);
+
 // =============================================================================
 // FormalConcept equality + sanity.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn formal_concept_eq_uses_extent_and_intent() {
     let ctx = canonical_context();
@@ -398,6 +422,7 @@ fn formal_concept_eq_uses_extent_and_intent() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn extent_objects_and_intent_attributes_resolve() {
     let ctx = canonical_context();

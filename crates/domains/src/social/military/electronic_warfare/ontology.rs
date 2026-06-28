@@ -125,22 +125,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<EwCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         EwOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_observable_types() {
         assert_eq!(EwConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_observable_has_geometry() {
         let q = ObservableGeometry;
@@ -149,6 +153,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn domain_axioms_hold() {
         assert!(AoaBounded.verify().is_ok());
@@ -181,4 +186,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_geometry_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_axioms_hold, Verifiable);
 }

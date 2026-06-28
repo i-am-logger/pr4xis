@@ -35,11 +35,13 @@ pub fn is_gzip(bytes: &[u8]) -> bool {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recognises_gzip_magic() {
         assert!(is_gzip(&[0x1f, 0x8b, 0x08, 0x00]));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_non_gzip() {
         assert!(!is_gzip(b"<xml/>"));

@@ -174,11 +174,13 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<OntologyArchiveStorageCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         // Under `feature = "prx"` this runs the eight realisation axioms
@@ -188,11 +190,13 @@ mod tests {
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn twelve_concepts() {
         assert_eq!(OntologyArchiveStorageConcept::variants().len(), 12);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_description_total() {
         let q = ConceptDescription;

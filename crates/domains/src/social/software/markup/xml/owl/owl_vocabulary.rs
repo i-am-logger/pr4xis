@@ -227,6 +227,7 @@ mod tests {
 
     // ── Unit: build the builder from the real bundled CiTO ───────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cito_builder_has_entities_and_taxonomy() {
         let ont = cito();
@@ -269,6 +270,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cito_kinds_are_class_or_object_property_only() {
         let builder = owl_to_builder(&cito());
@@ -284,6 +286,7 @@ mod tests {
 
     // ── Unit: generated source is a real CodegenData module ──────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn generated_source_is_codegen_data_with_cito_iri() {
         let ont = cito();
@@ -308,6 +311,7 @@ mod tests {
 
     // ── local_name helper ────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn local_name_handles_hash_slash_and_bare() {
         assert_eq!(local_name("http://www.w3.org/2002/07/owl#Class"), "Class");
@@ -321,6 +325,7 @@ mod tests {
         assert_eq!(local_name("http://example.org/"), "http://example.org/");
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn empty_iri_entities_are_skipped() {
         let ont = OwlOntology {
@@ -493,4 +498,8 @@ mod tests {
             );
         }
     }
+
+    pr4xis::register_praxis_value!(prop_entity_count_is_classes_plus_properties, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_edge_in_taxonomy, Verifiable);
+    pr4xis::register_praxis_value!(prop_mapping_is_deterministic, Deterministic);
 }

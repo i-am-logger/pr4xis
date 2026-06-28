@@ -59,16 +59,19 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ChannelCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_concepts() {
         assert_eq!(ChannelConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn channel_corrupts_word_to_observation() {
         let morphisms = ChannelCategory::morphisms();
@@ -77,6 +80,7 @@ mod tests {
             && m.kind == ChannelRelationKind::Corrupts));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn correction_is_inverse() {
         let morphisms = ChannelCategory::morphisms();
@@ -89,6 +93,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn adjunction_composes() {
         // Per #166 composition of distinct-kind morphisms is partial — the

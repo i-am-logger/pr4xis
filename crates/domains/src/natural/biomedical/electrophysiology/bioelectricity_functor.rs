@@ -88,16 +88,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<ElectrophysiologyToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<ElectrophysiologyToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in ElectrophysiologyEntity::variants() {
@@ -109,6 +112,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // Electrophysiology is kinded and partial (#166); compose only succeeds
@@ -144,6 +148,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();
@@ -158,6 +163,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_patch_clamp_maps_to_membrane_potential() {
         assert_eq!(
@@ -166,6 +172,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_sharp_electrode_maps_to_membrane_potential() {
         assert_eq!(
@@ -174,6 +181,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_voltage_sensitive_dye_maps_to_voltage_gradient() {
         assert_eq!(
@@ -184,6 +192,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_calcium_imaging_maps_to_signal() {
         assert_eq!(
@@ -192,6 +201,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bioimpedance_maps_to_transepithelial_potential() {
         assert_eq!(
@@ -200,6 +210,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_extracellular_recording_maps_to_voltage_gradient() {
         assert_eq!(
@@ -210,6 +221,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_multi_electrode_array_maps_to_voltage_gradient() {
         assert_eq!(
@@ -220,6 +232,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_optical_mapping_maps_to_bioelectric_prepattern() {
         assert_eq!(
@@ -228,6 +241,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_analogy_translates_patch_clamp() {
         assert_eq!(

@@ -377,17 +377,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<AnalyticalMethodsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         AnalyticalMethodsOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_stages_form_causal_chain() {
         // Wille (1982) §2: the 8 pipeline stages form a linear causal chain.
@@ -411,6 +414,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_transitively_reaches_knowledge_update() {
         // Causation is transitive (OBO-RO `transitive_over`) — the causal
@@ -426,6 +430,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn methods_subsume_analysis_method() {
         let sub: Vec<_> = AnalyticalMethodsCategory::morphisms()
@@ -446,6 +451,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn structural_opposes_statistical() {
         let opp: Vec<_> = AnalyticalMethodsCategory::morphisms()
@@ -459,21 +465,25 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn automatability_split_holds() {
         assert!(SomeMethodsAutomatableSomeNot.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn galois_is_component_holds() {
         assert!(GaloisConnectionIsComponent.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pattern_and_anomaly_outputs_holds() {
         assert!(PatternAndAnomalyAreOutputs.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn complexity_quality_total_on_methods() {
         let q = Complexity;
@@ -546,4 +556,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_automatability_total_on_methods, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

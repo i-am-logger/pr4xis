@@ -104,16 +104,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<PharmacologyToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<PharmacologyToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in PharmacologyEntity::variants() {
@@ -128,6 +131,7 @@ mod tests {
     /// composes in the new partial-category API: Ivermectin -> IonChannelModulator
     /// (declared) and IonChannelModulator -> DrugClass (declared) compose to
     /// Ivermectin -> DrugClass under Subsumption-transitivity.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_subsumption_chain() {
         let f = PharmacologyRelation {
@@ -151,6 +155,7 @@ mod tests {
         assert_eq!(mapped_composed, composed_mapped);
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();
@@ -165,6 +170,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ivermectin_maps_to_glyr() {
         assert_eq!(
@@ -173,6 +179,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_omeprazole_maps_to_proton() {
         assert_eq!(
@@ -181,6 +188,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_minoxidil_maps_to_kv() {
         assert_eq!(
@@ -189,6 +197,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_glibenclamide_maps_to_kv() {
         assert_eq!(
@@ -197,6 +206,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_decamethonium_maps_to_nav() {
         assert_eq!(
@@ -205,6 +215,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ion_channel_modulator_maps_to_ion_channel() {
         assert_eq!(
@@ -213,6 +224,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_gap_junction_modulator_maps_to_gap_junction() {
         assert_eq!(
@@ -221,6 +233,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_morphoceutical_maps_to_ion_channel() {
         assert_eq!(
@@ -229,6 +242,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_hyperpolarization_maps_to_potassium() {
         assert_eq!(
@@ -237,6 +251,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_depolarization_maps_to_sodium() {
         assert_eq!(

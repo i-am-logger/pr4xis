@@ -16,11 +16,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<ValenceCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     ValenceOntology::validate()
@@ -31,12 +33,14 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn four_concepts() {
     // Root Valence + three leaves.
     assert_eq!(ValenceConcept::variants().len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn three_leaves() {
     assert_eq!(leaves().len(), 3);
@@ -45,6 +49,7 @@ fn three_leaves() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn root_is_not_a_leaf() {
     assert!(!is_leaf(ValenceConcept::Valence));
@@ -54,6 +59,7 @@ fn root_is_not_a_leaf() {
 // Quality: AdvancesMovingParty
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn supportive_advances_moving_party() {
     assert_eq!(
@@ -62,6 +68,7 @@ fn supportive_advances_moving_party() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn defensive_does_not_advance_moving_party() {
     assert_eq!(
@@ -70,6 +77,7 @@ fn defensive_does_not_advance_moving_party() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn procedural_does_not_advance_on_merits() {
     assert_eq!(
@@ -78,6 +86,7 @@ fn procedural_does_not_advance_on_merits() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn root_is_unclassified() {
     assert_eq!(AdvancesMovingParty.get(&ValenceConcept::Valence), None);
@@ -87,21 +96,25 @@ fn root_is_unclassified() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_partition_completeness() {
     assert!(PartitionCompleteness.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_merits_axis_duality() {
     assert!(MeritsAxisDuality.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_procedural_is_orthogonal() {
     assert!(ProceduralIsOrthogonal.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in ValenceOntology::axioms() {
@@ -172,3 +185,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_quality_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_every_leaf_is_a_valence, Verifiable);
+pr4xis::register_praxis_value!(prop_opposition_only_on_merits_axis, Verifiable);
+pr4xis::register_praxis_value!(prop_every_arrow_named, Explainable);

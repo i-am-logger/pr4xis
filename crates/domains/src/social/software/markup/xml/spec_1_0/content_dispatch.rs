@@ -497,6 +497,7 @@ pub fn loaded_misc_dispatch_table() -> &'static MiscDispatchTable {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn content_table_carries_all_five_alternation_branches() {
         // §3.1 [43] content's inner alternation has exactly five
@@ -521,6 +522,7 @@ mod tests {
         assert_eq!(table.entries().len(), 5);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn content_table_is_sorted_by_prefix_length_descending() {
         // Critical: "<![CDATA[" must classify before "<!--", and
@@ -536,6 +538,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn content_table_extracts_canonical_w3c_prefixes() {
         // Per §2.5/§2.6/§2.7/§3.1/§4.1, the leading literals are
@@ -574,6 +577,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_dispatches_each_kind_on_canonical_prefix() {
         let table = loaded_content_dispatch_table();
@@ -592,6 +596,7 @@ mod tests {
         assert_eq!(table.classify("plain text"), ContentItemKind::CharData);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn classify_prefers_cdata_section_over_comment_over_element() {
         // The ordering must prefer longer prefixes: "<![CDATA["
@@ -609,6 +614,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn misc_table_carries_comment_and_pi() {
         let table = loaded_misc_dispatch_table();
@@ -621,6 +627,7 @@ mod tests {
         assert_eq!(table.entries().len(), 2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn misc_classify_dispatches_comment_and_pi() {
         let table = loaded_misc_dispatch_table();
@@ -634,6 +641,7 @@ mod tests {
         assert_eq!(table.classify(""), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn leading_literal_walks_through_nonterminal_indirection() {
         // CDSect's leading literal "<![CDATA[" lives inside
@@ -645,6 +653,7 @@ mod tests {
         assert_eq!(lead.as_deref(), Some("<![CDATA["));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn leading_literal_returns_common_prefix_for_alternation() {
         // Reference = EntityRef | CharRef where EntityRef starts
@@ -658,6 +667,7 @@ mod tests {
         assert_eq!(lead.as_deref(), Some("&"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn common_prefix_handles_partial_overlap() {
         // Pure unit test of the common_prefix function.
@@ -674,6 +684,7 @@ mod tests {
         assert_eq!(common_prefix(&["only".into()]), Some("only".into()));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn extract_fails_closed_on_missing_production() {
         // Per `feedback_corpus_wide_audit_on_load`: a grammar that

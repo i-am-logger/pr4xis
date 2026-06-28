@@ -185,22 +185,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<RubikCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         RubikOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_faces() {
         assert_eq!(RubikConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_axis_pairs_via_opposition() {
         // Singmaster (1981): the three axis pairs U↔D, F↔B, L↔R.
@@ -214,6 +218,7 @@ mod tests {
         assert!(opposed.contains(&(RubikConcept::L, RubikConcept::R)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn face_index_canonical_order() {
         let q = FaceIndex;
@@ -225,6 +230,7 @@ mod tests {
         assert_eq!(q.get(&RubikConcept::R), Some(5));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn centers_fixed_on_solved_cube() {
         let axiom = CentersFixed {
@@ -239,6 +245,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn centers_fixed_after_moves() {
         let cube = Cube::solved().apply(Move::R).apply(Move::U).apply(Move::Ri);
@@ -252,6 +259,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nine_per_color_on_solved() {
         let axiom = NinePerColor {
@@ -260,6 +268,7 @@ mod tests {
         assert!(axiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nine_per_color_after_moves() {
         let cube = Cube::solved().apply(Move::R).apply(Move::U).apply(Move::F);
@@ -267,6 +276,7 @@ mod tests {
         assert!(axiom.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Extensible, Verifiable)]
     #[test]
     fn concept_to_face_bijection_on_concepts() {
         for c in RubikConcept::variants() {
@@ -325,4 +335,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_face_index_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

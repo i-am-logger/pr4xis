@@ -212,6 +212,7 @@ mod tests {
     const USLM_XSD_PRX: &[u8] =
         include_bytes!("../../../../data/legal/uscode/schema/uslm-1.0.18.prx");
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn decoder_round_trips_uslm_xsd_bytes() {
         use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
@@ -226,6 +227,7 @@ mod tests {
         assert!(instance.elements.len() > 50);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decoder_rejects_invalid_utf8() {
         let err = decode(&[0xFF, 0xFE, 0xFD]).expect_err("invalid UTF-8 must be rejected");
@@ -235,6 +237,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decoder_rejects_non_schema_xml() {
         let bytes = br#"<?xml version="1.0"?><not-schema xmlns="http://example.com"/>"#;
@@ -245,6 +248,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decoder_rejects_schema_with_wrong_namespace() {
         // Root is `schema` but the declared namespace is not the W3C

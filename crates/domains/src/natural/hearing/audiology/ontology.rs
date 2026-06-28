@@ -458,23 +458,28 @@ mod tests {
     use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<AudiologyCategory>();
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         AudiologyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn abr_waves_ordered() {
         assert!(ABRWavesOrdered.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_tympanogram_types() {
         assert!(ThreeTympanogramTypes.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_clinical_pathway() {
         assert!(FullClinicalPathway.verify().is_ok());
@@ -496,4 +501,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

@@ -84,4 +84,12 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_result_carries_uncertainty, Verifiable);
+    pr4xis::register_praxis_value!(prop_scale_hierarchy, Verifiable);
+    pr4xis::register_praxis_value!(prop_nominal_is_weakest, Verifiable);
+    pr4xis::register_praxis_value!(prop_ratio_is_strongest, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

@@ -22,6 +22,7 @@ mod tests {
         english_loaded()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn taxonomy_is_a_dog_a_mammal() {
         let en = english();
@@ -39,6 +40,7 @@ mod tests {
         assert!(found, "dog should be a mammal");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn taxonomy_is_a_dog_an_animal() {
         let en = english();
@@ -56,6 +58,7 @@ mod tests {
         assert!(found, "dog should be an animal");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn taxonomy_what_is_a_dog() {
         let en = english();

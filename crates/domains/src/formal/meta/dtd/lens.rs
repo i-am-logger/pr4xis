@@ -128,6 +128,7 @@ mod tests {
     use super::super::ontology::DtdConcept;
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn get_then_put_returns_original_bytes() {
         let bytes = b"<!ELEMENT root EMPTY>".to_vec();
@@ -136,6 +137,7 @@ mod tests {
         assert_eq!(back, bytes);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn get_parses_element_declarations() {
         let bytes = b"<!ELEMENT root (#PCDATA)>\n<!ATTLIST root id ID #REQUIRED>".to_vec();
@@ -145,12 +147,14 @@ mod tests {
         assert_eq!(target.of_kind(DtdConcept::AttListDecl).count(), 1);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn put_get_law_holds() {
         let bytes = b"<!ELEMENT a (b)+>\n<!ELEMENT b EMPTY>\n".to_vec();
         assert!(<DtdLens as WellBehavedLens>::assert_put_get_law(&bytes).is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn parses_real_wn_lmf_dtd() {
         // The bundled WN-LMF 1.3 DTD round-trips through the lens.
@@ -199,4 +203,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_get_never_panics_on_arbitrary_bytes, Honest);
+    pr4xis::register_praxis_value!(prop_get_put_canonical_on_success, Deterministic);
 }

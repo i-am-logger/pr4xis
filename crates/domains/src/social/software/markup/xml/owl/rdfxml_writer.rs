@@ -780,6 +780,7 @@ mod tests {
     /// Exercises the structured striping, the four root namespaces + their
     /// multi-line layout, the inter-element white-space, the attribute overrides
     /// (about/nodeID/resource/datatype/lang), and the trailing newline.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn reconstruct_flat_rdfxml_byte_exact() {
         let (_ont, complement) = capture_owl_complement(FLAT_RDFXML).expect("capture");
@@ -847,6 +848,7 @@ mod tests {
     /// blank-node block, and the per-element pre-order attribute/white-space
     /// residue across the nesting. This is the proof the new recursion is real,
     /// not dead code.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn reconstruct_striped_rdfxml_byte_exact() {
         let (_ont, complement) = capture_owl_complement(STRIPED_RDFXML).expect("capture striped");
@@ -897,6 +899,7 @@ mod tests {
     /// generic content-white-space residue, exactly like inter-element
     /// indentation. (This is the L3 residue that, together with the DOCTYPE +
     /// numeric/general reference forms, flips prov_o/olia off the floor.)
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn capture_reconstructs_interspersed_comment_byte_exact() {
         let with_comment = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
@@ -927,6 +930,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     ///
     /// Bundled in-tree (the SPAR canonical publication), so unlike the 89 MB
     /// WordNet corpus there is no graceful skip — a missing file is a defect.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn cito_reconstruct_byte_exact_over_real_source() {
         let path = concat!(
@@ -1005,6 +1009,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     /// Mirrors the USC subdivision corruption meta-test: corrupt each residue
     /// species the gate depends on and assert the reconstruction no longer
     /// equals the source.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn cito_corruption_diverges_red() {
         let path = concat!(
@@ -1280,6 +1285,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     }
 
     /// BiRO byte-exact over the real bundled source (4 root namespaces, all-flat).
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn biro_reconstruct_byte_exact_over_real_source() {
         assert_vocab_byte_exact(
@@ -1290,12 +1296,14 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     }
 
     /// BiRO corruption meta-test — the gate has teeth.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn biro_corruption_diverges_red() {
         assert_vocab_corruption_diverges("biro-1.1.1.owl");
     }
 
     /// C4O byte-exact over the real bundled source (5 root namespaces incl. swrl).
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn c4o_reconstruct_byte_exact_over_real_source() {
         assert_vocab_byte_exact(
@@ -1306,12 +1314,14 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     }
 
     /// C4O corruption meta-test.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn c4o_corruption_diverges_red() {
         assert_vocab_corruption_diverges("c4o-1.2.owl");
     }
 
     /// DoCO byte-exact over the real bundled source (371 node blocks).
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn doco_reconstruct_byte_exact_over_real_source() {
         assert_vocab_byte_exact(
@@ -1322,6 +1332,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     }
 
     /// DoCO corruption meta-test.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn doco_corruption_diverges_red() {
         assert_vocab_corruption_diverges("doco-1.3.owl");
@@ -1399,6 +1410,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     }
 
     /// prov_o byte-exact over the real bundled source — the L3 PROOF.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn prov_o_reconstruct_byte_exact_over_real_source() {
         assert_striped_vocab_byte_exact(
@@ -1409,6 +1421,7 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
 
     /// olia byte-exact over the real bundled source (a 1.2 MB striped vocab with
     /// the same DOCTYPE + 145 interspersed comments + general-entity refs).
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn olia_reconstruct_byte_exact_over_real_source() {
         assert_striped_vocab_byte_exact(
@@ -1470,12 +1483,14 @@ xmlns:owl=\"http://www.w3.org/2002/07/owl#\">\
     }
 
     /// prov_o corruption meta-test.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn prov_o_corruption_diverges_red() {
         assert_striped_vocab_corruption_diverges("prov_o-2013-04-30.owl");
     }
 
     /// olia corruption meta-test.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn olia_corruption_diverges_red() {
         assert_striped_vocab_corruption_diverges("olia-2026-04-09.owl");

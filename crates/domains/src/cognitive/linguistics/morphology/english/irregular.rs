@@ -326,6 +326,7 @@ mod regenerate {
     /// AGID source. `#[ignore]`d (it WRITES, asserting nothing) — run by hand
     /// when AGID changes:
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_english_irregulars_tsv`.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_english_irregulars_tsv() {
@@ -364,6 +365,7 @@ mod regenerate {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn high_frequency_irregulars_present() {
         let table = english_irregulars();
@@ -381,6 +383,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_entry_well_formed() {
         // surface == lemma is legitimate for zero-change irregulars (cut→cut,
@@ -391,6 +394,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn children_maps_to_child() {
         let entries = lookup_irregular("children");
@@ -401,6 +405,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn went_maps_to_go() {
         let entries = lookup_irregular("went");
@@ -411,6 +416,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn better_maps_to_good_comparative() {
         let entries = lookup_irregular("better");
@@ -421,6 +427,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn lookup_case_insensitive() {
         let lower = lookup_irregular("children");
@@ -431,11 +438,13 @@ mod tests {
         assert!(!lower.is_empty());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lookup_unknown_returns_empty() {
         assert!(lookup_irregular("nonsenseword").is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_loaded_table_is_substantial() {
         // The whole point of loading AGID: far more coverage than the prior

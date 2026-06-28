@@ -246,16 +246,19 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn twelve_combinations() {
         assert_eq!(TenseCategory::all_combinations().len(), 12);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TenseCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn past_to_present_shift() {
         let past_simple = TenseAspect {
@@ -273,6 +276,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn simple_to_progressive_shift() {
         let present_simple = TenseAspect {
@@ -290,6 +294,7 @@ mod tests {
         }));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn composition_tense_then_aspect() {
         let past_simple = TenseAspect {

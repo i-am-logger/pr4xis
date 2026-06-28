@@ -625,6 +625,7 @@ mod tests {
     /// heading / citation), not only by its URN/IRI identity — the §9
     /// lexicalization channel (one *Bedeutung*, many *Sinne*). A Form atom is a
     /// surface, never a concept of its own.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn a_form_atoms_surface_resolves_to_the_concept_that_denotes_it() {
         let archive = Archive {
@@ -686,6 +687,7 @@ mod tests {
     /// closure: a USC-oriented Parthood mereology (part → whole) is traversable,
     /// directionally, and is DISTINCT from Subsumption over the same edge — the
     /// Smith et al. (2005) `part_of` ≠ `is_a` distinction, enforced at the reasoner.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reaches_reads_the_parthood_closure_distinct_from_subsumption() {
         use pr4xis_runtime::ontology::relations_kind;

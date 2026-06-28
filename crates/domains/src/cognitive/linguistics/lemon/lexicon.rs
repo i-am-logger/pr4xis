@@ -233,6 +233,7 @@ pub fn build_english_terminology() -> Lexicon {
 mod lexicon_tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn english_terminology_is_nonempty() {
         let lex = build_english_terminology();
@@ -243,12 +244,14 @@ mod lexicon_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn can_lookup_knowledge_ontology() {
         let lex = build_english_terminology();
         assert!(lex.lookup("KnowledgeOntology").is_some());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn label_for_returns_canonical_form() {
         let lex = build_english_terminology();
@@ -256,12 +259,14 @@ mod lexicon_tests {
         assert_eq!(label, Some("KnowledgeOntology"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexicon_language_is_english() {
         let lex = build_english_terminology();
         assert_eq!(lex.lang, "en");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn add_sense_accumulates_not_overwrites() {
         // The fixed bug: two concepts sharing one surface BOTH survive on the
@@ -287,6 +292,7 @@ mod lexicon_tests {
         assert_eq!(lex2.lookup("bank").unwrap().senses.len(), 2);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn add_sense_is_idempotent() {
         let mut lex = Lexicon::new("en");
@@ -299,6 +305,7 @@ mod lexicon_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn legal_sense_elevated_in_legal_domain_general_by_default() {
         // The Q1 model: "person" is ONE shared atom carrying both its WordNet

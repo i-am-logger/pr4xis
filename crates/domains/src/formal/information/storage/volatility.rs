@@ -106,22 +106,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<VolatilityCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         VolatilityOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn seven_media_types() {
         assert_eq!(VolatilityConcept::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn volatile_partition() {
         // IEEE Std 1005.
@@ -134,6 +138,7 @@ mod tests {
         assert!(!VolatilityConcept::Tape.is_volatile());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn volatile_non_volatile_exhaustive() {
         for media in VolatilityConcept::variants() {
@@ -141,6 +146,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn persistent_memory_is_boundary() {
         // Pelley et al. (2014).
@@ -148,6 +154,7 @@ mod tests {
         assert!(VolatilityConcept::PersistentMemory.is_non_volatile());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hierarchy_direct_edges() {
         let m = VolatilityCategory::morphisms();
@@ -167,6 +174,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_volatile_four_non_volatile() {
         let volatile_count = VolatilityConcept::variants()
@@ -203,4 +211,8 @@ mod tests {
             prop_assert!(IsVolatile.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_volatility_total, Verifiable);
 }

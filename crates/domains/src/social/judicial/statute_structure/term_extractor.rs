@@ -307,6 +307,7 @@ mod tests {
 
     // ── split_heading unit tests ─────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_heading_finds_simple_pattern() {
         let (h, body) = split_heading("HEADING.--body text follows.");
@@ -314,6 +315,7 @@ mod tests {
         assert_eq!(body, "body text follows.");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_heading_strips_leading_whitespace() {
         let (h, body) = split_heading("   FOO.--rest");
@@ -321,12 +323,14 @@ mod tests {
         assert_eq!(body, "rest");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_heading_handles_multi_word() {
         let (h, _) = split_heading("STATUTE OF LIMITATIONS.--An action ...");
         assert_eq!(h.as_deref(), Some("STATUTE OF LIMITATIONS"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_heading_handles_punctuation_in_heading() {
         let (h, _) = split_heading(
@@ -340,6 +344,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn split_heading_rejects_lowercase_first_char() {
         let (h, body) = split_heading("text starting lowercase.--body");
@@ -347,6 +352,7 @@ mod tests {
         assert_eq!(body, "text starting lowercase.--body");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn split_heading_rejects_no_separator() {
         let (h, body) = split_heading("UPPERCASE TEXT WITH NO SEPARATOR HERE");
@@ -354,12 +360,14 @@ mod tests {
         assert_eq!(body, "UPPERCASE TEXT WITH NO SEPARATOR HERE");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn split_heading_rejects_heading_with_newline() {
         let (h, _) = split_heading("LINE 1\nLINE 2.--body");
         assert_eq!(h, None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn split_heading_accepts_em_dash_form() {
         let (h, body) = split_heading("HEADING.\u{2014}body text");
@@ -367,6 +375,7 @@ mod tests {
         assert_eq!(body, "body text");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn split_heading_empty_input() {
         let (h, body) = split_heading("");
@@ -376,6 +385,7 @@ mod tests {
 
     // ── extract_terms tree-walking tests ─────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_skips_root() {
         let tree = parse_statute_text(
@@ -389,6 +399,7 @@ mod tests {
         assert_eq!(terms.len(), 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_handles_nested_children() {
         let text = "(a) OUTER.--outer body\n(1) INNER.--inner body\n(A) DEEPEST.--deepest body";
@@ -400,6 +411,7 @@ mod tests {
         assert_eq!(terms[2].heading.as_deref(), Some("DEEPEST"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn extract_handles_missing_heading() {
         let text = "(a) just prose without a heading separator here";
@@ -429,6 +441,7 @@ mod tests {
             .push(PinpointCitationConcept::Section, "42121")
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_sox_finds_canonical_headings() {
         let tree =
@@ -465,6 +478,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_sox_finds_burden_subsection_heading() {
         let tree =
@@ -478,6 +492,7 @@ mod tests {
         assert_eq!(b2c.heading.as_deref(), Some("BURDENS OF PROOF"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_air21_finds_canonical_headings() {
         let tree = parse_statute_text(
@@ -508,6 +523,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn extract_air21_finds_four_clause_burden_framework_headings() {
         let tree = parse_statute_text(
@@ -546,6 +562,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_extracted_term_cite_matches_a_tree_node() {
         // Property: every ExtractedTerm has a cite findable in the tree.
@@ -574,6 +591,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_simple_two_word() {
         assert_eq!(
@@ -582,6 +600,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_carry_english_language_tag() {
         for f in extract_lemmas("Covered Employer") {
@@ -589,6 +608,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_strips_prepositions() {
         assert_eq!(
@@ -597,6 +617,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_strips_conjunctions_and_articles() {
         assert_eq!(
@@ -605,6 +626,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_strips_modals() {
         assert_eq!(
@@ -613,6 +635,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_deduplicates() {
         assert_eq!(
@@ -621,6 +644,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_handles_punctuation() {
         assert_eq!(
@@ -629,16 +653,19 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lemmas_empty_input() {
         assert_eq!(extract_lemmas(""), Vec::<Form>::new());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lemmas_all_stopwords_input() {
         assert_eq!(extract_lemmas("the and of"), Vec::<Form>::new());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_for_sox_term_names() {
         assert_eq!(
@@ -663,6 +690,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lemmas_for_air21_term_names() {
         assert_eq!(
@@ -679,6 +707,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn print_extraction_summary() {
         let sox_tree =
@@ -807,6 +836,14 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(property_lemmas_never_include_stopwords, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmas_never_purely_numeric, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmas_are_lowercase, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmas_are_unique, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmas_all_tagged_en, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmas_never_empty_string, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmas_idempotent_under_repetition, Deterministic);
+
     // ── Concurrency tests for the OnceLock-cached stopword set ────
     //
     // The english_stopwords helper is a OnceLock — concurrent first
@@ -816,6 +853,7 @@ mod tests {
     // would manifest as flaky test failures, which an auditor would
     // flag as unreliable methodology.
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn concurrency_stopwords_lazy_init_under_threads() {
         use std::sync::{Arc, Barrier};
@@ -848,6 +886,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn concurrency_extract_lemmas_thread_safe() {
         use std::sync::{Arc, Barrier};

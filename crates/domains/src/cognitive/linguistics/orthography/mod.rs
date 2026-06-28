@@ -67,6 +67,7 @@ pub fn hebrew_writing_system() -> WritingSystem {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn english_recognizes_latin() {
         let ws = english_writing_system();
@@ -77,12 +78,14 @@ mod tests {
         assert!(!ws.recognizes('\u{05D0}')); // aleph
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn english_is_ltr() {
         let ws = english_writing_system();
         assert_eq!(ws.direction, Direction::LeftToRight);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hebrew_recognizes_hebrew() {
         let ws = hebrew_writing_system();
@@ -91,6 +94,7 @@ mod tests {
         assert!(!ws.recognizes('a')); // Latin not in Hebrew
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hebrew_is_rtl() {
         let ws = hebrew_writing_system();

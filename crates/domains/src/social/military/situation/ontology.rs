@@ -173,22 +173,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SituationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SituationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_elements() {
         assert_eq!(SituationConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn jdl_chain_is_causation() {
         // Steinberg & Bowman (2008): Concept → Relationship → Intent.
@@ -201,6 +205,7 @@ mod tests {
         assert!(caus.contains(&(SituationConcept::Relationship, SituationConcept::Intent)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn environment_informs_every_level() {
         // Endsley (1995): environment context informs perception,
@@ -223,6 +228,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn entity_identification_first_holds() {
         match EntityIdentificationFirst.verify() {
@@ -234,6 +240,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn intent_requires_relationship_holds() {
         match IntentRequiresRelationship.verify() {
@@ -245,6 +252,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn jdl_level_total() {
         let q = JdlLevel;
@@ -288,4 +296,8 @@ mod tests {
         // referenced a relation-kind variant that doesn't exist on this
         // ontology.
     }
+
+    pr4xis::register_praxis_value!(prop_jdl_level_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

@@ -397,6 +397,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn happy_path_constructs() {
         let d = Decision::from_structural(
@@ -420,6 +421,7 @@ mod tests {
         assert_eq!(d.relations().len(), 1);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invalid_issuing_court_rejected() {
         let err = Decision::from_structural(
@@ -437,6 +439,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn invalid_term_id_rejected() {
         let mut data = minimal_data();
@@ -456,6 +459,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn dangling_relation_rejected() {
         let mut data = minimal_data();
@@ -478,6 +482,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn unknown_relation_kind_rejected() {
         let mut data = minimal_data();
@@ -497,6 +502,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn disposition_parse_known_variants() {
         assert_eq!(Disposition::parse("Affirmed"), Some(Disposition::Affirmed));
@@ -510,6 +516,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn disposition_parse_unknown_returns_none() {
         assert_eq!(Disposition::parse("affirmed"), None);
@@ -517,6 +524,7 @@ mod tests {
         assert_eq!(Disposition::parse(""), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lookup_helpers_work() {
         let d = Decision::from_structural(
@@ -538,6 +546,7 @@ mod tests {
         assert_eq!(d.relations_to(&id).count(), 0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lock_context_uri_format() {
         let d = Decision::from_structural(

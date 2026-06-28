@@ -595,17 +595,20 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DependabilityCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DependabilityOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // Service (4) + Threat (4) + FaultClasses (12) + ErrorClasses (2)
@@ -614,31 +617,37 @@ mod tests {
         assert_eq!(DependabilityConcept::variants().len(), 44);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_threats_axiom_holds() {
         assert!(ThreeThreats.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fault_error_failure_chain_axiom_holds() {
         assert!(FaultErrorFailureChain.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn failure_recursion_axiom_holds() {
         assert!(FailureRecursionDocumented.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_core_attributes_axiom_holds() {
         assert!(SixCoreAttributes.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_means_axiom_holds() {
         assert!(FourMeans.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cristian_fault_models_axiom_holds() {
         assert!(CristianFaultModelsExist.verify().is_ok());

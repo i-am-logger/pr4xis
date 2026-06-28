@@ -211,23 +211,27 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<HttpCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         HttpOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_concepts() {
         // 7 methods + 3 groupings (Safe, Idempotent, WithBody).
         assert_eq!(HttpConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn safe_subsumes_idempotent_via_is_a() {
         // RFC 9110 §9.2.2: all safe methods are idempotent.
@@ -239,6 +243,7 @@ mod tests {
         assert!(sub.contains(&(HttpConcept::Safe, HttpConcept::Idempotent)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn safe_methods_are_get_head_options() {
         let sub: Vec<_> = HttpCategory::morphisms()
@@ -251,6 +256,7 @@ mod tests {
         assert!(sub.contains(&(HttpConcept::Options, HttpConcept::Safe)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn safe_implies_idempotent_holds() {
         match SafeImpliesIdempotent.verify() {
@@ -259,6 +265,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn safe_methods_have_no_body_holds() {
         match SafeMethodsHaveNoBody.verify() {
@@ -267,6 +274,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn method_semantics_totality_over_methods() {
         // The seven concrete methods each get a semantics tag.
@@ -284,6 +292,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn concept_to_method_round_trip() {
         // Round-trip the seven concrete methods.
@@ -353,4 +362,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_method_semantics_total_on_methods, Honest);
+    pr4xis::register_praxis_value!(prop_rfc_9110_safe_implies_idempotent, Verifiable);
 }

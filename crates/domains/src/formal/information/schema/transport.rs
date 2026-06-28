@@ -185,6 +185,7 @@ fn render_json_value(v: &SchemaValue) -> String {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn presentation_roundtrip() {
         let mut p = Presentation::new();
@@ -196,6 +197,7 @@ mod tests {
         assert_eq!(p.unsigned("ontology_count"), Some(121));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn presentation_to_json() {
         let mut p = Presentation::new();
@@ -209,6 +211,7 @@ mod tests {
         assert!(json.contains("\"active\":true"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn nested_presentation() {
         let mut inner = Presentation::new();

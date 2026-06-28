@@ -273,22 +273,26 @@ fn realize_limitation(_content: &ResponseContent) -> String {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn copula_sentence_generates() {
         assert_eq!(sentence_copula("dog", "mammal"), "a dog is a mammal");
         assert_eq!(sentence_copula("cat", "animal"), "a cat is an animal");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn copula_negation_generates() {
         assert_eq!(sentence_copula_neg("dog", "fish"), "a dog is not a fish");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn copula_question_generates() {
         assert_eq!(sentence_question("dog", "mammal"), "is a dog a mammal?");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn determiner_selection() {
         assert_eq!(select_determiner("dog"), "a ");
@@ -296,6 +300,7 @@ mod tests {
         assert_eq!(select_determiner("Alice"), ""); // proper noun
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn assert_taxonomy_uses_grammar() {
         let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
@@ -310,6 +315,7 @@ mod tests {
         assert!(text.contains("dog -- a domesticated canine"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn negation_uses_grammar() {
         // is-a negation (no connective) is unchanged.
@@ -324,6 +330,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn relation_sentence_uses_the_loaded_connective() {
         // None → the is-a copula; Some(surface) → "is <surface>".
@@ -337,6 +344,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn definition_format() {
         let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
@@ -348,6 +356,7 @@ mod tests {
         assert!(text.contains("a domesticated canine"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gap_single_word() {
         let content = ResponseContent::new(ResponseFrame::AcknowledgeGap).with_entity("xyzzy");
@@ -355,6 +364,7 @@ mod tests {
         assert_eq!(text, "I do not know the word \"xyzzy\".");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gap_multiple_words() {
         let content = ResponseContent::new(ResponseFrame::AcknowledgeGap)
@@ -365,6 +375,7 @@ mod tests {
         assert!(text.contains("\"bar\""));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn suggestion_generates_question() {
         let content = ResponseContent::new(ResponseFrame::SuggestInterpretation)
@@ -374,6 +385,7 @@ mod tests {
         assert!(text.contains("is a dog a mammal?"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn limitation_generates_example() {
         let content = ResponseContent::new(ResponseFrame::AdmitLimitation);
@@ -381,6 +393,7 @@ mod tests {
         assert!(text.contains("is a dog a mammal?"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn frame_determines_structure() {
         let base = ResponseContent::new(ResponseFrame::AssertKnowledge)

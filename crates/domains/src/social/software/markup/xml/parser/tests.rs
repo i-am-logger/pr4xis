@@ -12,6 +12,7 @@ use super::grammar::{XmlParseError, parse_document};
 use super::lens::XmlLens;
 use crate::formal::meta::well_behaved_lens::WellBehavedLens;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_minimal_empty_element() {
     let xml = r#"<?xml version="1.0"?><root/>"#;
@@ -22,6 +23,7 @@ fn parses_minimal_empty_element() {
     assert!(doc.root.children.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_element_with_text_content() {
     let xml = r#"<?xml version="1.0"?><greeting>hello</greeting>"#;
@@ -30,6 +32,7 @@ fn parses_element_with_text_content() {
     assert_eq!(doc.root.children[0], XmlNode::Text("hello".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_nested_elements() {
     let xml = r#"<?xml version="1.0"?><a><b><c>x</c></b></a>"#;
@@ -47,6 +50,7 @@ fn parses_nested_elements() {
     assert_eq!(c.children[0], XmlNode::Text("x".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_attributes() {
     let xml = r#"<?xml version="1.0"?><e a="1" b="two"/>"#;
@@ -66,6 +70,7 @@ fn parses_attributes() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_default_namespace_declaration() {
     let xml = r#"<?xml version="1.0"?><root xmlns="http://example.org/ns"/>"#;
@@ -80,6 +85,7 @@ fn parses_default_namespace_declaration() {
     assert!(doc.root.attributes.is_empty(), "xmlns is not an attribute");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_prefixed_namespace_declaration() {
     let xml = r#"<?xml version="1.0"?><root xmlns:dc="http://purl.org/dc/"/>"#;
@@ -93,6 +99,7 @@ fn parses_prefixed_namespace_declaration() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn expands_predefined_entities_in_text() {
     // W3C XML 1.0 §4.6 predefined entities.
@@ -104,6 +111,7 @@ fn expands_predefined_entities_in_text() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn expands_numeric_character_references() {
     let xml = r#"<?xml version="1.0"?><r>&#65;&#x42;</r>"#;
@@ -111,6 +119,7 @@ fn expands_numeric_character_references() {
     assert_eq!(doc.root.children[0], XmlNode::Text("AB".into()));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn rejects_undeclared_entity() {
     let xml = r#"<?xml version="1.0"?><r>&unknown;</r>"#;
@@ -120,6 +129,7 @@ fn rejects_undeclared_entity() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_cdata_section() {
     let xml = r#"<?xml version="1.0"?><r><![CDATA[<not> &an; entity]]></r>"#;
@@ -130,6 +140,7 @@ fn parses_cdata_section() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_comment_inside_element() {
     let xml = r#"<?xml version="1.0"?><r>before<!-- mid -->after</r>"#;
@@ -144,6 +155,7 @@ fn parses_comment_inside_element() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_processing_instruction_inside_element() {
     let xml = r#"<?xml version="1.0"?><r>x<?stylesheet href="a.css"?>y</r>"#;
@@ -161,6 +173,7 @@ fn parses_processing_instruction_inside_element() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn detects_mismatched_tags() {
     let xml = r#"<?xml version="1.0"?><a></b>"#;
@@ -173,6 +186,7 @@ fn detects_mismatched_tags() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn skips_doctype_with_internal_subset() {
     let xml = r#"<?xml version="1.0"?><!DOCTYPE foo [<!ELEMENT bar (#PCDATA)>]><foo/>"#;
@@ -184,6 +198,7 @@ fn skips_doctype_with_internal_subset() {
 // W3C XML 1.0 §4 Physical Structures — productions 45-69 + §4.2.2 ExternalID.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_doctype_name_only() {
     let xml = br#"<?xml version="1.0"?><!DOCTYPE foo><foo/>"#;
@@ -194,6 +209,7 @@ fn parses_doctype_name_only() {
     assert!(dt.general_entities.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_doctype_system_external_id() {
     // W3C XML 1.0 §4.2.2 [75] ExternalID — SYSTEM form.
@@ -208,6 +224,7 @@ fn parses_doctype_system_external_id() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_doctype_public_external_id() {
     // W3C XML 1.0 §4.2.2 [75] ExternalID — PUBLIC form.
@@ -224,6 +241,7 @@ fn parses_doctype_public_external_id() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parses_internal_subset_general_entity_declaration() {
     // W3C XML 1.0 §4.2 [70/71] GEDecl: `<!ENTITY name "value">`.
@@ -238,6 +256,7 @@ fn parses_internal_subset_general_entity_declaration() {
     assert_eq!(doc.root.children[0], XmlNode::Text("world".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn resolves_declared_general_entity_in_attribute_value() {
     // §4.4.3 general-entity replacement applies inside attribute
@@ -248,6 +267,7 @@ fn resolves_declared_general_entity_in_attribute_value() {
     assert_eq!(doc.root.attributes[0].value, "abc");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duplicate_entity_declaration_first_wins() {
     // §4.5 — "If the same entity is declared more than once, the
@@ -261,6 +281,7 @@ fn duplicate_entity_declaration_first_wins() {
     assert_eq!(doc.root.children[0], XmlNode::Text("first".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn external_entity_declaration_registers_name_with_empty_replacement_text() {
     // §4.2 [73] ExternalID variant — we accept the declaration AND
@@ -282,6 +303,7 @@ fn external_entity_declaration_registers_name_with_empty_replacement_text() {
     assert_eq!(dt.general_entities[0].kind, XmlEntityKind::ExternalParsed);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parameter_entity_declaration_skipped() {
     // §4.2 [72] PEDecl — recognized syntactically, not projected.
@@ -291,6 +313,7 @@ fn parameter_entity_declaration_skipped() {
     assert!(dt.general_entities.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attlist_with_fixed_default_decl_parses() {
     // §3.3 [60] DefaultDecl ::= '#REQUIRED' | '#IMPLIED'
@@ -306,6 +329,7 @@ fn attlist_with_fixed_default_decl_parses() {
     assert!(parse_document(xml).is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attlist_with_default_attvalue_only_parses() {
     // §3.3 [60] DefaultDecl — the bare `AttValue` form (no #FIXED).
@@ -319,6 +343,7 @@ fn attlist_with_default_attvalue_only_parses() {
     assert!(parse_document(xml).is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn external_unparsed_entity_reference_in_content_is_rejected() {
     // §4.4.4 WFC: Parsed Entity — "an entity reference MUST NOT
@@ -334,6 +359,7 @@ fn external_unparsed_entity_reference_in_content_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn external_unparsed_entity_kind_is_classified() {
     // Locked-in: an `<!ENTITY name SYSTEM "uri" NDATA n>` decl
@@ -352,6 +378,7 @@ fn external_unparsed_entity_kind_is_classified() {
     assert_eq!(pic.kind, XmlEntityKind::ExternalUnparsed);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn external_parsed_entity_reference_in_attribute_value_is_rejected() {
     // §3.1 + §4.4 row "Reference in Attribute Value" / WFC: No
@@ -366,6 +393,7 @@ fn external_parsed_entity_reference_in_attribute_value_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn internal_entity_reference_in_attribute_value_resolves() {
     // Sanity: the §3.1 + §4.4 attribute-value reference WFCs are
@@ -380,6 +408,7 @@ fn internal_entity_reference_in_attribute_value_resolves() {
     assert_eq!(doc.root.attributes[0].value, "hello");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn directly_recursive_entity_reference_is_rejected() {
     // §4.1 WFC: No Recursion — "A parsed entity MUST NOT contain
@@ -391,6 +420,7 @@ fn directly_recursive_entity_reference_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn indirectly_recursive_entity_reference_is_rejected() {
     // §4.1 WFC: No Recursion (indirect cycle). xmlconf
@@ -403,6 +433,7 @@ fn indirectly_recursive_entity_reference_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nested_internal_entity_reference_expands_recursively() {
     // §4.4.3 "Included" — a referenced internal parsed entity's
@@ -421,6 +452,7 @@ fn nested_internal_entity_reference_expands_recursively() {
     assert_eq!(text, "hello world");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parameter_entity_with_ndata_is_rejected_external_system() {
     // §4.2 [74] PEDef ::= EntityValue | ExternalID — note the
@@ -435,6 +467,7 @@ fn parameter_entity_with_ndata_is_rejected_external_system() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parameter_entity_with_ndata_is_rejected_external_public() {
     // §4.2 [74] PEDef + §4.2.2 [75] ExternalID PUBLIC variant +
@@ -447,6 +480,7 @@ fn parameter_entity_with_ndata_is_rejected_external_public() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn entity_value_with_literal_percent_is_rejected() {
     // W3C XML 1.0 §4.3.2 [9] EntityValue body alternation
@@ -459,6 +493,7 @@ fn entity_value_with_literal_percent_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn entity_value_with_invalid_name_in_reference_is_rejected() {
     // §4.1 [68] EntityRef ::= '&' Name ';' — Name starts with
@@ -469,6 +504,7 @@ fn entity_value_with_invalid_name_in_reference_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn user_entity_expansion_with_lt_in_attribute_is_rejected() {
     // §4.4 Table 4 WFC: No `<` in Attribute Values — when a
@@ -483,6 +519,7 @@ fn user_entity_expansion_with_lt_in_attribute_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn predefined_lt_entity_in_attribute_is_allowed() {
     // §4.6 — `&lt;` is the sanctioned way to bring `<` into an
@@ -494,6 +531,7 @@ fn predefined_lt_entity_in_attribute_is_allowed() {
     assert_eq!(doc.root.attributes[0].value, "<");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn numeric_charref_to_lt_in_attribute_is_allowed() {
     // Same: `&#60;` resolves to `<` and is allowed in attribute
@@ -503,6 +541,7 @@ fn numeric_charref_to_lt_in_attribute_is_allowed() {
     assert_eq!(doc.root.attributes[0].value, "<");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn entity_value_with_out_of_range_char_is_rejected() {
     // §4.3.2 [9] EntityValue body alternation `([^%&"] | …)` is
@@ -515,6 +554,7 @@ fn entity_value_with_out_of_range_char_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn att_value_with_out_of_range_char_is_rejected() {
     // §3.1 [10] AttValue body alternation `([^<&"] | …)` — same
@@ -523,6 +563,7 @@ fn att_value_with_out_of_range_char_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn pi_in_content_with_xml_target_is_rejected() {
     // §2.6 [17] PITarget excludes `xml` case-insensitive. The
@@ -532,6 +573,7 @@ fn pi_in_content_with_xml_target_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn xml_decl_rejects_missing_space_before_standalone() {
     // §2.8 [32] SDDecl ::= S 'standalone' Eq ...
@@ -542,6 +584,7 @@ fn xml_decl_rejects_missing_space_before_standalone() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn xml_decl_rejects_non_lowercase_standalone_keyword_and_value() {
     // §2.8 [32] SDDecl — the keyword `standalone` is lowercase
@@ -556,6 +599,7 @@ fn xml_decl_rejects_non_lowercase_standalone_keyword_and_value() {
     assert!(parse_document(br#"<?xml version="1.0" standalone="no"?><doc/>"#).is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn xml_decl_rejects_malformed_version_num() {
     // §2.8 [26] VersionNum ::= '1.' [0-9]+
@@ -569,6 +613,7 @@ fn xml_decl_rejects_malformed_version_num() {
     assert!(parse_document(br#"<?xml version="1.1"?><doc/>"#).is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn misc_position_comment_with_out_of_range_char_is_rejected() {
     // W3C XML 1.0 §2.5 [15] + §2.2 [2] Char — comment bodies must
@@ -579,6 +624,7 @@ fn misc_position_comment_with_out_of_range_char_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn misc_position_pi_with_xml_target_is_rejected() {
     // W3C XML 1.0 §2.6 [17] PITarget — `PITarget ::= Name -
@@ -590,6 +636,7 @@ fn misc_position_pi_with_xml_target_is_rejected() {
     assert!(parse_document(b"<doc/>\n<?xml-stylesheet href=\"x\"?>").is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn comment_ending_with_trailing_dash_is_rejected() {
     // W3C XML 1.0 §2.5 production [15] Comment —
@@ -603,6 +650,7 @@ fn comment_ending_with_trailing_dash_is_rejected() {
     assert!(parse_document(b"<doc><!-- bar ---></doc>").is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn parameter_entity_at_decl_sep_includes_a_general_entity_decl() {
     // §2.8 [28b] intSubset / [28a] DeclSep — when a `%name;` appears
@@ -622,6 +670,7 @@ fn parameter_entity_at_decl_sep_includes_a_general_entity_decl() {
     assert_eq!(dt.general_entities[0].value, "hello");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn parameter_entity_inside_markup_decl_in_internal_subset_is_rejected() {
     // W3C XML 1.0 §4.4.8 WFC: PEs in Internal Subset — *"in the
@@ -636,6 +685,7 @@ fn parameter_entity_inside_markup_decl_in_internal_subset_is_rejected() {
     assert!(parse_document(xml).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn element_type_declaration_in_subset_skipped() {
     // §3.2 [45] elementdecl — affects validity, not well-formedness.
@@ -644,6 +694,7 @@ fn element_type_declaration_in_subset_skipped() {
     assert_eq!(doc.root.name, XmlName::new("foo"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attribute_list_declaration_in_subset_skipped() {
     // §3.3 [52] AttlistDecl — same: validity, not well-formedness.
@@ -652,6 +703,7 @@ fn attribute_list_declaration_in_subset_skipped() {
     assert_eq!(doc.root.name, XmlName::new("foo"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn notation_declaration_in_subset_skipped() {
     // §4.7 [82] NotationDecl — same: validity, not well-formedness.
@@ -660,6 +712,7 @@ fn notation_declaration_in_subset_skipped() {
     assert_eq!(doc.root.name, XmlName::new("foo"));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn doctype_round_trips_through_lens() {
     // Foster et al. 2007 §2.2 GetPut on a document with DOCTYPE.
@@ -674,6 +727,7 @@ fn doctype_round_trips_through_lens() {
 // W3C XML 1.0 §2.11 End-of-Line Handling (production-quality conformance).
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn normalizes_crlf_line_endings_in_content() {
     // §2.11: "the XML processor MUST behave as if it normalized all
@@ -683,6 +737,7 @@ fn normalizes_crlf_line_endings_in_content() {
     assert_eq!(doc.root.children[0], XmlNode::Text("line1\nline2".into()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn normalizes_lone_cr_line_endings_in_content() {
     let xml = b"<?xml version=\"1.0\"?><r>line1\rline2</r>";
@@ -694,6 +749,7 @@ fn normalizes_lone_cr_line_endings_in_content() {
 // W3C XML 1.0 §3.3.3 Attribute-Value Normalization.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn normalizes_literal_whitespace_in_attribute_values() {
     // §3.3.3 step 3.1.4: literal whitespace chars in attribute
@@ -704,6 +760,7 @@ fn normalizes_literal_whitespace_in_attribute_values() {
     assert_eq!(doc.root.attributes[0].value, "x y z");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn preserves_character_references_in_attribute_values() {
     // §3.3.3 step 3.1.1: characters from references contribute
@@ -718,6 +775,7 @@ fn preserves_character_references_in_attribute_values() {
 // W3C XML 1.0 §3.1 well-formedness constraint: Unique Att Spec.
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn rejects_duplicate_attribute_names_in_start_tag() {
     let xml = b"<?xml version=\"1.0\"?><r a=\"1\" a=\"2\"/>";
@@ -729,6 +787,7 @@ fn rejects_duplicate_attribute_names_in_start_tag() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn rejects_duplicate_attribute_with_namespace_prefix() {
     let xml = b"<?xml version=\"1.0\"?><r xmlns:p=\"http://x\" p:a=\"1\" p:a=\"2\"/>";
@@ -740,6 +799,7 @@ fn rejects_duplicate_attribute_with_namespace_prefix() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn accepts_same_local_name_with_different_prefix() {
     // Per the wf constraint, "name" means the qualified-name string.
@@ -766,6 +826,7 @@ fn accepts_same_local_name_with_different_prefix() {
 // Round-trip / lens-law tests (Foster et al. 2007 §2.2).
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn round_trip_minimal_empty_element() {
     let xml = b"<?xml version=\"1.0\"?><root/>";
@@ -774,6 +835,7 @@ fn round_trip_minimal_empty_element() {
     assert_eq!(serialized, xml);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn round_trip_with_attributes_and_namespace() {
     let xml = b"<?xml version=\"1.0\"?><root xmlns=\"http://x\" a=\"1\"/>";
@@ -782,6 +844,7 @@ fn round_trip_with_attributes_and_namespace() {
     assert_eq!(serialized, xml);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn get_put_law_holds_for_simple_doc() {
     // GetPut: parse, re-serialize, re-parse — typed value matches.
@@ -792,6 +855,7 @@ fn get_put_law_holds_for_simple_doc() {
     assert_eq!(t1, t2);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn put_get_law_holds_for_simple_doc() {
     // PutGet: canonical(put(get(s))) == canonical(s).
@@ -803,6 +867,7 @@ fn put_get_law_holds_for_simple_doc() {
     assert_eq!(canonical_source, canonical_round);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn put_get_law_with_entities_normalises_to_canonical_form() {
     // The literal `>` in input gets escaped to `&gt;` on put. C14N
@@ -816,6 +881,7 @@ fn put_get_law_with_entities_normalises_to_canonical_form() {
     assert_eq!(canonical_source, canonical_round);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn lens_serializes_synthesised_typed_value() {
     // Hand-build an XmlDocument and verify the serializer's output
@@ -1134,4 +1200,14 @@ mod property {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(property_get_put_law, Deterministic);
+    pr4xis::register_praxis_value!(property_mismatched_tags_rejected, Honest);
+    pr4xis::register_praxis_value!(property_predefined_entities_always_expand, Verifiable);
+    pr4xis::register_praxis_value!(property_char_data_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(property_attr_value_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(property_crlf_normalized_to_lf, Verifiable);
+    pr4xis::register_praxis_value!(property_attr_literal_whitespace_normalized, Verifiable);
+    pr4xis::register_praxis_value!(property_duplicate_attribute_rejected, Honest);
+    pr4xis::register_praxis_value!(property_declared_general_entity_resolves, Verifiable);
 }

@@ -1431,6 +1431,7 @@ mod prose_text_tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prose_text_excludes_footnote_note() {
         let prose = heading_with_footnote().prose_text();
@@ -1453,6 +1454,7 @@ mod prose_text_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prose_text_keeps_genuine_href_ref() {
         // A genuine `<ref href="…">` cross-reference in the prose (NOT a
@@ -1469,6 +1471,7 @@ mod prose_text_tests {
         assert_eq!(mixed.prose_text(), "Civil action — see section 1514A");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prose_text_keeps_non_footnote_note() {
         // A `<note>` whose `type` is NOT "footnote" (e.g. "uscNote") is kept:
@@ -1486,6 +1489,7 @@ mod prose_text_tests {
         assert_eq!(mixed.prose_text(), "Definitions kept-note-prose");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn plain_text_still_includes_annotations() {
         // `plain_text` is UNTOUCHED — on the same synthetic heading it STILL

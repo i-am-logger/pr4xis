@@ -19,11 +19,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<ObligationModalityCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     ObligationModalityOntology::validate()
@@ -34,11 +36,13 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn four_concepts() {
     assert_eq!(ObligationModalityConcept::variants().len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn three_leaves() {
     assert_eq!(leaves().len(), 3);
@@ -48,6 +52,7 @@ fn three_leaves() {
 // Qualities
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn mandatory_permits_and_compels() {
     let p = PermitsAction;
@@ -56,6 +61,7 @@ fn mandatory_permits_and_compels() {
     assert_eq!(c.get(&ObligationModalityConcept::Mandatory), Some(true));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn prohibitive_neither_permits_nor_compels() {
     let p = PermitsAction;
@@ -64,6 +70,7 @@ fn prohibitive_neither_permits_nor_compels() {
     assert_eq!(c.get(&ObligationModalityConcept::Prohibitive), Some(false));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn discretionary_permits_but_does_not_compel() {
     let p = PermitsAction;
@@ -79,16 +86,19 @@ fn discretionary_permits_but_does_not_compel() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_partition_completeness() {
     assert!(PartitionCompleteness.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_mandatory_and_prohibitive_are_contraries() {
     assert!(MandatoryAndProhibitiveAreContraries.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_discretionary_and_prohibitive_are_contradictories() {
     assert!(
@@ -98,11 +108,13 @@ fn axiom_discretionary_and_prohibitive_are_contradictories() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_mandatory_implies_permitted() {
     assert!(MandatoryImpliesPermitted.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in ObligationModalityOntology::axioms() {
@@ -116,6 +128,7 @@ fn all_axioms_hold() {
 // Modal-word recognizer (Halliday 1985 closed-marker set)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_shall_as_mandatory() {
     assert_eq!(
@@ -124,6 +137,7 @@ fn classify_shall_as_mandatory() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_must_as_mandatory() {
     assert_eq!(
@@ -132,6 +146,7 @@ fn classify_must_as_mandatory() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_may_as_discretionary() {
     assert_eq!(
@@ -140,6 +155,7 @@ fn classify_may_as_discretionary() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_case_insensitive() {
     assert_eq!(
@@ -152,6 +168,7 @@ fn classify_case_insensitive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_pair_shall_not_as_prohibitive() {
     assert_eq!(
@@ -160,6 +177,7 @@ fn classify_pair_shall_not_as_prohibitive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_pair_must_not_as_prohibitive() {
     assert_eq!(
@@ -168,6 +186,7 @@ fn classify_pair_must_not_as_prohibitive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn classify_pair_may_not_as_prohibitive() {
     assert_eq!(
@@ -176,6 +195,7 @@ fn classify_pair_may_not_as_prohibitive() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn classify_returns_none_on_non_modal() {
     assert_eq!(classify_modal("dog"), None);
@@ -244,3 +264,9 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_permits_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_compels_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_compels_entails_permits, Verifiable);
+pr4xis::register_praxis_value!(prop_only_mandatory_compels, Verifiable);
+pr4xis::register_praxis_value!(prop_every_leaf_is_a_root, Verifiable);

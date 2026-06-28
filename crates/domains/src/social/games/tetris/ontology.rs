@@ -51,11 +51,13 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_7_piece_kinds() {
         assert_eq!(PieceKind::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_all_tetrominoes_have_4_cells() {
         let quality = CellCount;
@@ -64,16 +66,19 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_o_piece_has_1_rotation() {
         assert_eq!(RotationCount.get(&PieceKind::O), Some(1));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_i_piece_has_2_rotations() {
         assert_eq!(RotationCount.get(&PieceKind::I), Some(2));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_t_piece_has_4_rotations() {
         assert_eq!(RotationCount.get(&PieceKind::T), Some(4));

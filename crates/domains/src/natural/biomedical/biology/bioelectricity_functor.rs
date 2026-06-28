@@ -105,16 +105,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<BiologyToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BiologyToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BiologicalEntity::variants() {
@@ -125,6 +128,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // Both categories are kinded partial categories per OBO-RO (#166):
@@ -163,6 +167,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();
@@ -179,6 +184,7 @@ mod tests {
 
     // -- Specific mapping tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_squamous_epithelial_maps_to_membrane_potential() {
         assert_eq!(
@@ -187,6 +193,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_columnar_epithelial_maps_to_membrane_potential() {
         assert_eq!(
@@ -195,6 +202,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_goblet_cell_maps_to_membrane_potential() {
         assert_eq!(
@@ -203,6 +211,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_basal_stem_cell_maps_to_membrane_potential() {
         assert_eq!(
@@ -211,6 +220,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m1_maps_to_current_morphology() {
         assert_eq!(
@@ -219,6 +229,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m2_maps_to_current_morphology() {
         assert_eq!(
@@ -227,6 +238,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_fibroblast_maps_to_current_morphology() {
         assert_eq!(
@@ -235,6 +247,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_osteocyte_maps_to_mechanical_stimulation() {
         assert_eq!(
@@ -243,6 +256,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_squamous_epithelium_maps_to_voltage_gradient() {
         assert_eq!(
@@ -251,6 +265,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_connective_tissue_maps_to_voltage_gradient() {
         assert_eq!(
@@ -259,6 +274,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_esophagus_maps_to_cognitive_lightcone() {
         assert_eq!(
@@ -267,6 +283,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_brain_maps_to_cognitive_lightcone() {
         assert_eq!(
@@ -275,6 +292,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cell_abstract_maps_to_membrane_potential() {
         assert_eq!(
@@ -283,6 +301,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_tissue_abstract_maps_to_voltage_gradient() {
         assert_eq!(
@@ -291,6 +310,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_organ_abstract_maps_to_cognitive_lightcone() {
         assert_eq!(
@@ -299,6 +319,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_organism_maps_to_morphospace() {
         assert_eq!(

@@ -224,37 +224,44 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MultiTargetCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MultiTargetOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_track_states() {
         assert_eq!(MultiTargetConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn deleted_is_absorbing_holds() {
         assert!(DeletedIsAbsorbing.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn track_starts_tentative_holds() {
         assert!(TrackStartsTentative.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn redetection_possible_holds() {
         assert!(ReDetectionPossible.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn confirm_edge_exists() {
         let has_confirm = MultiTargetCategory::morphisms().iter().any(|m| {
@@ -265,6 +272,7 @@ mod tests {
         assert!(has_confirm);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn description_total() {
         for c in MultiTargetConcept::variants() {
@@ -339,4 +347,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_description_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_no_edge_leaves_deleted, Verifiable);
+    pr4xis::register_praxis_value!(prop_no_edge_enters_tentative_from_elsewhere, Verifiable);
 }

@@ -338,23 +338,28 @@ mod tests {
     use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DeviceCategory>();
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DeviceOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bte_contains_components() {
         assert!(BTEContainsComponents.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ci_highest_gain() {
         assert!(CIHighestGain.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn implantables_require_surgery() {
         assert!(ImplantablesRequireSurgery.verify().is_ok());
@@ -376,4 +381,6 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

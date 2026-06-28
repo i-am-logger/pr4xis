@@ -3,26 +3,31 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::signal_processing::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn signal_category_laws() {
     assert_category_laws::<SignalProcessingCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn signal_processing_ontology_validates() {
     SignalProcessingOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nyquist_theorem_holds() {
     assert!(NyquistTheorem.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn aliasing_below_nyquist_holds() {
     assert!(AliasingOccursBelowNyquist.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn bandwidth_positive_holds() {
     assert!(BandwidthPositive.verify().is_ok());
@@ -99,4 +104,10 @@ mod proptest_proofs {
             prop_assert!(band.bandwidth() > 0.0);
         }
     }
+
+    pr4xis::register_praxis_value!(nyquist_rate_is_2x_bandwidth, Verifiable);
+    pr4xis::register_praxis_value!(alias_frequency_folds_correctly, Verifiable);
+    pr4xis::register_praxis_value!(low_pass_output_bounded, Verifiable);
+    pr4xis::register_praxis_value!(more_samples_better_resolution, Verifiable);
+    pr4xis::register_praxis_value!(spectral_band_bandwidth_positive, Verifiable);
 }

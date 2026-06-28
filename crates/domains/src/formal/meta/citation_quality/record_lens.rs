@@ -152,6 +152,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn lens_is_well_behaved_on_sample() {
         let r = sample_record();
@@ -169,6 +170,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn put_preserves_complement() {
         let r = sample_record();
@@ -183,6 +185,7 @@ mod tests {
         assert_eq!(r2.assessment, degraded);
     }
 
+    #[pr4xis::praxis_value(Extensible, Verifiable)]
     #[test]
     fn gate_composes_through_the_lens() {
         // All-verified record reads through to a Valid verdict.
@@ -280,4 +283,9 @@ mod tests {
             prop_assert_eq!(v.verdict(), assess(&v.statuses()));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_get_put, Deterministic);
+    pr4xis::register_praxis_value!(prop_put_get, Deterministic);
+    pr4xis::register_praxis_value!(prop_put_put, Deterministic);
+    pr4xis::register_praxis_value!(prop_gate_composition, Extensible, Deterministic);
 }

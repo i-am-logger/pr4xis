@@ -355,6 +355,7 @@ mod tests {
     const HEX_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const HEX_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn replaces_existing_hash_preserving_comments() {
         let out = set_hash(SAMPLE, "english_wordnet@2025", HEX_A).unwrap();
@@ -374,6 +375,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rewrites_bare_legacy_value_to_tagged_form() {
         // A pre-tagged-grammar line (bare hex) is re-pinned in the tagged
@@ -382,6 +384,7 @@ mod tests {
         assert!(out.contains(&format!("\"another@1.0\"          = \"blake3:{HEX_B}\"")));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn appends_new_hash_under_hashes_section_before_canonical_section() {
         let out = set_hash(SAMPLE, "fresh_source@v1", HEX_A).unwrap();
@@ -402,6 +405,7 @@ mod tests {
         assert!(out.contains("\"another@1.0\"          = \"111111111"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn appends_at_end_when_hashes_is_last_section() {
         let single = "[hashes]\n\"k@1\" = \"blake3:0000000000000000000000000000000000000000000000000000000000000000\"\n";
@@ -412,6 +416,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn missing_hashes_section_returns_error() {
         let no_hashes = "[other]\nfoo = \"bar\"\n";
@@ -421,6 +426,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_non_lowercase_hex_digest() {
         // Wrong length
@@ -439,6 +445,7 @@ mod tests {
         assert!(matches!(err, LockfileWriteError::InvalidDigest(_)));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn idempotent_when_rewriting_to_same_value() {
         let same = "0000000000000000000000000000000000000000000000000000000000000000";
@@ -449,6 +456,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn preserves_inline_comment_after_value() {
         let input = "[hashes]\n\"k@1\" = \"blake3:0000000000000000000000000000000000000000000000000000000000000000\"  # inline note\n";
@@ -459,6 +467,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn set_canonical_signature_targets_its_section() {
         let out = set_canonical_signature(SAMPLE, "english_wordnet@2025", HEX_A).unwrap();
@@ -469,6 +478,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn set_byte_exact_signature_requires_its_section() {
         // SAMPLE has no [byte_exact_signatures] section — fail closed.
@@ -481,6 +491,7 @@ mod tests {
         assert!(out.contains(&format!("\"k@1\" = \"blake3:{HEX_A}\"")));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn line_assigns_key_to_matches_quoted_lhs_only() {
         assert!(line_assigns_key_to(

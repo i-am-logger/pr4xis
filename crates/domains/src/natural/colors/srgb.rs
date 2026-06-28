@@ -286,71 +286,84 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_srgb_linearize_identity_at_zero() {
         let f = srgb_linearize();
         assert!((f.eval(0.0) - 0.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_srgb_linearize_identity_at_one() {
         let f = srgb_linearize();
         assert!((f.eval(1.0) - 1.0).abs() < 1e-6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_srgb_continuity() {
         assert!(SrgbContinuity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_bt709_convex() {
         assert!(LumaConvex.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_black() {
         assert!(relative_luminance(&Rgb::BLACK) < 0.001);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_white() {
         assert!(relative_luminance(&Rgb::WHITE) > 0.99);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_bounded() {
         assert!(LuminanceBounded.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_contrast_same_color() {
         let ratio = contrast_ratio(&Rgb::new(128, 128, 128), &Rgb::new(128, 128, 128));
         assert!((ratio - 1.0).abs() < 0.01);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_contrast_black_white() {
         let ratio = contrast_ratio(&Rgb::WHITE, &Rgb::BLACK);
         assert!((ratio - 21.0).abs() < 0.1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_contrast_bounded() {
         assert!(ContrastBounded.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_monotone() {
         assert!(LuminanceMonotone.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_wcag_aa_white_on_black() {
         assert!(wcag_compliant(&Rgb::WHITE, &Rgb::BLACK, WcagLevel::AA));
         assert!(wcag_compliant(&Rgb::WHITE, &Rgb::BLACK, WcagLevel::AAA));
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_wcag_aa_fails_similar() {
         // Two similar grays should fail AA
@@ -361,6 +374,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_is_dark() {
         assert!(is_dark(&Rgb::BLACK));
@@ -369,6 +383,7 @@ mod tests {
         assert!(!is_dark(&Rgb::new(200, 200, 200)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_screen_dual_of_multiply() {
         assert!(ScreenDualOfMultiply.verify().is_ok());
@@ -432,4 +447,11 @@ mod tests {
             prop_assert_eq!(dark, l < 0.5);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_luminance_bounded, Verifiable);
+    pr4xis::register_praxis_value!(prop_contrast_ratio_bounded, Verifiable);
+    pr4xis::register_praxis_value!(prop_contrast_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_contrast_identity, Verifiable);
+    pr4xis::register_praxis_value!(prop_luminance_monotone_gray, Verifiable);
+    pr4xis::register_praxis_value!(prop_dark_light_partition, Verifiable);
 }

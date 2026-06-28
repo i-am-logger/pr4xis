@@ -406,6 +406,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn special_values_parse() {
         assert_eq!(parse_double("INF"), Some(f64::INFINITY));
@@ -418,6 +419,7 @@ mod tests {
         assert!(parse_double("nan").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn special_values_canonical() {
         assert_eq!(canonical_double(f64::INFINITY), "INF");
@@ -427,6 +429,7 @@ mod tests {
         assert_eq!(canonical_double(-0.0), "-0.0E0");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn scientific_canonical_examples() {
         assert_eq!(canonical_double(1.0), "1.0E0");
@@ -439,6 +442,7 @@ mod tests {
         assert_eq!(canonical_float(0.5), "5.0E-1");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexical_accepts_numeral_forms() {
         // noDecimalPt, decimalPt (incl. leading/trailing dot), scientific.
@@ -449,6 +453,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lexical_rejects_malformed() {
         for bad in [
@@ -458,6 +463,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn negative_zero_round_trips() {
         let c = canonical_double(-0.0);
@@ -465,21 +471,25 @@ mod tests {
         assert_eq!(parse_double(&c).unwrap().to_bits(), (-0.0f64).to_bits());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_special_values() {
         assert!(FloatSpecialValuesCanonical.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_scientific() {
         assert!(FloatScientificCanonical.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_fixpoint() {
         assert!(FloatCanonicalIsFixpoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_rejects_malformed() {
         assert!(FloatLexicalRejectsMalformed.verify().is_ok());
@@ -518,4 +528,8 @@ mod tests {
             prop_assert!(parse_double(&canon).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_double_canonical_fixpoint, Deterministic);
+    pr4xis::register_praxis_value!(prop_float_canonical_fixpoint, Deterministic);
+    pr4xis::register_praxis_value!(prop_canonical_in_lexical_space, Deterministic);
 }

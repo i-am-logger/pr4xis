@@ -6,33 +6,39 @@ use crate::applied::space::attitude::engine::*;
 use crate::applied::space::attitude::kinematics::*;
 use crate::applied::space::attitude::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn attitude_category_laws() {
     assert_category_laws::<AttitudeCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attitude_ontology_validates() {
     AttitudeOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn quaternion_unit_norm_holds() {
     assert!(QuaternionUnitNorm.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn star_tracker_most_accurate_holds() {
     assert!(StarTrackerMostAccurate.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn identity_quaternion_has_unit_norm() {
     let q = Quaternion::identity();
     assert!((q.norm() - 1.0).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn quaternion_multiplication_associative() {
     let q1 = Quaternion::new(1.0, 0.1, 0.2, 0.3);
@@ -47,6 +53,7 @@ fn quaternion_multiplication_associative() {
     assert!((left.q3 - right.q3).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn quaternion_conjugate_gives_identity() {
     let q = Quaternion::new(1.0, 0.1, 0.2, 0.3);
@@ -57,6 +64,7 @@ fn quaternion_conjugate_gives_identity() {
     assert!(result.q3.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn zero_angular_velocity_preserves_attitude() {
     let q = Quaternion::new(1.0, 0.1, 0.2, 0.3);
@@ -66,6 +74,7 @@ fn zero_angular_velocity_preserves_attitude() {
     assert!((q_new.q1 - q.q1).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn attitude_state_propagation() {
     let state = AttitudeState {
@@ -78,6 +87,7 @@ fn attitude_state_propagation() {
     assert!((propagated.quaternion.norm() - 1.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn angle_between_orthogonal_vectors() {
     let a = [1.0, 0.0, 0.0];
@@ -125,4 +135,7 @@ mod proptest_proofs {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(quaternion_norm_preserved_after_normalization, Verifiable);
+    pr4xis::register_praxis_value!(conjugate_product_is_identity, Verifiable);
 }

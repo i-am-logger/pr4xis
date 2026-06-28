@@ -214,6 +214,7 @@ pr4xis::register_axiom!(RatioBounded, "WCAG 2.1 \"contrast ratio\" definition");
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_piecewise_linear() {
         // f(x) = { 2x     if x <= 0.5
@@ -229,6 +230,7 @@ mod tests {
         assert!(f.is_continuous(1e-10));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_piecewise_discontinuous() {
         let f = Piecewise {
@@ -239,6 +241,7 @@ mod tests {
         assert!(!f.is_continuous(0.1));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_linear_combination() {
         // BT.709: 0.2126R + 0.7152G + 0.0722B
@@ -255,6 +258,7 @@ mod tests {
         assert!((result - 1.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_interval() {
         let unit = Interval::UNIT;
@@ -267,6 +271,7 @@ mod tests {
         assert!((unit.clamp(-0.5) - 0.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_offset_ratio() {
         // WCAG contrast ratio with 0.05 offset
@@ -282,12 +287,14 @@ mod tests {
         assert!(RatioBounded { ratio: r }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_convex_weights_axiom() {
         let lc = LinearCombination::new(vec![0.2126, 0.7152, 0.0722]);
         assert!(ConvexWeights { combination: lc }.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_non_convex_rejected() {
         let lc = LinearCombination::new(vec![0.5, 0.5, 0.5]); // sums to 1.5
@@ -354,4 +361,11 @@ mod tests {
             prop_assert!(r.eval(a, b) >= 1.0 - 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_piecewise_output_in_range, Verifiable);
+    pr4xis::register_praxis_value!(prop_piecewise_monotone, Verifiable);
+    pr4xis::register_praxis_value!(prop_linear_combination_homogeneous, Verifiable);
+    pr4xis::register_praxis_value!(prop_interval_clamp_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_offset_ratio_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_offset_ratio_always_ge_one, Verifiable);
 }

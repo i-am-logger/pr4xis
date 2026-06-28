@@ -257,6 +257,7 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 3 SSN + 4 linear kin + 4 angular kin + 4 attitude components +
@@ -264,17 +265,20 @@ mod tests {
         assert_eq!(ObservablePropertyConcept::variants().len(), 31);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ObservablePropertyCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ObservablePropertyOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn position_is_observable_property() {
         let sub: Vec<_> = ObservablePropertyCategory::morphisms()
@@ -288,6 +292,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn heading_is_a_yaw() {
         // Heading is yaw with geographic meaning — Heading is_a Yaw.
@@ -302,6 +307,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn roll_pitch_yaw_are_attitude() {
         // The classic Euler-angle decomposition: Attitude is composed of Roll, Pitch, Yaw.
@@ -322,6 +328,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn position_causes_velocity_via_differentiation() {
         let caus: Vec<_> = ObservablePropertyCategory::morphisms()
@@ -335,6 +342,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn force_causes_acceleration() {
         // Newton's second law: F = ma — Force causes Acceleration given Mass.
@@ -349,6 +357,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dimension_total_on_concrete_properties() {
         // PropertyDimension is None on the abstract trio, Some on every
@@ -419,4 +428,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_dimension_total_on_concrete, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

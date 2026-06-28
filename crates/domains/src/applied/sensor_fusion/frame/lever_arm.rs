@@ -89,12 +89,14 @@ impl LeverArm {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn zero_lever_arm_has_zero_magnitude() {
         let la = LeverArm::zero(ReferenceFrame::IMU, ReferenceFrame::GNSS);
         assert!(la.magnitude() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn inverse_negates_offset() {
         let la = LeverArm::new(
@@ -111,6 +113,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn magnitude_is_euclidean_norm() {
         let la = LeverArm::new(
@@ -122,6 +125,7 @@ mod tests {
         assert!((la.magnitude() - 5.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn inverse_inverse_is_original() {
         let la = LeverArm::new(
@@ -134,6 +138,7 @@ mod tests {
         assert_eq!(la, la2);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn velocity_correction_cross_product() {
         // omega = [0, 0, 1] rad/s, lever_arm = [1, 0, 0] m

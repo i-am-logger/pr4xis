@@ -346,23 +346,28 @@ mod tests {
     use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<MusicCategory>();
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         MusicOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn octave_ratio_is_two() {
         assert!(OctaveRatioIsTwo.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn consonance_ranked_higher() {
         assert!(ConsonanceRankedHigher.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn input_causes_emotion() {
         assert!(InputCausesEmotion.verify().is_ok());
@@ -384,4 +389,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

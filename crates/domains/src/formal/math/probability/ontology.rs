@@ -573,22 +573,26 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ProbabilityCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ProbabilityOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eight_probability_concepts() {
         assert_eq!(ProbabilityConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_description_total() {
         let q = ConceptDescription;
@@ -597,6 +601,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn kolmogorov_axioms_hold() {
         assert!(NonNegativity.verify().is_ok());
@@ -606,12 +611,14 @@ mod tests {
         assert!(ProbabilityBounds.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bayes_and_gaussian_hold() {
         assert!(BayesTheorem.verify().is_ok());
         assert!(GaussianFusionReducesVariance.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn information_theory_axioms_hold() {
         assert!(KlDivergenceNonNegative.verify().is_ok());
@@ -620,6 +627,7 @@ mod tests {
         assert!(UniformMaximizesEntropy.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mahalanobis_axioms_hold() {
         assert!(MahalanobisNonNegative.verify().is_ok());
@@ -657,4 +665,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_concept_description_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

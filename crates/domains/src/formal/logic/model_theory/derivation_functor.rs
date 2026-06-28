@@ -83,11 +83,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws_pass() {
         assert_functor_laws::<ModelTheoryToDerivation>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn satisfaction_is_evidence() {
         assert_eq!(
@@ -96,6 +98,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn entailment_is_composition() {
         assert_eq!(

@@ -5,27 +5,32 @@ use pr4xis::ontology::Ontology;
 use crate::applied::industrial::process::engine::*;
 use crate::applied::industrial::process::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn process_category_laws() {
     assert_category_laws::<ProcessCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn process_ontology_validates() {
     ProcessOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn temperature_above_absolute_zero_holds() {
     assert!(TemperatureAboveAbsoluteZero.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pressure_non_negative_holds() {
     assert!(PressureNonNegative.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn celsius_kelvin_roundtrip() {
     let c = 25.0;
@@ -34,34 +39,40 @@ fn celsius_kelvin_roundtrip() {
     assert!((c - c2).abs() < 1e-12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn absolute_zero_is_zero_kelvin() {
     let k = celsius_to_kelvin(-273.15);
     assert!(k.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn validate_temperature_valid() {
     assert!(validate_temperature_k(300.0));
     assert!(validate_temperature_k(0.0));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn validate_temperature_invalid() {
     assert!(!validate_temperature_k(-1.0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn validate_pressure_valid() {
     assert!(validate_pressure(101325.0));
     assert!(validate_pressure(0.0));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn validate_pressure_invalid() {
     assert!(!validate_pressure(-1.0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pid_controller_drives_to_setpoint() {
     let mut pid = PidController::new(1.0, 0.1, 0.01, 0.0, 100.0);
@@ -83,6 +94,7 @@ fn pid_controller_drives_to_setpoint() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn pid_output_clamped() {
     let mut pid = PidController::new(100.0, 0.0, 0.0, 0.0, 10.0);
@@ -94,6 +106,7 @@ fn pid_output_clamped() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pid_reset_clears_state() {
     let mut pid = PidController::new(1.0, 1.0, 1.0, -100.0, 100.0);
@@ -104,6 +117,7 @@ fn pid_reset_clears_state() {
 }
 
 /// The wrapped PID delegates to control_theory and produces the same results.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn pid_delegates_to_control_theory() {
     use crate::formal::math::control_theory::pid as ct_pid;
@@ -179,4 +193,8 @@ mod proptest_proofs {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(celsius_kelvin_roundtrip_property, Deterministic);
+    pr4xis::register_praxis_value!(pid_output_always_clamped, Honest);
+    pr4xis::register_praxis_value!(pid_output_bounded_by_saturation_limits, Honest);
 }

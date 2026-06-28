@@ -259,6 +259,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_entry_is_all_verified_and_valid() {
         let a = project_entry(&full_entry());
@@ -271,6 +272,7 @@ mod tests {
     }
 
     // ── Existence boundary (ontology::Existence) ───────────────────
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn existence_needs_authors_title_and_identifier() {
         // Drop the identifier → Existence Unverified.
@@ -300,6 +302,7 @@ mod tests {
     }
 
     // ── ClaimSupport boundary (ontology::ClaimSupport) ─────────────
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn claim_support_needs_summary_and_verified_by() {
         let no_summary = EntryFields {
@@ -326,6 +329,7 @@ mod tests {
     }
 
     // ── LocatorAccuracy boundary (ontology::LocatorAccuracy) ───────
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn locator_accuracy_needs_section_or_page() {
         let no_locator = EntryFields {
@@ -339,6 +343,7 @@ mod tests {
     }
 
     // ── BibliographicAccuracy boundary ─────────────────────────────
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn bibliographic_accuracy_needs_author_title_publisher_year() {
         // Dropping any one of the four required fields unverifies
@@ -372,6 +377,7 @@ mod tests {
     }
 
     // ── FormatConformance (ontology::FormatConformance) ────────────
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn format_conformance_always_verified_for_loaded_entry() {
         // Even a near-empty entry conforms to the schema by construction.
@@ -383,6 +389,7 @@ mod tests {
     }
 
     // ── VerificationMethod parsing (assessment::VerificationMethod) ─
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn verification_method_parses_families() {
         assert_eq!(
@@ -454,6 +461,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multi_version_existence_from_flat_entry() {
         // Author/title come from the flat work fields; Bibliographic too.
@@ -463,6 +471,7 @@ mod tests {
         assert_eq!(a.bibliographic_accuracy, DimensionStatus::Verified);
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn multi_version_existence_identifier_is_per_fiber() {
         // A multi-version work's identifier (year/url) is version-located:
@@ -492,6 +501,7 @@ mod tests {
         assert_eq!(a.verdict(), CitationVerdict::Invalid);
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn multi_version_claim_support_needs_claim_and_all_fibers_verified() {
         // claim + all fibers verified → ClaimSupport Verified.
@@ -526,6 +536,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn multi_version_locator_needs_every_fiber_located() {
         assert_eq!(
@@ -616,4 +627,7 @@ mod tests {
             );
         }
     }
+
+    pr4xis::register_praxis_value!(prop_invalid_iff_sound_gate_unverified, Honest, Verifiable);
+    pr4xis::register_praxis_value!(prop_format_always_verified, Verifiable);
 }

@@ -427,6 +427,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn precedence_axiom_holds() {
         assert!(
@@ -436,6 +437,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn more_specific_scope_displaces_more_general() {
         let title = DefinitionScope::Enacted(cite(&[(L::Title, "26"), (L::Section, "7701")]));
@@ -451,6 +453,7 @@ mod tests {
         assert!(!title.displaces(&section));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn governs_by_containment() {
         let title_def = DefinitionScope::Enacted(cite(&[(L::Title, "26")]));
@@ -460,6 +463,7 @@ mod tests {
         assert!(!title_def.governs(&cite(&[(L::Title, "18"), (L::Section, "1")])));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolve_picks_most_specific_governing_definition() {
         let use_cite = cite(&[(L::Title, "26"), (L::Section, "7701"), (L::Subsection, "a")]);
@@ -477,6 +481,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn contextual_defeater_falls_through_to_next() {
         // "unless the context indicates otherwise": defeat the title definition,
@@ -495,6 +500,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn definition_lexicon_resolves_lex_specialis_and_mints_legal_sense() {
         use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
@@ -549,6 +555,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dictionary_act_definition_yields_a_defines_morphism() {
         let def = person(DefinitionScope::DictionaryAct);
@@ -572,6 +579,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dictionary_act_makes_title_1_definitions_resolvable() {
         let title1 = dictionary_act_definitions();
@@ -622,6 +630,7 @@ mod tests {
     /// resolution proof runs whenever that loader is compiled — `cargo test
     /// --features fetch` here, the `fetch`-enabled CI test job there.
     #[cfg(feature = "fetch")]
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn catchline_grounds_in_loaded_doco_section_title() {
         use crate::social::software::markup::xml::owl::loaded_vocabularies::loaded_vocabulary;
@@ -675,6 +684,7 @@ mod tests {
     /// `"legal"`-register sense for "catchline" on the lexicon, whose reference
     /// is exactly the loaded DoCO concept — the word is now understood as a
     /// lexicalization of `doco:SectionTitle`.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn catchline_mints_a_sense_referencing_loaded_doco_concept() {
         use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
@@ -703,6 +713,7 @@ mod tests {
     /// vocabulary, not a Code-enacted term — so it contributes NO `Defines`
     /// morphism, and it carries its OLRC-glossary justification verbatim on the
     /// structured `definition` `SourceTextRef`.
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn catchline_yields_no_defines_morphism_but_cites_its_source() {
         let layer = uslm_vocabulary_definitions();

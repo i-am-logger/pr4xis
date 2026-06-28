@@ -112,22 +112,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TrafficCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         TrafficOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn four_cardinal_directions() {
         assert_eq!(TrafficConcept::variants().len(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn conflicts_with_north_picks_east_west() {
         let q = ConflictsWithNorth;
@@ -137,6 +141,7 @@ mod tests {
         assert!(q.get(&TrafficConcept::South).is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn polar_opposites_via_opposition_kind() {
         // Webster's polar opposites: N↔S, E↔W share a green phase.
@@ -149,6 +154,7 @@ mod tests {
         assert!(opposed.contains(&(TrafficConcept::East, TrafficConcept::West)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn orthogonal_conflicts_holds() {
         match OrthogonalConflicts.verify() {
@@ -203,4 +209,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_conflicts_with_north_total, Honest);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
 }

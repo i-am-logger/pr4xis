@@ -246,16 +246,19 @@ mod tests {
         forms.iter().map(|f| f.written_rep.clone()).collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bcp47_tag_for_english() {
         assert_eq!(Language::English.bcp47_tag(), "en");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn empty_input_yields_no_lemmas() {
         assert!(lemmatize("", Language::English).is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn surface_is_first_candidate() {
         let forms = lemmatize("rights", Language::English);
@@ -265,6 +268,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn lower_cases_input() {
         let forms = lemmatize("RIGHTS", Language::English);
@@ -274,6 +278,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_form_carries_en_tag() {
         for form in lemmatize("rights", Language::English) {
@@ -283,48 +288,56 @@ mod tests {
 
     // ── Rule-driven inversion ──────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rights_to_right() {
         let lemmas = lemma_strings(&lemmatize("rights", Language::English));
         assert!(lemmas.contains(&"right".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cities_to_city() {
         let lemmas = lemma_strings(&lemmatize("cities", Language::English));
         assert!(lemmas.contains(&"city".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn remedies_to_remedy() {
         let lemmas = lemma_strings(&lemmatize("remedies", Language::English));
         assert!(lemmas.contains(&"remedy".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn filed_to_file() {
         let lemmas = lemma_strings(&lemmatize("filed", Language::English));
         assert!(lemmas.contains(&"file".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn testified_to_testify() {
         let lemmas = lemma_strings(&lemmatize("testified", Language::English));
         assert!(lemmas.contains(&"testify".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn providing_to_provide() {
         let lemmas = lemma_strings(&lemmatize("providing", Language::English));
         assert!(lemmas.contains(&"provide".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn running_to_run() {
         let lemmas = lemma_strings(&lemmatize("running", Language::English));
         assert!(lemmas.contains(&"run".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unhappy_to_happy() {
         let lemmas = lemma_strings(&lemmatize("unhappy", Language::English));
@@ -333,30 +346,35 @@ mod tests {
 
     // ── Irregular-driven inversion ─────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn children_to_child() {
         let lemmas = lemma_strings(&lemmatize("children", Language::English));
         assert!(lemmas.contains(&"child".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mice_to_mouse() {
         let lemmas = lemma_strings(&lemmatize("mice", Language::English));
         assert!(lemmas.contains(&"mouse".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn went_to_go() {
         let lemmas = lemma_strings(&lemmatize("went", Language::English));
         assert!(lemmas.contains(&"go".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn was_to_be() {
         let lemmas = lemma_strings(&lemmatize("was", Language::English));
         assert!(lemmas.contains(&"be".to_string()), "got {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn better_to_good() {
         let lemmas = lemma_strings(&lemmatize("better", Language::English));
@@ -365,6 +383,7 @@ mod tests {
 
     // ── Deduplication ──────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn deduplicates_repeated_candidates() {
         let lemmas = lemma_strings(&lemmatize("boxes", Language::English));
@@ -372,6 +391,7 @@ mod tests {
         assert_eq!(unique.len(), lemmas.len(), "duplicates in {lemmas:?}");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lemma_set_never_contains_empty_string() {
         for input in &["rights", "cities", "filed", "running", "went", "children"] {
@@ -383,6 +403,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn canonical_form_passes_through() {
         let lemmas = lemma_strings(&lemmatize("right", Language::English));
@@ -405,6 +426,7 @@ mod tests {
     // and may race with itself. Spawn N threads, each calling
     // lemmatize concurrently; assert all observe identical output.
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn concurrency_lemmatize_thread_safe() {
         use std::sync::{Arc, Barrier};
@@ -467,6 +489,13 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(property_lemmatize_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(property_lemmatize_first_is_surface, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmatize_no_empty_candidates, Honest);
+    pr4xis::register_praxis_value!(property_lemmatize_all_forms_are_en, Verifiable);
+    pr4xis::register_praxis_value!(property_lemmatize_no_duplicates, Deterministic);
+
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn coverage_on_inflected_corpus_terms() {
         // The 17%-of-statute-lemmas gap was driven by these forms.

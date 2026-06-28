@@ -1390,6 +1390,7 @@ mod tests {
     /// round-trips `parse(tag(k)) == Some(k)`, so the owned mirror can lower
     /// `kind` to a string on emit and recover the typed variant on load
     /// without a loaded XSD ontology on the load path.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_subdivision_kind_round_trips() {
         use SubdivisionKind::*;
@@ -1459,6 +1460,7 @@ mod tests {
         subs.iter().map(|s| 1 + count(s.children)).sum()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn owned_aux_leaks_to_static_tree() {
         let aux = to_aux_leaked(&[fixture()]);
@@ -1544,6 +1546,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_envelope_bytes_round_trip_and_deterministic() {
         let e = witness_usc_envelope("usc_title_18", "pl-119-90");
@@ -1557,6 +1560,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_raw_leaf_reconstructs_source_byte_exact() {
         let e = witness_usc_envelope("usc_title_18", "pl-119-90");
@@ -1568,6 +1572,7 @@ mod tests {
     /// The load gate, given the genuine pins for THIS fixture, materializes a
     /// `UsCode` and — crucially — preserves subdivision DEPTH (the archive
     /// path goes through `from_codegen_with_aux`, not `from_codegen`).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_load_preserves_subdivision_depth() {
         let e = witness_usc_envelope("usc_title_18", "pl-119-90");
@@ -1593,6 +1598,7 @@ mod tests {
     /// MerkleRoot leg binds the recursive aux tree, so poisoning it changes
     /// the content address and the gate refuses it. Mirrors the OWL
     /// `load_rejects_poisoned_data_under_honest_label`.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_load_rejects_poisoned_aux_under_honest_label() {
         let honest = witness_usc_envelope("usc_title_18", "pl-119-90");
@@ -1614,6 +1620,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_load_rejects_corrupted_blob() {
         let any = LockDigest::address("0".repeat(64));
@@ -1633,6 +1640,7 @@ mod tests {
     /// The source leg — not the archive leg — rejects a floor envelope with
     /// no raw complement: a genuine MerkleRoot pin passes the archive check,
     /// then `usc_reconstruct_source` refuses `raw = None`.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_load_rejects_floor_envelope_missing_raw_leaf() {
         let mut e = witness_usc_envelope("usc_title_18", "pl-119-90");
@@ -1691,6 +1699,7 @@ mod tests {
     /// produce byte-identical `.prx.gz`: the document-order DFS pins the aux
     /// and edge order, so the rkyv layout (deterministic put) and the gzip
     /// wrapper are bit-for-bit stable (no HashMap iteration leaks into bytes).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_emit_is_byte_reproducible() {
         let a = emit_usc_prx_gz(SAMPLE_USC_TITLE.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
@@ -1707,6 +1716,7 @@ mod tests {
     /// corpus value: one section, the subsection→paragraph subdivision tree
     /// preserved (depth survives the archive), URN lookup + Composes edges
     /// intact.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_emit_then_load_equals_corpus() {
         let src = SAMPLE_USC_TITLE.as_bytes();
@@ -1748,6 +1758,7 @@ mod tests {
     /// compact `.prx.gz` materializes back to the same corpus (section + depth +
     /// edges), and it is smaller than fetching the source. Inline fixture — runs
     /// in any checkout with no provisioned title.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn compact_usc_codec_roundtrips_smaller_and_reasoning_equivalent() {
         let src = SAMPLE_USC_TITLE.as_bytes();
@@ -1809,6 +1820,7 @@ mod tests {
     /// count, `number_of_subdivisions` = the total subdivision-node count.
     /// Self-description (not a load-gate check), but proven correct here so
     /// the fields are not written-only.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn usc_metadata_metrics_match_corpus() {
         let e = build_usc_envelope(SAMPLE_USC_TITLE.as_bytes(), FX_NAME, FX_VERSION, FX_URL)
@@ -1836,6 +1848,7 @@ mod tests {
     /// The content gate is a well-behaved lens: a compact archive loads under its
     /// genuine address, and a SINGLE flipped byte is rejected (the fail-closed
     /// `HashMismatch`) before any data is materialized.
+    #[pr4xis::praxis_value(Honest, Deterministic)]
     #[test]
     fn compact_usc_gated_load_round_trips_and_rejects_tampering() {
         let key = "usc_title_18@pl-119-90";
@@ -1860,6 +1873,7 @@ mod tests {
     /// `"{name}@{version}"` has no `[archive_signatures]` pin — the MerkleRoot
     /// pin is looked up first, so an unregistered title is refused there
     /// (mirrors the OWL `load_validation_rejects_unpinned_source`).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_load_from_lock_rejects_unpinned() {
         let prx_gz = emit_usc_prx_gz(
@@ -1903,6 +1917,7 @@ mod tests {
     /// ontology + concrete-syntax complement (NO raw blob), and
     /// `usc_reconstruct_source` regenerates the EXACT source bytes from the GRAPH
     /// alone. The cheap in-memory cousin of the rkyv round-trip gate below.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn usc_title1_graph_faithful_reconstructs_source_byte_exact() {
         let Some(source) = real_title1_source() else {
@@ -1935,6 +1950,7 @@ mod tests {
     /// Fail-closed: a graph-faithful envelope with no graph payload cannot
     /// reconstruct its source — `usc_reconstruct_source` refuses `graph = None`
     /// rather than fabricating bytes.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_reconstruct_refuses_missing_graph_payload() {
         let Some(source) = real_title1_source() else {
@@ -1955,6 +1971,7 @@ mod tests {
     /// source, but it no longer matches the metadata pin) is rejected by the
     /// in-envelope honesty gate rather than returning wrong bytes — the
     /// graph-faithful analogue of the floor arm's tampered-blob test.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn usc_title1_graph_faithful_rejects_pin_drift() {
         let Some(source) = real_title1_source() else {

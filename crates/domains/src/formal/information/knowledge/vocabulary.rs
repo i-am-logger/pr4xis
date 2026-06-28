@@ -186,6 +186,7 @@ impl KnowledgeBase {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vocabulary_from_ontology() {
         let v = Vocabulary::from_ontology::<
@@ -201,6 +202,7 @@ mod tests {
         assert!(v.domain().contains("knowledge"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn runtime_ontology_vocabulary_counts_concepts_not_form_surfaces() {
         use pr4xis::ontology::meta::OntologyName;
@@ -267,6 +269,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_capabilities_are_the_data_driven_populated_kinds() {
         use pr4xis::ontology::meta::OntologyName;
@@ -317,6 +320,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn knowledge_base_presents() {
         let v = Vocabulary::from_ontology::<

@@ -423,31 +423,38 @@ mod tests {
     use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<VestibularCategory>();
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         VestibularOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_canals() {
         assert!(ThreeCanals.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn two_otolith_organs() {
         assert!(TwoOtolithOrgans.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rotation_causes_vor() {
         assert!(RotationCausesVOR.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn canals_contain_hair_cells() {
         assert!(CanalsContainHairCells.verify().is_ok());
     }
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vor_gain_unity() {
         assert!(VORGainIsUnity.verify().is_ok());
@@ -469,4 +476,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

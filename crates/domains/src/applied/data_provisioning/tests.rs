@@ -34,11 +34,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     pr4xis::category::laws::assert_category_laws::<DataProvisioningCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     DataProvisioningOntology::validate()
@@ -49,23 +51,27 @@ fn ontology_validates() {
 // Registry shape
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registry_has_english_wordnet() {
     assert!(by_name("english_wordnet").is_some());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registry_english_wordnet_kind_is_language() {
     let entry = by_name("english_wordnet").unwrap();
     assert_eq!(entry.kind, SourceTaxonomyConcept::Language);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registry_english_wordnet_has_version_2025() {
     let entry = by_name("english_wordnet").unwrap();
     assert_eq!(entry.version, "2025");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registry_english_wordnet_has_composite_identity() {
     let identity = resolve_identity("english_wordnet").expect("english_wordnet registered");
@@ -76,23 +82,27 @@ fn registry_english_wordnet_has_composite_identity() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registry_canonical_encoding_for_wordnet_is_xml_lmf() {
     let entry = by_name("english_wordnet").unwrap();
     assert_eq!(canonical_encoding(entry.kind), ContentType::XmlLmf);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn registry_lookup_miss_returns_none() {
     assert!(by_name("not-a-real-dataset").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn by_name_version_matches_pair() {
     assert!(by_name_version("english_wordnet", "2025").is_some());
     assert!(by_name_version("english_wordnet", "9999").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn english_wordnet_local_path_matches_disk() {
     // WordNet predates the Lexicon-family taxonomy and lives at the
@@ -109,12 +119,14 @@ fn english_wordnet_local_path_matches_disk() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn english_wordnet_url_is_gzipped() {
     let entry = by_name("english_wordnet").unwrap();
     assert!(entry.gzipped());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn english_wordnet_transport_gzip_yes() {
     // URL ends `.xml.gz`, local path ends `.xml` — fetcher must
@@ -131,6 +143,7 @@ fn english_wordnet_transport_gzip_yes() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xmlconf_transport_gzip_no() {
     // URL ends `.tar.gz`, local path also ends `.tar.gz` — the gzip
@@ -150,6 +163,7 @@ fn xmlconf_transport_gzip_no() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn xsts_transport_gzip_no() {
     // Same situation as xmlconf — `.tar.gz` URL, `.tar.gz` local path,
@@ -166,6 +180,7 @@ fn xsts_transport_gzip_no() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lock_hashes_contains_wordnet() {
     let key = "english_wordnet@2025";
@@ -176,6 +191,7 @@ fn lock_hashes_contains_wordnet() {
 // Qualities
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn verified_dataset_is_usable_locally() {
     assert_eq!(
@@ -184,6 +200,7 @@ fn verified_dataset_is_usable_locally() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn stale_and_missing_are_not_usable() {
     assert_eq!(
@@ -196,6 +213,7 @@ fn stale_and_missing_are_not_usable() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn stale_and_missing_trigger_update() {
     assert_eq!(
@@ -212,37 +230,44 @@ fn stale_and_missing_trigger_update() {
 // Domain axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_datasource_has_identity() {
     assert!(!data_sources().is_empty());
     assert!(EveryDataSourceHasIdentity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_registry_uniqueness_by_name_version() {
     assert!(RegistryUniquenessByNameVersion.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_decoder_totality_per_kind() {
     assert!(DecoderTotalityPerKind.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_identity_claims_use_leaves() {
     assert!(IdentityClaimsUseLeaves.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_kind_is_taxonomy_leaf() {
     assert!(KindIsTaxonomyLeaf.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_lock_manifest_agreement() {
     assert!(LockManifestAgreement.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in DataProvisioningOntology::axioms() {
@@ -252,11 +277,13 @@ fn all_axioms_hold() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn has_decoder_for_xml_lmf() {
     assert!(has_decoder_for(ContentType::XmlLmf));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn has_decoder_for_xml_xsd() {
     // The `XmlXsd` decoder satisfies `DecoderTotalityPerKind` for the
@@ -266,6 +293,7 @@ fn has_decoder_for_xml_xsd() {
     assert!(has_decoder_for(ContentType::XmlXsd));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn no_decoder_for_unimplemented_content_types() {
     assert!(!has_decoder_for(ContentType::Pdf));
@@ -273,6 +301,7 @@ fn no_decoder_for_unimplemented_content_types() {
     assert!(!has_decoder_for(ContentType::Audio));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn has_decoder_for_agrees_with_each_module_const() {
     // Each in-directory decoder declares the ContentType it realizes as its own
@@ -326,6 +355,7 @@ const FAKE_WORDNET_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 /// `English::from_wordnet` → queryable `English`. If it passes, the
 /// data-provisioning layer composes cleanly with the existing
 /// XML/LMF/English pipeline and with the SourceTaxonomy.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn full_chain_raw_bytes_to_english_ontology() {
     let bytes = FAKE_WORDNET_XML.as_bytes();
@@ -373,6 +403,7 @@ fn full_chain_raw_bytes_to_english_ontology() {
 
 /// Negative full-chain: corrupt the version attribute, confirm the
 /// version claim fails and the pipeline fails-closed without decoding.
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn full_chain_rejects_wrong_version() {
     let corrupted = FAKE_WORDNET_XML.replace("version=\"2025\"", "version=\"2024\"");
@@ -476,3 +507,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_has_decoder_for_is_pure, Deterministic);
+pr4xis::register_praxis_value!(prop_by_name_misses_random_strings, Honest);
+pr4xis::register_praxis_value!(prop_all_resolved_claims_use_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_every_entry_kind_is_leaf, Verifiable);

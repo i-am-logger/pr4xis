@@ -78,6 +78,7 @@ mod tests {
     use super::super::ontology::HtmlConcept;
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn html_vocabulary_recognizes_loaded_elements() {
         // Every element in the bundled XSD is recognized.
@@ -87,6 +88,7 @@ mod tests {
         assert!(is_html_vocabulary("meta"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn html_vocabulary_recognizes_loaded_attributes() {
         assert!(is_html_vocabulary("href"));
@@ -96,6 +98,7 @@ mod tests {
         assert!(is_html_vocabulary("rowspan"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn html_vocabulary_rejects_unrelated_strings() {
         // General-English words are not in the HTML vocabulary
@@ -104,6 +107,7 @@ mod tests {
         assert!(!is_html_vocabulary(""));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn html_vocabulary_is_case_insensitive() {
         assert!(is_html_vocabulary("IMG"));
@@ -112,6 +116,7 @@ mod tests {
         assert!(is_html_vocabulary("Href"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn content_category_phrases_cover_every_category() {
         // Every content-category concept has a canonical phrase.
@@ -132,6 +137,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn element_and_attribute_have_no_canonical_phrase() {
         // Element / attribute concepts are instance-valued, not

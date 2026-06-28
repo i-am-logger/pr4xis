@@ -24,6 +24,7 @@ fn canonical_context() -> FormalContext<&'static str, &'static str> {
 // Layer 1 — pinpoint cases.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synthesize_returns_total_object_map() {
     let disc = discover(&canonical_context());
@@ -34,6 +35,7 @@ fn synthesize_returns_total_object_map() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_assignment_is_in_cluster_range() {
     let disc = discover(&canonical_context());
@@ -44,6 +46,7 @@ fn every_assignment_is_in_cluster_range() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synthesizer_assigns_tightest_concept() {
     // Hand-verifiable: dog has all four attributes, so its tightest
@@ -64,6 +67,7 @@ fn synthesizer_assigns_tightest_concept() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn map_identity_matches_cluster_of() {
     let disc = discover(&canonical_context());
@@ -73,6 +77,7 @@ fn map_identity_matches_cluster_of() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn synthesize_is_deterministic() {
     let disc = discover(&canonical_context());
@@ -82,6 +87,7 @@ fn synthesize_is_deterministic() {
     assert_eq!(a.cluster_count(), b.cluster_count());
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn laws_verified_on_canonical_context() {
     let disc = discover(&canonical_context());
@@ -89,6 +95,7 @@ fn laws_verified_on_canonical_context() {
     assert!(synth.laws_verified());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn empty_context_yields_empty_synthesis() {
     let ctx: FormalContext<&str, &str> = FormalContext::from_matrix(vec![], vec![], vec![]);
@@ -101,21 +108,25 @@ fn empty_context_yields_empty_synthesis() {
 // Layer 2 — registered axioms.
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn axiom_synthesized_functor_preserves_identity_holds() {
     assert!(SynthesizedFunctorPreservesIdentity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn axiom_synthesized_functor_preserves_composition_holds() {
     assert!(SynthesizedFunctorPreservesComposition.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_cluster_assignment_is_tightest_fit_holds() {
     assert!(ClusterAssignmentIsTightestFit.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_synthesizer_is_deterministic_holds() {
     assert!(SynthesizerIsDeterministic.verify().is_ok());
@@ -203,3 +214,9 @@ proptest! {
         prop_assert_eq!(a.object_map(), b.object_map());
     }
 }
+
+pr4xis::register_praxis_value!(property_object_map_total, Verifiable);
+pr4xis::register_praxis_value!(property_assignments_within_range, Verifiable);
+pr4xis::register_praxis_value!(property_object_in_assigned_extent, Verifiable);
+pr4xis::register_praxis_value!(property_assignment_is_tightest_fit, Verifiable);
+pr4xis::register_praxis_value!(property_synthesize_deterministic, Deterministic);

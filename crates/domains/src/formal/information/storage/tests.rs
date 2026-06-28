@@ -69,4 +69,10 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_backend_subsumes_store, Verifiable);
+    pr4xis::register_praxis_value!(prop_roundtrip_exists, Deterministic);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

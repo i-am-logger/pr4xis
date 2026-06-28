@@ -6,6 +6,7 @@
 
 use crate::social::compliance::statutes::sox_1514a::statute;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn returns_a_statute() {
     let s = statute();
@@ -13,6 +14,7 @@ fn returns_a_statute() {
     assert_eq!(s.version(), "2002");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn description_references_uslm_source() {
     let s = statute();
@@ -23,6 +25,7 @@ fn description_references_uslm_source() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn terms_include_published_subsections() {
     // Top-level subsections (a)–(e) per the published statute.
@@ -36,6 +39,7 @@ fn terms_include_published_subsections() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nested_subdivision_present() {
     // (a)(1)(A) — first protected-activity subparagraph.
@@ -50,6 +54,7 @@ fn nested_subdivision_present() {
 // already verified at the functor level — see
 // `social::compliance::statutes::from_uslm::tests::axiom_*`.
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn idempotent_across_calls() {
     // The OnceLock guarantees the same instance pointer.
@@ -58,6 +63,7 @@ fn idempotent_across_calls() {
     assert_eq!(a, b);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_term_ids_are_unique() {
     let s = statute();
@@ -72,6 +78,7 @@ fn all_term_ids_are_unique() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_relation_endpoints_resolve_to_terms() {
     let s = statute();
@@ -90,6 +97,7 @@ fn all_relation_endpoints_resolve_to_terms() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_term_curies_use_sox_1514a_prefix() {
     for t in statute().terms() {
@@ -101,6 +109,7 @@ fn all_term_curies_use_sox_1514a_prefix() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_term_has_non_empty_name_and_definition() {
     // The from_uslm conversion falls back
@@ -123,6 +132,7 @@ fn every_term_has_non_empty_name_and_definition() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_term_has_non_empty_id() {
     for t in statute().terms() {
@@ -130,12 +140,14 @@ fn every_term_has_non_empty_id() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn description_uri_pins_to_uslm_source() {
     let s = statute();
     assert!(s.description().text.contains("/us/usc/t18/s1514A"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_term_carries_urn_provenance() {
     // URN provenance pushdown: every USLM-derived term's name and
@@ -160,6 +172,7 @@ fn every_term_carries_urn_provenance() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn description_carries_uslm_urn_context() {
     // Statute-level description's context_uri is the URN.
@@ -171,6 +184,7 @@ fn description_carries_uslm_urn_context() {
     assert_eq!(ctx, "/us/usc/t18/s1514A");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn term_count_meets_published_subsection_floor() {
     // SOX § 1514A has five top-level subsections (a)–(e) plus
@@ -184,6 +198,7 @@ fn term_count_meets_published_subsection_floor() {
     );
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn idempotent_across_construct_and_lookup() {
     // The functor's deterministic property: same source →
@@ -202,6 +217,7 @@ fn idempotent_across_construct_and_lookup() {
 // the SOX § 1514A data so we get coverage on a real corpus instance.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relations_from_returns_only_outgoing() {
     let s = statute();
@@ -226,6 +242,7 @@ fn relations_from_returns_only_outgoing() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relations_to_returns_only_incoming() {
     let s = statute();
@@ -249,6 +266,7 @@ fn relations_to_returns_only_incoming() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relation_iteration_is_partition_consistent() {
     // Summing |relations_from(t)| over every term must equal the
@@ -276,6 +294,7 @@ fn relation_iteration_is_partition_consistent() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn term_by_curie_finds_existing_terms() {
     // Pick a known existing CURIE and verify lookup succeeds.
@@ -289,6 +308,7 @@ fn term_by_curie_finds_existing_terms() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn term_by_curie_returns_none_for_unknown() {
     let s = statute();
@@ -296,6 +316,7 @@ fn term_by_curie_returns_none_for_unknown() {
     assert!(s.term_by_curie("other_statute:a").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn term_by_id_and_term_by_curie_agree() {
     // For every term, looking it up by Identifier and by raw CURIE

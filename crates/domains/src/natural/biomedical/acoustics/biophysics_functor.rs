@@ -111,16 +111,19 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<AcousticsToBiophysics>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<AcousticsToBiophysics>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in AcousticsConcept::variants() {
@@ -131,6 +134,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // The migrated Acoustics category is kinded and partial (per OBO-RO,
@@ -167,6 +171,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BiophysicsEntity::variants();
@@ -183,6 +188,7 @@ mod tests {
 
     // -- Specific mapping tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_sound_wave_maps_to_mechanical_wave() {
         assert_eq!(
@@ -191,6 +197,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_acoustic_pressure_maps_to_mechanical_stress() {
         assert_eq!(
@@ -199,6 +206,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bone_conduction_maps_to_bone_matrix() {
         assert_eq!(
@@ -207,6 +215,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_air_conduction_maps_to_fluid_medium() {
         assert_eq!(
@@ -215,6 +224,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_air_maps_to_fluid_medium() {
         assert_eq!(
@@ -223,6 +233,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bone_maps_to_bone_matrix() {
         assert_eq!(
@@ -231,6 +242,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_piezoelectric_transducer_maps_to_mechanical_wave() {
         assert_eq!(
@@ -239,6 +251,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_acoustic_frequency_maps_to_frequency() {
         assert_eq!(
@@ -247,6 +260,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_conduction_path_maps_to_biological_medium() {
         assert_eq!(

@@ -267,11 +267,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<InferenceRulesCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         InferenceRulesOntology::validate()
@@ -290,6 +292,7 @@ mod tests {
         })
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn modus_ponens_is_deductive() {
         assert!(direct_is_a(
@@ -298,6 +301,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_modes_all_are_inference_rules() {
         for mode in [

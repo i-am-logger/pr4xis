@@ -160,27 +160,32 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ControlCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ControlOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ten_concepts() {
         assert_eq!(ControlConcept::variants().len(), 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_control_system_kinds() {
         assert_eq!(ControlSystemKind::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sensor_measures_plant() {
         let morphisms = ControlCategory::morphisms();
@@ -189,6 +194,7 @@ mod tests {
             && m.kind == ControlRelationKind::Measures));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn actuator_acts_on_plant() {
         let morphisms = ControlCategory::morphisms();
@@ -197,6 +203,7 @@ mod tests {
             && m.kind == ControlRelationKind::ActsOn));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn model_represents_plant() {
         // Conant & Ashby (1970): the controller's model represents the plant.
@@ -206,6 +213,7 @@ mod tests {
             && m.kind == ControlRelationKind::Represents));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn feedback_closes_loop() {
         let morphisms = ControlCategory::morphisms();
@@ -214,6 +222,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn on_feedback_loop_total() {
         let q = OnFeedbackLoop;
@@ -253,4 +262,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_on_feedback_loop_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

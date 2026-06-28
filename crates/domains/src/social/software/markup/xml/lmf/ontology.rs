@@ -807,6 +807,7 @@ mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn lmf_pos_entity_variants() {
         let variants = LmfPos::variants();
@@ -847,6 +848,7 @@ mod tests {
     /// deterministic and grounded in the loaded DTD enumeration
     /// rather than scattered through unrelated source files
     /// (`feedback_bottom_up_loaded_not_encoded`).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_lmf_pos_parse_covers_wn_lmf_dtd_enumeration() {
         let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("Lemma", "partOfSpeech")
@@ -896,6 +898,7 @@ mod tests {
     /// to `Other(0)`). The axiom asserts parse() is total on the
     /// DTD enumeration — every declared value gets a deterministic
     /// answer, none panics.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_synset_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
         let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SynsetRelation", "relType")
@@ -934,6 +937,7 @@ mod tests {
     /// DTD, and each now has a typed home. Grounded against the loaded
     /// DTD's element-decl set (`feedback_bottom_up_loaded_not_encoded`),
     /// not a hardcoded name list.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_typed_model_covers_dropped_wn_lmf_elements() {
         use super::super::dtd::is_wn_lmf_element;
@@ -974,6 +978,7 @@ mod tests {
     /// each attribute (its enumeration extractor returns the declared
     /// enumeration where the attr is enumerated, e.g. `Sense/adjposition`),
     /// and that the typed struct has the field (it constructs).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_typed_model_covers_dropped_wn_lmf_attributes() {
         use super::super::dtd::wn_lmf_attlist_enum_values;
@@ -1027,6 +1032,7 @@ mod tests {
     /// Symmetric coverage axiom for `SenseRelation/relType` — every
     /// DTD-declared value must parse deterministically (named
     /// variant or `Other(s)`) and round-trip exactly.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_sense_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
         let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SenseRelation", "relType")
@@ -1053,6 +1059,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn pos_parse_roundtrip() {
         for pos in LmfPos::variants() {
@@ -1066,6 +1073,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn open_closed_partition() {
         for pos in LmfPos::variants() {
@@ -1079,6 +1087,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn synset_relation_taxonomy() {
         assert!(SynsetRelationType::Hypernym.is_taxonomy());
@@ -1086,6 +1095,7 @@ mod tests {
         assert!(!SynsetRelationType::Causes.is_taxonomy());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn synset_relation_mereology() {
         assert!(SynsetRelationType::HoloPart.is_mereology());
@@ -1093,6 +1103,7 @@ mod tests {
         assert!(!SynsetRelationType::Hypernym.is_mereology());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn verb_transitivity_from_frame_text() {
         use VerbTransitivity as VT;
@@ -1137,6 +1148,7 @@ mod tests {
         assert_eq!(VT::from_frame("not a frame"), None);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn from_frame_agrees_with_id_prefix_where_the_prefix_applies() {
         use VerbTransitivity as VT;
@@ -1209,6 +1221,7 @@ mod tests {
         "participle",
     ];
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_every_known_synset_reltype_parses_non_other() {
         for s in KNOWN_SYNSET_REL_TYPES {
@@ -1220,6 +1233,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_every_known_sense_reltype_parses_non_other() {
         for s in KNOWN_SENSE_REL_TYPES {
@@ -1237,6 +1251,7 @@ mod tests {
     /// `relType` string the reader consumed. The `Other(_)` arm is
     /// excluded — `parse` discarded the original string (an L1
     /// limitation documented on `as_str`).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn synset_relation_type_as_str_inverts_parse() {
         for s in KNOWN_SYNSET_REL_TYPES {
@@ -1255,6 +1270,7 @@ mod tests {
 
     /// Symmetric inverse law for every NON-`Other` `SenseRelationType`
     /// variant: `parse(x.as_str()) == x`.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn sense_relation_type_as_str_inverts_parse() {
         for s in KNOWN_SENSE_REL_TYPES {
@@ -1300,6 +1316,10 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(property_unknown_synset_reltype_collapses_to_other, Honest);
+    pr4xis::register_praxis_value!(property_unknown_sense_reltype_collapses_to_other, Honest);
+
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_taxonomy_predicate_covers_hypernym_family() {
         // is_taxonomy() should return true exactly for the hypernym
@@ -1315,6 +1335,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_mereology_predicate_covers_meronym_family() {
         for s in KNOWN_SYNSET_REL_TYPES {

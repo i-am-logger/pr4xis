@@ -10,32 +10,38 @@ use crate::applied::navigation::gnss::ontology::*;
 // Ontology
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn gnss_observable_category_laws() {
     assert_category_laws::<GnssCategory>();
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn gnss_constellation_category_laws() {
     assert_category_laws::<GnssConstellationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gnss_ontology_validates() {
     GnssOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn minimum_satellites_axiom() {
     assert!(MinimumSatellites.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dop_geometry_axiom() {
     assert!(DopGeometry.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn pseudorange_positive_axiom() {
     assert!(PseudorangePositive.verify().is_ok());
@@ -45,6 +51,7 @@ fn pseudorange_positive_axiom() {
 // Engine tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn add_measurement_increases_count() {
     let sit = GnssSituation {
@@ -63,6 +70,7 @@ fn add_measurement_increases_count() {
     assert_eq!(next.step, 1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn negative_pseudorange_rejected() {
     let sit = GnssSituation {
@@ -79,6 +87,7 @@ fn negative_pseudorange_rejected() {
     assert!(apply_gnss(&sit, &GnssAction::AddMeasurement(m)).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn compute_fix_needs_4_satellites() {
     let sit = GnssSituation {
@@ -102,6 +111,7 @@ fn compute_fix_needs_4_satellites() {
     assert!(apply_gnss(&sit, &GnssAction::ComputeFix).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn compute_fix_with_4_satellites() {
     // Place receiver at origin, 4 satellites at known positions
@@ -154,6 +164,7 @@ fn compute_fix_with_4_satellites() {
 // H6: GDOP with fewer than 4 satellites returns MAX instead of panicking
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn gdop_fewer_than_4_satellites_no_panic() {
     use crate::applied::navigation::gnss::ontology::compute_gdop_from_elevations_azimuths;
@@ -246,4 +257,8 @@ mod proptest_proofs {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(add_measurement_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(positive_pseudorange_always_accepted, Verifiable);
+    pr4xis::register_praxis_value!(measurement_count_monotonically_increases, Verifiable);
 }

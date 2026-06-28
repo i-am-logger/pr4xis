@@ -248,6 +248,7 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<PraxisKnowledgeGraphCategory>();
@@ -267,6 +268,7 @@ mod tests {
     /// while still asserting the lens leg is PRESENT in the axiom set (the cheap
     /// non-vacuity check). Production `validate()` is unchanged; the costly pass
     /// runs exactly once, by its owner.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         use pr4xis::category::laws::category_law_axioms;
@@ -308,11 +310,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn thirty_two_concepts() {
         assert_eq!(PraxisKnowledgeGraphConcept::variants().len(), 32);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_description_total() {
         let q = ConceptDescription;

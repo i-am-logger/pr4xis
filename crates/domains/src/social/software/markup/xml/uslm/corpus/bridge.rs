@@ -256,6 +256,7 @@ mod tests {
     use alloc::collections::BTreeSet;
     use pr4xis_runtime::connection::GeneratorAction;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn projects_every_section_and_subdivision_as_a_node() {
         let usc = UsCode::sample();
@@ -280,6 +281,7 @@ mod tests {
         assert!(archive.nodes.iter().all(|n| !n.name.is_empty()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_projected_edge_is_referentially_closed() {
         // Every projected edge — the RAW Composes mereology OR the §9
@@ -307,6 +309,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn the_functor_relabels_raw_section_and_composes_to_praxis_kinds() {
         // The byte-identity / relabel gate: apply (kind-relabel only) over a raw
@@ -360,6 +363,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn the_functor_loads_from_its_committed_prx_fail_closed() {
         // The projection LIVES in `usc_functor.prx` (Track C #203): the loader
@@ -396,6 +400,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn usc_runtime_ontology_materializes_the_full_pipeline() {
         // The whole point: project → apply(functor) → materialize gives a generic

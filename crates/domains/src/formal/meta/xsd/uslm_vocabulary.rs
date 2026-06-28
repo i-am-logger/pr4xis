@@ -271,6 +271,7 @@ mod tests {
 
     // ── Loader invariants ────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn xsd_bundle_is_nonempty() {
         // The bundle ships with praxis; if this fires the file is
@@ -286,6 +287,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn documented_names_set_is_nonempty() {
         // USLM-1.0.18 declares hundreds of named, documented schema
@@ -302,6 +304,7 @@ mod tests {
         eprintln!("uslm_vocabulary: {} documented names loaded", names.len());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lookup_lowercases() {
         // Every stored name is lower-case; the lookup case-folds
@@ -331,6 +334,7 @@ mod tests {
     /// (e.g. `ChoiceEnum`, `XmlSpecialAttrs`, `uscDoc`) — none of
     /// `enum / attrs / usc` ever appears as a standalone XSD local
     /// name to begin with.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_uslm_documented_names_present() {
         for el in [
@@ -355,6 +359,7 @@ mod tests {
 
     /// Axiom: hierarchy-level names that every USLM element carries
     /// inline documentation (the USLM Levels model — User Guide §6.5). Spot-checks the breadth of the loaded set.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_uslm_hierarchy_names_present() {
         for el in [
@@ -376,6 +381,7 @@ mod tests {
 
     // ── Axiom: case-insensitivity ─────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_lookup_case_insensitive() {
         assert!(is_uslm_vocabulary("TOC"));
@@ -385,6 +391,7 @@ mod tests {
         assert!(is_uslm_vocabulary("SubArticle"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_empty_input_rejected() {
         assert!(!is_uslm_vocabulary(""));
@@ -392,6 +399,7 @@ mod tests {
 
     // ── Negative axiom: names not in USLM XSD are not recognised ────
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn axiom_unrelated_strings_not_present() {
         // Names that are neither USLM elements nor HTML / XML.
@@ -410,6 +418,7 @@ mod tests {
     /// case-equivalent) declaration AND that declaration has a
     /// non-empty `<xsd:documentation>` block. (Sanity: classifier is
     /// anchored to actual XSD structure, never a hand-coded list.)
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_recognised_names_back_to_xsd() {
         for name in documented_names() {
@@ -461,6 +470,7 @@ mod tests {
     /// Property: `is_effectively_empty` returns true for whitespace
     /// and CDATA-wrapped whitespace, false for any non-whitespace
     /// content.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn property_effectively_empty_recognises_blank_documentation() {
         assert!(is_effectively_empty(""));
@@ -490,6 +500,7 @@ mod tests {
     // classifiers (HTML / XML 1.0) — uniform test depth per
     // `feedback_uniform_test_depth_across_ontologies`.
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn functor_law_identity_preservation() {
         for x in ["toc", "subarticle", "section", "ZZZNotPresent"] {
@@ -501,6 +512,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn functor_law_case_fold_factors_through() {
         for x in ["TOC", "SubArticle", "Inline", "SubItem", "SUBSUBITEM"] {
@@ -515,6 +527,7 @@ mod tests {
 
     // ── Concurrency: OnceLock thread-safety ──────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn concurrency_lazy_init_under_threads() {
         use std::sync::{Arc, Barrier};
@@ -542,6 +555,7 @@ mod tests {
 
     // ── Load idempotence ─────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn load_idempotence_two_reads_equal() {
         let a = documented_names();
@@ -618,4 +632,10 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_case_fold_factors_through, Deterministic);
+    pr4xis::register_praxis_value!(prop_total_function, Honest);
+    pr4xis::register_praxis_value!(prop_recognised_iff_in_set, Verifiable);
+    pr4xis::register_praxis_value!(prop_empty_not_recognised, Honest);
+    pr4xis::register_praxis_value!(prop_load_idempotent, Deterministic);
 }

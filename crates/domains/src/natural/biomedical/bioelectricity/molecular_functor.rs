@@ -81,16 +81,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<BioelectricToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BioelectricToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BioelectricEntity::variants() {
@@ -101,6 +104,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();
@@ -115,6 +119,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_potential_maps_to_kv() {
         assert_eq!(
@@ -123,6 +128,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_mechanical_stimulation_maps_to_piezo1() {
         assert_eq!(
@@ -131,6 +137,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_gap_junction_network_maps_to_cx43() {
         assert_eq!(
@@ -139,6 +146,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_ion_channel_modulation_maps_to_glyr() {
         assert_eq!(
@@ -147,6 +155,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_proton_pump_inhibition_maps_to_proton() {
         assert_eq!(

@@ -10,6 +10,7 @@ fn arb_square() -> impl Strategy<Value = Square> {
 // Setup tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_starting_position() {
     let board = Board::starting();
@@ -24,6 +25,7 @@ fn test_starting_position() {
 // Check detection tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_not_in_check_at_start() {
     let board = Board::starting();
@@ -31,6 +33,7 @@ fn test_not_in_check_at_start() {
     assert!(!board.in_check(Color::Black));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scholars_mate() {
     let board = Board::starting();
@@ -58,6 +61,7 @@ fn test_scholars_mate() {
     assert!(board.is_checkmate());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_move_into_check() {
     let mut board = Board::empty(Color::White);
@@ -83,6 +87,7 @@ fn test_cant_move_into_check() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_must_escape_check() {
     let mut board = Board::empty(Color::White);
@@ -112,6 +117,7 @@ fn test_must_escape_check() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_pinned_piece_cant_move() {
     let mut board = Board::empty(Color::White);
@@ -140,6 +146,7 @@ fn test_pinned_piece_cant_move() {
 // Castling tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_kingside_castling() {
     let mut board = Board::empty(Color::White);
@@ -174,6 +181,7 @@ fn test_kingside_castling() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_queenside_castling() {
     let mut board = Board::empty(Color::White);
@@ -197,6 +205,7 @@ fn test_queenside_castling() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_castle_through_check() {
     let mut board = Board::empty(Color::White);
@@ -224,6 +233,7 @@ fn test_cant_castle_through_check() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_cant_castle_out_of_check() {
     let mut board = Board::empty(Color::White);
@@ -251,6 +261,7 @@ fn test_cant_castle_out_of_check() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_castling_rights_lost_on_king_move() {
     let board = Board::starting();
@@ -273,6 +284,7 @@ fn test_castling_rights_lost_on_king_move() {
 // En passant tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_en_passant() {
     let mut board = Board::empty(Color::White);
@@ -313,6 +325,7 @@ fn test_en_passant() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_en_passant_expires() {
     let board = Board::starting();
@@ -333,6 +346,7 @@ fn test_en_passant_expires() {
 // Promotion tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_pawn_promotion() {
     let mut board = Board::empty(Color::White);
@@ -362,6 +376,7 @@ fn test_pawn_promotion() {
 // Stalemate and 50-move rule tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_stalemate() {
     let mut board = Board::empty(Color::Black);
@@ -384,6 +399,7 @@ fn test_stalemate() {
     assert!(board.is_stalemate());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fifty_move_rule() {
     let mut board = Board::empty(Color::White);
@@ -744,10 +760,43 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_no_move_leaves_king_in_check, Honest);
+pr4xis::register_praxis_value!(prop_apply_enforces_legality, Honest);
+pr4xis::register_praxis_value!(prop_move_changes_turn, Verifiable);
+pr4xis::register_praxis_value!(prop_source_empty_after_move, Verifiable);
+pr4xis::register_praxis_value!(prop_piece_at_target, Verifiable);
+pr4xis::register_praxis_value!(prop_piece_count_on_move, Verifiable);
+pr4xis::register_praxis_value!(prop_cant_move_opponent, Honest);
+pr4xis::register_praxis_value!(prop_empty_no_moves, Honest);
+pr4xis::register_praxis_value!(prop_no_self_capture, Honest);
+pr4xis::register_praxis_value!(prop_chessmove_consistent, Verifiable);
+pr4xis::register_praxis_value!(prop_rook_moves_straight, Verifiable);
+pr4xis::register_praxis_value!(prop_rook_14_moves, Verifiable);
+pr4xis::register_praxis_value!(prop_bishop_diagonal, Verifiable);
+pr4xis::register_praxis_value!(prop_queen_is_rook_plus_bishop, Verifiable);
+pr4xis::register_praxis_value!(prop_knight_l_shape, Verifiable);
+pr4xis::register_praxis_value!(prop_knight_2_to_8, Verifiable);
+pr4xis::register_praxis_value!(prop_king_one_step, Verifiable);
+pr4xis::register_praxis_value!(prop_king_3_to_8, Verifiable);
+pr4xis::register_praxis_value!(prop_white_pawn_forward, Verifiable);
+pr4xis::register_praxis_value!(prop_black_pawn_forward, Verifiable);
+pr4xis::register_praxis_value!(prop_pawn_double_from_start, Verifiable);
+pr4xis::register_praxis_value!(prop_pawn_no_double_not_start, Verifiable);
+pr4xis::register_praxis_value!(prop_rook_blocked, Verifiable);
+pr4xis::register_praxis_value!(prop_rook_captures, Verifiable);
+pr4xis::register_praxis_value!(prop_en_passant_set, Verifiable);
+pr4xis::register_praxis_value!(prop_en_passant_clears, Verifiable);
+pr4xis::register_praxis_value!(prop_halfmove_resets_pawn, Verifiable);
+pr4xis::register_praxis_value!(prop_one_king, Verifiable);
+pr4xis::register_praxis_value!(prop_eight_pawns, Verifiable);
+pr4xis::register_praxis_value!(prop_moves_in_bounds, Verifiable);
+pr4xis::register_praxis_value!(prop_64_squares, Verifiable);
+
 // =============================================================================
 // Engine tests — the .next() API
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_new_game() {
     let engine = new_game();
@@ -756,6 +805,7 @@ fn test_engine_new_game() {
     assert!(!engine.situation().is_checkmate());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_e4() {
     let engine = new_game()
@@ -764,6 +814,7 @@ fn test_engine_e4() {
     assert_eq!(engine.situation().to_move, Color::Black);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_chain() {
     let engine = new_game()
@@ -776,6 +827,7 @@ fn test_engine_chain() {
     assert_eq!(engine.trace().successful_steps(), 3);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_illegal_move_blocked() {
     let engine = new_game();
@@ -784,6 +836,7 @@ fn test_engine_illegal_move_blocked() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_empty_square_blocked() {
     let engine = new_game();
@@ -791,6 +844,7 @@ fn test_engine_empty_square_blocked() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_opponents_piece_blocked() {
     let engine = new_game();
@@ -799,6 +853,7 @@ fn test_engine_opponents_piece_blocked() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Explainable, Honest)]
 #[test]
 fn test_engine_violation_describes_rule() {
     let engine = new_game();
@@ -818,6 +873,7 @@ fn test_engine_violation_describes_rule() {
     assert!(engine.trace().violations() > 0);
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn test_engine_trace_dump() {
     let engine = new_game()
@@ -830,6 +886,7 @@ fn test_engine_trace_dump() {
     assert!(entries[0].applied());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_scholars_mate() {
     let engine = new_game()
@@ -850,6 +907,7 @@ fn test_engine_scholars_mate() {
     assert!(engine.situation().is_checkmate());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_cant_move_after_checkmate() {
     let engine = new_game()
@@ -927,6 +985,11 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_engine_blocks_illegal, Honest);
+pr4xis::register_praxis_value!(prop_trace_grows, Explainable);
+pr4xis::register_praxis_value!(prop_violations_have_rule, Explainable);
+pr4xis::register_praxis_value!(prop_success_all_satisfied, Verifiable);
 
 // Famous chess games are tested via PGN files in pgn.rs — not manual move lists.
 // See crates/domains/src/chess/games/*.pgn for authentic game records.

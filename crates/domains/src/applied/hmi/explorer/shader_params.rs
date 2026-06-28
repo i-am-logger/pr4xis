@@ -166,31 +166,37 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_3_params() {
         assert_eq!(all_params().len(), 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_defaults_in_range() {
         assert!(DefaultsInRange.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_intensity_balanced() {
         assert!(IntensityBalanced.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_brightness_neutral() {
         assert!(BrightnessNeutral.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_saturation_neutral() {
         assert!(SaturationNeutral.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_validate_in_range() {
         assert!(validate_param(&intensity(), 0.5));
@@ -200,6 +206,7 @@ mod tests {
         assert!(!validate_param(&intensity(), 1.1));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_clamp() {
         assert!((clamp_param(&intensity(), 1.5) - 1.0).abs() < 1e-10);
@@ -230,4 +237,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_clamp_always_in_range, Honest);
+    pr4xis::register_praxis_value!(prop_validate_agrees_with_clamp, Deterministic);
 }

@@ -12,22 +12,26 @@ use crate::natural::physics::kinematics::velocity::Velocity;
 // Ontology
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn imu_category_laws() {
     assert_category_laws::<ImuCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn imu_ontology_validates() {
     ImuOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn bias_is_a_measurement() {
     assert!(BiasIsAMeasurement.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn specific_force_definition() {
     assert!(SpecificForceDefinition.verify().is_ok());
@@ -37,6 +41,7 @@ fn specific_force_definition() {
 // Strapdown mechanization proofs
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn stationary_imu_maintains_position() {
     // IMU at rest on Earth surface: accelerometer reads [0,0,-g]
@@ -60,6 +65,7 @@ fn stationary_imu_maintains_position() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constant_velocity_propagation() {
     let state = NavState {
@@ -82,6 +88,7 @@ fn constant_velocity_propagation() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn gyro_rotates_attitude() {
     let state = NavState {
@@ -100,6 +107,7 @@ fn gyro_rotates_attitude() {
     assert!(next.attitude != Quaternion::identity());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn zero_dt_preserves_state() {
     let state = NavState {
@@ -123,6 +131,7 @@ fn zero_dt_preserves_state() {
 // Signal processing: low-pass filtering of IMU data
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn filtered_imu_has_lower_variance() {
     use crate::formal::math::signal_processing::filter::FirstOrderLowPass;
@@ -327,4 +336,9 @@ mod proptest_proofs {
                 "attitude quaternion norm = {} (should be 1.0)", norm);
         }
     }
+
+    pr4xis::register_praxis_value!(filtered_output_magnitude_bounded_by_input, Verifiable);
+    pr4xis::register_praxis_value!(filter_imu_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(strapdown_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(attitude_stays_unit_quaternion, Deterministic);
 }

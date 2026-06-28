@@ -6,16 +6,19 @@ use super::concurrent_functor::*;
 use super::ontology::*;
 use super::systems_functor::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn event_category_laws() {
     assert_category_laws::<EventCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn event_has_10_concepts() {
     assert_eq!(EventConcept::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn command_triggers_event() {
     let m = EventCategory::morphisms();
@@ -24,6 +27,7 @@ fn command_triggers_event() {
         && r.kind() == EventRelationKind::Triggers));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn event_appended_to_log() {
     let m = EventCategory::morphisms();
@@ -34,11 +38,13 @@ fn event_appended_to_log() {
 
 // === Every event-driven system IS concurrent ===
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn events_to_concurrency_functor_laws() {
     assert_functor_laws::<EventsToConcurrency>();
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn handler_is_agent() {
     assert_eq!(
@@ -47,6 +53,7 @@ fn handler_is_agent() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn event_bus_is_synchronization() {
     assert_eq!(
@@ -57,11 +64,13 @@ fn event_bus_is_synchronization() {
 
 // === Every system IS event-driven ===
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn systems_to_events_functor_laws() {
     assert_functor_laws::<SystemsToEvents>();
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn transition_is_event() {
     use crate::formal::systems::ontology::SystemConcept;
@@ -71,6 +80,7 @@ fn transition_is_event() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn feedback_is_event_bus() {
     use crate::formal::systems::ontology::SystemConcept;
@@ -112,4 +122,8 @@ mod prop {
             prop_assert_eq!(mapped, conc_id);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_events_to_concurrent_valid, Extensible);
+    pr4xis::register_praxis_value!(prop_events_to_concurrent_preserves_identity, Extensible);
 }

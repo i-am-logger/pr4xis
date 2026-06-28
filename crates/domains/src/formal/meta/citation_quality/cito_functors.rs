@@ -1175,11 +1175,13 @@ mod tests {
 
     // ── Category laws ────────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn interpretation_category_laws() {
         assert_category_laws::<CitoCitationTypeCategory>();
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn english_label_category_laws() {
         assert_category_laws::<CitoEnglishLabelCategory>();
@@ -1187,21 +1189,25 @@ mod tests {
 
     // ── Functor laws (non-vacuous — finite enum source) ──────────────
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn cito_to_english_functor_laws() {
         assert_functor_laws::<CitoToEnglish>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn cito_to_citation_quality_functor_laws() {
         assert_functor_laws::<CitoToCitationQuality>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn cito_to_communication_functor_laws() {
         assert_functor_laws::<CitoToCommunication>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn source_category_is_nonempty() {
         // The whole point of the finite-enum source: laws are real, over
@@ -1216,6 +1222,7 @@ mod tests {
 
     // ── Object-map tables ────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn quality_image_is_claim_support_or_locator() {
         use CitationQualityConcept as D;
@@ -1228,6 +1235,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn quotation_types_bear_on_locator() {
         assert_eq!(
@@ -1240,6 +1248,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn evidence_bears_on_claim_support() {
         assert_eq!(
@@ -1248,11 +1257,13 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn image_excludes_record_dimensions_axiom() {
         assert!(ImageExcludesRecordDimensions.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn jakobson_buckets_only_emotive_referential_metalingual() {
         use JakobsonFunction as J;
@@ -1265,6 +1276,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn communication_object_map_lands_on_focused_component() {
         // Emotive → Sender, Referential → Context, Metalingual → Code.
@@ -1282,6 +1294,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable, Deterministic)]
     #[test]
     fn english_phrases_nonempty_and_roundtrip() {
         for t in CitoCitationType::variants() {
@@ -1298,6 +1311,7 @@ mod tests {
 
     // ── IRI round-trip ───────────────────────────────────────────────
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn iri_roundtrip_is_injective() {
         for t in CitoCitationType::variants() {
@@ -1315,6 +1329,7 @@ mod tests {
         assert_eq!(iris.len(), n, "duplicate IRIs across variants");
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn omit_list_is_disjoint_from_mapped() {
         for (iri, reason) in OMIT_IRIS {
@@ -1330,6 +1345,7 @@ mod tests {
 
     use pr4xis::category::Adjunction;
 
+    #[pr4xis::praxis_value(Extensible, Deterministic)]
     #[test]
     fn free_forget_are_mutually_inverse_bijections() {
         // G∘F = id on ImageDimension and F∘G = id on CitoWitnessType — the
@@ -1342,6 +1358,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible, Verifiable)]
     #[test]
     fn r_triangle_identity_holds_per_dimension() {
         // ε_{F(d)} ∘ F(η_d) = id_{F(d)}. With η/ε identities it reduces to
@@ -1356,6 +1373,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible, Verifiable)]
     #[test]
     fn l_triangle_identity_holds_per_witness() {
         // G(ε_w) ∘ η_{G(w)} = id_{G(w)}.
@@ -1369,6 +1387,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn adjunction_meta_carries_citation() {
         let meta = <CitoQualityAdjunction as Adjunction>::meta();
@@ -1380,12 +1399,14 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn witness_categories_laws() {
         assert_category_laws::<CitoWitnessCategory>();
         assert_category_laws::<ImageDimensionCategory>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn free_and_forget_functor_laws() {
         assert_functor_laws::<FreeCitoFromQuality>();
@@ -1398,6 +1419,7 @@ mod tests {
         get_put_holds, put_get_holds, put_put_holds,
     };
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn lens_well_behaved_on_samples() {
         let r = CitoWitnessType::CitesAsEvidence;
@@ -1415,6 +1437,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lens_get_is_witness_dimension() {
         assert_eq!(
@@ -1502,6 +1525,14 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_english_object_injective, Verifiable);
+    pr4xis::register_praxis_value!(prop_quality_preserves_identity, Extensible);
+    pr4xis::register_praxis_value!(prop_communication_preserves_identity, Extensible);
+    pr4xis::register_praxis_value!(prop_english_preserves_composition, Extensible);
+    pr4xis::register_praxis_value!(prop_lens_get_put, Deterministic);
+    pr4xis::register_praxis_value!(prop_lens_put_get, Deterministic);
+    pr4xis::register_praxis_value!(prop_lens_put_put, Deterministic);
+
     // ── Corpus-wide audit against loaded CiTO (the bottom-up guardrail) ──
 
     #[cfg(all(feature = "fetch", feature = "codegen"))]
@@ -1514,6 +1545,7 @@ mod tests {
         /// (b) every loaded cito:cites-subproperty is either mapped by
         /// classify_cito_iri or on the documented OMIT allow-list — no
         /// silent drops.
+        #[pr4xis::praxis_value(Honest, Verifiable)]
         #[test]
         fn audit_enum_against_loaded_cito() {
             let Some(cito) = loaded_vocabulary("cito") else {
@@ -1567,6 +1599,7 @@ mod tests {
         }
 
         /// The resolver rejects non-citing IRIs and non-loaded IRIs.
+        #[pr4xis::praxis_value(Honest, Verifiable)]
         #[test]
         fn resolver_rejects_non_citing_and_unknown() {
             let Some(cito) = loaded_vocabulary("cito") else {

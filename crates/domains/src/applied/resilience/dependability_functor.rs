@@ -48,6 +48,7 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn terminal_functor_satisfies_laws() {
         assert_functor_laws::<ResilienceToFaultTolerance>();

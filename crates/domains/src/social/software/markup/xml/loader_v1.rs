@@ -118,6 +118,7 @@ pub fn is_xml_10_vocabulary(name: &str) -> bool {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_yields_four_xml_namespace_attributes() {
         // The bundled W3C xml.xsd declares `xml:lang`, `xml:space`,
@@ -133,6 +134,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_yields_the_four_canonical_xml_reserved_names() {
         for n in ["base", "id", "lang", "space"] {
@@ -143,6 +145,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_yields_eleven_information_items() {
         // Cowan & Tobin 2004 §2.1–§2.11 — exactly 11 information
@@ -157,6 +160,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_yields_every_named_information_item() {
         // The 11 canonical English head-noun phrases per Cowan &
@@ -181,6 +185,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_anchors_match_w3c_published_rec() {
         // Spot-check anchors from the published rec at
@@ -200,6 +205,7 @@ mod tests {
         assert!(anchors.contains(&"infoitem.namespace"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lookup_is_case_insensitive() {
         // Both halves of the loader are case-fold to keep parity
@@ -212,6 +218,7 @@ mod tests {
         assert!(is_information_item_phrase("document"));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn empty_input_rejected() {
         assert!(!is_xml_namespace_attribute(""));
@@ -219,6 +226,7 @@ mod tests {
         assert!(!is_xml_10_vocabulary(""));
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn is_xml_10_vocabulary_unifies_both_halves() {
         // Reserved attribute side.

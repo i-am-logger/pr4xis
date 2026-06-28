@@ -611,6 +611,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn encode_decode_round_trips_exact_bytes() {
         for blob in [
@@ -627,6 +628,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn gated_load_round_trips_through_gate() {
         let blob = b"a real XSD or TSV would go here\n";
@@ -636,6 +638,7 @@ mod tests {
         assert_eq!(out, blob);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn gated_load_rejects_wrong_pin_fail_closed() {
         let blob = b"payload";
@@ -649,6 +652,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_rejects_truncated_blob_without_panic() {
         let mut prx = emit_raw_source_prx("widget", "2", b"some bytes");
@@ -662,6 +666,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn raw_prx_path_swaps_the_extension_of_real_entries() {
         // For every registered raw-source entry, the committed-`.prx` path is the
@@ -710,6 +715,7 @@ mod tests {
     /// is absent — the raw is fetch-only (`pr4xis update`), and a committed `.prx`
     /// with no raw to cross-check against is the staleness blind-spot this guard
     /// exists to forbid.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn committed_prx_round_trips_to_fetched_raw_byte_exact() {
         use crate::applied::data_provisioning::registry::lock_hashes;
@@ -766,6 +772,7 @@ mod tests {
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_raw_source_prx`.
     /// NOTE: this only re-emits the `.prx`; the `[compact_archive_signatures]`
     /// pins are rewritten by `pr4xis compile --compact --lock`, not here.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_raw_source_prx() {
@@ -797,6 +804,7 @@ mod tests {
     /// skips) if a registered TSV source's committed `.tsv` is absent, and
     /// asserts at least one TSV source is registered + converted (so the guard
     /// can never pass vacuously once a TSV is registered).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn committed_tsv_prx_round_trips_and_decodes() {
         use crate::applied::data_provisioning::decoders::plaintext_tsv;
@@ -875,6 +883,7 @@ mod tests {
     /// `<LexicalEntry>` set. HARD-FAILS (never skips) if a converted source's
     /// `.xml` is absent, and asserts at least one such source is registered +
     /// converted (so the guard can never pass vacuously).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn committed_xml_lmf_prx_round_trips_and_decodes() {
         use crate::social::software::markup::xml::lmf::reader::read_wordnet;
@@ -1009,4 +1018,7 @@ mod tests {
             prop_assert_eq!(loaded, blob);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_mutated_prx_always_rejected, Honest);
+    pr4xis::register_praxis_value!(prop_encode_decode_round_trips, Deterministic);
 }

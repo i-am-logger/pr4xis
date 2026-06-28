@@ -321,17 +321,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<OptimizationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         OptimizationOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_reaches_solution_selection() {
         let caus: Vec<_> = OptimizationCategory::morphisms()
@@ -345,6 +348,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn local_opposes_global() {
         let opp: Vec<_> = OptimizationCategory::morphisms()
@@ -358,6 +362,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn methods_subsume_optimization_method() {
         use OptimizationConcept as O;
@@ -378,6 +383,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_axioms_hold() {
         for axiom in OptimizationOntology::axioms() {
@@ -422,4 +428,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_guarantees_global_total_on_methods, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

@@ -552,17 +552,20 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<AcousticsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         AcousticsOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn concept_count() {
         // 7 wave properties + 4 impedance + 3 conduction paths + 3 transducers
@@ -572,31 +575,37 @@ mod tests {
 
     // -- Domain axiom tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_impedance_far_exceeds_air_axiom() {
         assert!(BoneImpedanceFarExceedsAir.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_impedance_exceeds_soft_tissue_axiom() {
         assert!(BoneImpedanceExceedsSoftTissue.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bone_conduction_high_efficiency_axiom() {
         assert!(BoneConductionHighEfficiency.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn air_conduction_low_efficiency_axiom() {
         assert!(AirConductionLowEfficiency.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn electrical_signal_causes_deep_penetration_axiom() {
         assert!(ElectricalSignalCausesDeepPenetration.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn impedance_boundary_causes_branch_axiom() {
         assert!(ImpedanceBoundaryCausesBranch.verify().is_ok());
@@ -604,6 +613,7 @@ mod tests {
 
     // -- Subsumption / kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn wave_properties_subsume_under_wave_property() {
         let subs: Vec<_> = AcousticsCategory::morphisms()
@@ -626,6 +636,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn piezo_and_em_subsume_under_electroacoustic() {
         let subs: Vec<_> = AcousticsCategory::morphisms()
@@ -643,6 +654,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn events_subsume_under_acoustic_event() {
         let subs: Vec<_> = AcousticsCategory::morphisms()
@@ -667,6 +679,7 @@ mod tests {
 
     // -- Causation-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_causal_chain_to_deep_penetration() {
         for c in [
@@ -687,6 +700,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn impedance_boundary_branches() {
         assert!(causes(
@@ -701,6 +715,7 @@ mod tests {
 
     // -- Opposition-kind tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn air_and_bone_conduction_oppose() {
         let opps: Vec<_> = AcousticsCategory::morphisms()
@@ -718,6 +733,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reflection_and_transmission_oppose() {
         let opps: Vec<_> = AcousticsCategory::morphisms()
@@ -733,6 +749,7 @@ mod tests {
 
     // -- Quality tests --
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn impedance_values_match_literature() {
         assert_eq!(ImpedanceValue.get(&AcousticsConcept::Air), Some(415.0));
@@ -750,6 +767,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn transmission_efficiency_classes() {
         assert_eq!(
@@ -766,6 +784,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn frequency_range_audible_and_therapeutic() {
         assert_eq!(
@@ -843,4 +862,11 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_impedance_positive_when_defined, Verifiable);
+    pr4xis::register_praxis_value!(prop_frequency_range_valid, Verifiable);
 }

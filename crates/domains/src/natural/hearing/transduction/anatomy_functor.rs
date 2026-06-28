@@ -94,10 +94,12 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<AnatomyToTransduction>();
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn ihc_maps_to_glutamate_release() {
         assert_eq!(
@@ -105,6 +107,7 @@ mod tests {
             TransductionEntity::GlutamateRelease
         );
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn ohc_maps_to_electromotility() {
         assert_eq!(
@@ -112,6 +115,7 @@ mod tests {
             TransductionEntity::Electromotility
         );
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = TransductionEntity::variants();

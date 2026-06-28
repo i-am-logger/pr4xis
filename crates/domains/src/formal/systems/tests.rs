@@ -8,16 +8,19 @@ use super::traffic_functor::*;
 // Systems thinking category tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn systems_category_laws() {
     assert_category_laws::<SystemCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn systems_has_10_concepts() {
     assert_eq!(SystemConcept::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constraint_governs_transition() {
     let morphisms = SystemCategory::morphisms();
@@ -26,6 +29,7 @@ fn constraint_governs_transition() {
         && m.kind == SystemRelationKind::Governs));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn feedback_loop_exists() {
     // State → Feedback → Transition → State (the cybernetic loop)
@@ -47,6 +51,7 @@ fn feedback_loop_exists() {
         && m.kind == SystemRelationKind::Changes));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn emergence_arises_from_interaction() {
     let morphisms = SystemCategory::morphisms();
@@ -59,6 +64,7 @@ fn emergence_arises_from_interaction() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn controller_regulates_constraint() {
     let morphisms = SystemCategory::morphisms();
@@ -67,6 +73,7 @@ fn controller_regulates_constraint() {
         && m.kind == SystemRelationKind::Regulates));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn homeostasis_stabilizes_state() {
     let morphisms = SystemCategory::morphisms();
@@ -83,16 +90,19 @@ fn homeostasis_stabilizes_state() {
 // Traffic system category tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn traffic_system_category_laws() {
     assert_category_laws::<TrafficSystemCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn traffic_has_10_elements() {
     assert_eq!(TrafficSystemElement::variants().len(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn safety_rule_governs_signal_advance() {
     let morphisms = TrafficSystemCategory::morphisms();
@@ -105,6 +115,7 @@ fn safety_rule_governs_signal_advance() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn traffic_feedback_loop() {
     let morphisms = TrafficSystemCategory::morphisms();
@@ -138,6 +149,7 @@ fn traffic_feedback_loop() {
 // THE PROOF: Functor from Traffic to Systems Thinking
 // =============================================================================
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn functor_laws_hold() {
     // THIS IS THE PROOF.
@@ -146,6 +158,7 @@ fn functor_laws_hold() {
     assert_functor_laws::<TrafficToSystems>();
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn signal_maps_to_component() {
     assert_eq!(
@@ -154,6 +167,7 @@ fn signal_maps_to_component() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn intersection_state_maps_to_state() {
     assert_eq!(
@@ -162,6 +176,7 @@ fn intersection_state_maps_to_state() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn signal_advance_maps_to_transition() {
     assert_eq!(
@@ -170,6 +185,7 @@ fn signal_advance_maps_to_transition() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn safety_rule_maps_to_constraint() {
     assert_eq!(
@@ -178,6 +194,7 @@ fn safety_rule_maps_to_constraint() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn congestion_maps_to_feedback() {
     assert_eq!(
@@ -186,6 +203,7 @@ fn congestion_maps_to_feedback() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn green_wave_maps_to_homeostasis() {
     assert_eq!(
@@ -194,6 +212,7 @@ fn green_wave_maps_to_homeostasis() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn flow_rate_maps_to_emergence() {
     assert_eq!(
@@ -202,6 +221,7 @@ fn flow_rate_maps_to_emergence() {
     );
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn functor_preserves_identity() {
     for elem in TrafficSystemElement::variants() {
@@ -363,4 +383,12 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_functor_maps_valid, Extensible);
+    pr4xis::register_praxis_value!(prop_functor_preserves_identity, Extensible);
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_functor_preserves_composition, Extensible);
+    pr4xis::register_praxis_value!(prop_functor_surjective, Extensible);
+    pr4xis::register_praxis_value!(prop_state_reaches_all, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_concepts_not_transitions, Verifiable);
 }

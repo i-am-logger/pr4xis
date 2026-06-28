@@ -497,22 +497,26 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<TimeCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         TimeOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn seven_time_systems() {
         assert_eq!(TimeConcept::variants().len(), 7);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn leap_seconds_classification() {
         let q = HasLeapSeconds;
@@ -522,6 +526,7 @@ mod tests {
         assert_eq!(q.get(&TimeConcept::GPS), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn continuity_classification() {
         let q = IsContinuous;
@@ -539,6 +544,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn metric_axioms_hold() {
         assert!(TotalOrder.verify().is_ok());
@@ -548,12 +554,14 @@ mod tests {
         assert!(DurationAdditivity.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn allen_axioms_hold() {
         assert!(AllenExhaustive.verify().is_ok());
         assert!(AllenInverseLaw.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn conversion_axioms_hold() {
         assert!(GpsTaiConversion.verify().is_ok());
@@ -596,4 +604,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_leap_seconds_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_continuity_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

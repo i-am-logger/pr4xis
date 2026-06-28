@@ -174,6 +174,7 @@ mod tests {
     use super::*;
     use crate::cognitive::linguistics::lambek::types::{reduce, svo};
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn the_functor_loads_and_is_a_lexical_assignment() {
         let f = olia_ccg_functor();
@@ -210,6 +211,7 @@ mod tests {
     /// notation strings to the categories, so a wrong-notation row fails HERE
     /// (before any sentence test) and the `pos_to_lambek` migration is proven
     /// behavior-preserving. Bare-`S` (not `S[dcl]`) is the trap this guards.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn the_pos_rows_recover_the_svo_categories() {
         assert_eq!(categories_for_class("Noun"), vec![svo::noun()]);
@@ -244,6 +246,7 @@ mod tests {
         assert_eq!(categories_for_class("Particle"), vec![svo::adverb()]);
     }
 
+    #[pr4xis::praxis_value(Extensible, Honest)]
     #[test]
     fn the_projection_recovers_the_cited_categories() {
         assert_eq!(
@@ -262,6 +265,7 @@ mod tests {
         assert!(categories_for_class("PersonalPronoun").is_empty());
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn projected_categories_reduce_real_constituents() {
         // The slice earns its keep: the categories selected THROUGH THE LOADED

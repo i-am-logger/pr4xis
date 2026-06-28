@@ -36,12 +36,14 @@ fn arb_seed() -> impl Strategy<Value = u64> {
 // Board tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_new_board_is_empty() {
     let board = Board::new();
     assert_eq!(board.filled_count(), 0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_walls_are_filled() {
     let board = Board::new();
@@ -51,6 +53,7 @@ fn test_walls_are_filled() {
     assert!(board.is_filled(0, HEIGHT as i32)); // ceiling
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_line_clear() {
     let mut board = Board::new();
@@ -81,6 +84,7 @@ fn test_line_clear() {
     assert!(!board.row_full(0)); // row 0 is now empty (or shifted)
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_piece_fits_on_empty_board() {
     let board = Board::new();
@@ -94,6 +98,7 @@ fn test_piece_fits_on_empty_board() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_piece_doesnt_fit_out_of_bounds() {
     let board = Board::new();
@@ -110,6 +115,7 @@ fn test_piece_doesnt_fit_out_of_bounds() {
 // Piece tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_all_pieces_have_4_cells() {
     for kind in PieceKind::all() {
@@ -118,6 +124,7 @@ fn test_all_pieces_have_4_cells() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_rotation_cycle() {
     let piece = Piece::new(PieceKind::T);
@@ -128,6 +135,7 @@ fn test_rotation_cycle() {
     assert_eq!(piece.rotation, r4.rotation); // 4 CW rotations = identity
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_cw_ccw_inverse() {
     let piece = Piece::new(PieceKind::S);
@@ -139,6 +147,7 @@ fn test_cw_ccw_inverse() {
 // Game tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_new_game_has_piece() {
     let game = Game::new(42);
@@ -146,6 +155,7 @@ fn test_new_game_has_piece() {
     assert!(!game.game_over);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_move_left_right() {
     let mut game = Game::new(42);
@@ -159,6 +169,7 @@ fn test_move_left_right() {
     assert_eq!(after2, before);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_hard_drop_locks() {
     let mut game = Game::new(42);
@@ -169,6 +180,7 @@ fn test_hard_drop_locks() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_blocked_at_left_wall() {
     let mut game = Game::new(42);
@@ -180,6 +192,7 @@ fn test_blocked_at_left_wall() {
     assert_eq!(result, ActionResult::Blocked);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_blocked_at_right_wall() {
     let mut game = Game::new(42);
@@ -350,10 +363,23 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_all_rotations_have_4_cells, Verifiable);
+pr4xis::register_praxis_value!(prop_four_rotations_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_cw_ccw_inverse, Deterministic);
+pr4xis::register_praxis_value!(prop_new_game_has_piece, Verifiable);
+pr4xis::register_praxis_value!(prop_piece_always_in_bounds, Verifiable);
+pr4xis::register_praxis_value!(prop_filled_cells_monotonic_per_lock, Verifiable);
+pr4xis::register_praxis_value!(prop_hard_drop_always_locks, Verifiable);
+pr4xis::register_praxis_value!(prop_score_never_decreases, Verifiable);
+pr4xis::register_praxis_value!(prop_game_over_is_permanent, Verifiable);
+pr4xis::register_praxis_value!(prop_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_walls_block, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_move_and_drop() {
     let e = new_tetris(42);
@@ -364,6 +390,7 @@ fn engine_move_and_drop() {
     assert_eq!(e.step(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_back_forward() {
     let e = new_tetris(42);
@@ -375,6 +402,7 @@ fn engine_back_forward() {
     assert_eq!(e.step(), 2);
 }
 
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn engine_trace_records() {
     let e = new_tetris(42);

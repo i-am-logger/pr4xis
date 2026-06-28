@@ -100,16 +100,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<BiophysicsToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BiophysicsToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BiophysicsEntity::variants() {
@@ -120,6 +123,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // Both Biophysics and Molecular are kinded and partial (#166); compose
@@ -155,6 +159,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();
@@ -171,6 +176,7 @@ mod tests {
 
     // -- Specific mapping tests --
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_collagen_piezoelectricity_maps_to_collagen() {
         assert_eq!(
@@ -179,6 +185,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_bone_matrix_maps_to_collagen() {
         assert_eq!(
@@ -187,6 +194,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_soft_tissue_maps_to_mucin() {
         assert_eq!(
@@ -195,6 +203,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_fluid_medium_maps_to_sodium() {
         assert_eq!(
@@ -203,6 +212,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cell_membrane_maps_to_calcium() {
         assert_eq!(
@@ -211,6 +221,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_mechanical_strain_maps_to_mechanosensitive() {
         assert_eq!(
@@ -219,6 +230,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cell_deformation_maps_to_mechanosensitive() {
         assert_eq!(
@@ -227,6 +239,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_viscosity_maps_to_mucin() {
         assert_eq!(
@@ -235,6 +248,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_membrane_capacitance_maps_to_calcium() {
         assert_eq!(

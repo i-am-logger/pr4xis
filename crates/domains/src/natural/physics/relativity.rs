@@ -113,11 +113,13 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_emc2() {
         assert!((Body::new(1.0).unwrap().rest_energy() - C * C).abs() < 1.0);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_speed_limit() {
         assert!(
@@ -128,6 +130,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_time_dilation() {
         let e = new_body(1.0)
@@ -176,4 +179,11 @@ mod tests {
             prop_assert!((m_back - m).abs() < 1e-6);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_lorentz_gte_1, Verifiable);
+    pr4xis::register_praxis_value!(prop_speed_limit, Honest);
+    pr4xis::register_praxis_value!(prop_ke_nonneg, Verifiable);
+    pr4xis::register_praxis_value!(prop_time_dilation_gte, Verifiable);
+    pr4xis::register_praxis_value!(prop_length_contraction_lte, Verifiable);
+    pr4xis::register_praxis_value!(prop_emc2_roundtrip, Deterministic);
 }

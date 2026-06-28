@@ -102,16 +102,19 @@ mod tests {
     use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<PathologyToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<PathologyToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in PathologyEntity::variants() {
@@ -127,6 +130,7 @@ mod tests {
     /// ChronicAdaptation compose under Causation-transitivity. After
     /// mapping, both become Subsumption arrows in the target; same-kind
     /// transitive composition keeps F(g∘f) == F(g)∘F(f).
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_causation_chain() {
         let f = PathologyRelation {
@@ -157,6 +161,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();
@@ -171,6 +176,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_normal_maps_to_target_morphology() {
         assert_eq!(
@@ -179,6 +185,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_neoplasia_maps_to_current_morphology() {
         assert_eq!(
@@ -187,6 +194,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_dysplasia_maps_to_current_morphology() {
         assert_eq!(
@@ -195,6 +203,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_inflammation_maps_to_signal() {
         assert_eq!(
@@ -203,6 +212,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cellular_adaptation_maps_to_morphogenetic_field() {
         assert_eq!(
@@ -211,6 +221,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_benign_maps_to_target_morphology() {
         assert_eq!(
@@ -219,6 +230,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_premalignant_maps_to_morphogenetic_field() {
         assert_eq!(
@@ -227,6 +239,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_disease_state_maps_to_morphospace() {
         assert_eq!(
@@ -235,6 +248,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_analogy_translates_normal() {
         assert_eq!(

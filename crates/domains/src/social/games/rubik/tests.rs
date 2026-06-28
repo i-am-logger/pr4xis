@@ -20,11 +20,13 @@ fn arb_move_sequence() -> impl Strategy<Value = Vec<Move>> {
 // Solved state tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_solved_is_solved() {
     assert!(Cube::solved().is_solved());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_solved_has_9_of_each_color() {
     let counts = Cube::solved().color_counts();
@@ -33,6 +35,7 @@ fn test_solved_has_9_of_each_color() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_single_move_unsolved() {
     let cube = Cube::solved().apply(Move::R);
@@ -43,6 +46,7 @@ fn test_single_move_unsolved() {
 // Group theory enforcement — the ontology guarantees
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_move_then_inverse_is_identity() {
     for m in Move::all() {
@@ -56,6 +60,7 @@ fn test_move_then_inverse_is_identity() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_four_cw_rotations_is_identity() {
     for m in [Move::U, Move::D, Move::F, Move::B, Move::L, Move::R] {
@@ -68,6 +73,7 @@ fn test_four_cw_rotations_is_identity() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_double_move_is_two_singles() {
     let cube_double = Cube::solved().apply(Move::R2);
@@ -75,6 +81,7 @@ fn test_double_move_is_two_singles() {
     assert_eq!(cube_double, cube_two);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_prime_is_three_cw() {
     let cube_prime = Cube::solved().apply(Move::Ri);
@@ -82,11 +89,13 @@ fn test_prime_is_three_cw() {
     assert_eq!(cube_prime, cube_three);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_18_valid_moves() {
     assert_eq!(Move::all().len(), 18);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_inverse_of_inverse_is_self() {
     for m in Move::all() {
@@ -94,6 +103,7 @@ fn test_inverse_of_inverse_is_self() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_double_move_is_self_inverse() {
     for m in [Move::U2, Move::D2, Move::F2, Move::B2, Move::L2, Move::R2] {
@@ -319,10 +329,34 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_move_preserves_colors, Verifiable);
+pr4xis::register_praxis_value!(prop_sequence_preserves_colors, Verifiable);
+pr4xis::register_praxis_value!(prop_move_inverse_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_sequence_inverse_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_four_rotations_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_double_is_two_singles, Verifiable);
+pr4xis::register_praxis_value!(prop_prime_is_three_cw, Verifiable);
+pr4xis::register_praxis_value!(prop_centers_fixed, Verifiable);
+pr4xis::register_praxis_value!(prop_double_inverse, Deterministic);
+pr4xis::register_praxis_value!(prop_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_54_stickers, Verifiable);
+pr4xis::register_praxis_value!(prop_9_per_color, Verifiable);
+pr4xis::register_praxis_value!(prop_single_move_changes, Verifiable);
+pr4xis::register_praxis_value!(prop_opposite_face_independent, Verifiable);
+pr4xis::register_praxis_value!(prop_rotated_face_center_stays, Verifiable);
+pr4xis::register_praxis_value!(prop_double_then_double_inverse, Deterministic);
+pr4xis::register_praxis_value!(prop_opposite_faces_commute, Verifiable);
+pr4xis::register_praxis_value!(prop_long_sequence_valid, Verifiable);
+pr4xis::register_praxis_value!(prop_double_self_inverse, Verifiable);
+pr4xis::register_praxis_value!(prop_cw_ccw_are_inverses, Verifiable);
+pr4xis::register_praxis_value!(prop_half_turn_is_involution, Deterministic);
+pr4xis::register_praxis_value!(prop_reverse_from_scrambled, Deterministic);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_scramble_and_undo() {
     let e = new_cube();
@@ -333,6 +367,7 @@ fn engine_scramble_and_undo() {
     assert!(e.situation().is_solved());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_sequence_preserves_invariant() {
     let mut e = new_cube();
@@ -345,6 +380,7 @@ fn engine_sequence_preserves_invariant() {
     assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_inverse_solves() {
     let mut e = new_cube();
@@ -360,6 +396,7 @@ fn engine_inverse_solves() {
     assert!(e.situation().is_solved());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn engine_back_forward_cycle() {
     let e = new_cube();

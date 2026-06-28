@@ -509,6 +509,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn vocabulary_loads_15_atoms() {
         let v = wm_state_vocabulary();
@@ -521,6 +522,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn enum_matches_loaded_vocabulary() {
         VocabularyComplete
@@ -528,6 +530,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn restore_is_expressible() {
         // The whole point: a flat `Maximize` verb has no inverse; here the
@@ -541,6 +544,7 @@ mod tests {
         assert_eq!(restored, StateSet::empty());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn toggle_involution_holds_exhaustively() {
         StateToggleInvolutive
@@ -548,6 +552,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn add_remove_idempotent_holds_exhaustively() {
         StateAddRemoveIdempotent
@@ -555,6 +560,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn add_remove_complementary_holds_exhaustively() {
         StateAddRemoveComplementary
@@ -562,6 +568,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_axioms_pass() {
         for ax in window_state_axioms() {
@@ -612,4 +619,9 @@ mod tests {
             prop_assert_eq!(s.0 & !STATE_MASK, 0);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_toggle_involutive, Deterministic);
+    pr4xis::register_praxis_value!(prop_add_then_remove_is_remove, Deterministic);
+    pr4xis::register_praxis_value!(prop_bits_independent, Verifiable);
+    pr4xis::register_praxis_value!(prop_state_space_bounded, Honest);
 }

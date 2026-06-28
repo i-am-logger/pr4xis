@@ -233,6 +233,7 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         for axiom in CitationQualityOntology::axioms() {
@@ -244,6 +245,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn five_dimensions_all_graded() {
         assert_eq!(dimensions().len(), 5);
@@ -259,6 +261,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn sound_gate_is_existence_and_claim_support() {
         use CitationQualityConcept as C;
@@ -269,6 +272,7 @@ mod tests {
         assert!(!is_sound_gate(C::FormatConformance));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn severity_strictly_decreases_across_tiers() {
         use CitationQualityConcept as C;
@@ -311,4 +315,7 @@ mod tests {
             prop_assert_eq!(is_sound_gate(c), Severity.get(&c) == Some(SEVERITY_BLOCKING));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_grading_total_on_dimensions, Verifiable);
+    pr4xis::register_praxis_value!(prop_sound_gate_iff_blocking, Verifiable);
 }

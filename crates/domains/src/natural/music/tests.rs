@@ -24,6 +24,7 @@ fn arb_chord_kind() -> impl Strategy<Value = ChordKind> {
 // Note tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_middle_c() {
     assert_eq!(Note::C4.pitch_class(), 0);
@@ -31,12 +32,14 @@ fn test_middle_c() {
     assert_eq!(Note::C4.name(), "C");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_a440() {
     assert_eq!(Note::A4.0, 69);
     assert_eq!(Note::A4.pitch_class(), 9);
 }
 
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn test_transpose() {
     assert_eq!(Note::C4.transpose(12), Some(Note(72))); // C5
@@ -45,23 +48,27 @@ fn test_transpose() {
     assert_eq!(Note(127).transpose(1), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fifth_plus_fourth_is_octave() {
     let result = Interval::PERFECT_FIFTH.compose(Interval::PERFECT_FOURTH);
     assert_eq!(result, Interval::OCTAVE);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_tritone_self_inverse() {
     assert_eq!(Interval::TRITONE.invert(), Interval::TRITONE);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_consonance() {
     assert!(Interval::PERFECT_FIFTH.is_consonant());
     assert!(Interval::MINOR_SECOND.is_dissonant());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_c_major_scale() {
     let scale = Scale::new(Note::C4, ScaleKind::Major);
@@ -69,6 +76,7 @@ fn test_c_major_scale() {
     assert_eq!(names, vec!["C", "D", "E", "F", "G", "A", "B", "C"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_c_major_chord() {
     let chord = Chord::new(Note::C4, ChordKind::Major);
@@ -76,6 +84,7 @@ fn test_c_major_chord() {
     assert_eq!(names, vec!["C", "E", "G"]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_diatonic_validation() {
     let chord = Chord::new(Note::C4, ChordKind::Major);
@@ -83,6 +92,7 @@ fn test_diatonic_validation() {
     assert_eq!(chord.validate_against(&scale), ChordResult::Diatonic);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chromatic_detection() {
     let chord = Chord::new(Note(61), ChordKind::Major); // C# major in C major scale
@@ -93,11 +103,13 @@ fn test_chromatic_detection() {
     ));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_diminished_has_tritone() {
     assert!(Chord::new(Note::C4, ChordKind::Diminished).has_tritone());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_major_no_tritone() {
     assert!(!Chord::new(Note::C4, ChordKind::Major).has_tritone());
@@ -245,10 +257,34 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_pitch_class_range, Verifiable);
+pr4xis::register_praxis_value!(prop_transpose_zero, Deterministic);
+pr4xis::register_praxis_value!(prop_transpose_octave_preserves_class, Verifiable);
+pr4xis::register_praxis_value!(prop_transpose_inverse, Deterministic);
+pr4xis::register_praxis_value!(prop_enharmonic_reflexive, Verifiable);
+pr4xis::register_praxis_value!(prop_octave_enharmonic, Verifiable);
+pr4xis::register_praxis_value!(prop_inversion_sum_octave, Verifiable);
+pr4xis::register_praxis_value!(prop_interval_associative, Deterministic);
+pr4xis::register_praxis_value!(prop_unison_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_scale_sums_to_12, Verifiable);
+pr4xis::register_praxis_value!(prop_scale_starts_with_root, Verifiable);
+pr4xis::register_praxis_value!(prop_scale_contains_root, Verifiable);
+pr4xis::register_praxis_value!(prop_scale_ascending, Verifiable);
+pr4xis::register_praxis_value!(prop_major_7_pitch_classes, Verifiable);
+pr4xis::register_praxis_value!(prop_chord_note_count, Verifiable);
+pr4xis::register_praxis_value!(prop_chord_starts_with_root, Verifiable);
+pr4xis::register_praxis_value!(prop_chord_ascending, Verifiable);
+pr4xis::register_praxis_value!(prop_chromatic_always_diatonic, Verifiable);
+pr4xis::register_praxis_value!(prop_tonic_is_diatonic, Verifiable);
+pr4xis::register_praxis_value!(prop_diminished_has_tritone, Verifiable);
+pr4xis::register_praxis_value!(prop_major_no_tritone, Verifiable);
+pr4xis::register_praxis_value!(prop_minor_no_tritone, Verifiable);
+
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_transpose_in_scale() {
     let e = new_music(Note(60)); // Middle C
@@ -262,6 +298,7 @@ fn engine_transpose_in_scale() {
     assert_eq!(e.situation().note, Note(62));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_transpose_outside_scale_rejected() {
     let e = new_music(Note(60)); // Middle C
@@ -275,6 +312,7 @@ fn engine_transpose_outside_scale_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_out_of_range_rejected() {
     let e = new_music(Note(125));
@@ -283,6 +321,7 @@ fn engine_out_of_range_rejected() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_back_forward() {
     let e = new_music(Note(60));
@@ -294,6 +333,7 @@ fn engine_back_forward() {
     assert_eq!(e.situation().note, Note(72));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_clear_scale_allows_any() {
     let e = new_music(Note(60));
@@ -312,11 +352,13 @@ fn engine_clear_scale_allows_any() {
 // Note::distance_to tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_same_note() {
     assert_eq!(Note::C4.distance_to(Note::C4), 0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_ascending() {
     // C4 to G4 = 7 semitones
@@ -325,18 +367,21 @@ fn test_distance_to_ascending() {
     assert_eq!(Note::C4.distance_to(Note::E4), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_descending() {
     // G4 to C4 = -7 semitones
     assert_eq!(Note::G4.distance_to(Note::C4), -7);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_octave() {
     assert_eq!(Note::C4.distance_to(Note(72)), 12); // C4 to C5
     assert_eq!(Note(72).distance_to(Note::C4), -12); // C5 to C4
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_extremes() {
     assert_eq!(Note(0).distance_to(Note(127)), 127);
@@ -347,6 +392,7 @@ fn test_distance_to_extremes() {
 // Interval::name tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_interval_name_all_twelve() {
     assert_eq!(Interval::UNISON.name(), "unison/octave");
@@ -363,12 +409,14 @@ fn test_interval_name_all_twelve() {
     assert_eq!(Interval::MAJOR_SEVENTH.name(), "major 7th");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_interval_name_octave() {
     // Octave (12) should map to 12 % 12 = 0, same as unison
     assert_eq!(Interval::OCTAVE.name(), "unison/octave");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_interval_name_wraps_beyond_octave() {
     // 13 semitones = minor 2nd an octave up
@@ -381,6 +429,7 @@ fn test_interval_name_wraps_beyond_octave() {
 // Chord::note_count tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_note_count_triads() {
     assert_eq!(Chord::new(Note::C4, ChordKind::Major).note_count(), 3);
@@ -391,6 +440,7 @@ fn test_chord_note_count_triads() {
     assert_eq!(Chord::new(Note::C4, ChordKind::Sus4).note_count(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_note_count_sevenths() {
     assert_eq!(Chord::new(Note::C4, ChordKind::Major7).note_count(), 4);
@@ -403,6 +453,7 @@ fn test_chord_note_count_sevenths() {
 // Chord::name tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_name_all_kinds() {
     let root = Note::C4;
@@ -418,6 +469,7 @@ fn test_chord_name_all_kinds() {
     assert_eq!(Chord::new(root, ChordKind::Sus4).name(), "Csus4");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_name_with_sharp_root() {
     let fsharp = Note(66); // F#4
@@ -425,6 +477,7 @@ fn test_chord_name_with_sharp_root() {
     assert_eq!(Chord::new(fsharp, ChordKind::Major7).name(), "F#maj7");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_name_various_roots() {
     assert_eq!(Chord::new(Note::A4, ChordKind::Minor).name(), "Am");
@@ -438,6 +491,7 @@ fn test_chord_name_various_roots() {
 // Scale::degree_count tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_seven_note_scales() {
     let root = Note::C4;
@@ -451,6 +505,7 @@ fn test_scale_degree_count_seven_note_scales() {
     assert_eq!(Scale::new(root, ScaleKind::Mixolydian).degree_count(), 7);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_pentatonic() {
     assert_eq!(
@@ -459,11 +514,13 @@ fn test_scale_degree_count_pentatonic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_blues() {
     assert_eq!(Scale::new(Note::C4, ScaleKind::Blues).degree_count(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_chromatic() {
     assert_eq!(
@@ -472,6 +529,7 @@ fn test_scale_degree_count_chromatic() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_whole_tone() {
     assert_eq!(Scale::new(Note::C4, ScaleKind::WholeTone).degree_count(), 6);
@@ -485,6 +543,7 @@ fn test_scale_degree_count_whole_tone() {
 // Additional engine tests for MoveTo action paths
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn engine_move_to_in_scale() {
     let e = new_music(Note(60));
@@ -498,6 +557,7 @@ fn engine_move_to_in_scale() {
     assert_eq!(e.situation().note, Note::E4);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn engine_move_to_outside_scale_rejected() {
     let e = new_music(Note(60));

@@ -67,6 +67,34 @@ pr4xis solves both. It runs on formal scientific knowledge humans have already a
 | **Undo / redo / branch** | None — each completion is final | Built in: undo, redo, branch from any prior state |
 | **Missing knowledge** | Doesn't know what it doesn't know | Detects gaps automatically |
 
+## The guarantees
+
+pr4xis holds properties about its own reasoning. They are not promises to a user — they are invariants it cannot violate and remain itself. Five are **answer-guarantees** (properties of a single answer); **Extensible** is second-order (those five are preserved under composition):
+
+- **Verifiable** — every claim carries its source; nothing is asserted without a citation.
+- **Deterministic** — same input, same output, byte for byte, every run.
+- **Explainable** — the system describes its own structure; the reasoning path is the answer.
+- **Honest** — what it cannot ground, it leaves ungrounded rather than confabulate.
+- **Consistent** — the axiom base derives no contradiction; it cannot prove a thing and its negation.
+- **Extensible** *(composition)* — new ontologies compose by law-checked functor; the five answer-guarantees still hold.
+
+Honest is the keystone of the answer-guarantees: the others are credible only because the system can stop. And these are not slogans — **every one of the 6,685 tests in `pr4xis-domains` declares, via `#[pr4xis::praxis_value(..)]`, which guarantee it witnesses**, a completeness gate enforces that no test escapes classification, and each guarantee is additionally backed by a machine-checkable axiom or universal property (a consistency check, a totality fuzz, a proof-as-explanation check) — not merely a count of tests. One command re-derives the whole partition:
+
+```
+cargo test -p pr4xis-domains --lib -- constitution_coverage -- --nocapture
+```
+
+| Guarantee | Tests | of which ∀-properties |
+|---|---:|---:|
+| Verifiable | 4,769 (71%) | 877 |
+| Deterministic | 884 (13%) | 270 |
+| Honest | 532 (8%) | 92 |
+| Extensible | 370 (6%) | 41 |
+| Explainable | 129 (2%) | 84 |
+| Consistent | 1 (0%) | 0 |
+
+The per-test declarations are the hard guarantee — `scripts/constitution-gate.sh` fails if any test is untagged or any tag is a typo. The *percentages* are a directional diagnostic: they show that Honest concentrates in operational/adversarial-input code and is thin in pure-knowledge domains, and that Explainable is rare everywhere — real gaps, surfaced by the suite classifying itself. Full account — what enforces each guarantee, what would violate it, why a statistical model cannot make the same promises, and how the classification works — in [The Constitution](docs/understand/constitution.md).
+
 ## Get started
 
 Install, run the CLI, and write your first interaction with the engine: **[docs/learn/get-started.md](docs/learn/get-started.md)**.
@@ -96,6 +124,7 @@ Install, run the CLI, and write your first interaction with the engine: **[docs/
 
 | Doc | What it covers |
 |---|---|
+| [The Constitution](docs/understand/constitution.md) | The five guarantees pr4xis holds about its own reasoning, each with the test that enforces it |
 | [Architecture](docs/understand/architecture.md) | The five-layer Rust stack, the engine, how everything fits together |
 | [Concepts](docs/understand/concepts.md) | Categories, functors, adjunctions, gap detection — explained for engineers |
 | [Evolution](docs/understand/evolution.md) | How ontologies grow without breaking — transform via functor, never rewrite |

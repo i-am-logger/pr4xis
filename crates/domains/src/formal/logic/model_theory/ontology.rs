@@ -215,11 +215,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ModelTheoryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ModelTheoryOntology::validate()
@@ -248,6 +250,7 @@ mod tests {
             .collect()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn validity_is_a_truth() {
         assert!(direct_is_a(
@@ -256,6 +259,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn truth_and_falsity_oppose() {
         let opposed = direct_opposites(ModelTheoryConcept::Truth);

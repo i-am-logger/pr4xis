@@ -67,6 +67,7 @@ mod tests {
     use pr4xis::category::Category;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_identity_law() {
         for obj in ProductionConcept::variants() {
@@ -76,6 +77,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_composition_with_identity() {
         for m in &ProductionCategory::morphisms() {
@@ -86,11 +88,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_eight_concepts() {
         assert_eq!(ProductionConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn levelt_pipeline_exists() {
         let m = ProductionCategory::morphisms();
@@ -111,6 +115,7 @@ mod tests {
             && r.kind == ProductionRelationKind::Realizes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn full_pipeline_composes() {
         // Per #166 (partial category) composition of distinct-kind
@@ -132,6 +137,7 @@ mod tests {
         assert!(step2, "Formulate step missing");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn goal_reaches_surface_form() {
         // Per #166 composition of distinct-kind morphisms is partial — the
@@ -157,6 +163,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn monitor_exists() {
         let m = ProductionCategory::morphisms();
@@ -168,6 +175,7 @@ mod tests {
             && r.kind == ProductionRelationKind::Monitors));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn content_determination_path() {
         let m = ProductionCategory::morphisms();

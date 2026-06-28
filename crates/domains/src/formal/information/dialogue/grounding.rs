@@ -108,22 +108,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DialogueGroundingCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DialogueGroundingOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn six_states() {
         assert_eq!(DialogueGroundingConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn clean_path_exists() {
         // Clark (1996) Ch. 8 + Traum (1994):
@@ -141,6 +145,7 @@ mod tests {
             && r.kind() == DialogueGroundingRelationKind::Acknowledge));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn repair_path_exists() {
         // Traum (1994): Initiated → RepairRequested → Initiated.
@@ -154,6 +159,7 @@ mod tests {
             && r.kind() == DialogueGroundingRelationKind::Repair));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn cancel_always_leads_to_dead() {
         let m = DialogueGroundingCategory::morphisms();
@@ -165,6 +171,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn terminal_states_marked() {
         assert_eq!(
@@ -178,6 +185,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn grounded_has_no_non_identity_exits() {
         // Clark (1996): Grounded is the terminal success state.
@@ -226,4 +234,8 @@ mod tests {
             prop_assert!(IsTerminal.get(&c).is_some());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_terminal_total, Verifiable);
 }

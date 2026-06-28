@@ -375,6 +375,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whitespace_modes() {
         assert_eq!(parse_string("a\tb"), "a\tb");
@@ -382,6 +383,7 @@ mod tests {
         assert_eq!(parse_token("  a   b  "), "a b");
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn name_productions() {
         assert!(parse_nmtoken("123").is_some());
@@ -391,6 +393,7 @@ mod tests {
         assert!(parse_ncname("validName_1").is_some());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn language_tags() {
         assert!(parse_language("en").is_some());
@@ -400,6 +403,7 @@ mod tests {
         assert!(parse_language("verylongtag").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn id_idref_entity_share_ncname() {
         // ID/IDREF/ENTITY all use parse_ncname.
@@ -407,6 +411,7 @@ mod tests {
         assert!(parse_ncname("1bad").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lists() {
         assert_eq!(parse_nmtokens("a b c").unwrap().len(), 3);
@@ -415,21 +420,25 @@ mod tests {
         assert!(parse_ncname_list("a b:c").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_whitespace() {
         assert!(WhiteSpaceFacetApplied.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_value_fixpoint() {
         assert!(StringValueIsCanonicalFixpoint.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_name_conformance() {
         assert!(NameProductionConformance.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn axiom_list_split() {
         assert!(ListDatatypesSplitOnWhitespace.verify().is_ok());
@@ -462,4 +471,8 @@ mod tests {
             prop_assert_eq!(v, s);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_collapse_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_collapse_subsumes_replace, Deterministic);
+    pr4xis::register_praxis_value!(prop_nmtoken_roundtrip, Deterministic);
 }

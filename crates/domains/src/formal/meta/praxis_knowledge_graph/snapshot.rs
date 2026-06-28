@@ -660,6 +660,7 @@ mod tests {
     /// `SourcePin`, and is CLOSED (no edge leaves it — the materialized
     /// closure guarantees the one-step image is closed under a transitive
     /// kind).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_root_single_filter_reproduces_original_slice() {
         let sub = compute_reachable::<PraxisKnowledgeGraphCategory>(
@@ -681,6 +682,7 @@ mod tests {
     }
 
     /// Multi-root / multi-kind slices a wider region than a single root.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multi_root_multi_kind_widens_the_slice() {
         let single = compute_reachable::<PraxisKnowledgeGraphCategory>(
@@ -741,6 +743,7 @@ mod tests {
     /// `GraphVersion` (`MerkleRoot`) — reproducibility at the address level
     /// (the canonical order + name-keyed addressing pin it; no enum-index or
     /// HashMap iteration leaks into the bytes).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn snapshot_emit_is_address_deterministic() {
         let bindings = alloc::vec![GraphNode {
@@ -759,6 +762,7 @@ mod tests {
     /// emit → load round-trips the slice, preserves the node set, gives every
     /// node a distinct content address, and RE-BINDS the behavioural node by
     /// name (the registered axiom resolves through `axiom_by_name`).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn snapshot_round_trips_preserves_nodes_and_rebinds() {
         let slice = fixed_slice();
@@ -790,6 +794,7 @@ mod tests {
     }
 
     /// Two nodes sharing an identity are refused at emit (no silent dedup).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_emit_rejects_address_collision() {
         let dup = alloc::vec![
@@ -811,6 +816,7 @@ mod tests {
     }
 
     /// A slice that is NOT closed (a filtered edge leaves it) cannot be emitted.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_emit_rejects_unclosed_slice() {
         let open = ReachableSubgraph::<PraxisKnowledgeGraphCategory> {
@@ -832,6 +838,7 @@ mod tests {
 
     /// The MerkleRoot gate: a genuine snapshot loaded against a DIFFERENT
     /// slice's pin is refused (poison detection — the address binds the slice).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_load_rejects_wrong_merkle_root() {
         let (_gz_a, root_a) =
@@ -855,6 +862,7 @@ mod tests {
     /// Eager re-bind teeth: a snapshot carrying an UNREGISTERED axiom binding
     /// passes the MerkleRoot gate but is refused at re-bind (fail-closed), and
     /// no partial graph is materialized.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_load_rejects_unbound_axiom() {
         let bindings = alloc::vec![GraphNode {
@@ -876,6 +884,7 @@ mod tests {
     /// `UnboundReference`, the node survives + is named. The connection-round-trip
     /// blocker — a snapshot carrying a functor is admitted + re-bound to this
     /// binary's live functor (`functor_by_name`).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn snapshot_functor_node_round_trips_and_rebinds() {
         let slice = fixed_slice();
@@ -898,6 +907,7 @@ mod tests {
     }
 
     /// A4 — the `AdjunctionNode` arm, symmetric: a registered adjunction re-binds.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn snapshot_adjunction_node_round_trips_and_rebinds() {
         let slice = fixed_slice();
@@ -920,6 +930,7 @@ mod tests {
     /// A4 fail-closed teeth — a `FunctorNode` binding to an UNREGISTERED functor
     /// passes the MerkleRoot gate but is refused at re-bind (`UnboundReference`),
     /// no partial graph. The resolver accepts strictly more, never a fabrication.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_load_rejects_unbound_functor() {
         let bindings = alloc::vec![GraphNode {
@@ -941,6 +952,7 @@ mod tests {
     /// `FUNCTOR_CONSTRUCTORS` slice is empty (linkme unsupported), so EVERY name →
     /// `None` → behavioural nodes are refused there — the cfg stub is byte-identical
     /// to `axiom_by_name`'s, so the wasm path inherits its proven fail-closed shape.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn functor_by_name_refuses_an_unregistered_name() {
         assert!(functor_by_name("__praxis_no_such_functor__").is_none());
@@ -954,6 +966,7 @@ mod tests {
     /// concepts that is NOT a morphism of the category is refused on load (not
     /// trusted by the byte-gate / name-resolvability alone). The blob is built
     /// directly with its genuine MerkleRoot, so only the edge re-bind rejects it.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_load_rejects_non_morphism_edge() {
         let env = SnapshotEnvelope {
@@ -987,6 +1000,7 @@ mod tests {
     /// gate and loaded `Ok` over an empty node set; load now mirrors emit's
     /// closure guard. The blob carries its genuine MerkleRoot, so ONLY the
     /// dangling check (not the byte-gate or the morphism check) rejects it.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn snapshot_load_rejects_dangling_edge() {
         let env = SnapshotEnvelope {
@@ -1044,6 +1058,8 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_emitted_snapshot_is_referentially_closed, Verifiable);
 }
 
 /// A6 — the genericity proof. The PKG monomorphization is exercised above; these
@@ -1082,6 +1098,7 @@ mod second_ontology_tests {
 
     /// (i) `compute_reachable` over a SECOND ontology: roots={A}, the Subsumption
     /// chain A⊑B⊑C is closed (the macro materializes A⊑C), the isolated D excluded.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn second_ontology_compute_reachable_closure() {
         let sub = compute_reachable::<Cat>(
@@ -1101,6 +1118,7 @@ mod second_ontology_tests {
     /// (ii) full EMIT→LOAD round-trip over the SECOND ontology — generic emit
     /// (`RelationKind::name` on the wire edge) AND generic load (rebind the O
     /// concepts via `concept_from_name::<SnapA6Concept>` + `RelationKind::from_name`).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn second_ontology_emit_load_round_trip() {
         let slice = compute_reachable::<Cat>(

@@ -79,16 +79,19 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws_hold() {
         assert_category_laws::<DurabilityCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_six_levels() {
         assert_eq!(DurabilityConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn durable_is_stronger_than_persistent() {
         let m = DurabilityCategory::morphisms();
@@ -97,6 +100,7 @@ mod tests {
             && r.kind == DurabilityRelationKind::Strengthens));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn chain_is_total_order() {
         let m = DurabilityCategory::morphisms();
@@ -120,6 +124,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ephemeral_reaches_archived() {
         // Total order chain Ephemeral → … → Archived under `Strengthens`.
@@ -151,6 +156,7 @@ mod tests {
         assert!(reaches);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn persistent_is_not_durable() {
         assert_ne!(DurabilityConcept::Persistent, DurabilityConcept::Durable);
@@ -165,6 +171,7 @@ mod tests {
             && r.kind == DurabilityRelationKind::Strengthens));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn buffer_policies_exist() {
         let _force = BufferPolicy::Force;
@@ -173,11 +180,13 @@ mod tests {
         let _no_steal = BufferPolicy::NoSteal;
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn steal_no_force_needs_aries() {
         assert_ne!(BufferPolicy::Steal, BufferPolicy::NoForce);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn crash_consistency_strategies_exist() {
         let strategies = [
@@ -190,6 +199,7 @@ mod tests {
         assert_eq!(strategies.len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn archived_is_strongest() {
         let m = DurabilityCategory::morphisms();
@@ -197,6 +207,7 @@ mod tests {
             && r.kind == DurabilityRelationKind::Strengthens));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ephemeral_is_weakest() {
         let m = DurabilityCategory::morphisms();

@@ -572,6 +572,7 @@ mod tests {
     /// derived (every registered source with a committed, pinned `.prx.gz`),
     /// never asserted against a magic number — only that the committed SPAR +
     /// PROV-O + OLiA archives actually loaded.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loads_registered_ontology_vocabularies() {
         let map = loaded_vocabularies();
@@ -606,6 +607,7 @@ mod tests {
     /// same `&'static` corpus the map holds. CiTO is the canonical SPAR
     /// example; its `cites` / `citesAsEvidence` properties must resolve and
     /// stand in the documented `subPropertyOf` relation.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_vocabulary_resolves_cito_subproperty() {
         let Some(cito) = loaded_vocabulary("cito") else {
@@ -631,6 +633,7 @@ mod tests {
     /// per-vocabulary `entity / class / property / edge` counts are derived
     /// here and printed for the report, and `is_fully_resolved()` is the
     /// pass condition.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn corpus_wide_audit_fully_resolves() {
         let report = audit_loaded_vocabularies();
@@ -690,6 +693,7 @@ mod tests {
     /// typed accessors: `find(iri)` → `entity(idx)` → same IRI. A separate,
     /// stricter walk than the audit's index-equality check — it exercises
     /// the `entity(usize)` accessor on every record of the whole corpus.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn every_entity_round_trips_through_accessors() {
         for (name, vocab) in loaded_vocabularies() {
@@ -710,6 +714,7 @@ mod tests {
 
     /// The map accessor and the named accessor agree (same pointer), and a
     /// second call returns the cached instance.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn accessor_is_cached_and_consistent() {
         let map1 = loaded_vocabularies();

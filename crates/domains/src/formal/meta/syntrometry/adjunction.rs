@@ -58,6 +58,7 @@ mod tests {
     /// Every counit round-trip lands exactly at its target. (The substrate
     /// set is closed under the object mapping, so every substrate primitive
     /// is in the image of the forward functor.)
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn counit_is_identity_on_substrate() {
         for obj in Pr4xisSubstrateConcept::variants() {
@@ -80,6 +81,7 @@ mod tests {
     ///
     /// Richer distinctions live in the Syntrometry ontology itself and
     /// in the Dialectics cross-functor.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn unit_collapses_are_intentional() {
         use SyntrometryConcept as S;
@@ -113,6 +115,7 @@ mod tests {
     }
 
     /// 14 of the 18 concepts round-trip as fixed points.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unit_preserves_fourteen_concepts() {
         let preserved: Vec<_> = SyntrometryConcept::variants()

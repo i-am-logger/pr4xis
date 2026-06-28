@@ -296,6 +296,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn fst_is_well_behaved() {
         let s = Pair { a: 3, b: 7 };
@@ -304,6 +305,7 @@ mod tests {
         assert!(put_put_holds(&Fst, &10, &20, &s));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn plus_one_is_well_behaved() {
         assert!(get_put_holds(&PlusOne, &5));
@@ -311,6 +313,7 @@ mod tests {
         assert!(put_put_holds(&PlusOne, &9, &12, &5));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn identity_is_well_behaved() {
         let id = IdentityLens::<Pair>::new();
@@ -325,6 +328,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn composition_preserves_well_behavedness() {
         // Fst ; PlusOne : Pair ⇆ i32  (view = a + 1).
@@ -339,6 +343,7 @@ mod tests {
         assert_eq!(lens.put(&11, &s).unwrap(), Pair { a: 10, b: 7 });
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn identity_is_the_composition_unit() {
         // id ; Fst  and  Fst ; id  both behave as Fst.
@@ -351,6 +356,7 @@ mod tests {
         assert_eq!(right.put(&10, &s).unwrap(), Fst.put(&10, &s).unwrap());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn composition_is_associative() {
         // (Fst ; PlusOne) ; PlusOne  ==  Fst ; (PlusOne ; PlusOne).
@@ -361,6 +367,7 @@ mod tests {
         assert_eq!(l.put(&12, &s).unwrap(), r.put(&12, &s).unwrap());
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn compose_error_displays_the_faulting_stage() {
         struct Boom;

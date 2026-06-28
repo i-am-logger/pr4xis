@@ -105,16 +105,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<ImmunologyToBioelectric>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<ImmunologyToBioelectric>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in ImmunologyEntity::variants() {
@@ -128,6 +131,7 @@ mod tests {
     // adjunctions/composition_tests batch (the source is now a kinded
     // partial category per OBO-RO; `Composed` no longer exists).
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BioelectricEntity::variants();
@@ -142,6 +146,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m1_maps_to_current_morphology() {
         assert_eq!(
@@ -150,6 +155,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m2_maps_to_current_morphology() {
         assert_eq!(
@@ -158,6 +164,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_acute_inflammation_maps_to_current_morphology() {
         assert_eq!(
@@ -166,6 +173,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_resolution_maps_to_target_morphology() {
         assert_eq!(
@@ -174,6 +182,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_tissue_repair_maps_to_target_morphology() {
         assert_eq!(
@@ -182,6 +191,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_tnf_alpha_maps_to_signal() {
         assert_eq!(
@@ -190,6 +200,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_inflammatory_state_maps_to_morphospace() {
         assert_eq!(
@@ -198,6 +209,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_cytokine_maps_to_signal() {
         assert_eq!(
@@ -206,6 +218,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_analogy_translates_macrophage_m1() {
         assert_eq!(

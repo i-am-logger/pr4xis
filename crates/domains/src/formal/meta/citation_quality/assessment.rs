@@ -242,11 +242,13 @@ mod tests {
     use super::*;
     use CitationQualityConcept as C;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn semilattice_axiom_holds() {
         assert!(VerdictMeetIsBoundedSemilattice.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn verification_method_strength_is_ordered() {
         assert!(
@@ -262,6 +264,7 @@ mod tests {
         assert!(VerificationMethod::HumanAttested > VerificationMethod::Unverified);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_verified_is_valid() {
         let statuses = [
@@ -274,6 +277,7 @@ mod tests {
         assert_eq!(assess(&statuses), CitationVerdict::Valid);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn unconfirmed_blocking_dimension_is_invalid() {
         // Claim support unconfirmed → Invalid, regardless of the rest.
@@ -285,6 +289,7 @@ mod tests {
         assert_eq!(assess(&statuses), CitationVerdict::Invalid);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unconfirmed_nonblocking_dimension_is_valid_with_issues() {
         // Sound gate intact, locator unconfirmed → ValidWithIssues.
@@ -297,6 +302,7 @@ mod tests {
         assert_eq!(assess(&statuses), CitationVerdict::ValidWithIssues);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn blocking_failure_dominates_nonblocking() {
         // Both a blocking and a non-blocking gap → the blocking one wins.
@@ -307,11 +313,13 @@ mod tests {
         assert_eq!(assess(&statuses), CitationVerdict::Invalid);
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn empty_assessment_is_top() {
         assert_eq!(assess(&[]), CitationVerdict::Valid);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn verdict_is_a_monoid() {
         use CitationVerdict as V;
@@ -329,6 +337,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn meet_is_worst_of_two() {
         assert_eq!(
@@ -432,4 +441,10 @@ mod tests {
             prop_assert_eq!(a.strength().cmp(&b.strength()), a.cmp(&b));
         }
     }
+
+    pr4xis::register_praxis_value!(prop_meet_commutative, Deterministic);
+    pr4xis::register_praxis_value!(prop_meet_associative, Deterministic);
+    pr4xis::register_praxis_value!(prop_meet_idempotent_and_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_assess_characterization, Verifiable, Honest);
+    pr4xis::register_praxis_value!(prop_method_strength_matches_ord, Verifiable);
 }

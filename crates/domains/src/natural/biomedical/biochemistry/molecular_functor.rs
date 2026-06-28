@@ -105,16 +105,19 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_functor_laws() {
         assert_functor_laws::<BiochemistryToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BiochemistryToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BiochemistryConcept::variants() {
@@ -125,6 +128,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_composition_preservation_on_subsumption() {
         // The migrated Biochemistry category is kinded and partial (per OBO-RO,
@@ -161,6 +165,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_calcium_ion_maps_to_calcium() {
         assert_eq!(
@@ -169,6 +174,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_nitric_oxide_maps_to_nitric_oxide() {
         assert_eq!(
@@ -177,6 +183,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_calmodulin_maps_to_protein() {
         assert_eq!(
@@ -185,6 +192,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_camkii_maps_to_protein() {
         assert_eq!(
@@ -193,6 +201,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_camp_maps_to_calcium_signal() {
         assert_eq!(
@@ -201,6 +210,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_atp_maps_to_ion() {
         assert_eq!(
@@ -209,6 +219,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_signaling_molecule_maps_to_signaling_molecule() {
         assert_eq!(
@@ -217,6 +228,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();

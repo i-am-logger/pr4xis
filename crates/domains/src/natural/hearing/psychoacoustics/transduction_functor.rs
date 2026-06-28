@@ -87,10 +87,12 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<TransductionToPsychoacoustics>();
     }
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn action_potential_maps_to_pitch() {
         assert_eq!(
@@ -98,6 +100,7 @@ mod tests {
             PsychoacousticEntity::Pitch
         );
     }
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn every_entity_maps_valid() {
         let targets = PsychoacousticEntity::variants();

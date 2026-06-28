@@ -251,16 +251,19 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<KripkeCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         KripkeOntology::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn two_modal_operators_holds() {
         assert!(
@@ -270,6 +273,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn standard_frame_conditions_holds() {
         assert!(
@@ -279,6 +283,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn frame_contains_worlds_and_relation_holds() {
         assert!(

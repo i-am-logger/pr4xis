@@ -4,17 +4,20 @@ use pr4xis::category::laws::assert_category_laws;
 
 use super::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn dialogue_category_laws() {
     assert_category_laws::<DialogueCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dialogue_has_15_concepts() {
     // 10 original + 5 new: QUD, CommonGround, Intention, GroundingAct, Repair
     assert_eq!(DialogueConcept::variants().len(), 15);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn participant_produces_utterance() {
     let m = DialogueCategory::morphisms();
@@ -23,6 +26,7 @@ fn participant_produces_utterance() {
         && r.kind == DialogueRelationKind::Produces));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn utterance_expresses_act() {
     let m = DialogueCategory::morphisms();
@@ -31,6 +35,7 @@ fn utterance_expresses_act() {
         && r.kind == DialogueRelationKind::Expresses));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn understanding_leads_to_grounding() {
     let m = DialogueCategory::morphisms();
@@ -38,6 +43,7 @@ fn understanding_leads_to_grounding() {
         && r.to == DialogueConcept::Grounding));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn turn_management_controls_participant() {
     let m = DialogueCategory::morphisms();
@@ -120,4 +126,9 @@ mod prop {
             prop_assert!(has_identity);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_participant_reaches_state, Verifiable);
+    pr4xis::register_praxis_value!(prop_understanding_grounds, Verifiable);
+    pr4xis::register_praxis_value!(prop_self_morphisms, Deterministic);
 }

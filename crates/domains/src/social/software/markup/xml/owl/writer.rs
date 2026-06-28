@@ -729,6 +729,7 @@ mod tests {
     use super::*;
     use crate::social::software::markup::xml::owl::reader::{owl_equivalent, read_owl};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn write_owl_is_deterministic() {
         let xml = r#"<?xml version="1.0"?>
@@ -748,6 +749,7 @@ mod tests {
         assert_eq!(a, b, "write_owl must be deterministic");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn write_owl_round_trip_simple() {
         let xml = r#"<?xml version="1.0"?>
@@ -864,4 +866,11 @@ mod tests {
             );
         }
     }
+
+    pr4xis::register_praxis_value!(prop_write_owl_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(
+        prop_entity_blocks_are_lexicographically_sorted,
+        Deterministic
+    );
+    pr4xis::register_praxis_value!(prop_round_trip_owl_equivalent, Deterministic);
 }

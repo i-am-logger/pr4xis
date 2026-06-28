@@ -4,27 +4,32 @@ use pr4xis::ontology::{Axiom, Ontology};
 use crate::applied::perception::occupancy::engine::OccupancyGrid;
 use crate::applied::perception::occupancy::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn occupancy_category_laws() {
     assert_category_laws::<OccupancyCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn occupancy_ontology_validates() {
     OccupancyOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn probability_bounded_holds() {
     assert!(ProbabilityBounded.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn log_odds_deterministic_holds() {
     assert!(LogOddsUpdateDeterministic.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn new_grid_is_unknown() {
     let grid = OccupancyGrid::new(10, 10);
@@ -32,6 +37,7 @@ fn new_grid_is_unknown() {
     assert!((p - 0.5).abs() < 1e-12, "new cell should have p=0.5");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn occupied_observation_increases_probability() {
     let mut grid = OccupancyGrid::new(10, 10);
@@ -41,6 +47,7 @@ fn occupied_observation_increases_probability() {
     assert!(p_after > p_before);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn free_observation_decreases_probability() {
     let mut grid = OccupancyGrid::new(10, 10);
@@ -50,6 +57,7 @@ fn free_observation_decreases_probability() {
     assert!(p_after < p_before);
 }
 
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn log_odds_clamping_prevents_overconfidence() {
     let mut grid = OccupancyGrid::new(5, 5);
@@ -61,6 +69,7 @@ fn log_odds_clamping_prevents_overconfidence() {
     assert!(p > 0.99, "should be very confident but bounded");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn log_odds_roundtrip() {
     let p = 0.7;
@@ -90,4 +99,7 @@ mod proptest_proofs {
                 "probability {} out of (0,1) for log_odds={}", p, log_odds);
         }
     }
+
+    pr4xis::register_praxis_value!(log_odds_roundtrip_property, Deterministic);
+    pr4xis::register_praxis_value!(probability_always_bounded, Verifiable);
 }

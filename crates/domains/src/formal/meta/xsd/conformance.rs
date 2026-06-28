@@ -383,6 +383,7 @@ pr4xis::register_axiom!(
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn canon_is_representative() {
         let cases = canon();
@@ -405,6 +406,7 @@ mod tests {
         assert!(cases.len() >= 10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_case_passes() {
         for outcome in run_canon() {
@@ -416,6 +418,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn conformance_axiom_holds() {
         assert!(XsdProjectorPassesConformanceCanon.verify().is_ok());

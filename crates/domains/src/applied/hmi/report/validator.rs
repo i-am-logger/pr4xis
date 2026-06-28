@@ -326,6 +326,7 @@ mod tests {
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_tinted_schemes_archive`.
     /// The raw tree is fetch-only (gitignored); only the `.themes` blob (its
     /// canonical on-disk form) and the committed `.prx` persist.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
     fn regenerate_tinted_schemes_archive() {
@@ -361,6 +362,7 @@ mod tests {
     /// forbids — so an ABSENT `.themes` archive HARD-FAILS (it is not silently
     /// skipped). Mirrors `raw_source_prx::committed_prx_round_trips_to_fetched_raw_byte_exact`
     /// for the collection content type.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn committed_theme_prx_matches_fetched_raw() {
         let raw_path = themes_archive_path();
@@ -466,6 +468,9 @@ mod tests {
         }
     }
 
+    pr4xis::register_praxis_value!(prop_theme_collection_round_trips_through_prx, Deterministic);
+
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_parse_catppuccin_mocha() {
         let yaml = r##"
@@ -495,6 +500,7 @@ palette:
         assert_eq!(palette.len(), 16);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_catppuccin_monotonicity() {
         // Catppuccin Mocha base06 (rosewater) and base07 (lavender) have
@@ -527,6 +533,7 @@ palette:
         assert!(detail.mono_break_at.is_some());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_bad_contrast_detected() {
         let yaml = r##"
@@ -562,6 +569,7 @@ palette:
     /// that silently reads an empty/absent source can no longer pass, because
     /// the gated `.prx` load panics fail-closed on absence and these assertions
     /// HARD-FAIL on an empty or malformed corpus. No skip, no early return.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn real_exercise_loads_and_validates_themes() {
         let collection = load_theme_collection();
@@ -666,6 +674,7 @@ palette:
     /// The Base16 AND Base24 corpora are BOTH present in the loaded collection —
     /// the archive captured the full theme set (not just one family). HARD-FAILS
     /// if either family is missing, so a half-archived `.prx` cannot pass.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loaded_corpus_covers_base16_and_base24() {
         let results = scan_loaded_themes();

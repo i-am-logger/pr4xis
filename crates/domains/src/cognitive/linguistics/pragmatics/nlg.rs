@@ -84,16 +84,19 @@ mod tests {
     use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws_hold() {
         assert_category_laws::<NlgCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_eleven_concepts() {
         assert_eq!(NlgConcept::variants().len(), 11);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pipeline_order() {
         let m = NlgCategory::morphisms();
@@ -108,6 +111,7 @@ mod tests {
             && r.kind == NlgRelationKind::Precedes));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn goal_drives_content_determination() {
         let m = NlgCategory::morphisms();
@@ -116,6 +120,7 @@ mod tests {
             && r.kind == NlgRelationKind::Drives));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn goal_reaches_surface_text() {
         // Reiter & Dale (2000) NLG pipeline: Goal → ContentDetermination →
@@ -144,6 +149,7 @@ mod tests {
         assert!(reaches);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn realization_generates_text() {
         let m = NlgCategory::morphisms();
@@ -152,6 +158,7 @@ mod tests {
             && r.kind == NlgRelationKind::Generates));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn monitor_checks_output_against_goal() {
         let m = NlgCategory::morphisms();
@@ -165,6 +172,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn content_gathers_knowledge() {
         let m = NlgCategory::morphisms();
@@ -173,6 +181,7 @@ mod tests {
             && r.kind == NlgRelationKind::Gathers));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn document_planning_uses_rst() {
         let m = NlgCategory::morphisms();

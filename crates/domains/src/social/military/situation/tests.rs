@@ -4,27 +4,32 @@ use pr4xis::ontology::{Axiom, Ontology};
 use crate::social::military::situation::engine::*;
 use crate::social::military::situation::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn situation_category_laws() {
     assert_category_laws::<SituationCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn situation_ontology_validates() {
     SituationOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn entity_identification_first_holds() {
     assert!(EntityIdentificationFirst.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn intent_requires_relationship_holds() {
     assert!(IntentRequiresRelationship.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn situation_assessment_construction() {
     let mut sa = SituationAssessment::new();
@@ -45,6 +50,7 @@ fn situation_assessment_construction() {
     assert_eq!(sa.num_entities(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn formation_detection() {
     let a = TrackedEntity {
@@ -65,6 +71,7 @@ fn formation_detection() {
     assert_eq!(rel.relation_type, RelationType::Formation);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn converging_entities() {
     let a = TrackedEntity {
@@ -85,6 +92,7 @@ fn converging_entities() {
     assert_eq!(rel.relation_type, RelationType::Converging);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn assess_relationships_populates() {
     let mut sa = SituationAssessment::new();
@@ -148,4 +156,7 @@ mod proptest_proofs {
             prop_assert_eq!(sa.num_relationships(), expected);
         }
     }
+
+    pr4xis::register_praxis_value!(classification_confidence_bounded, Verifiable);
+    pr4xis::register_praxis_value!(relationship_count_is_n_choose_2, Verifiable);
 }

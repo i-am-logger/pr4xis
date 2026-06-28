@@ -99,16 +99,19 @@ mod tests {
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Daubert prong 2 — verify identity + composition preservation.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<BiologyToMolecular>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_analogy_validates() {
         Analogy::<BiologyToMolecular>::validate().unwrap();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_identity_preservation() {
         for obj in BiologicalEntity::variants() {
@@ -122,6 +125,7 @@ mod tests {
     // adjunctions/composition_tests batch (the source is now a kinded
     // partial category per OBO-RO; `Composed` no longer exists).
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_squamous_epithelial_maps_to_collagen() {
         assert_eq!(
@@ -130,6 +134,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_columnar_epithelial_maps_to_mucin() {
         assert_eq!(
@@ -138,6 +143,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_basal_stem_cell_maps_to_calcium() {
         assert_eq!(
@@ -146,6 +152,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_macrophage_m1_maps_to_calcium_signal() {
         assert_eq!(
@@ -154,6 +161,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_goblet_cell_maps_to_mucin() {
         assert_eq!(
@@ -162,6 +170,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_esophagus_maps_to_ion() {
         assert_eq!(
@@ -170,6 +179,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_tissue_abstract_maps_to_protein() {
         assert_eq!(
@@ -178,6 +188,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();

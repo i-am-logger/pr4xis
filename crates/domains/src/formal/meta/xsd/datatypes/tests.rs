@@ -18,11 +18,13 @@ use proptest::prelude::*;
 // Category + ontology validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn datatype_category_laws() {
     assert_category_laws::<XsdDatatypeCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn datatype_ontology_validates() {
     XsdDatatypeOntology::validate()
@@ -33,12 +35,14 @@ fn datatype_ontology_validates() {
 // Concept counts — the closed Part 2 inventory.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn concept_count() {
     // 3 special (§3.2) + 19 primitive (§3.3) + 28 derived (§3.4) = 50.
     assert_eq!(XsdDatatypeConcept::variants().len(), 50);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn group_counts() {
     assert_eq!(special_datatypes().len(), 3);
@@ -47,6 +51,7 @@ fn group_counts() {
     assert_eq!(list_datatypes().len(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn groups_partition_the_inventory() {
     // Every concept is in exactly one of special / primitive / derived.
@@ -66,6 +71,7 @@ fn groups_partition_the_inventory() {
 // base_type — the {base type definition} relation.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn any_type_is_the_unique_root() {
     let roots: Vec<_> = XsdDatatypeConcept::variants()
@@ -75,6 +81,7 @@ fn any_type_is_the_unique_root() {
     assert_eq!(roots, vec![XsdDatatypeConcept::AnyType]);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn base_type_is_total_off_root() {
     for d in XsdDatatypeConcept::variants() {
@@ -85,6 +92,7 @@ fn base_type_is_total_off_root() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn known_derivation_chains() {
     use XsdDatatypeConcept as D;
@@ -104,6 +112,7 @@ fn known_derivation_chains() {
     assert_eq!(base_type(D::AnySimpleType), Some(D::AnyType));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn list_datatypes_base_on_any_simple_type() {
     use XsdDatatypeConcept as D;
@@ -117,6 +126,7 @@ fn list_datatypes_base_on_any_simple_type() {
 // item_type — the list {item type definition} relation.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn list_item_types() {
     use XsdDatatypeConcept as D;
@@ -125,6 +135,7 @@ fn list_item_types() {
     assert_eq!(item_type(D::Entities), Some(D::Entity));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn only_list_datatypes_have_item_type() {
     let lists = list_datatypes();
@@ -141,6 +152,7 @@ fn only_list_datatypes_have_item_type() {
 // Variety quality.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn variety_of_lists_is_list() {
     for d in list_datatypes() {
@@ -148,6 +160,7 @@ fn variety_of_lists_is_list() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn variety_of_primitives_is_atomic() {
     for d in primitive_datatypes() {
@@ -155,12 +168,14 @@ fn variety_of_primitives_is_atomic() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn variety_absent_for_any_type_and_any_simple_type() {
     assert_eq!(VarietyOf.get(&XsdDatatypeConcept::AnyType), None);
     assert_eq!(VarietyOf.get(&XsdDatatypeConcept::AnySimpleType), None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn any_atomic_type_is_atomic() {
     assert_eq!(
@@ -173,11 +188,13 @@ fn any_atomic_type_is_atomic() {
 // Axiom tests.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_single_root_holds() {
     assert!(DatatypeLatticeSingleRoot.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn base_type_is_the_immediate_is_a_parent() {
     use XsdDatatypeConcept as D;
@@ -199,16 +216,19 @@ fn base_type_is_the_immediate_is_a_parent() {
     assert_eq!(base_type(D::DateTimeStamp), Some(D::DateTime));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_primitives_derive_from_any_atomic_type() {
     assert!(PrimitivesDeriveFromAnyAtomicType.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_list_datatypes_have_built_in_item_type() {
     assert!(ListDatatypesHaveBuiltInItemType.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_xsd11_additions_present() {
     assert!(Xsd11DatatypeAdditionsPresent.verify().is_ok());
@@ -269,3 +289,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_base_type_reaches_root, Verifiable);
+pr4xis::register_praxis_value!(prop_base_type_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_exactly_one_group, Verifiable);
+pr4xis::register_praxis_value!(prop_item_type_iff_list, Verifiable);

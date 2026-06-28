@@ -248,6 +248,7 @@ mod tests {
 
     /// The lens's byte-exact PutGet law holds on the REAL bundled CiTO:
     /// `put(get(b)) == b` byte-for-byte — the law the harness runs for `cito`.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn owl_graph_faithful_lens_is_byte_exact_on_cito() {
         let bytes = std::fs::read(concat!(
@@ -261,6 +262,7 @@ mod tests {
 
     /// The lens declares the graph-faithful tier — the const the completeness
     /// meter reads to flip `cito` off the floor.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn owl_graph_faithful_lens_declares_graph_faithful() {
         assert_eq!(
@@ -272,6 +274,7 @@ mod tests {
 
     /// `canonical` is the identity (a byte-exact lens's source is its own
     /// canonical form) — provided only for trait totality.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn owl_graph_faithful_canonical_is_identity() {
         let sample = b"<x/>";
@@ -287,6 +290,7 @@ mod tests {
     /// distributed-slice entry needs a live reference to survive `--test`
     /// dead-code elimination, otherwise `build_envelope` would silently emit the
     /// FLOOR envelope for an unreferenced registration).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn flat_spar_owl_family_registered_graph_faithful() {
         use crate::formal::meta::well_behaved_lens::{LensRegistration, lens_by_name};
@@ -310,6 +314,7 @@ mod tests {
 
     /// The byte-exact PutGet law holds on the REAL bundled biro/c4o/doco —
     /// `put(get(b)) == b` byte-for-byte, the law the harness runs for each.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn owl_graph_faithful_lens_is_byte_exact_on_flat_spar_family() {
         for file in ["biro-1.1.1.owl", "c4o-1.2.owl", "doco-1.3.owl"] {

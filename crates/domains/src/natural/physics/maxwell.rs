@@ -259,6 +259,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_speed_of_light_derived() {
         let c = speed_of_light();
@@ -266,6 +267,7 @@ mod tests {
         assert!((c - 2.998e8).abs() < 1e6, "c={} should be ≈ 3e8", c);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_vacuum_satisfies_all() {
         let field = EMField::vacuum();
@@ -274,6 +276,7 @@ mod tests {
         assert!((field.energy_density() - 0.0).abs() < 1e-20);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_charge_creates_divergence() {
         let e = new_field()
@@ -283,6 +286,7 @@ mod tests {
         assert!(e.situation().gauss_electric_holds());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_no_magnetic_monopoles() {
         let field = EMField::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0), 0.0, Vec3::zero());
@@ -290,6 +294,7 @@ mod tests {
         assert_eq!(field.div_b, 0.0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_energy_density_nonneg() {
         let e = new_field()
@@ -300,6 +305,7 @@ mod tests {
         assert!(e.situation().energy_density() > 0.0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_poynting_vector() {
         // E × B gives energy flux direction
@@ -316,6 +322,7 @@ mod tests {
         assert!(s.y.abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_cross_product() {
         let x = Vec3::new(1.0, 0.0, 0.0);
@@ -326,6 +333,7 @@ mod tests {
         assert!((z.z - 1.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_dot_product() {
         let a = Vec3::new(1.0, 2.0, 3.0);
@@ -333,6 +341,7 @@ mod tests {
         assert!((a.dot(&b) - 32.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn test_undo_redo() {
         let e = new_field()
@@ -420,4 +429,12 @@ mod tests {
             prop_assert!(s.dot(&b).abs() < 1e-6, "S not perpendicular to B");
         }
     }
+
+    pr4xis::register_praxis_value!(prop_gauss_electric, Verifiable);
+    pr4xis::register_praxis_value!(prop_no_monopoles, Verifiable);
+    pr4xis::register_praxis_value!(prop_energy_nonneg, Verifiable);
+    pr4xis::register_praxis_value!(prop_speed_of_light, Verifiable);
+    pr4xis::register_praxis_value!(prop_cross_anticommutative, Verifiable);
+    pr4xis::register_praxis_value!(prop_dot_commutative, Verifiable);
+    pr4xis::register_praxis_value!(prop_poynting_perpendicular, Verifiable);
 }

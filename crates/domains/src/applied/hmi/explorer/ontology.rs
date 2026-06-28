@@ -850,6 +850,7 @@ fn activation_str(s: ActivationState) -> &'static str {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_5_activation_states() {
         let states = [
@@ -862,11 +863,13 @@ mod tests {
         assert_eq!(states.len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_activation_theme_mapped() {
         assert!(ActivationThemeMapped.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_theming_graph_has_nodes() {
         let g = theming_ontology_graph();
@@ -874,11 +877,13 @@ mod tests {
         assert!(g.edge_count() > 15);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_graph_connected() {
         assert!(GraphConnected.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_monotonicity_trace_pass() {
         let t = monotonicity_trace("test-dark", true);
@@ -886,17 +891,20 @@ mod tests {
         assert_eq!(t.result, ActivationState::Satisfied);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_monotonicity_trace_fail() {
         let t = monotonicity_trace("catppuccin-mocha", false);
         assert_eq!(t.result, ActivationState::Violated);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_trace_minimal_steps() {
         assert!(TraceMinimalSteps.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_activation_roles_are_distinct() {
         let states = [
@@ -918,6 +926,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_concept_kinds() {
         let g = theming_ontology_graph();
@@ -941,6 +950,7 @@ mod tests {
         assert!(value_count >= 8); // base00-base07 at minimum
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_edge_kinds() {
         let g = theming_ontology_graph();
@@ -958,6 +968,7 @@ mod tests {
         assert!(evaluates >= 8); // mono evaluates base00-base07
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_explorer_html_structure() {
         let g = theming_ontology_graph();
@@ -973,6 +984,7 @@ mod tests {
         assert!(html.contains("LuminanceMonotonicity"));
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_explorer_html_themed() {
         let g = theming_ontology_graph();
@@ -986,6 +998,7 @@ mod tests {
         assert!(html.contains("#cdd6f4"));
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_explorer_html_no_trace() {
         let g = theming_ontology_graph();
@@ -993,6 +1006,7 @@ mod tests {
         assert!(html.contains("const T = null;"));
     }
 
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn test_explorer_generates_to_docs() {
         let g = theming_ontology_graph();
@@ -1029,4 +1043,7 @@ mod tests {
             prop_assert!(!role.is_empty());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_trace_always_has_conclusion, Verifiable);
+    pr4xis::register_praxis_value!(prop_activation_roles_non_empty, Verifiable);
 }

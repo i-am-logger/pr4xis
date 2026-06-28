@@ -6,6 +6,7 @@ use pr4xis::category::entity::FinitelyGenerated;
 // Category law tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn identity_law() {
     for obj in RdfNodeKind::variants() {
@@ -15,6 +16,7 @@ fn identity_law() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn composition_with_identity() {
     let morphisms = RdfCategory::morphisms();
@@ -31,6 +33,7 @@ fn composition_with_identity() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn associativity() {
     let morphisms = RdfCategory::morphisms();
@@ -53,12 +56,14 @@ fn associativity() {
 // Axiom tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn literals_cannot_be_subjects() {
     use pr4xis::ontology::Axiom;
     assert!(LiteralsCannotBeSubjects.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn predicates_must_be_properties() {
     use pr4xis::ontology::Axiom;
@@ -69,6 +74,7 @@ fn predicates_must_be_properties() {
 // Node kind property tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn resources_can_be_subjects() {
     let resources = [
@@ -82,6 +88,7 @@ fn resources_can_be_subjects() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn literals_are_literals() {
     assert!(RdfNodeKind::PlainLiteral.is_literal());
@@ -94,6 +101,7 @@ fn literals_are_literals() {
 // RDFS taxonomy tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rdfs_taxonomy_has_expected_relations() {
     let tax = rdfs_taxonomy();
@@ -103,6 +111,7 @@ fn rdfs_taxonomy_has_expected_relations() {
     assert!(tax.contains(&(RdfNodeKind::Nil, RdfNodeKind::List)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rdfs_taxonomy_datatype_is_a_class_is_a_resource() {
     let tax = rdfs_taxonomy();
@@ -114,6 +123,7 @@ fn rdfs_taxonomy_datatype_is_a_class_is_a_resource() {
 // Vocabulary tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rdf_vocabulary_iris_are_valid() {
     assert!(RdfVocabulary::RDF_TYPE.starts_with("http://"));
@@ -123,6 +133,7 @@ fn rdf_vocabulary_iris_are_valid() {
     assert!(RdfVocabulary::RDFS_RANGE.contains("range"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn vocabulary_resolve_known_prefixes() {
     let resolved = RdfVocabulary::resolve("rdf", "type");
@@ -132,17 +143,20 @@ fn vocabulary_resolve_known_prefixes() {
     assert_eq!(resolved.as_deref(), Some(RdfVocabulary::RDFS_SUB_CLASS_OF));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn vocabulary_resolve_unknown_prefix() {
     assert!(RdfVocabulary::resolve("foo", "bar").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn morphism_set_is_nonempty() {
     let morphisms = RdfCategory::morphisms();
     assert!(morphisms.len() > 10);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     use pr4xis::category::laws::assert_category_laws;
@@ -203,4 +217,9 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_literals_cannot_be_subjects, Verifiable);
+    pr4xis::register_praxis_value!(prop_resources_can_be_subjects, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

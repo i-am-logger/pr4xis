@@ -136,12 +136,14 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_ohms_law() {
         let e = new_circuit(12.0, 4.0).unwrap();
         assert!((e.situation().current - 3.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_change_voltage() {
         let e = new_circuit(12.0, 4.0)
@@ -151,6 +153,7 @@ mod tests {
         assert!((e.situation().current - 6.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_zero_r_blocked() {
         assert!(
@@ -179,4 +182,8 @@ mod tests {
             prop_assert!((coulomb_force(q1, q2, r) - coulomb_force(q2, q1, r)).abs() / scale < 1e-10);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_ohms_always, Verifiable);
+    pr4xis::register_praxis_value!(prop_ohms_after_change, Verifiable);
+    pr4xis::register_praxis_value!(prop_coulomb_symmetric, Verifiable);
 }

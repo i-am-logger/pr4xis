@@ -72,12 +72,14 @@ fn sample_english() -> English {
 // Basic tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn concept_count() {
     let en = sample_english();
     assert_eq!(en.concept_count(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn word_lookup() {
     let en = sample_english();
@@ -87,6 +89,7 @@ fn word_lookup() {
     assert_eq!(dog.definitions[0], "a domesticated carnivore");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn synonyms_share_concept() {
     let en = sample_english();
@@ -95,6 +98,7 @@ fn synonyms_share_concept() {
     assert_eq!(big[0], large[0]); // same ConceptId = synonyms
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn concept_has_lemmas() {
     let en = sample_english();
@@ -108,6 +112,7 @@ fn concept_has_lemmas() {
 // Taxonomy (is-a) tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn direct_hypernym() {
     let en = sample_english();
@@ -118,6 +123,7 @@ fn direct_hypernym() {
     assert!(parent.lemmas.contains(&"mammal".to_string()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn transitive_is_a() {
     let en = sample_english();
@@ -126,6 +132,7 @@ fn transitive_is_a() {
     assert!(en.is_a(dog_id, animal_id)); // dog is-a animal (via mammal)
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn is_a_reflexive() {
     let en = sample_english();
@@ -133,6 +140,7 @@ fn is_a_reflexive() {
     assert!(en.is_a(dog_id, dog_id));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn not_is_a() {
     let en = sample_english();
@@ -141,6 +149,7 @@ fn not_is_a() {
     assert!(!en.is_a(dog_id, cat_id)); // dog is NOT a cat
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn children_of_mammal() {
     let en = sample_english();
@@ -149,6 +158,7 @@ fn children_of_mammal() {
     assert_eq!(children.len(), 2); // dog and cat
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ancestors_are_the_reflexive_is_a_image() {
     // The reasoner's typed reachability operation — dog ⊑* {dog, mammal,
@@ -165,6 +175,7 @@ fn ancestors_are_the_reflexive_is_a_image() {
     assert!(!anc.contains(&cat)); // a sibling is not an ancestor
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn common_ancestor_is_the_nearest_shared_hypernym() {
     // dog and cat share `mammal` (nearest) and `animal`; the LCA is `mammal`.
@@ -183,6 +194,7 @@ fn common_ancestor_is_the_nearest_shared_hypernym() {
 // Opposition (antonym) tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn big_opposes_small() {
     let en = sample_english();
@@ -196,6 +208,7 @@ fn big_opposes_small() {
 /// Axiom — the English functor is deterministic. Same WordNet input
 /// → byte-equivalent English output (concept count, taxonomy edges,
 /// lookups all stable).
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_functor_is_deterministic() {
     let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -215,6 +228,7 @@ fn axiom_functor_is_deterministic() {
 
 /// Axiom — concept count equals synset count in the source
 /// WordNet. The functor maps each synset to exactly one concept.
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn axiom_concept_count_equals_synset_count() {
     let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
@@ -224,6 +238,7 @@ fn axiom_concept_count_equals_synset_count() {
 
 /// Axiom — every word in the inflection / lemma index resolves to
 /// at least one valid ConceptId.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_every_lookup_returns_valid_concept_ids() {
     let en = sample_english();
@@ -242,6 +257,7 @@ fn axiom_every_lookup_returns_valid_concept_ids() {
 /// Axiom — antonym opposition is symmetric where the source data
 /// records both directions. `big ↔ small` is the canonical pair in
 /// our fixture.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_antonym_opposition_is_symmetric_when_source_records_both() {
     let en = sample_english();
@@ -258,6 +274,7 @@ fn axiom_antonym_opposition_is_symmetric_when_source_records_both() {
 /// Axiom — looking up a known word never returns a ConceptId whose
 /// `concept()` is None (no dangling pointers from the lemma index
 /// into the concept table).
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_no_dangling_lookups() {
     let en = sample_english();
@@ -319,6 +336,10 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_from_wordnet_is_deterministic, Deterministic);
+pr4xis::register_praxis_value!(prop_lookup_ids_in_range, Verifiable);
+pr4xis::register_praxis_value!(prop_lookup_unknown_word_returns_empty, Honest);
+
 // =============================================================================
 // codegen::wordnet error and edge-case coverage (uniform-depth uplift)
 //
@@ -327,6 +348,7 @@ proptest! {
 // edge-case paths here at the domains-side test layer.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn codegen_parse_empty_lexicon_yields_zero_entities() {
     use std::io::Write;
@@ -338,6 +360,7 @@ fn codegen_parse_empty_lexicon_yields_zero_entities() {
     assert_eq!(builder.entity_count(), 0);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn codegen_parse_missing_file_returns_io_error() {
     let result = pr4xis::codegen::wordnet::parse_wordnet_xml(std::path::Path::new(
@@ -349,6 +372,7 @@ fn codegen_parse_missing_file_returns_io_error() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn codegen_parse_well_formed_synsets_round_trips() {
     use std::io::Write;
@@ -369,6 +393,7 @@ fn codegen_parse_well_formed_synsets_round_trips() {
 // Full WordNet load + performance
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 #[ignore = "perf measurement — parses the 89 MB WordNet XML to time the build; not a gate. \
             Correctness of the full English ontology is exercised by the (now fast, \

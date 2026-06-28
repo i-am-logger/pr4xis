@@ -111,12 +111,14 @@ pub fn lookup_in(needle: &str, table: &[IrregularForm]) -> Vec<IrregularForm> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn kind_variants_complete() {
         let kinds = IrregularKind::variants();
         assert_eq!(kinds.len(), 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lookup_in_is_case_insensitive() {
         let table = vec![IrregularForm::new(
@@ -131,12 +133,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lookup_in_empty_table_returns_empty() {
         let hits = lookup_in("children", &[]);
         assert!(hits.is_empty());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lookup_in_unknown_word_returns_empty() {
         let table = vec![IrregularForm::new(

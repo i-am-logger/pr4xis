@@ -6,16 +6,19 @@ use pr4xis::category::Category;
 use pr4xis::category::entity::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<KnowledgeCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn six_concepts() {
     assert_eq!(KnowledgeConcept::variants().len(), 6);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn knowledge_base_catalogs_vocabulary() {
     let m = KnowledgeCategory::morphisms();
@@ -24,6 +27,7 @@ fn knowledge_base_catalogs_vocabulary() {
         && r.kind == KnowledgeRelationKind::Catalogs));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn vocabulary_conforms_to_schema() {
     let m = KnowledgeCategory::morphisms();
@@ -32,6 +36,7 @@ fn vocabulary_conforms_to_schema() {
         && r.kind == KnowledgeRelationKind::ConformsTo));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn vocabulary_contains_entries() {
     let m = KnowledgeCategory::morphisms();
@@ -40,6 +45,7 @@ fn vocabulary_contains_entries() {
         && r.kind == KnowledgeRelationKind::Contains));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn vocabulary_derived_from_datasource() {
     let m = KnowledgeCategory::morphisms();
@@ -48,6 +54,7 @@ fn vocabulary_derived_from_datasource() {
         && r.kind == KnowledgeRelationKind::DerivedFrom));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn schema_defines_entry() {
     let m = KnowledgeCategory::morphisms();
@@ -60,6 +67,7 @@ fn schema_defines_entry() {
 // Knowledge-base descriptor registry tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn describe_knowledge_base_is_nonempty() {
     let descriptors = super::describe_knowledge_base();
@@ -70,6 +78,7 @@ fn describe_knowledge_base_is_nonempty() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn describe_knowledge_base_names_are_unique() {
     let descriptors = super::describe_knowledge_base();
@@ -84,6 +93,7 @@ fn describe_knowledge_base_names_are_unique() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn describe_knowledge_base_no_stale_science_prefix() {
     let descriptors = super::describe_knowledge_base();
@@ -97,6 +107,7 @@ fn describe_knowledge_base_no_stale_science_prefix() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_descriptor_has_nonzero_concepts() {
     let descriptors = super::describe_knowledge_base();
@@ -116,6 +127,7 @@ fn every_descriptor_has_nonzero_concepts() {
 // =============================================================================
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn declared_axioms_are_registered() {
     let axioms = pr4xis::ontology::describe_axioms();
@@ -138,6 +150,7 @@ fn declared_axioms_are_registered() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn declared_functors_are_registered() {
     let functors = pr4xis::ontology::describe_functors();
@@ -154,6 +167,7 @@ fn declared_functors_are_registered() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Explainable)]
 #[test]
 fn declared_adjunctions_are_registered() {
     let adjunctions = pr4xis::ontology::describe_adjunctions();
@@ -179,6 +193,7 @@ fn declared_adjunctions_are_registered() {
 // -----------------------------------------------------------------------------
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn refactor_parity_baseline_counts() {
     let vocabs = pr4xis::ontology::describe_knowledge_base().len();
@@ -225,6 +240,7 @@ fn refactor_parity_baseline_counts() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registry_sees_workspace_scale() {
     // After full migration (issue #148), the three secondary registries
@@ -252,6 +268,7 @@ fn registry_sees_workspace_scale() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn workspace_axioms_mostly_carry_citations() {
     // After issue #148 citation migration, the majority of registered
@@ -275,6 +292,7 @@ fn workspace_axioms_mostly_carry_citations() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn registered_axioms_carry_nonempty_citations() {
     // Sample check: axioms declared via the `axioms:` clause must carry
@@ -366,4 +384,9 @@ mod prop {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_self_morphisms, Deterministic);
+    pr4xis::register_praxis_value!(prop_knowledge_base_reaches_all, Verifiable);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
 }

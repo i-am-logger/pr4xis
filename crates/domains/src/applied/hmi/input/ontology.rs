@@ -531,11 +531,13 @@ mod tests {
     use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn reachability_is_a_category() {
         assert_category_laws::<ModeReachability>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn runtime_semantics_is_a_functor() {
         // The runtime functor satisfies the functor laws on the generating set —
@@ -543,12 +545,14 @@ mod tests {
         assert_functor_laws::<RuntimeSemantics>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn runtime_effects_is_a_functor() {
         // The operational (effects) functor — runtime = functor (ontology → effects).
         assert_functor_laws::<RuntimeEffects>();
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn quasimode_effect_trace() {
         use Mode::*;
@@ -570,6 +574,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn app_is_terminal_no_stuck() {
         TerminalObject::<ModeReachability, AppTerminal>::new()
@@ -577,6 +582,7 @@ mod tests {
             .unwrap_or_else(|c| panic!("no-stuck failed: {}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn quasimode_round_trip_is_identity() {
         QuasimodeRoundTripIsIdentity
@@ -584,12 +590,14 @@ mod tests {
             .unwrap_or_else(|c| panic!("quasimode failed: {}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn whole_ontology_validates() {
         ModalInteractionOntology::validate()
             .unwrap_or_else(|c| panic!("ontology invalid: {}", c.meta().name.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn app_reachable_from_every_mode() {
         for m in Mode::variants() {
@@ -644,4 +652,7 @@ mod tests {
             prop_assert_eq!(trace.0.len(), path.len());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_gesture_net_effect_is_endpoint_reachability, Extensible);
+    pr4xis::register_praxis_value!(prop_effect_trace_length_matches_gesture_length, Extensible);
 }

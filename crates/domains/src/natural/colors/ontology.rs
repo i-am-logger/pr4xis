@@ -163,28 +163,33 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eight_colors() {
         assert_eq!(ColorConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ColorCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ColorOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn luminance_endpoints() {
         assert_eq!(Luminance.get(&ColorConcept::Black), Some(0.0));
         assert!(Luminance.get(&ColorConcept::White).unwrap() > 0.99);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_additive_primaries() {
         let q = IsAdditivePrimary;
@@ -195,6 +200,7 @@ mod tests {
         assert_eq!(count, 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn complements_add_to_white_holds() {
         match ComplementsAddToWhite.verify() {
@@ -203,6 +209,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn complement_pairs_present_as_opposition() {
         // sRGB additive complement pairs are encoded as Opposition-kinded
@@ -256,4 +263,9 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_luminance_total, Verifiable);
+    pr4xis::register_praxis_value!(prop_luminance_bounded, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_is_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

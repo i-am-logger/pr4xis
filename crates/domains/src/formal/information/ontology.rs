@@ -176,22 +176,26 @@ mod tests {
     use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<InfoCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         InfoOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn eight_concepts() {
         assert_eq!(InfoConcept::variants().len(), 8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn byte_composed_of_bits() {
         // Mereological: a Bit is PART of a Byte (part→whole, BFO:0000050).
@@ -201,6 +205,7 @@ mod tests {
             && r.kind() == InfoRelationKind::Parthood));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn reference_is_a_word() {
         // Subsumption: Reference IS-A Word.
@@ -210,6 +215,7 @@ mod tests {
             && r.kind() == InfoRelationKind::Subsumption));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn truth_value_equivalent_to_bit() {
         // Shannon (1948): TruthValue and Bit are semantically equivalent.
@@ -219,6 +225,7 @@ mod tests {
             && r.kind() == InfoRelationKind::Equivalence));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ref32_size() {
         let r: Ref32 = Ref::new(42);
@@ -227,6 +234,7 @@ mod tests {
         assert_eq!(r.max_addressable(), (1u64 << 32) - 1);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ref64_size() {
         let r: Ref64 = Ref::new(999);
@@ -268,4 +276,9 @@ mod tests {
             prop_assert_eq!(v.is_some(), is_fixed);
         }
     }
+
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_atomic_or_structured, Verifiable);
+    pr4xis::register_praxis_value!(prop_bitsize_partial, Verifiable);
 }

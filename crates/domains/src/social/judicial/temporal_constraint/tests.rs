@@ -18,11 +18,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<TemporalConstraintCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     TemporalConstraintOntology::validate()
@@ -33,12 +35,14 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn seven_concepts() {
     // TemporalConstraint root + 6 leaves (Immediate + 5 granularities).
     assert_eq!(TemporalConstraintConcept::variants().len(), 7);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn five_granularity_leaves() {
     assert_eq!(granularity_leaves().len(), 5);
@@ -48,6 +52,7 @@ fn five_granularity_leaves() {
 // Duration value type
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_days() {
     let d = Duration::days(180);
@@ -56,6 +61,7 @@ fn duration_days() {
     assert!(!d.is_immediate());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_immediate_is_zero_count() {
     let d = Duration::immediate();
@@ -63,6 +69,7 @@ fn duration_immediate_is_zero_count() {
     assert!(d.is_immediate());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_business_days() {
     let d = Duration::business_days(5);
@@ -70,6 +77,7 @@ fn duration_business_days() {
     assert_eq!(d.count, 5);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn duration_to_timex3_format() {
     assert_eq!(Duration::days(180).to_timex3(), "P180D");
@@ -79,6 +87,7 @@ fn duration_to_timex3_format() {
     assert_eq!(Duration::immediate().to_timex3(), "PT0S");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sox_180_day_sol_round_trips() {
     // The SOX 1514A statute of limitations is 180 days from violation
@@ -92,21 +101,25 @@ fn sox_180_day_sol_round_trips() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_granularity_ordering() {
     assert!(GranularityOrdering.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_immediate_is_zero_duration() {
     assert!(ImmediateIsZeroDuration.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_business_day_below_week() {
     assert!(BusinessDayBelowWeek.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in TemporalConstraintOntology::axioms() {
@@ -166,3 +179,8 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_approx_days_total_on_granularity, Verifiable);
+pr4xis::register_praxis_value!(prop_days_timex3_round_trip, Deterministic);
+pr4xis::register_praxis_value!(prop_immediate_is_canonical, Deterministic);
+pr4xis::register_praxis_value!(prop_root_not_a_leaf, Verifiable);

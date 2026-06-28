@@ -197,11 +197,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<DerivationCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         DerivationOntology::validate()
@@ -221,6 +223,7 @@ mod tests {
         })
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn proof_and_trace_are_both_derivations() {
         assert!(is_a(
@@ -234,6 +237,7 @@ mod tests {
         ));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn trace_extends_proof_with_temporal_dimension() {
         // Curry-Howard (1958) / Hyland-Ong (2000): a trace IS a proof —

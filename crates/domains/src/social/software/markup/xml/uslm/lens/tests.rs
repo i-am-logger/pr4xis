@@ -49,6 +49,7 @@ const SAMPLE_TITLE: &str = r##"<?xml version="1.0" encoding="UTF-8"?>
 // Layer 1 — unit tests
 // =========================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn get_parses_synthetic_section_slice() {
     let target =
@@ -58,6 +59,7 @@ fn get_parses_synthetic_section_slice() {
     assert_eq!(target.complement.as_slice(), SAMPLE_SECTION.as_bytes());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn get_parses_synthetic_full_title() {
     let target = UslmXmlLens::get(SAMPLE_TITLE.as_bytes()).expect("get must parse synthetic title");
@@ -67,6 +69,7 @@ fn get_parses_synthetic_full_title() {
     assert!(target.view.meta.is_some(), "meta block populated");
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn put_returns_complement_bytes_verbatim() {
     let target = UslmXmlLens::get(SAMPLE_TITLE.as_bytes()).expect("get must parse synthetic title");
@@ -77,6 +80,7 @@ fn put_returns_complement_bytes_verbatim() {
     assert_eq!(put_bytes.as_slice(), SAMPLE_TITLE.as_bytes());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn get_rejects_non_utf8() {
     // 0xFF is not valid UTF-8.
@@ -84,6 +88,7 @@ fn get_rejects_non_utf8() {
     assert!(matches!(err, UslmLensError::NotUtf8(_)));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn get_rejects_non_usc_root() {
     // Well-formed XML, but no `<uscDoc>` / `<title>` / `<section>` root.
@@ -114,12 +119,14 @@ fn get_rejects_non_usc_root() {
 /// Spyratos 1981 Theorem 3), `put(get(s)) = s` byte-verbatim — the
 /// canonical-form check is the stronger framing used by the M4.θ
 /// fractal-round-trip gate.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_put_get_law_synthetic_section() {
     UslmXmlLens::assert_put_get_law(SAMPLE_SECTION.as_bytes()).expect("PutGet on section slice");
 }
 
 /// Axiom — PutGet on a full synthetic title.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_put_get_law_synthetic_title() {
     UslmXmlLens::assert_put_get_law(SAMPLE_TITLE.as_bytes()).expect("PutGet on full title");
@@ -127,6 +134,7 @@ fn axiom_put_get_law_synthetic_title() {
 
 /// Axiom — GetPut. `get(put(get(s)))` must yield a view structurally
 /// equal to `get(s)`. Foster et al. 2007 §2.2.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_get_put_law_synthetic_section() {
     let first = UslmXmlLens::get(SAMPLE_SECTION.as_bytes()).expect("first get");
@@ -138,6 +146,7 @@ fn axiom_get_put_law_synthetic_section() {
 
 /// Axiom — PutPut. Successive puts of the same target yield the same
 /// bytes. Foster et al. 2007 §2.2.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_put_put_law_synthetic_section() {
     let target = UslmXmlLens::get(SAMPLE_SECTION.as_bytes()).expect("get");
@@ -148,6 +157,7 @@ fn axiom_put_put_law_synthetic_section() {
 
 /// Axiom — canonical form is idempotent. W3C XML C14N 1.1 §3
 /// (Boyer & Marcy 2008): `canonical(canonical(s)) = canonical(s)`.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_canonical_is_idempotent() {
     let once = UslmXmlLens::canonical(SAMPLE_SECTION.as_bytes()).expect("c14n once");
@@ -158,6 +168,7 @@ fn axiom_canonical_is_idempotent() {
 /// Axiom — canonical form is preserved across round-trip. For every
 /// `s`, `canonical(put(get(s))) == canonical(s)` exactly (not just
 /// modulo whitespace). Foster et al. 2007 §2.2 PutGet law.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_canonical_round_trip_equals_input() {
     let input_canonical =
@@ -178,6 +189,7 @@ fn axiom_canonical_round_trip_equals_input() {
 /// of Title 18 and the lens's PutGet law (Foster et al. 2007 §2.2) is run
 /// over those genuine published bytes. FAILS LOUD when the corpus is
 /// absent — CI fetches it via `pr4xis update usc_title_18`; no skip.
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_put_get_law_on_real_sox_1514a_slice() {
     let bytes = crate::social::software::markup::xml::uslm::real_sox_1514a::section_bytes();
@@ -236,6 +248,13 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(
+    prop_put_get_law_section_with_arbitrary_identifier,
+    Deterministic
+);
+pr4xis::register_praxis_value!(prop_get_put_law_arbitrary_section, Deterministic);
+pr4xis::register_praxis_value!(prop_put_put_law, Deterministic);
+
 // =========================================================
 // Layer 4 — XSD-grounded-dispatch axioms (M4.ε.5.a.5)
 // =========================================================
@@ -254,6 +273,7 @@ use crate::formal::meta::xsd::uslm_vocabulary::loaded_uslm_1_0_18_xsd;
 ///
 /// W3C XSD 1.1 Part 1 §3.3 — *Element Declarations*: a name with no
 /// declaration has no `{type definition}` to dispatch on.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_walker_only_uses_xsd_ontology_queries() {
     let xsd = project_from_xsd_text(loaded_uslm_1_0_18_xsd());
@@ -281,6 +301,7 @@ fn axiom_walker_only_uses_xsd_ontology_queries() {
 /// Axiom — substitution-group dispatch routes hierarchy elements
 /// through the loaded XSD's `"level"` substitution-group head per
 /// W3C XSD 1.1 Part 1 §3.3.6.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_level_substitution_group_membership_grounded() {
     let xsd = project_from_xsd_text(loaded_uslm_1_0_18_xsd());
@@ -314,6 +335,7 @@ fn axiom_level_substitution_group_membership_grounded() {
 
 /// Axiom — type-of-element query returns the loaded XSD's declared
 /// type reference per W3C XSD 1.1 Part 1 §3.3.2.3.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_type_of_element_grounded() {
     let xsd = project_from_xsd_text(loaded_uslm_1_0_18_xsd());
@@ -345,6 +367,7 @@ fn axiom_type_of_element_grounded() {
 /// minimal section slice. (W3C XSD 1.1 Part 1 §3.3.6 — substitution-
 /// group monotonicity: adding a new member to the loaded XSD
 /// doesn't break existing dispatches.)
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_level_members_round_trip_through_lens() {
     // The minimal round-trip is a `<section>`-rooted slice (the
@@ -363,6 +386,7 @@ fn axiom_level_members_round_trip_through_lens() {
 /// [`UslmLensError::UnknownElement`] — no fallback path that
 /// hand-codes recovery. (W3C XSD 1.1 Part 1 §3.3 — undeclared name
 /// has no `{type definition}`.)
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn axiom_undeclared_names_produce_unknown_element() {
     // `<not_a_usl_element>` is in the document's default namespace
@@ -401,6 +425,7 @@ fn axiom_undeclared_names_produce_unknown_element() {
 /// The synthetic title sample has a known structural shape — exercise
 /// the audit machinery on it first to verify the histogram math is
 /// correct before running over multi-megabyte USC titles.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_structural_audit_on_synthetic_title() {
     use super::structural_audit::audit_structural_content;

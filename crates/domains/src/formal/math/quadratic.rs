@@ -142,6 +142,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_x2_minus_5x_plus_6() {
         let e = new_equation(1.0, -5.0, 6.0).unwrap();
@@ -152,12 +153,14 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_complex() {
         let e = new_equation(1.0, 0.0, 1.0).unwrap();
         assert!(matches!(e.situation().roots, Roots::Complex { .. }));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn test_a_zero_blocked() {
         assert!(
@@ -187,4 +190,7 @@ mod tests {
             }
         }
     }
+
+    pr4xis::register_praxis_value!(prop_roots_always_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_discriminant_sign, Verifiable);
 }

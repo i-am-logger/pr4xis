@@ -39,6 +39,7 @@ const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 // Language lexical lookup tests — ALL through the Language trait
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_function_word_determiner() {
     let lang = sample_lang();
@@ -46,6 +47,7 @@ fn lookup_function_word_determiner() {
     assert_eq!(the.pos_tag(), PosTag::Determiner);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_function_word_copula() {
     let lang = sample_lang();
@@ -53,6 +55,7 @@ fn lookup_function_word_copula() {
     assert_eq!(is.pos_tag(), PosTag::Copula);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_function_word_pronoun() {
     let lang = sample_lang();
@@ -60,6 +63,7 @@ fn lookup_function_word_pronoun() {
     assert_eq!(she.pos_tag(), PosTag::Pronoun);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_interrogative_pronoun() {
     let lang = sample_lang();
@@ -68,6 +72,7 @@ fn lookup_interrogative_pronoun() {
     assert!(!what.is_anaphoric());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_personal_pronoun_is_anaphoric() {
     let lang = sample_lang();
@@ -76,6 +81,7 @@ fn lookup_personal_pronoun_is_anaphoric() {
     assert!(!it.is_interrogative());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_content_word_noun() {
     let lang = sample_lang();
@@ -83,6 +89,7 @@ fn lookup_content_word_noun() {
     assert_eq!(dog.pos_tag(), PosTag::Noun);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_content_word_verb() {
     let lang = sample_lang();
@@ -90,6 +97,7 @@ fn lookup_content_word_verb() {
     assert_eq!(runs.pos_tag(), PosTag::Verb);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn lookup_homograph_has_multiple() {
     let lang = sample_lang();
@@ -97,12 +105,14 @@ fn lookup_homograph_has_multiple() {
     assert!(all.len() >= 2, "read should have verb + noun entries");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn lookup_unknown_returns_none() {
     let lang = sample_lang();
     assert!(lang.lexical_lookup("xyzzy").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn function_word_not_in_content() {
     let lang = sample_lang();
@@ -111,6 +121,7 @@ fn function_word_not_in_content() {
     assert_eq!(the.pos_tag(), PosTag::Determiner);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn verb_has_both_transitive_and_intransitive() {
     let lang = sample_lang();
@@ -130,11 +141,13 @@ fn verb_has_both_transitive_and_intransitive() {
 // Ontology tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn lexical_category_laws() {
     assert_category_laws::<LexicalCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn adjective_modifies_noun() {
     let morphisms = LexicalCategory::morphisms();
@@ -144,6 +157,7 @@ fn adjective_modifies_noun() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn adverb_modifies_verb() {
     let morphisms = LexicalCategory::morphisms();
@@ -153,6 +167,7 @@ fn adverb_modifies_verb() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn auxiliary_modifies_verb() {
     let morphisms = LexicalCategory::morphisms();
@@ -162,6 +177,7 @@ fn auxiliary_modifies_verb() {
     }));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn content_word_quality() {
     let q = IsContentWord;
@@ -212,4 +228,7 @@ mod prop {
             prop_assert!(pos.is_content() != pos.is_function());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_exists, Deterministic);
+    pr4xis::register_praxis_value!(prop_content_or_function, Verifiable);
 }

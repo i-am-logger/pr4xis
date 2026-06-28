@@ -3,6 +3,7 @@
 
 use crate::social::compliance::statutes::air21_42121::statute;
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn returns_a_statute() {
     let s = statute();
@@ -10,6 +11,7 @@ fn returns_a_statute() {
     assert_eq!(s.version(), "2010");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn description_references_uslm_source() {
     let s = statute();
@@ -20,6 +22,7 @@ fn description_references_uslm_source() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn terms_include_published_subsections() {
     let s = statute();
@@ -33,6 +36,7 @@ fn terms_include_published_subsections() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn burden_shifting_clauses_present() {
     // § 42121(b)(2)(B)(i)-(iv) — the four-clause burden-shifting
@@ -47,6 +51,7 @@ fn burden_shifting_clauses_present() {
     }
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn idempotent_across_calls() {
     let a = statute() as *const _;
@@ -54,6 +59,7 @@ fn idempotent_across_calls() {
     assert_eq!(a, b);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_term_ids_are_unique() {
     let s = statute();
@@ -64,6 +70,7 @@ fn all_term_ids_are_unique() {
     assert_eq!(ids.len(), n);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_relation_endpoints_resolve_to_terms() {
     let s = statute();
@@ -82,6 +89,7 @@ fn all_relation_endpoints_resolve_to_terms() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_term_curies_use_air21_prefix() {
     for t in statute().terms() {
@@ -93,6 +101,7 @@ fn all_term_curies_use_air21_prefix() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_term_has_non_empty_name_and_definition() {
     for t in statute().terms() {
@@ -109,6 +118,7 @@ fn every_term_has_non_empty_name_and_definition() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn every_term_carries_urn_provenance() {
     let s = statute();
@@ -120,6 +130,7 @@ fn every_term_carries_urn_provenance() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn term_count_meets_published_subsection_floor() {
     let n = statute().terms().len();
@@ -134,6 +145,7 @@ fn term_count_meets_published_subsection_floor() {
 // the Statute query API on the air21_42121 USLM-derived instance.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relations_from_returns_only_outgoing() {
     let s = statute();
@@ -151,6 +163,7 @@ fn relations_from_returns_only_outgoing() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relations_to_returns_only_incoming() {
     let s = statute();
@@ -168,6 +181,7 @@ fn relations_to_returns_only_incoming() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn relation_iteration_is_partition_consistent() {
     let s = statute();
@@ -186,6 +200,7 @@ fn relation_iteration_is_partition_consistent() {
     assert_eq!(by_to, total);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn term_by_curie_finds_existing_terms() {
     let s = statute();
@@ -198,6 +213,7 @@ fn term_by_curie_finds_existing_terms() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn term_by_curie_returns_none_for_unknown() {
     let s = statute();
@@ -205,6 +221,7 @@ fn term_by_curie_returns_none_for_unknown() {
     assert!(s.term_by_curie("other_statute:a").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn term_by_id_and_term_by_curie_agree() {
     let s = statute();

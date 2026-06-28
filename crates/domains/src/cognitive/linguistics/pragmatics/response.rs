@@ -104,6 +104,7 @@ mod tests {
     use pr4xis::category::Category;
     use pr4xis::category::FinitelyGenerated;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_identity_law() {
         for obj in ResponseConcept::variants() {
@@ -113,6 +114,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_composition_with_identity() {
         for m in &ResponseCategory::morphisms() {
@@ -122,11 +124,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn has_six_concepts() {
         assert_eq!(ResponseConcept::variants().len(), 6);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn content_realizes_as_surface_form() {
         assert!(
@@ -138,6 +142,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn context_reaches_surface_form() {
         // Per #166 the auto-generated kind no longer emits `Composed`;
@@ -159,6 +164,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn epistemic_frames_map_correctly() {
         use crate::cognitive::cognition::epistemics::EpistemicConcept;

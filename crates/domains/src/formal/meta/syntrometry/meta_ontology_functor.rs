@@ -109,6 +109,7 @@ mod tests {
 
     /// Heim's vocabulary aligns with pr4xis's
     /// own meta-ontology vocabulary via a strict Functor.
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn meta_ontology_functor_laws_pass() {
         assert_functor_laws::<SyntrometryToMetaOntology>();

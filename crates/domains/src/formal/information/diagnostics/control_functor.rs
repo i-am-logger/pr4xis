@@ -74,11 +74,13 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn functor_laws() {
         assert_functor_laws::<DiagnosticsToControl>();
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn residual_is_error() {
         // Gertler FDI: residual r(t) = y(t) - ŷ(t) IS the error signal
@@ -88,6 +90,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn remedy_is_actuator() {
         assert_eq!(

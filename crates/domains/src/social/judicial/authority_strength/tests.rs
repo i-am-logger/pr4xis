@@ -19,11 +19,13 @@ use proptest::prelude::*;
 // Category laws and validation
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn category_laws() {
     assert_category_laws::<AuthorityStrengthCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn ontology_validates() {
     AuthorityStrengthOntology::validate()
@@ -34,23 +36,27 @@ fn ontology_validates() {
 // Concept surface
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn twelve_concepts() {
     // 1 root + 2 branches + 9 leaves.
     assert_eq!(AuthorityStrengthConcept::variants().len(), 12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn nine_leaves() {
     assert_eq!(leaves().len(), 9);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn five_binding_four_persuasive() {
     assert_eq!(binding_leaves().len(), 5);
     assert_eq!(persuasive_leaves().len(), 4);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn binding_persuasive_partitions_leaves() {
     for c in leaves() {
@@ -65,6 +71,7 @@ fn binding_persuasive_partitions_leaves() {
 // BindingForceOf — tier ordering
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn constitutional_is_highest_tier() {
     assert_eq!(
@@ -73,6 +80,7 @@ fn constitutional_is_highest_tier() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn secondary_source_is_lowest_tier() {
     assert_eq!(
@@ -81,6 +89,7 @@ fn secondary_source_is_lowest_tier() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn root_and_branches_have_no_tier() {
     for c in [
@@ -92,6 +101,7 @@ fn root_and_branches_have_no_tier() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn binding_tier_floor_matches_controlling_circuit() {
     // BINDING_TIER_FLOOR should equal the lowest binding leaf's tier.
@@ -101,6 +111,7 @@ fn binding_tier_floor_matches_controlling_circuit() {
     assert_eq!(BINDING_TIER_FLOOR, lowest_binding);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn binding_tier_floor_excludes_arb() {
     // ARB is the highest persuasive tier; it sits below the floor.
@@ -110,6 +121,7 @@ fn binding_tier_floor_excludes_arb() {
     assert!(arb < BINDING_TIER_FLOOR);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn descending_tier_order() {
     // The leaves array is documented in descending order; verify.
@@ -121,6 +133,7 @@ fn descending_tier_order() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn at_least_as_binding_total_on_leaves() {
     assert_eq!(
@@ -139,6 +152,7 @@ fn at_least_as_binding_total_on_leaves() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn at_least_as_binding_returns_none_on_non_leaf() {
     assert_eq!(
@@ -161,6 +175,7 @@ fn at_least_as_binding_returns_none_on_non_leaf() {
 // JurisdictionScopeOf — horizontal dimension
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn universal_federal_scope_for_constitution_statute_scotus() {
     let q = JurisdictionScopeOf;
@@ -175,6 +190,7 @@ fn universal_federal_scope_for_constitution_statute_scotus() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn controlling_circuit_has_placeholder_scope() {
     let scope = JurisdictionScopeOf
@@ -183,6 +199,7 @@ fn controlling_circuit_has_placeholder_scope() {
     assert_eq!(scope.value(), "jurisdiction:single_circuit");
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn persuasive_concepts_have_no_binding_scope() {
     let q = JurisdictionScopeOf;
@@ -195,6 +212,7 @@ fn persuasive_concepts_have_no_binding_scope() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn abstract_concepts_have_no_scope() {
     let q = JurisdictionScopeOf;
@@ -211,36 +229,43 @@ fn abstract_concepts_have_no_scope() {
 // Axioms
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_partition_completeness() {
     assert!(PartitionCompleteness.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_binding_exceeds_all_persuasive() {
     assert!(BindingExceedsAllPersuasive.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_constitutional_supremacy() {
     assert!(ConstitutionalSupremacy.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_statute_exceeds_regulation() {
     assert!(StatuteExceedsRegulation.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_supreme_court_atop_precedent() {
     assert!(SupremeCourtAtopPrecedentHierarchy.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_force_tiers_are_distinct() {
     assert!(ForceTiersAreDistinct.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn all_axioms_hold() {
     for axiom in AuthorityStrengthOntology::axioms() {
@@ -341,3 +366,11 @@ proptest! {
         }
     }
 }
+
+pr4xis::register_praxis_value!(prop_tier_total_on_leaves, Verifiable);
+pr4xis::register_praxis_value!(prop_binding_floor_separates, Verifiable);
+pr4xis::register_praxis_value!(prop_at_least_reflexive, Verifiable);
+pr4xis::register_praxis_value!(prop_at_least_antisymmetric, Verifiable);
+pr4xis::register_praxis_value!(prop_at_least_transitive, Verifiable);
+pr4xis::register_praxis_value!(prop_tiers_distinct, Verifiable);
+pr4xis::register_praxis_value!(prop_constitutional_dominates, Verifiable);

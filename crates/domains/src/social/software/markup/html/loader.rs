@@ -140,6 +140,7 @@ fn extract_attr(slice: &str, key: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn xsd_bundle_is_nonempty() {
         // The bundle ships with praxis; if this fires the file is
@@ -156,6 +157,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_yields_expected_element_count() {
         // Pemberton et al. (2002) XHTML 1.0 Strict §A.1 DTD (mirrored
@@ -172,6 +174,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loader_yields_expected_attribute_count() {
         // Pemberton et al. (2002) XHTML 1.0 Strict §A.1 DTD (mirrored
@@ -188,6 +191,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn key_html_elements_recognized() {
         // Spot-check elements that downstream code (USLM citations,
@@ -207,6 +211,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn key_html_attributes_recognized() {
         // Spot-check attributes — same idea as above.
@@ -221,6 +226,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn lookup_is_case_insensitive() {
         // WHATWG HTML LS §13.1.2 / HTML 4.01 §3.2.2 — element /
@@ -233,6 +239,7 @@ mod tests {
         assert!(is_html_attribute("href"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn no_html5_only_elements_in_xhtml_1_0_strict() {
         // The bundled XSD is XHTML 1.0 Strict, which predates the
@@ -282,6 +289,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn empty_input_rejected() {
         assert!(!is_html_element(""));

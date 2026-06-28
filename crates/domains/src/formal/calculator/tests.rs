@@ -24,40 +24,47 @@ fn arb_value() -> impl Strategy<Value = Value> {
 // Value / Fraction simplification tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_2_over_4_simplifies_to_1_over_2() {
     let v = Value::rational(2, 4).unwrap();
     assert_eq!(v, Value::Rational(1, 2));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_6_over_9_simplifies_to_2_over_3() {
     let v = Value::rational(6, 9).unwrap();
     assert_eq!(v, Value::Rational(2, 3));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_negative_denominator_normalized() {
     let v = Value::rational(3, -6).unwrap();
     assert_eq!(v, Value::Rational(-1, 2));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_zero_numerator() {
     let v = Value::rational(0, 5).unwrap();
     assert_eq!(v, Value::Rational(0, 1));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_division_by_zero_rejected() {
     assert!(Value::rational(1, 0).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_integer_display() {
     assert_eq!(Value::int(42).to_string(), "42");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_fraction_display() {
     assert_eq!(Value::rational(3, 4).unwrap().to_string(), "3/4");
@@ -67,6 +74,7 @@ fn test_fraction_display() {
 // Arithmetic tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_add_fractions() {
     let a = Value::rational(1, 3).unwrap();
@@ -75,6 +83,7 @@ fn test_add_fractions() {
     assert_eq!(result, Value::Rational(1, 2));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_multiply_fractions() {
     let a = Value::rational(2, 3).unwrap();
@@ -83,6 +92,7 @@ fn test_multiply_fractions() {
     assert_eq!(result, Value::Rational(1, 2));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_divide_fractions() {
     let a = Value::rational(1, 2).unwrap();
@@ -91,6 +101,7 @@ fn test_divide_fractions() {
     assert_eq!(result, Value::Rational(2, 1));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_divide_by_zero() {
     let result = BinaryOp::Divide.apply(&Value::int(5), &Value::int(0));
@@ -101,12 +112,14 @@ fn test_divide_by_zero() {
 // Domain enforcement tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_sqrt_negative_rejected() {
     let result = UnaryOp::Sqrt.apply(&Value::int(-4), AngleMode::Radians);
     assert_eq!(result, Err(CalcError::NegativeSquareRoot));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_sqrt_exact_rational() {
     let result = UnaryOp::Sqrt
@@ -115,18 +128,21 @@ fn test_sqrt_exact_rational() {
     assert_eq!(result, Value::Rational(3, 2));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_ln_zero_rejected() {
     let result = UnaryOp::Ln.apply(&Value::int(0), AngleMode::Radians);
     assert_eq!(result, Err(CalcError::LogOfNonPositive));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_ln_negative_rejected() {
     let result = UnaryOp::Ln.apply(&Value::int(-5), AngleMode::Radians);
     assert_eq!(result, Err(CalcError::LogOfNonPositive));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_factorial() {
     let result = UnaryOp::Factorial
@@ -135,6 +151,7 @@ fn test_factorial() {
     assert_eq!(result, Value::int(120));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_factorial_zero() {
     let result = UnaryOp::Factorial
@@ -143,18 +160,21 @@ fn test_factorial_zero() {
     assert_eq!(result, Value::int(1));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_factorial_negative_rejected() {
     let result = UnaryOp::Factorial.apply(&Value::int(-3), AngleMode::Radians);
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_factorial_overflow() {
     let result = UnaryOp::Factorial.apply(&Value::int(21), AngleMode::Radians);
     assert_eq!(result, Err(CalcError::Overflow));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_asin_out_of_range() {
     let result = UnaryOp::Asin.apply(&Value::Float(1.5), AngleMode::Radians);
@@ -165,6 +185,7 @@ fn test_asin_out_of_range() {
 // Expression simplification tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_constant_folding() {
     let expr = Expr::binary(BinaryOp::Add, Expr::int(2), Expr::int(3));
@@ -172,42 +193,49 @@ fn test_constant_folding() {
     assert_eq!(simplified, Expr::Lit(Value::int(5)));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_add_zero_identity() {
     let expr = Expr::binary(BinaryOp::Add, Expr::int(5), Expr::int(0));
     assert_eq!(expr.simplify(), Expr::int(5));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_multiply_one_identity() {
     let expr = Expr::binary(BinaryOp::Multiply, Expr::int(7), Expr::int(1));
     assert_eq!(expr.simplify(), Expr::int(7));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_multiply_zero_absorbs() {
     let expr = Expr::binary(BinaryOp::Multiply, Expr::int(99), Expr::int(0));
     assert_eq!(expr.simplify(), Expr::int(0));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_power_zero() {
     let expr = Expr::binary(BinaryOp::Power, Expr::int(5), Expr::int(0));
     assert_eq!(expr.simplify(), Expr::int(1));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_power_one() {
     let expr = Expr::binary(BinaryOp::Power, Expr::int(5), Expr::int(1));
     assert_eq!(expr.simplify(), Expr::int(5));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_double_negation() {
     let expr = Expr::unary(UnaryOp::Negate, Expr::unary(UnaryOp::Negate, Expr::int(5)));
     assert_eq!(expr.simplify(), Expr::int(5));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_fraction_simplification_in_expr() {
     // (2/4) evaluates to 1/2
@@ -220,12 +248,14 @@ fn test_fraction_simplification_in_expr() {
 // Calculator state tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_starts_at_zero() {
     let calc = Calculator::new();
     assert!(calc.display.is_zero());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_memory_operations() {
     let mut calc = Calculator::new();
@@ -237,6 +267,7 @@ fn test_memory_operations() {
     assert_eq!(calc.display, Value::int(42));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_memory_add() {
     let mut calc = Calculator::new();
@@ -248,6 +279,7 @@ fn test_memory_add() {
     assert_eq!(calc.display, Value::int(15));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_history_tracked() {
     let mut calc = Calculator::new();
@@ -711,10 +743,66 @@ proptest! {
     }
 }
 
+pr4xis::register_praxis_value!(prop_rational_simplified, Deterministic);
+pr4xis::register_praxis_value!(prop_positive_denominator, Deterministic);
+pr4xis::register_praxis_value!(prop_div_zero_fails, Honest);
+pr4xis::register_praxis_value!(prop_add_zero_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_mul_one_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_mul_zero_absorbs, Verifiable);
+pr4xis::register_praxis_value!(prop_add_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_mul_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_double_negate, Deterministic);
+pr4xis::register_praxis_value!(prop_double_reciprocal, Deterministic);
+pr4xis::register_praxis_value!(prop_sqrt_square_identity, Deterministic);
+pr4xis::register_praxis_value!(prop_sqrt_negative_fails, Honest);
+pr4xis::register_praxis_value!(prop_ln_exp_inverse, Deterministic);
+pr4xis::register_praxis_value!(prop_pythagorean_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_trig_at_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_simplify_preserves_value, Deterministic);
+pr4xis::register_praxis_value!(prop_simplify_idempotent, Deterministic);
+pr4xis::register_praxis_value!(prop_clear_is_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_all_clear, Verifiable);
+pr4xis::register_praxis_value!(prop_memory_store_recall, Deterministic);
+pr4xis::register_praxis_value!(prop_precedence, Verifiable);
+pr4xis::register_praxis_value!(prop_hyperbolic_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_tanh_bounded, Verifiable);
+pr4xis::register_praxis_value!(prop_asinh_inverse, Deterministic);
+pr4xis::register_praxis_value!(prop_complex_magnitude_squared, Verifiable);
+pr4xis::register_praxis_value!(prop_complex_conj_add, Verifiable);
+pr4xis::register_praxis_value!(prop_complex_conj_sub, Verifiable);
+pr4xis::register_praxis_value!(prop_sqrt_neg_one, Verifiable);
+pr4xis::register_praxis_value!(prop_complex_div_self, Verifiable);
+pr4xis::register_praxis_value!(prop_euler_identity, Verifiable);
+pr4xis::register_praxis_value!(prop_and_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_or_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_xor_commutative, Verifiable);
+pr4xis::register_praxis_value!(prop_xor_self_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_double_not, Deterministic);
+pr4xis::register_praxis_value!(prop_and_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_or_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_base_roundtrip, Deterministic);
+pr4xis::register_praxis_value!(prop_unit_roundtrip, Deterministic);
+pr4xis::register_praxis_value!(prop_temp_roundtrip, Deterministic);
+pr4xis::register_praxis_value!(prop_absolute_zero_enforced, Honest);
+pr4xis::register_praxis_value!(prop_incompatible_units_rejected, Honest);
+pr4xis::register_praxis_value!(prop_freezing_point, Verifiable);
+pr4xis::register_praxis_value!(prop_boiling_point, Verifiable);
+pr4xis::register_praxis_value!(prop_ncr_zero, Verifiable);
+pr4xis::register_praxis_value!(prop_ncr_n, Verifiable);
+pr4xis::register_praxis_value!(prop_ncr_one, Verifiable);
+pr4xis::register_praxis_value!(prop_ncr_symmetric, Verifiable);
+pr4xis::register_praxis_value!(prop_npr_gte_ncr, Verifiable);
+pr4xis::register_praxis_value!(prop_npn_is_factorial, Verifiable);
+pr4xis::register_praxis_value!(prop_r_gt_n_rejected, Honest);
+pr4xis::register_praxis_value!(prop_constants_positive, Verifiable);
+pr4xis::register_praxis_value!(prop_pi_value, Verifiable);
+pr4xis::register_praxis_value!(prop_e_value, Verifiable);
+
 // =============================================================================
 // Expr construction and evaluation tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_lit() {
     let v = Value::rational(3, 4).unwrap();
@@ -722,12 +810,14 @@ fn test_expr_lit() {
     assert_eq!(expr, Expr::Lit(v));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_int() {
     let expr = Expr::int(42);
     assert_eq!(expr, Expr::Lit(Value::int(42)));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_unary_construction() {
     let expr = Expr::unary(UnaryOp::Negate, Expr::int(5));
@@ -740,6 +830,7 @@ fn test_expr_unary_construction() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_binary_construction() {
     let expr = Expr::binary(BinaryOp::Subtract, Expr::int(10), Expr::int(3));
@@ -753,6 +844,7 @@ fn test_expr_binary_construction() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_eval_lit() {
     let expr = Expr::lit(Value::Float(2.5));
@@ -760,6 +852,7 @@ fn test_expr_eval_lit() {
     assert_eq!(result, Value::Float(2.5));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_eval_unary() {
     let expr = Expr::unary(UnaryOp::Negate, Expr::int(7));
@@ -767,6 +860,7 @@ fn test_expr_eval_unary() {
     assert_eq!(result, Value::int(-7));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_eval_binary_subtract() {
     let expr = Expr::binary(BinaryOp::Subtract, Expr::int(10), Expr::int(3));
@@ -774,6 +868,7 @@ fn test_expr_eval_binary_subtract() {
     assert_eq!(result, Value::int(7));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_expr_eval_nested() {
     // (2 + 3) * 4 = 20
@@ -783,6 +878,7 @@ fn test_expr_eval_nested() {
     assert_eq!(result, Value::int(20));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_expr_eval_error_propagates() {
     // sqrt(-1) should fail
@@ -793,6 +889,7 @@ fn test_expr_eval_error_propagates() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_expr_eval_binary_error_propagates() {
     // 5 / 0 should fail
@@ -805,42 +902,49 @@ fn test_expr_eval_binary_error_propagates() {
 
 // Additional simplification tests
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_subtract_zero() {
     let expr = Expr::binary(BinaryOp::Subtract, Expr::int(5), Expr::int(0));
     assert_eq!(expr.simplify(), Expr::int(5));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_divide_by_one() {
     let expr = Expr::binary(BinaryOp::Divide, Expr::int(9), Expr::int(1));
     assert_eq!(expr.simplify(), Expr::int(9));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_zero_times_left() {
     let expr = Expr::binary(BinaryOp::Multiply, Expr::int(0), Expr::int(42));
     assert_eq!(expr.simplify(), Expr::int(0));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_one_times_left() {
     let expr = Expr::binary(BinaryOp::Multiply, Expr::int(1), Expr::int(42));
     assert_eq!(expr.simplify(), Expr::int(42));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_zero_plus_left() {
     let expr = Expr::binary(BinaryOp::Add, Expr::int(0), Expr::int(7));
     assert_eq!(expr.simplify(), Expr::int(7));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_negate_constant_folds() {
     let expr = Expr::unary(UnaryOp::Negate, Expr::int(3));
     assert_eq!(expr.simplify(), Expr::Lit(Value::int(-3)));
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_unary_constant_folds() {
     // sqrt(4) should constant fold to 2
@@ -850,6 +954,7 @@ fn test_simplify_unary_constant_folds() {
     assert!((val.to_f64() - 2.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_simplify_modulo_not_identity() {
     // Modulo doesn't have identity rules, so it should constant fold
@@ -863,6 +968,7 @@ fn test_simplify_modulo_not_identity() {
 // Complex number tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_new() {
     let z = Complex::new(3.0, 4.0);
@@ -870,6 +976,7 @@ fn test_complex_new() {
     assert_eq!(z.im, 4.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_real() {
     let z = Complex::real(5.0);
@@ -877,6 +984,7 @@ fn test_complex_real() {
     assert_eq!(z.im, 0.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_imaginary() {
     let z = Complex::imaginary(3.0);
@@ -884,6 +992,7 @@ fn test_complex_imaginary() {
     assert_eq!(z.im, 3.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_constants() {
     assert_eq!(Complex::I.re, 0.0);
@@ -894,6 +1003,7 @@ fn test_complex_constants() {
     assert_eq!(Complex::ONE.im, 0.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_is_real() {
     assert!(Complex::real(5.0).is_real());
@@ -901,6 +1011,7 @@ fn test_complex_is_real() {
     assert!(Complex::ZERO.is_real());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_is_imaginary() {
     assert!(Complex::imaginary(3.0).is_imaginary());
@@ -909,18 +1020,21 @@ fn test_complex_is_imaginary() {
     assert!(!Complex::real(5.0).is_imaginary());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_magnitude() {
     let z = Complex::new(3.0, 4.0);
     assert!((z.magnitude() - 5.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_phase() {
     let z = Complex::new(1.0, 1.0);
     assert!((z.phase() - core::f64::consts::FRAC_PI_4).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_conjugate() {
     let z = Complex::new(3.0, 4.0);
@@ -929,6 +1043,7 @@ fn test_complex_conjugate() {
     assert_eq!(conj.im, -4.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_add() {
     let a = Complex::new(1.0, 2.0);
@@ -938,6 +1053,7 @@ fn test_complex_add() {
     assert!((result.im - 6.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_sub() {
     let a = Complex::new(5.0, 7.0);
@@ -947,6 +1063,7 @@ fn test_complex_sub() {
     assert!((result.im - 4.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_mul() {
     // (1+2i)(3+4i) = 3+4i+6i+8i² = 3+10i-8 = -5+10i
@@ -957,6 +1074,7 @@ fn test_complex_mul() {
     assert!((result.im - 10.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_div() {
     // (1+2i)/(1+0i) = 1+2i
@@ -967,6 +1085,7 @@ fn test_complex_div() {
     assert!((result.im - 2.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_complex_div_by_zero() {
     let a = Complex::new(1.0, 2.0);
@@ -974,6 +1093,7 @@ fn test_complex_div_by_zero() {
     assert_eq!(a.div(&b), Err(CalcError::DivisionByZero));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_sqrt() {
     // sqrt(4) = 2
@@ -983,6 +1103,7 @@ fn test_complex_sqrt() {
     assert!(result.im.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_sqrt_negative() {
     // sqrt(-4) = 2i
@@ -992,6 +1113,7 @@ fn test_complex_sqrt_negative() {
     assert!((result.im - 2.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_sqrt_imaginary() {
     // sqrt(i) = (1+i)/sqrt(2)
@@ -1003,6 +1125,7 @@ fn test_complex_sqrt_imaginary() {
     assert!((result.im - expected_im).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_exp() {
     // e^0 = 1
@@ -1012,6 +1135,7 @@ fn test_complex_exp() {
     assert!(result.im.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_exp_real() {
     // e^1 = e
@@ -1021,6 +1145,7 @@ fn test_complex_exp_real() {
     assert!(result.im.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_ln() {
     // ln(1) = 0
@@ -1030,6 +1155,7 @@ fn test_complex_ln() {
     assert!(result.im.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_ln_e() {
     // ln(e) = 1
@@ -1039,12 +1165,14 @@ fn test_complex_ln_e() {
     assert!(result.im.abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_complex_ln_zero() {
     let z = Complex::ZERO;
     assert_eq!(z.ln(), Err(CalcError::LogOfNonPositive));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_ln_negative() {
     // ln(-1) = iπ
@@ -1054,6 +1182,7 @@ fn test_complex_ln_negative() {
     assert!((result.im - core::f64::consts::PI).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_negate() {
     let z = Complex::new(3.0, -4.0);
@@ -1062,6 +1191,7 @@ fn test_complex_negate() {
     assert_eq!(result.im, 4.0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_pow_integer() {
     // (1+i)^2 = 2i
@@ -1072,6 +1202,7 @@ fn test_complex_pow_integer() {
     assert!((result.im - 2.0).abs() < 1e-8);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_pow_zero_base_positive_exp() {
     let z = Complex::ZERO;
@@ -1081,6 +1212,7 @@ fn test_complex_pow_zero_base_positive_exp() {
     assert_eq!(result.im, 0.0);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_complex_pow_zero_base_non_positive_exp() {
     let z = Complex::ZERO;
@@ -1088,24 +1220,28 @@ fn test_complex_pow_zero_base_non_positive_exp() {
     assert_eq!(z.pow(&w), Err(CalcError::DivisionByZero));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_display_real() {
     let z = Complex::real(3.0);
     assert_eq!(format!("{}", z), "3");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_display_imaginary() {
     let z = Complex::imaginary(4.0);
     assert_eq!(format!("{}", z), "4i");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_display_positive_imaginary() {
     let z = Complex::new(3.0, 4.0);
     assert_eq!(format!("{}", z), "3 + 4i");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_complex_display_negative_imaginary() {
     let z = Complex::new(3.0, -4.0);
@@ -1116,61 +1252,72 @@ fn test_complex_display_negative_imaginary() {
 // Bitwise operations tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_and() {
     assert_eq!(BitwiseOp::And.apply(0b1100, 0b1010).unwrap(), 0b1000);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_or() {
     assert_eq!(BitwiseOp::Or.apply(0b1100, 0b1010).unwrap(), 0b1110);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_xor() {
     assert_eq!(BitwiseOp::Xor.apply(0b1100, 0b1010).unwrap(), 0b0110);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_not() {
     assert_eq!(BitwiseOp::Not.apply(0, 0).unwrap(), !0i64);
     assert_eq!(BitwiseOp::Not.apply(1, 999).unwrap(), !1i64); // rhs is ignored
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_shift_left() {
     assert_eq!(BitwiseOp::ShiftLeft.apply(1, 4).unwrap(), 16);
     assert_eq!(BitwiseOp::ShiftLeft.apply(3, 2).unwrap(), 12);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_shift_right() {
     assert_eq!(BitwiseOp::ShiftRight.apply(16, 4).unwrap(), 1);
     assert_eq!(BitwiseOp::ShiftRight.apply(12, 2).unwrap(), 3);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_shift_left_zero() {
     assert_eq!(BitwiseOp::ShiftLeft.apply(5, 0).unwrap(), 5);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_shift_right_zero() {
     assert_eq!(BitwiseOp::ShiftRight.apply(5, 0).unwrap(), 5);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_bitwise_shift_left_invalid_amount() {
     assert!(BitwiseOp::ShiftLeft.apply(1, 64).is_err());
     assert!(BitwiseOp::ShiftLeft.apply(1, -1).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_bitwise_shift_right_invalid_amount() {
     assert!(BitwiseOp::ShiftRight.apply(1, 64).is_err());
     assert!(BitwiseOp::ShiftRight.apply(1, -1).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_bitwise_shift_max_valid() {
     // 63 is the max valid shift amount
@@ -1186,6 +1333,7 @@ fn test_bitwise_shift_max_valid() {
 // Base conversion tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_radix() {
     assert_eq!(Base::Binary.radix(), 2);
@@ -1194,53 +1342,62 @@ fn test_base_radix() {
     assert_eq!(Base::Hexadecimal.radix(), 16);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_format_binary() {
     assert_eq!(Base::Binary.format(10), "0b1010");
     assert_eq!(Base::Binary.format(0), "0b0");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_format_octal() {
     assert_eq!(Base::Octal.format(8), "0o10");
     assert_eq!(Base::Octal.format(255), "0o377");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_format_decimal() {
     assert_eq!(Base::Decimal.format(42), "42");
     assert_eq!(Base::Decimal.format(-5), "-5");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_format_hex() {
     assert_eq!(Base::Hexadecimal.format(255), "0xFF");
     assert_eq!(Base::Hexadecimal.format(16), "0x10");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_parse_binary() {
     assert_eq!(Base::Binary.parse("0b1010").unwrap(), 10);
     assert_eq!(Base::Binary.parse("1010").unwrap(), 10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_parse_octal() {
     assert_eq!(Base::Octal.parse("0o377").unwrap(), 255);
     assert_eq!(Base::Octal.parse("10").unwrap(), 8);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_parse_decimal() {
     assert_eq!(Base::Decimal.parse("42").unwrap(), 42);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_base_parse_hex() {
     assert_eq!(Base::Hexadecimal.parse("0xFF").unwrap(), 255);
     assert_eq!(Base::Hexadecimal.parse("FF").unwrap(), 255);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_base_parse_invalid() {
     assert!(Base::Binary.parse("xyz").is_err());
@@ -1252,6 +1409,7 @@ fn test_base_parse_invalid() {
 // UnaryOp tests (untested variants)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_floor() {
     assert_eq!(
@@ -1268,6 +1426,7 @@ fn test_unary_floor() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_ceil() {
     assert_eq!(
@@ -1284,6 +1443,7 @@ fn test_unary_ceil() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_round() {
     assert_eq!(
@@ -1306,6 +1466,7 @@ fn test_unary_round() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_to_radians() {
     let result = UnaryOp::ToRadians
@@ -1314,6 +1475,7 @@ fn test_unary_to_radians() {
     assert!((result.to_f64() - core::f64::consts::PI).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_to_degrees() {
     let result = UnaryOp::ToDegrees
@@ -1322,6 +1484,7 @@ fn test_unary_to_degrees() {
     assert!((result.to_f64() - 180.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_cbrt() {
     let result = UnaryOp::Cbrt
@@ -1330,6 +1493,7 @@ fn test_unary_cbrt() {
     assert!((result.to_f64() - 3.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_cbrt_negative() {
     let result = UnaryOp::Cbrt
@@ -1338,6 +1502,7 @@ fn test_unary_cbrt_negative() {
     assert!((result.to_f64() - (-2.0)).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_square() {
     assert_eq!(
@@ -1348,6 +1513,7 @@ fn test_unary_square() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_square_rational() {
     let v = Value::rational(2, 3).unwrap();
@@ -1355,6 +1521,7 @@ fn test_unary_square_rational() {
     assert_eq!(result, Value::Rational(4, 9));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_square_float() {
     let result = UnaryOp::Square
@@ -1363,6 +1530,7 @@ fn test_unary_square_float() {
     assert!((result.to_f64() - 9.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_reciprocal() {
     let result = UnaryOp::Reciprocal
@@ -1371,6 +1539,7 @@ fn test_unary_reciprocal() {
     assert_eq!(result, Value::Rational(1, 4));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_reciprocal_zero() {
     assert_eq!(
@@ -1379,6 +1548,7 @@ fn test_unary_reciprocal_zero() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_abs_positive() {
     assert_eq!(
@@ -1389,6 +1559,7 @@ fn test_unary_abs_positive() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_abs_negative() {
     assert_eq!(
@@ -1399,6 +1570,7 @@ fn test_unary_abs_negative() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_abs_zero() {
     assert_eq!(
@@ -1409,6 +1581,7 @@ fn test_unary_abs_zero() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_abs_negative_float() {
     let result = UnaryOp::Abs
@@ -1417,6 +1590,7 @@ fn test_unary_abs_negative_float() {
     assert!((result.to_f64() - 3.5).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_log10() {
     let result = UnaryOp::Log10
@@ -1425,6 +1599,7 @@ fn test_unary_log10() {
     assert!((result.to_f64() - 2.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_log10_negative_rejected() {
     assert_eq!(
@@ -1433,6 +1608,7 @@ fn test_unary_log10_negative_rejected() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_log2() {
     let result = UnaryOp::Log2
@@ -1441,6 +1617,7 @@ fn test_unary_log2() {
     assert!((result.to_f64() - 3.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_log2_negative_rejected() {
     assert_eq!(
@@ -1449,6 +1626,7 @@ fn test_unary_log2_negative_rejected() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_exp() {
     let result = UnaryOp::Exp
@@ -1457,6 +1635,7 @@ fn test_unary_exp() {
     assert!((result.to_f64() - 1.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_tan_undefined() {
     // tan(pi/2) is undefined
@@ -1467,6 +1646,7 @@ fn test_unary_tan_undefined() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_tan_zero() {
     let result = UnaryOp::Tan
@@ -1475,6 +1655,7 @@ fn test_unary_tan_zero() {
     assert!(result.to_f64().abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_asin_valid() {
     let result = UnaryOp::Asin
@@ -1483,6 +1664,7 @@ fn test_unary_asin_valid() {
     assert!((result.to_f64() - (0.5_f64).asin()).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_acos_valid() {
     let result = UnaryOp::Acos
@@ -1491,6 +1673,7 @@ fn test_unary_acos_valid() {
     assert!((result.to_f64() - (0.5_f64).acos()).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_acos_out_of_range() {
     assert!(
@@ -1505,6 +1688,7 @@ fn test_unary_acos_out_of_range() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_atan() {
     let result = UnaryOp::Atan
@@ -1513,6 +1697,7 @@ fn test_unary_atan() {
     assert!((result.to_f64() - core::f64::consts::FRAC_PI_4).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_acosh_valid() {
     let result = UnaryOp::Acosh
@@ -1521,6 +1706,7 @@ fn test_unary_acosh_valid() {
     assert!(result.to_f64().abs() < 1e-10); // acosh(1) = 0
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_acosh_invalid() {
     assert!(
@@ -1530,6 +1716,7 @@ fn test_unary_acosh_invalid() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unary_atanh_valid() {
     let result = UnaryOp::Atanh
@@ -1538,6 +1725,7 @@ fn test_unary_atanh_valid() {
     assert!((result.to_f64() - (0.5_f64).atanh()).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_atanh_invalid() {
     assert!(
@@ -1557,6 +1745,7 @@ fn test_unary_atanh_invalid() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_trig_degrees_mode() {
     // sin(30 degrees) = 0.5
@@ -1572,6 +1761,7 @@ fn test_trig_degrees_mode() {
     assert!((result.to_f64() - 0.5).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_asin_degrees_mode() {
     // asin(0.5) in degrees = 30
@@ -1581,6 +1771,7 @@ fn test_asin_degrees_mode() {
     assert!((result.to_f64() - 30.0).abs() < 1e-8);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_acos_degrees_mode() {
     // acos(0.5) in degrees = 60
@@ -1590,6 +1781,7 @@ fn test_acos_degrees_mode() {
     assert!((result.to_f64() - 60.0).abs() < 1e-8);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_atan_degrees_mode() {
     // atan(1) in degrees = 45
@@ -1599,6 +1791,7 @@ fn test_atan_degrees_mode() {
     assert!((result.to_f64() - 45.0).abs() < 1e-8);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_unary_factorial_non_integer_rejected() {
     assert!(
@@ -1612,11 +1805,13 @@ fn test_unary_factorial_non_integer_rejected() {
 // BinaryOp precedence tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_op_precedence_add_subtract_equal() {
     assert_eq!(BinaryOp::Add.precedence(), BinaryOp::Subtract.precedence());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_op_precedence_multiply_divide_modulo_equal() {
     assert_eq!(
@@ -1629,6 +1824,7 @@ fn test_binary_op_precedence_multiply_divide_modulo_equal() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_op_precedence_order() {
     assert!(BinaryOp::Multiply.precedence() > BinaryOp::Add.precedence());
@@ -1639,6 +1835,7 @@ fn test_binary_op_precedence_order() {
 // BinaryOp apply tests (untested variants)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_subtract() {
     let result = BinaryOp::Subtract
@@ -1647,6 +1844,7 @@ fn test_binary_subtract() {
     assert_eq!(result, Value::int(7));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_subtract_fractions() {
     let a = Value::rational(5, 6).unwrap();
@@ -1655,6 +1853,7 @@ fn test_binary_subtract_fractions() {
     assert_eq!(result, Value::Rational(1, 2));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_power() {
     let result = BinaryOp::Power
@@ -1663,6 +1862,7 @@ fn test_binary_power() {
     assert!((result.to_f64() - 1024.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_modulo() {
     let result = BinaryOp::Modulo
@@ -1671,6 +1871,7 @@ fn test_binary_modulo() {
     assert!((result.to_f64() - 1.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_binary_modulo_by_zero() {
     assert_eq!(
@@ -1679,6 +1880,7 @@ fn test_binary_modulo_by_zero() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_add_float_and_rational() {
     let a = Value::Float(1.5);
@@ -1687,6 +1889,7 @@ fn test_binary_add_float_and_rational() {
     assert!((result.to_f64() - 3.5).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_binary_multiply_float_and_rational() {
     let a = Value::Float(2.5);
@@ -1699,6 +1902,7 @@ fn test_binary_multiply_float_and_rational() {
 // Calculator state tests (additional)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_default() {
     let calc = Calculator::default();
@@ -1708,6 +1912,7 @@ fn test_calculator_default() {
     assert!(calc.history.is_empty());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_enter() {
     let mut calc = Calculator::new();
@@ -1715,6 +1920,7 @@ fn test_calculator_enter() {
     assert_eq!(calc.display, Value::int(42));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_enter_overwrites() {
     let mut calc = Calculator::new();
@@ -1723,6 +1929,7 @@ fn test_calculator_enter_overwrites() {
     assert_eq!(calc.display, Value::int(99));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_unary() {
     let mut calc = Calculator::new();
@@ -1732,6 +1939,7 @@ fn test_calculator_unary() {
     assert_eq!(calc.history.len(), 1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_calculator_unary_error() {
     let mut calc = Calculator::new();
@@ -1741,6 +1949,7 @@ fn test_calculator_unary_error() {
     assert_eq!(calc.display, Value::int(-4));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_binary() {
     let mut calc = Calculator::new();
@@ -1749,6 +1958,7 @@ fn test_calculator_binary() {
     assert_eq!(calc.display, Value::int(50));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_calculator_binary_error() {
     let mut calc = Calculator::new();
@@ -1757,6 +1967,7 @@ fn test_calculator_binary_error() {
     assert_eq!(calc.display, Value::int(10));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_set_angle_mode() {
     let mut calc = Calculator::new();
@@ -1765,6 +1976,7 @@ fn test_calculator_set_angle_mode() {
     assert_eq!(calc.angle_mode, AngleMode::Degrees);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_angle_mode_affects_trig() {
     let mut calc = Calculator::new();
@@ -1774,6 +1986,7 @@ fn test_calculator_angle_mode_affects_trig() {
     assert!((calc.display.to_f64() - 0.5).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_memory_clear() {
     let mut calc = Calculator::new();
@@ -1784,6 +1997,7 @@ fn test_calculator_memory_clear() {
     assert!(calc.memory.is_zero());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_history_accumulates() {
     let mut calc = Calculator::new();
@@ -1794,6 +2008,7 @@ fn test_calculator_history_accumulates() {
     assert_eq!(calc.display, Value::int(20));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calculator_clear_preserves_memory_and_history() {
     let mut calc = Calculator::new();
@@ -1810,6 +2025,7 @@ fn test_calculator_clear_preserves_memory_and_history() {
 // Unit conversion tests (specific cases)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_length() {
     assert_eq!(Unit::Meter.category(), UnitCategory::Length);
@@ -1822,6 +2038,7 @@ fn test_unit_category_length() {
     assert_eq!(Unit::Inch.category(), UnitCategory::Length);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_mass() {
     assert_eq!(Unit::Kilogram.category(), UnitCategory::Mass);
@@ -1831,6 +2048,7 @@ fn test_unit_category_mass() {
     assert_eq!(Unit::Ounce.category(), UnitCategory::Mass);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_temperature() {
     assert_eq!(Unit::Celsius.category(), UnitCategory::Temperature);
@@ -1838,6 +2056,7 @@ fn test_unit_category_temperature() {
     assert_eq!(Unit::Kelvin.category(), UnitCategory::Temperature);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_speed() {
     assert_eq!(Unit::MetersPerSecond.category(), UnitCategory::Speed);
@@ -1846,6 +2065,7 @@ fn test_unit_category_speed() {
     assert_eq!(Unit::Knot.category(), UnitCategory::Speed);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_area() {
     assert_eq!(Unit::SquareMeter.category(), UnitCategory::Area);
@@ -1854,6 +2074,7 @@ fn test_unit_category_area() {
     assert_eq!(Unit::Hectare.category(), UnitCategory::Area);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_volume() {
     assert_eq!(Unit::Liter.category(), UnitCategory::Volume);
@@ -1862,6 +2083,7 @@ fn test_unit_category_volume() {
     assert_eq!(Unit::FluidOunce.category(), UnitCategory::Volume);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_time() {
     assert_eq!(Unit::Second.category(), UnitCategory::Time);
@@ -1870,6 +2092,7 @@ fn test_unit_category_time() {
     assert_eq!(Unit::Day.category(), UnitCategory::Time);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_unit_category_angle() {
     assert_eq!(Unit::Radian.category(), UnitCategory::Angle);
@@ -1877,147 +2100,172 @@ fn test_unit_category_angle() {
     assert_eq!(Unit::Gradian.category(), UnitCategory::Angle);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_meters_to_kilometers() {
     let result = convert(1000.0, Unit::Meter, Unit::Kilometer).unwrap();
     assert!((result - 1.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_kilometers_to_meters() {
     let result = convert(1.0, Unit::Kilometer, Unit::Meter).unwrap();
     assert!((result - 1000.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_meters_to_centimeters() {
     let result = convert(1.0, Unit::Meter, Unit::Centimeter).unwrap();
     assert!((result - 100.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_inches_to_feet() {
     let result = convert(12.0, Unit::Inch, Unit::Foot).unwrap();
     assert!((result - 1.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_miles_to_kilometers() {
     let result = convert(1.0, Unit::Mile, Unit::Kilometer).unwrap();
     assert!((result - 1.609344).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_kg_to_pounds() {
     let result = convert(1.0, Unit::Kilogram, Unit::Pound).unwrap();
     assert!((result - 2.20462).abs() < 0.01);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_grams_to_kilograms() {
     let result = convert(1000.0, Unit::Gram, Unit::Kilogram).unwrap();
     assert!((result - 1.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_celsius_to_kelvin() {
     let result = convert(0.0, Unit::Celsius, Unit::Kelvin).unwrap();
     assert!((result - 273.15).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_kelvin_to_celsius() {
     let result = convert(273.15, Unit::Kelvin, Unit::Celsius).unwrap();
     assert!(result.abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_fahrenheit_to_celsius() {
     let result = convert(32.0, Unit::Fahrenheit, Unit::Celsius).unwrap();
     assert!(result.abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_celsius_to_fahrenheit_body_temp() {
     let result = convert(37.0, Unit::Celsius, Unit::Fahrenheit).unwrap();
     assert!((result - 98.6).abs() < 0.1);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_convert_below_absolute_zero_celsius() {
     assert!(convert(-274.0, Unit::Celsius, Unit::Kelvin).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_convert_below_absolute_zero_fahrenheit() {
     assert!(convert(-500.0, Unit::Fahrenheit, Unit::Kelvin).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_speed_kmh_to_mph() {
     let result = convert(100.0, Unit::KilometersPerHour, Unit::MilesPerHour).unwrap();
     assert!((result - 62.137).abs() < 0.1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_time_hours_to_seconds() {
     let result = convert(1.0, Unit::Hour, Unit::Second).unwrap();
     assert!((result - 3600.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_time_day_to_hours() {
     let result = convert(1.0, Unit::Day, Unit::Hour).unwrap();
     assert!((result - 24.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_time_minutes_to_seconds() {
     let result = convert(1.0, Unit::Minute, Unit::Second).unwrap();
     assert!((result - 60.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_volume_liters_to_gallons() {
     let result = convert(3.78541, Unit::Liter, Unit::Gallon).unwrap();
     assert!((result - 1.0).abs() < 0.01);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_volume_ml_to_liters() {
     let result = convert(1000.0, Unit::Milliliter, Unit::Liter).unwrap();
     assert!((result - 1.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_area_hectare_to_sqm() {
     let result = convert(1.0, Unit::Hectare, Unit::SquareMeter).unwrap();
     assert!((result - 10000.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_angle_degrees_to_radians() {
     let result = convert(180.0, Unit::Degree, Unit::Radian).unwrap();
     assert!((result - core::f64::consts::PI).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_angle_gradians_to_degrees() {
     let result = convert(200.0, Unit::Gradian, Unit::Degree).unwrap();
     assert!((result - 180.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_convert_same_unit() {
     let result = convert(42.0, Unit::Meter, Unit::Meter).unwrap();
     assert!((result - 42.0).abs() < 0.001);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_convert_incompatible_length_to_mass() {
     assert!(convert(1.0, Unit::Meter, Unit::Kilogram).is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_convert_incompatible_temp_to_speed() {
     assert!(convert(1.0, Unit::Celsius, Unit::MetersPerSecond).is_err());
@@ -2027,18 +2275,21 @@ fn test_convert_incompatible_temp_to_speed() {
 // Constants tests (specific values)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_pi() {
     let v = Constant::Pi.value();
     assert!((v.to_f64() - core::f64::consts::PI).abs() < 1e-15);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_e() {
     let v = Constant::E.value();
     assert!((v.to_f64() - core::f64::consts::E).abs() < 1e-15);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_golden_ratio() {
     let v = Constant::GoldenRatio.value();
@@ -2046,24 +2297,28 @@ fn test_constant_golden_ratio() {
     assert!((v.to_f64() - 1.618033988749895).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_sqrt2() {
     let v = Constant::Sqrt2.value();
     assert!((v.to_f64() - core::f64::consts::SQRT_2).abs() < 1e-15);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_ln2() {
     let v = Constant::Ln2.value();
     assert!((v.to_f64() - core::f64::consts::LN_2).abs() < 1e-15);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_ln10() {
     let v = Constant::Ln10.value();
     assert!((v.to_f64() - core::f64::consts::LN_10).abs() < 1e-15);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_names() {
     assert_eq!(Constant::Pi.name(), "π");
@@ -2074,6 +2329,7 @@ fn test_constant_names() {
     assert_eq!(Constant::Ln10.name(), "ln(10)");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_all_returns_all_variants() {
     let all = Constant::all();
@@ -2086,6 +2342,7 @@ fn test_constant_all_returns_all_variants() {
     assert!(all.contains(&Constant::Ln10));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constant_all_values_are_float() {
     for c in Constant::all() {
@@ -2097,6 +2354,7 @@ fn test_constant_all_values_are_float() {
 // Engine / CalcAction tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_new_calculator_engine() {
     let engine = new_calculator();
@@ -2104,6 +2362,7 @@ fn test_new_calculator_engine() {
     assert_eq!(engine.step(), 0);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_enter_value() {
     let engine = new_calculator();
@@ -2112,6 +2371,7 @@ fn test_engine_enter_value() {
     assert_eq!(engine.step(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_unary_action() {
     let engine = new_calculator();
@@ -2120,6 +2380,7 @@ fn test_engine_unary_action() {
     assert_eq!(engine.situation().display, Value::int(25));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_binary_action() {
     let engine = new_calculator();
@@ -2130,6 +2391,7 @@ fn test_engine_binary_action() {
     assert_eq!(engine.situation().display, Value::int(15));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_clear() {
     let engine = new_calculator();
@@ -2138,6 +2400,7 @@ fn test_engine_clear() {
     assert!(engine.situation().display.is_zero());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_all_clear() {
     let engine = new_calculator();
@@ -2148,6 +2411,7 @@ fn test_engine_all_clear() {
     assert!(engine.situation().memory.is_zero());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn test_engine_memory_store_recall() {
     let engine = new_calculator();
@@ -2158,6 +2422,7 @@ fn test_engine_memory_store_recall() {
     assert_eq!(engine.situation().display, Value::int(99));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_memory_add() {
     let engine = new_calculator();
@@ -2169,6 +2434,7 @@ fn test_engine_memory_add() {
     assert_eq!(engine.situation().display, Value::int(15));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_memory_clear() {
     let engine = new_calculator();
@@ -2178,6 +2444,7 @@ fn test_engine_memory_clear() {
     assert!(engine.situation().memory.is_zero());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_set_angle_mode() {
     let engine = new_calculator();
@@ -2187,6 +2454,7 @@ fn test_engine_set_angle_mode() {
     assert_eq!(engine.situation().angle_mode, AngleMode::Degrees);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_domain_check_blocks_div_by_zero() {
     let engine = new_calculator();
@@ -2195,6 +2463,7 @@ fn test_engine_domain_check_blocks_div_by_zero() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_domain_check_blocks_sqrt_negative() {
     let engine = new_calculator();
@@ -2203,6 +2472,7 @@ fn test_engine_domain_check_blocks_sqrt_negative() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_domain_check_blocks_ln_zero() {
     let engine = new_calculator();
@@ -2211,6 +2481,7 @@ fn test_engine_domain_check_blocks_ln_zero() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_back_and_forward() {
     let engine = new_calculator();
@@ -2230,12 +2501,14 @@ fn test_engine_back_and_forward() {
     assert_eq!(engine.situation().display, Value::int(15));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_back_at_start_fails() {
     let engine = new_calculator();
     assert!(engine.back().is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_forward_without_back_fails() {
     let engine = new_calculator();
@@ -2243,6 +2516,7 @@ fn test_engine_forward_without_back_fails() {
     assert!(engine.forward().is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_trace() {
     let engine = new_calculator();
@@ -2254,6 +2528,7 @@ fn test_engine_trace() {
     assert_eq!(engine.trace().violations(), 0);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_trace_records_violations() {
     let engine = new_calculator();
@@ -2267,6 +2542,7 @@ fn test_engine_trace_records_violations() {
     assert_eq!(engine.trace().violations(), 1);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_try_next_success() {
     let engine = new_calculator();
@@ -2274,6 +2550,7 @@ fn test_engine_try_next_success() {
     assert_eq!(engine.situation().display, Value::int(42));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_engine_try_next_failure() {
     let engine = new_calculator();
@@ -2289,6 +2566,7 @@ fn test_engine_try_next_failure() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_multi_step_calculation() {
     // Compute: (5 + 3) * 2 - 1 = 15
@@ -2317,6 +2595,7 @@ fn test_engine_multi_step_calculation() {
 // Value helper tests (additional coverage)
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_is_one_rational() {
     assert!(Value::int(1).is_one());
@@ -2324,12 +2603,14 @@ fn test_value_is_one_rational() {
     assert!(!Value::int(2).is_one());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_is_one_float() {
     assert!(Value::Float(1.0).is_one());
     assert!(!Value::Float(1.1).is_one());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_is_negative() {
     assert!(Value::int(-1).is_negative());
@@ -2339,17 +2620,20 @@ fn test_value_is_negative() {
     assert!(!Value::Float(0.5).is_negative());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_negate_rational() {
     assert_eq!(Value::int(5).negate(), Value::int(-5));
     assert_eq!(Value::int(-3).negate(), Value::int(3));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_negate_float() {
     assert_eq!(Value::Float(2.5).negate(), Value::Float(-2.5));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_reciprocal_rational() {
     let v = Value::rational(3, 4).unwrap();
@@ -2357,11 +2641,13 @@ fn test_value_reciprocal_rational() {
     assert_eq!(r, Value::Rational(4, 3));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_value_reciprocal_zero_rational() {
     assert_eq!(Value::int(0).reciprocal(), Err(CalcError::DivisionByZero));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_reciprocal_float() {
     let v = Value::Float(4.0);
@@ -2369,6 +2655,7 @@ fn test_value_reciprocal_float() {
     assert!((r.to_f64() - 0.25).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_value_reciprocal_zero_float() {
     assert_eq!(
@@ -2377,21 +2664,25 @@ fn test_value_reciprocal_zero_float() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_value_float_overflow() {
     assert_eq!(Value::float(f64::INFINITY), Err(CalcError::Overflow));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_value_float_nan() {
     assert!(Value::float(f64::NAN).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_value_float_display() {
     assert_eq!(format!("{}", Value::Float(3.15)), "3.15");
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_gcd() {
     assert_eq!(gcd(12, 8), 4);
@@ -2400,6 +2691,7 @@ fn test_gcd() {
     assert_eq!(gcd(0, 0), 1); // gcd returns max(a, 1) when a=0, b=0
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_lcm() {
     assert_eq!(lcm(4, 6), 12);
@@ -2407,6 +2699,7 @@ fn test_lcm() {
     assert_eq!(lcm(7, 7), 7);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_calc_error_display() {
     assert_eq!(format!("{}", CalcError::DivisionByZero), "division by zero");
@@ -2440,6 +2733,7 @@ fn test_calc_error_display() {
 // NumberDomainCheck engine integration tests
 // =============================================================================
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_number_domain_factorial_on_negative() {
     // Factorial on a negative integer should be blocked by domain check
@@ -2449,6 +2743,7 @@ fn test_number_domain_factorial_on_negative() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_number_domain_factorial_on_natural() {
     let engine = new_calculator();
@@ -2457,6 +2752,7 @@ fn test_number_domain_factorial_on_natural() {
     assert_eq!(engine.situation().display, Value::int(120));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_number_domain_divide_valid() {
     let engine = new_calculator();
@@ -2467,6 +2763,7 @@ fn test_number_domain_divide_valid() {
     assert_eq!(engine.situation().display, Value::int(5));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_number_domain_log_of_negative() {
     let engine = new_calculator();
@@ -2475,6 +2772,7 @@ fn test_number_domain_log_of_negative() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_number_domain_log10_of_negative() {
     let engine = new_calculator();
@@ -2483,6 +2781,7 @@ fn test_number_domain_log10_of_negative() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_number_domain_log2_of_zero() {
     let engine = new_calculator();
@@ -2491,6 +2790,7 @@ fn test_number_domain_log2_of_zero() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_engine_angle_mode_with_trig() {
     let engine = new_calculator();
@@ -2514,6 +2814,7 @@ fn test_engine_angle_mode_with_trig() {
 // DomainCheck precondition satisfied cases
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_domain_check_satisfied_for_non_math_actions() {
     use super::engine::DomainCheck;
@@ -2532,6 +2833,7 @@ fn test_domain_check_satisfied_for_non_math_actions() {
     assert!(result.is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_domain_check_satisfied_for_valid_unary() {
     use super::engine::DomainCheck;
@@ -2543,6 +2845,7 @@ fn test_domain_check_satisfied_for_valid_unary() {
     assert!(result.is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_domain_check_violated_for_invalid_unary() {
     use super::engine::DomainCheck;
@@ -2554,6 +2857,7 @@ fn test_domain_check_violated_for_invalid_unary() {
     assert!(result.is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_domain_check_satisfied_for_valid_binary() {
     use super::engine::DomainCheck;
@@ -2565,6 +2869,7 @@ fn test_domain_check_satisfied_for_valid_binary() {
     assert!(result.is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn test_domain_check_violated_for_div_by_zero() {
     use super::engine::DomainCheck;
@@ -2574,4 +2879,34 @@ fn test_domain_check_violated_for_div_by_zero() {
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Binary(BinaryOp::Divide, Value::int(0)));
     assert!(result.is_err());
+}
+
+#[pr4xis::praxis_value(Honest)]
+#[test]
+fn rational_overflow_falls_back_to_float_not_panic() {
+    // 9_999_999_999^2 ≈ 1e20 > i64::MAX. Unchecked i64 rational arithmetic would
+    // PANIC on overflow (debug) and SILENTLY WRAP to a wrong answer (release) —
+    // both dishonest. The evaluator must degrade to float, never crash/confabulate.
+    let big = 9_999_999_999i64;
+    let expected = (big as f64) * (big as f64);
+
+    let product = Expr::binary(BinaryOp::Multiply, Expr::int(big), Expr::int(big))
+        .eval(AngleMode::Radians)
+        .expect("large multiply must evaluate via float fallback, not panic");
+    assert!((product.to_f64() - expected).abs() / expected < 1e-9);
+
+    Expr::unary(UnaryOp::Square, Expr::int(big))
+        .eval(AngleMode::Radians)
+        .expect("large square must evaluate via float fallback, not panic");
+
+    // Rational ADD overflow: two unit fractions whose denominators multiply past
+    // i64::MAX (the `ad * bd` term). Built directly as rational literals so the
+    // rational add path is exercised regardless of how division reduces.
+    Expr::binary(
+        BinaryOp::Add,
+        Expr::lit(Value::Rational(1, i64::MAX)),
+        Expr::lit(Value::Rational(1, i64::MAX - 1)),
+    )
+    .eval(AngleMode::Radians)
+    .expect("rational add overflow must not panic");
 }

@@ -43,6 +43,7 @@ pub fn is_dtd(bytes: &[u8]) -> bool {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recognises_element_decl() {
         let dtd = br#"<?xml version="1.0"?>
@@ -50,18 +51,21 @@ mod tests {
         assert!(is_dtd(dtd));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recognises_attlist_decl() {
         let dtd = br#"<!ATTLIST root id ID #REQUIRED>"#;
         assert!(is_dtd(dtd));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_plain_xml() {
         assert!(!is_dtd(b"<root/>"));
         assert!(!is_dtd(b""));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_non_utf8() {
         assert!(!is_dtd(&[0xff, 0xfe, 0xfd]));

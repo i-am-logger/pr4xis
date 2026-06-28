@@ -14,6 +14,7 @@ use crate::formal::math::temporal::time_system::TimeSystem;
 // Category law validation
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn sensor_time_category_laws() {
     assert_category_laws::<SensorTimeCategory>();
@@ -23,22 +24,26 @@ fn sensor_time_category_laws() {
 // Ontology validation
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn sensor_time_ontology_validates() {
     SensorTimeOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_interpolation_bounded() {
     assert!(InterpolationBounded.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_extrapolation_unbounded() {
     assert!(ExtrapolationUnbounded.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_nearest_neighbor_bounded() {
     assert!(NearestNeighborBounded.verify().is_ok());
@@ -48,6 +53,7 @@ fn axiom_nearest_neighbor_bounded() {
 // Epoch tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn epoch_staleness_detection() {
     let epoch = FusionEpoch::from_gps_seconds(100.0, SensorType::GnssReceiver);
@@ -62,6 +68,7 @@ fn epoch_staleness_detection() {
 // Clock tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn clock_offset_conversion_round_trip() {
     let clock = SensorClock::new(
@@ -79,6 +86,7 @@ fn clock_offset_conversion_round_trip() {
 // Synchronization tests
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn interpolate_quarter_point() {
     let (value, alpha) = synchronization::interpolate(0.0, 0.0, 4.0, 100.0, 1.0);
@@ -166,4 +174,10 @@ mod proptest_proofs {
             prop_assert!(age >= -1e-10, "age should be non-negative: {}", age);
         }
     }
+
+    pr4xis::register_praxis_value!(interpolate_at_endpoints, Verifiable);
+    pr4xis::register_praxis_value!(interpolate_midpoint_is_average, Verifiable);
+    pr4xis::register_praxis_value!(extrapolate_zero_rate, Verifiable);
+    pr4xis::register_praxis_value!(clock_round_trip, Deterministic);
+    pr4xis::register_praxis_value!(epoch_age_nonneg, Verifiable);
 }

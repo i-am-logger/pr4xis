@@ -19,27 +19,32 @@ use proptest::prelude::*;
 // Category / functor / ontology validation.
 // =============================================================================
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn versioning_category_laws() {
     assert_category_laws::<VersioningCategory>();
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn localize_is_a_functor() {
     assert_functor_laws::<LocalizeVersion>();
 }
 
+#[pr4xis::praxis_value(Extensible)]
 #[test]
 fn abstract_is_a_functor() {
     assert_functor_laws::<AbstractVersion>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn versioning_ontology_validates() {
     VersioningOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn concept_count() {
     assert_eq!(VersioningConcept::variants().len(), 4);
@@ -49,6 +54,7 @@ fn concept_count() {
 // The adjoint endofunctor object maps.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn abstract_collapses_fiber_to_invariant() {
     use VersioningConcept as C;
@@ -63,6 +69,7 @@ fn abstract_collapses_fiber_to_invariant() {
     assert_eq!(abstract_version_concept(C::Version), C::Version);
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn localize_realizes_invariant_as_fiber() {
     use VersioningConcept as C;
@@ -73,6 +80,7 @@ fn localize_realizes_invariant_as_fiber() {
     assert_eq!(localize_version_concept(C::VersionFiber), C::VersionFiber);
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn reflection_round_trip_on_invariant() {
     use VersioningConcept as C;
@@ -87,6 +95,7 @@ fn reflection_round_trip_on_invariant() {
 // Quality.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn version_dependence() {
     use VersioningConcept as C;
@@ -109,6 +118,7 @@ fn version_dependence() {
 // Runtime instance level — generic over the realization type.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn instance_localize_and_abstract() {
     let xsd = &sample_artifacts()[0];
@@ -123,6 +133,7 @@ fn instance_localize_and_abstract() {
     assert!(xsd.localize("3.0").is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn applies_to_xsd_xml_pdf_uslm_citation() {
     let arts = sample_artifacts();
@@ -137,6 +148,7 @@ fn applies_to_xsd_xml_pdf_uslm_citation() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn generic_over_realization_type() {
     // The realization need not be a string — here a small struct.
@@ -165,31 +177,37 @@ fn generic_over_realization_type() {
 // Axiom tests.
 // =============================================================================
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_unit_reflects_invariant() {
     assert!(AdjunctionUnitReflectsInvariant.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_fiber_specialises_invariant() {
     assert!(VersionFiberSpecialisesInvariant.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_constant_complement() {
     assert!(InvariantIsConstantComplement.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_localize_recovers_each_fiber() {
     assert!(LocalizeRecoversEachFiber.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn axiom_applies_across_domains() {
     assert!(AdjunctionAppliesAcrossDomains.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn adjunction_meta_is_cited() {
     use pr4xis::category::Adjunction;
@@ -253,3 +271,7 @@ proptest! {
         prop_assert_eq!(rt, expected);
     }
 }
+
+pr4xis::register_praxis_value!(prop_invariant_is_constant, Verifiable);
+pr4xis::register_praxis_value!(prop_localize_recovers_fibers, Verifiable);
+pr4xis::register_praxis_value!(prop_concept_round_trip, Deterministic);

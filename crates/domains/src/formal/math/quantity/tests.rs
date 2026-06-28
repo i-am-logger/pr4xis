@@ -6,56 +6,67 @@ use crate::formal::math::quantity::ontology::*;
 use crate::formal::math::quantity::unit;
 use crate::formal::math::quantity::value::Quantity;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn dimension_category_laws() {
     assert_category_laws::<QuantityCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn quantity_ontology_validates() {
     QuantityOntology::validate().unwrap();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dimension_commutativity() {
     assert!(DimensionCommutativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dimension_associativity() {
     assert!(DimensionAssociativity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dimension_identity() {
     assert!(DimensionIdentity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dimension_inverse() {
     assert!(DimensionInverse.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn addition_requires_same_dimension() {
     assert!(AdditionRequiresSameDimension.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn derived_dimension_consistency() {
     assert!(DerivedDimensionConsistency.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn unit_conversion_roundtrip() {
     assert!(UnitConversionRoundtrip.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn incompatible_unit_conversion_fails() {
     assert!(IncompatibleUnitConversionFails.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn f_equals_ma_dimension() {
     // F = m*a → [F] = [M]·[L·T⁻²] = M·L·T⁻²
@@ -66,6 +77,7 @@ fn f_equals_ma_dimension() {
     assert!((f.value - 98.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn kinetic_energy_dimension() {
     // E = 0.5 * m * v² → [E] = [M]·[V]² = M·L²·T⁻²
@@ -77,6 +89,7 @@ fn kinetic_energy_dimension() {
     assert!((ke.value - 9.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn degree_radian_conversion() {
     let deg_val = 180.0;
@@ -168,4 +181,14 @@ mod proptest_proofs {
             prop_assert_eq!(s1.dimension, s2.dimension);
         }
     }
+
+    pr4xis::register_praxis_value!(dimension_multiply_is_commutative, Verifiable);
+    pr4xis::register_praxis_value!(dimension_multiply_is_associative, Verifiable);
+    pr4xis::register_praxis_value!(dimension_inverse_yields_dimensionless, Verifiable);
+    pr4xis::register_praxis_value!(dimensionless_is_identity, Verifiable);
+    pr4xis::register_praxis_value!(addition_same_dimension_succeeds, Verifiable);
+    pr4xis::register_praxis_value!(addition_different_dimension_fails, Honest);
+    pr4xis::register_praxis_value!(multiplication_dimension_is_sum_of_exponents, Verifiable);
+    pr4xis::register_praxis_value!(unit_conversion_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(quantity_is_deterministic, Deterministic);
 }

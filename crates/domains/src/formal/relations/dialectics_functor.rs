@@ -121,12 +121,14 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
 
+    #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn relations_to_dialectics_laws_pass() {
         assert_functor_laws::<RelationsToDialectics>();
     }
 
     /// The headline claim: Opposition maps to DialecticalMoment.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn opposition_maps_to_dialectical_moment() {
         assert_eq!(
@@ -136,6 +138,7 @@ mod tests {
     }
 
     /// Equivalence maps to Synthesis — Hegel's higher unity.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn equivalence_maps_to_synthesis() {
         assert_eq!(
@@ -146,6 +149,7 @@ mod tests {
 
     /// Structural property Symmetric maps to Contrary — both capture the
     /// Aristotelian symmetric-opposition structure.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn symmetric_maps_to_contrary() {
         assert_eq!(

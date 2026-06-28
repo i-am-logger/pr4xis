@@ -265,7 +265,7 @@ fn parse_document_inner(
         (None, _) => true,
         (Some(dt), _) => dt.external_id.is_none() && !dt.internal_subset_had_pe_references,
     };
-    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared, capture)?;
+    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared, capture, 0)?;
     // §2.1 \[1\] `document ::= prolog element Misc*` — the trailing epilog
     // `Misc*`. Capture the FULL verbatim run (§2.6 \[16\] PI / §2.5 \[15\] Comment
     // / §2.3 \[3\] S) for byte-exact reconstruction; for a pure-`S` epilog this is
@@ -1875,12 +1875,27 @@ fn parse_char_ref_capturing(c: &mut Cursor<'_>) -> Result<(char, ExtendedRefKind
 /// the DOCTYPE projected; consulted by [`parse_reference`] when an
 /// entity reference's name doesn't match one of the five §4.6
 /// predefined entities.
+/// Maximum element-nesting depth. The parser is recursive-descent
+/// (`parse_element` ↔ `parse_content`), so without a bound a pathologically
+/// nested document (`<a><a><a>…`) overflows the stack and aborts the process —
+/// a denial-of-service. Bounding it turns that into a clean refusal. 256 is the
+/// long-standing libxml2 default: far beyond any real document, yet shallow
+/// enough that the bounded recursion fits comfortably on a small thread stack.
+const MAX_ELEMENT_DEPTH: u32 = 256;
+
 fn parse_element(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
     capture: &mut Option<CaptureCtx>,
+    depth: u32,
 ) -> Result<XmlElement, XmlParseError> {
+    if depth > MAX_ELEMENT_DEPTH {
+        return Err(c.syntax_error(
+            "element nesting within the maximum depth",
+            "input nested beyond the maximum element depth",
+        ));
+    }
     // Claim this element's PRE-ORDER index AT ENTRY — before either the
     // self-closing or the explicit branch, and before descending into any
     // children — so the index ordering matches the byte-exact serializer's
@@ -2034,7 +2049,7 @@ fn parse_element(
     // the same `capture` so descendant elements claim later pre-order indices.
     // It also returns the per-text-child §4.6 predefined-entity-reference forms,
     // which key into THIS element's decisions (the char-data third coordinate).
-    let (children, text_refs) = parse_content(c, entities, strict_entity_declared, capture)?;
+    let (children, text_refs) = parse_content(c, entities, strict_entity_declared, capture, depth)?;
     c.consume("</")?;
     let close_name = parse_name(c)?;
     c.skip_whitespace();
@@ -2550,6 +2565,7 @@ fn parse_content(
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
     capture: &mut Option<CaptureCtx>,
+    depth: u32,
 ) -> Result<ContentWithRefs, XmlParseError> {
     let mut visited = Vec::new();
     parse_content_with_terminator(
@@ -2559,6 +2575,7 @@ fn parse_content(
         strict_entity_declared,
         ContentTerminator::Etag,
         capture,
+        depth,
     )
 }
 
@@ -2579,6 +2596,7 @@ fn parse_content_with_terminator(
     strict_entity_declared: bool,
     term: ContentTerminator,
     capture: &mut Option<CaptureCtx>,
+    depth: u32,
 ) -> Result<ContentWithRefs, XmlParseError> {
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut text_buf = String::new();
@@ -2595,6 +2613,7 @@ fn parse_content_with_terminator(
         &mut text_buf,
         capture,
         &mut text_ref,
+        depth,
     )?;
     flush_text_capturing(&mut nodes, &mut text_buf, &mut text_ref);
     let text_refs = text_ref.map(|cap| cap.done).unwrap_or_default();
@@ -2632,6 +2651,7 @@ fn parse_content_into_buffers(
     text_buf: &mut String,
     capture: &mut Option<CaptureCtx>,
     text_ref: &mut Option<TextRefCapture>,
+    depth: u32,
 ) -> Result<(), XmlParseError> {
     use crate::social::software::markup::xml::spec_1_0::{
         ContentItemKind, loaded_content_dispatch_table,
@@ -2687,7 +2707,7 @@ fn parse_content_into_buffers(
             }
             ContentItemKind::Element => {
                 flush_text_capturing(nodes, text_buf, text_ref);
-                let child = parse_element(c, entities, strict_entity_declared, capture)?;
+                let child = parse_element(c, entities, strict_entity_declared, capture, depth + 1)?;
                 nodes.push(XmlNode::Element(child));
                 continue;
             }
@@ -2785,6 +2805,7 @@ fn parse_content_into_buffers(
                         text_buf,
                         capture,
                         text_ref,
+                        depth,
                     )?;
                     if let Some(cap) = text_ref.as_mut() {
                         // Capture the §4.1 general-entity reference FORM ONLY when
@@ -2864,6 +2885,7 @@ fn include_user_general_entity_in_content(
     text_buf: &mut String,
     capture: &mut Option<CaptureCtx>,
     text_ref: &mut Option<TextRefCapture>,
+    depth: u32,
 ) -> Result<(), XmlParseError> {
     if visited.iter().any(|n| n == name) {
         return Err(XmlParseError::Syntax {
@@ -2937,6 +2959,7 @@ fn include_user_general_entity_in_content(
                 // refs accumulate into one `pending` run keyed by the eventual
                 // child ordinal.
                 text_ref,
+                depth,
             );
             visited.pop();
             result
@@ -3190,6 +3213,7 @@ mod reverse_lens_roundtrip_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_mixed_empty_forms_and_text() {
         // (a) `a` explicit-empty, `b` self-closing, `c` has text — the three
@@ -3198,6 +3222,7 @@ mod reverse_lens_roundtrip_tests {
         assert_byte_exact_roundtrip(input);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_indented_document_with_attributes() {
         // Whitespace BETWEEN elements (indentation) is kept VERBATIM by
@@ -3208,6 +3233,7 @@ mod reverse_lens_roundtrip_tests {
         assert_byte_exact_roundtrip(input);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_wn_lmf_fragment() {
         // A representative WN-LMF 1.3 document: XML decl + DOCTYPE (SYSTEM id) +
@@ -3232,6 +3258,7 @@ mod reverse_lens_roundtrip_tests {
         assert_eq!(prolog.after_root, "");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_epilog_whitespace_after_root() {
         // §2.1 [1] `document ::= prolog element Misc*` — the trailing `Misc*`.
@@ -3251,6 +3278,7 @@ mod reverse_lens_roundtrip_tests {
         assert_eq!(prolog.after_root, "\n");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_nested_explicit_empty() {
         // (b) a NESTED explicit-empty: `y` (pre-order index 2) sits inside `x`
@@ -3277,6 +3305,7 @@ mod reverse_lens_roundtrip_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_explicit_empty_after_sibling_element_and_text() {
         // (c) the explicit-empty `<e></e>` is preceded by a sibling ELEMENT
@@ -3303,6 +3332,7 @@ mod reverse_lens_roundtrip_tests {
         assert_eq!(decisions.get(2), None);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn entity_inclusion_threads_the_preorder_counter() {
         // (d) a DOCTYPE-declared general entity whose replacement text contains
@@ -3361,6 +3391,7 @@ mod reverse_lens_roundtrip_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_multiline_start_tag_indented_attributes() {
         // §3.1 [40] `STag ::= '<' Name (S Attribute)* S? '>'` — each attribute
@@ -3390,6 +3421,7 @@ mod reverse_lens_roundtrip_tests {
         assert_eq!(iw.before_close, "");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_predefined_entity_in_attribute_value() {
         // §4.6 `&apos;` inside `writtenForm="&apos;hood"` — the parser RESOLVES
@@ -3409,6 +3441,7 @@ mod reverse_lens_roundtrip_tests {
         assert_eq!(form.refs, vec![(0, EntityName::Apos)]);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_multiple_entity_refs_per_attribute_value() {
         // Multiple §4.6 references in one attribute value, with intervening
@@ -3430,6 +3463,7 @@ mod reverse_lens_roundtrip_tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_entity_ref_adjacent_to_multibyte_char_in_char_data() {
         // The char-index basis MUST be exact when a §4.6 reference sits next to a
@@ -3453,6 +3487,7 @@ mod reverse_lens_roundtrip_tests {
         assert_eq!(form.refs, vec![(4, EntityName::Quot)]);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_oewn_2025_shaped_fragment() {
         // THE GATE: a real OEWN-2025-shaped fragment combining every captured
@@ -3487,6 +3522,7 @@ mod reverse_lens_roundtrip_tests {
         assert_byte_exact_roundtrip(input);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn no_decision_recorded_for_fully_self_closing_document() {
         // A document with only self-closing empties records NO decisions — the
@@ -3509,6 +3545,7 @@ mod reverse_lens_roundtrip_tests {
     /// silently re-inserted as concrete-syntax residue — so real content can never
     /// masquerade as white-space when this generic carrier serves a future
     /// `write_uslm` / `write_owl_exact`.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn diff_fails_closed_on_dropped_content_text() {
         use super::super::source_syntax::{RegeneratedComplementError, diff_content_whitespace};
@@ -3528,6 +3565,7 @@ mod reverse_lens_roundtrip_tests {
     /// tree lacks is ADMITTED as residue (not rejected), so the white-space-only
     /// guard distinguishes §2.3 [3] `S` from character data rather than rejecting
     /// all unmatched text.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn diff_admits_inter_element_white_space() {
         use super::super::source_syntax::diff_content_whitespace;
@@ -3553,6 +3591,7 @@ mod reverse_lens_roundtrip_tests {
     /// (A `#xD#xA` INSIDE an attribute value is a distinct §3.3.3
     /// attribute-value-normalization residue — the serializer escapes a literal
     /// `#xA` there to `&#xA;` regardless — so it is out of this slice's scope.)
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_crlf_document_byte_exact() {
         // CRLF after the XML decl (prolog `Misc*` `S`), CRLF in the inter-element
@@ -3579,6 +3618,7 @@ mod reverse_lens_roundtrip_tests {
     /// the spec collapses it to `#xA` too. It round-trips byte-for-byte (the `#xA`
     /// is rewritten back to a bare `#xD`, NOT a CRLF), proving the writer
     /// dispatches on the captured [`EolKind`] rather than always inserting CRLF.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_lone_cr_document_byte_exact() {
         // A bare `#xD` between the decl and the root (an old-Mac-style line break).
@@ -3599,6 +3639,7 @@ mod reverse_lens_roundtrip_tests {
     /// A mixed `#xD#xA` / lone `#xD` / literal `#xA` document round-trips
     /// byte-for-byte — the three §2.11 \[2.11\] forms side by side, each put back
     /// to its exact source bytes.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn roundtrip_mixed_eol_forms_byte_exact() {
         // `\r\n` (CRLF), then `\n` (already LF — records nothing), then `\r`
@@ -3625,6 +3666,7 @@ mod reverse_lens_roundtrip_tests {
     /// the no-regression guarantee for the pure-LF WordNet 89 MB corpus and every
     /// existing `reverse_lens` fixture: the EOL kernel addition is INERT when the
     /// source carries no `#xD`.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn pure_lf_document_records_no_eol_form() {
         let input = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<r>\n  <a/>\n</r>\n";
@@ -3636,6 +3678,44 @@ mod reverse_lens_roundtrip_tests {
             decisions.eol_form().is_empty(),
             "a pure-#xA source must record an EMPTY §2.11 EOL form (additive: the \
              re-expansion is a no-op, so LF-only corpora are unaffected)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod depth_safety_tests {
+    use super::parse_document;
+
+    /// Billion-laughs-style nesting: tens of thousands of nested elements. The
+    /// recursive-descent parser (`parse_element` ↔ `parse_content`) would
+    /// overflow the stack and ABORT the process — a denial-of-service — without
+    /// a depth bound. Honest = refuse cleanly with an error, never crash.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn deeply_nested_xml_is_refused_not_a_stack_overflow() {
+        // Run on a generous stack so the test verifies the depth-bound REFUSAL,
+        // not the host thread's stack size. Without the bound, 50k-deep nesting
+        // overflows even a 32 MiB stack — so a clean `Err` here proves the guard
+        // fires (at MAX_ELEMENT_DEPTH) long before the stack is exhausted.
+        let refused = std::thread::Builder::new()
+            .stack_size(32 * 1024 * 1024)
+            .spawn(|| {
+                let depth = 50_000usize;
+                let mut xml = String::with_capacity(depth * 7);
+                for _ in 0..depth {
+                    xml.push_str("<a>");
+                }
+                for _ in 0..depth {
+                    xml.push_str("</a>");
+                }
+                parse_document(xml.as_bytes()).is_err()
+            })
+            .expect("spawn test thread")
+            .join()
+            .expect("the parser must not panic/overflow on deeply-nested input");
+        assert!(
+            refused,
+            "deeply-nested XML must be refused by the depth bound, not parsed",
         );
     }
 }

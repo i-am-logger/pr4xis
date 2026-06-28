@@ -567,6 +567,7 @@ mod tests {
     use super::*;
     use crate::formal::meta::lens_composition::{put_get_holds, put_put_holds};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn section_lens_is_well_behaved() {
         let title = sample_uslm_title();
@@ -581,12 +582,14 @@ mod tests {
         assert!(put_put_holds(&lens, &other, &sample_uslm_section(), &title));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn section_lens_out_of_range() {
         let title = sample_uslm_title();
         assert!(SectionByIndexLens { index: 5 }.get(&title).is_err());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn domain_lens_projects_statute() {
         let lens = UslmStatuteLens {
@@ -598,6 +601,7 @@ mod tests {
         assert_eq!(st.version(), "2002");
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn domain_lens_get_put_and_put_get() {
         let lens = UslmStatuteLens {
@@ -609,6 +613,7 @@ mod tests {
         assert!(put_get_on_image_holds(&lens, &section));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn composed_chain_title_to_statute() {
         let chain = title_to_statute_lens(0, "sox_1514a", "2002");
@@ -618,16 +623,19 @@ mod tests {
         assert!(get_put_holds(&chain, &title));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_domain_lens_well_behaved() {
         assert!(UslmStatuteLensWellBehaved.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn axiom_chain_composes() {
         assert!(StatuteChainComposes.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn section_by_num_lens_is_well_behaved() {
         let title = sample_uslm_title();
@@ -645,6 +653,7 @@ mod tests {
         assert!(put_put_holds(&lens, &other, &sample_uslm_section(), &title));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn section_by_num_lens_not_found() {
         let title = sample_uslm_title();

@@ -5,38 +5,45 @@ use pr4xis::ontology::Ontology;
 use crate::applied::industrial::structural::engine::*;
 use crate::applied::industrial::structural::ontology::*;
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn structural_category_laws() {
     assert_category_laws::<StructuralCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn structural_ontology_validates() {
     StructuralOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn strain_bounded_elastic_holds() {
     assert!(StrainBoundedElastic.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn crack_monotonicity_holds() {
     assert!(CrackMonotonicity.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn elastic_within_yield() {
     assert!(is_elastic(1000.0, 2000.0));
     assert!(is_elastic(-1000.0, 2000.0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn plastic_beyond_yield() {
     assert!(!is_elastic(2500.0, 2000.0));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn damage_index_none_severity() {
     let readings = vec![StrainReading {
@@ -48,6 +55,7 @@ fn damage_index_none_severity() {
     assert_eq!(di.severity, DamageSeverity::None);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn damage_index_critical_severity() {
     let readings = vec![StrainReading {
@@ -59,12 +67,14 @@ fn damage_index_critical_severity() {
     assert_eq!(di.severity, DamageSeverity::Critical);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn damage_index_empty_returns_none() {
     let di = compute_damage_index(&[], 2000.0);
     assert!(di.is_none());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn rms_strain_constant() {
     let readings: Vec<StrainReading> = (0..10)
@@ -78,6 +88,7 @@ fn rms_strain_constant() {
     assert!((rms - 500.0).abs() < 1e-10);
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn rms_strain_empty() {
     assert!((rms_strain(&[]) - 0.0).abs() < 1e-12);
@@ -87,6 +98,7 @@ fn rms_strain_empty() {
 // H8: NaN microstrain does not panic in compute_damage_index
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn compute_damage_index_nan_strain_no_panic() {
     let readings = vec![
@@ -139,4 +151,7 @@ mod proptest_proofs {
             prop_assert!(rms_strain(&readings) >= 0.0);
         }
     }
+
+    pr4xis::register_praxis_value!(severity_monotonic_with_ratio, Verifiable);
+    pr4xis::register_praxis_value!(rms_strain_non_negative, Verifiable);
 }

@@ -10,11 +10,13 @@ use crate::social::compliance::ontology::*;
 // Category and ontology validation
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn compliance_category_laws() {
     assert_category_laws::<ComplianceCategory>();
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn compliance_ontology_validates() {
     ComplianceOntology::validate()
@@ -25,31 +27,37 @@ fn compliance_ontology_validates() {
 // LOAC axioms — individual proofs
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loac_distinction_principle() {
     assert!(DistinctionPrinciple.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loac_civilian_presumption() {
     assert!(CivilianPresumption.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loac_human_in_the_loop() {
     assert!(HumanInTheLoop.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loac_sequential_escalation() {
     assert!(SequentialEscalation.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loac_advance_warning() {
     assert!(AdvanceWarning.verify().is_ok());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn loac_abort_always_available() {
     assert!(AbortAlwaysAvailable.verify().is_ok());
@@ -59,12 +67,14 @@ fn loac_abort_always_available() {
 // Classification proofs
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn unknown_entity_is_not_engageable() {
     let entity = ClassifiedEntity::unknown();
     assert!(!entity.meets_engagement_threshold());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn person_never_meets_engagement_threshold() {
     // Even fully classified hostile person requires human PositiveId via escalation
@@ -77,6 +87,7 @@ fn person_never_meets_engagement_threshold() {
     assert!(!person.meets_engagement_threshold());
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn protected_entity_cannot_be_engaged() {
     let civilian = ClassifiedEntity {
@@ -102,6 +113,7 @@ fn protected_entity_cannot_be_engaged() {
     ));
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn hospital_cannot_be_engaged() {
     let hospital = ClassifiedEntity {
@@ -124,6 +136,7 @@ fn hospital_cannot_be_engaged() {
 // Escalation proofs
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn cannot_skip_from_observe_to_engage() {
     let target = ClassifiedEntity {
@@ -145,6 +158,7 @@ fn cannot_skip_from_observe_to_engage() {
     ));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn valid_sequential_escalation_permitted() {
     let target = ClassifiedEntity {
@@ -210,6 +224,7 @@ fn valid_sequential_escalation_permitted() {
     }
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn abort_from_any_level() {
     let entity = ClassifiedEntity::unknown();
@@ -239,6 +254,7 @@ fn abort_from_any_level() {
     }
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn insufficient_auth_denied() {
     let target = ClassifiedEntity {
@@ -261,6 +277,7 @@ fn insufficient_auth_denied() {
     ));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn person_with_positive_id_and_military_objective_still_blocked_by_meets_threshold() {
     // meets_engagement_threshold returns false for persons — this is the
@@ -278,6 +295,7 @@ fn person_with_positive_id_and_military_objective_still_blocked_by_meets_thresho
 // H9: Authorization level() is monotonic and consistent
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn authorization_level_ordering() {
     assert!(Authorization::Autonomous.level() < Authorization::OperatorNotified.level());
@@ -285,6 +303,7 @@ fn authorization_level_ordering() {
     assert!(Authorization::OperatorApproved.level() < Authorization::CommanderAuthorized.level());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn authorization_level_matches_required() {
     // Commander authorization should satisfy all requirements
@@ -570,6 +589,16 @@ mod proptest_proofs {
                 "friendly entity must never meet engagement threshold");
         }
     }
+
+    pr4xis::register_praxis_value!(escalation_is_deterministic, Deterministic);
+    pr4xis::register_praxis_value!(person_never_meets_engagement_threshold, Verifiable);
+    pr4xis::register_praxis_value!(protected_entity_blocked_from_engage, Honest);
+    pr4xis::register_praxis_value!(protected_object_blocked_from_engage, Honest);
+    pr4xis::register_praxis_value!(abort_always_available, Verifiable);
+    pr4xis::register_praxis_value!(deescalate_always_available, Verifiable);
+    pr4xis::register_praxis_value!(cannot_skip_to_engage, Honest);
+    pr4xis::register_praxis_value!(unknown_entity_cannot_be_engaged, Honest);
+    pr4xis::register_praxis_value!(friendly_cannot_be_engaged, Verifiable);
 }
 
 // ---------------------------------------------------------------------------
@@ -579,6 +608,7 @@ mod proptest_proofs {
 // The validated constructor rejects contradictory combinations.
 // ---------------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn meta_axiom_classified_entity_rejects_none_confidence_with_known_iff() {
     // Confidence::None + non-Unknown IFF is contradictory:
@@ -606,6 +636,7 @@ fn meta_axiom_classified_entity_rejects_none_confidence_with_known_iff() {
     );
 }
 
+#[pr4xis::praxis_value(Honest)]
 #[test]
 fn meta_axiom_classified_entity_rejects_low_confidence_protected_hostile() {
     // Protected + Hostile at low confidence is rejected
@@ -633,6 +664,7 @@ fn meta_axiom_classified_entity_rejects_low_confidence_protected_hostile() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_axiom_classified_entity_allows_valid_combinations() {
     // Unknown entity with no confidence: valid
@@ -681,6 +713,7 @@ fn meta_axiom_classified_entity_allows_valid_combinations() {
     );
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn meta_axiom_classified_entity_unknown_constructor_is_consistent() {
     // The unknown() default constructor must pass all invariants
@@ -789,4 +822,11 @@ mod prop {
             prop_assert!(AbortAlwaysAvailable.verify().is_ok());
         }
     }
+
+    pr4xis::register_praxis_value!(prop_identity_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_identity_exists, Deterministic);
+    pr4xis::register_praxis_value!(prop_left_identity, Deterministic);
+    pr4xis::register_praxis_value!(prop_protected_never_engageable, Verifiable);
+    pr4xis::register_praxis_value!(prop_abort_always_available, Verifiable);
+    pr4xis::register_praxis_value!(prop_all_axioms_hold, Verifiable);
 }

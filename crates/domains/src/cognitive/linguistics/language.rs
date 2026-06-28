@@ -629,6 +629,7 @@ fn interjection_kind_from_synset(synset_id: &str) -> InterjectionKind {
 mod feature_decoders {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn definiteness_decodes_from_the_loaded_synset() {
         assert_eq!(
@@ -658,6 +659,7 @@ mod feature_decoders {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interjection_kind_decodes_from_the_loaded_synset() {
         assert_eq!(
@@ -840,6 +842,7 @@ mod tests {
         crate::social::software::markup::xml::lmf::reader::read_wordnet(sample).unwrap()
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn english_language_trait() {
         let wn = sample_wn();
@@ -850,6 +853,7 @@ mod tests {
         assert!(!en.morphological_rules().is_empty());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexical_lookup_function_word() {
         let wn = sample_wn();
@@ -858,6 +862,7 @@ mod tests {
         assert_eq!(the.pos_tag(), PosTag::Determiner);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexical_lookup_content_word() {
         let wn = sample_wn();
@@ -866,6 +871,7 @@ mod tests {
         assert_eq!(dog.pos_tag(), PosTag::Noun);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexical_lookup_copula() {
         let wn = sample_wn();
@@ -874,6 +880,7 @@ mod tests {
         assert_eq!(is.pos_tag(), PosTag::Copula);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexical_lookup_interrogative_pronoun() {
         let wn = sample_wn();
@@ -883,6 +890,7 @@ mod tests {
         assert!(!what.is_anaphoric());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lexical_lookup_personal_pronoun() {
         let wn = sample_wn();
@@ -892,6 +900,7 @@ mod tests {
         assert!(!it.is_interrogative());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn lexical_lookup_unknown() {
         let wn = sample_wn();
@@ -899,6 +908,7 @@ mod tests {
         assert!(en.lexical_lookup("xyzzy").is_none());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn known_words_includes_both() {
         let wn = sample_wn();
@@ -908,6 +918,7 @@ mod tests {
         assert!(words.contains(&"dog")); // content word
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn writing_system_complete() {
         let ws = super::super::orthography::english_writing_system();
@@ -923,6 +934,7 @@ mod tests {
 
     use crate::cognitive::linguistics::lambek::pregroup;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pregroup_the_dog_runs() {
         let wn = sample_wn();
@@ -949,6 +961,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn pregroup_she_sees_the_dog() {
         let wn = sample_wn();
@@ -979,6 +992,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_function_word_has_pregroup_type() {
         let wn = sample_wn();
@@ -1010,6 +1024,7 @@ mod function_words_prx {
     /// POS / subcat / definiteness / interjection kind) fails, not just a changed
     /// count. If `english.xml` was edited without re-running
     /// `pr4xis compile --compact --lock`, this is the test that catches it.
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn committed_function_words_prx_matches_the_xml() {
         // Loaded through the generalized committed-`.prx` gate (the SAME path
@@ -1045,6 +1060,7 @@ mod function_words_prx {
     /// preserve (determiner kinds, interjection kinds — the human-meaningful
     /// `fw-*` synset ids survive the `.prx` round-trip), loaded through
     /// `build_english_function_words` (the committed-`.prx` path).
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn decoders_survive_the_prx_roundtrip() {
         let map = build_english_function_words();
