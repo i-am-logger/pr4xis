@@ -53,7 +53,14 @@ impl Value {
         }
         let g = gcd(num.unsigned_abs(), den.unsigned_abs()) as i64;
         let sign = if den < 0 { -1 } else { 1 };
-        Ok(Value::Rational((num * sign) / g, (den * sign) / g))
+        // Apply the sign with checked multiplies: `i64::MIN` cannot be negated in
+        // i64 (reachable via `1 / i64::MIN`), so fall back to float rather than
+        // panic (debug) or wrap to a denormalized rational (release) — matching
+        // the checked add/multiply/square ops.
+        match (num.checked_mul(sign), den.checked_mul(sign)) {
+            (Some(n), Some(d)) => Ok(Value::Rational(n / g, d / g)),
+            _ => Value::float(num as f64 / den as f64),
+        }
     }
 
     /// Create an integer value.
@@ -110,7 +117,12 @@ impl Value {
     /// Negate.
     pub fn negate(&self) -> Self {
         match self {
-            Value::Rational(n, d) => Value::Rational(-n, *d),
+            // `i64::MIN` has no i64 negation; fall back to float rather than
+            // overflow-panic (debug) / wrap (release).
+            Value::Rational(n, d) => match n.checked_neg() {
+                Some(neg) => Value::Rational(neg, *d),
+                None => Value::Float(-(*n as f64 / *d as f64)),
+            },
             Value::Float(f) => Value::Float(-f),
         }
     }

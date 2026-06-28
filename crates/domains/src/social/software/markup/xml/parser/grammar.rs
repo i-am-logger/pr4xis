@@ -3718,4 +3718,26 @@ mod depth_safety_tests {
             "deeply-nested XML must be refused by the depth bound, not parsed",
         );
     }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn deeply_nested_content_model_is_refused_not_a_stack_overflow() {
+        // A DOCTYPE internal-subset <!ELEMENT decl with deeply-nested parens
+        // drives the PEG content-model interpreter (pr4xis xml_grammar) into
+        // unbounded mutual recursion — a stack overflow SEPARATE from the
+        // element-tree depth bound. Run on a generous stack so a clean return
+        // proves the interpreter's own recursion guard fires.
+        let ok = std::thread::Builder::new()
+            .stack_size(32 * 1024 * 1024)
+            .spawn(|| {
+                let parens = "(".repeat(20_000);
+                let doc = format!("<!DOCTYPE x [<!ELEMENT a {parens}b>]>\n<x/>");
+                let _ = parse_document(doc.as_bytes());
+                true
+            })
+            .expect("spawn test thread")
+            .join()
+            .expect("the content-model interpreter must not overflow the stack");
+        assert!(ok);
+    }
 }
