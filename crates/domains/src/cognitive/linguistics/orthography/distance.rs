@@ -415,9 +415,18 @@ pub fn closest_matches<'a>(
     candidates: &[&'a str],
     max_distance: usize,
 ) -> Vec<(&'a str, usize)> {
+    // Length-difference prune: |len(word) - len(candidate)| is a lower bound on
+    // edit distance, so a candidate whose length differs by more than
+    // max_distance cannot match — skip its O(n·m) DP. Without this, a long
+    // untrusted `word` runs the full Damerau–Levenshtein table against every
+    // candidate (a resource-exhaustion DoS).
+    let word_len = word.chars().count();
     let mut matches: Vec<(&str, usize)> = candidates
         .iter()
         .filter_map(|&candidate| {
+            if word_len.abs_diff(candidate.chars().count()) > max_distance {
+                return None;
+            }
             let dist = damerau_levenshtein(word, candidate);
             if dist <= max_distance && dist > 0 {
                 Some((candidate, dist))

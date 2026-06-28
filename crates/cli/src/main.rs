@@ -971,7 +971,11 @@ fn run_chat() {
 
     loop {
         print!("> ");
-        stdout.flush().unwrap();
+        // A broken pipe (output piped to a closed reader) must not panic the
+        // REPL — treat a flush error as a clean exit.
+        if stdout.flush().is_err() {
+            break;
+        }
 
         let mut input = String::new();
         match stdin.lock().read_line(&mut input) {

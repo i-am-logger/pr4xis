@@ -56,7 +56,10 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
 
     // SSE endpoint for live reload.
     if url == "/livereload" {
-        serve_sse(request);
+        // Long-poll SSE: run it on its own thread so it does not block a request
+        // worker for up to 30s — a handful of live-reload clients would
+        // otherwise starve the worker pool.
+        std::thread::spawn(move || serve_sse(request));
         return;
     }
 
