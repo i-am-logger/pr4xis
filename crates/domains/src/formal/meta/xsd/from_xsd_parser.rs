@@ -424,7 +424,12 @@ pub fn project_from_xsd_text(xsd_src: &str) -> XsdOntologyInstance {
                         });
                     }
                 }
-                cursor = end + 1;
+                // `end` is `xsd_src.len()` when no `>` follows the matched
+                // prefix; `end + 1` would then be `len + 1` and the next
+                // `xsd_src[cursor..]` would slice out of bounds (a panic on
+                // malformed XSD). Clamp so the next `find` runs on an empty
+                // suffix and the loop exits cleanly.
+                cursor = (end + 1).min(xsd_src.len());
             }
         }
     }
@@ -449,4 +454,23 @@ fn extract_attr(slice: &str, key: &str) -> Option<String> {
     let start = slice.find(&pattern)? + pattern.len();
     let end = slice[start..].find('"')? + start;
     Some(slice[start..end].to_string())
+}
+
+#[cfg(test)]
+mod totality_tests {
+    use super::project_from_xsd_text;
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn xsd_tag_prefix_without_closing_gt_does_not_panic() {
+        // A matched tag prefix (`<xs:element `) with no following `>` set
+        // end = xsd_src.len() and cursor = len + 1, so the next loop's
+        // `xsd_src[cursor..]` sliced out of bounds. Must scan to the end and
+        // return cleanly. Reachable from untrusted XSD via xml_xsd::decode.
+        let _ = project_from_xsd_text("<xs:element ");
+        let _ = project_from_xsd_text("<xsd:complexType ");
+        let _ = project_from_xsd_text(
+            "<schema xmlns=\"http://www.w3.org/2001/XMLSchema\"></schema><xs:element ",
+        );
+    }
 }

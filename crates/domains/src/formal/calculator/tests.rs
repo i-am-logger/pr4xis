@@ -2910,3 +2910,17 @@ fn rational_overflow_falls_back_to_float_not_panic() {
     .eval(AngleMode::Radians)
     .expect("rational add overflow must not panic");
 }
+
+#[pr4xis::praxis_value(Honest)]
+#[test]
+fn i64_min_rational_ops_do_not_overflow() {
+    // i64::MIN has no i64 negation. These public-API paths reach the rational
+    // sign-normalization (Value::rational) and negate that would otherwise
+    // panic (debug) or wrap to a denormalized rational (release).
+    let _ = Value::rational(1, i64::MIN).expect("rational(1, i64::MIN) must not panic");
+    let _ = Value::int(i64::MIN).negate();
+    let _ = Value::int(i64::MIN).reciprocal();
+    Expr::binary(BinaryOp::Divide, Expr::int(1), Expr::int(i64::MIN))
+        .eval(AngleMode::Radians)
+        .expect("1 / i64::MIN must evaluate, not panic");
+}

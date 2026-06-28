@@ -127,7 +127,19 @@ pub struct Interpreter<'g, 'i> {
     /// Validity is scoped to the bound `input` — recognising a
     /// different input requires a new `Interpreter`.
     cache: HashMap<(String, usize), MatchResult>,
+    /// Current `match_term`/`match_production` recursion depth, bounded by
+    /// [`MAX_RECURSION_DEPTH`].
+    depth: usize,
 }
+
+/// Maximum PEG recursion depth. `match_term`/`match_production` recurse
+/// mutually, and the packrat cache only breaks *same-position* left recursion —
+/// forward descent (e.g. nested `(` in an XML content model, productions
+/// \[48\]-\[50\]) advances the position each step, so it is otherwise unbounded
+/// and overflows the stack on adversarial input. 256 is far beyond any real
+/// grammar nesting; past it the matcher cleanly returns `NoMatch` (the input is
+/// rejected) instead of aborting the process.
+const MAX_RECURSION_DEPTH: usize = 256;
 
 impl<'g, 'i> Interpreter<'g, 'i> {
     /// Build a fresh interpreter over `(grammar, input)`.
@@ -137,6 +149,7 @@ impl<'g, 'i> Interpreter<'g, 'i> {
             grammar,
             input,
             cache: HashMap::new(),
+            depth: 0,
         }
     }
 
@@ -174,6 +187,20 @@ impl<'g, 'i> Interpreter<'g, 'i> {
     /// Match an arbitrary [`Term`] at `pos`. This is the dispatch
     /// for every Appendix B operator.
     pub fn match_term(&mut self, term: &Term, pos: usize) -> MatchResult {
+        // Bound the mutual recursion: past MAX_RECURSION_DEPTH, refuse cleanly
+        // rather than overflow the stack on adversarially-nested input. The
+        // guard always decrements (the inner call returns a value, no early
+        // exit between increment and decrement).
+        if self.depth >= MAX_RECURSION_DEPTH {
+            return MatchResult::NoMatch;
+        }
+        self.depth += 1;
+        let result = self.match_term_inner(term, pos);
+        self.depth -= 1;
+        result
+    }
+
+    fn match_term_inner(&mut self, term: &Term, pos: usize) -> MatchResult {
         match term {
             Term::Literal(s) => {
                 if pos <= self.input.len() && self.input[pos..].starts_with(s.as_str()) {
