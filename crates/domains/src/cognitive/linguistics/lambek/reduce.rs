@@ -126,7 +126,12 @@ pub fn chart_reduce(words: &[String], type_sets: &[Vec<LambekType>]) -> Reductio
     use hashbrown::HashMap;
     use hashbrown::HashSet;
     let n = words.len();
-    if n == 0 {
+    // The CYK chart is O(n²) space and O(n³) time, so an unbounded token count
+    // (a pathologically long utterance) is a resource-exhaustion DoS on the
+    // user-facing chat path. Real sentences are far under this bound; past it,
+    // refuse gracefully (abstain) rather than allocate (n+1)² sets and hang.
+    const MAX_CHART_WIDTH: usize = 256;
+    if n == 0 || n > MAX_CHART_WIDTH {
         return ReductionResult {
             success: false,
             final_type: None,
@@ -270,4 +275,23 @@ pub fn reduce_with_alternatives(
         .collect();
 
     chart_reduce(&words, &type_sets)
+}
+
+#[cfg(test)]
+mod dos_tests {
+    use super::chart_reduce;
+    use alloc::{format, string::String, vec::Vec};
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn unbounded_token_count_is_refused_not_a_resource_bomb() {
+        // The CYK chart allocates (n+1)² type-sets + (n+1)² backpointers and
+        // runs in O(n³); an unbounded token count is a memory/time DoS. A huge
+        // count must abstain (success:false) immediately — without the
+        // MAX_CHART_WIDTH bound this allocates gigabytes / hangs.
+        let words: Vec<String> = (0..10_000).map(|i| format!("w{i}")).collect();
+        let type_sets: Vec<Vec<_>> = words.iter().map(|_| Vec::new()).collect();
+        let result = chart_reduce(&words, &type_sets);
+        assert!(!result.success);
+    }
 }
