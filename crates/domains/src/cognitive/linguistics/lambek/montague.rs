@@ -111,7 +111,11 @@ fn lex(word: &str, ty: &LambekType, en: &dyn LexicalReasoner) -> Sem {
 /// Apply the functor: reduce semantic values in parallel with type reductions.
 /// Each type reduction (function application) corresponds to semantic function application.
 pub fn interpret(tokens: &[TypedToken], en: &dyn LexicalReasoner) -> Sem {
-    if tokens.is_empty() {
+    // The reduction loop below is O(n²) in the token count, so a pathologically
+    // long utterance is a resource-exhaustion DoS. Real sentences are far under
+    // this bound (matching chart_reduce's MAX_CHART_WIDTH); abstain past it.
+    const MAX_INTERPRET_WIDTH: usize = 256;
+    if tokens.is_empty() || tokens.len() > MAX_INTERPRET_WIDTH {
         return Sem::Pred {
             word: "empty".into(),
         };

@@ -58,7 +58,7 @@ pub fn read_xml(input: &str) -> Result<XmlDocument, XmlReadError> {
     }
 
     // Read root element
-    let (root, _) = read_element(&input[pos..])?;
+    let (root, _) = read_element(&input[pos..], 0)?;
 
     Ok(XmlDocument {
         version,
@@ -68,7 +68,17 @@ pub fn read_xml(input: &str) -> Result<XmlDocument, XmlReadError> {
     })
 }
 
-fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
+/// Maximum element-nesting depth for the lightweight reader. Like the full
+/// parser's `MAX_ELEMENT_DEPTH`, this stops a deeply-nested document from
+/// overflowing the stack — `read_element` recurses once per nested child.
+const MAX_READ_DEPTH: usize = 256;
+
+fn read_element(input: &str, depth: usize) -> Result<(XmlElement, usize), XmlReadError> {
+    if depth > MAX_READ_DEPTH {
+        return Err(XmlReadError::new(
+            "element nesting exceeds the maximum depth",
+        ));
+    }
     let input = input.trim_start();
     if !input.starts_with('<') {
         return Err(XmlReadError::new("expected '<' to start element"));
@@ -152,25 +162,29 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
                 .ok_or(XmlReadError::new("unclosed CDATA"))?;
             children.push(XmlNode::CData(remaining[9..end].into()));
             pos += end + 3;
-        } else if remaining.starts_with("<!--") {
-            let end = remaining
+        } else if let Some(after) = remaining.strip_prefix("<!--") {
+            // Search for "-->" AFTER the "<!--" opener so the opener's own "--"
+            // cannot be reused as the terminator — e.g. "<!-->" would otherwise
+            // match "-->" inside the opener and slice a backwards range (panic).
+            let rel = after
                 .find("-->")
                 .ok_or(XmlReadError::new("unclosed comment"))?;
-            children.push(XmlNode::Comment(remaining[4..end].into()));
-            pos += end + 3;
-        } else if remaining.starts_with("<?") {
-            let end = remaining
-                .find("?>")
-                .ok_or(XmlReadError::new("unclosed PI"))?;
-            let pi_content = &remaining[2..end];
+            children.push(XmlNode::Comment(after[..rel].into()));
+            pos += 4 + rel + 3;
+        } else if let Some(after) = remaining.strip_prefix("<?") {
+            // Search for "?>" AFTER the "<?" opener so the opener's own '?'
+            // cannot start the terminator — e.g. "<?>" would otherwise match at
+            // index 1 and slice a backwards range (panic).
+            let rel = after.find("?>").ok_or(XmlReadError::new("unclosed PI"))?;
+            let pi_content = &after[..rel];
             let (target, data) = pi_content
                 .split_once(char::is_whitespace)
                 .map(|(t, d)| (t.to_string(), Some(d.trim().to_string())))
                 .unwrap_or((pi_content.to_string(), None));
             children.push(XmlNode::ProcessingInstruction { target, data });
-            pos += end + 2;
+            pos += 2 + rel + 2;
         } else if remaining.starts_with('<') {
-            let (child_elem, consumed) = read_element(remaining)?;
+            let (child_elem, consumed) = read_element(remaining, depth + 1)?;
             children.push(XmlNode::Element(child_elem));
             pos += consumed;
         } else {
@@ -393,6 +407,21 @@ mod tests {
         let s = format!("<!-- never-closed {MINIMAL_ROOT}");
         let err = read_xml(&s).unwrap_err();
         assert!(err.message.contains("unclosed comment"));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn in_content_comment_pi_overlap_and_deep_nesting_do_not_panic() {
+        // The opener's "--"/"?" must not be reused as the terminator: "<!-->"
+        // would slice remaining[4..2] and "<?>" remaining[2..1] (a panic).
+        let _ = read_xml("<a><!--></a>");
+        let _ = read_xml("<a><!---></a>");
+        let _ = read_xml("<a><?></a>");
+        let _ = read_xml("<a><?x></a>");
+        // Deeply-nested content must be refused by MAX_READ_DEPTH, not overflow
+        // the stack (the bound keeps recursion shallow enough for any stack).
+        let deep = format!("{}<x/>{}", "<a>".repeat(50_000), "</a>".repeat(50_000));
+        assert!(read_xml(&deep).is_err());
     }
 
     // ── Adversarial-input properties (compliance: no panic on

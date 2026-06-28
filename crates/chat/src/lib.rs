@@ -784,8 +784,16 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
 
     let mut lines = Vec::new();
 
-    // Collect all concept IDs per word
-    let word_ids: Vec<(&str, Vec<_>)> = words.iter().map(|&w| (w, en.lookup(w).to_vec())).collect();
+    // Collect all concept IDs per word. Bound the count: the pairwise loops
+    // below are O(n²) in the word count, so a pathologically long utterance is a
+    // resource-exhaustion DoS. Process at most MAX_PARTIAL_WIDTH words (matching
+    // chart_reduce's cap); real utterances are far under it.
+    const MAX_PARTIAL_WIDTH: usize = 256;
+    let word_ids: Vec<(&str, Vec<_>)> = words
+        .iter()
+        .take(MAX_PARTIAL_WIDTH)
+        .map(|&w| (w, en.lookup(w).to_vec()))
+        .collect();
 
     // For each concept, describe it and trace taxonomy
     for (word, ids) in &word_ids {

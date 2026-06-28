@@ -2657,7 +2657,20 @@ fn parse_content_into_buffers(
         ContentItemKind, loaded_content_dispatch_table,
     };
     let dispatch = loaded_content_dispatch_table();
+    // Bound total entity expansion: `nodes`/`text_buf` accumulate every included
+    // entity's replacement text (entity inclusion appends to these SAME buffers),
+    // so a "billion laughs" bomb blows their size. `depth` and the §4.1 `visited`
+    // cycle check do NOT bound exponential NON-cyclic expansion (a→bb, b→cc, …);
+    // this does — refuse cleanly rather than OOM/hang.
+    const MAX_EXPANSION_BYTES: usize = 16 * 1024 * 1024;
+    const MAX_EXPANSION_NODES: usize = 1_000_000;
     loop {
+        if text_buf.len() > MAX_EXPANSION_BYTES || nodes.len() > MAX_EXPANSION_NODES {
+            return Err(c.syntax_error(
+                "entity expansion within the size limit",
+                "entity expansion exceeds the maximum",
+            ));
+        }
         match term {
             ContentTerminator::Etag => {
                 if c.starts_with("</") {
@@ -2792,7 +2805,15 @@ fn parse_content_into_buffers(
                     // mismatch. (prov_o's general-entity refs are all in attribute
                     // VALUES, so this content path is not exercised by it.)
                     let nodes_before = nodes.len();
-                    let chars_before = text_buf.chars().count();
+                    // Only needed for the capture/reverse-lens path below; on the
+                    // decode path (text_ref None) this `chars().count()` is O(n)
+                    // per inclusion → O(n²) over an entity-expansion bomb. Guard
+                    // it so decoding stays linear and the expansion budget fires.
+                    let chars_before = if text_ref.is_some() {
+                        text_buf.chars().count()
+                    } else {
+                        0
+                    };
                     let ext_before = text_ref.as_ref().map_or(0, |t| t.pending_ext.len());
                     let pred_before = text_ref.as_ref().map_or(0, |t| t.pending.len());
                     include_user_general_entity_in_content(
@@ -3739,5 +3760,28 @@ mod depth_safety_tests {
             .join()
             .expect("the content-model interpreter must not overflow the stack");
         assert!(ok);
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn billion_laughs_entity_expansion_is_refused_not_oom() {
+        // Classic XML entity-expansion bomb: nested general entities that expand
+        // exponentially (lol9 → ~10^8 "lol"s, hundreds of MB). There is no cycle
+        // and the nesting is shallow, so neither the §4.1 visited cycle-check nor
+        // the depth bound catches it — the expansion-size budget must refuse it
+        // before exhausting memory.
+        let mut doc = String::from("<!DOCTYPE lolz [\n<!ENTITY lol \"lol\">\n");
+        for i in 2..=9u32 {
+            let prev = if i == 2 {
+                String::from("lol")
+            } else {
+                format!("lol{}", i - 1)
+            };
+            let refs = format!("&{prev};").repeat(10);
+            doc.push_str(&format!("<!ENTITY lol{i} \"{refs}\">\n"));
+        }
+        doc.push_str("]>\n<lolz>&lol9;</lolz>");
+        // Must return (an error) without OOM/hang — the budget caps expansion.
+        let _ = parse_document(doc.as_bytes());
     }
 }
