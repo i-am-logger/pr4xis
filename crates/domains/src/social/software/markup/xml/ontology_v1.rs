@@ -326,21 +326,74 @@ pr4xis::register_axiom!(
 /// its root. XML 1.0 §2.1 ("Well-Formed XML Documents") +
 /// Cowan & Tobin 2004 §2.1.
 ///
-/// Structural — the `DocumentItem` variant is unique in the enum,
-/// so an XmlInformationSet built from a well-formed document has
-/// exactly one of them at the root by construction. The axiom
-/// asserts the rule at the ontology level.
+/// Checked at two levels, both against real data:
+///
+/// - **Ontology structure** — `Xml10Concept` declares exactly one
+///   `DocumentItem` variant, and it `is_a`-subsumes under
+///   `XmlInformationItem` (the single Document information item of the
+///   Infoset rec §2.1).
+/// - **Runtime** — reading a well-formed document through the sibling
+///   [`super::reader::read_xml`] yields exactly one document root (the
+///   single `DocumentItem`, since `XmlDocument` carries one `root`),
+///   while an input with no root element yields none. Falsifiable: if
+///   the reader accepted a non-document, or produced no root for a
+///   well-formed one, `verify` returns a counterexample.
 pub struct SingleDocumentItemPerDocument;
 
 impl Axiom for SingleDocumentItemPerDocument {
     fn verify(&self) -> Verdict {
-        // Structural — see the docstring above.
+        use super::reader::read_xml;
+        use pr4xis::category::{Arrow, Category};
+
+        // ── Ontology level: exactly one DocumentItem concept, rooted
+        // under XmlInformationItem (the XML 1.0 §2.1 single-root rule
+        // lifted to the Infoset's one Document information item). ──
+        let document_item_concepts = Xml10Concept::variants()
+            .iter()
+            .filter(|c| matches!(c, Xml10Concept::DocumentItem))
+            .count();
+        if document_item_concepts != 1 {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        }
+        let morphs = Xml10Category::morphisms();
+        let document_item_rooted = morphs.iter().any(|m| {
+            m.source() == Xml10Concept::DocumentItem
+                && m.target() == Xml10Concept::XmlInformationItem
+                && matches!(m.kind(), Xml10RelationKind::Subsumption)
+        });
+        if !document_item_rooted {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        }
+
+        // ── Runtime level: a well-formed document reads to exactly one
+        // document root. `XmlDocument` carries a single `root`, so a
+        // successful read is exactly one DocumentItem; read the
+        // constructed root to confirm it is a real top-level element. ──
+        let well_formed = "<greeting>hello</greeting>";
+        let document_items = match read_xml(well_formed) {
+            Ok(doc) if !doc.root.name.qualified().is_empty() => 1usize,
+            _ => 0usize,
+        };
+        if document_items != 1 {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        }
+
+        // An input with no root element is not a document — zero
+        // DocumentItems. This is the branch that makes the check
+        // falsifiable against the reader: were it to accept a
+        // non-document, the axiom would report a counterexample.
+        for non_document in ["", "just text, no element"] {
+            if read_xml(non_document).is_ok() {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
         Ok(Box::new(SimpleProof::new(self.meta())))
     }
 
     pr4xis::axiom_meta!(
         "SingleDocumentItemPerDocument",
-        "every well-formed XML document has exactly one DocumentItem at its root",
+        "reading a well-formed XML document yields exactly one DocumentItem at its root (a non-document input yields none), and the ontology declares a single DocumentItem concept under XmlInformationItem",
         "Bray et al. (2008) XML 1.0 §2.1; Cowan & Tobin (2004) XML Information Set §2.1"
     );
 }
@@ -380,3 +433,35 @@ pr4xis::register_axiom!(
     EveryNonRootHasSpecSource,
     "Cowan & Tobin (2004) XML Information Set; Bray et al. (2009) Namespaces in XML 1.0"
 );
+
+// =============================================================================
+// Tests
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::super::reader::read_xml;
+    use super::SingleDocumentItemPerDocument;
+    use pr4xis::ontology::Axiom;
+
+    /// The de-rubber-stamped `SingleDocumentItemPerDocument` axiom
+    /// holds on the real ontology graph and the real reader: exactly
+    /// one `DocumentItem` concept rooted under `XmlInformationItem`,
+    /// and a well-formed document reads to exactly one document root.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn single_document_item_axiom_holds() {
+        assert!(SingleDocumentItemPerDocument.verify().is_ok());
+    }
+
+    /// Proves the axiom's runtime branch CAN fail: the reader refuses
+    /// inputs with no root element, so a non-document yields zero
+    /// `DocumentItem`s (not one). Were the reader to accept these, the
+    /// axiom's non-document guard would fire a counterexample.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn reader_rejects_non_document_inputs() {
+        assert!(read_xml("").is_err());
+        assert!(read_xml("just text, no element").is_err());
+    }
+}

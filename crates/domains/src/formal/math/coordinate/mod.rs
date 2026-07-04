@@ -146,6 +146,60 @@ impl GeodeticPosition {
 }
 
 #[cfg(test)]
+mod proptest_proofs {
+    use super::*;
+    use core::f64::consts::PI;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Polar → Cartesian → polar recovers the range and azimuth (bijection off the origin).
+        #[test]
+        fn polar_round_trips(range in 1.0f64..1e6, az in -PI..PI) {
+            let p = PolarCoordinate::new(range, Angle::from_radians(az));
+            let back = PolarCoordinate::from_cartesian(&p.to_cartesian());
+            prop_assert!((p.range - back.range).abs() < 1e-6 * range.max(1.0));
+            prop_assert!(p.azimuth.difference(&back.azimuth).radians().abs() < 1e-9);
+        }
+
+        /// A polar coordinate's Cartesian form has magnitude equal to its range.
+        #[test]
+        fn polar_to_cartesian_preserves_range(range in 0.0f64..1e6, az in -PI..PI) {
+            let cart = PolarCoordinate::new(range, Angle::from_radians(az)).to_cartesian();
+            let mag = (cart.get(0).powi(2) + cart.get(1).powi(2)).sqrt();
+            prop_assert!((mag - range).abs() < 1e-6 * range.max(1.0));
+        }
+
+        /// Spherical → Cartesian → spherical recovers range/azimuth/elevation away from the poles.
+        #[test]
+        fn spherical_round_trips(
+            range in 1.0f64..1e6,
+            az in -PI..PI,
+            el in (-PI / 2.0 + 0.05)..(PI / 2.0 - 0.05),
+        ) {
+            let s =
+                SphericalCoordinate::new(range, Angle::from_radians(az), Angle::from_radians(el));
+            let back = SphericalCoordinate::from_cartesian(&s.to_cartesian());
+            prop_assert!((s.range - back.range).abs() < 1e-6 * range.max(1.0));
+            prop_assert!(s.azimuth.difference(&back.azimuth).radians().abs() < 1e-7);
+            prop_assert!(s.elevation.difference(&back.elevation).radians().abs() < 1e-7);
+        }
+
+        /// Geodetic degrees round-trip through the typed Angle.
+        #[test]
+        fn geodetic_degrees_round_trip(lat in -90.0f64..90.0, lon in -180.0f64..180.0) {
+            let g = GeodeticPosition::from_degrees(lat, lon);
+            prop_assert!((g.latitude_degrees() - lat).abs() < 1e-9);
+            prop_assert!((g.longitude_degrees() - lon).abs() < 1e-9);
+        }
+    }
+
+    pr4xis::register_praxis_value!(polar_round_trips, Verifiable);
+    pr4xis::register_praxis_value!(polar_to_cartesian_preserves_range, Verifiable);
+    pr4xis::register_praxis_value!(spherical_round_trips, Verifiable);
+    pr4xis::register_praxis_value!(geodetic_degrees_round_trip, Verifiable);
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

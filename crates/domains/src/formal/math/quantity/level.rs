@@ -206,6 +206,53 @@ pr4xis::register_axiom!(
 );
 
 #[cfg(test)]
+mod proptest_proofs {
+    use super::*;
+    use pr4xis::category::FinitelyGenerated;
+    use proptest::prelude::*;
+
+    fn any_reference() -> impl Strategy<Value = LogarithmicLevelReferenceConcept> {
+        proptest::sample::select(LogarithmicLevelReferenceConcept::variants())
+    }
+
+    proptest! {
+        /// A dB level and its linear ratio are mutual inverses (round-trip).
+        #[test]
+        fn db_ratio_round_trip(db in -100.0f64..100.0, r in any_reference()) {
+            let level = LogarithmicLevel::new(db, r);
+            let recovered = LogarithmicLevel::from_ratio(level.linear_ratio(), r);
+            prop_assert!((recovered.decibels - db).abs() < 1e-6);
+        }
+
+        /// Building from a positive ratio and reading it back recovers the ratio.
+        #[test]
+        fn ratio_db_round_trip(ratio in 1e-3f64..1e3, r in any_reference()) {
+            let level = LogarithmicLevel::from_ratio(ratio, r);
+            prop_assert!((level.linear_ratio() - ratio).abs() < 1e-6 * ratio.max(1.0));
+        }
+
+        /// The dB → linear map is strictly increasing (more dB ⇒ larger ratio).
+        #[test]
+        fn more_decibels_more_ratio(db in -50.0f64..50.0, delta in 0.1f64..10.0, r in any_reference()) {
+            let lo = LogarithmicLevel::new(db, r).linear_ratio();
+            let hi = LogarithmicLevel::new(db + delta, r).linear_ratio();
+            prop_assert!(hi > lo);
+        }
+
+        /// Zero decibels is always a unit ratio, for every reference.
+        #[test]
+        fn zero_db_is_unit_ratio(r in any_reference()) {
+            prop_assert!((LogarithmicLevel::new(0.0, r).linear_ratio() - 1.0).abs() < 1e-12);
+        }
+    }
+
+    pr4xis::register_praxis_value!(db_ratio_round_trip, Verifiable);
+    pr4xis::register_praxis_value!(ratio_db_round_trip, Verifiable);
+    pr4xis::register_praxis_value!(more_decibels_more_ratio, Verifiable);
+    pr4xis::register_praxis_value!(zero_db_is_unit_ratio, Verifiable);
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use pr4xis::category::FinitelyGenerated;

@@ -171,7 +171,8 @@ pub const CELSIUS: Unit = Unit {
     symbol: "°C",
     dimension: Dimension::TEMPERATURE,
     scale: 1.0,
-    offset: -273.15,
+    // K = °C + 273.15, applied by `to_si(v) = v*scale + offset`.
+    offset: 273.15,
 };
 
 pub const KNOT: Unit = Unit {

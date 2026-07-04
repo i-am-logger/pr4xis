@@ -4,7 +4,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
-use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -426,6 +426,129 @@ pub enum FlaggedKind {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Structural predicates — the ontology-graph properties the axioms
+// below verify.
+//
+// No `PdfDocument` runtime type exists yet (it is Phase 2, compiled out
+// with the rest of the byte-stream pipeline; see `mod.rs`). So each
+// axiom verifies the ONTOLOGY-LEVEL structural precondition the model
+// DOES encode — computed over `PdfCategory::morphisms()` (the real
+// generated + closed edge catalog) and `PdfConcept::variants()` — not
+// unbuilt runtime behaviour.
+//
+// Each predicate is factored out of its `Axiom::verify` so the SAME
+// check runs over the real graph (expected to hold) AND, in the tests
+// below, over a deliberately-broken input (expected to fail). That
+// second call is what makes the axiom falsifiable rather than a rubber
+// stamp: the check demonstrably CAN return a counterexample.
+// ─────────────────────────────────────────────────────────────────────
+
+/// The four file-structure parts a PDF `Document` must contain, in
+/// document order (ISO 32000-2:2020 §7.5.1).
+const FILE_STRUCTURE_PARTS: [PdfConcept; 4] = [
+    PdfConcept::Header,
+    PdfConcept::Body,
+    PdfConcept::CrossReferenceSection,
+    PdfConcept::Trailer,
+];
+
+/// The stream-bearing concepts that may carry a `/Filter` chain
+/// (ISO 32000-2:2020 §7.4).
+const STREAM_BEARING_CONCEPTS: [PdfConcept; 4] = [
+    PdfConcept::ContentStream,
+    PdfConcept::ImageXObject,
+    PdfConcept::FormXObject,
+    PdfConcept::ObjectStream,
+];
+
+/// The non-text visual concepts the extractor must be able to surface
+/// as `FlaggedContent` rather than silently drop
+/// (`feedback_pdf_text_only_until_image_understanding`).
+const NON_TEXT_VISUAL_CONCEPTS: [PdfConcept; 2] =
+    [PdfConcept::ImageXObject, PdfConcept::FormXObject];
+
+/// Is there an edge `from ──kind──▸ to` in `edges`?
+fn has_edge(edges: &[PdfEdge], from: PdfConcept, to: PdfConcept, kind: PdfRelationKind) -> bool {
+    edges
+        .iter()
+        .any(|e| e.from == from && e.to == to && e.kind == kind)
+}
+
+/// `FileStructureWellFormed` property: `Document` contains each listed
+/// part via a `Containment` edge.
+fn document_contains_all(edges: &[PdfEdge], parts: &[PdfConcept]) -> bool {
+    parts
+        .iter()
+        .all(|&p| has_edge(edges, PdfConcept::Document, p, PdfRelationKind::Containment))
+}
+
+/// `IndirectReferencesResolve` property — referential integrity: every
+/// `IndirectReference` edge in `edges` points at a concept present in
+/// `declared`. A reference to an undeclared concept is a dangling edge.
+fn all_reference_targets_declared(edges: &[PdfEdge], declared: &[PdfConcept]) -> bool {
+    edges
+        .iter()
+        .filter(|e| e.kind == PdfRelationKind::IndirectReference)
+        .all(|e| declared.contains(&e.to))
+}
+
+/// `FilterChainTerminates` property: every stream-bearing concept
+/// contains a `FilterChain`, and `FilterChain` is a containment leaf
+/// (no outgoing `Containment` edge to a *different* concept), so the
+/// chain bottoms out rather than looping.
+fn filter_chain_ontology_holds(edges: &[PdfEdge], stream_bearing: &[PdfConcept]) -> bool {
+    let all_carry = stream_bearing.iter().all(|&s| {
+        has_edge(
+            edges,
+            s,
+            PdfConcept::FilterChain,
+            PdfRelationKind::Containment,
+        )
+    });
+    let terminates = !edges.iter().any(|e| {
+        e.from == PdfConcept::FilterChain
+            && e.to != PdfConcept::FilterChain
+            && e.kind == PdfRelationKind::Containment
+    });
+    all_carry && terminates
+}
+
+/// `EncodingIsTotal` property: `Font` references both an `Encoding` and
+/// a `ToUnicodeCmap` — the two resources through which a glyph code
+/// resolves to Unicode (ISO 32000-2:2020 §9.10.2, §9.6.5).
+fn font_has_unicode_resolution(edges: &[PdfEdge]) -> bool {
+    has_edge(
+        edges,
+        PdfConcept::Font,
+        PdfConcept::Encoding,
+        PdfRelationKind::IndirectReference,
+    ) && has_edge(
+        edges,
+        PdfConcept::Font,
+        PdfConcept::ToUnicodeCmap,
+        PdfRelationKind::IndirectReference,
+    )
+}
+
+/// The `FlaggedKind` a concept maps to when the extractor encounters
+/// it as non-text content. Total over the non-text visual concepts;
+/// `None` for text-bearing or purely structural concepts.
+fn flagged_kind_for(c: PdfConcept) -> Option<FlaggedKind> {
+    match c {
+        PdfConcept::ImageXObject => Some(FlaggedKind::ImageXObject),
+        PdfConcept::FormXObject => Some(FlaggedKind::FormXObject),
+        _ => None,
+    }
+}
+
+/// `ImageContentMustBeFlagged` property: every listed concept maps to a
+/// `FlaggedKind`, so it is representable as `FlaggedContent` rather than
+/// silently droppable.
+fn every_concept_is_flaggable(concepts: &[PdfConcept]) -> bool {
+    concepts.iter().all(|&c| flagged_kind_for(c).is_some())
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Axioms — structural invariants grounded in ISO 32000-2 sections
 // (and one praxis-internal rule for image flagging).
 // ─────────────────────────────────────────────────────────────────────
@@ -440,22 +563,30 @@ pub enum FlaggedKind {
 /// location of the cross-reference table and of certain special
 /// objects within the body of the file."*
 ///
-/// Structural — enforced at the type level by `PdfDocument` (Phase 2)
-/// holding exactly these four fields.
+/// Verified at the ontology layer (no `PdfDocument` runtime type exists
+/// yet — Phase 2): the four file-structure parts are each present in the
+/// PDF category as `Document`-containment edges. The claim is reworded to
+/// this checkable ontology property; ordering is documented but not
+/// enforceable until the runtime type ships.
 pub struct FileStructureWellFormed;
 
 impl Axiom for FileStructureWellFormed {
     fn verify(&self) -> Verdict {
-        // Structural — the `PdfDocument` runtime type (Phase 2) will
-        // hold the four parts as named fields, making any other shape
-        // unrepresentable. The axiom records the invariant at the
-        // ontology layer.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Ontology-graph check: `Document` must contain each of Header,
+        // Body, CrossReferenceSection and Trailer. Fails (counterexample)
+        // if any of the four containment edges is absent from the
+        // generated + closed morphism catalog.
+        let edges = PdfCategory::morphisms();
+        if document_contains_all(&edges, &FILE_STRUCTURE_PARTS) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "FileStructureWellFormed",
-        "every PDF is Header ▸ Body ▸ CrossReferenceSection ▸ Trailer in that order",
+        "Document contains each of the four file-structure parts (Header, Body, CrossReferenceSection, Trailer) in the PDF ontology graph",
         "ISO 32000-2:2020 §7.5.1"
     );
 }
@@ -472,19 +603,30 @@ pr4xis::register_axiom!(FileStructureWellFormed, "ISO 32000-2:2020 §7.5.1");
 /// (§7.5.4 / §7.5.8) maps every `(N, G)` pair to a byte offset.
 /// Dangling references — pairs not in the xref — violate this axiom.
 ///
-/// Structural — the reader (Phase 2) returns `Result<…, ReaderError>`
-/// for dangling references; the typed `PdfDocument` carries only
-/// resolved objects by construction.
+/// Verified at the ontology layer (the byte-level xref resolver is
+/// Phase 2): referential integrity of the model itself — every
+/// `IndirectReference` edge in the category targets a declared
+/// `PdfConcept`. The claim is reworded from runtime xref resolution to
+/// this checkable graph property.
 pub struct IndirectReferencesResolve;
 
 impl Axiom for IndirectReferencesResolve {
     fn verify(&self) -> Verdict {
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Referential integrity: every reference edge's target is a
+        // declared concept. Fails if any `references` edge points at a
+        // concept not in `PdfConcept::variants()`.
+        let edges = PdfCategory::morphisms();
+        let declared = PdfConcept::variants();
+        if all_reference_targets_declared(&edges, &declared) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "IndirectReferencesResolve",
-        "every indirect reference resolves to a known indirect object",
+        "every indirect-reference edge targets a declared PdfConcept (referential integrity of the ontology graph)",
         "ISO 32000-2:2020 §7.3.10, §7.5.4, §7.5.8"
     );
 }
@@ -504,20 +646,31 @@ pr4xis::register_axiom!(
 /// RunLengthDecode, CCITTFaxDecode, JBIG2Decode, DCTDecode,
 /// JPXDecode, Crypt) are enumerated in §7.4.2 and Tables 6–8.
 ///
-/// Structural — the reader (Phase 2) calls the registered decoder
-/// for each filter in order; if any filter in the chain is
-/// unsupported the reader fails closed with `UnsupportedFilter`
-/// rather than silently returning encoded bytes.
+/// Verified at the ontology layer (the byte-level decoder pipeline is
+/// Phase 2): termination is modelled structurally — every stream-bearing
+/// concept contains a `FilterChain`, and `FilterChain` is a containment
+/// leaf, so the chain bottoms out. The claim is reworded from runtime
+/// decoder behaviour to this checkable graph property.
 pub struct FilterChainTerminates;
 
 impl Axiom for FilterChainTerminates {
     fn verify(&self) -> Verdict {
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Every stream-bearing concept contains a FilterChain, and
+        // FilterChain has no outgoing containment edge to a different
+        // concept (it is a leaf → the chain terminates). Fails if a
+        // stream-bearer lacks its FilterChain edge, or if FilterChain
+        // gains an outgoing containment edge (a non-terminating chain).
+        let edges = PdfCategory::morphisms();
+        if filter_chain_ontology_holds(&edges, &STREAM_BEARING_CONCEPTS) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "FilterChainTerminates",
-        "every filter chain on a stream terminates in interpretable bytes",
+        "every stream-bearing concept contains a FilterChain, which is a containment leaf (the chain terminates)",
         "ISO 32000-2:2020 §7.4.1, §7.4.2"
     );
 }
@@ -536,20 +689,29 @@ pr4xis::register_axiom!(FilterChainTerminates, "ISO 32000-2:2020 §7.4.1, §7.4.
 /// (PDFDocEncoding, WinAnsiEncoding, MacRomanEncoding,
 /// MacExpertEncoding) are enumerated in §9.6.5 and Annex D.
 ///
-/// Structural — the text-extractor (Phase 3) calls a per-font
-/// `code_to_unicode(code) -> Option<char>`; unmapped codes are
-/// reported as `FlaggedContent::UnmappedGlyph` rather than silently
-/// emitted as replacement characters.
+/// Verified at the ontology layer (the per-font `code_to_unicode`
+/// resolver is Phase 3): the model wires the two resources a glyph code
+/// resolves through — `Font` references both an `Encoding` and a
+/// `ToUnicodeCmap`. The claim is reworded from runtime per-code totality
+/// to this checkable precondition on the graph.
 pub struct EncodingIsTotal;
 
 impl Axiom for EncodingIsTotal {
     fn verify(&self) -> Verdict {
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Font must reference both the Encoding and the ToUnicode CMap —
+        // the resources through which glyph codes resolve to Unicode.
+        // Fails if either reference edge is absent.
+        let edges = PdfCategory::morphisms();
+        if font_has_unicode_resolution(&edges) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "EncodingIsTotal",
-        "every glyph code has a defined Unicode mapping or is flagged",
+        "Font references both Encoding and ToUnicodeCmap — the glyph-code to Unicode resolution resources",
         "ISO 32000-2:2020 §9.10.2, §9.6.5; Adobe Tech Note #5014"
     );
 }
@@ -568,19 +730,29 @@ pr4xis::register_axiom!(
 /// flagged explicitly, never silently dropped or paraphrased. Waits
 /// for Phase 6 image-understanding."*
 ///
-/// Structural — the extractor's return type is `(Vec<PageText>,
-/// Vec<FlaggedContent>)`; the second element is non-optional, so
-/// downstream consumers cannot ignore that flagged content exists.
+/// Verified at the ontology layer (the extractor is Phase 3): the
+/// structural precondition for the "never silently drop" guarantee is
+/// that every non-text visual concept is representable as
+/// `FlaggedContent` — i.e. maps to a `FlaggedKind`. The claim is
+/// reworded from the extractor's return-type shape to this checkable
+/// coverage property.
 pub struct ImageContentMustBeFlagged;
 
 impl Axiom for ImageContentMustBeFlagged {
     fn verify(&self) -> Verdict {
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Every non-text visual concept (ImageXObject, FormXObject) must
+        // map to a FlaggedKind, so the extractor can surface it rather
+        // than drop it. Fails if any listed concept has no FlaggedKind.
+        if every_concept_is_flaggable(&NON_TEXT_VISUAL_CONCEPTS) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "ImageContentMustBeFlagged",
-        "non-text content must be returned as FlaggedContent, never silently dropped",
+        "every non-text visual concept (ImageXObject, FormXObject) maps to a FlaggedKind, so it is representable as FlaggedContent rather than silently dropped",
         "praxis feedback_pdf_text_only_until_image_understanding (2026-04)"
     );
 }
@@ -635,5 +807,139 @@ impl Ontology for PdfOntology {
             Box::new(EncodingIsTotal),
             Box::new(ImageContentMustBeFlagged),
         ]
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Tests — each fixed axiom holds over the real PDF ontology graph
+// (Verifiable), and the SAME predicate returns a counterexample on a
+// deliberately-broken graph (Honest), proving the check can fail rather
+// than being a rubber stamp.
+// ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use alloc::{vec, vec::Vec};
+
+    use super::{
+        EncodingIsTotal, FILE_STRUCTURE_PARTS, FileStructureWellFormed, FilterChainTerminates,
+        ImageContentMustBeFlagged, IndirectReferencesResolve, PdfConcept, PdfEdge,
+        STREAM_BEARING_CONCEPTS, all_reference_targets_declared, document_contains_all,
+        every_concept_is_flaggable, filter_chain_ontology_holds, flagged_kind_for,
+        font_has_unicode_resolution,
+    };
+    use pr4xis::category::FinitelyGenerated;
+    use pr4xis::ontology::Axiom;
+
+    // ── Verifiable: each axiom verifies over the real graph ──────────
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn file_structure_well_formed_verifies() {
+        assert!(FileStructureWellFormed.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn indirect_references_resolve_verifies() {
+        assert!(IndirectReferencesResolve.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn filter_chain_terminates_verifies() {
+        assert!(FilterChainTerminates.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn encoding_is_total_verifies() {
+        assert!(EncodingIsTotal.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn image_content_must_be_flagged_verifies() {
+        assert!(ImageContentMustBeFlagged.verify().is_ok());
+    }
+
+    // ── Honest: the same predicate detects a broken graph ────────────
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn file_structure_check_rejects_missing_trailer() {
+        // A Document graph missing the Document ▸ Trailer edge.
+        let broken = vec![
+            PdfEdge::contains(PdfConcept::Document, PdfConcept::Header),
+            PdfEdge::contains(PdfConcept::Document, PdfConcept::Body),
+            PdfEdge::contains(PdfConcept::Document, PdfConcept::CrossReferenceSection),
+        ];
+        assert!(!document_contains_all(&broken, &FILE_STRUCTURE_PARTS));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn indirect_reference_check_rejects_undeclared_target() {
+        // Catalog omitted from the declared set: Trailer ▸ Catalog dangles.
+        let declared: Vec<PdfConcept> = PdfConcept::variants()
+            .into_iter()
+            .filter(|c| *c != PdfConcept::Catalog)
+            .collect();
+        let edges = vec![PdfEdge::references(
+            PdfConcept::Trailer,
+            PdfConcept::Catalog,
+        )];
+        assert!(!all_reference_targets_declared(&edges, &declared));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn filter_chain_check_rejects_non_terminating_chain() {
+        // Stream-bearers all carry a FilterChain, but FilterChain now has
+        // an outgoing containment edge — the chain no longer terminates.
+        let mut edges: Vec<PdfEdge> = STREAM_BEARING_CONCEPTS
+            .iter()
+            .map(|&s| PdfEdge::contains(s, PdfConcept::FilterChain))
+            .collect();
+        edges.push(PdfEdge::contains(
+            PdfConcept::FilterChain,
+            PdfConcept::ContentStream,
+        ));
+        assert!(!filter_chain_ontology_holds(
+            &edges,
+            &STREAM_BEARING_CONCEPTS
+        ));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn filter_chain_check_rejects_missing_carrier_edge() {
+        // A stream-bearer (ObjectStream) with no FilterChain edge.
+        let edges = vec![
+            PdfEdge::contains(PdfConcept::ContentStream, PdfConcept::FilterChain),
+            PdfEdge::contains(PdfConcept::ImageXObject, PdfConcept::FilterChain),
+            PdfEdge::contains(PdfConcept::FormXObject, PdfConcept::FilterChain),
+        ];
+        assert!(!filter_chain_ontology_holds(
+            &edges,
+            &STREAM_BEARING_CONCEPTS
+        ));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn encoding_check_rejects_font_without_tounicode() {
+        // Font references an Encoding but no ToUnicode CMap.
+        let edges = vec![PdfEdge::references(PdfConcept::Font, PdfConcept::Encoding)];
+        assert!(!font_has_unicode_resolution(&edges));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn flaggable_check_rejects_unmappable_concept() {
+        // A text-bearing concept has no FlaggedKind; the guard must bite
+        // if such a concept ever appeared in the non-text set.
+        assert!(flagged_kind_for(PdfConcept::ContentStream).is_none());
+        assert!(!every_concept_is_flaggable(&[PdfConcept::ContentStream]));
     }
 }

@@ -1,9 +1,9 @@
 use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
-use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-use super::super::ontology::{MarkupNode, NodeKind};
+use super::super::ontology::{MarkupNode, NodeKind, is_well_formed};
 
 // XML ontology — from W3C XML 1.0 Specification (Fifth Edition)
 // https://www.w3.org/TR/xml/
@@ -607,17 +607,36 @@ fn find_elements_recursive<'a>(
 ///
 /// W3C XML 1.0 (2008) Fifth Edition §2.1: "There is exactly one element,
 /// called the root, or document element, no part of which appears in the
-/// content of any other element." This is enforced structurally by
-/// [`XmlDocument`] holding exactly one `root: XmlElement` field; the axiom
-/// asserts the rule at the ontology level.
+/// content of any other element." [`verify`](SingleRootElement::verify)
+/// discharges the rule by exercising the real XML reader
+/// ([`read_xml`](super::reader::read_xml)) composed with the markup
+/// well-formedness check ([`is_well_formed`]): a conforming document is
+/// ACCEPTED and projects to a tree with exactly one root element, while a
+/// prolog-only document with NO root element is REJECTED. A check that
+/// always returned Ok cannot separate the two — this one does, so it is
+/// falsifiable rather than a rubber stamp.
 pub struct SingleRootElement;
 
 impl Axiom for SingleRootElement {
     fn verify(&self) -> Verdict {
-        // Structural: enforced by XmlDocument having a single `root` field.
-        // The W3C rule is satisfied at the type level — there is no way to
-        // construct a multi-root XmlDocument.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Discharge §2.1 concretely against real parser output rather than
+        // asserting it at the type level. Read a conforming document, then
+        // require its markup projection to carry exactly one root element
+        // (`is_well_formed` enforces the count == 1).
+        let doc = match super::reader::read_xml("<root><child/><child/></root>") {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let single_root = is_well_formed(&doc.to_markup());
+        // A document with no root element (prolog only) must be rejected —
+        // §2.1 requires the root/document element to be present.
+        let rootless_rejected = super::reader::read_xml("<!-- prolog only, no root -->").is_err();
+
+        if single_root && rootless_rejected {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
@@ -632,16 +651,43 @@ pr4xis::register_axiom!(SingleRootElement, "W3C XML 1.0 (2008) Fifth Edition §2
 ///
 /// W3C XML 1.0 (2008) Fifth Edition §2.4 ("Character Data and Markup")
 /// and §3 ("Logical Structures"): for any non-empty element, the start-tag,
-/// content, and end-tag form a contiguous, non-overlapping span. This
-/// constraint is enforced structurally by the [`XmlNode`] tree
-/// representation — a tree cannot encode overlapping spans.
+/// content, and end-tag form a contiguous, non-overlapping span — a tree
+/// cannot encode overlapping spans. [`verify`](ProperNesting::verify)
+/// discharges the rule with the real XML reader
+/// ([`read_xml`](super::reader::read_xml)): properly-nested markup is
+/// ACCEPTED and parsed into the containment tree it encodes, while
+/// overlapping tags (`<a><b></a></b>`) are REJECTED with a mismatched
+/// end-tag error. A check that always returned Ok cannot separate the
+/// two — this one does, so it is falsifiable.
 pub struct ProperNesting;
 
 impl Axiom for ProperNesting {
     fn verify(&self) -> Verdict {
-        // Structural: enforced by the tree representation. A tree of
-        // XmlNode values cannot encode overlapping tags by construction.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Read properly-nested markup and confirm the parsed structure
+        // preserves the containment a ⊃ b ⊃ c.
+        let doc = match super::reader::read_xml("<a><b><c/></b></a>") {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let nested_ok = doc.root.name.local == "a"
+            && matches!(
+                doc.root.children.as_slice(),
+                [XmlNode::Element(b)]
+                    if b.name.local == "b"
+                        && matches!(
+                            b.children.as_slice(),
+                            [XmlNode::Element(c)] if c.name.local == "c"
+                        )
+            );
+        // Overlapping tags cannot form a tree, so the reader must reject
+        // the stray end-tag (§2.4, §3).
+        let overlap_rejected = super::reader::read_xml("<a><b></a></b>").is_err();
+
+        if nested_ok && overlap_rejected {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
@@ -700,5 +746,37 @@ mod tests {
     fn ontology_validates() {
         XmlOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn single_root_axiom_holds() {
+        // The §2.1 axiom accepts a conforming single-root document and
+        // rejects a rootless one — its verify() must discharge.
+        assert!(SingleRootElement.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn proper_nesting_axiom_holds() {
+        // The §2.4/§3 axiom accepts properly-nested markup and rejects
+        // overlapping tags — its verify() must discharge.
+        assert!(ProperNesting.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn rootless_document_is_rejected() {
+        // §2.1: a prolog-only document has no root element and must be
+        // rejected — this is the failing case SingleRootElement detects.
+        assert!(super::super::reader::read_xml("<!-- prolog only, no root -->").is_err());
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn overlapping_tags_are_rejected() {
+        // §2.4/§3: overlapping tags cannot form a tree and must be
+        // rejected — this is the failing case ProperNesting detects.
+        assert!(super::super::reader::read_xml("<a><b></a></b>").is_err());
     }
 }
