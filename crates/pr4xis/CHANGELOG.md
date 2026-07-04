@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.25.5...pr4xis-v0.26.0) - 2026-07-04
+
+### Feat
+
+- [**breaking**] type the ontology stack end-to-end (Vector/Matrix, coordinate/level/angle)
+- constitution coverage — every test declares its guarantee, gate-enforced
+
+### Fix
+
+- *(docs)* repair broken intra-doc links surfaced by the Docs gate
+- *(constitution)* wasm32 build — export two axioms, cfg-scope an import
+- *(ci)* fence macro-usage doc illustrations as text, not ignore
+- harden 18 latent panic/overflow sites (audit pass-2 latent findings)
+- bound 4 more reachable panic/DoS sites found by an exhaustive audit
+
 ## [0.25.4](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.25.3...pr4xis-v0.25.4) - 2026-06-19
 
 ### Chore

@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.26.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.5...pr4xis-domains-v0.26.0) - 2026-07-04
+
+### Feat
+
+- integrate the new ontologies via literature-grounded functors
+- [**breaking**] type the ontology stack end-to-end (Vector/Matrix, coordinate/level/angle)
+- constitution coverage — every test declares its guarantee, gate-enforced
+
+### Fix
+
+- *(docs)* repair broken intra-doc links surfaced by the Docs gate
+- *(data)* pin cito/doco to immutable SPAR URLs, not mutable /current/
+- make rubber-stamp axioms falsifiable + add property-based coverage
+- harden 18 latent panic/overflow sites (audit pass-2 latent findings)
+- 9 more reachable panic/DoS sites from a second, deeper audit
+- 3 more reachable panic/DoS sites the audit verifier over-refuted
+- bound 4 more reachable panic/DoS sites found by an exhaustive audit
+
 ## [0.25.4](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.3...pr4xis-domains-v0.25.4) - 2026-06-19
 
 ### Build
