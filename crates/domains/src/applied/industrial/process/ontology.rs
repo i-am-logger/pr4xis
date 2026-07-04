@@ -2,7 +2,7 @@
 //!
 //! Source: Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*
 
-use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::quantity::unit::{self, Unit};
@@ -46,14 +46,30 @@ pub struct TemperatureAboveAbsoluteZero;
 
 impl Axiom for TemperatureAboveAbsoluteZero {
     fn verify(&self) -> Verdict {
-        // Third law of thermodynamics: T ≥ 0 K — absolute zero is an
-        // unreachable lower bound (Nernst 1906).
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Third law (Nernst 1906): 0 K (absolute zero) is the unattainable lower
+        // bound. Kelvin is an ABSOLUTE thermodynamic scale — offset 0, so its
+        // zero IS the physical floor — whereas Celsius is a relative scale
+        // (offset 273.15) that can read negative. Grounding, all computed from
+        // the unit definitions: -273.15 °C = 0 K exactly, a valid temperature
+        // maps to ≥ 0 K, and any reading below absolute zero maps into the
+        // forbidden negative-Kelvin region. Falsifiable if the scales are wrong.
+        let abs_zero_k = unit::CELSIUS.to_si(-273.15);
+        let boiling_k = unit::CELSIUS.to_si(100.0);
+        let below_absolute_zero_k = unit::CELSIUS.to_si(-300.0);
+        let ok = unit::KELVIN.offset == 0.0
+            && abs_zero_k.abs() < 1e-9
+            && boiling_k >= 0.0
+            && below_absolute_zero_k < 0.0;
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "TemperatureAboveAbsoluteZero",
-        "temperature must be >= absolute zero (0 K = -273.15 C)",
+        "absolute zero (-273.15 °C) is exactly 0 K on the absolute Kelvin scale, valid temperatures are ≥ 0 K, and readings below it fall in the forbidden negative-Kelvin region",
         "Nernst (1906) Third Law of Thermodynamics"
     );
 }
@@ -67,15 +83,24 @@ pub struct PressureNonNegative;
 
 impl Axiom for PressureNonNegative {
     fn verify(&self) -> Verdict {
-        // Absolute pressure is the integral of the molecular momentum
-        // flux on a surface; the flux is non-negative by definition,
-        // so absolute pressure ≥ 0.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Absolute pressure is the molecular momentum flux on a surface — a
+        // non-negative quantity whose zero is a perfect vacuum. The pascal is an
+        // absolute (ratio) scale: offset 0, so 0 Pa is the true floor. (A gauge
+        // pressure, offset by 1 atm, can read negative; absolute cannot.)
+        // Computed from the unit definition — falsifiable if PASCAL were affine.
+        let vacuum = unit::PASCAL.to_si(0.0);
+        let one_atm = unit::PASCAL.to_si(101_325.0);
+        let ok = unit::PASCAL.offset == 0.0 && vacuum == 0.0 && one_atm > 0.0;
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "PressureNonNegative",
-        "absolute pressure is non-negative",
+        "the pascal is an absolute (ratio) pressure scale — offset 0, so 0 Pa (vacuum) is the non-negative floor of absolute pressure",
         "Ogunnaike & Ray (1994) Process Dynamics, Modeling, and Control"
     );
 }
@@ -112,5 +137,24 @@ mod tests {
     fn ontology_validates() {
         ProcessOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn physical_axioms_hold() {
+        assert!(TemperatureAboveAbsoluteZero.verify().is_ok());
+        assert!(PressureNonNegative.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn axioms_compute_over_the_scales_not_rubber_stamps() {
+        // The verify() bodies read real unit definitions: absolute zero is 0 K,
+        // sub-absolute-zero is negative K, and the absolute scales have offset 0.
+        // If Celsius' offset were wrong, the temperature axiom would fail.
+        assert!(unit::CELSIUS.to_si(-273.15).abs() < 1e-9);
+        assert!(unit::CELSIUS.to_si(-300.0) < 0.0);
+        assert_eq!(unit::KELVIN.offset, 0.0);
+        assert_eq!(unit::PASCAL.offset, 0.0);
     }
 }

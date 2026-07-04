@@ -2,7 +2,8 @@
 //!
 //! Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
 
-use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::category::FinitelyGenerated;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
@@ -37,6 +38,46 @@ impl Quality for MeasuredQuantity {
     }
 }
 
+/// The reference frame against which a Doppler sensor's velocity is measured.
+///
+/// A Doppler velocity is only meaningful relative to a scatterer: the DVL's
+/// beams reflect off the *stationary seabed* (bottom lock), so its velocity is
+/// referenced to the seabed; the ADCP's beams reflect off *moving suspended
+/// particles in the water column*, so its velocity is referenced to the water.
+/// This distinction — seabed vs. water column — IS the physical content of
+/// "bottom lock" (Kinsey et al. 2006 §II; Paull et al. 2014 §3.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VelocityReference {
+    /// Velocity relative to the stationary seabed — requires bottom lock.
+    Seabed,
+    /// Velocity relative to the moving water column — no bottom lock.
+    WaterColumn,
+}
+
+/// Quality: the velocity reference frame of a Doppler-type AUV sensor.
+///
+/// Partial: only the two Doppler velocity sensors (DVL, ADCP) have a velocity
+/// reference frame at all. The depth (pressure) and compass (magnetic heading)
+/// sensors measure no velocity, so the quality does not inhere in them (`None`).
+#[derive(Debug, Clone)]
+pub struct VelocityFrame;
+
+impl Quality for VelocityFrame {
+    type Individual = AuvConcept;
+    type Value = VelocityReference;
+
+    fn get(&self, sensor: &AuvConcept) -> Option<VelocityReference> {
+        match sensor {
+            // Bottom lock: DVL velocity is referenced to the seabed.
+            AuvConcept::DVL => Some(VelocityReference::Seabed),
+            // ADCP velocity is referenced to the moving water column.
+            AuvConcept::ADCP => Some(VelocityReference::WaterColumn),
+            // Depth (pressure) and compass (heading) measure no velocity.
+            AuvConcept::DepthSensor | AuvConcept::Compass => None,
+        }
+    }
+}
+
 /// Axiom: depth measurements are non-negative (below surface).
 pub struct DepthNonNegative;
 
@@ -44,7 +85,6 @@ impl Axiom for DepthNonNegative {
     fn verify(&self) -> Verdict {
         use crate::applied::underwater::auv::engine::{AuvState, DvlMeasurement, dead_reckon};
         use crate::formal::math::angle::Angle;
-        use pr4xis::logic::proof::SimpleCounterexample;
 
         // Hydrostatic depth is surface-referenced and positive-downward
         // (Kinsey et al. 2006 §II): P = ρ·g·h with ρ, g > 0 and h ≥ 0 below
@@ -97,16 +137,33 @@ pub struct DvlRequiresBottomLock;
 
 impl Axiom for DvlRequiresBottomLock {
     fn verify(&self) -> Verdict {
-        // Doppler shift from a stationary seabed return is the basis of
-        // DVL velocity measurement; without bottom lock there is no
-        // reference for the Doppler frequency. Per Paull et al. (2014)
-        // §3.2.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Bottom lock IS the seabed reference frame: a DVL derives velocity from
+        // the Doppler shift of beams reflected off the stationary seabed, so its
+        // velocity is referenced to the SEABED. The ADCP is the foil — it is also
+        // a Doppler sensor, but its beams reflect off the moving water column, so
+        // it has no bottom lock. Compute the distinguishing property over the
+        // ontology: among all AUV sensors, the DVL is the UNIQUE one whose
+        // velocity reference frame is the seabed. This reads the real
+        // `VelocityFrame` quality over every declared concept, so it fails if the
+        // model reassigned the DVL to the water column, gave another sensor a
+        // seabed reference, or dropped the DVL's velocity quality entirely.
+        let frame = VelocityFrame;
+        let seabed_referenced: Vec<AuvConcept> = AuvConcept::variants()
+            .into_iter()
+            .filter(|sensor| frame.get(sensor) == Some(VelocityReference::Seabed))
+            .collect();
+        let dvl_is_unique_bottom_lock =
+            seabed_referenced.len() == 1 && seabed_referenced.first() == Some(&AuvConcept::DVL);
+        if dvl_is_unique_bottom_lock {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
         "DvlRequiresBottomLock",
-        "DVL velocity measurement requires bottom lock (finite altitude above seabed)",
+        "the DVL is the unique AUV sensor whose measured velocity is referenced to the stationary seabed (bottom lock); the ADCP references the moving water column and the depth/compass sensors measure no velocity",
         "Paull et al. (2014) AUV Navigation and Localization §3.2"
     );
 }
@@ -143,5 +200,55 @@ mod tests {
     fn ontology_validates() {
         AuvOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn physical_axioms_hold() {
+        assert!(DepthNonNegative.verify().is_ok());
+        assert!(DvlRequiresBottomLock.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn bottom_lock_axiom_discriminates_over_the_model() {
+        // The DvlRequiresBottomLock verify() is not a rubber stamp: it reads the
+        // real VelocityFrame quality over every declared sensor. Bottom lock IS
+        // the seabed reference frame, and only the DVL has it — the ADCP (also
+        // Doppler) references the water column, and depth/compass measure no
+        // velocity. If any of these assignments changed, the axiom would flip to
+        // a counterexample, so the check genuinely depends on the model.
+        let frame = VelocityFrame;
+        assert_eq!(frame.get(&AuvConcept::DVL), Some(VelocityReference::Seabed));
+        assert_eq!(
+            frame.get(&AuvConcept::ADCP),
+            Some(VelocityReference::WaterColumn)
+        );
+        assert_eq!(frame.get(&AuvConcept::DepthSensor), None);
+        assert_eq!(frame.get(&AuvConcept::Compass), None);
+
+        // The predicate the axiom evaluates: exactly the DVL is seabed-referenced.
+        let seabed_referenced: Vec<AuvConcept> = AuvConcept::variants()
+            .into_iter()
+            .filter(|s| frame.get(s) == Some(VelocityReference::Seabed))
+            .collect();
+        assert_eq!(seabed_referenced.len(), 1);
+        assert_eq!(seabed_referenced[0], AuvConcept::DVL);
+
+        // Falsification witness: a model where the DVL were reassigned to the
+        // water column (no bottom lock) has NO seabed-referenced sensor, so the
+        // axiom's uniqueness predicate would fail. We evaluate that same
+        // predicate against the counterfactual assignment to show it can fail.
+        let counterfactual = [
+            (AuvConcept::DVL, Some(VelocityReference::WaterColumn)),
+            (AuvConcept::ADCP, Some(VelocityReference::WaterColumn)),
+            (AuvConcept::DepthSensor, None),
+            (AuvConcept::Compass, None),
+        ];
+        let counterfactual_seabed = counterfactual
+            .iter()
+            .filter(|(_, r)| *r == Some(VelocityReference::Seabed))
+            .count();
+        assert_eq!(counterfactual_seabed, 0);
     }
 }

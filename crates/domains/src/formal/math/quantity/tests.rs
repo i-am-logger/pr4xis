@@ -201,6 +201,32 @@ mod proptest_proofs {
             prop_assert!((val - back).abs() < 1e-10);
         }
 
+        /// Every unit is an invertible conversion: `from_si(to_si(v)) == v`,
+        /// across a representative spread of scales/offsets.
+        #[test]
+        fn all_units_roundtrip(val in -1e6..1e6_f64) {
+            let units = [
+                unit::METER, unit::KILOMETER, unit::METER_PER_SECOND, unit::KNOT,
+                unit::DEGREE, unit::RADIAN, unit::ARCSECOND, unit::HERTZ,
+                unit::MILLIVOLT, unit::PICOSIEMENS, unit::RAYL, unit::NANOMETER,
+                unit::MILLISECOND, unit::MINUTE, unit::PASCAL, unit::KELVIN, unit::CELSIUS,
+            ];
+            for u in units {
+                let back = u.from_si(u.to_si(val));
+                prop_assert!((val - back).abs() < 1e-6 * val.abs().max(1.0),
+                    "unit {} failed round-trip at {}", u.symbol, val);
+            }
+        }
+
+        /// The Celsius↔Kelvin affine relation holds exactly: `K = °C + 273.15`.
+        /// (A ∀-guard for the offset-sign class of unit bug.)
+        #[test]
+        fn celsius_kelvin_affine(celsius in -273.15..1000.0_f64) {
+            let kelvin = unit::CELSIUS.to_si(celsius);
+            prop_assert!((kelvin - (celsius + 273.15)).abs() < 1e-9);
+            prop_assert!(kelvin >= 0.0, "a temperature at or above absolute zero must be >= 0 K");
+        }
+
         #[test]
         fn quantity_is_deterministic(v in -100.0..100.0_f64) {
             let q1 = Quantity::new(v, Dimension::VELOCITY);
@@ -220,5 +246,7 @@ mod proptest_proofs {
     pr4xis::register_praxis_value!(addition_different_dimension_fails, Honest);
     pr4xis::register_praxis_value!(multiplication_dimension_is_sum_of_exponents, Verifiable);
     pr4xis::register_praxis_value!(unit_conversion_roundtrip, Deterministic);
+    pr4xis::register_praxis_value!(all_units_roundtrip, Verifiable);
+    pr4xis::register_praxis_value!(celsius_kelvin_affine, Verifiable);
     pr4xis::register_praxis_value!(quantity_is_deterministic, Deterministic);
 }

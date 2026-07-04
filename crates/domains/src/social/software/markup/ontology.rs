@@ -1,5 +1,5 @@
 use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
-use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -286,17 +286,42 @@ impl MarkupNode {
 /// Processing" identifies descriptive markup as a tree-structured
 /// annotation overlay; Goldfarb (1990) *The SGML Handbook* §3.2 fixes
 /// the universal constraint that every conforming document has a single
-/// document root. This axiom declares that rule at the ontology level;
-/// concrete documents are checked by [`is_well_formed`].
+/// document root. [`verify`](WellFormedDocument::verify) discharges that
+/// rule by exercising [`is_well_formed`] on both a conforming tree (one
+/// root element, expected to pass) and non-conforming trees (zero roots,
+/// two roots, a non-`Document` root — each expected to be rejected), so
+/// the check is falsifiable.
 pub struct WellFormedDocument;
 
 impl Axiom for WellFormedDocument {
     fn verify(&self) -> Verdict {
-        // Universal rule at the ontology level: declared and structurally
-        // enforced by the Document → Element edge being part of the
-        // category. Concrete-document verification is delegated to
-        // `is_well_formed` per Goldfarb (1990) §3.2.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Discharge the claim concretely per Goldfarb (1990) §3.2: the
+        // exactly-one-root rule must ACCEPT a conforming document and REJECT
+        // documents with the wrong number of root elements. We exercise
+        // `is_well_formed` on real `MarkupNode` trees and require it to
+        // separate the two — a check that always returned `true` (or that
+        // ignored the root count) fails here, which is what makes this
+        // falsifiable rather than a rubber stamp.
+        let one_root =
+            MarkupNode::document(vec![MarkupNode::element("root", Vec::new(), Vec::new())]);
+        let no_root = MarkupNode::document(Vec::new());
+        let two_roots = MarkupNode::document(vec![
+            MarkupNode::element("a", Vec::new(), Vec::new()),
+            MarkupNode::element("b", Vec::new(), Vec::new()),
+        ]);
+        // A non-Document root cannot be a well-formed document at all.
+        let not_a_document = MarkupNode::element("root", Vec::new(), Vec::new());
+
+        let separates = is_well_formed(&one_root)
+            && !is_well_formed(&no_root)
+            && !is_well_formed(&two_roots)
+            && !is_well_formed(&not_a_document);
+
+        if separates {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
@@ -369,5 +394,37 @@ mod tests {
     fn ontology_validates() {
         MarkupOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn well_formed_document_axiom_holds() {
+        // The exactly-one-root rule accepts a conforming document and rejects
+        // the malformed shapes, so the axiom verifies (Goldfarb 1990 §3.2).
+        assert!(WellFormedDocument.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn is_well_formed_rejects_non_conforming_documents() {
+        // The check must be able to FAIL: only the single-root Document is
+        // well-formed; zero roots, multiple roots, and a non-Document root
+        // are each rejected. If any of these were accepted the axiom above
+        // would not hold, so this is the honest, falsifiable side of the rule.
+        let one_root =
+            MarkupNode::document(vec![MarkupNode::element("root", Vec::new(), Vec::new())]);
+        assert!(is_well_formed(&one_root));
+
+        let no_root = MarkupNode::document(Vec::new());
+        assert!(!is_well_formed(&no_root));
+
+        let two_roots = MarkupNode::document(vec![
+            MarkupNode::element("a", Vec::new(), Vec::new()),
+            MarkupNode::element("b", Vec::new(), Vec::new()),
+        ]);
+        assert!(!is_well_formed(&two_roots));
+
+        let not_a_document = MarkupNode::element("root", Vec::new(), Vec::new());
+        assert!(!is_well_formed(&not_a_document));
     }
 }
