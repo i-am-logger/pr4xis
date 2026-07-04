@@ -1,4 +1,4 @@
-��# praxis.toml — Praxis external-data registry manifest.
+��# praxis.toml — Praxis external-data registry manifest.
 #
 # Cargo-precedent naming: this file is the manifest; `praxis.lock` (M2)
 # pins the expected content hashes per (name, version). Lives at the
@@ -395,7 +395,10 @@ description = "CatVar 2.1 — A Database of Categorial Variations for English (H
 [sources.cito]
 version     = "2.8.1"
 type        = "OntologyVocabulary"
-url         = "https://sparontologies.github.io/cito/current/cito.xml"
+# IMMUTABLE versioned URL, not mutable /current/ (SPAR republished /current/ as
+# 2.8.2 on 2026-06-22, drifting the pinned hash). Byte-identical to the locked
+# 2.8.1; keep in sync with the CITO_URL test const in owl/prx.rs.
+url         = "https://sparontologies.github.io/cito/2018-02-16/cito.xml"
 description = "CiTO, the Citation Typing Ontology — a W3C OWL 2 vocabulary characterising the nature and type of citations (cito:cites and its ~40 sub-properties + their cito:isCitedBy inverses). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Peroni, S. & Shotton, D. (2012) FaBiO and CiTO: ontologies for describing bibliographic resources and citations, Journal of Web Semantics 17:33-43, <https://doi.org/10.1016/j.websem.2012.08.001>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
 
 # DoCO, the Document Components Ontology — a SPAR OWL 2 vocabulary of
@@ -408,7 +411,9 @@ description = "CiTO, the Citation Typing Ontology — a W3C OWL 2 vocabulary cha
 [sources.doco]
 version     = "1.3"
 type        = "OntologyVocabulary"
-url         = "https://sparontologies.github.io/doco/current/doco.xml"
+# IMMUTABLE versioned URL, not mutable /current/ (SPAR republished /current/ as
+# 1.4.0 on 2026-06-25, drifting the pinned hash). Byte-identical to the locked 1.3.
+url         = "https://sparontologies.github.io/doco/2015-07-03/doco.xml"
 description = "DoCO, the Document Components Ontology — a W3C OWL 2 vocabulary of document-component classes (doco:Paragraph, doco:Sentence, doco:Section, doco:Footnote, doco:Title, doco:Figure, doco:Table, …) describing how a document is structurally decomposed. Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Constantin, A., Peroni, S., Pettifer, S., Shotton, D. & Vitali, F. (2016) The Document Components Ontology (DoCO), Semantic Web 7(2):167-181, <https://doi.org/10.3233/SW-150177>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
 
 # C4O, the Citation Counting and Context Characterisation Ontology — a
@@ -1293,8 +1298,8 @@ description = "Murray v. UBS Securities, LLC, 601 U.S. 23 (2024) — contributin
 [archive_signatures]
 "biro@1.1.1"             = "blake3:0dcb74b14435134365fd1aadb6895332a9923b64c9608c6cbe79308ee6af398e"
 "c4o@1.2"                = "blake3:cad877820b5b767f738f7faf94fa816ab60b5cb84898467b9d32ebe46e19d180"
-"cito@2.8.1"             = "blake3:d4c50ad3c3e785540e94e47fba386ab8bc29a44df046cf130002e58b6b780dcb"
-"doco@1.3"               = "blake3:0c80d604c776ee2a3fb4c82cbc4cd91b4a878e0369d2d85bded0be2adcb7205f"
+"cito@2.8.1"             = "blake3:5034ec4b534cbbf093a31f9b52560cd2a4858f75fdebad6098009182cec2dee7"
+"doco@1.3"               = "blake3:aea6fa2dbb0c294b1589231b59d5bd7185526bb32eee7d111b7b1a4900fe865c"
 "olia@2026-04-09"        = "blake3:c977889ccece56015e78039c78c3a0eccbe54a93248f029bdb2a3b4ca370f93b"
 "prov_o@2013-04-30"      = "blake3:280de220aa9e3f77518877b8f1dcaf1fa519ffc2f19a1f5b79173a0378004a78"
 # usc_title_1/18/28/29/50 are byte-exact graph-faithful envelopes (typed

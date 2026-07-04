@@ -1618,7 +1618,10 @@ mod tests {
     }
     const CITO_NAME: &str = "cito";
     const CITO_VERSION: &str = "2.8.1";
-    const CITO_URL: &str = "https://sparontologies.github.io/cito/current/cito.xml";
+    // Immutable versioned URL (not mutable /current/) — must match the registry
+    // `[sources.cito].url` so the emitted archive's source_url metadata agrees
+    // with the `[archive_signatures]` pin.
+    const CITO_URL: &str = "https://sparontologies.github.io/cito/2018-02-16/cito.xml";
     const CITES_AS_EVIDENCE_IRI: &str = "http://purl.org/spar/cito/citesAsEvidence";
     const CITES_IRI: &str = "http://purl.org/spar/cito/cites";
 
