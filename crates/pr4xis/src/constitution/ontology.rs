@@ -195,11 +195,12 @@ pub struct OntologyBaseIsConsistent;
 
 impl Axiom for OntologyBaseIsConsistent {
     fn verify(&self) -> crate::logic::proof::Verdict {
-        use crate::logic::proof::{SimpleCounterexample, SimpleProof};
+        use crate::logic::proof::SimpleProof;
         // The registry is native-only (linkme is unsupported on wasm32, where it
         // is empty); there the check is vacuous.
         #[cfg(not(target_arch = "wasm32"))]
         {
+            use crate::logic::proof::SimpleCounterexample;
             let me = self.name();
             for axiom in crate::ontology::axiom_constructors() {
                 if axiom.name() == me {
@@ -238,9 +239,10 @@ pub struct EveryAxiomCarriesItsExplanation;
 
 impl Axiom for EveryAxiomCarriesItsExplanation {
     fn verify(&self) -> crate::logic::proof::Verdict {
-        use crate::logic::proof::{SimpleCounterexample, SimpleProof};
+        use crate::logic::proof::SimpleProof;
         #[cfg(not(target_arch = "wasm32"))]
         {
+            use crate::logic::proof::SimpleCounterexample;
             for p in crate::ontology::describe_axioms() {
                 if p.name.as_str().is_empty()
                     || p.description.as_str().is_empty()
