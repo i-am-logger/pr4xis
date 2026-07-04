@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::angle::Angle;
+
 /// AUV navigation state and dead reckoning.
 ///
 /// Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
@@ -13,8 +15,8 @@ pub struct AuvState {
     pub east: f64,
     /// Depth (meters, positive downward).
     pub depth: f64,
-    /// Heading (radians, from north clockwise).
-    pub heading: f64,
+    /// Heading (angle, radians from north clockwise).
+    pub heading: Angle,
 }
 
 /// DVL velocity measurement in body frame.
@@ -49,7 +51,7 @@ pub fn dead_reckon(state: &AuvState, dvl: &DvlMeasurement, heading: f64, dt: f64
         north: state.north + v_north * dt,
         east: state.east + v_east * dt,
         depth: state.depth + dvl.downward * dt,
-        heading,
+        heading: Angle::from_radians(heading),
     }
 }
 

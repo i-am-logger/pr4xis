@@ -21,7 +21,7 @@ Key references:
 
 | Quality | Type | Description |
 |---|---|---|
-| ElementUnit | &'static str | SI unit: SemiMajorAxis=km, Eccentricity=dimensionless, Inclination/RAAN/ArgPeriapsis/TrueAnomaly=rad |
+| ElementUnit | Unit | SI unit: SemiMajorAxis=KILOMETER, Eccentricity=UNITLESS, Inclination/RAAN/ArgPeriapsis/TrueAnomaly=RADIAN |
 
 ## Axioms
 

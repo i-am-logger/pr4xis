@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
 
 /// Angular misalignment between sensor measurement axes.
@@ -55,8 +56,9 @@ impl Boresight {
 
     /// Apply boresight correction to a measurement vector expressed in `from_sensor`.
     /// Returns the vector expressed in `to_sensor`.
-    pub fn apply(&self, v: [f64; 3]) -> [f64; 3] {
-        self.misalignment.rotate_vector(v)
+    pub fn apply(&self, v: &Vector) -> Vector {
+        self.misalignment
+            .rotate_vector(&Vector::new(vec![v.get(0), v.get(1), v.get(2)]))
     }
 
     /// Inverse boresight: swap from/to and invert the rotation.
@@ -111,17 +113,17 @@ mod tests {
     #[test]
     fn apply_identity_preserves_vector() {
         let b = Boresight::identity(ReferenceFrame::IMU, ReferenceFrame::Body);
-        let v = [1.0, 2.0, 3.0];
-        let result = b.apply(v);
+        let v = Vector::new(vec![1.0, 2.0, 3.0]);
+        let result = b.apply(&v);
         for i in 0..3 {
-            assert!((result[i] - v[i]).abs() < 1e-10);
+            assert!((result.get(i) - v.get(i)).abs() < 1e-10);
         }
     }
 
     #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn inverse_compose_gives_identity() {
-        let q = Quaternion::from_axis_angle([0.0, 0.0, 1.0], 0.01); // 0.01 rad ~ 0.57 deg
+        let q = Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), 0.01); // 0.01 rad ~ 0.57 deg
         let b = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q, 0.9);
         let b_inv = b.inverse();
         let composed = b.compose(&b_inv).unwrap();
@@ -140,7 +142,7 @@ mod tests {
     #[test]
     fn magnitude_matches_axis_angle() {
         let angle = 0.05; // ~2.86 degrees
-        let q = Quaternion::from_axis_angle([1.0, 0.0, 0.0], angle);
+        let q = Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), angle);
         let b = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q, 0.8);
         assert!((b.magnitude() - angle).abs() < 1e-10);
     }

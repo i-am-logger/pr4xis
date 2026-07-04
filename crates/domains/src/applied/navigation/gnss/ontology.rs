@@ -8,6 +8,7 @@
 
 #![allow(clippy::needless_range_loop)]
 
+use crate::formal::math::linear_algebra::matrix::Matrix;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -170,24 +171,22 @@ pub(crate) fn compute_gdop_from_elevations_azimuths(
         return f64::MAX;
     }
 
-    let mut h_rows: Vec<[f64; 4]> = Vec::with_capacity(n);
+    let mut h_data: Vec<f64> = Vec::with_capacity(n * 4);
     for i in 0..n {
         let el = elevations_deg[i].to_radians();
         let az = azimuths_deg[i].to_radians();
-        h_rows.push([el.cos() * az.cos(), el.cos() * az.sin(), el.sin(), 1.0]);
+        h_data.push(el.cos() * az.cos());
+        h_data.push(el.cos() * az.sin());
+        h_data.push(el.sin());
+        h_data.push(1.0);
     }
+    let h = Matrix::new(n, 4, h_data);
 
-    let mut hth = [[0.0_f64; 4]; 4];
-    for i in 0..4 {
-        for j in 0..4 {
-            for row in &h_rows {
-                hth[i][j] += row[i] * row[j];
-            }
-        }
-    }
+    // Normal matrix H^T H.
+    let hth = h.transpose().multiply(&h);
 
     if let Some(inv) = invert_4x4(&hth) {
-        let trace = inv[0][0] + inv[1][1] + inv[2][2] + inv[3][3];
+        let trace = inv.get(0, 0) + inv.get(1, 1) + inv.get(2, 2) + inv.get(3, 3);
         if trace > 0.0 { trace.sqrt() } else { f64::MAX }
     } else {
         f64::MAX
@@ -195,11 +194,11 @@ pub(crate) fn compute_gdop_from_elevations_azimuths(
 }
 
 /// Invert a 4x4 matrix using Gauss-Jordan elimination.
-fn invert_4x4(m: &[[f64; 4]; 4]) -> Option<[[f64; 4]; 4]> {
+fn invert_4x4(m: &Matrix) -> Option<Matrix> {
     let mut aug = [[0.0_f64; 8]; 4];
     for i in 0..4 {
         for j in 0..4 {
-            aug[i][j] = m[i][j];
+            aug[i][j] = m.get(i, j);
         }
         aug[i][i + 4] = 1.0;
     }
@@ -233,10 +232,10 @@ fn invert_4x4(m: &[[f64; 4]; 4]) -> Option<[[f64; 4]; 4]> {
         }
     }
 
-    let mut result = [[0.0_f64; 4]; 4];
+    let mut result = Matrix::zeros(4, 4);
     for i in 0..4 {
         for j in 0..4 {
-            result[i][j] = aug[i][j + 4];
+            result.set(i, j, aug[i][j + 4]);
         }
     }
     Some(result)

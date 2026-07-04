@@ -33,9 +33,11 @@
 //!   and the bicarbonate-buffering / pH-regulation system (blood pH
 //!   7.35–7.45).
 
+use crate::formal::math::quantity::unit::MILLIMOLAR;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Hematology",
@@ -269,16 +271,18 @@ pub struct NormalConcentration;
 
 impl Quality for NormalConcentration {
     type Individual = HematologyConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, individual: &HematologyConcept) -> Option<f64> {
+    fn get(&self, individual: &HematologyConcept) -> Option<Quantity> {
         use HematologyConcept::*;
+        let mm = |v: f64| Quantity::from_unit(v, &MILLIMOLAR);
         match individual {
-            SodiumPlasma => Some(140.0),
-            PotassiumPlasma => Some(4.5),
-            CalciumPlasma => Some(2.5),
-            ChloridePlasma => Some(100.0),
-            BicarbonatePlasma => Some(24.0),
+            SodiumPlasma => Some(mm(140.0)),
+            PotassiumPlasma => Some(mm(4.5)),
+            CalciumPlasma => Some(mm(2.5)),
+            ChloridePlasma => Some(mm(100.0)),
+            BicarbonatePlasma => Some(mm(24.0)),
             _ => None,
         }
     }
@@ -408,7 +412,7 @@ impl Axiom for SodiumIsDominantCation {
         let na = NormalConcentration.get(&HematologyConcept::SodiumPlasma);
         let k = NormalConcentration.get(&HematologyConcept::PotassiumPlasma);
         let ok = match (na, k) {
-            (Some(na), Some(k)) if k > 0.0 => na > k * 10.0,
+            (Some(na), Some(k)) if k.value > 0.0 => na.value > k.value * 10.0,
             _ => false,
         };
         if ok {
@@ -739,26 +743,12 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn electrolyte_concentrations_match_guyton_hall() {
-        assert_eq!(
-            NormalConcentration.get(&HematologyConcept::SodiumPlasma),
-            Some(140.0)
-        );
-        assert_eq!(
-            NormalConcentration.get(&HematologyConcept::PotassiumPlasma),
-            Some(4.5)
-        );
-        assert_eq!(
-            NormalConcentration.get(&HematologyConcept::CalciumPlasma),
-            Some(2.5)
-        );
-        assert_eq!(
-            NormalConcentration.get(&HematologyConcept::ChloridePlasma),
-            Some(100.0)
-        );
-        assert_eq!(
-            NormalConcentration.get(&HematologyConcept::BicarbonatePlasma),
-            Some(24.0)
-        );
+        let mmol = |c| NormalConcentration.get(&c).map(|q| q.value);
+        assert_eq!(mmol(HematologyConcept::SodiumPlasma), Some(140.0));
+        assert_eq!(mmol(HematologyConcept::PotassiumPlasma), Some(4.5));
+        assert_eq!(mmol(HematologyConcept::CalciumPlasma), Some(2.5));
+        assert_eq!(mmol(HematologyConcept::ChloridePlasma), Some(100.0));
+        assert_eq!(mmol(HematologyConcept::BicarbonatePlasma), Some(24.0));
     }
 
     #[pr4xis::praxis_value(Verifiable)]

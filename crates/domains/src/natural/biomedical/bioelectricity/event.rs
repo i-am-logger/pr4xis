@@ -20,6 +20,7 @@
 //!   Psychol.* 10:2688 — gap-junction propagation as the bridge between
 //!   single-cell Vmem and tissue-level pattern.
 
+use super::tame::CompetencyLevel;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -70,24 +71,27 @@ pr4xis::ontology! {
 /// Quality: at which TAME scale does this event operate?
 ///
 /// Levin (2019) — events at the start of the chain are molecular; events
-/// at the end are organism-scale. The scale label here is the string used
-/// in the TAME ladder (`tame::CompetencyLevel`).
+/// at the end are organism-scale. The scale is a [`CompetencyLevel`]
+/// variant from the TAME ladder (`tame::CompetencyLevel`), the canonical
+/// cited enum for the Molecular → Organism hierarchy — reused here rather
+/// than duplicated (`feedback_one_ontology_per_module`).
 #[derive(Debug, Clone)]
 pub struct EventScale;
 
 impl Quality for EventScale {
     type Individual = BioelectricEventConcept;
-    type Value = &'static str;
+    type Value = CompetencyLevel;
 
-    fn get(&self, ev: &BioelectricEventConcept) -> Option<&'static str> {
+    fn get(&self, ev: &BioelectricEventConcept) -> Option<CompetencyLevel> {
+        use CompetencyLevel::*;
         Some(match ev {
-            BioelectricEventConcept::IonChannelOpening => "molecular",
-            BioelectricEventConcept::IonFlux => "molecular",
-            BioelectricEventConcept::VmemChange => "cellular",
-            BioelectricEventConcept::GapJunctionPropagation => "tissue",
-            BioelectricEventConcept::PatternFormation => "tissue",
-            BioelectricEventConcept::MorphogeneticInstruction => "organ",
-            BioelectricEventConcept::AnatomicalChange => "organism",
+            BioelectricEventConcept::IonChannelOpening => Molecular,
+            BioelectricEventConcept::IonFlux => Molecular,
+            BioelectricEventConcept::VmemChange => Cellular,
+            BioelectricEventConcept::GapJunctionPropagation => Tissue,
+            BioelectricEventConcept::PatternFormation => Tissue,
+            BioelectricEventConcept::MorphogeneticInstruction => Organ,
+            BioelectricEventConcept::AnatomicalChange => Organism,
         })
     }
 }

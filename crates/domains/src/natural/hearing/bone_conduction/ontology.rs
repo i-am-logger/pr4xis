@@ -24,7 +24,13 @@
 //!   hearing implants", *Med. Devices* 8:79-93.
 //! - **von Bekesy (1960)** *Experiments in Hearing*.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::level::{
+    LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
+};
+use crate::formal::math::quantity::unit::HERTZ;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
     name: "BoneCond",
@@ -196,35 +202,30 @@ pr4xis::ontology! {
     ],
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct FrequencyRange {
-    pub low: f64,
-    pub high: f64,
-}
-
 #[derive(Debug, Clone)]
 pub struct DominantFrequencyRange;
 impl Quality for DominantFrequencyRange {
     type Individual = BoneCondConcept;
-    type Value = FrequencyRange;
-    fn get(&self, individual: &BoneCondConcept) -> Option<FrequencyRange> {
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &BoneCondConcept) -> Option<QuantityRange> {
         use BoneCondConcept::*;
         match individual {
-            OsseotympanicBC => Some(FrequencyRange {
-                low: 20.0,
-                high: 1000.0,
+            OsseotympanicBC => Some(QuantityRange {
+                min: Quantity::from_unit(20.0, &HERTZ),
+                max: Quantity::from_unit(1000.0, &HERTZ),
             }),
-            InertialBC => Some(FrequencyRange {
-                low: 100.0,
-                high: 3000.0,
+            InertialBC => Some(QuantityRange {
+                min: Quantity::from_unit(100.0, &HERTZ),
+                max: Quantity::from_unit(3000.0, &HERTZ),
             }),
-            CompressionalBC => Some(FrequencyRange {
-                low: 4000.0,
-                high: 10000.0,
+            CompressionalBC => Some(QuantityRange {
+                min: Quantity::from_unit(4000.0, &HERTZ),
+                max: Quantity::from_unit(10000.0, &HERTZ),
             }),
-            DistortionalBC => Some(FrequencyRange {
-                low: 20.0,
-                high: 400.0,
+            DistortionalBC => Some(QuantityRange {
+                min: Quantity::from_unit(20.0, &HERTZ),
+                max: Quantity::from_unit(400.0, &HERTZ),
             }),
             _ => None,
         }
@@ -235,17 +236,19 @@ impl Quality for DominantFrequencyRange {
 pub struct TranscranialAttenuationDB;
 impl Quality for TranscranialAttenuationDB {
     type Individual = BoneCondConcept;
-    type Value = f64;
-    fn get(&self, individual: &BoneCondConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &BoneCondConcept) -> Option<LogarithmicLevel> {
         use BoneCondConcept::*;
-        match individual {
-            Mastoid => Some(10.0),
-            Forehead => Some(0.0),
-            TemporalBone => Some(12.0),
-            Vertex => Some(0.0),
-            Teeth => Some(5.0),
-            _ => None,
-        }
+        let decibels = match individual {
+            Mastoid => 10.0,
+            Forehead => 0.0,
+            TemporalBone => 12.0,
+            Vertex => 0.0,
+            Teeth => 5.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(decibels, Ref::FieldRatio))
     }
 }
 
@@ -253,12 +256,13 @@ impl Quality for TranscranialAttenuationDB {
 pub struct SkullResonanceFrequency;
 impl Quality for SkullResonanceFrequency {
     type Individual = BoneCondConcept;
-    type Value = f64;
-    fn get(&self, individual: &BoneCondConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &BoneCondConcept) -> Option<Quantity> {
         use BoneCondConcept::*;
         match individual {
-            Mastoid => Some(200.0),
-            Forehead => Some(800.0),
+            Mastoid => Some(Quantity::from_unit(200.0, &HERTZ)),
+            Forehead => Some(Quantity::from_unit(800.0, &HERTZ)),
             _ => None,
         }
     }
@@ -376,9 +380,16 @@ impl Axiom for ForeheadResonanceHigherThanMastoid {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use BoneCondConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let f = SkullResonanceFrequency.get(&Forehead).unwrap_or(0.0);
-        let m = SkullResonanceFrequency.get(&Mastoid).unwrap_or(0.0);
-        if f > m {
+        // Both resonance frequencies are in HERTZ (same unit), so comparing the
+        // SI `.value` fields directly preserves the original ordering test.
+        let higher = match (
+            SkullResonanceFrequency.get(&Forehead),
+            SkullResonanceFrequency.get(&Mastoid),
+        ) {
+            (Some(f), Some(m)) => f.value > m.value,
+            _ => false,
+        };
+        if higher {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

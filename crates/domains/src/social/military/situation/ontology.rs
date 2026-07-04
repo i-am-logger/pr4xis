@@ -63,29 +63,44 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: JDL processing-level tag for each element.
+/// The JDL data-fusion processing level (White 1988; Steinberg & Bowman 2008).
 ///
-/// Maps each concept to its JDL data-fusion level (Steinberg & Bowman 2008).
+/// A closed ordinal taxonomy of the JDL model's lower levels: Level 0 is
+/// source / sub-object preprocessing, Level 1 is object refinement (identified
+/// entities), Level 2 is situation assessment (relationships and intent).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JdlLevel {
+    /// Level 0 — source preprocessing / sub-object assessment.
+    L0,
+    /// Level 1 — object refinement: identified, classified entities.
+    L1,
+    /// Level 2 — situation assessment: relationships and inferred intent.
+    L2,
+}
+
+/// Quality: the JDL data-fusion [`JdlLevel`] each situation element belongs to.
 #[derive(Debug, Clone)]
-pub struct JdlLevel;
+pub struct JdlLevelOf;
 
-impl Quality for JdlLevel {
+impl Quality for JdlLevelOf {
     type Individual = SituationConcept;
-    type Value = &'static str;
+    type Value = JdlLevel;
 
-    fn get(&self, element: &SituationConcept) -> Option<&'static str> {
+    fn get(&self, element: &SituationConcept) -> Option<JdlLevel> {
         Some(match element {
-            SituationConcept::Concept => "JDL Level 1: Object Assessment",
-            SituationConcept::Relationship => "JDL Level 2: Situation Assessment",
-            SituationConcept::Intent => "JDL Level 2: Situation Assessment (intent)",
-            SituationConcept::Environment => "JDL Level 0/1: Source Preprocessing",
+            // Environment is source / context preprocessing (Level 0).
+            SituationConcept::Environment => JdlLevel::L0,
+            // An identified entity is Level-1 object refinement.
+            SituationConcept::Concept => JdlLevel::L1,
+            // Relationships and inferred intent are Level-2 situation assessment.
+            SituationConcept::Relationship | SituationConcept::Intent => JdlLevel::L2,
         })
     }
 }
 
 impl Ontology for SituationOntology {
     type Cat = SituationCategory;
-    type Qual = JdlLevel;
+    type Qual = JdlLevelOf;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
@@ -255,7 +270,7 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn jdl_level_total() {
-        let q = JdlLevel;
+        let q = JdlLevelOf;
         for c in SituationConcept::variants() {
             assert!(q.get(&c).is_some(), "{:?} missing JDL level", c);
         }
@@ -268,7 +283,7 @@ mod tests {
     proptest! {
         #[test]
         fn prop_jdl_level_total(c in arb_concept()) {
-            prop_assert!(JdlLevel.get(&c).is_some());
+            prop_assert!(JdlLevelOf.get(&c).is_some());
         }
 
         #[test]

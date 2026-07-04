@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Ontology;
@@ -5,6 +8,7 @@ use pr4xis::ontology::Ontology;
 use crate::applied::space::attitude::engine::*;
 use crate::applied::space::attitude::kinematics::*;
 use crate::applied::space::attitude::ontology::*;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -68,7 +72,7 @@ fn quaternion_conjugate_gives_identity() {
 #[test]
 fn zero_angular_velocity_preserves_attitude() {
     let q = Quaternion::new(1.0, 0.1, 0.2, 0.3);
-    let omega = [0.0, 0.0, 0.0];
+    let omega = Vector::new(vec![0.0, 0.0, 0.0]);
     let q_new = propagate_attitude(&q, &omega, 1.0);
     assert!((q_new.q0 - q.q0).abs() < 1e-10);
     assert!((q_new.q1 - q.q1).abs() < 1e-10);
@@ -79,7 +83,7 @@ fn zero_angular_velocity_preserves_attitude() {
 fn attitude_state_propagation() {
     let state = AttitudeState {
         quaternion: Quaternion::identity(),
-        angular_velocity: [0.01, 0.0, 0.0], // slow rotation about x
+        angular_velocity: Vector::new(vec![0.01, 0.0, 0.0]), // slow rotation about x
     };
     let propagated = state.propagate(1.0);
     // Should have rotated slightly
@@ -90,8 +94,8 @@ fn attitude_state_propagation() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn angle_between_orthogonal_vectors() {
-    let a = [1.0, 0.0, 0.0];
-    let b = [0.0, 1.0, 0.0];
+    let a = Vector::new(vec![1.0, 0.0, 0.0]);
+    let b = Vector::new(vec![0.0, 1.0, 0.0]);
     let angle = angle_between(&a, &b);
     assert!((angle - core::f64::consts::FRAC_PI_2).abs() < 1e-10);
 }

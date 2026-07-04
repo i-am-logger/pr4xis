@@ -5,6 +5,7 @@ use pr4xis::ontology::Ontology;
 use crate::applied::navigation::imu::ontology::*;
 use crate::applied::navigation::imu::strapdown::*;
 use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
 use crate::natural::physics::kinematics::velocity::Velocity;
 
@@ -52,8 +53,8 @@ fn stationary_imu_maintains_position() {
         attitude: Quaternion::identity(), // body = nav frame
     };
     let sample = ImuSample {
-        specific_force: [0.0, 0.0, -gravity_ned()[2]], // cancels gravity
-        angular_rate: [0.0, 0.0, 0.0],
+        specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]), // cancels gravity
+        angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
         dt: 1.0,
     };
     let next = mechanize(&state, &sample);
@@ -75,8 +76,8 @@ fn constant_velocity_propagation() {
     };
     // Specific force cancels gravity (level flight / zero acceleration)
     let sample = ImuSample {
-        specific_force: [0.0, 0.0, -gravity_ned()[2]],
-        angular_rate: [0.0, 0.0, 0.0],
+        specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
+        angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
         dt: 1.0,
     };
     let next = mechanize(&state, &sample);
@@ -98,8 +99,8 @@ fn gyro_rotates_attitude() {
     };
     // Constant yaw rate of 0.1 rad/s about z-axis for 1 second
     let sample = ImuSample {
-        specific_force: [0.0, 0.0, -gravity_ned()[2]],
-        angular_rate: [0.0, 0.0, 0.1],
+        specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
+        angular_rate: Vector::new(vec![0.0, 0.0, 0.1]),
         dt: 1.0,
     };
     let next = mechanize(&state, &sample);
@@ -113,11 +114,11 @@ fn zero_dt_preserves_state() {
     let state = NavState {
         position: Point3::new(1.0, 2.0, 3.0),
         velocity: Velocity::new(4.0, 5.0, 6.0),
-        attitude: Quaternion::from_axis_angle([0.0, 0.0, 1.0], 0.5),
+        attitude: Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), 0.5),
     };
     let sample = ImuSample {
-        specific_force: [1.0, 2.0, 3.0],
-        angular_rate: [0.1, 0.2, 0.3],
+        specific_force: Vector::new(vec![1.0, 2.0, 3.0]),
+        angular_rate: Vector::new(vec![0.1, 0.2, 0.3]),
         dt: 0.0,
     };
     let next = mechanize(&state, &sample);
@@ -152,7 +153,7 @@ fn filtered_imu_has_lower_variance() {
         FirstOrderLowPass::new(cutoff, dt),
     ];
 
-    let true_accel = [0.0, 0.0, -gravity_ned()[2]];
+    let true_accel = Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]);
     let mut raw_samples = Vec::new();
     let mut filtered_samples = Vec::new();
 
@@ -160,12 +161,12 @@ fn filtered_imu_has_lower_variance() {
     for i in 0..n {
         let noise = if i % 2 == 0 { 2.0 } else { -2.0 };
         let sample = ImuSample {
-            specific_force: [
-                true_accel[0] + noise,
-                true_accel[1] + noise * 0.5,
-                true_accel[2] + noise * 0.3,
-            ],
-            angular_rate: [noise * 0.01, noise * 0.02, noise * 0.005],
+            specific_force: Vector::new(vec![
+                true_accel.get(0) + noise,
+                true_accel.get(1) + noise * 0.5,
+                true_accel.get(2) + noise * 0.3,
+            ]),
+            angular_rate: Vector::new(vec![noise * 0.01, noise * 0.02, noise * 0.005]),
             dt,
         };
         let filtered = filter_imu_sample(&sample, &mut accel_filter, &mut gyro_filter);
@@ -178,23 +179,23 @@ fn filtered_imu_has_lower_variance() {
     let settle = 20;
     let raw_mean: f64 = raw_samples[settle..]
         .iter()
-        .map(|s| s.specific_force[0])
+        .map(|s| s.specific_force.get(0))
         .sum::<f64>()
         / (n - settle) as f64;
     let raw_var: f64 = raw_samples[settle..]
         .iter()
-        .map(|s| (s.specific_force[0] - raw_mean).powi(2))
+        .map(|s| (s.specific_force.get(0) - raw_mean).powi(2))
         .sum::<f64>()
         / (n - settle) as f64;
 
     let filt_mean: f64 = filtered_samples[settle..]
         .iter()
-        .map(|s| s.specific_force[0])
+        .map(|s| s.specific_force.get(0))
         .sum::<f64>()
         / (n - settle) as f64;
     let filt_var: f64 = filtered_samples[settle..]
         .iter()
-        .map(|s| (s.specific_force[0] - filt_mean).powi(2))
+        .map(|s| (s.specific_force.get(0) - filt_mean).powi(2))
         .sum::<f64>()
         / (n - settle) as f64;
 
@@ -226,8 +227,8 @@ mod proptest_proofs {
             0.001..0.1_f64,
         )
             .prop_map(|(fx, fy, fz, wx, wy, wz, dt)| ImuSample {
-                specific_force: [fx, fy, fz],
-                angular_rate: [wx, wy, wz],
+                specific_force: Vector::new(vec![fx, fy, fz]),
+                angular_rate: Vector::new(vec![wx, wy, wz]),
                 dt,
             })
     }
@@ -256,19 +257,19 @@ mod proptest_proofs {
                 FirstOrderLowPass::new(cutoff, dt),
             ];
             let sample = ImuSample {
-                specific_force: [fx, fy, fz],
-                angular_rate: [wx, wy, wz],
+                specific_force: Vector::new(vec![fx, fy, fz]),
+                angular_rate: Vector::new(vec![wx, wy, wz]),
                 dt,
             };
             let filtered = filter_imu_sample(&sample, &mut af, &mut gf);
             // First-order low-pass with zero initial: output = alpha * input
             // so |output| <= |input| (alpha in (0,1])
-            prop_assert!(filtered.specific_force[0].abs() <= fx.abs() + 1e-10);
-            prop_assert!(filtered.specific_force[1].abs() <= fy.abs() + 1e-10);
-            prop_assert!(filtered.specific_force[2].abs() <= fz.abs() + 1e-10);
-            prop_assert!(filtered.angular_rate[0].abs() <= wx.abs() + 1e-10);
-            prop_assert!(filtered.angular_rate[1].abs() <= wy.abs() + 1e-10);
-            prop_assert!(filtered.angular_rate[2].abs() <= wz.abs() + 1e-10);
+            prop_assert!(filtered.specific_force.get(0).abs() <= fx.abs() + 1e-10);
+            prop_assert!(filtered.specific_force.get(1).abs() <= fy.abs() + 1e-10);
+            prop_assert!(filtered.specific_force.get(2).abs() <= fz.abs() + 1e-10);
+            prop_assert!(filtered.angular_rate.get(0).abs() <= wx.abs() + 1e-10);
+            prop_assert!(filtered.angular_rate.get(1).abs() <= wy.abs() + 1e-10);
+            prop_assert!(filtered.angular_rate.get(2).abs() <= wz.abs() + 1e-10);
         }
 
         #[test]
@@ -298,12 +299,12 @@ mod proptest_proofs {
             ];
             let r1 = filter_imu_sample(&sample, &mut af1, &mut gf1);
             let r2 = filter_imu_sample(&sample, &mut af2, &mut gf2);
-            prop_assert!((r1.specific_force[0] - r2.specific_force[0]).abs() < 1e-15);
-            prop_assert!((r1.specific_force[1] - r2.specific_force[1]).abs() < 1e-15);
-            prop_assert!((r1.specific_force[2] - r2.specific_force[2]).abs() < 1e-15);
-            prop_assert!((r1.angular_rate[0] - r2.angular_rate[0]).abs() < 1e-15);
-            prop_assert!((r1.angular_rate[1] - r2.angular_rate[1]).abs() < 1e-15);
-            prop_assert!((r1.angular_rate[2] - r2.angular_rate[2]).abs() < 1e-15);
+            prop_assert!((r1.specific_force.get(0) - r2.specific_force.get(0)).abs() < 1e-15);
+            prop_assert!((r1.specific_force.get(1) - r2.specific_force.get(1)).abs() < 1e-15);
+            prop_assert!((r1.specific_force.get(2) - r2.specific_force.get(2)).abs() < 1e-15);
+            prop_assert!((r1.angular_rate.get(0) - r2.angular_rate.get(0)).abs() < 1e-15);
+            prop_assert!((r1.angular_rate.get(1) - r2.angular_rate.get(1)).abs() < 1e-15);
+            prop_assert!((r1.angular_rate.get(2) - r2.angular_rate.get(2)).abs() < 1e-15);
         }
 
         #[test]

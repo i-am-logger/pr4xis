@@ -21,7 +21,7 @@ Key references:
 
 | Quality | Type | Description |
 |---|---|---|
-| SensorAccuracy | f64 | 1-sigma angular accuracy in arcseconds — StarTracker ~1, SunSensor ~60, EarthHorizon ~3600, Magnetometer ~7200 |
+| SensorAccuracy | `Quantity` (angular, `KIND = Physical`) | 1σ angular accuracy — a typed quantity built from arcseconds (`from_unit(v, &ARCSECOND)`) and SI-normalised to radians, so comparisons are dimensionally guarded. StarTracker ~1″, SunSensor ~60″, EarthHorizon ~3600″, Magnetometer ~7200″ |
 
 ## Axioms (2)
 

@@ -1,3 +1,4 @@
+use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::natural::geodesy::coordinate::{Ecef, Geodetic, Ned};
 use crate::natural::geodesy::ellipsoid::Ellipsoid;
 
@@ -62,17 +63,27 @@ pub fn ecef_to_geodetic(ecef: &Ecef, ellipsoid: &Ellipsoid) -> Geodetic {
 /// R_ned_ecef: transforms a vector from ECEF frame to NED frame.
 ///
 /// Source: Groves (2013), Eq. 2.150.
-pub fn ecef_to_ned_rotation(lat: f64, lon: f64) -> [[f64; 3]; 3] {
+pub fn ecef_to_ned_rotation(lat: f64, lon: f64) -> Matrix {
     let sl = lat.sin();
     let cl = lat.cos();
     let sn = lon.sin();
     let cn = lon.cos();
 
-    [
-        [-sl * cn, -sl * sn, cl],
-        [-sn, cn, 0.0],
-        [-cl * cn, -cl * sn, -sl],
-    ]
+    Matrix::new(
+        3,
+        3,
+        vec![
+            -sl * cn,
+            -sl * sn,
+            cl, //
+            -sn,
+            cn,
+            0.0, //
+            -cl * cn,
+            -cl * sn,
+            -sl,
+        ],
+    )
 }
 
 /// Convert ECEF difference to NED relative to a reference point.
@@ -85,9 +96,9 @@ pub fn ecef_to_ned(ecef: &Ecef, ref_point: &Geodetic) -> Ned {
     let r = ecef_to_ned_rotation(ref_point.lat, ref_point.lon);
 
     Ned {
-        north: r[0][0] * dx + r[0][1] * dy + r[0][2] * dz,
-        east: r[1][0] * dx + r[1][1] * dy + r[1][2] * dz,
-        down: r[2][0] * dx + r[2][1] * dy + r[2][2] * dz,
+        north: r.get(0, 0) * dx + r.get(0, 1) * dy + r.get(0, 2) * dz,
+        east: r.get(1, 0) * dx + r.get(1, 1) * dy + r.get(1, 2) * dz,
+        down: r.get(2, 0) * dx + r.get(2, 1) * dy + r.get(2, 2) * dz,
     }
 }
 

@@ -180,18 +180,43 @@ pr4xis::ontology! {
 // Qualities
 // -----------------------------------------------------------------------------
 
+/// The logical tradition / system a rule originates from.
+///
+/// A closed set of the named systems in this ontology's literature:
+/// Hilbert & Ackermann (1928) *Grundzüge der theoretischen Logik*;
+/// Gentzen (1935) *Untersuchungen über das logische Schließen*; the classical
+/// (non-intuitionistic) tradition of excluded middle and double-negation;
+/// Peirce (1878) "Deduction, Induction, and Hypothesis"; Carnap (1950)
+/// *Logical Foundations of Probability*; and the Peirce/Harman (1965)
+/// inference-to-the-best-explanation schema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuleTradition {
+    /// Hilbert & Ackermann (1928) — Hilbert-style axiom systems.
+    HilbertAckermann1928,
+    /// Gentzen (1935) — natural-deduction / sequent-calculus rules.
+    Gentzen1935,
+    /// Classical (non-intuitionistic) logic — LEM, double negation, reductio.
+    ClassicalLogic,
+    /// Peirce (1878) — the three modes of inference.
+    Peirce1878,
+    /// Carnap (1950) — inductive generalisation.
+    Carnap1950,
+    /// Peirce / Harman (1965) — inference to the best explanation.
+    PeirceHarman,
+}
+
 /// Which logical tradition the rule comes from.
 #[derive(Debug, Clone)]
 pub struct RuleOrigin;
 
 impl Quality for RuleOrigin {
     type Individual = InferenceRulesConcept;
-    type Value = &'static str;
+    type Value = RuleTradition;
 
-    fn get(&self, c: &InferenceRulesConcept) -> Option<&'static str> {
+    fn get(&self, c: &InferenceRulesConcept) -> Option<RuleTradition> {
         use InferenceRulesConcept as R;
         Some(match c {
-            R::ModusPonens | R::ModusTollens => "hilbert-ackermann-1928",
+            R::ModusPonens | R::ModusTollens => RuleTradition::HilbertAckermann1928,
             R::ConjunctionIntroduction
             | R::ConjunctionElimination
             | R::DisjunctionIntroduction
@@ -204,15 +229,35 @@ impl Quality for RuleOrigin {
             | R::UniversalInstantiation
             | R::ExistentialIntroduction
             | R::ExistentialElimination
-            | R::CutRule => "gentzen-1935",
+            | R::CutRule => RuleTradition::Gentzen1935,
             R::ReductioAdAbsurdum | R::DoubleNegationElimination | R::ExcludedMiddle => {
-                "classical-logic"
+                RuleTradition::ClassicalLogic
             }
-            R::Deduction | R::Induction | R::Abduction | R::InferenceRule => "peirce-1878",
-            R::Generalisation => "carnap-1950",
-            R::BestExplanation => "peirce-harman",
+            R::Deduction | R::Induction | R::Abduction | R::InferenceRule => {
+                RuleTradition::Peirce1878
+            }
+            R::Generalisation => RuleTradition::Carnap1950,
+            R::BestExplanation => RuleTradition::PeirceHarman,
         })
     }
+}
+
+/// The epistemic mode of an inference rule — what it preserves.
+///
+/// Peirce (1878) distinguishes the three modes; deduction is truth-preserving,
+/// induction (Carnap 1950) probability-preserving, and abduction generates
+/// hypotheses without preserving either. The genus concept has no mode of its
+/// own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InferenceMode {
+    /// Deductive: if the premises hold, the conclusion holds (Peirce 1878).
+    TruthPreserving,
+    /// Inductive: raises the probability of the conclusion (Carnap 1950).
+    ProbabilityPreserving,
+    /// Abductive: proposes a candidate explanation (Peirce 1878; Harman 1965).
+    HypothesisGenerating,
+    /// The genus `InferenceRule` — no mode of its own.
+    Genus,
 }
 
 /// Whether the rule is truth-preserving (deductive), probability-preserving
@@ -222,9 +267,9 @@ pub struct RuleMode;
 
 impl Quality for RuleMode {
     type Individual = InferenceRulesConcept;
-    type Value = &'static str;
+    type Value = InferenceMode;
 
-    fn get(&self, c: &InferenceRulesConcept) -> Option<&'static str> {
+    fn get(&self, c: &InferenceRulesConcept) -> Option<InferenceMode> {
         use InferenceRulesConcept as R;
         Some(match c {
             R::Deduction
@@ -245,10 +290,10 @@ impl Quality for RuleMode {
             | R::CutRule
             | R::ReductioAdAbsurdum
             | R::DoubleNegationElimination
-            | R::ExcludedMiddle => "truth-preserving",
-            R::Induction | R::Generalisation => "probability-preserving",
-            R::Abduction | R::BestExplanation => "hypothesis-generating",
-            R::InferenceRule => "genus",
+            | R::ExcludedMiddle => InferenceMode::TruthPreserving,
+            R::Induction | R::Generalisation => InferenceMode::ProbabilityPreserving,
+            R::Abduction | R::BestExplanation => InferenceMode::HypothesisGenerating,
+            R::InferenceRule => InferenceMode::Genus,
         })
     }
 }

@@ -8,6 +8,7 @@ use crate::applied::sensor_fusion::frame::ontology::*;
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
 use crate::applied::sensor_fusion::frame::transform::FrameTransform;
 
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
 
 // ---------------------------------------------------------------------------
@@ -62,8 +63,8 @@ fn axiom_all_frames_right_handed() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn boresight_compose_chain() {
-    let q1 = Quaternion::from_axis_angle([1.0, 0.0, 0.0], 0.01);
-    let q2 = Quaternion::from_axis_angle([0.0, 1.0, 0.0], 0.02);
+    let q1 = Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), 0.01);
+    let q2 = Quaternion::from_axis_angle(&Vector::new(vec![0.0, 1.0, 0.0]), 0.02);
     let b1 = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q1.clone(), 0.9);
     let b2 = Boresight::new(
         ReferenceFrame::Body,
@@ -89,14 +90,14 @@ fn lever_arm_velocity_correction_orthogonal() {
     let la = LeverArm::new(
         ReferenceFrame::IMU,
         ReferenceFrame::GNSS,
-        [2.0, 0.0, 0.0],
+        Vector::new(vec![2.0, 0.0, 0.0]),
         ReferenceFrame::Body,
     );
-    let omega = [0.0, 0.0, 0.5]; // 0.5 rad/s around Z
-    let v = la.velocity_correction(omega);
-    assert!((v[0]).abs() < 1e-10);
-    assert!((v[1] - 1.0).abs() < 1e-10); // 0.5 * 2.0 = 1.0
-    assert!((v[2]).abs() < 1e-10);
+    let omega = Vector::new(vec![0.0, 0.0, 0.5]); // 0.5 rad/s around Z
+    let v = la.velocity_correction(&omega);
+    assert!((v.get(0)).abs() < 1e-10);
+    assert!((v.get(1) - 1.0).abs() < 1e-10); // 0.5 * 2.0 = 1.0
+    assert!((v.get(2)).abs() < 1e-10);
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +156,7 @@ mod proptest_proofs {
         fn boresight_inverse_identity(
             angle in -0.1..0.1_f64,
         ) {
-            let q = Quaternion::from_axis_angle([0.0, 0.0, 1.0], angle);
+            let q = Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), angle);
             let b = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q, 0.9);
             let b_inv = b.inverse();
             let composed = b.compose(&b_inv).unwrap();
@@ -173,13 +174,13 @@ mod proptest_proofs {
             let la = LeverArm::new(
                 ReferenceFrame::IMU,
                 ReferenceFrame::GNSS,
-                [x, y, z],
+                Vector::new(vec![x, y, z]),
                 ReferenceFrame::Body,
             );
             let la2 = la.inverse().inverse();
-            prop_assert!((la2.offset[0] - la.offset[0]).abs() < 1e-10);
-            prop_assert!((la2.offset[1] - la.offset[1]).abs() < 1e-10);
-            prop_assert!((la2.offset[2] - la.offset[2]).abs() < 1e-10);
+            prop_assert!((la2.offset.get(0) - la.offset.get(0)).abs() < 1e-10);
+            prop_assert!((la2.offset.get(1) - la.offset.get(1)).abs() < 1e-10);
+            prop_assert!((la2.offset.get(2) - la.offset.get(2)).abs() < 1e-10);
         }
     }
 

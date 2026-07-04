@@ -4,7 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use pr4xis::engine::{Action, Situation};
 
 use crate::applied::navigation::ins_gnss::coupling::{
-    CouplingMode, coasting_position_error, scalar_kalman_update,
+    CouplingMode, PosVelCoupling, coasting_position_error, scalar_kalman_gain,
 };
 use crate::applied::navigation::ins_gnss::ontology::{CouplingLevel, InsGnssState};
 
@@ -90,15 +90,18 @@ pub fn apply_ins_gnss(
                     situation.coupling, mode.min_satellites, num_satellites
                 ));
             }
-            // Scalar Kalman update on position variance
+            // Scalar Kalman update on position variance; the velocity error is
+            // corrected through the pos–vel coupling by the SAME gain.
             let prior_var = situation.position_error * situation.position_error;
             let meas_var = measurement_noise * measurement_noise;
-            let post_var = scalar_kalman_update(prior_var, meas_var);
+            let k = scalar_kalman_gain(prior_var, meas_var);
+            let post_var = (1.0 - k) * prior_var;
             Ok(InsGnssSituation {
                 state: InsGnssState::NavigationMode,
                 coupling: situation.coupling,
                 position_error: post_var.sqrt(),
-                velocity_error: situation.velocity_error * 0.8, // GNSS also helps velocity
+                velocity_error: PosVelCoupling::nominal()
+                    .velocity_error_after_fix(situation.velocity_error, k),
                 time_since_gnss: 0.0,
                 accel_bias: situation.accel_bias,
                 step: situation.step + 1,
@@ -116,12 +119,14 @@ pub fn apply_ins_gnss(
         InsGnssAction::GnssReacquisition { measurement_noise } => {
             let prior_var = situation.position_error * situation.position_error;
             let meas_var = measurement_noise * measurement_noise;
-            let post_var = scalar_kalman_update(prior_var, meas_var);
+            let k = scalar_kalman_gain(prior_var, meas_var);
+            let post_var = (1.0 - k) * prior_var;
             Ok(InsGnssSituation {
                 state: InsGnssState::GnssReacquired,
                 coupling: situation.coupling,
                 position_error: post_var.sqrt(),
-                velocity_error: situation.velocity_error * 0.5,
+                velocity_error: PosVelCoupling::reacquisition()
+                    .velocity_error_after_fix(situation.velocity_error, k),
                 time_since_gnss: 0.0,
                 accel_bias: situation.accel_bias,
                 step: situation.step + 1,

@@ -3,30 +3,33 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
-/// AHRS attitude estimate (Euler angles in radians).
+use crate::formal::math::angle::Angle;
+use crate::formal::math::linear_algebra::vector_space::Vector;
+
+/// AHRS attitude estimate (Euler angles, dimension ANGLE).
 #[derive(Debug, Clone, PartialEq)]
 pub struct AttitudeEstimate {
-    /// Roll angle (radians), rotation about forward axis.
-    pub roll: f64,
-    /// Pitch angle (radians), rotation about right axis.
-    pub pitch: f64,
-    /// Yaw angle (radians), rotation about down axis.
-    pub yaw: f64,
+    /// Roll angle (ANGLE), rotation about forward axis.
+    pub roll: Angle,
+    /// Pitch angle (ANGLE), rotation about right axis.
+    pub pitch: Angle,
+    /// Yaw angle (ANGLE), rotation about down axis.
+    pub yaw: Angle,
 }
 
 impl AttitudeEstimate {
-    /// Create a new attitude estimate.
+    /// Create a new attitude estimate from radian components.
     pub fn new(roll: f64, pitch: f64, yaw: f64) -> Self {
-        Self { roll, pitch, yaw }
+        Self {
+            roll: Angle::from_radians(roll),
+            pitch: Angle::from_radians(pitch),
+            yaw: Angle::from_radians(yaw),
+        }
     }
 
     /// Zero attitude (level, facing north).
     pub fn zero() -> Self {
-        Self {
-            roll: 0.0,
-            pitch: 0.0,
-            yaw: 0.0,
-        }
+        Self::new(0.0, 0.0, 0.0)
     }
 }
 
@@ -51,20 +54,20 @@ impl Situation for AhrsSituation {}
 pub enum AhrsAction {
     /// Gyroscope angular rate update.
     GyroUpdate {
-        /// Angular rates [roll_rate, pitch_rate, yaw_rate] in rad/s.
-        angular_rate: [f64; 3],
+        /// Angular rates [roll_rate, pitch_rate, yaw_rate] in rad/s (Body frame).
+        angular_rate: Vector,
         /// Time step in seconds.
         dt: f64,
     },
     /// Accelerometer correction (determines roll and pitch).
     AccelCorrection {
-        /// Accelerometer reading [ax, ay, az] in m/s^2.
-        accel: [f64; 3],
+        /// Accelerometer reading [ax, ay, az] in m/s^2 (Body frame).
+        accel: Vector,
     },
     /// Magnetometer correction (determines yaw/heading).
     MagCorrection {
-        /// Magnetometer reading [mx, my, mz] in Tesla.
-        mag: [f64; 3],
+        /// Magnetometer reading [mx, my, mz] in Tesla (Body frame).
+        mag: Vector,
     },
 }
 
@@ -86,9 +89,9 @@ pub fn apply_ahrs(situation: &AhrsSituation, action: &AhrsAction) -> Result<Ahrs
             }
             // Integrate gyro: attitude += angular_rate * dt
             // Pure gyro integration — alpha blending is only applied in AccelCorrection/MagCorrection
-            let new_roll = situation.attitude.roll + angular_rate[0] * dt;
-            let new_pitch = situation.attitude.pitch + angular_rate[1] * dt;
-            let new_yaw = situation.attitude.yaw + angular_rate[2] * dt;
+            let new_roll = situation.attitude.roll.radians() + angular_rate.get(0) * dt;
+            let new_pitch = situation.attitude.pitch.radians() + angular_rate.get(1) * dt;
+            let new_yaw = situation.attitude.yaw.radians() + angular_rate.get(2) * dt;
 
             Ok(AhrsSituation {
                 attitude: AttitudeEstimate::new(new_roll, new_pitch, new_yaw),
@@ -98,45 +101,56 @@ pub fn apply_ahrs(situation: &AhrsSituation, action: &AhrsAction) -> Result<Ahrs
             })
         }
         AhrsAction::AccelCorrection { accel } => {
-            let norm = (accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2]).sqrt();
+            let norm = (accel.get(0) * accel.get(0)
+                + accel.get(1) * accel.get(1)
+                + accel.get(2) * accel.get(2))
+            .sqrt();
             if norm < 1e-6 {
                 return Err("accelerometer reading too small (near zero-g)".into());
             }
 
             // Compute roll and pitch from accelerometer
             // roll = atan2(ay, -az), pitch = atan2(-ax, sqrt(ay^2 + az^2))
-            let accel_roll = accel[1].atan2(-accel[2]);
-            let accel_pitch = (-accel[0]).atan2((accel[1] * accel[1] + accel[2] * accel[2]).sqrt());
+            let accel_roll = accel.get(1).atan2(-accel.get(2));
+            let accel_pitch = (-accel.get(0))
+                .atan2((accel.get(1) * accel.get(1) + accel.get(2) * accel.get(2)).sqrt());
 
             let alpha = situation.alpha;
             // Complementary filter: blend gyro-integrated attitude with accel reference
-            let new_roll = alpha * situation.attitude.roll + (1.0 - alpha) * accel_roll;
-            let new_pitch = alpha * situation.attitude.pitch + (1.0 - alpha) * accel_pitch;
+            let new_roll = alpha * situation.attitude.roll.radians() + (1.0 - alpha) * accel_roll;
+            let new_pitch =
+                alpha * situation.attitude.pitch.radians() + (1.0 - alpha) * accel_pitch;
 
             Ok(AhrsSituation {
-                attitude: AttitudeEstimate::new(new_roll, new_pitch, situation.attitude.yaw),
+                attitude: AttitudeEstimate::new(
+                    new_roll,
+                    new_pitch,
+                    situation.attitude.yaw.radians(),
+                ),
                 alpha: situation.alpha,
                 step: situation.step + 1,
                 total_time: situation.total_time,
             })
         }
         AhrsAction::MagCorrection { mag } => {
-            let norm = (mag[0] * mag[0] + mag[1] * mag[1] + mag[2] * mag[2]).sqrt();
+            let norm =
+                (mag.get(0) * mag.get(0) + mag.get(1) * mag.get(1) + mag.get(2) * mag.get(2))
+                    .sqrt();
             if norm < 1e-12 {
                 return Err("magnetometer reading too small".into());
             }
 
             // Compute heading from magnetometer (assuming level attitude)
             // heading = atan2(-my, mx)
-            let mag_heading = (-mag[1]).atan2(mag[0]);
+            let mag_heading = (-mag.get(1)).atan2(mag.get(0));
 
             let alpha = situation.alpha;
-            let new_yaw = alpha * situation.attitude.yaw + (1.0 - alpha) * mag_heading;
+            let new_yaw = alpha * situation.attitude.yaw.radians() + (1.0 - alpha) * mag_heading;
 
             Ok(AhrsSituation {
                 attitude: AttitudeEstimate::new(
-                    situation.attitude.roll,
-                    situation.attitude.pitch,
+                    situation.attitude.roll.radians(),
+                    situation.attitude.pitch.radians(),
                     new_yaw,
                 ),
                 alpha: situation.alpha,

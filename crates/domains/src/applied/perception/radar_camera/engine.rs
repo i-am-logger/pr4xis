@@ -1,12 +1,15 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::angle::Angle;
+
 /// A radar detection with range, Doppler velocity, and azimuth.
 #[derive(Debug, Clone)]
 pub struct RadarTarget {
     pub range: f64,
     pub doppler: f64,
-    pub azimuth: f64,
+    /// Bearing of the target relative to boresight (circle group S¹).
+    pub azimuth: Angle,
     pub rcs: f64, // radar cross section (dBsm)
 }
 
@@ -34,7 +37,8 @@ pub struct AlignedFrame {
 pub struct FusedRadarCameraDetection {
     pub range: f64,
     pub doppler: f64,
-    pub azimuth: f64,
+    /// Bearing carried through from the radar target (circle group S¹).
+    pub azimuth: Angle,
     pub class_label: &'static str,
     pub confidence: f64,
 }
@@ -54,7 +58,7 @@ pub fn associate_radar_camera(
 ) -> Vec<FusedRadarCameraDetection> {
     let mut fused = Vec::new();
     for target in &frame.radar_targets {
-        let proj_x = radar_azimuth_to_image_x(target.azimuth, image_width, fov_rad);
+        let proj_x = radar_azimuth_to_image_x(target.azimuth.radians(), image_width, fov_rad);
         // Find best matching camera detection
         if let Some(best) = frame
             .camera_objects

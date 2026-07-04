@@ -86,24 +86,40 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: which RFC 9110 §9.2 semantic class each method falls into.
+/// The RFC 9110 §9.2 semantic class a request method falls into.
 ///
-/// Returns the canonical RFC 9110 short label ("safe", "idempotent",
-/// "non-idempotent") for each of the seven concrete methods; None for
-/// the abstract grouping concepts.
+/// A closed classification of the three mutually exclusive method
+/// semantics defined by RFC 9110 (2022) *HTTP Semantics*: §9.2.1 *safe*
+/// (read-only), §9.2.2 *idempotent* (repeatable with the same effect) but
+/// not safe, and *non-idempotent* (neither). Safe strictly implies
+/// idempotent, so the safe class names the strongest of the three.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MethodSemanticClass {
+    /// RFC 9110 §9.2.1 — essentially read-only; no requested state change.
+    Safe,
+    /// RFC 9110 §9.2.2 — repeatable with the same effect, but not safe.
+    Idempotent,
+    /// Neither safe nor idempotent (RFC 9110 §9.2.2 ¶ on POST/PATCH).
+    NonIdempotent,
+}
+
+/// Quality: which [`MethodSemanticClass`] each method falls into.
+///
+/// Returns the RFC 9110 §9.2 semantic class for each of the seven concrete
+/// methods; None for the abstract grouping concepts.
 #[derive(Debug, Clone)]
 pub struct MethodSemantics;
 
 impl Quality for MethodSemantics {
     type Individual = HttpConcept;
-    type Value = &'static str;
+    type Value = MethodSemanticClass;
 
-    fn get(&self, c: &HttpConcept) -> Option<&'static str> {
+    fn get(&self, c: &HttpConcept) -> Option<MethodSemanticClass> {
         use HttpConcept as H;
         match c {
-            H::Get | H::Head | H::Options => Some("safe"),
-            H::Put | H::Delete => Some("idempotent"),
-            H::Post | H::Patch => Some("non-idempotent"),
+            H::Get | H::Head | H::Options => Some(MethodSemanticClass::Safe),
+            H::Put | H::Delete => Some(MethodSemanticClass::Idempotent),
+            H::Post | H::Patch => Some(MethodSemanticClass::NonIdempotent),
             // Grouping concepts have no per-method semantics tag.
             H::Safe | H::Idempotent | H::WithBody => None,
         }

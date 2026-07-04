@@ -17,7 +17,9 @@
 //! - **McDermott & Oxenham (2008)** "Music perception, pitch, and the
 //!   auditory system", *Curr. Opin. Neurobiol.* 18(4):452-463.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{BEAT_PER_MINUTE, UNITLESS};
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Music",
@@ -220,13 +222,14 @@ impl Quality for ConsonanceRanking {
 pub struct PreferredTempoBPM;
 impl Quality for PreferredTempoBPM {
     type Individual = MusicConcept;
-    type Value = f64;
-    fn get(&self, individual: &MusicConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &MusicConcept) -> Option<Quantity> {
         use MusicConcept::*;
         match individual {
-            Tempo => Some(120.0),
-            Beat => Some(120.0),
-            Entrainment => Some(120.0),
+            Tempo => Some(Quantity::from_unit(120.0, &BEAT_PER_MINUTE)),
+            Beat => Some(Quantity::from_unit(120.0, &BEAT_PER_MINUTE)),
+            Entrainment => Some(Quantity::from_unit(120.0, &BEAT_PER_MINUTE)),
             _ => None,
         }
     }
@@ -236,10 +239,12 @@ impl Quality for PreferredTempoBPM {
 pub struct OctaveRatio;
 impl Quality for OctaveRatio {
     type Individual = MusicConcept;
-    type Value = f64;
-    fn get(&self, individual: &MusicConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &MusicConcept) -> Option<Quantity> {
         match individual {
-            MusicConcept::OctaveEquivalence => Some(2.0),
+            // Dimensionless 2:1 frequency ratio (a pure number).
+            MusicConcept::OctaveEquivalence => Some(Quantity::from_unit(2.0, &UNITLESS)),
             _ => None,
         }
     }
@@ -258,7 +263,11 @@ pub struct OctaveRatioIsTwo;
 impl Axiom for OctaveRatioIsTwo {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        if OctaveRatio.get(&MusicConcept::OctaveEquivalence) == Some(2.0) {
+        if OctaveRatio
+            .get(&MusicConcept::OctaveEquivalence)
+            .map(|q| q.value)
+            == Some(2.0)
+        {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

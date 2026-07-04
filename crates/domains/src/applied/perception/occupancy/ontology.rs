@@ -75,9 +75,52 @@ impl Ontology for OccupancyOntology {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         axioms.push(Box::new(ProbabilityBounded));
         axioms.push(Box::new(LogOddsUpdateDeterministic));
+        axioms.push(Box::new(SaturationPreventsOverconfidence));
         axioms
     }
 }
+
+/// Axiom: the log-odds saturation keeps every cell strictly inside `(0, 1)`, so
+/// the map can always recover — no run of observations drives a cell to
+/// certainty.
+///
+/// Thrun, Burgard & Fox (2005) §9.2: clamping the accumulated log-odds prevents
+/// overconfidence; at the `±5` bound the posterior is `p ≈ 0.993 / 0.007`, still
+/// strictly interior, so contrary observations can still flip the cell. This is
+/// the property the former inline `±5.0` constructor literals only implied.
+pub struct SaturationPreventsOverconfidence;
+
+impl Axiom for SaturationPreventsOverconfidence {
+    fn verify(&self) -> Verdict {
+        use crate::applied::perception::occupancy::engine::{LogOddsSaturation, OccupancyGrid};
+        let sat = LogOddsSaturation::standard();
+        let p_max = OccupancyGrid::log_odds_to_probability(sat.max);
+        let p_min = OccupancyGrid::log_odds_to_probability(sat.min);
+        // 0.0 / 0.5 / 1.0 are the definitional probability bounds (impossible /
+        // neutral prior / certain), not tunable numbers.
+        if sat.min < 0.0
+            && sat.max > 0.0
+            && p_max < 1.0
+            && p_min > 0.0
+            && p_max > 0.5
+            && p_min < 0.5
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SaturationPreventsOverconfidence",
+        "log-odds saturation keeps posterior occupancy strictly in (0,1) so the map stays responsive",
+        "Thrun, Burgard & Fox (2005) Probabilistic Robotics §9.2"
+    );
+}
+pr4xis::register_axiom!(
+    SaturationPreventsOverconfidence,
+    "Thrun, Burgard & Fox (2005) Probabilistic Robotics §9.2"
+);
 
 /// Axiom: every state's occupancy-probability range lies in [0, 1] with
 /// min ≤ max.

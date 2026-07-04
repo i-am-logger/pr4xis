@@ -4,7 +4,7 @@ use pr4xis::ontology::{Axiom, Ontology};
 use crate::formal::math::quantity::dimension::Dimension;
 use crate::formal::math::quantity::ontology::*;
 use crate::formal::math::quantity::unit;
-use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -16,6 +16,36 @@ fn dimension_category_laws() {
 #[test]
 fn quantity_ontology_validates() {
     QuantityOntology::validate().unwrap();
+}
+
+#[pr4xis::praxis_value(Honest)]
+#[test]
+fn quantity_range_guards_dimension_and_order() {
+    // A well-formed, same-dimension, ordered interval is accepted.
+    let r = QuantityRange::new(
+        Quantity::from_unit(0.01, &unit::METER),
+        Quantity::from_unit(0.1, &unit::METER),
+    )
+    .expect("0.01 m ≤ 0.1 m is a valid length interval");
+    assert_eq!(r.dimension(), Dimension::LENGTH);
+    assert!(r.contains(&Quantity::from_unit(0.05, &unit::METER)));
+    assert!(!r.contains(&Quantity::from_unit(0.5, &unit::METER)));
+    // A quantity of a different dimension is never contained (the guard).
+    assert!(!r.contains(&Quantity::from_unit(0.05, &unit::SECOND)));
+    // A range spanning two dimensions (metres..seconds) is refused.
+    assert!(
+        QuantityRange::new(
+            Quantity::from_unit(1.0, &unit::METER),
+            Quantity::from_unit(5.0, &unit::SECOND),
+        )
+        .is_none(),
+        "a cross-dimension range must be rejected"
+    );
+    // An inverted interval (max < min) is refused.
+    assert!(
+        QuantityRange::new(Quantity::dimensionless(1.0), Quantity::dimensionless(0.0)).is_none(),
+        "an inverted range must be rejected"
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]

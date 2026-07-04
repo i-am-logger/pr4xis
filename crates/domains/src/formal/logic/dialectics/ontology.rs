@@ -162,15 +162,37 @@ pr4xis::ontology! {
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Which tradition a concept comes from.
+/// The intellectual tradition a dialectics concept originates from.
+///
+/// A closed set of the five scholarly lineages this ontology draws on
+/// (see the module-level `source:`): Aristotle (~350 BCE) for the Square
+/// of Opposition and dialectical argument; Hegel (1807, 1812) for the
+/// triad and its mechanisms; Marx (1867) for internal / material
+/// contradiction; Adorno (1966) for negative dialectics; Priest (1987)
+/// for dialetheism and paraconsistent logic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DialecticsTradition {
+    /// Aristotle (~350 BCE): Square of Opposition, dialectical argument from endoxa.
+    Aristotle,
+    /// Hegel (1807, 1812): the dialectical triad and its mechanisms.
+    Hegel,
+    /// Marx (1867): internal / material contradiction.
+    Marx,
+    /// Adorno (1966): negative dialectics, non-identity.
+    Adorno,
+    /// Priest (1987): dialetheism, paraconsistent logic.
+    Priest,
+}
+
+/// Quality: the [`DialecticsTradition`] each concept comes from.
 #[derive(Debug, Clone)]
-pub struct DialecticsTradition;
+pub struct DialecticsTraditionOf;
 
-impl Quality for DialecticsTradition {
+impl Quality for DialecticsTraditionOf {
     type Individual = DialecticsConcept;
-    type Value = &'static str;
+    type Value = DialecticsTradition;
 
-    fn get(&self, c: &DialecticsConcept) -> Option<&'static str> {
+    fn get(&self, c: &DialecticsConcept) -> Option<DialecticsTradition> {
         use DialecticsConcept as D;
         Some(match c {
             D::SquareOfOpposition
@@ -179,17 +201,17 @@ impl Quality for DialecticsTradition {
             | D::Subaltern
             | D::Subcontrary
             | D::DialecticalArgument
-            | D::Endoxa => "aristotle",
+            | D::Endoxa => DialecticsTradition::Aristotle,
             D::DialecticalMoment
             | D::Thesis
             | D::Antithesis
             | D::Synthesis
             | D::DeterminateNegation
             | D::Sublation
-            | D::Contradiction => "hegel",
-            D::InternalContradiction => "marx",
-            D::NegativeDialectics | D::NonIdentity => "adorno",
-            D::TrueContradiction | D::Paraconsistent => "priest",
+            | D::Contradiction => DialecticsTradition::Hegel,
+            D::InternalContradiction => DialecticsTradition::Marx,
+            D::NegativeDialectics | D::NonIdentity => DialecticsTradition::Adorno,
+            D::TrueContradiction | D::Paraconsistent => DialecticsTradition::Priest,
         })
     }
 }
@@ -389,7 +411,7 @@ pr4xis::register_axiom!(
 
 impl Ontology for DialecticsOntology {
     type Cat = DialecticsCategory;
-    type Qual = DialecticsTradition;
+    type Qual = DialecticsTraditionOf;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = DialecticsOntology::generated_structural_axioms();

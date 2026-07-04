@@ -1,5 +1,37 @@
 use crate::applied::perception::occupancy::ontology::OccupancyConcept;
 
+/// Log-odds saturation bounds for occupancy mapping.
+///
+/// A Bayesian occupancy grid clamps its accumulated log-odds to prevent
+/// *overconfidence*: an unbounded update would drive a cell to `p → 1` or
+/// `p → 0`, after which no finite number of contrary observations could move
+/// it, and the map could never react to a changed world (Thrun, Burgard & Fox
+/// 2005 §9.2; Elfes 1989). The bound is a cited, typed parameter here, not an
+/// inline `±5.0` literal in the constructor.
+#[derive(Debug, Clone, Copy)]
+pub struct LogOddsSaturation {
+    pub min: f64,
+    pub max: f64,
+}
+
+impl LogOddsSaturation {
+    /// Standard symmetric ±5 log-odds clamp (Thrun, Burgard & Fox 2005 §9.2),
+    /// keeping the posterior in `p ∈ (0.007, 0.993)` so the map stays
+    /// responsive.
+    pub fn standard() -> Self {
+        Self {
+            min: -5.0,
+            max: 5.0,
+        }
+    }
+}
+
+impl Default for LogOddsSaturation {
+    fn default() -> Self {
+        Self::standard()
+    }
+}
+
 /// A Bayesian occupancy grid using log-odds representation.
 ///
 /// Source: Thrun, Burgard & Fox (2005), *Probabilistic Robotics*, Chapter 9.
@@ -16,14 +48,16 @@ pub struct OccupancyGrid {
 }
 
 impl OccupancyGrid {
-    /// Create a new occupancy grid initialized to unknown (log-odds = 0).
+    /// Create a new occupancy grid initialized to unknown (log-odds = 0), with
+    /// the standard cited log-odds saturation ([`LogOddsSaturation::standard`]).
     pub fn new(width: usize, height: usize) -> Self {
+        let saturation = LogOddsSaturation::standard();
         Self {
             width,
             height,
             log_odds: vec![0.0; width * height],
-            log_odds_min: -5.0,
-            log_odds_max: 5.0,
+            log_odds_min: saturation.min,
+            log_odds_max: saturation.max,
         }
     }
 

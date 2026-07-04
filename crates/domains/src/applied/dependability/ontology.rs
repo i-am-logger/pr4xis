@@ -260,19 +260,52 @@ pr4xis::ontology! {
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Quality: the dependability category each concept belongs to.
+/// The top-level facet of the dependability taxonomy a concept belongs to.
+///
+/// A closed classification drawn from the structure of Avizienis, Laprie,
+/// Randell & Landwehr (2004) *Basic Concepts and Taxonomy of Dependable and
+/// Secure Computing* (IEEE TDSC 1(1)): the delivered **service** (§2.1), the
+/// three **threats** (§2.2), the elementary **fault classes** (§3.2), the
+/// **error classes** (§3.3), the **failure modes** (§3.4), the dependability
+/// **attributes** (§4), the **means** (§5), and the activation/propagation
+/// **events** that link them. First-class rather than a string tag so the
+/// facet a concept is classified under is checkable, not stringly-typed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DependabilityFacet {
+    /// The delivered behaviour and its restoration (Avizienis §2.1).
+    Service,
+    /// A threat to dependability — fault, error, or failure (Avizienis §2.2).
+    Threat,
+    /// An elementary class of Fault (Avizienis §3.2; Cristian 1991 models).
+    FaultClass,
+    /// A class of Error by detectability (Avizienis §3.3).
+    ErrorClass,
+    /// A service Failure mode (Avizienis §3.4).
+    FailureMode,
+    /// A required dependability attribute (Avizienis §4).
+    Attribute,
+    /// A means for achieving dependability (Avizienis §5).
+    Means,
+    /// An activation/propagation event within the F→E→F chain (Avizienis §2.2).
+    Event,
+}
+
+/// Quality: the dependability [`DependabilityFacet`] each concept belongs to.
 #[derive(Debug, Clone)]
 pub struct DependabilityCategoryOf;
 
 impl Quality for DependabilityCategoryOf {
     type Individual = DependabilityConcept;
-    type Value = &'static str;
+    type Value = DependabilityFacet;
 
-    fn get(&self, c: &DependabilityConcept) -> Option<&'static str> {
+    fn get(&self, c: &DependabilityConcept) -> Option<DependabilityFacet> {
         use DependabilityConcept as D;
+        use DependabilityFacet as F;
         Some(match c {
-            D::Service | D::CorrectService | D::ServiceFailure | D::ServiceRestoration => "service",
-            D::Threat | D::Fault | D::Error | D::Failure => "threat",
+            D::Service | D::CorrectService | D::ServiceFailure | D::ServiceRestoration => {
+                F::Service
+            }
+            D::Threat | D::Fault | D::Error | D::Failure => F::Threat,
             D::DormantFault
             | D::ActiveFault
             | D::PermanentFault
@@ -284,10 +317,10 @@ impl Quality for DependabilityCategoryOf {
             | D::CrashFault
             | D::OmissionFault
             | D::TimingFault
-            | D::ByzantineFault => "fault-class",
-            D::DetectedError | D::LatentError => "error-class",
+            | D::ByzantineFault => F::FaultClass,
+            D::DetectedError | D::LatentError => F::ErrorClass,
             D::ContentFailure | D::TimingFailure | D::HaltFailure | D::ErraticFailure => {
-                "failure-mode"
+                F::FailureMode
             }
             D::Attribute
             | D::Availability
@@ -295,7 +328,7 @@ impl Quality for DependabilityCategoryOf {
             | D::Safety
             | D::Confidentiality
             | D::Integrity
-            | D::Maintainability => "attribute",
+            | D::Maintainability => F::Attribute,
             D::Means
             | D::FaultPrevention
             | D::FaultTolerance
@@ -304,8 +337,8 @@ impl Quality for DependabilityCategoryOf {
             | D::ErrorDetection
             | D::ErrorRecovery
             | D::ErrorHandling
-            | D::FaultHandling => "means",
-            D::Activation | D::Propagation => "event",
+            | D::FaultHandling => F::Means,
+            D::Activation | D::Propagation => F::Event,
         })
     }
 }

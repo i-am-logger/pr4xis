@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::linear_algebra::vector_space::Vector;
+
 /// Two-body orbit propagation.
 ///
 /// Source: Vallado (2013), Chapter 2.
@@ -13,23 +15,21 @@ pub fn mu_earth_km3s2() -> f64 {
 /// Orbital state vector (position + velocity in ECI).
 #[derive(Debug, Clone)]
 pub struct OrbitalState {
-    /// Position [x, y, z] in km.
-    pub position: [f64; 3],
-    /// Velocity [vx, vy, vz] in km/s.
-    pub velocity: [f64; 3],
+    /// Position (x, y, z) in km, expressed in the Earth-centred inertial (ECI) frame.
+    pub position: Vector,
+    /// Velocity (vx, vy, vz) in km/s, expressed in the Earth-centred inertial (ECI) frame.
+    pub velocity: Vector,
 }
 
 impl OrbitalState {
     /// Compute the orbital radius (distance from central body).
     pub fn radius(&self) -> f64 {
-        let [x, y, z] = self.position;
-        (x * x + y * y + z * z).sqrt()
+        self.position.norm()
     }
 
     /// Compute the speed.
     pub fn speed(&self) -> f64 {
-        let [vx, vy, vz] = self.velocity;
-        (vx * vx + vy * vy + vz * vz).sqrt()
+        self.velocity.norm()
     }
 
     /// Compute specific orbital energy (vis-viva).
@@ -43,15 +43,15 @@ impl OrbitalState {
     }
 }
 
-/// Two-body gravitational acceleration.
-pub fn two_body_acceleration(position: &[f64; 3], mu: f64) -> [f64; 3] {
-    let r2 = position[0].powi(2) + position[1].powi(2) + position[2].powi(2);
+/// Two-body gravitational acceleration in the Earth-centred inertial (ECI) frame.
+pub fn two_body_acceleration(position: &Vector, mu: f64) -> Vector {
+    let r2 = position.get(0).powi(2) + position.get(1).powi(2) + position.get(2).powi(2);
     let r3 = r2 * r2.sqrt();
-    [
-        -mu * position[0] / r3,
-        -mu * position[1] / r3,
-        -mu * position[2] / r3,
-    ]
+    Vector::new(vec![
+        -mu * position.get(0) / r3,
+        -mu * position.get(1) / r3,
+        -mu * position.get(2) / r3,
+    ])
 }
 
 /// Propagate orbital state using RK4 integration.
@@ -59,69 +59,81 @@ pub fn two_body_acceleration(position: &[f64; 3], mu: f64) -> [f64; 3] {
 /// dt: time step in seconds
 /// mu: gravitational parameter (km^3/s^2)
 pub fn propagate_rk4(state: &OrbitalState, dt: f64, mu: f64) -> OrbitalState {
-    let pos = state.position;
-    let vel = state.velocity;
+    let pos = &state.position;
+    let vel = &state.velocity;
 
     // k1
-    let a1 = two_body_acceleration(&pos, mu);
+    let a1 = two_body_acceleration(pos, mu);
     let k1_pos = vel;
     let k1_vel = a1;
 
     // k2
-    let pos2 = [
-        pos[0] + 0.5 * dt * k1_pos[0],
-        pos[1] + 0.5 * dt * k1_pos[1],
-        pos[2] + 0.5 * dt * k1_pos[2],
-    ];
-    let vel2 = [
-        vel[0] + 0.5 * dt * k1_vel[0],
-        vel[1] + 0.5 * dt * k1_vel[1],
-        vel[2] + 0.5 * dt * k1_vel[2],
-    ];
+    let pos2 = Vector::new(vec![
+        pos.get(0) + 0.5 * dt * k1_pos.get(0),
+        pos.get(1) + 0.5 * dt * k1_pos.get(1),
+        pos.get(2) + 0.5 * dt * k1_pos.get(2),
+    ]);
+    let vel2 = Vector::new(vec![
+        vel.get(0) + 0.5 * dt * k1_vel.get(0),
+        vel.get(1) + 0.5 * dt * k1_vel.get(1),
+        vel.get(2) + 0.5 * dt * k1_vel.get(2),
+    ]);
     let a2 = two_body_acceleration(&pos2, mu);
-    let k2_pos = vel2;
+    let k2_pos = &vel2;
     let k2_vel = a2;
 
     // k3
-    let pos3 = [
-        pos[0] + 0.5 * dt * k2_pos[0],
-        pos[1] + 0.5 * dt * k2_pos[1],
-        pos[2] + 0.5 * dt * k2_pos[2],
-    ];
-    let vel3 = [
-        vel[0] + 0.5 * dt * k2_vel[0],
-        vel[1] + 0.5 * dt * k2_vel[1],
-        vel[2] + 0.5 * dt * k2_vel[2],
-    ];
+    let pos3 = Vector::new(vec![
+        pos.get(0) + 0.5 * dt * k2_pos.get(0),
+        pos.get(1) + 0.5 * dt * k2_pos.get(1),
+        pos.get(2) + 0.5 * dt * k2_pos.get(2),
+    ]);
+    let vel3 = Vector::new(vec![
+        vel.get(0) + 0.5 * dt * k2_vel.get(0),
+        vel.get(1) + 0.5 * dt * k2_vel.get(1),
+        vel.get(2) + 0.5 * dt * k2_vel.get(2),
+    ]);
     let a3 = two_body_acceleration(&pos3, mu);
-    let k3_pos = vel3;
+    let k3_pos = &vel3;
     let k3_vel = a3;
 
     // k4
-    let pos4 = [
-        pos[0] + dt * k3_pos[0],
-        pos[1] + dt * k3_pos[1],
-        pos[2] + dt * k3_pos[2],
-    ];
-    let vel4 = [
-        vel[0] + dt * k3_vel[0],
-        vel[1] + dt * k3_vel[1],
-        vel[2] + dt * k3_vel[2],
-    ];
+    let pos4 = Vector::new(vec![
+        pos.get(0) + dt * k3_pos.get(0),
+        pos.get(1) + dt * k3_pos.get(1),
+        pos.get(2) + dt * k3_pos.get(2),
+    ]);
+    let vel4 = Vector::new(vec![
+        vel.get(0) + dt * k3_vel.get(0),
+        vel.get(1) + dt * k3_vel.get(1),
+        vel.get(2) + dt * k3_vel.get(2),
+    ]);
     let a4 = two_body_acceleration(&pos4, mu);
-    let k4_pos = vel4;
+    let k4_pos = &vel4;
     let k4_vel = a4;
 
     OrbitalState {
-        position: [
-            pos[0] + dt / 6.0 * (k1_pos[0] + 2.0 * k2_pos[0] + 2.0 * k3_pos[0] + k4_pos[0]),
-            pos[1] + dt / 6.0 * (k1_pos[1] + 2.0 * k2_pos[1] + 2.0 * k3_pos[1] + k4_pos[1]),
-            pos[2] + dt / 6.0 * (k1_pos[2] + 2.0 * k2_pos[2] + 2.0 * k3_pos[2] + k4_pos[2]),
-        ],
-        velocity: [
-            vel[0] + dt / 6.0 * (k1_vel[0] + 2.0 * k2_vel[0] + 2.0 * k3_vel[0] + k4_vel[0]),
-            vel[1] + dt / 6.0 * (k1_vel[1] + 2.0 * k2_vel[1] + 2.0 * k3_vel[1] + k4_vel[1]),
-            vel[2] + dt / 6.0 * (k1_vel[2] + 2.0 * k2_vel[2] + 2.0 * k3_vel[2] + k4_vel[2]),
-        ],
+        position: Vector::new(vec![
+            pos.get(0)
+                + dt / 6.0
+                    * (k1_pos.get(0) + 2.0 * k2_pos.get(0) + 2.0 * k3_pos.get(0) + k4_pos.get(0)),
+            pos.get(1)
+                + dt / 6.0
+                    * (k1_pos.get(1) + 2.0 * k2_pos.get(1) + 2.0 * k3_pos.get(1) + k4_pos.get(1)),
+            pos.get(2)
+                + dt / 6.0
+                    * (k1_pos.get(2) + 2.0 * k2_pos.get(2) + 2.0 * k3_pos.get(2) + k4_pos.get(2)),
+        ]),
+        velocity: Vector::new(vec![
+            vel.get(0)
+                + dt / 6.0
+                    * (k1_vel.get(0) + 2.0 * k2_vel.get(0) + 2.0 * k3_vel.get(0) + k4_vel.get(0)),
+            vel.get(1)
+                + dt / 6.0
+                    * (k1_vel.get(1) + 2.0 * k2_vel.get(1) + 2.0 * k3_vel.get(1) + k4_vel.get(1)),
+            vel.get(2)
+                + dt / 6.0
+                    * (k1_vel.get(2) + 2.0 * k2_vel.get(2) + 2.0 * k3_vel.get(2) + k4_vel.get(2)),
+        ]),
     }
 }

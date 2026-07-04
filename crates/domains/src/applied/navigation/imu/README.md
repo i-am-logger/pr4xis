@@ -33,7 +33,7 @@ Error terms are is-a of the ideal measurement they corrupt.
 
 | Quality | Type | Description |
 |---|---|---|
-| MeasurementUnit | &'static str | SI unit per measurement (m/s² for force, rad/s for rate, dimensionless ppm for scale factors) |
+| MeasurementUnit | Unit | SI unit per measurement (m/s² for force, rad/s for rate, ppm for scale factors); Measurement is an abstract umbrella with no single unit → None |
 
 ## Axioms (3)
 

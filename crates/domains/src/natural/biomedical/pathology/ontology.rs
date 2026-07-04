@@ -28,9 +28,11 @@
 //!   vivo", *Mol. Biol. Cell* 25(24):3835–3850 — normal polarised vs cancer
 //!   depolarised Vmem.
 
+use crate::formal::math::quantity::unit::MILLIVOLT;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Pathology",
@@ -344,19 +346,20 @@ pub struct BioelectricCorrelate;
 
 impl Quality for BioelectricCorrelate {
     type Individual = PathologyConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, individual: &PathologyConcept) -> Option<f64> {
+    fn get(&self, individual: &PathologyConcept) -> Option<Quantity> {
         use PathologyConcept::*;
         match individual {
-            Normal => Some(-50.0),
-            AcuteInjury => Some(-30.0),
-            ChronicInjury => Some(-25.0),
-            Metaplasia => Some(-25.0),
-            Dysplasia => Some(-15.0),
-            Neoplasia => Some(-10.0),
-            Fibrosis => Some(-35.0),
-            Stricture => Some(-35.0),
+            Normal => Some(Quantity::from_unit(-50.0, &MILLIVOLT)),
+            AcuteInjury => Some(Quantity::from_unit(-30.0, &MILLIVOLT)),
+            ChronicInjury => Some(Quantity::from_unit(-25.0, &MILLIVOLT)),
+            Metaplasia => Some(Quantity::from_unit(-25.0, &MILLIVOLT)),
+            Dysplasia => Some(Quantity::from_unit(-15.0, &MILLIVOLT)),
+            Neoplasia => Some(Quantity::from_unit(-10.0, &MILLIVOLT)),
+            Fibrosis => Some(Quantity::from_unit(-35.0, &MILLIVOLT)),
+            Stricture => Some(Quantity::from_unit(-35.0, &MILLIVOLT)),
             _ => None,
         }
     }
@@ -628,7 +631,9 @@ pub struct NormalIsPolarized;
 impl Axiom for NormalIsPolarized {
     fn verify(&self) -> Verdict {
         match BioelectricCorrelate.get(&PathologyConcept::Normal) {
-            Some(v) if v < -40.0 => Ok(Box::new(SimpleProof::new(self.meta()))),
+            Some(v) if v.value < Quantity::from_unit(-40.0, &MILLIVOLT).value => {
+                Ok(Box::new(SimpleProof::new(self.meta())))
+            }
             _ => Err(Box::new(SimpleCounterexample::new(self.meta()))),
         }
     }
@@ -878,7 +883,11 @@ mod tests {
     #[test]
     fn bioelectric_correlate_normal_polarized() {
         let vmem = BioelectricCorrelate.get(&PathologyConcept::Normal).unwrap();
-        assert!(vmem < -40.0, "normal must be polarised, got {}", vmem);
+        assert!(
+            vmem.value < Quantity::from_unit(-40.0, &MILLIVOLT).value,
+            "normal must be polarised, got {:?}",
+            vmem
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -887,7 +896,11 @@ mod tests {
         let vmem = BioelectricCorrelate
             .get(&PathologyConcept::Dysplasia)
             .unwrap();
-        assert!(vmem > -20.0, "dysplasia must be depolarised, got {}", vmem);
+        assert!(
+            vmem.value > Quantity::from_unit(-20.0, &MILLIVOLT).value,
+            "dysplasia must be depolarised, got {:?}",
+            vmem
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -897,8 +910,8 @@ mod tests {
             .get(&PathologyConcept::Neoplasia)
             .unwrap();
         assert!(
-            vmem > -15.0,
-            "neoplasia must be strongly depolarised, got {}",
+            vmem.value > Quantity::from_unit(-15.0, &MILLIVOLT).value,
+            "neoplasia must be strongly depolarised, got {:?}",
             vmem
         );
     }

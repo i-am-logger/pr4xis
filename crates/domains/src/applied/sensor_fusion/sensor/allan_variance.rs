@@ -23,6 +23,49 @@ pub struct AllanVarianceProfile {
     pub quantization: f64,
 }
 
+/// Representative white-noise (N) coefficient for a consumer-grade MEMS
+/// accelerometer, in g/√Hz (i.e. ~100 µg/√Hz), before conversion to m/s²/√Hz
+/// via standard gravity.
+///
+/// White noise is the σ_y ∝ τ^{-1/2} slope identified by Allan-variance
+/// analysis. Value is a representative consumer-grade MEMS figure — an
+/// order-of-magnitude, not a specific product datasheet.
+///
+/// Noise-parameter definitions and the Allan-variance noise-identification test
+/// procedure: IEEE Std 952-1997, "IEEE Standard Specification Format Guide and
+/// Test Procedure for Single-Axis Interferometric Fiber Optic Gyros" (the
+/// standard reference for inertial-sensor Allan-variance noise terms).
+const MEMS_ACCEL_WHITE_NOISE_G_PER_SQRT_HZ: f64 = 100e-6;
+
+/// Representative bias-instability (B) coefficient for a consumer-grade MEMS
+/// accelerometer, in g (i.e. ~50 µg), before conversion to m/s² via standard
+/// gravity.
+///
+/// Bias instability is the flat (σ_y ∝ τ^0) floor of the Allan-deviation curve.
+/// Value is a representative consumer-grade MEMS figure, not a specific product
+/// datasheet. Parameter definition per IEEE Std 952-1997 (see above).
+const MEMS_ACCEL_BIAS_INSTABILITY_G: f64 = 50e-6;
+
+/// Representative white-noise / angle-random-walk (N) coefficient for a
+/// consumer/tactical-grade MEMS gyroscope, in °/s/√Hz (i.e. ~0.01 °/s/√Hz).
+///
+/// The σ_y ∝ τ^{-1/2} white-noise term. Value is a representative MEMS figure,
+/// not a specific product datasheet. Parameter definition per IEEE Std 952-1997
+/// (see above).
+const MEMS_GYRO_WHITE_NOISE_DEG_PER_S_PER_SQRT_HZ: f64 = 0.01;
+
+/// Representative bias-instability (B) coefficient for a consumer/tactical-grade
+/// MEMS gyroscope, in °/hr (i.e. ~1 °/hr).
+///
+/// Bias instability is the flat (σ_y ∝ τ^0) floor of the Allan-deviation curve.
+/// Value is a representative MEMS figure, not a specific product datasheet.
+/// Parameter definition per IEEE Std 952-1997 (see above).
+const MEMS_GYRO_BIAS_INSTABILITY_DEG_PER_HR: f64 = 1.0;
+
+/// Seconds per hour — unit conversion expressing the gyroscope bias-instability
+/// figure (°/hr) as a per-second rate (°/s).
+const SECONDS_PER_HOUR: f64 = 3600.0;
+
 impl AllanVarianceProfile {
     /// Ideal sensor (no noise).
     pub fn ideal() -> Self {
@@ -63,11 +106,11 @@ impl AllanVarianceProfile {
     /// Typical MEMS accelerometer noise profile.
     pub fn mems_accelerometer() -> Self {
         Self {
-            white_noise: 100e-6
-                * crate::formal::math::quantity::constants::standard_gravity().value, // 100 µg/√Hz
+            white_noise: MEMS_ACCEL_WHITE_NOISE_G_PER_SQRT_HZ
+                * crate::formal::math::quantity::constants::standard_gravity().value,
             random_walk: 0.0,
-            bias_instability: 50e-6
-                * crate::formal::math::quantity::constants::standard_gravity().value, // 50 µg
+            bias_instability: MEMS_ACCEL_BIAS_INSTABILITY_G
+                * crate::formal::math::quantity::constants::standard_gravity().value,
             rate_ramp: 0.0,
             quantization: 0.0,
         }
@@ -76,9 +119,9 @@ impl AllanVarianceProfile {
     /// Typical MEMS gyroscope noise profile.
     pub fn mems_gyroscope() -> Self {
         Self {
-            white_noise: 0.01_f64.to_radians(), // 0.01 °/s/√Hz
+            white_noise: MEMS_GYRO_WHITE_NOISE_DEG_PER_S_PER_SQRT_HZ.to_radians(),
             random_walk: 0.0,
-            bias_instability: 1.0_f64.to_radians() / 3600.0, // 1 °/hr
+            bias_instability: MEMS_GYRO_BIAS_INSTABILITY_DEG_PER_HR.to_radians() / SECONDS_PER_HOUR,
             rate_ramp: 0.0,
             quantization: 0.0,
         }

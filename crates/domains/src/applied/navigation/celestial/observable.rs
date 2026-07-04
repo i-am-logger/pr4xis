@@ -37,22 +37,37 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: coordinate system the observable lives in.
+/// The astronomical coordinate frame a celestial observable is measured in.
+///
+/// A closed taxonomy from spherical astronomy (Bowditch 2002 ch. 17): altitude
+/// and azimuth are the observer-local *horizontal* frame; hour angle and
+/// declination are the *equatorial* frame. The abstract root observable belongs
+/// to no single frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CelestialFrame {
+    /// Observer-local horizontal frame (altitude / azimuth).
+    Horizontal,
+    /// Earth-centred equatorial frame (hour angle / declination).
+    Equatorial,
+}
+
+/// Quality: the [`CelestialFrame`] each observable is measured in.
 #[derive(Debug, Clone)]
 pub struct CoordinateSystem;
 
 impl Quality for CoordinateSystem {
     type Individual = CelestialObservableConcept;
-    type Value = &'static str;
+    type Value = CelestialFrame;
 
-    fn get(&self, obs: &CelestialObservableConcept) -> Option<&'static str> {
+    fn get(&self, obs: &CelestialObservableConcept) -> Option<CelestialFrame> {
         Some(match obs {
-            CelestialObservableConcept::Observable => "varies",
+            // The abstract root belongs to no single frame.
+            CelestialObservableConcept::Observable => return None,
             CelestialObservableConcept::Altitude | CelestialObservableConcept::Azimuth => {
-                "horizontal (alt/az)"
+                CelestialFrame::Horizontal
             }
             CelestialObservableConcept::HourAngle | CelestialObservableConcept::Declination => {
-                "equatorial"
+                CelestialFrame::Equatorial
             }
         })
     }

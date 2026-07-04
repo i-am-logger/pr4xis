@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::angle::Angle;
+use crate::formal::math::linear_algebra::vector_space::Vector;
+
 /// Sound speed profile computation.
 ///
 /// Source: Mackenzie (1981), "Nine-term equation for sound speed in the oceans"
@@ -35,31 +38,33 @@ pub fn range_from_travel_time(travel_time: f64, sound_speed: f64) -> f64 {
 pub struct UsblFix {
     /// Slant range in meters.
     pub range: f64,
-    /// Bearing angle in radians.
-    pub bearing: f64,
-    /// Depression angle in radians.
-    pub depression: f64,
+    /// Bearing angle (an element of the circle group S¹).
+    pub bearing: Angle,
+    /// Depression angle (an element of the circle group S¹).
+    pub depression: Angle,
 }
 
 impl UsblFix {
-    /// Convert to Cartesian coordinates (relative to transceiver).
-    pub fn to_cartesian(&self) -> [f64; 3] {
+    /// Convert to a Cartesian position in the transceiver-local frame
+    /// (x forward, y starboard, z down so positive depth is downward).
+    pub fn to_cartesian(&self) -> Vector {
         let cos_dep = self.depression.cos();
-        [
+        Vector::new(vec![
             self.range * cos_dep * self.bearing.cos(),
             self.range * cos_dep * self.bearing.sin(),
             -self.range * self.depression.sin(), // positive depth is downward
-        ]
+        ])
     }
 }
 
 /// LBL position fix from range measurements to multiple transponders.
 ///
-/// transponders: array of transponder positions [x, y, z]
+/// transponders: transponder positions, each a 3-D point in a common local frame
 /// ranges: measured ranges to each transponder
 ///
-/// Returns estimated position using trilateration (simplified least-squares).
-pub fn lbl_trilateration(transponders: &[[f64; 3]], ranges: &[f64]) -> Option<[f64; 3]> {
+/// Returns the estimated position (same local frame) using trilateration
+/// (simplified least-squares).
+pub fn lbl_trilateration(transponders: &[Vector], ranges: &[f64]) -> Option<Vector> {
     if transponders.len() < 3 || transponders.len() != ranges.len() {
         return None;
     }
@@ -73,13 +78,13 @@ pub fn lbl_trilateration(transponders: &[[f64; 3]], ranges: &[f64]) -> Option<[f
             continue;
         }
         let w = 1.0 / r;
-        wx += w * tp[0];
-        wy += w * tp[1];
-        wz += w * tp[2];
+        wx += w * tp.get(0);
+        wy += w * tp.get(1);
+        wz += w * tp.get(2);
         w_total += w;
     }
     if w_total > 0.0 {
-        Some([wx / w_total, wy / w_total, wz / w_total])
+        Some(Vector::new(vec![wx / w_total, wy / w_total, wz / w_total]))
     } else {
         None
     }

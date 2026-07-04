@@ -17,7 +17,7 @@ Key references:
 
 | Quality | Type | Description |
 |---|---|---|
-| RadarMeasurementUnit | &'static str | Range=meters, Azimuth=radians, Elevation=radians, Doppler=m/s |
+| RadarMeasurementUnit | Unit | Range=METER, Azimuth=RADIAN, Elevation=RADIAN, Doppler=METER_PER_SECOND |
 
 ## Axioms
 

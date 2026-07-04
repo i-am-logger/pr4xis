@@ -36,6 +36,10 @@ fn se3_composition_consistency() {
 
 #[cfg(test)]
 mod proptest_proofs {
+    #[allow(unused_imports)]
+    use alloc::vec;
+
+    use crate::formal::math::linear_algebra::vector_space::Vector;
     use crate::formal::math::rigid_motion::pose::Pose;
     use crate::formal::math::rotation::quaternion::Quaternion;
     use proptest::prelude::*;
@@ -57,7 +61,7 @@ mod proptest_proofs {
         )
             .prop_map(|(q, tx, ty, tz)| Pose {
                 rotation: q,
-                translation: [tx, ty, tz],
+                translation: Vector::new(vec![tx, ty, tz]),
             })
     }
 
@@ -87,10 +91,10 @@ mod proptest_proofs {
             pz in -100.0..100.0_f64,
         ) {
             let pose = Pose::from_rotation(q);
-            let p = [px, py, pz];
-            let p2 = pose.transform_point(p);
-            let d1 = (p[0]*p[0] + p[1]*p[1] + p[2]*p[2]).sqrt();
-            let d2 = (p2[0]*p2[0] + p2[1]*p2[1] + p2[2]*p2[2]).sqrt();
+            let p = Vector::new(vec![px, py, pz]);
+            let p2 = pose.transform_point(&p);
+            let d1 = (p.get(0)*p.get(0) + p.get(1)*p.get(1) + p.get(2)*p.get(2)).sqrt();
+            let d2 = (p2.get(0)*p2.get(0) + p2.get(1)*p2.get(1) + p2.get(2)*p2.get(2)).sqrt();
             prop_assert!((d1 - d2).abs() < 1e-9);
         }
     }

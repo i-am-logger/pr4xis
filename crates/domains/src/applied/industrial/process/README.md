@@ -20,7 +20,7 @@ Key references:
 
 | Quality | Type | Description |
 |---|---|---|
-| PhysicalUnit | &'static str | SI unit: Temperature=K, Pressure=Pa, Flow=m^3/s, Level=m |
+| PhysicalUnit | Unit | SI unit: Temperature=K, Pressure=Pa, Flow=m^3/s, Level=m |
 
 ## Axioms
 

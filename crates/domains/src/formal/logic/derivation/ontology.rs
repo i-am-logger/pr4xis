@@ -157,19 +157,40 @@ pr4xis::ontology! {
 // Qualities
 // -----------------------------------------------------------------------------
 
+/// The presentation aspect of a derivation concept — its temporal commitment.
+///
+/// A closed classification grounded in the proof/trace duality this ontology
+/// unifies: a **proof** is the atemporal validity witness, a **trace** is the
+/// temporal computation record, and the two are two presentations of one
+/// structure (Curry & Feys 1958, propositions-as-types; Joyal, Street & Verity
+/// 1996, *Traced Monoidal Categories*; Plotkin 1981, reduction sequences).
+/// Concepts that carry no temporal commitment — the structural genus and its
+/// parts — are `Neutral`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresentationAspect {
+    /// Atemporal validity witness — the proof presentation (Curry & Feys 1958).
+    Atemporal,
+    /// Temporal computation record — the trace presentation
+    /// (Plotkin 1981; Joyal, Street & Verity 1996).
+    Temporal,
+    /// No temporal commitment — the structural genus and its parts.
+    Neutral,
+}
+
 /// The presentation aspect — atemporal (proof) vs temporal (trace).
 #[derive(Debug, Clone)]
 pub struct DerivationAspect;
 
 impl Quality for DerivationAspect {
     type Individual = DerivationConcept;
-    type Value = &'static str;
+    type Value = PresentationAspect;
 
-    fn get(&self, c: &DerivationConcept) -> Option<&'static str> {
+    fn get(&self, c: &DerivationConcept) -> Option<PresentationAspect> {
         use DerivationConcept as D;
+        use PresentationAspect as A;
         Some(match c {
-            D::Proof | D::Normalisation => "atemporal",
-            D::Trace | D::Reduction | D::Feedback | D::Cycle => "temporal",
+            D::Proof | D::Normalisation => A::Atemporal,
+            D::Trace | D::Reduction | D::Feedback | D::Cycle => A::Temporal,
             D::Derivation
             | D::DerivationStep
             | D::Sequence
@@ -178,7 +199,7 @@ impl Quality for DerivationAspect {
             | D::Witness
             | D::Evidence
             | D::Justification
-            | D::Composition => "neutral",
+            | D::Composition => A::Neutral,
         })
     }
 }

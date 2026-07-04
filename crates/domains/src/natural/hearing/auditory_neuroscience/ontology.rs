@@ -21,7 +21,9 @@
 //! Causal events become first-class `Neural*` concepts linked via
 //! `causes:` edges.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{HERTZ, MILLISECOND};
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Neural",
@@ -204,13 +206,14 @@ pr4xis::ontology! {
 pub struct PhaseLockingLimit;
 impl Quality for PhaseLockingLimit {
     type Individual = NeuralConcept;
-    type Value = f64;
-    fn get(&self, individual: &NeuralConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &NeuralConcept) -> Option<Quantity> {
         use NeuralConcept::*;
         match individual {
-            AuditoryNerveFiber => Some(4000.0),
-            MedialSuperiorOlive => Some(1500.0),
-            CochlearNucleusProcessing => Some(4000.0),
+            AuditoryNerveFiber => Some(Quantity::from_unit(4000.0, &HERTZ)),
+            MedialSuperiorOlive => Some(Quantity::from_unit(1500.0, &HERTZ)),
+            CochlearNucleusProcessing => Some(Quantity::from_unit(4000.0, &HERTZ)),
             _ => None,
         }
     }
@@ -220,12 +223,13 @@ impl Quality for PhaseLockingLimit {
 pub struct SynapticDelay;
 impl Quality for SynapticDelay {
     type Individual = NeuralConcept;
-    type Value = f64;
-    fn get(&self, individual: &NeuralConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &NeuralConcept) -> Option<Quantity> {
         use NeuralConcept::*;
         match individual {
-            CochlearNucleusProcessing => Some(0.8),
-            SuperiorOliveProcessing => Some(1.2),
+            CochlearNucleusProcessing => Some(Quantity::from_unit(0.8, &MILLISECOND)),
+            SuperiorOliveProcessing => Some(Quantity::from_unit(1.2, &MILLISECOND)),
             _ => None,
         }
     }
@@ -283,9 +287,15 @@ impl Axiom for SOCDelayLongerThanCN {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use NeuralConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let soc = SynapticDelay.get(&SuperiorOliveProcessing).unwrap_or(0.0);
-        let cn = SynapticDelay.get(&CochlearNucleusProcessing).unwrap_or(0.0);
-        if soc > cn {
+        let holds = match (
+            SynapticDelay.get(&SuperiorOliveProcessing),
+            SynapticDelay.get(&CochlearNucleusProcessing),
+        ) {
+            // Both delays share the millisecond unit — a same-dimension compare.
+            (Some(soc), Some(cn)) => soc.value > cn.value,
+            _ => false,
+        };
+        if holds {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

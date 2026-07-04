@@ -208,16 +208,43 @@ pr4xis::ontology! {
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Quality: the resilience category each concept belongs to.
+/// The resilience pattern family a concept belongs to.
+///
+/// A closed classification tagging each concept with the literature family it
+/// comes from: the four stability/backoff/supervision/recovery traditions
+/// (Nygard 2007; Brooker 2015; Armstrong 2003; Patterson et al. 2002) plus the
+/// protected [`Target`](ResilienceFamily::Target) entities. `JitterStrategy`
+/// and `Retry` are split out from `Backoff` as distinct families, matching the
+/// ontology's own `JitterStrategy`/`BackoffStrategy` parent concepts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResilienceFamily {
+    /// Nygard (2007) stability patterns — circuit breaker, bulkhead, timeout, …
+    StabilityPattern,
+    /// Backoff schedules — exponential, linear, constant (Brooker 2015).
+    Backoff,
+    /// Jitter strategies — full, equal, decorrelated (Brooker 2015).
+    Jitter,
+    /// Retry mechanics — retry, max attempts, retry budget.
+    Retry,
+    /// Armstrong (2003) OTP supervision — supervisors, restart strategies.
+    Supervision,
+    /// Patterson et al. (2002) recovery-oriented computing patterns.
+    Recovery,
+    /// Entities resilience protects or acts on — service, resource, request.
+    Target,
+}
+
+/// Quality: the resilience [`ResilienceFamily`] each concept belongs to.
 #[derive(Debug, Clone)]
 pub struct ResilienceCategoryOf;
 
 impl Quality for ResilienceCategoryOf {
     type Individual = ResilienceConcept;
-    type Value = &'static str;
+    type Value = ResilienceFamily;
 
-    fn get(&self, c: &ResilienceConcept) -> Option<&'static str> {
+    fn get(&self, c: &ResilienceConcept) -> Option<ResilienceFamily> {
         use ResilienceConcept as R;
+        use ResilienceFamily as F;
         Some(match c {
             R::StabilityPattern
             | R::CircuitBreaker
@@ -229,12 +256,12 @@ impl Quality for ResilienceCategoryOf {
             | R::FailFast
             | R::SteadyState
             | R::HandshakingProtocol
-            | R::TestHarness => "stability-pattern",
+            | R::TestHarness => F::StabilityPattern,
             R::BackoffStrategy | R::ExponentialBackoff | R::LinearBackoff | R::ConstantBackoff => {
-                "backoff"
+                F::Backoff
             }
-            R::JitterStrategy | R::FullJitter | R::EqualJitter | R::DecorrelatedJitter => "jitter",
-            R::Retry | R::MaxAttempts | R::RetryBudget => "retry",
+            R::JitterStrategy | R::FullJitter | R::EqualJitter | R::DecorrelatedJitter => F::Jitter,
+            R::Retry | R::MaxAttempts | R::RetryBudget => F::Retry,
             R::SupervisionStrategy
             | R::Supervisor
             | R::SupervisedChild
@@ -243,9 +270,9 @@ impl Quality for ResilienceCategoryOf {
             | R::RestForOne
             | R::RestartIntensity
             | R::RestartPeriod
-            | R::LetItCrash => "supervision",
-            R::RecoveryPattern | R::UndoOperation | R::Microreboot | R::Quarantine => "recovery",
-            R::Service | R::Resource | R::Request => "target",
+            | R::LetItCrash => F::Supervision,
+            R::RecoveryPattern | R::UndoOperation | R::Microreboot | R::Quarantine => F::Recovery,
+            R::Service | R::Resource | R::Request => F::Target,
         })
     }
 }

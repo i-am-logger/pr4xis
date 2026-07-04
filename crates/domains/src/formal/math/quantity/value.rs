@@ -111,3 +111,41 @@ impl Quantity {
         Some(unit.from_si(self.value))
     }
 }
+
+/// A closed interval of quantities of a single dimension — `[min, max]`.
+///
+/// The typed replacement for an ad-hoc `(f64, f64)` or a prose accuracy string
+/// ("0.1–1 m"): both endpoints must share a dimension (a range from 1 m to 5 s
+/// is meaningless), and `min ≤ max`. The constructor refuses a malformed pair,
+/// mirroring `Quantity::add`'s dimensional guard.
+///
+/// Source: BIPM SI Brochure (2019) — a measured range is an interval of
+/// quantities of one quantity-kind.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QuantityRange {
+    pub min: Quantity,
+    pub max: Quantity,
+}
+
+impl QuantityRange {
+    /// Construct `[min, max]`. Returns `None` if the endpoints have different
+    /// dimensions or if `max < min`.
+    pub fn new(min: Quantity, max: Quantity) -> Option<Self> {
+        if !min.dimension.is_compatible(&max.dimension) || max.value < min.value {
+            return None;
+        }
+        Some(Self { min, max })
+    }
+
+    /// The shared dimension of the interval's endpoints.
+    pub fn dimension(&self) -> Dimension {
+        self.min.dimension
+    }
+
+    /// Does `q` lie within `[min, max]`? False if `q` has a different dimension.
+    pub fn contains(&self, q: &Quantity) -> bool {
+        q.dimension.is_compatible(&self.min.dimension)
+            && q.value >= self.min.value
+            && q.value <= self.max.value
+    }
+}

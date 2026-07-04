@@ -21,6 +21,7 @@
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::quantity::unit::{self, Unit};
 
 use crate::natural::physics::kinematics::acceleration::Acceleration as AccelerationVec;
 use crate::natural::physics::kinematics::motion_model::{self, MotionModelType};
@@ -73,20 +74,20 @@ impl Quality for DerivativeOrder {
     }
 }
 
-/// Quality: SI unit string.
+/// Quality: SI unit — the typed value from the `quantity` ontology.
 #[derive(Debug, Clone)]
 pub struct SiUnit;
 
 impl Quality for SiUnit {
     type Individual = KinematicsConcept;
-    type Value = &'static str;
+    type Value = Unit;
 
-    fn get(&self, q: &KinematicsConcept) -> Option<&'static str> {
+    fn get(&self, q: &KinematicsConcept) -> Option<Unit> {
         Some(match q {
-            KinematicsConcept::Position => "m",
-            KinematicsConcept::Velocity => "m/s",
-            KinematicsConcept::Acceleration => "m/s²",
-            KinematicsConcept::Jerk => "m/s³",
+            KinematicsConcept::Position => unit::METER,
+            KinematicsConcept::Velocity => unit::METER_PER_SECOND,
+            KinematicsConcept::Acceleration => unit::METER_PER_SECOND_SQUARED,
+            KinematicsConcept::Jerk => unit::METER_PER_SECOND_CUBED,
         })
     }
 }

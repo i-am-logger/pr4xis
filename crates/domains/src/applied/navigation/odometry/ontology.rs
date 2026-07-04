@@ -9,8 +9,11 @@
 //! Source: Borenstein et al. (1996) "Where am I?"; Thrun, Burgard & Fox (2005)
 //!         Chapter 5; Scaramuzza & Fraundorfer (2011).
 
+use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit::{HERTZ, UNITLESS};
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Odometry",
@@ -48,15 +51,27 @@ pub struct DriftRate;
 
 impl Quality for DriftRate {
     type Individual = OdometryConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, source: &OdometryConcept) -> Option<&'static str> {
+    fn get(&self, source: &OdometryConcept) -> Option<QuantityRange> {
+        // Drift rate is a dimensionless ratio (meters of error per meter
+        // traveled); a "1-5%" figure is the fraction 0.01..0.05 (UNITLESS).
+        let mk = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &UNITLESS),
+            max: Quantity::from_unit(hi, &UNITLESS),
+        };
         Some(match source {
-            OdometryConcept::Source => "varies by type",
-            OdometryConcept::WheelEncoder => "1-5% of distance traveled",
-            OdometryConcept::VisualOdometry => "0.5-2% of distance traveled",
-            OdometryConcept::InertialOdometry => "grows as O(t^3) — unbounded",
-            OdometryConcept::LaserOdometry => "0.5-1% of distance traveled",
+            // Abstract root — drift varies by method type.
+            OdometryConcept::Source => return None,
+            // 1-5% of distance traveled.
+            OdometryConcept::WheelEncoder => mk(0.01, 0.05),
+            // 0.5-2% of distance traveled.
+            OdometryConcept::VisualOdometry => mk(0.005, 0.02),
+            // Inertial drift grows as O(t^3) — unbounded, no fixed range.
+            OdometryConcept::InertialOdometry => return None,
+            // 0.5-1% of distance traveled.
+            OdometryConcept::LaserOdometry => mk(0.005, 0.01),
         })
     }
 }
@@ -69,15 +84,25 @@ pub struct UpdateRate;
 
 impl Quality for UpdateRate {
     type Individual = OdometryConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, source: &OdometryConcept) -> Option<&'static str> {
+    fn get(&self, source: &OdometryConcept) -> Option<QuantityRange> {
+        let mk = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &HERTZ),
+            max: Quantity::from_unit(hi, &HERTZ),
+        };
         Some(match source {
-            OdometryConcept::Source => "varies",
-            OdometryConcept::WheelEncoder => "~100 Hz",
-            OdometryConcept::VisualOdometry => "~30 Hz (camera framerate)",
-            OdometryConcept::InertialOdometry => "~200-400 Hz (IMU rate)",
-            OdometryConcept::LaserOdometry => "~10-20 Hz (scan rate)",
+            // Abstract root — update rate varies by method type.
+            OdometryConcept::Source => return None,
+            // ~100 Hz.
+            OdometryConcept::WheelEncoder => mk(100.0, 100.0),
+            // ~30 Hz (camera framerate).
+            OdometryConcept::VisualOdometry => mk(30.0, 30.0),
+            // ~200-400 Hz (IMU rate).
+            OdometryConcept::InertialOdometry => mk(200.0, 400.0),
+            // ~10-20 Hz (scan rate).
+            OdometryConcept::LaserOdometry => mk(10.0, 20.0),
         })
     }
 }
@@ -123,16 +148,18 @@ pub struct RelativeMotionOnly;
 
 impl Axiom for RelativeMotionOnly {
     fn verify(&self) -> Verdict {
-        let start_a: [f64; 2] = [0.0, 0.0];
-        let start_b: [f64; 2] = [100.0, 200.0];
-        let delta: [f64; 2] = [10.0, 5.0];
+        let start_a = Vector::new(vec![0.0, 0.0]);
+        let start_b = Vector::new(vec![100.0, 200.0]);
+        let delta = Vector::new(vec![10.0, 5.0]);
 
-        let end_a = [start_a[0] + delta[0], start_a[1] + delta[1]];
-        let end_b = [start_b[0] + delta[0], start_b[1] + delta[1]];
+        let end_a = start_a.add(&delta);
+        let end_b = start_b.add(&delta);
 
-        let disp_a = [end_a[0] - start_a[0], end_a[1] - start_a[1]];
-        let disp_b = [end_b[0] - start_b[0], end_b[1] - start_b[1]];
-        if (disp_a[0] - disp_b[0]).abs() < 1e-10 && (disp_a[1] - disp_b[1]).abs() < 1e-10 {
+        let disp_a = end_a.sub(&start_a);
+        let disp_b = end_b.sub(&start_b);
+        if (disp_a.get(0) - disp_b.get(0)).abs() < 1e-10
+            && (disp_a.get(1) - disp_b.get(1)).abs() < 1e-10
+        {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

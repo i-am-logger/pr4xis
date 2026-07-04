@@ -38,23 +38,26 @@ pr4xis::ontology! {
     },
 }
 
+/// The base dimension of each quantity concept, as the typed `Dimension`
+/// value from the quantity ontology (this module's own `Dimension` type),
+/// not a prose symbol string.
 #[derive(Debug, Clone)]
 pub struct DimensionSymbol;
 
 impl Quality for DimensionSymbol {
     type Individual = QuantityConcept;
-    type Value = &'static str;
+    type Value = Dimension;
 
-    fn get(&self, d: &QuantityConcept) -> Option<&'static str> {
+    fn get(&self, d: &QuantityConcept) -> Option<Dimension> {
         Some(match d {
-            QuantityConcept::Length => "L",
-            QuantityConcept::Mass => "M",
-            QuantityConcept::Time => "T",
-            QuantityConcept::ElectricCurrent => "I",
-            QuantityConcept::Temperature => "Θ",
-            QuantityConcept::AmountOfSubstance => "N",
-            QuantityConcept::LuminousIntensity => "J",
-            QuantityConcept::Dimensionless => "1",
+            QuantityConcept::Length => Dimension::LENGTH,
+            QuantityConcept::Mass => Dimension::MASS,
+            QuantityConcept::Time => Dimension::TIME,
+            QuantityConcept::ElectricCurrent => Dimension::CURRENT,
+            QuantityConcept::Temperature => Dimension::TEMPERATURE,
+            QuantityConcept::AmountOfSubstance => Dimension::AMOUNT,
+            QuantityConcept::LuminousIntensity => Dimension::LUMINOUS,
+            QuantityConcept::Dimensionless => Dimension::DIMENSIONLESS,
         })
     }
 }

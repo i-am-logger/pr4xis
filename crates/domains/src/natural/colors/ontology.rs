@@ -18,7 +18,9 @@
 //!   relative luminance, contrast ratio.
 
 use super::rgb::Rgb;
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::UNITLESS;
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Color",
@@ -76,15 +78,21 @@ impl ColorConcept {
 }
 
 /// Quality: relative luminance per BT.709 / WCAG 2.1.
+///
+/// WCAG 2.1 §1.4.3 relative luminance is normalised to the dimensionless
+/// range `[0, 1]` (0 = black, 1 = reference white), so it is carried as a
+/// dimensionless [`Quantity`] (unit `UNITLESS`) rather than an absolute
+/// photometric luminance in cd/m².
 #[derive(Debug, Clone)]
 pub struct Luminance;
 
 impl Quality for Luminance {
     type Individual = ColorConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &ColorConcept) -> Option<f64> {
-        Some(c.rgb().luminance())
+    fn get(&self, c: &ColorConcept) -> Option<Quantity> {
+        Some(Quantity::from_unit(c.rgb().luminance(), &UNITLESS))
     }
 }
 
@@ -185,8 +193,8 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn luminance_endpoints() {
-        assert_eq!(Luminance.get(&ColorConcept::Black), Some(0.0));
-        assert!(Luminance.get(&ColorConcept::White).unwrap() > 0.99);
+        assert_eq!(Luminance.get(&ColorConcept::Black).unwrap().value, 0.0);
+        assert!(Luminance.get(&ColorConcept::White).unwrap().value > 0.99);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -237,7 +245,7 @@ mod tests {
 
         #[test]
         fn prop_luminance_bounded(c in arb_color()) {
-            let l = Luminance.get(&c).unwrap();
+            let l = Luminance.get(&c).unwrap().value;
             prop_assert!((0.0..=1.0).contains(&l));
         }
 

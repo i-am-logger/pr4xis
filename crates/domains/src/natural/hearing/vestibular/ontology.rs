@@ -16,7 +16,9 @@
 //!   change in the response of vertebrate hair cells to controlled
 //!   mechanical stimuli", *PNAS* 74(6):2407-2411.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{SECOND, UNITLESS};
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Vestibular",
@@ -217,13 +219,14 @@ pr4xis::ontology! {
 pub struct TimeConstant;
 impl Quality for TimeConstant {
     type Individual = VestibularConcept;
-    type Value = f64;
-    fn get(&self, individual: &VestibularConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &VestibularConcept) -> Option<Quantity> {
         use VestibularConcept::*;
         match individual {
-            Cupula => Some(6.0),
-            LateralCanal => Some(6.0),
-            VestibularNuclei => Some(17.0),
+            Cupula => Some(Quantity::from_unit(6.0, &SECOND)),
+            LateralCanal => Some(Quantity::from_unit(6.0, &SECOND)),
+            VestibularNuclei => Some(Quantity::from_unit(17.0, &SECOND)),
             _ => None,
         }
     }
@@ -233,26 +236,47 @@ impl Quality for TimeConstant {
 pub struct VORGain;
 impl Quality for VORGain {
     type Individual = VestibularConcept;
-    type Value = f64;
-    fn get(&self, individual: &VestibularConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &VestibularConcept) -> Option<Quantity> {
         match individual {
-            VestibularConcept::VestibuloOcularReflex => Some(1.0),
+            // Ideal VOR gain is a dimensionless velocity ratio (eye/head).
+            VestibularConcept::VestibuloOcularReflex => Some(Quantity::from_unit(1.0, &UNITLESS)),
             _ => None,
         }
     }
+}
+
+/// The anatomical plane and rotational axis each semicircular canal is
+/// maximally sensitive to.
+///
+/// A closed classification from Goldberg et al. (2012) *The Vestibular
+/// System*: the three canals lie in near-orthogonal planes, so each encodes
+/// rotation about one axis of the head — the lateral (horizontal) canal in
+/// the horizontal plane about the yaw axis, the anterior canal in a sagittal
+/// plane about the pitch axis, and the posterior canal in a coronal plane
+/// about the roll axis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CanalPlaneAxis {
+    /// Horizontal plane, yaw axis — lateral canal (Goldberg et al. 2012).
+    HorizontalYaw,
+    /// Sagittal plane, pitch axis — anterior canal (Goldberg et al. 2012).
+    SagittalPitch,
+    /// Coronal plane, roll axis — posterior canal (Goldberg et al. 2012).
+    CoronalRoll,
 }
 
 #[derive(Debug, Clone)]
 pub struct CanalSensitivity;
 impl Quality for CanalSensitivity {
     type Individual = VestibularConcept;
-    type Value = &'static str;
-    fn get(&self, individual: &VestibularConcept) -> Option<&'static str> {
+    type Value = CanalPlaneAxis;
+    fn get(&self, individual: &VestibularConcept) -> Option<CanalPlaneAxis> {
         use VestibularConcept::*;
         match individual {
-            LateralCanal => Some("horizontal/yaw"),
-            AnteriorCanal => Some("sagittal/pitch"),
-            PosteriorCanal => Some("coronal/roll"),
+            LateralCanal => Some(CanalPlaneAxis::HorizontalYaw),
+            AnteriorCanal => Some(CanalPlaneAxis::SagittalPitch),
+            PosteriorCanal => Some(CanalPlaneAxis::CoronalRoll),
             _ => None,
         }
     }
@@ -381,7 +405,11 @@ pub struct VORGainIsUnity;
 impl Axiom for VORGainIsUnity {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        if VORGain.get(&VestibularConcept::VestibuloOcularReflex) == Some(1.0) {
+        if VORGain
+            .get(&VestibularConcept::VestibuloOcularReflex)
+            .map(|q| q.value)
+            == Some(1.0)
+        {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

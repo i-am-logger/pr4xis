@@ -32,20 +32,39 @@ pr4xis::ontology! {
     },
 }
 
-/// Quality: geometric interpretation of each observable's constant-locus.
+/// The constant-locus geometry an emitter-geolocation observable defines —
+/// the surface of emitter positions consistent with a single measurement.
+///
+/// A closed taxonomy from Poisel (2012) *Electronic Warfare Target Location
+/// Methods*: an angle measurement constrains the emitter to a line of bearing,
+/// a time- or frequency-difference to a hyperbola, and a path-loss range to a
+/// circle. A multi-observable fix is the intersection of these loci — which is
+/// why the geometry is first-class rather than prose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LocusGeometry {
+    /// Half-plane line of bearing from a single angle-of-arrival (Poisel 2012 §4).
+    LineOfBearing,
+    /// Hyperbola of constant time- or frequency-difference across a sensor pair
+    /// (Poisel 2012 §5–6).
+    Hyperbola,
+    /// Circle of constant range under a path-loss model (Poisel 2012 §3).
+    Circle,
+}
+
+/// Quality: the constant-locus [`LocusGeometry`] of each observable.
 #[derive(Debug, Clone)]
 pub struct ObservableGeometry;
 
 impl Quality for ObservableGeometry {
     type Individual = EwConcept;
-    type Value = &'static str;
+    type Value = LocusGeometry;
 
-    fn get(&self, obs: &EwConcept) -> Option<&'static str> {
+    fn get(&self, obs: &EwConcept) -> Option<LocusGeometry> {
         Some(match obs {
-            EwConcept::AOA => "line of bearing (half-plane)",
-            EwConcept::TDOA => "hyperbola (constant time difference)",
-            EwConcept::FDOA => "hyperbola (constant frequency difference)",
-            EwConcept::SignalStrength => "circle (constant range locus)",
+            EwConcept::AOA => LocusGeometry::LineOfBearing,
+            EwConcept::TDOA => LocusGeometry::Hyperbola,
+            EwConcept::FDOA => LocusGeometry::Hyperbola,
+            EwConcept::SignalStrength => LocusGeometry::Circle,
         })
     }
 }

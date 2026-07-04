@@ -6,6 +6,9 @@ use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use super::calibration::{CameraIntrinsics, ExtrinsicCalibration};
+use super::engine::{LidarPoint, project_lidar_points};
+
 pr4xis::ontology! {
     name: "LidarCamera",
     source: "Caltagirone et al. (2019); Qi et al. (2018)",
@@ -49,11 +52,59 @@ pub struct ProjectionPreservesOrdering;
 
 impl Axiom for ProjectionPreservesOrdering {
     fn verify(&self) -> Verdict {
-        // Pinhole projection is monotone in z: per Hartley & Zisserman
-        // (2003) §6, larger depth z maps to smaller image coordinates
-        // along the principal axis, preserving the strict ordering of
-        // points along the optical depth direction.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        // Pinhole projection is monotone in depth: per Hartley & Zisserman
+        // (2003) §6 the camera-frame z-coordinate is carried through the
+        // projection unchanged as the projected depth, so a nearer point
+        // must never map to a larger projected depth than a farther one.
+        // Exercise the real engine: project a set of LiDAR points at
+        // strictly increasing depth along the optical axis and check that
+        // the projected depths come out non-decreasing in the same order.
+        let intrinsic = CameraIntrinsics {
+            fx: 800.0,
+            fy: 800.0,
+            cx: 320.0,
+            cy: 240.0,
+        };
+        let extrinsic = ExtrinsicCalibration::identity();
+        let points = [
+            LidarPoint {
+                x: 0.5,
+                y: -0.3,
+                z: 2.0,
+                intensity: 0.1,
+            },
+            LidarPoint {
+                x: 0.5,
+                y: -0.3,
+                z: 5.0,
+                intensity: 0.2,
+            },
+            LidarPoint {
+                x: 0.5,
+                y: -0.3,
+                z: 9.0,
+                intensity: 0.3,
+            },
+            LidarPoint {
+                x: 0.5,
+                y: -0.3,
+                z: 14.0,
+                intensity: 0.4,
+            },
+        ];
+        let projected = project_lidar_points(&points, &extrinsic, &intrinsic);
+        // Every point is in front of the camera, so none may be culled; a
+        // dropped point would break the depth-ordering correspondence.
+        if projected.len() != points.len() {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        }
+        // Ordering is preserved iff projected depths are non-decreasing.
+        let preserved = projected.windows(2).all(|w| w[0].depth <= w[1].depth);
+        if preserved {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(
@@ -136,5 +187,44 @@ mod tests {
     fn ontology_validates() {
         LidarCameraOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn projection_preserves_depth_ordering() {
+        // Points at strictly increasing depth along the optical axis must
+        // project to non-decreasing projected depths (Hartley & Zisserman
+        // 2003, §6 pinhole model), driven through the real engine.
+        let intrinsic = CameraIntrinsics {
+            fx: 800.0,
+            fy: 800.0,
+            cx: 320.0,
+            cy: 240.0,
+        };
+        let extrinsic = ExtrinsicCalibration::identity();
+        let points = [
+            LidarPoint {
+                x: -1.0,
+                y: 0.4,
+                z: 3.0,
+                intensity: 0.1,
+            },
+            LidarPoint {
+                x: -1.0,
+                y: 0.4,
+                z: 7.0,
+                intensity: 0.2,
+            },
+            LidarPoint {
+                x: -1.0,
+                y: 0.4,
+                z: 12.0,
+                intensity: 0.3,
+            },
+        ];
+        let projected = project_lidar_points(&points, &extrinsic, &intrinsic);
+        assert_eq!(projected.len(), points.len());
+        assert!(projected.windows(2).all(|w| w[0].depth <= w[1].depth));
+        assert!(ProjectionPreservesOrdering.verify().is_ok());
     }
 }

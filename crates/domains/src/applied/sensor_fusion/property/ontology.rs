@@ -30,6 +30,8 @@
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::dimension::Dimension;
+
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
@@ -188,65 +190,165 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: the dimensional symbol of each observable property (from the
-/// SI Quantity ontology — base dimensions L, M, T, I, Θ, N, J).
+/// Quality: the physical [`Dimension`] of each observable property.
+///
+/// The value is the `quantity` ontology's own typed [`Dimension`] (the seven
+/// SI exponents), NOT a prose spelling of it. This is the SSN/SOSA
+/// observation-model link "an `ObservableProperty` has a `QuantityKind`"
+/// (Haller et al. 2019) realised against the SI dimension algebra
+/// (`formal::math::quantity`), so dimensional relationships between properties
+/// are machine-checkable rather than string-matched — see
+/// [`DifferentiationChainDimensionallyConsistent`]. `Dimension`'s `Display`
+/// still renders the familiar `L^1·T^-1` form when a string is wanted.
 #[derive(Debug, Clone)]
 pub struct PropertyDimension;
 
 impl Quality for PropertyDimension {
     type Individual = ObservablePropertyConcept;
-    type Value = &'static str;
+    type Value = Dimension;
+    // A dimension symbol is an abstract measure (DOLCE): it classifies the
+    // quality space, it is not itself a physical endurant's quality.
 
-    fn get(&self, p: &ObservablePropertyConcept) -> Option<&'static str> {
+    fn get(&self, p: &ObservablePropertyConcept) -> Option<Dimension> {
         use ObservablePropertyConcept as P;
         Some(match p {
-            // Abstract — no dimension
+            // Abstract SSN roles — no dimension.
             P::Property | P::ObservableProperty | P::ActuatableProperty => return None,
 
-            // Kinematic linear
-            P::Position => "L",
-            P::Velocity => "L·T^-1",
-            P::Acceleration => "L·T^-2",
-            P::Jerk => "L·T^-3",
+            // Kinematic linear (differentiation chain L, L·T⁻¹, L·T⁻², L·T⁻³).
+            P::Position => Dimension::LENGTH,
+            P::Velocity => Dimension::VELOCITY,
+            P::Acceleration => Dimension::ACCELERATION,
+            P::Jerk => Dimension {
+                length: 1,
+                time: -3,
+                ..Dimension::DIMENSIONLESS
+            },
 
-            // Kinematic angular
-            P::Attitude | P::Orientation | P::Roll | P::Pitch | P::Yaw | P::Heading => "rad",
-            P::AngularVelocity => "T^-1",
-            P::AngularAcceleration => "T^-2",
+            // Kinematic angular. Radian is L/L, so ANGLE == DIMENSIONLESS in SI
+            // (Haller 2019 / BIPM 2019) — angles share the dimensionless space.
+            P::Attitude | P::Orientation | P::Roll | P::Pitch | P::Yaw | P::Heading => {
+                Dimension::ANGLE
+            }
+            P::AngularVelocity => Dimension::ANGULAR_VELOCITY,
+            P::AngularAcceleration => Dimension::TIME.power(-2),
 
             // Geometric
-            P::Range => "L",
-            P::Bearing | P::Elevation => "rad",
+            P::Range => Dimension::LENGTH,
+            P::Bearing | P::Elevation => Dimension::ANGLE,
 
             // Dynamics
-            P::Force => "M·L·T^-2",
-            P::Torque => "M·L^2·T^-2",
-            P::Mass => "M",
-            P::MomentOfInertia => "M·L^2",
+            P::Force => Dimension::FORCE,
+            // Torque shares energy's dimension (force × length).
+            P::Torque => Dimension {
+                length: 2,
+                mass: 1,
+                time: -2,
+                ..Dimension::DIMENSIONLESS
+            },
+            P::Mass => Dimension::MASS,
+            P::MomentOfInertia => Dimension {
+                length: 2,
+                mass: 1,
+                ..Dimension::DIMENSIONLESS
+            },
 
             // Fields
-            P::MagneticField => "M·T^-2·I^-1",
-            P::GravitationalField => "L·T^-2",
-            P::ElectricField => "M·L·T^-3·I^-1",
+            P::MagneticField => Dimension {
+                mass: 1,
+                time: -2,
+                current: -1,
+                ..Dimension::DIMENSIONLESS
+            },
+            P::GravitationalField => Dimension::ACCELERATION,
+            P::ElectricField => Dimension {
+                length: 1,
+                mass: 1,
+                time: -3,
+                current: -1,
+                ..Dimension::DIMENSIONLESS
+            },
 
             // Thermodynamic
-            P::Temperature => "Θ",
-            P::Pressure => "M·L^-1·T^-2",
-            P::Humidity => "1",
+            P::Temperature => Dimension::TEMPERATURE,
+            P::Pressure => Dimension {
+                length: -1,
+                mass: 1,
+                time: -2,
+                ..Dimension::DIMENSIONLESS
+            },
+            P::Humidity => Dimension::DIMENSIONLESS,
 
             // Time
-            P::Time | P::Duration => "T",
-            P::Frequency => "T^-1",
+            P::Time | P::Duration => Dimension::TIME,
+            P::Frequency => Dimension::FREQUENCY,
         })
     }
 }
+
+/// Axiom: the time-differentiation chains are dimensionally consistent —
+/// each derivative property's dimension is its antiderivative's dimension
+/// divided by time.
+///
+/// This claim was *inexpressible* while `PropertyDimension` returned prose
+/// strings; with the value typed as [`Dimension`] it is a machine-checkable
+/// theorem. For every differentiation edge the `causes:` graph declares
+/// (Position → Velocity → Acceleration → Jerk, and
+/// Attitude → AngularVelocity → AngularAcceleration), it verifies
+/// `dim(derivative) = dim(antiderivative) ÷ Time` using the SI dimension
+/// algebra (`Dimension::divide`). The Newtonian edges (Force → Acceleration,
+/// Torque → AngularAcceleration) are *not* differentiations and are excluded.
+///
+/// Grounded in the SI dimensional-analysis calculus (BIPM 2019; Tao 2012):
+/// differentiation with respect to time lowers the time exponent by one.
+pub struct DifferentiationChainDimensionallyConsistent;
+
+impl Axiom for DifferentiationChainDimensionallyConsistent {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use ObservablePropertyConcept as P;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        // (antiderivative, time-derivative) pairs — the differentiation edges.
+        let chains = [
+            (P::Position, P::Velocity),
+            (P::Velocity, P::Acceleration),
+            (P::Acceleration, P::Jerk),
+            (P::Attitude, P::AngularVelocity),
+            (P::AngularVelocity, P::AngularAcceleration),
+        ];
+        let q = PropertyDimension;
+        let consistent =
+            chains.iter().all(
+                |(antideriv, deriv)| match (q.get(antideriv), q.get(deriv)) {
+                    (Some(base), Some(rate)) => rate == base.divide(&Dimension::TIME),
+                    _ => false,
+                },
+            );
+        if consistent {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "DifferentiationChainDimensionallyConsistent",
+        "each time-derivative property's dimension equals its antiderivative's dimension divided by time (dim(v)=dim(x)/T, dim(a)=dim(v)/T, ...)",
+        "BIPM (2019) SI Brochure; Tao (2012) A mathematical formalization of dimensional analysis"
+    );
+}
+pr4xis::register_axiom!(
+    DifferentiationChainDimensionallyConsistent,
+    "BIPM (2019) SI Brochure; Tao (2012) A mathematical formalization of dimensional analysis"
+);
 
 impl Ontology for ObservablePropertyOntology {
     type Cat = ObservablePropertyCategory;
     type Qual = PropertyDimension;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
-        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DifferentiationChainDimensionallyConsistent));
+        axioms
     }
 }
 
@@ -355,6 +457,25 @@ mod tests {
             ObservablePropertyConcept::Force,
             ObservablePropertyConcept::Acceleration
         )));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn differentiation_chain_dimensionally_consistent() {
+        // dim(velocity) = dim(position)/T, etc. — a check the prose-string
+        // form of PropertyDimension could not express.
+        assert!(
+            DifferentiationChainDimensionallyConsistent.verify().is_ok(),
+            "time-differentiation chain is not dimensionally consistent",
+        );
+        // Spot-check the SI identity directly.
+        let q = PropertyDimension;
+        assert_eq!(
+            q.get(&ObservablePropertyConcept::Velocity).unwrap(),
+            q.get(&ObservablePropertyConcept::Position)
+                .unwrap()
+                .divide(&Dimension::TIME),
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]

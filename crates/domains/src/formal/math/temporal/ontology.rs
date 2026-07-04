@@ -27,7 +27,7 @@
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-use crate::formal::math::temporal::allen::{self};
+use crate::formal::math::temporal::allen::{self, AllenRelation};
 use crate::formal::math::temporal::instant::Instant;
 use crate::formal::math::temporal::interval::Interval;
 use crate::formal::math::temporal::time_system::{self, TimeSystem};
@@ -329,20 +329,41 @@ pr4xis::register_axiom!(
 /// Allen's thirteen relations are jointly exhaustive and pairwise
 /// disjoint — every pair of intervals satisfies exactly one of
 /// before/after/meets/met-by/overlaps/overlapped-by/during/
-/// contains/starts/started-by/finishes/finished-by/equals.
-/// Allen (1983) Theorem 1.
+/// contains/starts/started-by/finishes/finished-by/equals
+/// (Allen 1983 Theorem 1).
+///
+/// `verify()` computes this over the thirteen canonical configurations
+/// (one per relation, positioned against a fixed reference interval):
+/// each is classified with [`allen::relate`], checked to yield exactly
+/// the Allen relation Table 1 assigns it (pairwise-disjoint partition),
+/// and the run is accepted only when all thirteen distinct relations are
+/// realised (jointly exhaustive). A classifier that mislabels a
+/// configuration, collapses two configurations onto one relation, or
+/// fails to reach all thirteen yields a counterexample.
 pub struct AllenExhaustive;
 
 impl Axiom for AllenExhaustive {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
-        use pr4xis::logic::proof::SimpleProof;
-        let intervals = canonical_intervals();
-        for x in &intervals {
-            for y in &intervals {
-                // `relate` returns exactly one relation by construction;
-                // a defect would manifest as a panic or non-membership.
-                let _r = allen::relate(x, y, 1e-10);
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let fixtures = allen_configuration_fixtures();
+        let mut reached: Vec<AllenRelation> = Vec::new();
+        for (x, y, expected) in &fixtures {
+            // Pairwise-disjoint: each distinct configuration classifies as
+            // exactly the one relation Allen (1983) Table 1 assigns it.
+            let r = allen::relate(x, y, 1e-10);
+            if r != *expected {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
+            // No two distinct configurations may collapse onto one relation.
+            if reached.contains(&r) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+            reached.push(r);
+        }
+        // Jointly exhaustive: the classifier realises all thirteen relations
+        // over the representative configurations.
+        if reached.len() != 13 {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
         Ok(Box::new(SimpleProof::new(self.meta())))
     }
@@ -487,6 +508,31 @@ fn canonical_intervals() -> Vec<Interval> {
         Interval::new(Instant::new(0.0, s), Instant::new(7.0, s)).unwrap(),
         Interval::new(Instant::new(3.0, s), Instant::new(10.0, s)).unwrap(),
         Interval::new(Instant::new(20.0, s), Instant::new(30.0, s)).unwrap(),
+    ]
+}
+
+/// The thirteen canonical interval-pair configurations — one per Allen
+/// relation — used to demonstrate joint exhaustiveness of the classifier.
+/// Each entry is `(X, Y, expected)`: `X` is positioned against the fixed
+/// reference interval `Y = [10, 20]` so that `allen::relate(X, Y, tol)`
+/// must return `expected` (Allen 1983 Table 1).
+fn allen_configuration_fixtures() -> Vec<(Interval, Interval, AllenRelation)> {
+    let s = TimeSystem::TAI;
+    let mk = |b: f64, e: f64| Interval::new(Instant::new(b, s), Instant::new(e, s)).unwrap();
+    vec![
+        (mk(0.0, 5.0), mk(10.0, 20.0), AllenRelation::Before),
+        (mk(25.0, 30.0), mk(10.0, 20.0), AllenRelation::After),
+        (mk(5.0, 10.0), mk(10.0, 20.0), AllenRelation::Meets),
+        (mk(20.0, 25.0), mk(10.0, 20.0), AllenRelation::MetBy),
+        (mk(5.0, 15.0), mk(10.0, 20.0), AllenRelation::Overlaps),
+        (mk(15.0, 25.0), mk(10.0, 20.0), AllenRelation::OverlappedBy),
+        (mk(10.0, 15.0), mk(10.0, 20.0), AllenRelation::Starts),
+        (mk(10.0, 25.0), mk(10.0, 20.0), AllenRelation::StartedBy),
+        (mk(12.0, 18.0), mk(10.0, 20.0), AllenRelation::During),
+        (mk(5.0, 25.0), mk(10.0, 20.0), AllenRelation::Contains),
+        (mk(15.0, 20.0), mk(10.0, 20.0), AllenRelation::Finishes),
+        (mk(5.0, 20.0), mk(10.0, 20.0), AllenRelation::FinishedBy),
+        (mk(10.0, 20.0), mk(10.0, 20.0), AllenRelation::Equal),
     ]
 }
 

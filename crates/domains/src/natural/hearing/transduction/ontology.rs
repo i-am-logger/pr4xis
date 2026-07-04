@@ -19,7 +19,9 @@
 //! - **von Bekesy (1952)** "DC Resting Potentials Inside the Cochlear
 //!   Partition", *JASA* 24(1):72-76.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{MILLIVOLT, NANOMETER, PICOSIEMENS};
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Transduction",
@@ -207,13 +209,14 @@ pr4xis::ontology! {
 pub struct RestingPotential;
 impl Quality for RestingPotential {
     type Individual = TransductionConcept;
-    type Value = f64;
-    fn get(&self, individual: &TransductionConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &TransductionConcept) -> Option<Quantity> {
         use TransductionConcept::*;
         match individual {
-            EndocochlearPotential => Some(80.0),
-            Potassium => Some(-90.0),
-            Calcium => Some(131.0),
+            EndocochlearPotential => Some(Quantity::from_unit(80.0, &MILLIVOLT)),
+            Potassium => Some(Quantity::from_unit(-90.0, &MILLIVOLT)),
+            Calcium => Some(Quantity::from_unit(131.0, &MILLIVOLT)),
             _ => None,
         }
     }
@@ -223,13 +226,14 @@ impl Quality for RestingPotential {
 pub struct TipLinkLength;
 impl Quality for TipLinkLength {
     type Individual = TransductionConcept;
-    type Value = f64;
-    fn get(&self, individual: &TransductionConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &TransductionConcept) -> Option<Quantity> {
         use TransductionConcept::*;
         match individual {
-            Cadherin23 => Some(170.0),
-            Protocadherin15 => Some(37.0),
-            TipLink => Some(207.0),
+            Cadherin23 => Some(Quantity::from_unit(170.0, &NANOMETER)),
+            Protocadherin15 => Some(Quantity::from_unit(37.0, &NANOMETER)),
+            TipLink => Some(Quantity::from_unit(207.0, &NANOMETER)),
             _ => None,
         }
     }
@@ -239,14 +243,15 @@ impl Quality for TipLinkLength {
 pub struct ChannelConductance;
 impl Quality for ChannelConductance {
     type Individual = TransductionConcept;
-    type Value = f64;
-    fn get(&self, individual: &TransductionConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &TransductionConcept) -> Option<Quantity> {
         use TransductionConcept::*;
         match individual {
-            METChannel => Some(150.0),
-            TMC1 => Some(150.0),
-            KCNQ4 => Some(10.0),
-            BKChannel => Some(250.0),
+            METChannel => Some(Quantity::from_unit(150.0, &PICOSIEMENS)),
+            TMC1 => Some(Quantity::from_unit(150.0, &PICOSIEMENS)),
+            KCNQ4 => Some(Quantity::from_unit(10.0, &PICOSIEMENS)),
+            BKChannel => Some(Quantity::from_unit(250.0, &PICOSIEMENS)),
             _ => None,
         }
     }
@@ -386,10 +391,11 @@ pub struct EndocochlearPotentialIsPositive;
 impl Axiom for EndocochlearPotentialIsPositive {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let v = RestingPotential
+        let positive = RestingPotential
             .get(&TransductionConcept::EndocochlearPotential)
-            .unwrap_or(0.0);
-        if v > 0.0 {
+            .map(|q| q.value > 0.0)
+            .unwrap_or(false);
+        if positive {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

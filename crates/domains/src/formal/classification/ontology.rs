@@ -321,24 +321,52 @@ impl Axiom for SpeciesMayBeIndividual {
 // ClassificationLineage — tag each concept with its literature origin.
 // -----------------------------------------------------------------------------
 
+/// The scholarly tradition that introduces a classification concept.
+///
+/// A closed set of the five literature lineages this ontology draws on
+/// (see the module header). Each variant names the author(s) whose work
+/// grounds the concepts it tags.
+///
+/// Source: Guarino (2009); Guarino & Welty (2002); Linnaeus (1735)
+/// Systema Naturae; Ereshefsky (2001) Poverty of Linnaean Hierarchy;
+/// Aristotle Categories; Porphyry Isagoge; Ghiselin (1974) Syst. Zool.
+/// 23; Hull (1978) Phil. Sci. 45.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassificationTradition {
+    /// Guarino (2009) OntoClean; Guarino & Welty (2002) — ontological-level
+    /// classification (Kind, Category, Taxon).
+    Guarino,
+    /// Linnaeus (1735) *Systema Naturae* — the seven classical taxonomic
+    /// ranks (Species … Kingdom).
+    Linnaeus,
+    /// Ereshefsky (2001) *The Poverty of the Linnaean Hierarchy* — Rank as
+    /// a meta-concept / critique of rigid classification.
+    Ereshefsky,
+    /// Aristotle *Categories*; Porphyry *Isagoge* — the Differentia.
+    AristotlePorphyry,
+    /// Ghiselin (1974) / Hull (1978) — species-as-Individuals.
+    GhiselinHull,
+}
+
 /// Quality: which literature tradition introduces each concept?
 #[derive(Debug, Clone)]
 pub struct ClassificationLineage;
 
 impl Quality for ClassificationLineage {
     type Individual = ClassificationConcept;
-    type Value = &'static str;
+    type Value = ClassificationTradition;
 
-    fn get(&self, c: &ClassificationConcept) -> Option<&'static str> {
+    fn get(&self, c: &ClassificationConcept) -> Option<ClassificationTradition> {
         use ClassificationConcept as C;
+        use ClassificationTradition as T;
         Some(match c {
-            C::Kind | C::Category | C::Taxon => "guarino",
+            C::Kind | C::Category | C::Taxon => T::Guarino,
             C::Species | C::Genus | C::Family | C::Order | C::Class | C::Phylum | C::Kingdom => {
-                "linnaeus"
+                T::Linnaeus
             }
-            C::Rank => "ereshefsky",
-            C::Differentia => "aristotle-porphyry",
-            C::Individual => "ghiselin-hull",
+            C::Rank => T::Ereshefsky,
+            C::Differentia => T::AristotlePorphyry,
+            C::Individual => T::GhiselinHull,
         })
     }
 }

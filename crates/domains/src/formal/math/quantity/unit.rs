@@ -99,6 +99,19 @@ pub const METER_PER_SECOND_SQUARED: Unit = Unit {
     offset: 0.0,
 };
 
+/// Jerk — the time-derivative of acceleration (L·T⁻³).
+pub const METER_PER_SECOND_CUBED: Unit = Unit {
+    name: "meter per second cubed",
+    symbol: "m/s³",
+    dimension: Dimension {
+        length: 1,
+        time: -3,
+        ..Dimension::DIMENSIONLESS
+    },
+    scale: 1.0,
+    offset: 0.0,
+};
+
 pub const RADIAN: Unit = Unit {
     name: "radian",
     symbol: "rad",
@@ -112,6 +125,26 @@ pub const DEGREE: Unit = Unit {
     symbol: "°",
     dimension: Dimension::ANGLE,
     scale: core::f64::consts::PI / 180.0,
+    offset: 0.0,
+};
+
+/// Arcsecond: 1/3600 of a degree — the standard unit for pointing /
+/// attitude-sensor accuracy (Wertz 1978; Markley & Crassidis 2014).
+pub const ARCSECOND: Unit = Unit {
+    name: "arcsecond",
+    symbol: "″",
+    dimension: Dimension::ANGLE,
+    // 1″ = π / (180 · 3600) rad.
+    scale: core::f64::consts::PI / 648_000.0,
+    offset: 0.0,
+};
+
+/// Hertz — cycles per second (T⁻¹), for update rates and bandwidths.
+pub const HERTZ: Unit = Unit {
+    name: "hertz",
+    symbol: "Hz",
+    dimension: Dimension::FREQUENCY,
+    scale: 1.0,
     offset: 0.0,
 };
 
@@ -146,5 +179,177 @@ pub const KNOT: Unit = Unit {
     symbol: "kn",
     dimension: Dimension::VELOCITY,
     scale: 0.514444,
+    offset: 0.0,
+};
+
+/// Pascal — SI pressure (M·L⁻¹·T⁻²).
+pub const PASCAL: Unit = Unit {
+    name: "pascal",
+    symbol: "Pa",
+    dimension: Dimension {
+        length: -1,
+        mass: 1,
+        time: -2,
+        ..Dimension::DIMENSIONLESS
+    },
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Volt — SI electric potential.
+pub const VOLT: Unit = Unit {
+    name: "volt",
+    symbol: "V",
+    dimension: Dimension::ELECTRIC_POTENTIAL,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Millivolt — 10⁻³ V (membrane potentials).
+pub const MILLIVOLT: Unit = Unit {
+    name: "millivolt",
+    symbol: "mV",
+    dimension: Dimension::ELECTRIC_POTENTIAL,
+    scale: 1e-3,
+    offset: 0.0,
+};
+
+/// Siemens — SI electrical conductance.
+pub const SIEMENS: Unit = Unit {
+    name: "siemens",
+    symbol: "S",
+    dimension: Dimension::ELECTRICAL_CONDUCTANCE,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Picosiemens — 10⁻¹² S (single-channel conductance).
+pub const PICOSIEMENS: Unit = Unit {
+    name: "picosiemens",
+    symbol: "pS",
+    dimension: Dimension::ELECTRICAL_CONDUCTANCE,
+    scale: 1e-12,
+    offset: 0.0,
+};
+
+/// MKS rayl — specific acoustic impedance (Pa·s/m).
+pub const RAYL: Unit = Unit {
+    name: "rayl",
+    symbol: "Pa·s/m",
+    dimension: Dimension::ACOUSTIC_IMPEDANCE,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Nanometer — 10⁻⁹ m (stereocilia tip-links, molecular scales).
+pub const NANOMETER: Unit = Unit {
+    name: "nanometer",
+    symbol: "nm",
+    dimension: Dimension::LENGTH,
+    scale: 1e-9,
+    offset: 0.0,
+};
+
+/// Millisecond — 10⁻³ s (neural latencies).
+pub const MILLISECOND: Unit = Unit {
+    name: "millisecond",
+    symbol: "ms",
+    dimension: Dimension::TIME,
+    scale: 1e-3,
+    offset: 0.0,
+};
+
+/// Microsecond — 10⁻⁶ s (interaural time differences).
+pub const MICROSECOND: Unit = Unit {
+    name: "microsecond",
+    symbol: "µs",
+    dimension: Dimension::TIME,
+    scale: 1e-6,
+    offset: 0.0,
+};
+
+/// Minute — 60 s.
+pub const MINUTE: Unit = Unit {
+    name: "minute",
+    symbol: "min",
+    dimension: Dimension::TIME,
+    scale: 60.0,
+    offset: 0.0,
+};
+
+/// Day — 86 400 s.
+pub const DAY: Unit = Unit {
+    name: "day",
+    symbol: "d",
+    dimension: Dimension::TIME,
+    scale: 86_400.0,
+    offset: 0.0,
+};
+
+/// Candela per square meter (nit) — SI luminance.
+pub const CANDELA_PER_SQUARE_METER: Unit = Unit {
+    name: "candela per square meter",
+    symbol: "cd/m²",
+    dimension: Dimension::LUMINANCE,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Millimolar — 10⁻³ mol/L. Since 1 mol/L = 1000 mol/m³, mmol/L = 1 mol/m³ (SI).
+pub const MILLIMOLAR: Unit = Unit {
+    name: "millimolar",
+    symbol: "mmol/L",
+    dimension: Dimension::MOLAR_CONCENTRATION,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Millinewton per meter — 10⁻³ N/m (membrane / surface tension).
+pub const MILLINEWTON_PER_METER: Unit = Unit {
+    name: "millinewton per meter",
+    symbol: "mN/m",
+    dimension: Dimension::SURFACE_TENSION,
+    scale: 1e-3,
+    offset: 0.0,
+};
+
+/// Beat per minute — musical tempo, a frequency (T⁻¹) of 1/60 Hz.
+pub const BEAT_PER_MINUTE: Unit = Unit {
+    name: "beat per minute",
+    symbol: "BPM",
+    dimension: Dimension::FREQUENCY,
+    scale: 1.0 / 60.0,
+    offset: 0.0,
+};
+
+/// Cubic meter per second — volumetric flow rate (L³·T⁻¹).
+pub const CUBIC_METER_PER_SECOND: Unit = Unit {
+    name: "cubic meter per second",
+    symbol: "m³/s",
+    dimension: Dimension {
+        length: 3,
+        time: -1,
+        ..Dimension::DIMENSIONLESS
+    },
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// The dimensionless unit — a pure number (ratios, counts, eccentricity).
+pub const UNITLESS: Unit = Unit {
+    name: "unitless",
+    symbol: "1",
+    dimension: Dimension::DIMENSIONLESS,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Parts per million — a dimensionless ratio scaled by 1e-6 (e.g. sensor
+/// scale-factor error).
+pub const PART_PER_MILLION: Unit = Unit {
+    name: "part per million",
+    symbol: "ppm",
+    dimension: Dimension::DIMENSIONLESS,
+    scale: 1e-6,
     offset: 0.0,
 };

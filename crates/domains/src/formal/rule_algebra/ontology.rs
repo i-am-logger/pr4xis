@@ -337,25 +337,68 @@ pr4xis::register_axiom!(
     "Reiter (1980) AI 13: 81-132; Pollock (1987) Cog. Sci. 11: 481-518"
 );
 
+/// The scholarly lineage (author-year tradition) that introduces each
+/// rule-algebra concept.
+///
+/// A closed set of the literatures composed by this ontology (see the
+/// module-level `source:` in the `ontology!` block): each variant names
+/// the tradition a concept descends from.
+///
+/// - [`RobinsonPlotkin`](Self::RobinsonPlotkin): Robinson (1965) JACM 12:
+///   23-41; Plotkin (1970) Machine Intelligence 5: 153-163 — the
+///   implication / clause shape (Implication, Antecedent, Consequent).
+/// - [`ReiterPollock`](Self::ReiterPollock): Reiter (1980) AI 13: 81-132;
+///   Pollock (1987) Cog. Sci. 11: 481-518 — strict vs defeasible rules
+///   and defeaters.
+/// - [`VonWright`](Self::VonWright): von Wright (1951) Mind 60: 1-15 — the
+///   deontic operators (Obligation / Permission / Prohibition / Assertoric).
+/// - [`Plotkin`](Self::Plotkin): Plotkin (1970) Machine Intelligence 5:
+///   153-163 — θ-subsumption and the subsumption order.
+/// - [`DuquenneGuiguesTarski`](Self::DuquenneGuiguesTarski): Duquenne &
+///   Guigues (1986) Math. Sci. Hum. 95: 5-18; Tarski (1956) Logic,
+///   Semantics, Metamathematics — normalization and the canonical basis.
+/// - [`PrakkenSartor`](Self::PrakkenSartor): Prakken & Sartor (1997) JANCL
+///   7: 25-75 — conflict detection and conflict pairs/sets.
+/// - [`Structural`](Self::Structural): abstract-category and pipeline
+///   concepts that carry no single literature lineage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineageTradition {
+    /// Robinson (1965) / Plotkin (1970) — implication / clause shape.
+    RobinsonPlotkin,
+    /// Reiter (1980) / Pollock (1987) — strict vs defeasible rules, defeaters.
+    ReiterPollock,
+    /// von Wright (1951) — deontic operators.
+    VonWright,
+    /// Plotkin (1970) — θ-subsumption and the subsumption order.
+    Plotkin,
+    /// Duquenne & Guigues (1986) / Tarski (1956) — normalization, canonical basis.
+    DuquenneGuiguesTarski,
+    /// Prakken & Sartor (1997) — conflict detection, conflict pairs/sets.
+    PrakkenSartor,
+    /// Structural / abstract-category and pipeline concepts (no single lineage).
+    Structural,
+}
+
 /// Quality: which literature lineage introduces each concept?
 #[derive(Debug, Clone)]
 pub struct RuleAlgebraLineage;
 
 impl Quality for RuleAlgebraLineage {
     type Individual = RuleAlgebraConcept;
-    type Value = &'static str;
+    type Value = LineageTradition;
 
-    fn get(&self, c: &RuleAlgebraConcept) -> Option<&'static str> {
+    fn get(&self, c: &RuleAlgebraConcept) -> Option<LineageTradition> {
+        use LineageTradition as L;
         use RuleAlgebraConcept as C;
         Some(match c {
-            C::Implication | C::Antecedent | C::Consequent => "robinson-plotkin",
-            C::StrictRule | C::DefeasibleRule | C::Defeater => "reiter-pollock",
-            C::Obligation | C::Permission | C::Prohibition | C::Assertoric => "von-wright",
-            C::Subsumption => "plotkin",
-            C::Normalization | C::CanonicalBasis => "duquenne-guigues-tarski",
-            C::ConflictDetection | C::ConflictPair | C::ConflictSet => "prakken-sartor",
-            C::SubsumptionOrder => "plotkin",
-            _ => "structural",
+            C::Implication | C::Antecedent | C::Consequent => L::RobinsonPlotkin,
+            C::StrictRule | C::DefeasibleRule | C::Defeater => L::ReiterPollock,
+            C::Obligation | C::Permission | C::Prohibition | C::Assertoric => L::VonWright,
+            C::Subsumption => L::Plotkin,
+            C::Normalization | C::CanonicalBasis => L::DuquenneGuiguesTarski,
+            C::ConflictDetection | C::ConflictPair | C::ConflictSet => L::PrakkenSartor,
+            C::SubsumptionOrder => L::Plotkin,
+            _ => L::Structural,
         })
     }
 }

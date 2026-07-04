@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 /// Physical offset between sensor reference points.
 ///
@@ -21,8 +22,8 @@ pub struct LeverArm {
     pub from_sensor: ReferenceFrame,
     /// The sensor reference point we are measuring TO.
     pub to_sensor: ReferenceFrame,
-    /// Offset vector [x, y, z] in meters.
-    pub offset: [f64; 3],
+    /// Offset vector (x, y, z) in meters, expressed in `expressed_in`.
+    pub offset: Vector,
     /// The frame in which the offset vector is expressed.
     pub expressed_in: ReferenceFrame,
 }
@@ -32,7 +33,7 @@ impl LeverArm {
     pub fn new(
         from_sensor: ReferenceFrame,
         to_sensor: ReferenceFrame,
-        offset: [f64; 3],
+        offset: Vector,
         expressed_in: ReferenceFrame,
     ) -> Self {
         Self {
@@ -48,7 +49,7 @@ impl LeverArm {
         Self {
             from_sensor,
             to_sensor,
-            offset: [0.0, 0.0, 0.0],
+            offset: Vector::zeros(3),
             expressed_in: from_sensor,
         }
     }
@@ -61,15 +62,14 @@ impl LeverArm {
         Self {
             from_sensor: self.to_sensor,
             to_sensor: self.from_sensor,
-            offset: [-self.offset[0], -self.offset[1], -self.offset[2]],
+            offset: self.offset.negate(),
             expressed_in: self.expressed_in,
         }
     }
 
     /// Magnitude of the lever arm in meters (Euclidean norm).
     pub fn magnitude(&self) -> f64 {
-        let [x, y, z] = self.offset;
-        (x * x + y * y + z * z).sqrt()
+        self.offset.norm()
     }
 
     /// Velocity correction for a rotating body.
@@ -78,10 +78,14 @@ impl LeverArm {
     /// the lever arm induces a velocity correction: v_corr = omega x lever_arm.
     ///
     /// Source: Groves (2013), Eq. 14.14.
-    pub fn velocity_correction(&self, omega: [f64; 3]) -> [f64; 3] {
-        let [ox, oy, oz] = omega;
-        let [lx, ly, lz] = self.offset;
-        [oy * lz - oz * ly, oz * lx - ox * lz, ox * ly - oy * lx]
+    pub fn velocity_correction(&self, omega: &Vector) -> Vector {
+        let (ox, oy, oz) = (omega.get(0), omega.get(1), omega.get(2));
+        let (lx, ly, lz) = (self.offset.get(0), self.offset.get(1), self.offset.get(2));
+        Vector::new(vec![
+            oy * lz - oz * ly,
+            oz * lx - ox * lz,
+            ox * ly - oy * lx,
+        ])
     }
 }
 
@@ -102,14 +106,14 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            [1.0, 2.0, 3.0],
+            Vector::new(vec![1.0, 2.0, 3.0]),
             ReferenceFrame::Body,
         );
         let inv = la.inverse();
         assert_eq!(inv.from_sensor, ReferenceFrame::GNSS);
         assert_eq!(inv.to_sensor, ReferenceFrame::IMU);
         for i in 0..3 {
-            assert!((inv.offset[i] + la.offset[i]).abs() < 1e-10);
+            assert!((inv.offset.get(i) + la.offset.get(i)).abs() < 1e-10);
         }
     }
 
@@ -119,7 +123,7 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            [3.0, 4.0, 0.0],
+            Vector::new(vec![3.0, 4.0, 0.0]),
             ReferenceFrame::Body,
         );
         assert!((la.magnitude() - 5.0).abs() < 1e-10);
@@ -131,7 +135,7 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            [1.5, -0.3, 0.7],
+            Vector::new(vec![1.5, -0.3, 0.7]),
             ReferenceFrame::Body,
         );
         let la2 = la.inverse().inverse();
@@ -146,12 +150,12 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            [1.0, 0.0, 0.0],
+            Vector::new(vec![1.0, 0.0, 0.0]),
             ReferenceFrame::Body,
         );
-        let v = la.velocity_correction([0.0, 0.0, 1.0]);
-        assert!((v[0]).abs() < 1e-10);
-        assert!((v[1] - 1.0).abs() < 1e-10);
-        assert!((v[2]).abs() < 1e-10);
+        let v = la.velocity_correction(&Vector::new(vec![0.0, 0.0, 1.0]));
+        assert!((v.get(0)).abs() < 1e-10);
+        assert!((v.get(1) - 1.0).abs() < 1e-10);
+        assert!((v.get(2)).abs() < 1e-10);
     }
 }

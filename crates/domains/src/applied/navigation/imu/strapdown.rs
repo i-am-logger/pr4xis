@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
 use crate::formal::math::signal_processing::filter::FirstOrderLowPass;
 use crate::natural::physics::kinematics::acceleration::Acceleration;
@@ -36,21 +37,25 @@ pub struct NavState {
 /// IMU sample: specific force + angular rate at a time instant.
 #[derive(Debug, Clone)]
 pub struct ImuSample {
-    /// Specific force in body frame (m/s²). f = a - g.
-    pub specific_force: [f64; 3],
-    /// Angular rate in body frame (rad/s).
-    pub angular_rate: [f64; 3],
+    /// Specific force in body frame (m/s²). f = a - g. Length-3 `Vector`
+    /// ordered [x, y, z] in the Body frame.
+    pub specific_force: Vector,
+    /// Angular rate in body frame (rad/s). Length-3 `Vector` ordered
+    /// [x, y, z] in the Body frame.
+    pub angular_rate: Vector,
     /// Time step (seconds).
     pub dt: f64,
 }
 
 /// Gravity vector in NED frame, from the quantity ontology.
-pub fn gravity_ned() -> [f64; 3] {
-    [
+///
+/// Returns a length-3 `Vector` ordered [North, East, Down] in the NED frame.
+pub fn gravity_ned() -> Vector {
+    Vector::new(vec![
         0.0,
         0.0,
         crate::formal::math::quantity::constants::standard_gravity().value,
-    ]
+    ])
 }
 
 /// Filter raw IMU measurements to remove high-frequency noise.
@@ -67,16 +72,16 @@ pub fn filter_imu_sample(
     gyro_filter: &mut [FirstOrderLowPass; 3],
 ) -> ImuSample {
     ImuSample {
-        specific_force: [
-            accel_filter[0].update(sample.specific_force[0]),
-            accel_filter[1].update(sample.specific_force[1]),
-            accel_filter[2].update(sample.specific_force[2]),
-        ],
-        angular_rate: [
-            gyro_filter[0].update(sample.angular_rate[0]),
-            gyro_filter[1].update(sample.angular_rate[1]),
-            gyro_filter[2].update(sample.angular_rate[2]),
-        ],
+        specific_force: Vector::new(vec![
+            accel_filter[0].update(sample.specific_force.get(0)),
+            accel_filter[1].update(sample.specific_force.get(1)),
+            accel_filter[2].update(sample.specific_force.get(2)),
+        ]),
+        angular_rate: Vector::new(vec![
+            gyro_filter[0].update(sample.angular_rate.get(0)),
+            gyro_filter[1].update(sample.angular_rate.get(1)),
+            gyro_filter[2].update(sample.angular_rate.get(2)),
+        ]),
         dt: sample.dt,
     }
 }
@@ -90,25 +95,38 @@ pub fn mechanize(state: &NavState, sample: &ImuSample) -> NavState {
 
     // 1. Attitude update: integrate angular rate
     //    Δq = Quaternion from angular rate * dt
-    let omega = sample.angular_rate;
-    let angle = (omega[0] * omega[0] + omega[1] * omega[1] + omega[2] * omega[2]).sqrt() * dt;
+    let omega = &sample.angular_rate;
+    let angle =
+        (omega.get(0) * omega.get(0) + omega.get(1) * omega.get(1) + omega.get(2) * omega.get(2))
+            .sqrt()
+            * dt;
     let dq = if angle > 1e-12 {
         let axis_norm = angle / dt;
-        let axis = [
-            omega[0] / axis_norm,
-            omega[1] / axis_norm,
-            omega[2] / axis_norm,
-        ];
-        Quaternion::from_axis_angle(axis, angle)
+        // `Quaternion::from_axis_angle` takes a length-3 `Vector` axis.
+        let axis = Vector::new(vec![
+            omega.get(0) / axis_norm,
+            omega.get(1) / axis_norm,
+            omega.get(2) / axis_norm,
+        ]);
+        Quaternion::from_axis_angle(&axis, angle)
     } else {
         Quaternion::identity()
     };
     let new_attitude = state.attitude.multiply(&dq).normalize();
 
-    // 2. Velocity update: rotate specific force to nav frame, add gravity
-    let f_nav = state.attitude.rotate_vector(sample.specific_force);
+    // 2. Velocity update: rotate specific force to nav frame, add gravity.
+    // `Quaternion::rotate_vector` consumes/returns a length-3 `Vector`.
+    let f_nav = state.attitude.rotate_vector(&Vector::new(vec![
+        sample.specific_force.get(0),
+        sample.specific_force.get(1),
+        sample.specific_force.get(2),
+    ]));
     let g = gravity_ned();
-    let accel = Acceleration::new(f_nav[0] + g[0], f_nav[1] + g[1], f_nav[2] + g[2]);
+    let accel = Acceleration::new(
+        f_nav.get(0) + g.get(0),
+        f_nav.get(1) + g.get(1),
+        f_nav.get(2) + g.get(2),
+    );
     let dv = accel.velocity_change(dt);
     let new_velocity = state.velocity.add(&dv);
 

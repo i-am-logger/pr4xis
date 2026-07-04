@@ -113,3 +113,29 @@ macro_rules! register_praxis_value {
         }
     };
 }
+
+/// Per-crate completeness-gate support: emit pr4xis-core's own tag set so
+/// `scripts/constitution-gate.sh pr4xis` can diff it against `--list`. This
+/// binds the substrate crate's tests to the constitution exactly as the domains
+/// crate is bound — the constitution covers its own foundation, not only the
+/// reasoning layer.
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod coverage_gate {
+    extern crate std;
+    use crate::constitution::CONSTITUTION_TESTS;
+    use alloc::{format, string::String, vec::Vec};
+    use std::{eprintln, fs};
+
+    #[crate::praxis_value(Verifiable)]
+    #[test]
+    fn constitution_coverage() {
+        let lines: Vec<String> = CONSTITUTION_TESTS
+            .iter()
+            .map(|t| format!("{}::{}", t.module, t.name))
+            .collect();
+        match std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
+            Ok(path) => fs::write(&path, lines.join("\n")).expect("write constitution tags"),
+            Err(_) => eprintln!("{}", lines.join("\n")),
+        }
+    }
+}

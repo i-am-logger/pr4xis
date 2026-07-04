@@ -23,7 +23,7 @@ Discrete category over the eight `BaseDimension` entities. The full algebraic st
 
 | Quality | Type | Description |
 |---|---|---|
-| DimensionSymbol | &'static str | The standard ISQ symbol: Length=L, Mass=M, Time=T, ElectricCurrent=I, Temperature=Θ, AmountOfSubstance=N, LuminousIntensity=J, Dimensionless=1 |
+| DimensionSymbol | Dimension | The base `Dimension` of each concept: Length=LENGTH, Mass=MASS, Time=TIME, ElectricCurrent=CURRENT, Temperature=TEMPERATURE, AmountOfSubstance=AMOUNT, LuminousIntensity=LUMINOUS, Dimensionless=DIMENSIONLESS |
 
 ## Axioms (8)
 

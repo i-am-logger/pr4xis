@@ -42,9 +42,11 @@
 //!   stresses and channel deactivation states", *J. Gen. Physiol.* (2023
 //!   PMID:37459546) — Piezo1 membrane-stretch activation threshold.
 
+use crate::formal::math::quantity::unit::{MILLINEWTON_PER_METER, MILLISECOND};
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Mechanobiology",
@@ -256,14 +258,15 @@ pub struct ActivationThresholdValue;
 
 impl Quality for ActivationThresholdValue {
     type Individual = MechanobiologyConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, individual: &MechanobiologyConcept) -> Option<f64> {
+    fn get(&self, individual: &MechanobiologyConcept) -> Option<Quantity> {
         use MechanobiologyConcept::*;
         match individual {
-            MembraneTension => Some(3.0),
-            MechanosensitiveChannel => Some(3.0),
-            ActivationThreshold => Some(3.0),
+            MembraneTension | MechanosensitiveChannel | ActivationThreshold => {
+                Some(Quantity::from_unit(3.0, &MILLINEWTON_PER_METER))
+            }
             _ => None,
         }
     }
@@ -303,13 +306,14 @@ pub struct InactivationTimeMs;
 
 impl Quality for InactivationTimeMs {
     type Individual = MechanobiologyConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, individual: &MechanobiologyConcept) -> Option<f64> {
+    fn get(&self, individual: &MechanobiologyConcept) -> Option<Quantity> {
         use MechanobiologyConcept::*;
         match individual {
-            MechanosensitiveChannel => Some(20.0),
-            InactivationKinetics => Some(20.0),
+            MechanosensitiveChannel => Some(Quantity::from_unit(20.0, &MILLISECOND)),
+            InactivationKinetics => Some(Quantity::from_unit(20.0, &MILLISECOND)),
             _ => None,
         }
     }
@@ -772,7 +776,9 @@ mod tests {
     #[test]
     fn membrane_tension_threshold() {
         assert_eq!(
-            ActivationThresholdValue.get(&MechanobiologyConcept::MembraneTension),
+            ActivationThresholdValue
+                .get(&MechanobiologyConcept::MembraneTension)
+                .map(|q| MILLINEWTON_PER_METER.from_si(q.value)),
             Some(3.0)
         );
     }
@@ -781,7 +787,9 @@ mod tests {
     #[test]
     fn channel_threshold() {
         assert_eq!(
-            ActivationThresholdValue.get(&MechanobiologyConcept::MechanosensitiveChannel),
+            ActivationThresholdValue
+                .get(&MechanobiologyConcept::MechanosensitiveChannel)
+                .map(|q| MILLINEWTON_PER_METER.from_si(q.value)),
             Some(3.0)
         );
     }
@@ -809,7 +817,7 @@ mod tests {
     fn inactivation_time() {
         assert_eq!(
             InactivationTimeMs.get(&MechanobiologyConcept::MechanosensitiveChannel),
-            Some(20.0)
+            Some(Quantity::from_unit(20.0, &MILLISECOND))
         );
     }
 
@@ -890,7 +898,7 @@ mod tests {
         #[test]
         fn prop_threshold_always_positive(c in arb_concept()) {
             if let Some(t) = ActivationThresholdValue.get(&c) {
-                prop_assert!(t > 0.0, "activation threshold must be positive for {:?}", c);
+                prop_assert!(t.value > 0.0, "activation threshold must be positive for {:?}", c);
             }
         }
 
@@ -898,7 +906,7 @@ mod tests {
         #[test]
         fn prop_inactivation_time_positive(c in arb_concept()) {
             if let Some(t) = InactivationTimeMs.get(&c) {
-                prop_assert!(t > 0.0, "inactivation time must be positive for {:?}", c);
+                prop_assert!(t.value > 0.0, "inactivation time must be positive for {:?}", c);
             }
         }
     }

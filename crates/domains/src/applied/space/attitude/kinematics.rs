@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::linear_algebra::vector_space::Vector;
+
 /// Quaternion attitude kinematics.
 ///
 /// Source: Wertz (1978), Chapter 16; Markley & Crassidis (2014),
@@ -75,10 +77,10 @@ impl Quaternion {
 ///
 /// omega: angular velocity vector [wx, wy, wz] in rad/s (body frame)
 /// Returns the quaternion time derivative.
-pub fn quaternion_rate(q: &Quaternion, omega: &[f64; 3]) -> Quaternion {
-    let wx = omega[0];
-    let wy = omega[1];
-    let wz = omega[2];
+pub fn quaternion_rate(q: &Quaternion, omega: &Vector) -> Quaternion {
+    let wx = omega.get(0);
+    let wy = omega.get(1);
+    let wz = omega.get(2);
     Quaternion {
         q0: 0.5 * (-wx * q.q1 - wy * q.q2 - wz * q.q3),
         q1: 0.5 * (wx * q.q0 + wz * q.q2 - wy * q.q3),
@@ -90,8 +92,8 @@ pub fn quaternion_rate(q: &Quaternion, omega: &[f64; 3]) -> Quaternion {
 /// Propagate quaternion forward in time using first-order integration.
 ///
 /// dt: time step in seconds
-/// omega: angular velocity vector [wx, wy, wz] in rad/s
-pub fn propagate_attitude(q: &Quaternion, omega: &[f64; 3], dt: f64) -> Quaternion {
+/// omega: angular velocity vector [wx, wy, wz] in rad/s (body frame)
+pub fn propagate_attitude(q: &Quaternion, omega: &Vector, dt: f64) -> Quaternion {
     let dq = quaternion_rate(q, omega);
     let mut q_new = Quaternion {
         q0: q.q0 + dq.q0 * dt,

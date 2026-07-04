@@ -4,6 +4,8 @@ use pr4xis::ontology::Ontology;
 
 use crate::applied::underwater::acoustic::engine::*;
 use crate::applied::underwater::acoustic::ontology::*;
+use crate::formal::math::angle::Angle;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -68,19 +70,22 @@ fn range_from_travel_time_basic() {
 fn usbl_fix_to_cartesian_straight_down() {
     let fix = UsblFix {
         range: 100.0,
-        bearing: 0.0,
-        depression: core::f64::consts::FRAC_PI_2,
+        bearing: Angle::from_radians(0.0),
+        depression: Angle::from_radians(core::f64::consts::FRAC_PI_2),
     };
     let pos = fix.to_cartesian();
-    assert!(pos[0].abs() < 1e-10);
-    assert!(pos[1].abs() < 1e-10);
-    assert!((pos[2] - (-100.0)).abs() < 1e-10);
+    assert!(pos.get(0).abs() < 1e-10);
+    assert!(pos.get(1).abs() < 1e-10);
+    assert!((pos.get(2) - (-100.0)).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Honest)]
 #[test]
 fn lbl_trilateration_requires_three_transponders() {
-    let transponders = vec![[0.0, 0.0, 0.0], [100.0, 0.0, 0.0]];
+    let transponders = vec![
+        Vector::new(vec![0.0, 0.0, 0.0]),
+        Vector::new(vec![100.0, 0.0, 0.0]),
+    ];
     let ranges = vec![50.0, 50.0];
     assert!(lbl_trilateration(&transponders, &ranges).is_none());
 }

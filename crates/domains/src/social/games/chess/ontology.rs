@@ -183,6 +183,24 @@ impl Quality for AttackedBy {
     }
 }
 
+/// Shannon (1950) movement-class taxonomy: a chess piece generates its
+/// moves either by *sliding* along a line of vacant squares until blocked
+/// (queen, rook, bishop) or by a fixed-displacement *leap* unaffected by
+/// intervening squares (king, knight, pawn).
+///
+/// Source: Shannon (1950) "Programming a Computer for Playing Chess",
+/// *Philosophical Magazine* 41(314) — the slider/leaper distinction that
+/// all modern move generators inherit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MovementClass {
+    /// Move generation follows a line of vacant squares until blocked
+    /// (queen, rook, bishop).
+    Sliding,
+    /// Move is fixed-displacement and not blocked by intervening squares
+    /// (king, knight, pawn).
+    Leaping,
+}
+
 /// Quality: which Shannon (1950) movement class each concept belongs to.
 /// Total over piece-kind concepts; None on non-piece concepts.
 #[derive(Debug, Clone)]
@@ -190,12 +208,16 @@ pub struct ShannonMovementClass;
 
 impl Quality for ShannonMovementClass {
     type Individual = ChessConcept;
-    type Value = &'static str;
+    type Value = MovementClass;
 
-    fn get(&self, c: &ChessConcept) -> Option<&'static str> {
+    fn get(&self, c: &ChessConcept) -> Option<MovementClass> {
         Some(match c {
-            ChessConcept::Queen | ChessConcept::Rook | ChessConcept::Bishop => "sliding",
-            ChessConcept::King | ChessConcept::Knight | ChessConcept::Pawn => "leaping",
+            ChessConcept::Queen | ChessConcept::Rook | ChessConcept::Bishop => {
+                MovementClass::Sliding
+            }
+            ChessConcept::King | ChessConcept::Knight | ChessConcept::Pawn => {
+                MovementClass::Leaping
+            }
             _ => return None,
         })
     }

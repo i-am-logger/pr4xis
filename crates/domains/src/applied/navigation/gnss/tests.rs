@@ -5,6 +5,7 @@ use pr4xis::ontology::Ontology;
 use crate::applied::navigation::gnss::constellation::GnssConstellationCategory;
 use crate::applied::navigation::gnss::engine::*;
 use crate::applied::navigation::gnss::ontology::*;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -62,7 +63,7 @@ fn add_measurement_increases_count() {
     let m = GnssMeasurement {
         satellite_id: 1,
         pseudorange: 20_000_000.0,
-        satellite_position: [20_000_000.0, 0.0, 0.0],
+        satellite_position: Vector::new(vec![20_000_000.0, 0.0, 0.0]),
         cn0: 45.0,
     };
     let next = apply_gnss(&sit, &GnssAction::AddMeasurement(m)).unwrap();
@@ -81,7 +82,7 @@ fn negative_pseudorange_rejected() {
     let m = GnssMeasurement {
         satellite_id: 1,
         pseudorange: -100.0,
-        satellite_position: [20_000_000.0, 0.0, 0.0],
+        satellite_position: Vector::new(vec![20_000_000.0, 0.0, 0.0]),
         cn0: 45.0,
     };
     assert!(apply_gnss(&sit, &GnssAction::AddMeasurement(m)).is_err());
@@ -95,13 +96,13 @@ fn compute_fix_needs_4_satellites() {
             GnssMeasurement {
                 satellite_id: 1,
                 pseudorange: 20_000_000.0,
-                satellite_position: [20_000_000.0, 0.0, 0.0],
+                satellite_position: Vector::new(vec![20_000_000.0, 0.0, 0.0]),
                 cn0: 45.0,
             },
             GnssMeasurement {
                 satellite_id: 2,
                 pseudorange: 20_000_000.0,
-                satellite_position: [0.0, 20_000_000.0, 0.0],
+                satellite_position: Vector::new(vec![0.0, 20_000_000.0, 0.0]),
                 cn0: 45.0,
             },
         ],
@@ -120,25 +121,25 @@ fn compute_fix_with_4_satellites() {
         GnssMeasurement {
             satellite_id: 1,
             pseudorange: r,
-            satellite_position: [r, 0.0, 0.0],
+            satellite_position: Vector::new(vec![r, 0.0, 0.0]),
             cn0: 45.0,
         },
         GnssMeasurement {
             satellite_id: 2,
             pseudorange: r,
-            satellite_position: [0.0, r, 0.0],
+            satellite_position: Vector::new(vec![0.0, r, 0.0]),
             cn0: 45.0,
         },
         GnssMeasurement {
             satellite_id: 3,
             pseudorange: r,
-            satellite_position: [0.0, 0.0, r],
+            satellite_position: Vector::new(vec![0.0, 0.0, r]),
             cn0: 45.0,
         },
         GnssMeasurement {
             satellite_id: 4,
             pseudorange: r,
-            satellite_position: [-r, 0.0, 0.0],
+            satellite_position: Vector::new(vec![-r, 0.0, 0.0]),
             cn0: 45.0,
         },
     ];
@@ -152,7 +153,7 @@ fn compute_fix_with_4_satellites() {
     let sol = result.solution.unwrap();
     assert_eq!(sol.num_satellites, 4);
     // Solution should be near origin
-    let dist = (sol.position[0].powi(2) + sol.position[1].powi(2) + sol.position[2].powi(2)).sqrt();
+    let dist = sol.position.norm();
     assert!(
         dist < 1000.0,
         "solution should be near origin, got distance={}",
@@ -194,7 +195,7 @@ mod proptest_proofs {
             .prop_map(|(id, pr, sx, sy, sz, cn0)| GnssMeasurement {
                 satellite_id: id,
                 pseudorange: pr,
-                satellite_position: [sx, sy, sz],
+                satellite_position: Vector::new(vec![sx, sy, sz]),
                 cn0,
             })
     }
@@ -228,7 +229,7 @@ mod proptest_proofs {
             let m = GnssMeasurement {
                 satellite_id: 1,
                 pseudorange: pr,
-                satellite_position: [sx, sy, sz],
+                satellite_position: Vector::new(vec![sx, sy, sz]),
                 cn0: 45.0,
             };
             let result = apply_gnss(&sit, &GnssAction::AddMeasurement(m));
@@ -248,7 +249,7 @@ mod proptest_proofs {
                 let m = GnssMeasurement {
                     satellite_id: (i + 1) as u32,
                     pseudorange: 20_000_000.0,
-                    satellite_position: [20_000_000.0, 0.0, 0.0],
+                    satellite_position: Vector::new(vec![20_000_000.0, 0.0, 0.0]),
                     cn0: 45.0,
                 };
                 let next = apply_gnss(&sit, &GnssAction::AddMeasurement(m)).unwrap();

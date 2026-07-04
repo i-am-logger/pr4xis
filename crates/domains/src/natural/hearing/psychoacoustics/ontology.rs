@@ -15,7 +15,13 @@
 //! - **Wegel & Lane (1924)** "The auditory masking of one pure tone by
 //!   another", *Phys. Rev.* 23(2):266-285.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::level::{
+    LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
+};
+use crate::formal::math::quantity::unit::{HERTZ, MICROSECOND, MILLISECOND};
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Psychoacoustic",
@@ -182,14 +188,18 @@ pr4xis::ontology! {
 pub struct HearingThresholdDB;
 impl Quality for HearingThresholdDB {
     type Individual = PsychoacousticConcept;
-    type Value = f64;
-    fn get(&self, individual: &PsychoacousticConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PsychoacousticConcept) -> Option<LogarithmicLevel> {
         use PsychoacousticConcept::*;
-        match individual {
-            AbsoluteThreshold => Some(0.0),
-            JustNoticeableDifference => Some(1.0),
-            _ => None,
-        }
+        // Audiometric threshold levels are dB HL (re the audiogram
+        // normal-hearing reference), not a linear scalar.
+        let decibels = match individual {
+            AbsoluteThreshold => 0.0,
+            JustNoticeableDifference => 1.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(decibels, Ref::HearingLevel))
     }
 }
 
@@ -197,12 +207,13 @@ impl Quality for HearingThresholdDB {
 pub struct CriticalBandwidth;
 impl Quality for CriticalBandwidth {
     type Individual = PsychoacousticConcept;
-    type Value = f64;
-    fn get(&self, individual: &PsychoacousticConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PsychoacousticConcept) -> Option<Quantity> {
         use PsychoacousticConcept::*;
         match individual {
-            CriticalBand => Some(160.0),
-            AuditoryFilter => Some(130.0),
+            CriticalBand => Some(Quantity::from_unit(160.0, &HERTZ)),
+            AuditoryFilter => Some(Quantity::from_unit(130.0, &HERTZ)),
             _ => None,
         }
     }
@@ -212,27 +223,49 @@ impl Quality for CriticalBandwidth {
 pub struct GapDetectionThreshold;
 impl Quality for GapDetectionThreshold {
     type Individual = PsychoacousticConcept;
-    type Value = f64;
-    fn get(&self, individual: &PsychoacousticConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PsychoacousticConcept) -> Option<Quantity> {
         use PsychoacousticConcept::*;
         match individual {
-            GapDetection => Some(2.5),
-            TemporalResolution => Some(2.5),
+            GapDetection => Some(Quantity::from_unit(2.5, &MILLISECOND)),
+            TemporalResolution => Some(Quantity::from_unit(2.5, &MILLISECOND)),
             _ => None,
         }
     }
 }
 
 #[derive(Debug, Clone)]
+/// Quality: the just-noticeable interaural **time** difference (ITD), a
+/// [`Quantity`] in microseconds. Defined only for the ITD binaural cue.
 pub struct ITDThreshold;
 impl Quality for ITDThreshold {
     type Individual = PsychoacousticConcept;
-    type Value = f64;
-    fn get(&self, individual: &PsychoacousticConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PsychoacousticConcept) -> Option<Quantity> {
         use PsychoacousticConcept::*;
         match individual {
-            InterauralTimeDifference => Some(15.0),
-            InterauralLevelDifference => Some(1.0),
+            InterauralTimeDifference => Some(Quantity::from_unit(15.0, &MICROSECOND)),
+            _ => None,
+        }
+    }
+}
+
+/// Quality: the just-noticeable interaural **level** difference (ILD), a
+/// [`LogarithmicLevel`] (dB field ratio). Split from `ITDThreshold` because a
+/// time (µs) and a level (dB) are dimensionally incommensurable and cannot
+/// share one `Value` type — the old single Quality conflated them.
+#[derive(Debug, Clone)]
+pub struct ILDThreshold;
+impl Quality for ILDThreshold {
+    type Individual = PsychoacousticConcept;
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PsychoacousticConcept) -> Option<LogarithmicLevel> {
+        use PsychoacousticConcept::*;
+        match individual {
+            InterauralLevelDifference => Some(LogarithmicLevel::new(1.0, Ref::FieldRatio)),
             _ => None,
         }
     }

@@ -171,28 +171,68 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: syntrometric category each concept belongs to.
+/// The syntrometric family a concept belongs to — the closed set of
+/// structural groupings by which Heim's primitives are organised into the
+/// modernized paper's section families.
+///
+/// One variant per group in the paper's own sectioning: §1 gives the
+/// distinction primitives and the C/c permutation operators, §2 the leveled
+/// syntrometric structures and multi-aspect systems, §§ Telezentrik +
+/// Metroplextheorie the teleological/hierarchical layer; the mereology
+/// primitive is Heim's use of Classical Extensional Mereology, and
+/// reflexivity ρ is the self-observation (von Foerster eigenform) layer.
+///
+/// Source: "A Modernized Syntrometric Logic: Foundations and Applications"
+/// (2025), §1, §2.2; Heim (~1980) *Syntrometrische Maximentelezentrik*
+/// (§§ Telezentrik + Metroplextheorie).
+///
+/// Named `SyntrometricFamily` rather than `…Category` because the generated
+/// morphism category already owns the `SyntrometryCategory` name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyntrometricFamily {
+    /// §1 — the atomic distinction primitives: Predicate, PredicateMatrix,
+    /// Dialectic, Coordination, Aspect.
+    DistinctionPrimitive,
+    /// §2.2 — the leveled-category structures: Syntrix, SyntrixLevel,
+    /// Syncolator, Composer.
+    SyntrometricStructure,
+    /// The Classical Extensional Mereology part-of primitive: Part.
+    Mereology,
+    /// §§ Telezentrik + Metroplextheorie — the teleological / hierarchical
+    /// layer: Telecenter, Maxim, TranscendenceLevel, Metroplex.
+    TeleologicalHierarchical,
+    /// §1 — the C/c permutation operators: SequencePermutation,
+    /// OrientationPermutation.
+    PermutationOperator,
+    /// §2 — multi-aspect structure: AspectivalSystem.
+    MultiAspect,
+    /// Reflexivity ρ — the self-observation natural transformation.
+    SelfObservation,
+}
+
+/// Quality: the [`SyntrometricFamily`] each concept belongs to.
 #[derive(Debug, Clone)]
 pub struct SyntrometryCategoryOf;
 
 impl Quality for SyntrometryCategoryOf {
     type Individual = SyntrometryConcept;
-    type Value = &'static str;
+    type Value = SyntrometricFamily;
 
-    fn get(&self, c: &SyntrometryConcept) -> Option<&'static str> {
+    fn get(&self, c: &SyntrometryConcept) -> Option<SyntrometricFamily> {
+        use SyntrometricFamily as F;
         use SyntrometryConcept as S;
         Some(match c {
             S::Predicate | S::PredicateMatrix | S::Dialectic | S::Coordination | S::Aspect => {
-                "distinction-primitive"
+                F::DistinctionPrimitive
             }
-            S::Syntrix | S::SyntrixLevel | S::Syncolator | S::Composer => "syntrometric-structure",
-            S::Part => "mereology",
+            S::Syntrix | S::SyntrixLevel | S::Syncolator | S::Composer => F::SyntrometricStructure,
+            S::Part => F::Mereology,
             S::Telecenter | S::Maxim | S::TranscendenceLevel | S::Metroplex => {
-                "teleological-hierarchical"
+                F::TeleologicalHierarchical
             }
-            S::SequencePermutation | S::OrientationPermutation => "permutation-operator",
-            S::AspectivalSystem => "multi-aspect",
-            S::Reflexivity => "self-observation",
+            S::SequencePermutation | S::OrientationPermutation => F::PermutationOperator,
+            S::AspectivalSystem => F::MultiAspect,
+            S::Reflexivity => F::SelfObservation,
         })
     }
 }

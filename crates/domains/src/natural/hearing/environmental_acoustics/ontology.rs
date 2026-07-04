@@ -14,7 +14,13 @@
 //! - **Schafer (1977)** *The Soundscape: Our Sonic Environment and the
 //!   Tuning of the World*.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::level::{
+    LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
+};
+use crate::formal::math::quantity::unit::SECOND;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Environment",
@@ -197,16 +203,21 @@ pr4xis::ontology! {
 pub struct RegulatoryLimitDB;
 impl Quality for RegulatoryLimitDB {
     type Individual = EnvironmentConcept;
-    type Value = f64;
-    fn get(&self, individual: &EnvironmentConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &EnvironmentConcept) -> Option<LogarithmicLevel> {
         use EnvironmentConcept::*;
-        match individual {
-            OSHALimit => Some(90.0),
-            NIOSHLimit => Some(85.0),
-            PermissibleExposureLimit => Some(90.0),
-            ActionLevel => Some(85.0),
-            _ => None,
-        }
+        // Regulatory A-weighted noise-exposure ceiling — a dB SPL level in air
+        // (re 20 µPa), OSHA 29 CFR 1910.95 / NIOSH (1998). A sound-pressure
+        // level is logarithmic, not a linear Quantity.
+        let db = match individual {
+            OSHALimit => 90.0,
+            NIOSHLimit => 85.0,
+            PermissibleExposureLimit => 90.0,
+            ActionLevel => 85.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(db, Ref::SoundPressureAir))
     }
 }
 
@@ -214,14 +225,19 @@ impl Quality for RegulatoryLimitDB {
 pub struct ExchangeRateDB;
 impl Quality for ExchangeRateDB {
     type Individual = EnvironmentConcept;
-    type Value = f64;
-    fn get(&self, individual: &EnvironmentConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &EnvironmentConcept) -> Option<LogarithmicLevel> {
         use EnvironmentConcept::*;
-        match individual {
-            OSHALimit => Some(5.0),
-            NIOSHLimit => Some(3.0),
-            _ => None,
-        }
+        // Exchange rate — the dB increment that halves the permitted exposure
+        // time. Energy-based (equal-energy vs. equal-effect), so a power-ratio
+        // dB (10·log₁₀), IEC 80000-15. Logarithmic, not a linear Quantity.
+        let db = match individual {
+            OSHALimit => 5.0,
+            NIOSHLimit => 3.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(db, Ref::PowerRatio))
     }
 }
 
@@ -229,15 +245,17 @@ impl Quality for ExchangeRateDB {
 pub struct IdealRT60Seconds;
 impl Quality for IdealRT60Seconds {
     type Individual = EnvironmentConcept;
-    type Value = f64;
-    fn get(&self, individual: &EnvironmentConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &EnvironmentConcept) -> Option<Quantity> {
         use EnvironmentConcept::*;
-        match individual {
-            SpeechRoom => Some(0.5),
-            MusicHall => Some(1.5),
-            WorshipSpace => Some(2.0),
-            _ => None,
-        }
+        let seconds = match individual {
+            SpeechRoom => 0.5,
+            MusicHall => 1.5,
+            WorshipSpace => 2.0,
+            _ => return None,
+        };
+        Some(Quantity::from_unit(seconds, &SECOND))
     }
 }
 
@@ -255,9 +273,20 @@ impl Axiom for SpeechRoomShortestRT60 {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use EnvironmentConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let s = IdealRT60Seconds.get(&SpeechRoom).unwrap_or(0.0);
-        let m = IdealRT60Seconds.get(&MusicHall).unwrap_or(0.0);
-        let w = IdealRT60Seconds.get(&WorshipSpace).unwrap_or(0.0);
+        // All three RT60 values share the SECOND unit, so a bare `.value`
+        // compare is dimensionally sound.
+        let s = IdealRT60Seconds
+            .get(&SpeechRoom)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
+        let m = IdealRT60Seconds
+            .get(&MusicHall)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
+        let w = IdealRT60Seconds
+            .get(&WorshipSpace)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
         if s < m && m < w {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -277,8 +306,15 @@ impl Axiom for NIOSHStricterThanOSHA {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use EnvironmentConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let n = RegulatoryLimitDB.get(&NIOSHLimit).unwrap_or(0.0);
-        let o = RegulatoryLimitDB.get(&OSHALimit).unwrap_or(0.0);
+        // Both limits are dB SPL (SoundPressureAir), so compare decibels.
+        let n = RegulatoryLimitDB
+            .get(&NIOSHLimit)
+            .map(|l| l.decibels)
+            .unwrap_or(0.0);
+        let o = RegulatoryLimitDB
+            .get(&OSHALimit)
+            .map(|l| l.decibels)
+            .unwrap_or(0.0);
         if n < o {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -301,8 +337,15 @@ impl Axiom for NIOSHUsesEqualEnergy {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use EnvironmentConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let n = ExchangeRateDB.get(&NIOSHLimit).unwrap_or(0.0);
-        let o = ExchangeRateDB.get(&OSHALimit).unwrap_or(0.0);
+        // Both exchange rates are power-ratio dB (PowerRatio), so compare decibels.
+        let n = ExchangeRateDB
+            .get(&NIOSHLimit)
+            .map(|l| l.decibels)
+            .unwrap_or(0.0);
+        let o = ExchangeRateDB
+            .get(&OSHALimit)
+            .map(|l| l.decibels)
+            .unwrap_or(0.0);
         if n < o {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

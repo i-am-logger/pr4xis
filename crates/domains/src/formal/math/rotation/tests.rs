@@ -1,6 +1,8 @@
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
+use crate::formal::math::linear_algebra::matrix::Matrix;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::ontology::{
     Associativity, DcmOrthogonality, IdentityElement, InverseExists, QuaternionDcmRoundtrip,
     RotationCategory, RotationOntology, UnitNormClosure,
@@ -79,6 +81,7 @@ fn zero_quaternion_normalize_returns_identity() {
 
 #[cfg(test)]
 mod proptest_proofs {
+    use crate::formal::math::linear_algebra::vector_space::Vector;
     use crate::formal::math::rotation::dcm::Dcm;
     use crate::formal::math::rotation::quaternion::Quaternion;
     use proptest::prelude::*;
@@ -145,10 +148,10 @@ mod proptest_proofs {
             vy in -100.0..100.0_f64,
             vz in -100.0..100.0_f64,
         ) {
-            let v = [vx, vy, vz];
-            let v2 = q.rotate_vector(v);
-            let norm_before = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]).sqrt();
-            let norm_after = (v2[0]*v2[0] + v2[1]*v2[1] + v2[2]*v2[2]).sqrt();
+            let v = Vector::new(vec![vx, vy, vz]);
+            let v2 = q.rotate_vector(&v);
+            let norm_before = (v.get(0)*v.get(0) + v.get(1)*v.get(1) + v.get(2)*v.get(2)).sqrt();
+            let norm_after = (v2.get(0)*v2.get(0) + v2.get(1)*v2.get(1) + v2.get(2)*v2.get(2)).sqrt();
             prop_assert!((norm_before - norm_after).abs() < 1e-9);
         }
 
@@ -159,13 +162,13 @@ mod proptest_proofs {
             vy in -100.0..100.0_f64,
             vz in -100.0..100.0_f64,
         ) {
-            let v = [vx, vy, vz];
-            let v_quat = q.rotate_vector(v);
+            let v = Vector::new(vec![vx, vy, vz]);
+            let v_quat = q.rotate_vector(&v);
             let dcm = Dcm::from_quaternion(&q);
-            let v_dcm = dcm.rotate_vector(v);
-            prop_assert!((v_quat[0] - v_dcm[0]).abs() < 1e-9);
-            prop_assert!((v_quat[1] - v_dcm[1]).abs() < 1e-9);
-            prop_assert!((v_quat[2] - v_dcm[2]).abs() < 1e-9);
+            let v_dcm = dcm.rotate_vector(&v);
+            prop_assert!((v_quat.get(0) - v_dcm.get(0)).abs() < 1e-9);
+            prop_assert!((v_quat.get(1) - v_dcm.get(1)).abs() < 1e-9);
+            prop_assert!((v_quat.get(2) - v_dcm.get(2)).abs() < 1e-9);
         }
     }
 
@@ -220,7 +223,7 @@ fn type_enforces_unit_norm_new() {
 fn type_enforces_unit_norm_from_axis_angle() {
     // Unit axis
     let q1 = crate::formal::math::rotation::quaternion::Quaternion::from_axis_angle(
-        [1.0, 0.0, 0.0],
+        &Vector::new(vec![1.0, 0.0, 0.0]),
         1.0,
     );
     assert!(
@@ -230,7 +233,7 @@ fn type_enforces_unit_norm_from_axis_angle() {
 
     // Non-unit axis (the gap that was previously open)
     let q2 = crate::formal::math::rotation::quaternion::Quaternion::from_axis_angle(
-        [5.0, 0.0, 0.0],
+        &Vector::new(vec![5.0, 0.0, 0.0]),
         1.0,
     );
     assert!(
@@ -241,7 +244,7 @@ fn type_enforces_unit_norm_from_axis_angle() {
 
     // All-component non-unit axis
     let q3 = crate::formal::math::rotation::quaternion::Quaternion::from_axis_angle(
-        [3.0, 4.0, 5.0],
+        &Vector::new(vec![3.0, 4.0, 5.0]),
         2.5,
     );
     assert!(
@@ -265,16 +268,16 @@ fn type_enforces_unit_norm_from_euler_321() {
 #[test]
 fn type_enforces_unit_norm_from_dcm() {
     // Identity DCM
-    let id = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
-    let q = crate::formal::math::rotation::quaternion::Quaternion::from_dcm(&id);
+    let id = Matrix::new(3, 3, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+    let q = crate::formal::math::rotation::quaternion::Quaternion::from_matrix(&id);
     assert!(
         (q.norm() - 1.0).abs() < 1e-10,
         "from_dcm(identity) must produce unit quaternion"
     );
 
     // 90-degree rotation about z
-    let r = [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
-    let q2 = crate::formal::math::rotation::quaternion::Quaternion::from_dcm(&r);
+    let r = Matrix::new(3, 3, vec![0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+    let q2 = crate::formal::math::rotation::quaternion::Quaternion::from_matrix(&r);
     assert!(
         (q2.norm() - 1.0).abs() < 1e-10,
         "from_dcm(Rz90) must produce unit quaternion"
