@@ -95,6 +95,7 @@ impl Ontology for LogarithmicLevelReferenceOntology {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         axioms.push(Box::new(PowerLevelDecadeIsTenDecibels));
         axioms.push(Box::new(FieldLevelDecadeIsTwentyDecibels));
+        axioms.push(Box::new(LevelsAddWhenRatiosMultiply));
         axioms
     }
 }
@@ -138,6 +139,21 @@ impl LogarithmicLevel {
         Self {
             decibels: factor * ratio.log10(),
             reference,
+        }
+    }
+
+    /// Combine two levels of the **same** reference — decibels add. IEC 80000-15:
+    /// levels add exactly when the underlying ratios multiply (the logarithm
+    /// homomorphism `(ℝ, +) → (ℝ⁺, ×)`). Returns `None` for mismatched references
+    /// (adding a dB-SPL to a dB-HL is meaningless).
+    pub fn combine(&self, other: &LogarithmicLevel) -> Option<LogarithmicLevel> {
+        if self.reference == other.reference {
+            Some(LogarithmicLevel {
+                decibels: self.decibels + other.decibels,
+                reference: self.reference,
+            })
+        } else {
+            None
         }
     }
 }
@@ -205,6 +221,47 @@ pr4xis::register_axiom!(
     "IEC 80000-15 Logarithmic and related quantities"
 );
 
+/// Axiom: levels of the same reference add exactly when their linear ratios
+/// multiply — the logarithm homomorphism `(ℝ, +) → (ℝ⁺, ×)`. IEC 80000-15.
+pub struct LevelsAddWhenRatiosMultiply;
+
+impl Axiom for LevelsAddWhenRatiosMultiply {
+    fn verify(&self) -> Verdict {
+        use LogarithmicLevelReferenceConcept as R;
+        let fixtures = [(3.0, 6.0), (10.0, -4.0), (0.0, 20.0), (-12.0, 12.0)];
+        let ok = [R::PowerRatio, R::FieldRatio, R::CarrierToNoiseDensity]
+            .iter()
+            .all(|&r| {
+                fixtures.iter().all(|&(da, db)| {
+                    let a = LogarithmicLevel::new(da, r);
+                    let b = LogarithmicLevel::new(db, r);
+                    match a.combine(&b) {
+                        Some(sum) => {
+                            let product = a.linear_ratio() * b.linear_ratio();
+                            (sum.linear_ratio() - product).abs() < 1e-6 * product
+                        }
+                        None => false,
+                    }
+                })
+            });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "LevelsAddWhenRatiosMultiply",
+        "combining two levels of the same reference adds their decibels and multiplies their linear ratios — the logarithm homomorphism (ℝ,+)→(ℝ⁺,×)",
+        "IEC 80000-15 Logarithmic and related quantities; ITU-R V.574-5 (use of the decibel and the neper)"
+    );
+}
+pr4xis::register_axiom!(
+    LevelsAddWhenRatiosMultiply,
+    "IEC 80000-15 Logarithmic and related quantities; ITU-R V.574-5 (use of the decibel and the neper)"
+);
+
 #[cfg(test)]
 mod proptest_proofs {
     use super::*;
@@ -244,12 +301,24 @@ mod proptest_proofs {
         fn zero_db_is_unit_ratio(r in any_reference()) {
             prop_assert!((LogarithmicLevel::new(0.0, r).linear_ratio() - 1.0).abs() < 1e-12);
         }
+
+        /// Combining same-reference levels adds dB and multiplies ratios
+        /// (the log homomorphism (ℝ,+)→(ℝ⁺,×)).
+        #[test]
+        fn levels_add_ratios_multiply(da in -50.0f64..50.0, db in -50.0f64..50.0, r in any_reference()) {
+            let a = LogarithmicLevel::new(da, r);
+            let b = LogarithmicLevel::new(db, r);
+            let sum = a.combine(&b).unwrap();
+            let product = a.linear_ratio() * b.linear_ratio();
+            prop_assert!((sum.linear_ratio() - product).abs() < 1e-6 * product);
+        }
     }
 
     pr4xis::register_praxis_value!(db_ratio_round_trip, Verifiable);
     pr4xis::register_praxis_value!(ratio_db_round_trip, Verifiable);
     pr4xis::register_praxis_value!(more_decibels_more_ratio, Verifiable);
     pr4xis::register_praxis_value!(zero_db_is_unit_ratio, Verifiable);
+    pr4xis::register_praxis_value!(levels_add_ratios_multiply, Verifiable);
 }
 
 #[cfg(test)]
