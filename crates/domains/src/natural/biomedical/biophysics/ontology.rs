@@ -26,9 +26,11 @@
 //!   reference on viscoelasticity, stress-strain relations, and the
 //!   mechanics of biological media.
 
+use crate::formal::math::quantity::unit::{HERTZ, RAYL};
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Biophysics",
@@ -274,25 +276,29 @@ pub type BiophysicsCategoryRelationKind = BiophysicsRelationKind;
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Acoustic impedance Z in MRayl (= 10⁶ kg·m⁻²·s⁻¹) for biological media.
+/// Acoustic impedance Z for biological media, as a typed [`Quantity`] in the
+/// MKS rayl (Pa·s/m ≡ kg·m⁻²·s⁻¹).
 ///
-/// Values from Duck (1990) Table 4.1.
+/// Values from Duck (1990) Table 4.1, given there in MRayl (10⁶ rayl):
+/// bone ≈ 7.4, soft tissue ≈ 1.6, fluid ≈ 1.5, membrane ≈ 1.6 MRayl. Stored
+/// in base rayl (×10⁶), matching the sibling `Acoustics` ontology.
 #[derive(Debug, Clone)]
 pub struct AcousticImpedanceValue;
 
 impl Quality for AcousticImpedanceValue {
     type Individual = BiophysicsConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &BiophysicsConcept) -> Option<f64> {
+    fn get(&self, c: &BiophysicsConcept) -> Option<Quantity> {
         use BiophysicsConcept::*;
-        match c {
-            BoneMatrix => Some(7.4),
-            SoftTissue => Some(1.6),
-            FluidMedium => Some(1.5),
-            CellMembrane => Some(1.6),
-            _ => None,
-        }
+        Some(match c {
+            BoneMatrix => Quantity::from_unit(7.4e6, &RAYL),
+            SoftTissue => Quantity::from_unit(1.6e6, &RAYL),
+            FluidMedium => Quantity::from_unit(1.5e6, &RAYL),
+            CellMembrane => Quantity::from_unit(1.6e6, &RAYL),
+            _ => return None,
+        })
     }
 }
 
@@ -337,21 +343,30 @@ impl Quality for TransmitsVibration {
     }
 }
 
-/// Frequency range (min_hz, max_hz) characteristic of wave concepts.
+/// Frequency range characteristic of wave concepts, as a typed
+/// [`QuantityRange`] in hertz. Mechanical waves span 1-200 Hz; biological
+/// resonance 20-120 Hz (Duck 1990 §6).
 #[derive(Debug, Clone)]
 pub struct FrequencyRange;
 
 impl Quality for FrequencyRange {
     type Individual = BiophysicsConcept;
-    type Value = (f64, f64);
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &BiophysicsConcept) -> Option<(f64, f64)> {
+    fn get(&self, c: &BiophysicsConcept) -> Option<QuantityRange> {
         use BiophysicsConcept::*;
-        match c {
-            MechanicalWave => Some((1.0, 200.0)),
-            ResonanceFrequency => Some((20.0, 120.0)),
-            _ => None,
-        }
+        Some(match c {
+            MechanicalWave => QuantityRange {
+                min: Quantity::from_unit(1.0, &HERTZ),
+                max: Quantity::from_unit(200.0, &HERTZ),
+            },
+            ResonanceFrequency => QuantityRange {
+                min: Quantity::from_unit(20.0, &HERTZ),
+                max: Quantity::from_unit(120.0, &HERTZ),
+            },
+            _ => return None,
+        })
     }
 }
 
@@ -494,7 +509,9 @@ impl Axiom for BoneImpedanceGreaterThanSoftTissue {
         let bone = AcousticImpedanceValue.get(&BiophysicsConcept::BoneMatrix);
         let soft = AcousticImpedanceValue.get(&BiophysicsConcept::SoftTissue);
         match (bone, soft) {
-            (Some(b), Some(s)) if b > s => Ok(Box::new(SimpleProof::new(self.meta()))),
+            // Both impedances are in rayl (same unit → same dimension), so
+            // comparing `.value` is well-defined.
+            (Some(b), Some(s)) if b.value > s.value => Ok(Box::new(SimpleProof::new(self.meta()))),
             _ => Err(Box::new(SimpleCounterexample::new(self.meta()))),
         }
     }
@@ -812,8 +829,10 @@ mod tests {
     #[test]
     fn bone_impedance_value() {
         assert_eq!(
-            AcousticImpedanceValue.get(&BiophysicsConcept::BoneMatrix),
-            Some(7.4)
+            AcousticImpedanceValue
+                .get(&BiophysicsConcept::BoneMatrix)
+                .map(|q| q.value),
+            Some(7.4e6)
         );
     }
 
@@ -821,8 +840,10 @@ mod tests {
     #[test]
     fn soft_tissue_impedance_value() {
         assert_eq!(
-            AcousticImpedanceValue.get(&BiophysicsConcept::SoftTissue),
-            Some(1.6)
+            AcousticImpedanceValue
+                .get(&BiophysicsConcept::SoftTissue)
+                .map(|q| q.value),
+            Some(1.6e6)
         );
     }
 
@@ -830,8 +851,10 @@ mod tests {
     #[test]
     fn fluid_impedance_value() {
         assert_eq!(
-            AcousticImpedanceValue.get(&BiophysicsConcept::FluidMedium),
-            Some(1.5)
+            AcousticImpedanceValue
+                .get(&BiophysicsConcept::FluidMedium)
+                .map(|q| q.value),
+            Some(1.5e6)
         );
     }
 
@@ -874,19 +897,19 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mechanical_wave_frequency_range() {
-        assert_eq!(
-            FrequencyRange.get(&BiophysicsConcept::MechanicalWave),
-            Some((1.0, 200.0))
-        );
+        let r = FrequencyRange
+            .get(&BiophysicsConcept::MechanicalWave)
+            .expect("mechanical wave has a frequency range");
+        assert_eq!((r.min.value, r.max.value), (1.0, 200.0));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resonance_frequency_range() {
-        assert_eq!(
-            FrequencyRange.get(&BiophysicsConcept::ResonanceFrequency),
-            Some((20.0, 120.0))
-        );
+        let r = FrequencyRange
+            .get(&BiophysicsConcept::ResonanceFrequency)
+            .expect("resonance frequency has a range");
+        assert_eq!((r.min.value, r.max.value), (20.0, 120.0));
     }
 
     // -- Proptests --
@@ -947,14 +970,18 @@ mod tests {
         #[test]
         fn prop_impedance_positive(c in arb_concept()) {
             if let Some(z) = AcousticImpedanceValue.get(&c) {
-                prop_assert!(z > 0.0, "impedance must be positive for {:?}", c);
+                prop_assert!(z.value > 0.0, "impedance must be positive for {:?}", c);
             }
         }
 
         #[test]
         fn prop_frequency_range_min_lt_max(c in arb_concept()) {
-            if let Some((lo, hi)) = FrequencyRange.get(&c) {
-                prop_assert!(lo < hi, "frequency range invalid for {:?}", c);
+            if let Some(range) = FrequencyRange.get(&c) {
+                prop_assert!(
+                    range.min.value < range.max.value,
+                    "frequency range invalid for {:?}",
+                    c
+                );
             }
         }
     }

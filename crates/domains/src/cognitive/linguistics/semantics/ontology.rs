@@ -64,24 +64,40 @@ pr4xis::ontology! {
     ],
 }
 
+/// The kind of semantic object a Montague concept is: a semantic **domain**
+/// (a type in the type theory), a **value** (a denotation inhabiting a domain),
+/// or a **combinator** (a compositional rule that builds denotations). This
+/// tripartition — types, their inhabitants, and the operations over them — is
+/// the structure of Montague's intensional logic (Montague 1970, *Universal
+/// Grammar*, Theoria 36).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticObjectKind {
+    /// A semantic domain: a type such as e, t, or a function space over them.
+    Domain,
+    /// A denotation — a value inhabiting a semantic domain via ⟦·⟧.
+    Value,
+    /// A composition combinator: function application or lambda abstraction.
+    Combinator,
+}
+
 /// Whether a concept is a semantic domain, a denotation, or a combinator.
 #[derive(Debug, Clone)]
 pub struct MontagueRole;
 
 impl Quality for MontagueRole {
     type Individual = MontagueConcept;
-    type Value = &'static str;
+    type Value = SemanticObjectKind;
 
-    fn get(&self, c: &MontagueConcept) -> Option<&'static str> {
+    fn get(&self, c: &MontagueConcept) -> Option<SemanticObjectKind> {
         use MontagueConcept as M;
         Some(match c {
             M::SemanticDomain
             | M::EntityDomain
             | M::PropositionDomain
             | M::PredicateDomain
-            | M::FunctionDomain => "domain",
-            M::Denotation => "value",
-            M::FunctionApplication | M::LambdaAbstraction => "combinator",
+            | M::FunctionDomain => SemanticObjectKind::Domain,
+            M::Denotation => SemanticObjectKind::Value,
+            M::FunctionApplication | M::LambdaAbstraction => SemanticObjectKind::Combinator,
         })
     }
 }

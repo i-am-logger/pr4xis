@@ -1,6 +1,8 @@
-use crate::applied::tracking::radar::coordinate::*;
 use crate::applied::tracking::radar::engine::is_scan_rate_adequate;
 use crate::applied::tracking::radar::ontology::*;
+use crate::formal::math::angle::Angle;
+use crate::formal::math::coordinate::{PolarCoordinate, SphericalCoordinate};
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use pr4xis::ontology::Axiom;
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -12,26 +14,47 @@ fn range_non_negative() {
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn polar_cartesian_roundtrip() {
-    let (x, y) = polar_to_cartesian_2d(10.0, 0.5);
-    let (r, az) = cartesian_to_polar_2d(x, y);
-    assert!((r - 10.0).abs() < 1e-10);
-    assert!((az - 0.5).abs() < 1e-10);
+    let cart = PolarCoordinate::new(10.0, Angle::from_radians(0.5)).to_cartesian();
+    let polar = PolarCoordinate::from_cartesian(&cart);
+    assert!((polar.range - 10.0).abs() < 1e-10);
+    assert!(
+        polar
+            .azimuth
+            .difference(&Angle::from_radians(0.5))
+            .radians()
+            .abs()
+            < 1e-10
+    );
 }
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn spherical_cartesian_roundtrip() {
-    let (x, y, z) = spherical_to_cartesian(100.0, 0.3, 0.2);
-    let (r, az, el) = cartesian_to_spherical(x, y, z);
-    assert!((r - 100.0).abs() < 1e-8);
-    assert!((az - 0.3).abs() < 1e-8);
-    assert!((el - 0.2).abs() < 1e-8);
+    let cart = SphericalCoordinate::new(100.0, Angle::from_radians(0.3), Angle::from_radians(0.2))
+        .to_cartesian();
+    let sph = SphericalCoordinate::from_cartesian(&cart);
+    assert!((sph.range - 100.0).abs() < 1e-8);
+    assert!(
+        sph.azimuth
+            .difference(&Angle::from_radians(0.3))
+            .radians()
+            .abs()
+            < 1e-8
+    );
+    assert!(
+        sph.elevation
+            .difference(&Angle::from_radians(0.2))
+            .radians()
+            .abs()
+            < 1e-8
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn zero_azimuth_points_north() {
-    let (x, y) = polar_to_cartesian_2d(10.0, 0.0);
+    let cart = PolarCoordinate::new(10.0, Angle::from_radians(0.0)).to_cartesian();
+    let (x, y) = (cart.get(0), cart.get(1));
     assert!(x.abs() < 1e-10); // no east component
     assert!((y - 10.0).abs() < 1e-10); // all north
 }
@@ -96,8 +119,9 @@ mod proptest_proofs {
             r in 0.1..1000.0_f64,
             az in -core::f64::consts::PI..core::f64::consts::PI,
         ) {
-            let (x, y) = polar_to_cartesian_2d(r, az);
-            let (r2, az2) = cartesian_to_polar_2d(x, y);
+            let cart = PolarCoordinate::new(r, Angle::from_radians(az)).to_cartesian();
+            let polar = PolarCoordinate::from_cartesian(&cart);
+            let (r2, az2) = (polar.range, polar.azimuth.radians());
             prop_assert!((r - r2).abs() < 1e-8);
             // Azimuth wraps, so compare via sin/cos
             prop_assert!((az.sin() - az2.sin()).abs() < 1e-8);
@@ -110,16 +134,22 @@ mod proptest_proofs {
             az in -core::f64::consts::PI..core::f64::consts::PI,
             el in -1.0..1.0_f64, // avoid poles
         ) {
-            let (x, y, z) = spherical_to_cartesian(r, az, el);
-            let (r2, _az2, el2) = cartesian_to_spherical(x, y, z);
+            let cart = SphericalCoordinate::new(
+                r,
+                Angle::from_radians(az),
+                Angle::from_radians(el),
+            )
+            .to_cartesian();
+            let sph = SphericalCoordinate::from_cartesian(&cart);
+            let (r2, el2) = (sph.range, sph.elevation.radians());
             prop_assert!((r - r2).abs() < 1e-6);
             prop_assert!((el - el2).abs() < 1e-6);
         }
 
         #[test]
         fn range_is_non_negative(x in -100.0..100.0_f64, y in -100.0..100.0_f64) {
-            let (r, _) = cartesian_to_polar_2d(x, y);
-            prop_assert!(r >= 0.0);
+            let polar = PolarCoordinate::from_cartesian(&Vector::new(vec![x, y]));
+            prop_assert!(polar.range >= 0.0);
         }
 
         #[test]
@@ -127,10 +157,10 @@ mod proptest_proofs {
             r in 0.1..100.0_f64,
             az in -3.0..3.0_f64,
         ) {
-            let (x1, y1) = polar_to_cartesian_2d(r, az);
-            let (x2, y2) = polar_to_cartesian_2d(r, az);
-            prop_assert_eq!(x1.to_bits(), x2.to_bits());
-            prop_assert_eq!(y1.to_bits(), y2.to_bits());
+            let c1 = PolarCoordinate::new(r, Angle::from_radians(az)).to_cartesian();
+            let c2 = PolarCoordinate::new(r, Angle::from_radians(az)).to_cartesian();
+            prop_assert_eq!(c1.get(0).to_bits(), c2.get(0).to_bits());
+            prop_assert_eq!(c1.get(1).to_bits(), c2.get(1).to_bits());
         }
     }
 

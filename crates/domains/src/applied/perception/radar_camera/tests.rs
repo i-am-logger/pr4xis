@@ -4,6 +4,7 @@ use pr4xis::ontology::Ontology;
 
 use crate::applied::perception::radar_camera::engine::*;
 use crate::applied::perception::radar_camera::ontology::*;
+use crate::formal::math::angle::Angle;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -45,7 +46,7 @@ fn radar_camera_association() {
         radar_targets: vec![RadarTarget {
             range: 50.0,
             doppler: -10.0,
-            azimuth: 0.0,
+            azimuth: Angle::from_radians(0.0),
             rcs: 5.0,
         }],
         camera_objects: vec![CameraObject {
@@ -75,7 +76,7 @@ fn associate_radar_camera_nan_confidence_no_panic() {
         radar_targets: vec![RadarTarget {
             range: 50.0,
             doppler: -10.0,
-            azimuth: 0.0,
+            azimuth: Angle::from_radians(0.0),
             rcs: 5.0,
         }],
         camera_objects: vec![
@@ -131,7 +132,10 @@ mod proptest_proofs {
         ) {
             let frame = AlignedFrame {
                 radar_targets: vec![RadarTarget {
-                    range, doppler, azimuth, rcs: 5.0,
+                    range,
+                    doppler,
+                    azimuth: Angle::from_radians(azimuth),
+                    rcs: 5.0,
                 }],
                 camera_objects: vec![],
                 time_offset_s: 0.0,

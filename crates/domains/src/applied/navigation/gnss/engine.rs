@@ -4,6 +4,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::formal::math::linear_algebra::matrix::Matrix;
+use crate::formal::math::linear_algebra::vector_space::Vector;
+
 /// A GNSS pseudorange measurement from a single satellite.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GnssMeasurement {
@@ -11,8 +14,8 @@ pub struct GnssMeasurement {
     pub satellite_id: u32,
     /// Pseudorange in meters.
     pub pseudorange: f64,
-    /// Satellite position in ECEF (x, y, z) meters.
-    pub satellite_position: [f64; 3],
+    /// Satellite position in the ECEF frame (x, y, z), meters.
+    pub satellite_position: Vector,
     /// Signal strength (C/N0 in dB-Hz).
     pub cn0: f64,
 }
@@ -20,8 +23,8 @@ pub struct GnssMeasurement {
 /// GNSS solution: the result of a position fix.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GnssSolution {
-    /// Position (x, y, z) in ECEF meters.
-    pub position: [f64; 3],
+    /// Position (x, y, z) in the ECEF frame, meters.
+    pub position: Vector,
     /// Receiver clock bias in meters (c * dt).
     pub clock_bias: f64,
     /// Number of satellites used.
@@ -102,9 +105,9 @@ fn least_squares_fix(measurements: &[GnssMeasurement]) -> Result<GnssSolution, S
     // Initial guess: average of satellite positions (crude but converges)
     let mut x = [0.0_f64; 4]; // [x, y, z, clock_bias]
     for m in measurements {
-        x[0] += m.satellite_position[0];
-        x[1] += m.satellite_position[1];
-        x[2] += m.satellite_position[2];
+        x[0] += m.satellite_position.get(0);
+        x[1] += m.satellite_position.get(1);
+        x[2] += m.satellite_position.get(2);
     }
     x[0] /= n as f64;
     x[1] /= n as f64;
@@ -112,13 +115,14 @@ fn least_squares_fix(measurements: &[GnssMeasurement]) -> Result<GnssSolution, S
 
     // Iterate (Gauss-Newton)
     for _ in 0..10 {
-        let mut hth = [[0.0_f64; 4]; 4];
-        let mut hty = [0.0_f64; 4];
+        // Normal equations: H^T H (4x4, row-major) and H^T y (4-vector).
+        let mut hth = vec![0.0_f64; 16];
+        let mut hty = vec![0.0_f64; 4];
 
         for m in measurements {
-            let dx = x[0] - m.satellite_position[0];
-            let dy = x[1] - m.satellite_position[1];
-            let dz = x[2] - m.satellite_position[2];
+            let dx = x[0] - m.satellite_position.get(0);
+            let dy = x[1] - m.satellite_position.get(1);
+            let dz = x[2] - m.satellite_position.get(2);
             let range = (dx * dx + dy * dy + dz * dz).sqrt();
 
             if range < 1e-6 {
@@ -133,21 +137,20 @@ fn least_squares_fix(measurements: &[GnssMeasurement]) -> Result<GnssSolution, S
 
             for i in 0..4 {
                 for j in 0..4 {
-                    hth[i][j] += h[i] * h[j];
+                    hth[i * 4 + j] += h[i] * h[j];
                 }
                 hty[i] += h[i] * residual;
             }
         }
 
         // Solve H^T H dx = H^T y using simple Gauss elimination
-        if let Some(dx) = solve_4x4(&hth, &hty) {
-            x[0] += dx[0];
-            x[1] += dx[1];
-            x[2] += dx[2];
-            x[3] += dx[3];
+        if let Some(dx) = solve_4x4(&Matrix::new(4, 4, hth), &Vector::new(hty)) {
+            x[0] += dx.get(0);
+            x[1] += dx.get(1);
+            x[2] += dx.get(2);
+            x[3] += dx.get(3);
 
-            let norm = (dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] + dx[3] * dx[3]).sqrt();
-            if norm < 1e-6 {
+            if dx.norm() < 1e-6 {
                 break;
             }
         } else {
@@ -156,21 +159,24 @@ fn least_squares_fix(measurements: &[GnssMeasurement]) -> Result<GnssSolution, S
     }
 
     Ok(GnssSolution {
-        position: [x[0], x[1], x[2]],
+        position: Vector::new(vec![x[0], x[1], x[2]]),
         clock_bias: x[3],
         num_satellites: n,
         gdop: 0.0, // simplified — real impl would compute from H^T H inverse
     })
 }
 
-/// Solve a 4x4 linear system Ax = b using Gauss elimination with partial pivoting.
-fn solve_4x4(a: &[[f64; 4]; 4], b: &[f64; 4]) -> Option<[f64; 4]> {
+/// Solve a 4x4 linear system `Ax = b` using Gauss elimination with partial pivoting.
+///
+/// `a` is the 4x4 normal matrix (H^T H); `b` is the 4-vector RHS (H^T y).
+/// Returns the 4-vector correction `x`, or `None` if the geometry is singular.
+fn solve_4x4(a: &Matrix, b: &Vector) -> Option<Vector> {
     let mut aug = [[0.0_f64; 5]; 4];
     for i in 0..4 {
         for j in 0..4 {
-            aug[i][j] = a[i][j];
+            aug[i][j] = a.get(i, j);
         }
-        aug[i][4] = b[i];
+        aug[i][4] = b.get(i);
     }
 
     for col in 0..4 {
@@ -201,5 +207,7 @@ fn solve_4x4(a: &[[f64; 4]; 4], b: &[f64; 4]) -> Option<[f64; 4]> {
         }
     }
 
-    Some([aug[0][4], aug[1][4], aug[2][4], aug[3][4]])
+    Some(Vector::new(vec![
+        aug[0][4], aug[1][4], aug[2][4], aug[3][4],
+    ]))
 }

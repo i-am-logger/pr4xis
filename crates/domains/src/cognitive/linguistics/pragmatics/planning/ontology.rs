@@ -87,27 +87,51 @@ pr4xis::ontology! {
     ],
 }
 
-/// Whether a concept is BDI-structural vs goal-type vs planning.
+/// The theoretical tradition a planning concept is drawn from.
+///
+/// A closed classification of the four literatures this ontology composes:
+/// Bratman's BDI architecture, Cohen & Perrault's plan-based speech acts,
+/// Stalnaker's Common Ground, and Jakobson's communicative functions.
+///
+/// Source: Cohen & Perrault (1979); Bratman (1987); Stalnaker (2002);
+///         Jakobson (1960)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConceptTradition {
+    /// Belief–Desire–Intention practical reasoning (Bratman 1987).
+    Bdi,
+    /// Plan-based theory of speech acts (Cohen & Perrault 1979).
+    Planning,
+    /// Common Ground / assertion update (Stalnaker 2002).
+    Stalnaker,
+    /// Communicative functions of language (Jakobson 1960).
+    Jakobson,
+}
+
+/// Quality: the theoretical [`ConceptTradition`] each planning concept is drawn from.
 #[derive(Debug, Clone)]
 pub struct ConceptRole;
 
 impl Quality for ConceptRole {
     type Individual = PlanningConcept;
-    type Value = &'static str;
+    type Value = ConceptTradition;
 
-    fn get(&self, individual: &PlanningConcept) -> Option<&'static str> {
+    fn get(&self, individual: &PlanningConcept) -> Option<ConceptTradition> {
         Some(match individual {
-            PlanningConcept::Belief | PlanningConcept::Desire | PlanningConcept::Intention => "BDI",
+            PlanningConcept::Belief | PlanningConcept::Desire | PlanningConcept::Intention => {
+                ConceptTradition::Bdi
+            }
             PlanningConcept::SpeechActOperator
             | PlanningConcept::Precondition
             | PlanningConcept::Effect
-            | PlanningConcept::Plan => "Planning",
-            PlanningConcept::CommonGround | PlanningConcept::CommonGroundUpdate => "Stalnaker",
+            | PlanningConcept::Plan => ConceptTradition::Planning,
+            PlanningConcept::CommonGround | PlanningConcept::CommonGroundUpdate => {
+                ConceptTradition::Stalnaker
+            }
             PlanningConcept::CommunicativeGoal
             | PlanningConcept::InformativeGoal
             | PlanningConcept::PhaticGoal
             | PlanningConcept::DirectiveGoal
-            | PlanningConcept::ExpressiveGoal => "Jakobson",
+            | PlanningConcept::ExpressiveGoal => ConceptTradition::Jakobson,
         })
     }
 }

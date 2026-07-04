@@ -4,6 +4,7 @@ use pr4xis::ontology::Ontology;
 
 use crate::applied::underwater::auv::engine::*;
 use crate::applied::underwater::auv::ontology::*;
+use crate::formal::math::angle::Angle;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -37,7 +38,7 @@ fn dead_reckoning_straight_north() {
         north: 0.0,
         east: 0.0,
         depth: 10.0,
-        heading: 0.0,
+        heading: Angle::from_radians(0.0),
     };
     let dvl = DvlMeasurement {
         forward: 1.0,
@@ -58,7 +59,7 @@ fn dead_reckoning_straight_east() {
         north: 0.0,
         east: 0.0,
         depth: 10.0,
-        heading: core::f64::consts::FRAC_PI_2, // heading east
+        heading: Angle::from_radians(core::f64::consts::FRAC_PI_2), // heading east
     };
     let dvl = DvlMeasurement {
         forward: 2.0,
@@ -78,13 +79,13 @@ fn distance_2d_basic() {
         north: 0.0,
         east: 0.0,
         depth: 0.0,
-        heading: 0.0,
+        heading: Angle::from_radians(0.0),
     };
     let b = AuvState {
         north: 3.0,
         east: 4.0,
         depth: 0.0,
-        heading: 0.0,
+        heading: Angle::from_radians(0.0),
     };
     assert!((distance_2d(&a, &b) - 5.0).abs() < 1e-10);
 }
@@ -96,13 +97,13 @@ fn distance_3d_basic() {
         north: 0.0,
         east: 0.0,
         depth: 0.0,
-        heading: 0.0,
+        heading: Angle::from_radians(0.0),
     };
     let b = AuvState {
         north: 1.0,
         east: 2.0,
         depth: 2.0,
-        heading: 0.0,
+        heading: Angle::from_radians(0.0),
     };
     assert!((distance_3d(&a, &b) - 3.0).abs() < 1e-10);
 }
@@ -121,7 +122,12 @@ mod proptest_proofs {
             heading in 0.0..core::f64::consts::TAU,
             dt in 0.1..100.0_f64
         ) {
-            let state = AuvState { north, east, depth, heading };
+            let state = AuvState {
+                north,
+                east,
+                depth,
+                heading: Angle::from_radians(heading),
+            };
             let dvl = DvlMeasurement {
                 forward: 0.0, starboard: 0.0, downward: 0.0, bottom_lock: true,
             };
@@ -138,8 +144,18 @@ mod proptest_proofs {
             n2 in -100.0..100.0_f64,
             e2 in -100.0..100.0_f64
         ) {
-            let a = AuvState { north: n1, east: e1, depth: 0.0, heading: 0.0 };
-            let b = AuvState { north: n2, east: e2, depth: 0.0, heading: 0.0 };
+            let a = AuvState {
+                north: n1,
+                east: e1,
+                depth: 0.0,
+                heading: Angle::from_radians(0.0),
+            };
+            let b = AuvState {
+                north: n2,
+                east: e2,
+                depth: 0.0,
+                heading: Angle::from_radians(0.0),
+            };
             prop_assert!(distance_2d(&a, &b) >= 0.0);
         }
     }

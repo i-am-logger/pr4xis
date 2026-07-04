@@ -7,6 +7,7 @@ use crate::applied::perception::lidar_camera::calibration::{
 };
 use crate::applied::perception::lidar_camera::engine::*;
 use crate::applied::perception::lidar_camera::ontology::*;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -37,10 +38,10 @@ fn pipeline_is_sequential_holds() {
 #[test]
 fn identity_calibration_preserves_point() {
     let cal = ExtrinsicCalibration::identity();
-    let result = cal.transform_point([1.0, 2.0, 3.0]);
-    assert!((result[0] - 1.0).abs() < 1e-12);
-    assert!((result[1] - 2.0).abs() < 1e-12);
-    assert!((result[2] - 3.0).abs() < 1e-12);
+    let result = cal.transform_point(&Vector::new(vec![1.0, 2.0, 3.0]));
+    assert!((result.get(0) - 1.0).abs() < 1e-12);
+    assert!((result.get(1) - 2.0).abs() < 1e-12);
+    assert!((result.get(2) - 3.0).abs() < 1e-12);
 }
 
 #[pr4xis::praxis_value(Honest)]
@@ -52,8 +53,16 @@ fn camera_projection_behind_camera_returns_none() {
         cx: 320.0,
         cy: 240.0,
     };
-    assert!(intrinsic.project([1.0, 1.0, -1.0]).is_none());
-    assert!(intrinsic.project([1.0, 1.0, 0.0]).is_none());
+    assert!(
+        intrinsic
+            .project(&Vector::new(vec![1.0, 1.0, -1.0]))
+            .is_none()
+    );
+    assert!(
+        intrinsic
+            .project(&Vector::new(vec![1.0, 1.0, 0.0]))
+            .is_none()
+    );
 }
 
 #[pr4xis::praxis_value(Honest, Verifiable)]
@@ -159,10 +168,10 @@ mod proptest_proofs {
         #[test]
         fn identity_calibration_is_identity(x in -100.0..100.0_f64, y in -100.0..100.0_f64, z in -100.0..100.0_f64) {
             let cal = ExtrinsicCalibration::identity();
-            let result = cal.transform_point([x, y, z]);
-            prop_assert!((result[0] - x).abs() < 1e-12);
-            prop_assert!((result[1] - y).abs() < 1e-12);
-            prop_assert!((result[2] - z).abs() < 1e-12);
+            let result = cal.transform_point(&Vector::new(vec![x, y, z]));
+            prop_assert!((result.get(0) - x).abs() < 1e-12);
+            prop_assert!((result.get(1) - y).abs() < 1e-12);
+            prop_assert!((result.get(2) - z).abs() < 1e-12);
         }
 
         #[test]
@@ -172,7 +181,7 @@ mod proptest_proofs {
             z in 0.1..100.0_f64
         ) {
             let intrinsic = CameraIntrinsics { fx: 500.0, fy: 500.0, cx: 320.0, cy: 240.0 };
-            let result = intrinsic.project([x, y, z]);
+            let result = intrinsic.project(&Vector::new(vec![x, y, z]));
             prop_assert!(result.is_some(), "point in front of camera should project");
         }
     }

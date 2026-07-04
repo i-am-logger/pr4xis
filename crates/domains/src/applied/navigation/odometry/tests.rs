@@ -4,6 +4,7 @@ use pr4xis::ontology::Ontology;
 
 use crate::applied::navigation::odometry::engine::*;
 use crate::applied::navigation::odometry::ontology::*;
+use crate::formal::math::angle::Angle;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -118,9 +119,9 @@ fn wheel_tick_straight_line() {
     assert!((next.pose.x - 1.0).abs() < 0.01, "x = {}", next.pose.x);
     assert!(next.pose.y.abs() < 0.01, "y = {}", next.pose.y);
     assert!(
-        next.pose.heading.abs() < 0.01,
+        next.pose.heading.radians().abs() < 0.01,
         "heading = {}",
-        next.pose.heading
+        next.pose.heading.radians()
     );
 }
 
@@ -149,9 +150,9 @@ fn wheel_tick_turn_in_place() {
     // Should rotate but not translate much
     let expected_dtheta = 0.5 / wheel_base; // 1.0 rad
     assert!(
-        (next.pose.heading - expected_dtheta).abs() < 0.1,
+        (next.pose.heading.radians() - expected_dtheta).abs() < 0.1,
         "heading = {}",
-        next.pose.heading
+        next.pose.heading.radians()
     );
 }
 
@@ -272,7 +273,7 @@ mod proptest_proofs {
             dt in 0.01..1.0_f64,
         ) {
             let sit = OdometrySituation {
-                pose: OdometryPose::new(1.0, 2.0, 0.5),
+                pose: OdometryPose::new(1.0, 2.0, Angle::from_radians(0.5)),
                 velocity: 0.0,
                 distance_traveled: 0.0,
                 estimated_error: 0.0,
@@ -288,7 +289,7 @@ mod proptest_proofs {
             let r2 = apply_odometry(&sit, &action).unwrap();
             prop_assert!((r1.pose.x - r2.pose.x).abs() < 1e-15);
             prop_assert!((r1.pose.y - r2.pose.y).abs() < 1e-15);
-            prop_assert!((r1.pose.heading - r2.pose.heading).abs() < 1e-15);
+            prop_assert!((r1.pose.heading.radians() - r2.pose.heading.radians()).abs() < 1e-15);
         }
     }
 

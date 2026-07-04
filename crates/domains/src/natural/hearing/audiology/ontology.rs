@@ -20,7 +20,9 @@
 //! parallel `AudiologyCausalEvent`) was merged into a single concept set
 //! with `causes:` edges representing the clinical workflow.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{MILLISECOND, MINUTE};
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Audiology",
@@ -261,13 +263,14 @@ pr4xis::ontology! {
 pub struct ABRLatencyMs;
 impl Quality for ABRLatencyMs {
     type Individual = AudiologyConcept;
-    type Value = f64;
-    fn get(&self, individual: &AudiologyConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &AudiologyConcept) -> Option<Quantity> {
         use AudiologyConcept::*;
         match individual {
-            WaveI => Some(1.5),
-            WaveIII => Some(3.5),
-            WaveV => Some(5.5),
+            WaveI => Some(Quantity::from_unit(1.5, &MILLISECOND)),
+            WaveIII => Some(Quantity::from_unit(3.5, &MILLISECOND)),
+            WaveV => Some(Quantity::from_unit(5.5, &MILLISECOND)),
             _ => None,
         }
     }
@@ -277,13 +280,14 @@ impl Quality for ABRLatencyMs {
 pub struct TestDurationMinutes;
 impl Quality for TestDurationMinutes {
     type Individual = AudiologyConcept;
-    type Value = f64;
-    fn get(&self, individual: &AudiologyConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &AudiologyConcept) -> Option<Quantity> {
         use AudiologyConcept::*;
         match individual {
-            PureToneAudiometry => Some(20.0),
-            AuditoryBrainstemResponse => Some(30.0),
-            Tympanometry => Some(2.0),
+            PureToneAudiometry => Some(Quantity::from_unit(20.0, &MINUTE)),
+            AuditoryBrainstemResponse => Some(Quantity::from_unit(30.0, &MINUTE)),
+            Tympanometry => Some(Quantity::from_unit(2.0, &MINUTE)),
             _ => None,
         }
     }
@@ -370,10 +374,12 @@ impl Axiom for ABRWavesOrdered {
         use AudiologyConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let l = ABRLatencyMs;
-        let i = l.get(&WaveI).unwrap_or(0.0);
-        let iii = l.get(&WaveIII).unwrap_or(0.0);
-        let v = l.get(&WaveV).unwrap_or(0.0);
-        if i < iii && iii < v {
+        // All three latencies share the millisecond unit — same-dimension compares.
+        let ordered = match (l.get(&WaveI), l.get(&WaveIII), l.get(&WaveV)) {
+            (Some(i), Some(iii), Some(v)) => i.value < iii.value && iii.value < v.value,
+            _ => false,
+        };
+        if ordered {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

@@ -3,6 +3,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use core::fmt;
 
+use crate::formal::math::linear_algebra::matrix::Matrix;
+use crate::formal::math::linear_algebra::vector_space::Vector;
+
 /// Unit quaternion representing an element of SO(3).
 ///
 /// q = w + xi + yj + zk where |q| = 1.
@@ -55,12 +58,13 @@ impl Quaternion {
     }
 
     /// Construct from axis-angle. Normalizes the axis internally; `angle` in radians.
-    pub fn from_axis_angle(axis: [f64; 3], angle: f64) -> Self {
-        let an = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
+    pub fn from_axis_angle(axis: &Vector, angle: f64) -> Self {
+        let (a0, a1, a2) = (axis.get(0), axis.get(1), axis.get(2));
+        let an = (a0 * a0 + a1 * a1 + a2 * a2).sqrt();
         let (ax, ay, az) = if an < 1e-15 {
             (0.0, 0.0, 1.0) // degenerate axis: treat as identity-axis
         } else {
-            (axis[0] / an, axis[1] / an, axis[2] / an)
+            (a0 / an, a1 / an, a2 / an)
         };
         let half = angle / 2.0;
         let s = half.sin();
@@ -141,51 +145,50 @@ impl Quaternion {
     }
 
     /// Rotate a vector: v' = q v q*.
-    pub fn rotate_vector(&self, v: [f64; 3]) -> [f64; 3] {
+    pub fn rotate_vector(&self, v: &Vector) -> Vector {
         // Optimized Rodriguez formula avoids constructing pure quaternion
+        let (v0, v1, v2) = (v.get(0), v.get(1), v.get(2));
         let t = [
-            2.0 * (self.y * v[2] - self.z * v[1]),
-            2.0 * (self.z * v[0] - self.x * v[2]),
-            2.0 * (self.x * v[1] - self.y * v[0]),
+            2.0 * (self.y * v2 - self.z * v1),
+            2.0 * (self.z * v0 - self.x * v2),
+            2.0 * (self.x * v1 - self.y * v0),
         ];
-        [
-            v[0] + self.w * t[0] + self.y * t[2] - self.z * t[1],
-            v[1] + self.w * t[1] + self.z * t[0] - self.x * t[2],
-            v[2] + self.w * t[2] + self.x * t[1] - self.y * t[0],
-        ]
+        Vector::new(vec![
+            v0 + self.w * t[0] + self.y * t[2] - self.z * t[1],
+            v1 + self.w * t[1] + self.z * t[0] - self.x * t[2],
+            v2 + self.w * t[2] + self.x * t[1] - self.y * t[0],
+        ])
     }
 
-    /// Convert to 3x3 Direction Cosine Matrix.
-    pub fn to_dcm(&self) -> [[f64; 3]; 3] {
+    /// Convert to a 3x3 Direction Cosine [`Matrix`].
+    pub fn to_dcm(&self) -> Matrix {
         let (w, x, y, z) = (self.w, self.x, self.y, self.z);
-        [
-            [
+        Matrix::new(
+            3,
+            3,
+            vec![
                 1.0 - 2.0 * (y * y + z * z),
                 2.0 * (x * y - w * z),
-                2.0 * (x * z + w * y),
-            ],
-            [
+                2.0 * (x * z + w * y), //
                 2.0 * (x * y + w * z),
                 1.0 - 2.0 * (x * x + z * z),
-                2.0 * (y * z - w * x),
-            ],
-            [
+                2.0 * (y * z - w * x), //
                 2.0 * (x * z - w * y),
                 2.0 * (y * z + w * x),
                 1.0 - 2.0 * (x * x + y * y),
             ],
-        ]
+        )
     }
 
-    /// Extract axis-angle. Returns (unit axis, angle in radians).
+    /// Extract axis-angle. Returns (unit axis [`Vector`], angle in radians).
     /// For identity rotation, returns `([0,0,1], 0.0)`.
-    pub fn to_axis_angle(&self) -> ([f64; 3], f64) {
+    pub fn to_axis_angle(&self) -> (Vector, f64) {
         let angle = 2.0 * self.w.clamp(-1.0, 1.0).acos();
         let s = (1.0 - self.w * self.w).sqrt();
         if s < 1e-12 {
-            ([0.0, 0.0, 1.0], 0.0)
+            (Vector::new(vec![0.0, 0.0, 1.0]), 0.0)
         } else {
-            ([self.x / s, self.y / s, self.z / s], angle)
+            (Vector::new(vec![self.x / s, self.y / s, self.z / s]), angle)
         }
     }
 }

@@ -17,7 +17,13 @@
 //! - **Eggermont & Roberts (2004)** "The neuroscience of tinnitus",
 //!   *Trends Neurosci.* 27(11):676-682.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::level::{
+    LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
+};
+use crate::formal::math::quantity::unit::UNITLESS;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Pathology",
@@ -248,20 +254,25 @@ pr4xis::ontology! {
 pub struct TypicalSeverityDB;
 impl Quality for TypicalSeverityDB {
     type Individual = PathologyConcept;
-    type Value = f64;
-    fn get(&self, individual: &PathologyConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PathologyConcept) -> Option<LogarithmicLevel> {
         use PathologyConcept::*;
-        match individual {
-            Otosclerosis => Some(40.0),
-            Presbycusis => Some(45.0),
-            NoiseInducedHearingLoss => Some(50.0),
-            MenieresDisease => Some(40.0),
-            OtitisMedia => Some(25.0),
-            TympanicPerforation => Some(30.0),
-            AcousticNeuroma => Some(55.0),
-            SuddenSensorineuralLoss => Some(60.0),
-            _ => None,
-        }
+        // Typical audiometric severity — a hearing-loss magnitude in dB HL
+        // (hearing level, ISO 389 audiometric zero). A dB figure is a
+        // logarithmic level (IEC 80000-15), not a linear Quantity.
+        let db = match individual {
+            Otosclerosis => 40.0,
+            Presbycusis => 45.0,
+            NoiseInducedHearingLoss => 50.0,
+            MenieresDisease => 40.0,
+            OtitisMedia => 25.0,
+            TympanicPerforation => 30.0,
+            AcousticNeuroma => 55.0,
+            SuddenSensorineuralLoss => 60.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(db, Ref::HearingLevel))
     }
 }
 
@@ -269,15 +280,19 @@ impl Quality for TypicalSeverityDB {
 pub struct PrevalencePercent;
 impl Quality for PrevalencePercent {
     type Individual = PathologyConcept;
-    type Value = f64;
-    fn get(&self, individual: &PathologyConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &PathologyConcept) -> Option<Quantity> {
         use PathologyConcept::*;
-        match individual {
-            Presbycusis => Some(33.0),
-            NoiseInducedHearingLoss => Some(12.0),
-            Tinnitus => Some(15.0),
-            _ => None,
-        }
+        // Prevalence is a dimensionless proportion; a percentage figure is the
+        // fraction (33% → 0.33), UNITLESS.
+        let fraction = match individual {
+            Presbycusis => 0.33,
+            NoiseInducedHearingLoss => 0.12,
+            Tinnitus => 0.15,
+            _ => return None,
+        };
+        Some(Quantity::from_unit(fraction, &UNITLESS))
     }
 }
 
@@ -335,11 +350,20 @@ impl Axiom for PresbycusisMostPrevalent {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use PathologyConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let p = PrevalencePercent.get(&Presbycusis).unwrap_or(0.0);
+        // All three are UNITLESS prevalence fractions (same dimension), so a
+        // direct `.value` compare preserves the "highest prevalence" meaning.
+        let p = PrevalencePercent
+            .get(&Presbycusis)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
         let n = PrevalencePercent
             .get(&NoiseInducedHearingLoss)
+            .map(|q| q.value)
             .unwrap_or(0.0);
-        let t = PrevalencePercent.get(&Tinnitus).unwrap_or(0.0);
+        let t = PrevalencePercent
+            .get(&Tinnitus)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
         if p > n && p > t {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

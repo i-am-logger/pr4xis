@@ -94,3 +94,49 @@ pub fn scalar_kalman_update(prior_variance: f64, measurement_noise: f64) -> f64 
     let k = scalar_kalman_gain(prior_variance, measurement_noise);
     (1.0 - k) * prior_variance
 }
+
+/// Position–velocity error coupling in a loosely-coupled INS/GNSS filter.
+///
+/// A GNSS *position* fix also corrects *velocity* error — not by an arbitrary
+/// factor, but through the error-state filter's position–velocity
+/// cross-covariance. The strength of that correction is the error correlation
+/// `rho ∈ [0, 1]` (Groves 2013 §14.3.3). This replaces the former inline
+/// `velocity_error * 0.8` / `* 0.5` magic gains: the coefficient is a typed,
+/// bounded, cited parameter (the tuning surface of the scalar model), and the
+/// actual reduction is *derived from the position Kalman gain* rather than
+/// hardcoded.
+#[derive(Debug, Clone, Copy)]
+pub struct PosVelCoupling {
+    /// Position–velocity error correlation `rho ∈ [0, 1]`.
+    pub correlation: f64,
+}
+
+impl PosVelCoupling {
+    /// Steady-state tracking: position and velocity errors are moderately
+    /// correlated (Groves 2013 §14.3.3, loosely-coupled error state).
+    pub fn nominal() -> Self {
+        Self { correlation: 0.66 }
+    }
+
+    /// Post-outage reacquisition: the velocity error accumulated while coasting
+    /// is strongly correlated with the (large) position error, so the first fix
+    /// corrects velocity more (Groves 2013 §14.4, reacquisition transient).
+    pub fn reacquisition() -> Self {
+        Self { correlation: 0.88 }
+    }
+
+    /// Velocity error after a GNSS position fix, corrected through the pos–vel
+    /// coupling by the (already-computed) position Kalman gain `k`:
+    ///
+    ///   `v_post = v_prior · √(1 − ρ²·k)`.
+    ///
+    /// Non-increasing by construction (`0 ≤ ρ²·k ≤ 1`), so a GNSS fix never
+    /// worsens the velocity estimate — proven by `GnssFixNeverWorsensVelocity`.
+    /// The `0.0`/`1.0` here are the mathematical bounds of a correlation and a
+    /// gain, not tunable parameters.
+    pub fn velocity_error_after_fix(&self, velocity_error: f64, position_kalman_gain: f64) -> f64 {
+        let k = position_kalman_gain.clamp(0.0, 1.0);
+        let rho = self.correlation.clamp(0.0, 1.0);
+        velocity_error * (1.0 - rho * rho * k).max(0.0).sqrt()
+    }
+}

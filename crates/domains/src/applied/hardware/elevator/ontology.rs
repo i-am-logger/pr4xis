@@ -150,20 +150,39 @@ impl Quality for HeightFromGround {
     }
 }
 
+/// The scholarly tradition a concept descends from — a closed two-element
+/// set drawn from the ontology's `source:` literature.
+///
+/// - **Barney & Dos Santos (1985)** *Elevator Traffic Analysis, Design and
+///   Control* (Peter Peregrinus / IEE) — the floor / shaft topology and
+///   traffic-dynamics lineage.
+/// - **Mandel (1989)** "Elevator Scheduling" — the car / call / dispatch
+///   lineage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElevatorLiterature {
+    /// Barney & Dos Santos (1985) — static topology (floors, shaft) and
+    /// traffic dynamics.
+    BarneyDosSantos,
+    /// Mandel (1989) — the mobile car, hall/car calls, and dispatch events.
+    Mandel,
+}
+
 /// Quality: which tradition each abstract concept comes from.
 #[derive(Debug, Clone)]
 pub struct ElevatorTradition;
 
 impl Quality for ElevatorTradition {
     type Individual = ElevatorConcept;
-    type Value = &'static str;
+    type Value = ElevatorLiterature;
 
-    fn get(&self, c: &ElevatorConcept) -> Option<&'static str> {
+    fn get(&self, c: &ElevatorConcept) -> Option<ElevatorLiterature> {
         use ElevatorConcept as E;
         Some(match c {
-            E::Floor | E::GroundFloor | E::UpperFloor | E::Shaft => "barney-dos-santos-1985",
+            E::Floor | E::GroundFloor | E::UpperFloor | E::Shaft => {
+                ElevatorLiterature::BarneyDosSantos
+            }
             E::Car | E::DoorAssembly | E::HallCall | E::CarCall | E::Travel | E::Stop => {
-                "mandel-1989"
+                ElevatorLiterature::Mandel
             }
         })
     }

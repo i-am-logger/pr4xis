@@ -101,22 +101,44 @@ pr4xis::ontology! {
 // ---------------------------------------------------------------------------
 
 /// The role a concept plays within the MAPE-K loop.
+///
+/// A closed set from Kephart & Chess (2003) \u{00a7}2: the four operative
+/// roles (sense, diagnose, decide, act) are the Monitor / Analyze / Plan /
+/// Execute functions; the substrate role is the shared Knowledge base;
+/// abstract-phase is the parent class of the four operative phases.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoopRole {
+    /// The abstract parent class of the four operative phases.
+    AbstractPhase,
+    /// Monitor — observe the managed element and sense its state.
+    Sense,
+    /// Analyze — diagnose what (if anything) needs to change.
+    Diagnose,
+    /// Plan — decide on a plan of action.
+    Decide,
+    /// Execute — act on the plan, producing side-effects.
+    Act,
+    /// Knowledge — the shared substrate every phase consults and updates.
+    Substrate,
+}
+
+/// The role a concept plays within the MAPE-K loop.
 #[derive(Debug, Clone)]
 pub struct MapeKRole;
 
 impl Quality for MapeKRole {
     type Individual = MapeKConcept;
-    type Value = &'static str;
+    type Value = LoopRole;
 
-    fn get(&self, c: &MapeKConcept) -> Option<&'static str> {
+    fn get(&self, c: &MapeKConcept) -> Option<LoopRole> {
         use MapeKConcept as M;
         Some(match c {
-            M::MapeKPhase => "abstract-phase",
-            M::Monitor => "sense",
-            M::Analyze => "diagnose",
-            M::Plan => "decide",
-            M::Execute => "act",
-            M::Knowledge => "substrate",
+            M::MapeKPhase => LoopRole::AbstractPhase,
+            M::Monitor => LoopRole::Sense,
+            M::Analyze => LoopRole::Diagnose,
+            M::Plan => LoopRole::Decide,
+            M::Execute => LoopRole::Act,
+            M::Knowledge => LoopRole::Substrate,
         })
     }
 }

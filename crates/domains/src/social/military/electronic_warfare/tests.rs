@@ -1,6 +1,8 @@
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
+use crate::formal::math::angle::Angle;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::social::military::electronic_warfare::engine::*;
 use crate::social::military::electronic_warfare::ontology::*;
 
@@ -46,35 +48,39 @@ fn wrap_angle_identity_in_range() {
 #[test]
 fn aoa_triangulation_perpendicular() {
     let m1 = AoaMeasurement {
-        sensor_pos: [0.0, 0.0],
-        bearing: core::f64::consts::FRAC_PI_2, // due east
+        sensor_pos: Vector::new(vec![0.0, 0.0]),
+        bearing: Angle::from_radians(core::f64::consts::FRAC_PI_2), // due east
         sigma: 0.01,
     };
     let m2 = AoaMeasurement {
-        sensor_pos: [100.0, 100.0],
-        bearing: core::f64::consts::PI, // due south
+        sensor_pos: Vector::new(vec![100.0, 100.0]),
+        bearing: Angle::from_radians(core::f64::consts::PI), // due south
         sigma: 0.01,
     };
     let pos = aoa_triangulation(&m1, &m2).unwrap();
     assert!(
-        (pos[0] - 100.0).abs() < 1e-6,
+        (pos.get(0) - 100.0).abs() < 1e-6,
         "expected x~100, got {}",
-        pos[0]
+        pos.get(0)
     );
-    assert!((pos[1] - 0.0).abs() < 1e-6, "expected y~0, got {}", pos[1]);
+    assert!(
+        (pos.get(1) - 0.0).abs() < 1e-6,
+        "expected y~0, got {}",
+        pos.get(1)
+    );
 }
 
 #[pr4xis::praxis_value(Honest)]
 #[test]
 fn aoa_parallel_returns_none() {
     let m1 = AoaMeasurement {
-        sensor_pos: [0.0, 0.0],
-        bearing: 0.0,
+        sensor_pos: Vector::new(vec![0.0, 0.0]),
+        bearing: Angle::from_radians(0.0),
         sigma: 0.01,
     };
     let m2 = AoaMeasurement {
-        sensor_pos: [100.0, 0.0],
-        bearing: 0.0, // same bearing = parallel
+        sensor_pos: Vector::new(vec![100.0, 0.0]),
+        bearing: Angle::from_radians(0.0), // same bearing = parallel
         sigma: 0.01,
     };
     assert!(aoa_triangulation(&m1, &m2).is_none());
@@ -84,12 +90,12 @@ fn aoa_parallel_returns_none() {
 #[test]
 fn tdoa_residual_at_true_position() {
     let meas = TdoaMeasurement {
-        sensor_a: [0.0, 0.0],
-        sensor_b: [100.0, 0.0],
+        sensor_a: Vector::new(vec![0.0, 0.0]),
+        sensor_b: Vector::new(vec![100.0, 0.0]),
         tdoa: 0.0, // emitter equidistant from both
         signal_speed: 3e8,
     };
-    let emitter = [50.0, 50.0]; // equidistant point
+    let emitter = Vector::new(vec![50.0, 50.0]); // equidistant point
     let residual = tdoa_residual(&meas, &emitter);
     assert!(
         residual.abs() < 1e-6,
@@ -114,8 +120,8 @@ mod proptest_proofs {
         #[test]
         fn tdoa_range_difference_sign(tdoa in -0.001..0.001_f64) {
             let meas = TdoaMeasurement {
-                sensor_a: [0.0, 0.0],
-                sensor_b: [100.0, 0.0],
+                sensor_a: Vector::new(vec![0.0, 0.0]),
+                sensor_b: Vector::new(vec![100.0, 0.0]),
                 tdoa,
                 signal_speed: 3e8,
             };

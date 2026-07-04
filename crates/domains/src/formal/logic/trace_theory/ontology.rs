@@ -144,40 +144,68 @@ pr4xis::ontology! {
 // Qualities
 // -----------------------------------------------------------------------------
 
-/// Literature tradition the concept comes from.
+/// The scholarly tradition a trace-theory concept descends from.
+///
+/// A small closed set of named operational- and game-semantics lineages
+/// grounding this ontology (see the module `source:` clause). Each variant
+/// is a distinct scholarly tradition, not free-form prose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraceTradition {
+    /// Plotkin (1981) *A Structural Approach to Operational Semantics*
+    /// (DAIMI FN-19, Aarhus) — structural operational semantics.
+    PlotkinSos,
+    /// Kahn (1987) *Natural Semantics* (STACS) — big-step / natural
+    /// semantics.
+    KahnNaturalSemantics,
+    /// Abramsky & Jung (1994) *Domain Theory* (Handbook of Logic in
+    /// Computer Science) — observational equivalence / trace semantics.
+    AbramskyJung,
+    /// Hyland & Ong (2000) "On Full Abstraction for PCF" (Information and
+    /// Computation 163) — game semantics.
+    HylandOng,
+    /// Abramsky (1996) "Retracing some paths in process algebra" (CONCUR)
+    /// — trace equivalence in process theory.
+    AbramskyProcessAlgebra,
+    /// Park (1981) / Milner — bisimulation.
+    ParkMilner,
+    /// The genus concept `Trace` itself — attributed to no single tradition.
+    Genus,
+}
+
+/// Quality: the literature [`TraceTradition`] each concept descends from.
 #[derive(Debug, Clone)]
-pub struct TraceTradition;
+pub struct TraceTraditionOf;
 
-impl Quality for TraceTradition {
+impl Quality for TraceTraditionOf {
     type Individual = TraceTheoryConcept;
-    type Value = &'static str;
+    type Value = TraceTradition;
 
-    fn get(&self, c: &TraceTheoryConcept) -> Option<&'static str> {
+    fn get(&self, c: &TraceTheoryConcept) -> Option<TraceTradition> {
         use TraceTheoryConcept as T;
         Some(match c {
             T::ReductionStep
             | T::ReductionSequence
             | T::SmallStep
             | T::Configuration
-            | T::EvaluationContext => "plotkin-sos-1981",
-            T::BigStep => "kahn-natural-semantics-1987",
-            T::ObservationalTrace | T::Observation | T::Event => "abramsky-jung-1994",
+            | T::EvaluationContext => TraceTradition::PlotkinSos,
+            T::BigStep => TraceTradition::KahnNaturalSemantics,
+            T::ObservationalTrace | T::Observation | T::Event => TraceTradition::AbramskyJung,
             T::Strategy
             | T::Play
             | T::Move
             | T::Position
             | T::InnocentStrategy
-            | T::Interaction => "hyland-ong-2000",
-            T::TraceEquivalence => "abramsky-1996",
-            T::BisimulationCandidate => "park-milner-1981",
-            T::Trace => "genus",
+            | T::Interaction => TraceTradition::HylandOng,
+            T::TraceEquivalence => TraceTradition::AbramskyProcessAlgebra,
+            T::BisimulationCandidate => TraceTradition::ParkMilner,
+            T::Trace => TraceTradition::Genus,
         })
     }
 }
 
 impl Ontology for TraceTheoryOntology {
     type Cat = TraceTheoryCategory;
-    type Qual = TraceTradition;
+    type Qual = TraceTraditionOf;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
         pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()

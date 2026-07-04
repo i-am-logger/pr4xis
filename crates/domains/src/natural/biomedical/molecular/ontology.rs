@@ -48,8 +48,10 @@
 #![allow(non_camel_case_types)]
 use pr4xis::category::{Arrow, Category};
 
+use crate::formal::math::quantity::unit::MILLIVOLT;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Molecular",
@@ -366,16 +368,19 @@ pub struct EquilibriumPotential;
 
 impl Quality for EquilibriumPotential {
     type Individual = MolecularConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &MolecularConcept) -> Option<f64> {
+    fn get(&self, c: &MolecularConcept) -> Option<Quantity> {
         use MolecularConcept::*;
         match c {
-            Sodium => Some(67.0),
-            Potassium => Some(-90.0),
-            Calcium => Some(131.0), // [Ca²⁺]ₒ=2 mM, [Ca²⁺]ᵢ=100 nM, 37°C
-            Chloride => Some(-70.0),
-            Proton => Some(-24.0), // pHᵢ=7.0, pHₒ=7.4, 37°C
+            Sodium => Some(Quantity::from_unit(67.0, &MILLIVOLT)),
+            Potassium => Some(Quantity::from_unit(-90.0, &MILLIVOLT)),
+            // [Ca²⁺]ₒ=2 mM, [Ca²⁺]ᵢ=100 nM, 37°C
+            Calcium => Some(Quantity::from_unit(131.0, &MILLIVOLT)),
+            Chloride => Some(Quantity::from_unit(-70.0, &MILLIVOLT)),
+            // pHᵢ=7.0, pHₒ=7.4, 37°C
+            Proton => Some(Quantity::from_unit(-24.0, &MILLIVOLT)),
             _ => None,
         }
     }
@@ -680,11 +685,15 @@ impl Axiom for NernstPotentialsConsistent {
     fn verify(&self) -> Verdict {
         use MolecularConcept::*;
         let e = EquilibriumPotential;
-        let ok = e.get(&Potassium).unwrap_or(0.0) < 0.0
-            && e.get(&Sodium).unwrap_or(0.0) > 0.0
-            && e.get(&Calcium).unwrap_or(0.0) > 0.0
-            && e.get(&Chloride).unwrap_or(0.0) < 0.0
-            && e.get(&Proton).unwrap_or(0.0) < 0.0;
+        // All five potentials share the MILLIVOLT unit (SI volts after
+        // `from_unit`, sign-preserving), so comparing `.value` sign against
+        // zero is a same-dimension comparison.
+        let sign = |c| e.get(&c).map(|q| q.value).unwrap_or(0.0);
+        let ok = sign(Potassium) < 0.0
+            && sign(Sodium) > 0.0
+            && sign(Calcium) > 0.0
+            && sign(Chloride) < 0.0
+            && sign(Proton) < 0.0;
         if ok {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -962,11 +971,26 @@ mod tests {
     #[test]
     fn equilibrium_potentials() {
         use MolecularConcept::*;
-        assert_eq!(EquilibriumPotential.get(&Sodium), Some(67.0));
-        assert_eq!(EquilibriumPotential.get(&Potassium), Some(-90.0));
-        assert_eq!(EquilibriumPotential.get(&Calcium), Some(131.0));
-        assert_eq!(EquilibriumPotential.get(&Chloride), Some(-70.0));
-        assert_eq!(EquilibriumPotential.get(&Proton), Some(-24.0));
+        assert_eq!(
+            EquilibriumPotential.get(&Sodium),
+            Some(Quantity::from_unit(67.0, &MILLIVOLT))
+        );
+        assert_eq!(
+            EquilibriumPotential.get(&Potassium),
+            Some(Quantity::from_unit(-90.0, &MILLIVOLT))
+        );
+        assert_eq!(
+            EquilibriumPotential.get(&Calcium),
+            Some(Quantity::from_unit(131.0, &MILLIVOLT))
+        );
+        assert_eq!(
+            EquilibriumPotential.get(&Chloride),
+            Some(Quantity::from_unit(-70.0, &MILLIVOLT))
+        );
+        assert_eq!(
+            EquilibriumPotential.get(&Proton),
+            Some(Quantity::from_unit(-24.0, &MILLIVOLT))
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]

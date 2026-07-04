@@ -6,6 +6,8 @@ use crate::applied::navigation::celestial::body::CelestialBodyCategory;
 use crate::applied::navigation::celestial::engine::*;
 use crate::applied::navigation::celestial::observable::CelestialObservableCategory;
 use crate::applied::navigation::celestial::ontology::*;
+use crate::formal::math::angle::Angle;
+use crate::formal::math::coordinate::GeodeticPosition;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -64,15 +66,15 @@ fn add_observation_increases_count() {
     let sit = CelestialSituation {
         observations: vec![],
         fix: None,
-        assumed_position: (34.0, -118.0),
+        assumed_position: GeodeticPosition::from_degrees(34.0, -118.0),
         step: 0,
     };
     let obs = CelestialObservation {
         body_name: "Polaris".to_string(),
-        altitude_deg: 34.0,
-        azimuth_deg: 0.0,
-        declination_deg: 89.26,
-        gha_deg: 315.0,
+        altitude_deg: Angle::from_degrees(34.0),
+        azimuth_deg: Angle::from_degrees(0.0),
+        declination_deg: Angle::from_degrees(89.26),
+        gha_deg: Angle::from_degrees(315.0),
     };
     let next = apply_celestial(&sit, &CelestialAction::Observe(obs)).unwrap();
     assert_eq!(next.observations.len(), 1);
@@ -85,15 +87,15 @@ fn invalid_altitude_rejected() {
     let sit = CelestialSituation {
         observations: vec![],
         fix: None,
-        assumed_position: (34.0, -118.0),
+        assumed_position: GeodeticPosition::from_degrees(34.0, -118.0),
         step: 0,
     };
     let obs = CelestialObservation {
         body_name: "Invalid".to_string(),
-        altitude_deg: 91.0, // impossible: max is 90
-        azimuth_deg: 0.0,
-        declination_deg: 0.0,
-        gha_deg: 0.0,
+        altitude_deg: Angle::from_degrees(91.0), // impossible: max is 90
+        azimuth_deg: Angle::from_degrees(0.0),
+        declination_deg: Angle::from_degrees(0.0),
+        gha_deg: Angle::from_degrees(0.0),
     };
     assert!(apply_celestial(&sit, &CelestialAction::Observe(obs)).is_err());
 }
@@ -104,13 +106,13 @@ fn fix_needs_2_observations() {
     let sit = CelestialSituation {
         observations: vec![CelestialObservation {
             body_name: "Polaris".to_string(),
-            altitude_deg: 34.0,
-            azimuth_deg: 0.0,
-            declination_deg: 89.26,
-            gha_deg: 315.0,
+            altitude_deg: Angle::from_degrees(34.0),
+            azimuth_deg: Angle::from_degrees(0.0),
+            declination_deg: Angle::from_degrees(89.26),
+            gha_deg: Angle::from_degrees(315.0),
         }],
         fix: None,
-        assumed_position: (34.0, -118.0),
+        assumed_position: GeodeticPosition::from_degrees(34.0, -118.0),
         step: 0,
     };
     assert!(apply_celestial(&sit, &CelestialAction::ComputeFix).is_err());
@@ -146,21 +148,21 @@ fn fix_with_two_observations() {
         observations: vec![
             CelestialObservation {
                 body_name: "Star A".to_string(),
-                altitude_deg: hc_a,
-                azimuth_deg: 0.0, // north
-                declination_deg: dec_a,
-                gha_deg: gha_a,
+                altitude_deg: Angle::from_degrees(hc_a),
+                azimuth_deg: Angle::from_degrees(0.0), // north
+                declination_deg: Angle::from_degrees(dec_a),
+                gha_deg: Angle::from_degrees(gha_a),
             },
             CelestialObservation {
                 body_name: "Star B".to_string(),
-                altitude_deg: hc_b,
-                azimuth_deg: 90.0, // east
-                declination_deg: dec_b,
-                gha_deg: gha_b,
+                altitude_deg: Angle::from_degrees(hc_b),
+                azimuth_deg: Angle::from_degrees(90.0), // east
+                declination_deg: Angle::from_degrees(dec_b),
+                gha_deg: Angle::from_degrees(gha_b),
             },
         ],
         fix: None,
-        assumed_position: (lat_ap, lon_ap),
+        assumed_position: GeodeticPosition::from_degrees(lat_ap, lon_ap),
         step: 0,
     };
     let result = apply_celestial(&sit, &CelestialAction::ComputeFix).unwrap();
@@ -169,9 +171,9 @@ fn fix_with_two_observations() {
     assert_eq!(fix.num_observations, 2);
     // With zero-intercept observations, fix should be near assumed position
     assert!(
-        (fix.latitude - lat_ap).abs() < 1.0,
+        (fix.position.latitude_degrees() - lat_ap).abs() < 1.0,
         "lat={} should be near {}",
-        fix.latitude,
+        fix.position.latitude_degrees(),
         lat_ap
     );
 }
@@ -189,21 +191,21 @@ fn celestial_fix_does_not_nan_on_extreme_declination() {
         observations: vec![
             CelestialObservation {
                 body_name: "Star A".to_string(),
-                altitude_deg: 89.0,
-                azimuth_deg: 0.0,
-                declination_deg: 89.9,
-                gha_deg: 0.1,
+                altitude_deg: Angle::from_degrees(89.0),
+                azimuth_deg: Angle::from_degrees(0.0),
+                declination_deg: Angle::from_degrees(89.9),
+                gha_deg: Angle::from_degrees(0.1),
             },
             CelestialObservation {
                 body_name: "Star B".to_string(),
-                altitude_deg: 45.0,
-                azimuth_deg: 90.0,
-                declination_deg: 45.0,
-                gha_deg: 90.0,
+                altitude_deg: Angle::from_degrees(45.0),
+                azimuth_deg: Angle::from_degrees(90.0),
+                declination_deg: Angle::from_degrees(45.0),
+                gha_deg: Angle::from_degrees(90.0),
             },
         ],
         fix: None,
-        assumed_position: (89.0, 0.0),
+        assumed_position: GeodeticPosition::from_degrees(89.0, 0.0),
         step: 0,
     };
     // Should not panic — may return Err for pole guard but must not NaN
@@ -211,8 +213,14 @@ fn celestial_fix_does_not_nan_on_extreme_declination() {
     if let Ok(s) = &result
         && let Some(fix) = &s.fix
     {
-        assert!(!fix.latitude.is_nan(), "latitude must not be NaN");
-        assert!(!fix.longitude.is_nan(), "longitude must not be NaN");
+        assert!(
+            !fix.position.latitude_degrees().is_nan(),
+            "latitude must not be NaN"
+        );
+        assert!(
+            !fix.position.longitude_degrees().is_nan(),
+            "longitude must not be NaN"
+        );
     }
 }
 
@@ -227,21 +235,21 @@ fn celestial_fix_at_north_pole_returns_err() {
         observations: vec![
             CelestialObservation {
                 body_name: "Star A".to_string(),
-                altitude_deg: 30.0,
-                azimuth_deg: 0.0,
-                declination_deg: 30.0,
-                gha_deg: 0.0,
+                altitude_deg: Angle::from_degrees(30.0),
+                azimuth_deg: Angle::from_degrees(0.0),
+                declination_deg: Angle::from_degrees(30.0),
+                gha_deg: Angle::from_degrees(0.0),
             },
             CelestialObservation {
                 body_name: "Star B".to_string(),
-                altitude_deg: 45.0,
-                azimuth_deg: 90.0,
-                declination_deg: 45.0,
-                gha_deg: 90.0,
+                altitude_deg: Angle::from_degrees(45.0),
+                azimuth_deg: Angle::from_degrees(90.0),
+                declination_deg: Angle::from_degrees(45.0),
+                gha_deg: Angle::from_degrees(90.0),
             },
         ],
         fix: None,
-        assumed_position: (90.0, 0.0), // north pole
+        assumed_position: GeodeticPosition::from_degrees(90.0, 0.0), // north pole
         step: 0,
     };
     let result = apply_celestial(&sit, &CelestialAction::ComputeFix);
@@ -269,16 +277,16 @@ mod proptest_proofs {
             let mut sit = CelestialSituation {
                 observations: vec![],
                 fix: None,
-                assumed_position: (34.0, -118.0),
+                assumed_position: GeodeticPosition::from_degrees(34.0, -118.0),
                 step: 0,
             };
             for i in 0..n {
                 let obs = CelestialObservation {
                     body_name: format!("Star {}", i),
-                    altitude_deg: 30.0 + i as f64 * 5.0,
-                    azimuth_deg: i as f64 * 45.0,
-                    declination_deg: 20.0 + i as f64 * 10.0,
-                    gha_deg: i as f64 * 30.0,
+                    altitude_deg: Angle::from_degrees(30.0 + i as f64 * 5.0),
+                    azimuth_deg: Angle::from_degrees(i as f64 * 45.0),
+                    declination_deg: Angle::from_degrees(20.0 + i as f64 * 10.0),
+                    gha_deg: Angle::from_degrees(i as f64 * 30.0),
                 };
                 let next = apply_celestial(&sit, &CelestialAction::Observe(obs)).unwrap();
                 prop_assert!(next.observations.len() > sit.observations.len());
@@ -294,15 +302,15 @@ mod proptest_proofs {
             let sit = CelestialSituation {
                 observations: vec![],
                 fix: None,
-                assumed_position: (34.0, -118.0),
+                assumed_position: GeodeticPosition::from_degrees(34.0, -118.0),
                 step: 0,
             };
             let obs = CelestialObservation {
                 body_name: "Test".to_string(),
-                altitude_deg: alt,
-                azimuth_deg: az,
-                declination_deg: 45.0,
-                gha_deg: 0.0,
+                altitude_deg: Angle::from_degrees(alt),
+                azimuth_deg: Angle::from_degrees(az),
+                declination_deg: Angle::from_degrees(45.0),
+                gha_deg: Angle::from_degrees(0.0),
             };
             let result = apply_celestial(&sit, &CelestialAction::Observe(obs));
             prop_assert!(result.is_ok());
@@ -318,15 +326,15 @@ mod proptest_proofs {
             let sit = CelestialSituation {
                 observations: vec![],
                 fix: None,
-                assumed_position: (34.0, -118.0),
+                assumed_position: GeodeticPosition::from_degrees(34.0, -118.0),
                 step: 0,
             };
             let obs = CelestialObservation {
                 body_name: "Test".to_string(),
-                altitude_deg: alt,
-                azimuth_deg: az,
-                declination_deg: dec,
-                gha_deg: gha,
+                altitude_deg: Angle::from_degrees(alt),
+                azimuth_deg: Angle::from_degrees(az),
+                declination_deg: Angle::from_degrees(dec),
+                gha_deg: Angle::from_degrees(gha),
             };
             let r1 = apply_celestial(&sit, &CelestialAction::Observe(obs.clone())).unwrap();
             let r2 = apply_celestial(&sit, &CelestialAction::Observe(obs)).unwrap();

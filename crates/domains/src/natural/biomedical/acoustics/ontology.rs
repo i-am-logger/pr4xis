@@ -32,9 +32,11 @@
 //!   Acoustical Society of America* 140(3), 1635–1651 — FE-based
 //!   end-to-end model of the conduction chain.
 
+use crate::formal::math::quantity::unit::{HERTZ, RAYL};
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Acoustics",
@@ -268,15 +270,17 @@ pub struct ImpedanceValue;
 
 impl Quality for ImpedanceValue {
     type Individual = AcousticsConcept;
-    type Value = f64;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &AcousticsConcept) -> Option<f64> {
+    fn get(&self, c: &AcousticsConcept) -> Option<Quantity> {
         use AcousticsConcept::*;
+        // MKS rayl (Pa·s/m) — specific acoustic impedance.
         match c {
-            Air => Some(415.0),
-            Bone => Some(7_400_000.0),
-            SoftTissue => Some(1_600_000.0),
-            Fluid => Some(1_500_000.0),
+            Air => Some(Quantity::from_unit(415.0, &RAYL)),
+            Bone => Some(Quantity::from_unit(7_400_000.0, &RAYL)),
+            SoftTissue => Some(Quantity::from_unit(1_600_000.0, &RAYL)),
+            Fluid => Some(Quantity::from_unit(1_500_000.0, &RAYL)),
             _ => None,
         }
     }
@@ -324,14 +328,19 @@ pub struct FrequencyRange;
 
 impl Quality for FrequencyRange {
     type Individual = AcousticsConcept;
-    type Value = (f64, f64);
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &AcousticsConcept) -> Option<(f64, f64)> {
+    fn get(&self, c: &AcousticsConcept) -> Option<QuantityRange> {
         use AcousticsConcept::*;
+        let mk = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &HERTZ),
+            max: Quantity::from_unit(hi, &HERTZ),
+        };
         match c {
-            SoundWave => Some((20.0, 20_000.0)),
-            AcousticFrequency => Some((20.0, 20_000.0)),
-            Waveform => Some((20.0, 120.0)),
+            SoundWave => Some(mk(20.0, 20_000.0)),
+            AcousticFrequency => Some(mk(20.0, 20_000.0)),
+            Waveform => Some(mk(20.0, 120.0)),
             _ => None,
         }
     }
@@ -377,8 +386,9 @@ impl Axiom for BoneImpedanceFarExceedsAir {
     fn verify(&self) -> Verdict {
         let bone_z = ImpedanceValue.get(&AcousticsConcept::Bone);
         let air_z = ImpedanceValue.get(&AcousticsConcept::Air);
+        // Both are MKS rayl (same dimension) — compare bare SI values.
         let ok = match (bone_z, air_z) {
-            (Some(b), Some(a)) if a > 0.0 => b / a > 1000.0,
+            (Some(b), Some(a)) if a.value > 0.0 => b.value / a.value > 1000.0,
             _ => false,
         };
         if ok {
@@ -408,8 +418,9 @@ impl Axiom for BoneImpedanceExceedsSoftTissue {
     fn verify(&self) -> Verdict {
         let bone_z = ImpedanceValue.get(&AcousticsConcept::Bone);
         let soft_z = ImpedanceValue.get(&AcousticsConcept::SoftTissue);
+        // Both are MKS rayl (same dimension) — compare bare SI values.
         let ok = match (bone_z, soft_z) {
-            (Some(b), Some(s)) => b > s,
+            (Some(b), Some(s)) => b.value > s.value,
             _ => false,
         };
         if ok {
@@ -752,18 +763,21 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn impedance_values_match_literature() {
-        assert_eq!(ImpedanceValue.get(&AcousticsConcept::Air), Some(415.0));
+        assert_eq!(
+            ImpedanceValue.get(&AcousticsConcept::Air),
+            Some(Quantity::from_unit(415.0, &RAYL))
+        );
         assert_eq!(
             ImpedanceValue.get(&AcousticsConcept::Bone),
-            Some(7_400_000.0)
+            Some(Quantity::from_unit(7_400_000.0, &RAYL))
         );
         assert_eq!(
             ImpedanceValue.get(&AcousticsConcept::SoftTissue),
-            Some(1_600_000.0)
+            Some(Quantity::from_unit(1_600_000.0, &RAYL))
         );
         assert_eq!(
             ImpedanceValue.get(&AcousticsConcept::Fluid),
-            Some(1_500_000.0)
+            Some(Quantity::from_unit(1_500_000.0, &RAYL))
         );
     }
 
@@ -789,11 +803,17 @@ mod tests {
     fn frequency_range_audible_and_therapeutic() {
         assert_eq!(
             FrequencyRange.get(&AcousticsConcept::SoundWave),
-            Some((20.0, 20_000.0))
+            Some(QuantityRange {
+                min: Quantity::from_unit(20.0, &HERTZ),
+                max: Quantity::from_unit(20_000.0, &HERTZ),
+            })
         );
         assert_eq!(
             FrequencyRange.get(&AcousticsConcept::Waveform),
-            Some((20.0, 120.0))
+            Some(QuantityRange {
+                min: Quantity::from_unit(20.0, &HERTZ),
+                max: Quantity::from_unit(120.0, &HERTZ),
+            })
         );
     }
 
@@ -851,14 +871,14 @@ mod tests {
         #[test]
         fn prop_impedance_positive_when_defined(c in arb_concept()) {
             if let Some(z) = ImpedanceValue.get(&c) {
-                prop_assert!(z > 0.0, "impedance must be positive for {:?}", c);
+                prop_assert!(z.value > 0.0, "impedance must be positive for {:?}", c);
             }
         }
 
         #[test]
         fn prop_frequency_range_valid(c in arb_concept()) {
-            if let Some((lo, hi)) = FrequencyRange.get(&c) {
-                prop_assert!(lo < hi, "frequency range min<max for {:?}", c);
+            if let Some(r) = FrequencyRange.get(&c) {
+                prop_assert!(r.min.value < r.max.value, "frequency range min<max for {:?}", c);
             }
         }
     }

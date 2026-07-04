@@ -11,7 +11,9 @@
 //!   Initial Stops: Acoustical Measurements", *Word* 20(3):384-422 — VOT.
 //! - **ANSI S3.5-1997** *Speech Intelligibility Index*.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{HERTZ, MILLISECOND};
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Speech",
@@ -183,48 +185,44 @@ pr4xis::ontology! {
 pub struct TypicalFrequency;
 impl Quality for TypicalFrequency {
     type Individual = SpeechConcept;
-    type Value = f64;
-    fn get(&self, individual: &SpeechConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &SpeechConcept) -> Option<Quantity> {
         use SpeechConcept::*;
         match individual {
-            FundamentalFrequency => Some(150.0),
-            F1 => Some(500.0),
-            F2 => Some(1500.0),
-            F3 => Some(2500.0),
-            F4 => Some(3500.0),
-            LowFrequencySpeech => Some(250.0),
-            MidFrequencySpeech => Some(1500.0),
-            HighFrequencySpeech => Some(5000.0),
+            FundamentalFrequency => Some(Quantity::from_unit(150.0, &HERTZ)),
+            F1 => Some(Quantity::from_unit(500.0, &HERTZ)),
+            F2 => Some(Quantity::from_unit(1500.0, &HERTZ)),
+            F3 => Some(Quantity::from_unit(2500.0, &HERTZ)),
+            F4 => Some(Quantity::from_unit(3500.0, &HERTZ)),
+            LowFrequencySpeech => Some(Quantity::from_unit(250.0, &HERTZ)),
+            MidFrequencySpeech => Some(Quantity::from_unit(1500.0, &HERTZ)),
+            HighFrequencySpeech => Some(Quantity::from_unit(5000.0, &HERTZ)),
             _ => None,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FreqRange {
-    pub low: f64,
-    pub high: f64,
 }
 
 #[derive(Debug, Clone)]
 pub struct SpectralRange;
 impl Quality for SpectralRange {
     type Individual = SpeechConcept;
-    type Value = FreqRange;
-    fn get(&self, individual: &SpeechConcept) -> Option<FreqRange> {
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &SpeechConcept) -> Option<QuantityRange> {
         use SpeechConcept::*;
         match individual {
-            LowFrequencySpeech => Some(FreqRange {
-                low: 125.0,
-                high: 500.0,
+            LowFrequencySpeech => Some(QuantityRange {
+                min: Quantity::from_unit(125.0, &HERTZ),
+                max: Quantity::from_unit(500.0, &HERTZ),
             }),
-            MidFrequencySpeech => Some(FreqRange {
-                low: 500.0,
-                high: 3000.0,
+            MidFrequencySpeech => Some(QuantityRange {
+                min: Quantity::from_unit(500.0, &HERTZ),
+                max: Quantity::from_unit(3000.0, &HERTZ),
             }),
-            HighFrequencySpeech => Some(FreqRange {
-                low: 3000.0,
-                high: 8000.0,
+            HighFrequencySpeech => Some(QuantityRange {
+                min: Quantity::from_unit(3000.0, &HERTZ),
+                max: Quantity::from_unit(8000.0, &HERTZ),
             }),
             _ => None,
         }
@@ -235,14 +233,15 @@ impl Quality for SpectralRange {
 pub struct TypicalVOT;
 impl Quality for TypicalVOT {
     type Individual = SpeechConcept;
-    type Value = f64;
-    fn get(&self, individual: &SpeechConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &SpeechConcept) -> Option<Quantity> {
         use SpeechConcept::*;
         match individual {
-            Voiced => Some(0.0),
-            Voiceless => Some(70.0),
-            Plosive => Some(35.0),
-            VoiceOnsetTime => Some(35.0),
+            Voiced => Some(Quantity::from_unit(0.0, &MILLISECOND)),
+            Voiceless => Some(Quantity::from_unit(70.0, &MILLISECOND)),
+            Plosive => Some(Quantity::from_unit(35.0, &MILLISECOND)),
+            VoiceOnsetTime => Some(Quantity::from_unit(35.0, &MILLISECOND)),
             _ => None,
         }
     }
@@ -282,10 +281,12 @@ impl Axiom for FormantsAreOrdered {
         use SpeechConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let f = TypicalFrequency;
-        let f1 = f.get(&F1).unwrap_or(0.0);
-        let f2 = f.get(&F2).unwrap_or(0.0);
-        let f3 = f.get(&F3).unwrap_or(0.0);
-        let f4 = f.get(&F4).unwrap_or(0.0);
+        // All formant frequencies share the HERTZ unit, so comparing the SI
+        // `.value` fields preserves the frequency ordering exactly.
+        let f1 = f.get(&F1).map(|q| q.value).unwrap_or(0.0);
+        let f2 = f.get(&F2).map(|q| q.value).unwrap_or(0.0);
+        let f3 = f.get(&F3).map(|q| q.value).unwrap_or(0.0);
+        let f4 = f.get(&F4).map(|q| q.value).unwrap_or(0.0);
         if f1 < f2 && f2 < f3 && f3 < f4 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

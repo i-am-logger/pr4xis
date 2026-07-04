@@ -1,11 +1,25 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::coordinate::PolarCoordinate;
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::signal_processing::sampling;
 
-use crate::applied::tracking::radar::coordinate;
+/// Range magnitude (metres) below which the target is treated as co-located
+/// with the sensor: bearing/azimuth is undefined and the observation Jacobian
+/// is returned as zero.
+///
+/// This is a numerical singularity guard, not a physical range-resolution spec.
+/// The azimuth partials in [`radar_jacobian_2d`] scale as `1/r²`, which diverges
+/// as `r → 0`. The value is a small positive epsilon (0.1 nm) — orders of
+/// magnitude below any physical radar range — so it never triggers on a real
+/// detection, yet keeps the `1/r²` terms finite at the coordinate origin.
+///
+/// Rationale: standard EKF practice guards the polar-measurement singularity at
+/// the origin; see Bar-Shalom et al. (2001), *Estimation with Applications to
+/// Tracking and Navigation*, Ch. 10 (converted / mixed-coordinate measurements).
+const ZERO_RANGE_EPS_M: f64 = 1e-10;
 
 /// Radar observation model: maps Cartesian state to polar measurement.
 ///
@@ -18,8 +32,8 @@ use crate::applied::tracking::radar::coordinate;
 pub fn radar_measurement_2d(state: &Vector) -> Vector {
     let x = state.get(0);
     let y = state.get(2);
-    let (range, azimuth) = coordinate::cartesian_to_polar_2d(x, y);
-    Vector::new(vec![range, azimuth])
+    let polar = PolarCoordinate::from_cartesian(&Vector::new(vec![x, y]));
+    Vector::new(vec![polar.range, polar.azimuth.radians()])
 }
 
 /// Check if radar scan rate satisfies Nyquist for target dynamics.
@@ -51,7 +65,7 @@ pub fn radar_jacobian_2d(state: &Vector) -> Matrix {
     let r = (x * x + y * y).sqrt();
     let r2 = r * r;
 
-    if r < 1e-10 {
+    if r < ZERO_RANGE_EPS_M {
         return Matrix::zeros(2, 4); // degenerate at origin
     }
 

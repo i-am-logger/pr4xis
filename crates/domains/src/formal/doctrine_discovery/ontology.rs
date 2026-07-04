@@ -274,24 +274,65 @@ pr4xis::register_axiom!(
     "Maedche & Staab (2001) IEEE Intelligent Systems 16(2):72-79"
 );
 
+/// The scholarly lineage (author-year tradition) that introduces a
+/// doctrine-discovery concept. A closed set of named FCA / ontology-learning
+/// / abduction / fibration traditions, one variant per source:
+///
+/// - [`DoctrineLineage::Wille`] — Wille (1982) "Restructuring Lattice Theory",
+///   in *Ordered Sets*, Reidel (FCA foundations: G, M, I).
+/// - [`DoctrineLineage::GanterWille`] — Ganter & Wille (1999) *Formal Concept
+///   Analysis: Mathematical Foundations*, Springer (formal concepts / intents).
+/// - [`DoctrineLineage::DuquenneGuigues`] — Duquenne & Guigues (1986) "Familles
+///   minimales d'implications informatives", *Math. Sci. Hum.* 95 (canonical
+///   implication basis).
+/// - [`DoctrineLineage::CimianoHothoStaab`] — Cimiano, Hotho & Staab (2005)
+///   *JAIR* 24:305-339 (FCA ontology-learning outputs).
+/// - [`DoctrineLineage::Peirce`] — Peirce (1903) *Harvard Lectures on
+///   Pragmatism*, Lecture VII (abductive inference).
+/// - [`DoctrineLineage::GrothendieckJacobs`] — Grothendieck (1971) SGA 1;
+///   Jacobs (1999) *Categorical Logic and Type Theory* (fibrations).
+/// - [`DoctrineLineage::MaedcheStaab`] — Maedche & Staab (2001) *IEEE
+///   Intelligent Systems* 16(2):72-79 (discovery-engine / pipeline architecture).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DoctrineLineage {
+    /// Wille (1982) — FCA foundations.
+    Wille,
+    /// Ganter & Wille (1999) — formal concepts / intents.
+    GanterWille,
+    /// Duquenne & Guigues (1986) — canonical implication basis.
+    DuquenneGuigues,
+    /// Cimiano, Hotho & Staab (2005) — FCA ontology-learning outputs.
+    CimianoHothoStaab,
+    /// Peirce (1903) — abductive inference.
+    Peirce,
+    /// Grothendieck (1971); Jacobs (1999) — fibrations.
+    GrothendieckJacobs,
+    /// Maedche & Staab (2001) — discovery-engine / pipeline architecture.
+    MaedcheStaab,
+}
+
 /// Quality: which literature lineage introduces each concept?
 #[derive(Debug, Clone)]
 pub struct DoctrineDiscoveryLineage;
 
 impl Quality for DoctrineDiscoveryLineage {
     type Individual = DoctrineDiscoveryConcept;
-    type Value = &'static str;
+    type Value = DoctrineLineage;
 
-    fn get(&self, c: &DoctrineDiscoveryConcept) -> Option<&'static str> {
+    fn get(&self, c: &DoctrineDiscoveryConcept) -> Option<DoctrineLineage> {
         use DoctrineDiscoveryConcept as C;
         Some(match c {
-            C::ObjectCorpus | C::AttributeExtractor | C::FormalContextInput => "wille",
-            C::DoctrineCluster | C::DoctrineHierarchy => "ganter-wille",
-            C::AttributeClosureImplication | C::CanonicalDoctrineBasis => "duquenne-guigues",
-            C::DoctrineDiscovery => "cimiano-hotho-staab",
-            C::AbductiveLift => "peirce",
-            C::FibrationLift => "grothendieck-jacobs",
-            _ => "maedche-staab",
+            C::ObjectCorpus | C::AttributeExtractor | C::FormalContextInput => {
+                DoctrineLineage::Wille
+            }
+            C::DoctrineCluster | C::DoctrineHierarchy => DoctrineLineage::GanterWille,
+            C::AttributeClosureImplication | C::CanonicalDoctrineBasis => {
+                DoctrineLineage::DuquenneGuigues
+            }
+            C::DoctrineDiscovery => DoctrineLineage::CimianoHothoStaab,
+            C::AbductiveLift => DoctrineLineage::Peirce,
+            C::FibrationLift => DoctrineLineage::GrothendieckJacobs,
+            _ => DoctrineLineage::MaedcheStaab,
         })
     }
 }

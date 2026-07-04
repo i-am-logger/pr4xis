@@ -169,21 +169,45 @@ pr4xis::ontology! {
 // Qualities
 // -----------------------------------------------------------------------------
 
-/// Literature source for each concept.
+/// The founding work / scholarly tradition each model-theoretic concept
+/// traces to.
+///
+/// A closed set of the field's founding sources (see the module-level
+/// Literature section): Tarski's two foundational papers, the Chang &
+/// Keisler textbook, and Gödel's metatheorems. Source: Tarski (1933,
+/// 1936); Chang & Keisler (1990) *Model Theory*; Gödel (1930, 1931).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelTheoryTradition {
+    /// Tarski (1933) *The Concept of Truth in Formalized Languages* — the
+    /// recursive (T-schema) definition of satisfaction and truth.
+    Tarski1933,
+    /// Tarski (1936) *On the Concept of Logical Consequence* — the
+    /// semantic entailment relation Γ ⊨ φ.
+    Tarski1936,
+    /// Chang & Keisler (1990) *Model Theory* — the canonical treatment of
+    /// structures, theories, and the classical metatheorems.
+    ChangKeisler1990,
+    /// Gödel (1930) completeness and (1931) incompleteness theorems — the
+    /// proof/semantics bridge and its limits.
+    Godel,
+}
+
+/// Quality: the founding [`ModelTheoryTradition`] each concept traces to.
 #[derive(Debug, Clone)]
-pub struct ModelTheoryTradition;
+pub struct ModelTheoryTraditionOf;
 
-impl Quality for ModelTheoryTradition {
+impl Quality for ModelTheoryTraditionOf {
     type Individual = ModelTheoryConcept;
-    type Value = &'static str;
+    type Value = ModelTheoryTradition;
 
-    fn get(&self, c: &ModelTheoryConcept) -> Option<&'static str> {
+    fn get(&self, c: &ModelTheoryConcept) -> Option<ModelTheoryTradition> {
         use ModelTheoryConcept as M;
+        use ModelTheoryTradition as T;
         Some(match c {
             M::Satisfaction | M::Truth | M::Falsity | M::Assignment | M::Interpretation => {
-                "tarski-1933"
+                T::Tarski1933
             }
-            M::LogicalConsequence | M::Entailment => "tarski-1936",
+            M::LogicalConsequence | M::Entailment => T::Tarski1936,
             M::Validity
             | M::Satisfiability
             | M::Equivalence
@@ -195,15 +219,15 @@ impl Quality for ModelTheoryTradition {
             | M::AxiomSet
             | M::ElementaryEquivalence
             | M::Compactness
-            | M::LowenheimSkolem => "chang-keisler-1990",
-            M::Soundness | M::Completeness | M::Consistency => "godel-1930-1931",
+            | M::LowenheimSkolem => T::ChangKeisler1990,
+            M::Soundness | M::Completeness | M::Consistency => T::Godel,
         })
     }
 }
 
 impl Ontology for ModelTheoryOntology {
     type Cat = ModelTheoryCategory;
-    type Qual = ModelTheoryTradition;
+    type Qual = ModelTheoryTraditionOf;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
         pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()

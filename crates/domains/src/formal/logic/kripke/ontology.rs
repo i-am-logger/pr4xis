@@ -105,22 +105,40 @@ pr4xis::ontology! {
     ],
 }
 
+/// The four structural aspects of the Kripke apparatus. Every Kripke
+/// concept belongs to exactly one: the frame (W, R) skeleton, the semantic
+/// machinery that evaluates truth, the modal operators, or the frame
+/// conditions that constrain accessibility. This partition is the standard
+/// presentation of Kripke semantics (Kripke 1963; Hughes & Cresswell 1996,
+/// New Introduction to Modal Logic).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KripkeAspect {
+    /// The frame skeleton: worlds W and the accessibility relation R.
+    Frame,
+    /// The semantic apparatus: valuation and the forcing relation ⊩.
+    Semantics,
+    /// The modal operators □ and ◇ that quantify over accessibility.
+    ModalOperator,
+    /// The frame conditions (reflexive, symmetric, …) on R.
+    FrameCondition,
+}
+
 /// Which aspect of the Kripke apparatus each concept belongs to.
 #[derive(Debug, Clone)]
 pub struct KripkeFamily;
 
 impl Quality for KripkeFamily {
     type Individual = KripkeConcept;
-    type Value = &'static str;
+    type Value = KripkeAspect;
 
-    fn get(&self, c: &KripkeConcept) -> Option<&'static str> {
+    fn get(&self, c: &KripkeConcept) -> Option<KripkeAspect> {
         use KripkeConcept as K;
         Some(match c {
-            K::KripkeFrame | K::PossibleWorld | K::AccessibilityRelation => "frame",
-            K::Valuation | K::ForcingRelation => "semantics",
-            K::ModalOperator | K::Necessity | K::Possibility => "modal-operator",
+            K::KripkeFrame | K::PossibleWorld | K::AccessibilityRelation => KripkeAspect::Frame,
+            K::Valuation | K::ForcingRelation => KripkeAspect::Semantics,
+            K::ModalOperator | K::Necessity | K::Possibility => KripkeAspect::ModalOperator,
             K::FrameCondition | K::Reflexive | K::Symmetric | K::Transitive | K::Euclidean => {
-                "frame-condition"
+                KripkeAspect::FrameCondition
             }
         })
     }

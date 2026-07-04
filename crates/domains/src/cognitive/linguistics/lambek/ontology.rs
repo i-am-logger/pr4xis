@@ -53,19 +53,34 @@ pr4xis::ontology! {
     ],
 }
 
-/// Whether a concept is a type-forming construct or a reduction move.
+/// The two structural roles a Lambek concept can play: forming a grammatical
+/// type versus performing a reduction move.
+///
+/// A closed classification following Lambek's own separation of the pregroup
+/// *algebra of types* (types and their left/right adjoints) from the *proof
+/// system* of reduction rules (contraction and expansion) that acts on type
+/// strings. Lambek (1999) *Type Grammars Revisited*, LNCS 1582.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LambekRoleKind {
+    /// A type-forming construct: a type or one of its adjoint operators.
+    TypeForming,
+    /// A reduction move: a contraction, expansion, or a composed reduction.
+    ReductionMove,
+}
+
+/// Quality: the structural [`LambekRoleKind`] each Lambek concept plays.
 #[derive(Debug, Clone)]
 pub struct LambekRole;
 
 impl Quality for LambekRole {
     type Individual = LambekConcept;
-    type Value = &'static str;
+    type Value = LambekRoleKind;
 
-    fn get(&self, c: &LambekConcept) -> Option<&'static str> {
+    fn get(&self, c: &LambekConcept) -> Option<LambekRoleKind> {
         use LambekConcept as L;
         Some(match c {
-            L::LambekType | L::LeftAdjoint | L::RightAdjoint => "type-forming",
-            L::Contraction | L::Expansion | L::Reduction => "reduction-move",
+            L::LambekType | L::LeftAdjoint | L::RightAdjoint => LambekRoleKind::TypeForming,
+            L::Contraction | L::Expansion | L::Reduction => LambekRoleKind::ReductionMove,
         })
     }
 }

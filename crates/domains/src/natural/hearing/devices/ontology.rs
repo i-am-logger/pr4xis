@@ -14,7 +14,13 @@
 //!
 //! Per `feedback_one_ontology_per_module`, the dual-enum has been merged.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::level::{
+    LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
+};
+use crate::formal::math::quantity::unit::DAY;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Device",
@@ -183,19 +189,23 @@ pr4xis::ontology! {
 pub struct MaxGainDB;
 impl Quality for MaxGainDB {
     type Individual = DeviceConcept;
-    type Value = f64;
-    fn get(&self, individual: &DeviceConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &DeviceConcept) -> Option<LogarithmicLevel> {
         use DeviceConcept::*;
-        match individual {
-            CompletelyInCanal => Some(40.0),
-            InTheEar => Some(55.0),
-            BehindTheEar => Some(75.0),
-            ReceiverInCanal => Some(60.0),
-            CochlearImplant => Some(120.0),
-            BoneAnchoredHearingAid => Some(45.0),
-            BoneConductionHeadphone => Some(30.0),
-            _ => None,
-        }
+        // Maximum acoustic gain — a dB field ratio (20·log₁₀ output/input),
+        // IEC 80000-15. A gain is logarithmic, not a linear Quantity.
+        let db = match individual {
+            CompletelyInCanal => 40.0,
+            InTheEar => 55.0,
+            BehindTheEar => 75.0,
+            ReceiverInCanal => 60.0,
+            CochlearImplant => 120.0,
+            BoneAnchoredHearingAid => 45.0,
+            BoneConductionHeadphone => 30.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(db, Ref::FieldRatio))
     }
 }
 
@@ -203,15 +213,18 @@ impl Quality for MaxGainDB {
 pub struct BatteryLifeDays;
 impl Quality for BatteryLifeDays {
     type Individual = DeviceConcept;
-    type Value = f64;
-    fn get(&self, individual: &DeviceConcept) -> Option<f64> {
+    type Value = Quantity;
+    // Battery life is a duration — DOLCE Temporal (Masolo 2003 §4.3).
+    const KIND: QualityKind = QualityKind::Temporal;
+    fn get(&self, individual: &DeviceConcept) -> Option<Quantity> {
         use DeviceConcept::*;
-        match individual {
-            BehindTheEar => Some(7.0),
-            CochlearImplant => Some(1.0),
-            CompletelyInCanal => Some(5.0),
-            _ => None,
-        }
+        let days = match individual {
+            BehindTheEar => 7.0,
+            CochlearImplant => 1.0,
+            CompletelyInCanal => 5.0,
+            _ => return None,
+        };
+        Some(Quantity::from_unit(days, &DAY))
     }
 }
 
@@ -269,8 +282,16 @@ impl Axiom for CIHighestGain {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use DeviceConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let ci = MaxGainDB.get(&CochlearImplant).unwrap_or(0.0);
-        let bte = MaxGainDB.get(&BehindTheEar).unwrap_or(0.0);
+        // Both gains share the FieldRatio reference (IEC 80000-15), so the
+        // dB levels are directly comparable on the same logarithmic scale.
+        let ci = MaxGainDB
+            .get(&CochlearImplant)
+            .map(|l| l.decibels)
+            .unwrap_or(0.0);
+        let bte = MaxGainDB
+            .get(&BehindTheEar)
+            .map(|l| l.decibels)
+            .unwrap_or(0.0);
         if ci > bte {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

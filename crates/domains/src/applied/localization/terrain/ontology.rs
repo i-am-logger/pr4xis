@@ -48,25 +48,53 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: curvature signature for each terrain feature type.
+/// The sign of a principal curvature of the elevation surface — the typed
+/// value the old positional `i8` encoded.
 ///
-/// Per Goldstein (1987) §3, the four feature kinds are characterised by
-/// the sign pair of their two principal curvatures (k1, k2):
-/// `Peak (−,−)`, `Valley (+,+)`, `Ridge (−,0)`, `Saddle (−,+)`.
+/// Second-derivative test (Goldstein 1987 §3): a negative principal curvature
+/// is a locally **convex** (dome-like) surface, positive is **concave**
+/// (bowl-like), zero is locally **planar** (e.g. along a ridgeline).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CurvatureSign {
+    /// Negative principal curvature — surface locally convex (peak / ridge).
+    Convex,
+    /// Zero principal curvature — surface locally planar (along a ridge).
+    Planar,
+    /// Positive principal curvature — surface locally concave (valley / pit).
+    Concave,
+}
+
+impl CurvatureSign {
+    /// The `{-1, 0, +1}` sign under Goldstein's (1987) second-derivative
+    /// convention: convex = −1, planar = 0, concave = +1.
+    pub fn sign(&self) -> i8 {
+        match self {
+            CurvatureSign::Convex => -1,
+            CurvatureSign::Planar => 0,
+            CurvatureSign::Concave => 1,
+        }
+    }
+}
+
+/// Quality: the principal-curvature signature of each terrain feature — a pair
+/// of typed [`CurvatureSign`]s (k1, k2), not raw `i8`s.
+///
+/// Per Goldstein (1987) §3: `Peak (convex, convex)`, `Valley (concave, concave)`,
+/// `Ridge (convex, planar)`, `Saddle (convex, concave)`.
 #[derive(Debug, Clone)]
 pub struct CurvatureSignature;
 
 impl Quality for CurvatureSignature {
     type Individual = TerrainConcept;
-    /// (principal curvature 1 sign, principal curvature 2 sign): +1, 0, -1
-    type Value = (i8, i8);
+    type Value = (CurvatureSign, CurvatureSign);
 
-    fn get(&self, feature: &TerrainConcept) -> Option<(i8, i8)> {
+    fn get(&self, feature: &TerrainConcept) -> Option<(CurvatureSign, CurvatureSign)> {
+        use CurvatureSign::{Concave, Convex, Planar};
         Some(match feature {
-            TerrainConcept::Peak => (-1, -1),
-            TerrainConcept::Valley => (1, 1),
-            TerrainConcept::Ridge => (-1, 0),
-            TerrainConcept::Saddle => (-1, 1),
+            TerrainConcept::Peak => (Convex, Convex),
+            TerrainConcept::Valley => (Concave, Concave),
+            TerrainConcept::Ridge => (Convex, Planar),
+            TerrainConcept::Saddle => (Convex, Concave),
         })
     }
 }
@@ -95,8 +123,8 @@ pub struct PeakCurvatureNegative;
 impl Axiom for PeakCurvatureNegative {
     fn verify(&self) -> Verdict {
         if let Some((k1, k2)) = CurvatureSignature.get(&TerrainConcept::Peak)
-            && k1 < 0
-            && k2 < 0
+            && k1.sign() < 0
+            && k2.sign() < 0
         {
             return Ok(Box::new(SimpleProof::new(self.meta())));
         }
@@ -124,8 +152,8 @@ pub struct ValleyCurvaturePositive;
 impl Axiom for ValleyCurvaturePositive {
     fn verify(&self) -> Verdict {
         if let Some((k1, k2)) = CurvatureSignature.get(&TerrainConcept::Valley)
-            && k1 > 0
-            && k2 > 0
+            && k1.sign() > 0
+            && k2.sign() > 0
         {
             return Ok(Box::new(SimpleProof::new(self.meta())));
         }
@@ -153,9 +181,9 @@ pub struct SaddleCurvaturesOpposite;
 impl Axiom for SaddleCurvaturesOpposite {
     fn verify(&self) -> Verdict {
         if let Some((k1, k2)) = CurvatureSignature.get(&TerrainConcept::Saddle)
-            && k1.signum() != 0
-            && k2.signum() != 0
-            && k1.signum() != k2.signum()
+            && k1.sign() != 0
+            && k2.sign() != 0
+            && k1.sign() != k2.sign()
         {
             return Ok(Box::new(SimpleProof::new(self.meta())));
         }
@@ -205,7 +233,7 @@ mod tests {
     fn peak_curvature_signature() {
         assert_eq!(
             CurvatureSignature.get(&TerrainConcept::Peak),
-            Some((-1, -1))
+            Some((CurvatureSign::Convex, CurvatureSign::Convex))
         );
     }
 
@@ -214,7 +242,7 @@ mod tests {
     fn valley_curvature_signature() {
         assert_eq!(
             CurvatureSignature.get(&TerrainConcept::Valley),
-            Some((1, 1))
+            Some((CurvatureSign::Concave, CurvatureSign::Concave))
         );
     }
 
@@ -281,10 +309,10 @@ mod tests {
 
         #[test]
         fn prop_curvature_signs_bounded(c in arb_concept()) {
-            // Each principal-curvature sign component is in {-1, 0, 1}.
+            // Each typed CurvatureSign maps into the {-1, 0, 1} sign convention.
             let (k1, k2) = CurvatureSignature.get(&c).unwrap();
-            prop_assert!((-1..=1).contains(&k1));
-            prop_assert!((-1..=1).contains(&k2));
+            prop_assert!((-1..=1).contains(&k1.sign()));
+            prop_assert!((-1..=1).contains(&k2.sign()));
         }
 
         #[test]

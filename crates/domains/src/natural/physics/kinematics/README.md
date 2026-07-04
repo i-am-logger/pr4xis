@@ -22,7 +22,7 @@ Objects are `KinematicQuantity` variants; the relation kind is `DerivativeRelati
 | Quality | Type | Description |
 |---|---|---|
 | DerivativeOrder | usize | 0 for Position, 1 for Velocity, 2 for Acceleration, 3 for Jerk |
-| SiUnit | &'static str | SI unit: m, m/s, m/s², m/s³ |
+| SiUnit | Unit | SI unit (typed quantity value): m, m/s, m/s², m/s³ |
 
 ## Axioms (8)
 

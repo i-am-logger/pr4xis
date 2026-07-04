@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::space::attitude::kinematics::{Quaternion, propagate_attitude};
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 /// Attitude determination using TRIAD method.
 ///
@@ -10,25 +11,27 @@ use crate::applied::space::attitude::kinematics::{Quaternion, propagate_attitude
 ///
 /// Source: Shuster & Oh (1981), "Three-Axis Attitude Determination from Vector Observations"
 /// Normalize a 3D vector.
-fn normalize(v: &[f64; 3]) -> [f64; 3] {
-    let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+fn normalize(v: &Vector) -> Vector {
+    let n = (v.get(0) * v.get(0) + v.get(1) * v.get(1) + v.get(2) * v.get(2)).sqrt();
     if n > 0.0 {
-        [v[0] / n, v[1] / n, v[2] / n]
+        Vector::new(vec![v.get(0) / n, v.get(1) / n, v.get(2) / n])
     } else {
-        [0.0, 0.0, 0.0]
+        Vector::new(vec![0.0, 0.0, 0.0])
     }
 }
 
 /// Dot product of two 3D vectors.
-fn dot(a: &[f64; 3], b: &[f64; 3]) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+fn dot(a: &Vector, b: &Vector) -> f64 {
+    a.get(0) * b.get(0) + a.get(1) * b.get(1) + a.get(2) * b.get(2)
 }
 
 /// Simple attitude propagation state.
+///
+/// `angular_velocity` is the body-frame angular rate ω (rad/s).
 #[derive(Debug, Clone)]
 pub struct AttitudeState {
     pub quaternion: Quaternion,
-    pub angular_velocity: [f64; 3],
+    pub angular_velocity: Vector,
 }
 
 impl AttitudeState {
@@ -36,13 +39,13 @@ impl AttitudeState {
     pub fn propagate(&self, dt: f64) -> Self {
         Self {
             quaternion: propagate_attitude(&self.quaternion, &self.angular_velocity, dt),
-            angular_velocity: self.angular_velocity,
+            angular_velocity: self.angular_velocity.clone(),
         }
     }
 }
 
 /// Compute the angle between two unit vectors (rad).
-pub fn angle_between(a: &[f64; 3], b: &[f64; 3]) -> f64 {
+pub fn angle_between(a: &Vector, b: &Vector) -> f64 {
     let a = normalize(a);
     let b = normalize(b);
     let d = dot(&a, &b).clamp(-1.0, 1.0);

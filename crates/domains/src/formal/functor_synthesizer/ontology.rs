@@ -364,16 +364,48 @@ pr4xis::register_axiom!(
     "Mac Lane (1971) Categories for the Working Mathematician §I.3"
 );
 
-/// Quality: which literature lineage introduces each concept?
+/// The scholarly lineage that introduces each synthesizer concept — a
+/// closed set of the named traditions this module composes.
+///
+/// A closed taxonomy drawn from the module `source:` bibliography: the
+/// functor-law core is Mac Lane (1971); the bootstrap/refinement loop is
+/// the Goguen–Burstall–Cimiano institution-morphism lineage; the
+/// concept-lattice target category is Wille (1982); the discovery-input
+/// substrate is Maedche & Staab (2001). Concepts that belong to this
+/// module's own pipeline/abstract-category scaffolding, rather than to an
+/// external tradition, classify as `Structural`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiteratureLineage {
+    /// Mac Lane (1971) *Categories for the Working Mathematician* §I.3 —
+    /// the functor laws (identity/composition preservation) and their
+    /// artefacts.
+    MacLane,
+    /// Goguen & Burstall (1992) *JACM* 39(1):95–146 (institution
+    /// morphisms) + Cimiano (2006) *Ontology Learning and Population from
+    /// Text* §6 — the bootstrapping / refinement-convergence loop.
+    GoguenBurstallCimiano,
+    /// Wille (1982) "Restructuring Lattice Theory", *Ordered Sets* — the
+    /// concept-lattice fibration that supplies the cluster target category.
+    Wille,
+    /// Maedche & Staab (2001) *IEEE Intelligent Systems* 16(2):72–79 —
+    /// the ontology-learning discovery input the synthesizer reads.
+    MaedcheStaab,
+    /// This module's own pipeline stages and abstract categories — no
+    /// external tradition; structural scaffolding.
+    Structural,
+}
+
+/// Quality: which literature [`LiteratureLineage`] introduces each concept?
 #[derive(Debug, Clone)]
 pub struct FunctorSynthesizerLineage;
 
 impl Quality for FunctorSynthesizerLineage {
     type Individual = FunctorSynthesizerConcept;
-    type Value = &'static str;
+    type Value = LiteratureLineage;
 
-    fn get(&self, c: &FunctorSynthesizerConcept) -> Option<&'static str> {
+    fn get(&self, c: &FunctorSynthesizerConcept) -> Option<LiteratureLineage> {
         use FunctorSynthesizerConcept as C;
+        use LiteratureLineage as L;
         Some(match c {
             C::SynthesizedFunctor
             | C::ObjectMapping
@@ -381,11 +413,11 @@ impl Quality for FunctorSynthesizerLineage {
             | C::FunctorLaw
             | C::IdentityPreservation
             | C::CompositionPreservation
-            | C::FunctorComposition => "mac-lane",
-            C::BootstrappingCycle | C::ConvergenceWitness => "goguen-burstall-cimiano",
-            C::ClusterTargetCategory => "wille",
-            C::DiscoveryInput => "maedche-staab",
-            _ => "structural",
+            | C::FunctorComposition => L::MacLane,
+            C::BootstrappingCycle | C::ConvergenceWitness => L::GoguenBurstallCimiano,
+            C::ClusterTargetCategory => L::Wille,
+            C::DiscoveryInput => L::MaedcheStaab,
+            _ => L::Structural,
         })
     }
 }

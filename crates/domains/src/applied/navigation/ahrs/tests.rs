@@ -4,6 +4,7 @@ use pr4xis::ontology::Ontology;
 
 use crate::applied::navigation::ahrs::engine::*;
 use crate::applied::navigation::ahrs::ontology::*;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -56,16 +57,37 @@ fn zero_gyro_preserves_attitude() {
     let next = apply_ahrs(
         &sit,
         &AhrsAction::GyroUpdate {
-            angular_rate: [0.0, 0.0, 0.0],
+            angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
             dt: 0.01,
         },
     )
     .unwrap();
     // With zero angular rate, attitude should not change much
     // (small drift toward zero from (1-alpha) blending)
-    assert!((next.attitude.roll - sit.attitude.roll).abs() < 0.01);
-    assert!((next.attitude.pitch - sit.attitude.pitch).abs() < 0.01);
-    assert!((next.attitude.yaw - sit.attitude.yaw).abs() < 0.01);
+    assert!(
+        next.attitude
+            .roll
+            .difference(&sit.attitude.roll)
+            .radians()
+            .abs()
+            < 0.01
+    );
+    assert!(
+        next.attitude
+            .pitch
+            .difference(&sit.attitude.pitch)
+            .radians()
+            .abs()
+            < 0.01
+    );
+    assert!(
+        next.attitude
+            .yaw
+            .difference(&sit.attitude.yaw)
+            .radians()
+            .abs()
+            < 0.01
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -81,20 +103,20 @@ fn accel_at_rest_gives_level() {
     let next = apply_ahrs(
         &sit,
         &AhrsAction::AccelCorrection {
-            accel: [0.0, 0.0, -g], // level frame, accel reads [0, 0, -g]
+            accel: Vector::new(vec![0.0, 0.0, -g]), // level frame, accel reads [0, 0, -g]
         },
     )
     .unwrap();
     // With alpha=0, should snap to accel-derived attitude (level)
     assert!(
-        next.attitude.roll.abs() < 0.01,
+        next.attitude.roll.radians().abs() < 0.01,
         "roll should be ~0, got {}",
-        next.attitude.roll
+        next.attitude.roll.radians()
     );
     assert!(
-        next.attitude.pitch.abs() < 0.01,
+        next.attitude.pitch.radians().abs() < 0.01,
         "pitch should be ~0, got {}",
-        next.attitude.pitch
+        next.attitude.pitch.radians()
     );
 }
 
@@ -110,15 +132,15 @@ fn mag_north_gives_zero_heading() {
     let next = apply_ahrs(
         &sit,
         &AhrsAction::MagCorrection {
-            mag: [20.0e-6, 0.0, -40.0e-6], // horizontal field pointing north
+            mag: Vector::new(vec![20.0e-6, 0.0, -40.0e-6]), // horizontal field pointing north
         },
     )
     .unwrap();
     // With alpha=0, should snap to mag-derived heading (north = 0)
     assert!(
-        next.attitude.yaw.abs() < 0.01,
+        next.attitude.yaw.radians().abs() < 0.01,
         "yaw should be ~0, got {}",
-        next.attitude.yaw
+        next.attitude.yaw.radians()
     );
 }
 
@@ -134,7 +156,7 @@ fn negative_dt_rejected() {
     let result = apply_ahrs(
         &sit,
         &AhrsAction::GyroUpdate {
-            angular_rate: [0.0, 0.0, 0.1],
+            angular_rate: Vector::new(vec![0.0, 0.0, 0.1]),
             dt: -0.01,
         },
     );
@@ -153,7 +175,7 @@ fn zero_accel_rejected() {
     let result = apply_ahrs(
         &sit,
         &AhrsAction::AccelCorrection {
-            accel: [0.0, 0.0, 0.0],
+            accel: Vector::new(vec![0.0, 0.0, 0.0]),
         },
     );
     assert!(result.is_err());
@@ -186,14 +208,14 @@ mod proptest_proofs {
                 total_time: 0.0,
             };
             let action = AhrsAction::GyroUpdate {
-                angular_rate: [wx, wy, wz],
+                angular_rate: Vector::new(vec![wx, wy, wz]),
                 dt,
             };
             let r1 = apply_ahrs(&sit, &action).unwrap();
             let r2 = apply_ahrs(&sit, &action).unwrap();
-            prop_assert!((r1.attitude.roll - r2.attitude.roll).abs() < 1e-15);
-            prop_assert!((r1.attitude.pitch - r2.attitude.pitch).abs() < 1e-15);
-            prop_assert!((r1.attitude.yaw - r2.attitude.yaw).abs() < 1e-15);
+            prop_assert!(r1.attitude.roll.difference(&r2.attitude.roll).radians().abs() < 1e-15);
+            prop_assert!(r1.attitude.pitch.difference(&r2.attitude.pitch).radians().abs() < 1e-15);
+            prop_assert!(r1.attitude.yaw.difference(&r2.attitude.yaw).radians().abs() < 1e-15);
         }
 
         #[test]
@@ -207,7 +229,7 @@ mod proptest_proofs {
                 total_time: 0.0,
             };
             let next = apply_ahrs(&sit, &AhrsAction::GyroUpdate {
-                angular_rate: [0.0, 0.0, 0.1],
+                angular_rate: Vector::new(vec![0.0, 0.0, 0.1]),
                 dt,
             }).unwrap();
             prop_assert!(next.total_time > sit.total_time);
@@ -234,7 +256,7 @@ mod proptest_proofs {
                 total_time: 0.0,
             };
             let next = apply_ahrs(&sit, &AhrsAction::GyroUpdate {
-                angular_rate: [wx, wy, wz],
+                angular_rate: Vector::new(vec![wx, wy, wz]),
                 dt,
             }).unwrap();
 
@@ -244,16 +266,16 @@ mod proptest_proofs {
             let expected_yaw = yaw + wz * dt;
 
             prop_assert!(
-                (next.attitude.roll - expected_roll).abs() < 1e-12,
-                "gyro roll: got {} expected {}", next.attitude.roll, expected_roll
+                (next.attitude.roll.radians() - expected_roll).abs() < 1e-12,
+                "gyro roll: got {} expected {}", next.attitude.roll.radians(), expected_roll
             );
             prop_assert!(
-                (next.attitude.pitch - expected_pitch).abs() < 1e-12,
-                "gyro pitch: got {} expected {}", next.attitude.pitch, expected_pitch
+                (next.attitude.pitch.radians() - expected_pitch).abs() < 1e-12,
+                "gyro pitch: got {} expected {}", next.attitude.pitch.radians(), expected_pitch
             );
             prop_assert!(
-                (next.attitude.yaw - expected_yaw).abs() < 1e-12,
-                "gyro yaw: got {} expected {}", next.attitude.yaw, expected_yaw
+                (next.attitude.yaw.radians() - expected_yaw).abs() < 1e-12,
+                "gyro yaw: got {} expected {}", next.attitude.yaw.radians(), expected_yaw
             );
         }
 
@@ -271,12 +293,12 @@ mod proptest_proofs {
                 total_time: 0.0,
             };
             let result = apply_ahrs(&sit, &AhrsAction::AccelCorrection {
-                accel: [ax, ay, -g],
+                accel: Vector::new(vec![ax, ay, -g]),
             });
             if let Ok(next) = result {
                 // Accel correction should only affect roll and pitch, not yaw
-                prop_assert!((next.attitude.yaw - sit.attitude.yaw).abs() < 1e-12,
-                    "yaw changed from {} to {}", sit.attitude.yaw, next.attitude.yaw);
+                prop_assert!(next.attitude.yaw.difference(&sit.attitude.yaw).radians().abs() < 1e-12,
+                    "yaw changed from {} to {}", sit.attitude.yaw.radians(), next.attitude.yaw.radians());
             }
         }
     }

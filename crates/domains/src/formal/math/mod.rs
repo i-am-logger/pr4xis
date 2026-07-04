@@ -8,7 +8,9 @@ pub mod quadratic;
 pub mod sets;
 
 // Applied mathematics — from praxis-sensor-fusion
+pub mod angle;
 pub mod control_theory;
+pub mod coordinate;
 pub mod geometry;
 pub mod linear_algebra;
 pub mod probability;

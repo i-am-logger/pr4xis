@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::space::orbit::propagator::{OrbitalState, mu_earth_km3s2, propagate_rk4};
+use crate::formal::math::angle::Angle;
+use crate::formal::math::linear_algebra::vector_space::Vector;
 
 /// Orbit determination from radar observations.
 ///
@@ -12,23 +14,24 @@ pub struct RadarObservation {
     pub range: f64,
     /// Range rate (km/s).
     pub range_rate: f64,
-    /// Azimuth angle (rad).
-    pub azimuth: f64,
-    /// Elevation angle (rad).
-    pub elevation: f64,
+    /// Azimuth angle.
+    pub azimuth: Angle,
+    /// Elevation angle.
+    pub elevation: Angle,
 }
 
-/// Convert radar observation to position in ECI (simplified, assuming station at origin).
-pub fn radar_to_eci(obs: &RadarObservation) -> [f64; 3] {
+/// Convert radar observation to a position `Vector` in the Earth-centred
+/// inertial (ECI) frame (simplified, assuming station at origin).
+pub fn radar_to_eci(obs: &RadarObservation) -> Vector {
     let cos_el = obs.elevation.cos();
     let sin_el = obs.elevation.sin();
     let cos_az = obs.azimuth.cos();
     let sin_az = obs.azimuth.sin();
-    [
+    Vector::new(vec![
         obs.range * cos_el * cos_az,
         obs.range * cos_el * sin_az,
         obs.range * sin_el,
-    ]
+    ])
 }
 
 /// Propagate orbit forward by a given number of steps.

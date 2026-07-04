@@ -42,10 +42,43 @@ pub struct DepthNonNegative;
 
 impl Axiom for DepthNonNegative {
     fn verify(&self) -> Verdict {
-        // Hydrostatic pressure P = ρ·g·h with ρ, g > 0 and h ≥ 0 below
-        // the free surface; depth = h ≥ 0 by definition of the
-        // surface-referenced coordinate frame.
-        Ok(Box::new(SimpleProof::new(self.meta())))
+        use crate::applied::underwater::auv::engine::{AuvState, DvlMeasurement, dead_reckon};
+        use crate::formal::math::angle::Angle;
+        use pr4xis::logic::proof::SimpleCounterexample;
+
+        // Hydrostatic depth is surface-referenced and positive-downward
+        // (Kinsey et al. 2006 §II): P = ρ·g·h with ρ, g > 0 and h ≥ 0 below
+        // the free surface. Exercise this on the real `dead_reckon` engine —
+        // a vehicle at or below the surface, propagated with a non-negative
+        // (descending or level) downward velocity, must dead-reckon to a
+        // non-negative depth. Each fixture is `(start_depth, downward, dt)`.
+        let fixtures = [
+            (0.0_f64, 0.0_f64, 10.0_f64), // holding level at the free surface
+            (10.0, 0.5, 20.0),            // descending from 10 m over 20 s
+            (100.0, 0.0, 5.0),            // holding station at 100 m
+            (5.0, 1.0, 2.0),              // descending from 5 m over 2 s
+        ];
+        let all_non_negative = fixtures.iter().all(|&(depth, downward, dt)| {
+            let state = AuvState {
+                north: 0.0,
+                east: 0.0,
+                depth,
+                heading: Angle::from_radians(0.0),
+            };
+            let dvl = DvlMeasurement {
+                forward: 0.0,
+                starboard: 0.0,
+                downward,
+                bottom_lock: true,
+            };
+            // Real depth propagation: depth' = depth + downward·dt.
+            dead_reckon(&state, &dvl, 0.0, dt).depth >= 0.0
+        });
+        if all_non_negative {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
     pr4xis::axiom_meta!(

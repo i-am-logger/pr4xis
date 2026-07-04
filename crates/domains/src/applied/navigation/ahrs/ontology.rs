@@ -10,7 +10,10 @@
 //!         Chapter 10.
 
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::DEGREE;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
     name: "Ahrs",
@@ -44,23 +47,32 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: Attitude accuracy (degrees RMS) for each filter type.
+/// Quality: static-condition RMS attitude accuracy of each filter, as an angular
+/// [`QuantityRange`] (degrees), NOT a prose string.
 ///
-/// Source: Madgwick (2010), comparative study results.
+/// `None` for the abstract `Filter` (accuracy is implementation-dependent). The
+/// ranges are the typical 1σ static-RMS figures from Madgwick's (2010)
+/// comparative study; a smaller range is a more accurate filter.
 #[derive(Debug, Clone)]
 pub struct AttitudeAccuracy;
 
 impl Quality for AttitudeAccuracy {
     type Individual = AhrsConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, filter: &AhrsConcept) -> Option<&'static str> {
+    fn get(&self, filter: &AhrsConcept) -> Option<QuantityRange> {
+        let deg = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &DEGREE),
+            max: Quantity::from_unit(hi, &DEGREE),
+        };
         Some(match filter {
-            AhrsConcept::Filter => "depends on implementation",
-            AhrsConcept::ComplementaryFilter => "~2-5 deg RMS static",
-            AhrsConcept::MahonyFilter => "~1-3 deg RMS static",
-            AhrsConcept::MadgwickFilter => "~0.5-2 deg RMS static",
-            AhrsConcept::ExtendedKalmanFilter => "~0.1-1 deg RMS static",
+            // Abstract root — accuracy is implementation-dependent.
+            AhrsConcept::Filter => return None,
+            AhrsConcept::ComplementaryFilter => deg(2.0, 5.0),
+            AhrsConcept::MahonyFilter => deg(1.0, 3.0),
+            AhrsConcept::MadgwickFilter => deg(0.5, 2.0),
+            AhrsConcept::ExtendedKalmanFilter => deg(0.1, 1.0),
         })
     }
 }
@@ -91,7 +103,9 @@ pub struct GravityGivesLevelAttitude;
 
 impl Axiom for GravityGivesLevelAttitude {
     fn verify(&self) -> Verdict {
-        let g = 9.80665_f64;
+        // Standard gravity from the cited quantity constant (BIPM), not a raw
+        // 9.80665 literal.
+        let g = crate::formal::math::quantity::constants::standard_gravity().value;
         let tilt = 10.0_f64.to_radians();
         let ax = 0.0_f64;
         let ay = g * tilt.sin();

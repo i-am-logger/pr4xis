@@ -5,6 +5,8 @@
 use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::unit::{self, Unit};
+
 pr4xis::ontology! {
     name: "Process",
     source: "Ogunnaike & Ray (1994); Seborg et al. (2011)",
@@ -20,19 +22,21 @@ pr4xis::ontology! {
 }
 
 /// Quality: physical unit for each process variable.
+///
+/// The value is the typed [`Unit`] from the quantity ontology, not a string label.
 #[derive(Debug, Clone)]
 pub struct PhysicalUnit;
 
 impl Quality for PhysicalUnit {
     type Individual = ProcessConcept;
-    type Value = &'static str;
+    type Value = Unit;
 
-    fn get(&self, var: &ProcessConcept) -> Option<&'static str> {
+    fn get(&self, var: &ProcessConcept) -> Option<Unit> {
         Some(match var {
-            ProcessConcept::Temperature => "Kelvin (K)",
-            ProcessConcept::Pressure => "Pascal (Pa)",
-            ProcessConcept::Flow => "m^3/s",
-            ProcessConcept::Level => "meters (m)",
+            ProcessConcept::Temperature => unit::KELVIN,
+            ProcessConcept::Pressure => unit::PASCAL,
+            ProcessConcept::Flow => unit::CUBIC_METER_PER_SECOND,
+            ProcessConcept::Level => unit::METER,
         })
     }
 }

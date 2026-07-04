@@ -15,6 +15,7 @@
 mod tests {
     use pr4xis_domains::applied::navigation::imu::strapdown::*;
     use pr4xis_domains::formal::math::geometry::point::Point3;
+    use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
     use pr4xis_domains::formal::math::rotation::quaternion::Quaternion;
     use pr4xis_domains::natural::physics::kinematics::velocity::Velocity;
 
@@ -28,8 +29,8 @@ mod tests {
 
         // Stationary: accel reads -g (specific force cancels gravity)
         let sample = ImuSample {
-            specific_force: [0.0, 0.0, -gravity_ned()[2]],
-            angular_rate: [0.0, 0.0, 0.0],
+            specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
+            angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
             dt: 0.01,
         };
 
@@ -64,8 +65,8 @@ mod tests {
         // Constant yaw rate: 10°/s for 1 second
         let yaw_rate = 10.0_f64.to_radians();
         let sample = ImuSample {
-            specific_force: [0.0, 0.0, -gravity_ned()[2]],
-            angular_rate: [0.0, 0.0, yaw_rate],
+            specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
+            angular_rate: Vector::new(vec![0.0, 0.0, yaw_rate]),
             dt: 0.01,
         };
 

@@ -8,7 +8,10 @@
 
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::HERTZ;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
     name: "InsGnss",
@@ -65,20 +68,38 @@ impl Quality for ErrorStateDescription {
     }
 }
 
-/// Quality: Coupling bandwidth — how fast corrections propagate.
+/// Quality: Coupling bandwidth — how fast corrections propagate, as a frequency
+/// [`QuantityRange`] (Hz), NOT a prose string.
+///
+/// Loosely and tightly coupled fusion both run at the 1–10 Hz GNSS solution rate
+/// (tightly coupled consumes raw pseudoranges rather than a PVT fix, but at the
+/// same output cadence); deeply coupled fusion aids the GNSS tracking loops and
+/// runs open-ended above 100 Hz, represented here as the half-open interval
+/// `[100, ∞) Hz`. `None` for the abstract `Coupling` root — bandwidth depends on
+/// the coupling level.
+///
+/// Source: Groves (2013) Chapters 14–17.
 #[derive(Debug, Clone)]
 pub struct CouplingBandwidth;
 
 impl Quality for CouplingBandwidth {
     type Individual = InsGnssConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, level: &InsGnssConcept) -> Option<&'static str> {
+    fn get(&self, level: &InsGnssConcept) -> Option<QuantityRange> {
+        let hz = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &HERTZ),
+            max: Quantity::from_unit(hi, &HERTZ),
+        };
         Some(match level {
-            InsGnssConcept::Coupling => "depends on coupling level",
-            InsGnssConcept::LooselyCoupled => "1-10 Hz GNSS update rate",
-            InsGnssConcept::TightlyCoupled => "1-10 Hz, uses raw pseudoranges",
-            InsGnssConcept::DeeplyCoupled => "100+ Hz, INS aids GNSS tracking loops",
+            // Abstract root — bandwidth depends on the coupling level.
+            InsGnssConcept::Coupling => return None,
+            InsGnssConcept::LooselyCoupled => hz(1.0, 10.0),
+            // Same 1–10 Hz cadence; consumes raw pseudoranges rather than a PVT fix.
+            InsGnssConcept::TightlyCoupled => hz(1.0, 10.0),
+            // Open-ended above 100 Hz — INS aids the GNSS tracking loops.
+            InsGnssConcept::DeeplyCoupled => hz(100.0, f64::INFINITY),
         })
     }
 }
@@ -98,7 +119,10 @@ pub struct CoastingDegrades;
 impl Axiom for CoastingDegrades {
     fn verify(&self) -> Verdict {
         let bias_mg = 1.0_f64;
-        let bias_mps2 = bias_mg * 1e-3 * 9.80665;
+        // milli-g of bias → m/s² via the cited standard-gravity constant (BIPM),
+        // never a raw 9.80665 literal.
+        let bias_mps2 =
+            bias_mg * 1e-3 * crate::formal::math::quantity::constants::standard_gravity().value;
         let t1 = 30.0_f64;
         let t2 = 60.0_f64;
         let error_t1 = 0.5 * bias_mps2 * t1 * t1;
@@ -181,9 +205,49 @@ impl Ontology for InsGnssOntology {
         axioms.push(Box::new(CoastingDegrades));
         axioms.push(Box::new(GnssUpdateReducesError));
         axioms.push(Box::new(TighterCouplingBetter));
+        axioms.push(Box::new(GnssFixNeverWorsensVelocity));
         axioms
     }
 }
+
+/// Axiom: a GNSS position fix never worsens the velocity estimate.
+///
+/// The velocity error is corrected through the position–velocity coupling by a
+/// factor `√(1 − ρ²·K) ≤ 1` (see [`PosVelCoupling`](crate::applied::navigation::ins_gnss::coupling::PosVelCoupling)),
+/// so the posterior velocity error can never exceed the prior — a GNSS update is
+/// honest, it cannot inject velocity error. Verified over a grid of prior errors,
+/// coupling regimes, and Kalman gains. This is the property the former inline
+/// `velocity_error * 0.8` / `* 0.5` gains asserted only by fiat.
+pub struct GnssFixNeverWorsensVelocity;
+
+impl Axiom for GnssFixNeverWorsensVelocity {
+    fn verify(&self) -> Verdict {
+        use crate::applied::navigation::ins_gnss::coupling::PosVelCoupling;
+        let couplings = [PosVelCoupling::nominal(), PosVelCoupling::reacquisition()];
+        let ok = couplings.iter().all(|c| {
+            [0.1_f64, 1.0, 10.0].iter().all(|&v| {
+                [0.0_f64, 0.3, 0.7, 1.0]
+                    .iter()
+                    .all(|&k| c.velocity_error_after_fix(v, k) <= v + 1e-12)
+            })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "GnssFixNeverWorsensVelocity",
+        "a GNSS position fix corrects velocity error by a factor <= 1 through the pos-vel coupling (never increases it)",
+        "Groves (2013) Principles of GNSS, Inertial, and Multisensor Integrated Navigation, 2nd ed., §14.3.3"
+    );
+}
+pr4xis::register_axiom!(
+    GnssFixNeverWorsensVelocity,
+    "Groves (2013) Principles of GNSS, Inertial, and Multisensor Integrated Navigation, 2nd ed., §14.3.3"
+);
 
 #[cfg(test)]
 mod tests {

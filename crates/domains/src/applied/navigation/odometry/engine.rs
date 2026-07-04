@@ -3,6 +3,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::formal::math::angle::Angle;
+
 /// Odometry pose: 2D position + heading.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OdometryPose {
@@ -10,13 +12,13 @@ pub struct OdometryPose {
     pub x: f64,
     /// Y position (meters).
     pub y: f64,
-    /// Heading angle (radians, 0 = forward/north).
-    pub heading: f64,
+    /// Heading angle (0 = forward/north), an element of the circle group S¹.
+    pub heading: Angle,
 }
 
 impl OdometryPose {
     /// Create a new pose.
-    pub fn new(x: f64, y: f64, heading: f64) -> Self {
+    pub fn new(x: f64, y: f64, heading: Angle) -> Self {
         Self { x, y, heading }
     }
 
@@ -25,7 +27,7 @@ impl OdometryPose {
         Self {
             x: 0.0,
             y: 0.0,
-            heading: 0.0,
+            heading: Angle::ZERO,
         }
     }
 
@@ -98,9 +100,9 @@ pub fn apply_odometry(
                 return Err("dt must be non-negative".into());
             }
             let distance = velocity * dt;
-            let new_heading = situation.pose.heading + heading_rate * dt;
+            let new_heading = situation.pose.heading.radians() + heading_rate * dt;
             // Use mid-heading for better integration accuracy
-            let mid_heading = situation.pose.heading + heading_rate * dt * 0.5;
+            let mid_heading = situation.pose.heading.radians() + heading_rate * dt * 0.5;
             let new_x = situation.pose.x + distance * mid_heading.cos();
             let new_y = situation.pose.y + distance * mid_heading.sin();
 
@@ -108,7 +110,7 @@ pub fn apply_odometry(
             let new_error = situation.drift_rate * new_distance;
 
             Ok(OdometrySituation {
-                pose: OdometryPose::new(new_x, new_y, new_heading),
+                pose: OdometryPose::new(new_x, new_y, Angle::from_radians(new_heading)),
                 velocity: *velocity,
                 distance_traveled: new_distance,
                 estimated_error: new_error,
@@ -128,16 +130,16 @@ pub fn apply_odometry(
             let distance = (left + right) / 2.0;
             let dtheta = (right - left) / wheel_base;
 
-            let mid_heading = situation.pose.heading + dtheta * 0.5;
+            let mid_heading = situation.pose.heading.radians() + dtheta * 0.5;
             let new_x = situation.pose.x + distance * mid_heading.cos();
             let new_y = situation.pose.y + distance * mid_heading.sin();
-            let new_heading = situation.pose.heading + dtheta;
+            let new_heading = situation.pose.heading.radians() + dtheta;
 
             let new_distance = situation.distance_traveled + distance.abs();
             let new_error = situation.drift_rate * new_distance;
 
             Ok(OdometrySituation {
-                pose: OdometryPose::new(new_x, new_y, new_heading),
+                pose: OdometryPose::new(new_x, new_y, Angle::from_radians(new_heading)),
                 velocity: 0.0, // unknown without dt
                 distance_traveled: new_distance,
                 estimated_error: new_error,

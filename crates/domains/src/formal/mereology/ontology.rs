@@ -280,27 +280,50 @@ impl Axiom for FusionProducesWhole {
 // MereologyKind — Leśniewski / Simons / Casati-Varzi / Lewis lineage tags.
 // -----------------------------------------------------------------------------
 
+/// The mereological literature-lineage that introduces each concept.
+///
+/// A closed set of the four traditions of parthood theory tracked by this
+/// ontology (see module docs): Leśniewski's Classical Extensional Mereology,
+/// Casati & Varzi's applied mereotopology, Simons's philosophical
+/// systematisation, and Lewis's gunk.
+///
+/// Source: Leśniewski (1916) Foundations of Mereology; Casati & Varzi (1999)
+/// Parts and Places; Simons (1987) Parts: A Study in Ontology; Lewis (1991)
+/// Parts of Classes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MereologyLineage {
+    /// Leśniewski (1916) — Classical Extensional Mereology (Part, Whole, Fusion).
+    Lesniewski,
+    /// Casati & Varzi (1999) — applied mereotopology
+    /// (proper part, overlap/underlap/disjoint, sum/product, composition).
+    CasatiVarzi,
+    /// Simons (1987) — philosophical systematisation (Atom, Supplementation).
+    Simons,
+    /// Lewis (1991) — gunk: no atoms, the divisions go all the way down.
+    Lewis,
+}
+
 /// Quality: which literature-lineage introduces each concept?
 #[derive(Debug, Clone)]
 pub struct MereologyKind;
 
 impl Quality for MereologyKind {
     type Individual = MereologyTheoryConcept;
-    type Value = &'static str;
+    type Value = MereologyLineage;
 
-    fn get(&self, c: &MereologyTheoryConcept) -> Option<&'static str> {
+    fn get(&self, c: &MereologyTheoryConcept) -> Option<MereologyLineage> {
         use MereologyTheoryConcept as M;
         Some(match c {
-            M::Part | M::Whole | M::Fusion => "lesniewski",
+            M::Part | M::Whole | M::Fusion => MereologyLineage::Lesniewski,
             M::ProperPart
             | M::Overlap
             | M::Underlap
             | M::Disjoint
             | M::Sum
             | M::Product
-            | M::Composition => "casati-varzi",
-            M::Atom | M::Supplementation => "simons",
-            M::Gunk => "lewis",
+            | M::Composition => MereologyLineage::CasatiVarzi,
+            M::Atom | M::Supplementation => MereologyLineage::Simons,
+            M::Gunk => MereologyLineage::Lewis,
         })
     }
 }

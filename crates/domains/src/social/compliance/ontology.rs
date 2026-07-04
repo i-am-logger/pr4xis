@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use pr4xis::category::{Arrow, Category, FinitelyGenerated};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated, NamedCategory};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -106,6 +106,20 @@ impl Category for ComplianceCategory {
 
     fn morphisms() -> Vec<EscalationTransition> {
         morphism_set().iter().cloned().collect()
+    }
+}
+
+/// The declared ontology identity of the compliance category.
+///
+/// `ComplianceCategory` is hand-rolled (it predates the `ontology!` macro), so
+/// it declares its [`NamedCategory`] name by hand — the one-line impl the trait
+/// doc prescribes for a hand-written category that participates as a functor
+/// endpoint. This is what lets [`SituationToCompliance`](crate::social::military::situation::compliance_functor::SituationToCompliance)
+/// serialize its target by content-addressable ontology name rather than a
+/// toolchain-bound `type_name`.
+impl NamedCategory for ComplianceCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("Compliance")
     }
 }
 

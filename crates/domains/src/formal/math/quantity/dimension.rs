@@ -120,6 +120,54 @@ impl Dimension {
         time: -1,
         ..Self::DIMENSIONLESS
     };
+    /// Pressure: M·L⁻¹·T⁻² (Pa)
+    pub const PRESSURE: Self = Self {
+        length: -1,
+        mass: 1,
+        time: -2,
+        ..Self::DIMENSIONLESS
+    };
+    /// Electric potential: M·L²·T⁻³·I⁻¹ (V)
+    pub const ELECTRIC_POTENTIAL: Self = Self {
+        length: 2,
+        mass: 1,
+        time: -3,
+        current: -1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Electrical conductance: M⁻¹·L⁻²·T³·I² (S = siemens)
+    pub const ELECTRICAL_CONDUCTANCE: Self = Self {
+        length: -2,
+        mass: -1,
+        time: 3,
+        current: 2,
+        ..Self::DIMENSIONLESS
+    };
+    /// Specific acoustic impedance: M·L⁻²·T⁻¹ (Pa·s/m = MKS rayl)
+    pub const ACOUSTIC_IMPEDANCE: Self = Self {
+        length: -2,
+        mass: 1,
+        time: -1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Luminance: J·L⁻² (cd/m² = nit)
+    pub const LUMINANCE: Self = Self {
+        length: -2,
+        luminous: 1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Amount-of-substance concentration: N·L⁻³ (mol/m³)
+    pub const MOLAR_CONCENTRATION: Self = Self {
+        length: -3,
+        amount: 1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Surface tension: M·T⁻² (N/m = kg/s²)
+    pub const SURFACE_TENSION: Self = Self {
+        mass: 1,
+        time: -2,
+        ..Self::DIMENSIONLESS
+    };
 
     /// Group operation: multiply dimensions (add exponents).
     ///

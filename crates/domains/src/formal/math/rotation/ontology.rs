@@ -7,6 +7,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::dcm::Dcm;
 use crate::formal::math::rotation::quaternion::Quaternion;
 
@@ -223,18 +224,18 @@ fn canonical_rotations() -> Vec<Quaternion> {
     use core::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
     vec![
         Quaternion::identity(),
-        Quaternion::from_axis_angle([1.0, 0.0, 0.0], FRAC_PI_2),
-        Quaternion::from_axis_angle([0.0, 1.0, 0.0], FRAC_PI_2),
-        Quaternion::from_axis_angle([0.0, 0.0, 1.0], FRAC_PI_2),
-        Quaternion::from_axis_angle([1.0, 0.0, 0.0], PI),
-        Quaternion::from_axis_angle([0.0, 1.0, 0.0], PI),
-        Quaternion::from_axis_angle([0.0, 0.0, 1.0], PI),
-        Quaternion::from_axis_angle([1.0, 0.0, 0.0], FRAC_PI_4),
-        Quaternion::from_axis_angle([0.0, 1.0, 0.0], FRAC_PI_4),
-        Quaternion::from_axis_angle([0.0, 0.0, 1.0], FRAC_PI_4),
+        Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), FRAC_PI_2),
+        Quaternion::from_axis_angle(&Vector::new(vec![0.0, 1.0, 0.0]), FRAC_PI_2),
+        Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), FRAC_PI_2),
+        Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), PI),
+        Quaternion::from_axis_angle(&Vector::new(vec![0.0, 1.0, 0.0]), PI),
+        Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), PI),
+        Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), FRAC_PI_4),
+        Quaternion::from_axis_angle(&Vector::new(vec![0.0, 1.0, 0.0]), FRAC_PI_4),
+        Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), FRAC_PI_4),
         {
             let s = 1.0 / 3.0_f64.sqrt();
-            Quaternion::from_axis_angle([s, s, s], 2.0 * PI / 3.0)
+            Quaternion::from_axis_angle(&Vector::new(vec![s, s, s]), 2.0 * PI / 3.0)
         },
     ]
 }

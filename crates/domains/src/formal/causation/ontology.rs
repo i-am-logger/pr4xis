@@ -303,29 +303,59 @@ impl Axiom for CounterfactualDependenceGroundsCausation {
 }
 
 // -----------------------------------------------------------------------------
-// CauseRole — which epistemic role a concept plays.
+// CauseRole — which theoretical lineage a concept descends from.
 // -----------------------------------------------------------------------------
 
-/// Quality: what role does this concept play in a causal analysis?
+/// The theoretical lineage a causation concept descends from.
+///
+/// A closed classification of the scholarly traditions this ontology draws
+/// on. Each causation concept is tagged with the lineage whose literature
+/// introduced or defines it.
+///
+/// Source: Lewis (1973) J. Phil. 70; Pearl (2000) *Causality*; Reichenbach
+/// (1956) *The Direction of Time*; Woodward (2003) *Making Things Happen*;
+/// Hall (2004) "Two Concepts of Causation"; Mackie (1974) *The Cement of the
+/// Universe* (INUS).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CausalLineage {
+    /// The bare cause/effect relata — the roles a causal relation ranges over.
+    Role,
+    /// Mackie (1974) INUS conditions — sufficient / necessary component causes.
+    MackieInus,
+    /// Mayr's ultimate-vs-proximate typology — distal vs proximate causes.
+    MayrTypology,
+    /// Reichenbach (1956) common-cause / screening-off principle.
+    Reichenbach,
+    /// Lewis (1973) counterfactual analysis of causation.
+    Lewis,
+    /// Lewis + Hall (2004) — preemption and overdetermination structures.
+    LewisHall,
+    /// Pearl (2000) do-calculus / Woodward (2003) interventionism.
+    PearlWoodward,
+    /// Structural causal models — the graph / chain machinery itself.
+    Structural,
+}
+
+/// Quality: which theoretical [`CausalLineage`] this concept descends from.
 /// Sourced-from tag per Hall/Mackie/Lewis/Pearl/Reichenbach lineage.
 #[derive(Debug, Clone)]
 pub struct CauseRole;
 
 impl Quality for CauseRole {
     type Individual = CausationConcept;
-    type Value = &'static str;
+    type Value = CausalLineage;
 
-    fn get(&self, c: &CausationConcept) -> Option<&'static str> {
+    fn get(&self, c: &CausationConcept) -> Option<CausalLineage> {
         use CausationConcept as C;
         Some(match c {
-            C::Cause | C::Effect => "role",
-            C::SufficientCause | C::NecessaryCause => "mackie-inus",
-            C::ProximateCause | C::DistalCause => "mayr-typology",
-            C::CommonCause => "reichenbach",
-            C::Counterfactual | C::CounterfactualDependence => "lewis",
-            C::Preemption | C::Overdetermination => "lewis-hall",
-            C::Intervention | C::CausalGraph => "pearl-woodward",
-            C::CausalChain => "structural",
+            C::Cause | C::Effect => CausalLineage::Role,
+            C::SufficientCause | C::NecessaryCause => CausalLineage::MackieInus,
+            C::ProximateCause | C::DistalCause => CausalLineage::MayrTypology,
+            C::CommonCause => CausalLineage::Reichenbach,
+            C::Counterfactual | C::CounterfactualDependence => CausalLineage::Lewis,
+            C::Preemption | C::Overdetermination => CausalLineage::LewisHall,
+            C::Intervention | C::CausalGraph => CausalLineage::PearlWoodward,
+            C::CausalChain => CausalLineage::Structural,
         })
     }
 }

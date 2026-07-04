@@ -24,7 +24,9 @@
 //! the source→receiver chain (Kinsler 2000) as named morphisms rather
 //! than a separate hand-rolled category.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate::formal::math::quantity::unit::{METER_PER_SECOND, RAYL};
+use crate::formal::math::quantity::value::Quantity;
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Acoustics",
@@ -202,18 +204,19 @@ pr4xis::ontology! {
 pub struct SpeedOfSound;
 impl Quality for SpeedOfSound {
     type Individual = AcousticsConcept;
-    type Value = f64;
-    fn get(&self, individual: &AcousticsConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &AcousticsConcept) -> Option<Quantity> {
         use AcousticsConcept::*;
-        match individual {
-            Air => Some(343.0),
-            Water => Some(1480.0),
-            CorticalBone => Some(4080.0),
-            CancellousBone => Some(1800.0),
-            SoftTissue => Some(1540.0),
-            Cartilage => Some(1665.0),
-            _ => None,
-        }
+        Some(match individual {
+            Air => Quantity::from_unit(343.0, &METER_PER_SECOND),
+            Water => Quantity::from_unit(1480.0, &METER_PER_SECOND),
+            CorticalBone => Quantity::from_unit(4080.0, &METER_PER_SECOND),
+            CancellousBone => Quantity::from_unit(1800.0, &METER_PER_SECOND),
+            SoftTissue => Quantity::from_unit(1540.0, &METER_PER_SECOND),
+            Cartilage => Quantity::from_unit(1665.0, &METER_PER_SECOND),
+            _ => return None,
+        })
     }
 }
 
@@ -223,18 +226,19 @@ impl Quality for SpeedOfSound {
 pub struct AcousticImpedance;
 impl Quality for AcousticImpedance {
     type Individual = AcousticsConcept;
-    type Value = f64;
-    fn get(&self, individual: &AcousticsConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &AcousticsConcept) -> Option<Quantity> {
         use AcousticsConcept::*;
-        match individual {
-            Air => Some(413.0),
-            Water => Some(1.48e6),
-            CorticalBone => Some(7.38e6),
-            CancellousBone => Some(1.44e6),
-            SoftTissue => Some(1.63e6),
-            Cartilage => Some(1.83e6),
-            _ => None,
-        }
+        Some(match individual {
+            Air => Quantity::from_unit(413.0, &RAYL),
+            Water => Quantity::from_unit(1.48e6, &RAYL),
+            CorticalBone => Quantity::from_unit(7.38e6, &RAYL),
+            CancellousBone => Quantity::from_unit(1.44e6, &RAYL),
+            SoftTissue => Quantity::from_unit(1.63e6, &RAYL),
+            Cartilage => Quantity::from_unit(1.83e6, &RAYL),
+            _ => return None,
+        })
     }
 }
 
@@ -302,7 +306,10 @@ impl Axiom for BoneFasterThanAir {
         use AcousticsConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let s = SpeedOfSound;
-        if s.get(&CorticalBone).unwrap_or(0.0) > s.get(&Air).unwrap_or(0.0) {
+        // Same unit (m/s) → same dimension; comparing .value is well-defined.
+        let bone = s.get(&CorticalBone).map(|q| q.value).unwrap_or(0.0);
+        let air = s.get(&Air).map(|q| q.value).unwrap_or(0.0);
+        if bone > air {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -325,8 +332,9 @@ impl Axiom for BoneAirImpedanceMismatch {
         use AcousticsConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let z = AcousticImpedance;
-        let bone = z.get(&CorticalBone).unwrap_or(0.0);
-        let air = z.get(&Air).unwrap_or(1.0);
+        // Both in rayl (Pa·s/m) → same dimension; the ratio is well-defined.
+        let bone = z.get(&CorticalBone).map(|q| q.value).unwrap_or(0.0);
+        let air = z.get(&Air).map(|q| q.value).unwrap_or(1.0);
         if bone / air > 1000.0 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -350,8 +358,9 @@ impl Axiom for SoftTissueMatchesWater {
         use AcousticsConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let z = AcousticImpedance;
-        let tissue = z.get(&SoftTissue).unwrap_or(0.0);
-        let water = z.get(&Water).unwrap_or(1.0);
+        // Both in rayl (Pa·s/m) → same dimension; the ratio is well-defined.
+        let tissue = z.get(&SoftTissue).map(|q| q.value).unwrap_or(0.0);
+        let water = z.get(&Water).map(|q| q.value).unwrap_or(1.0);
         let r = tissue / water;
         if (0.85..=1.15).contains(&r) {
             Ok(Box::new(SimpleProof::new(self.meta())))
@@ -507,8 +516,8 @@ mod tests {
         let air = z.get(&AcousticsConcept::Air).unwrap();
         let water = z.get(&AcousticsConcept::Water).unwrap();
         let bone = z.get(&AcousticsConcept::CorticalBone).unwrap();
-        assert!(air < water);
-        assert!(water < bone);
+        assert!(air.value < water.value);
+        assert!(water.value < bone.value);
     }
 
     fn arb_concept() -> impl Strategy<Value = AcousticsConcept> {

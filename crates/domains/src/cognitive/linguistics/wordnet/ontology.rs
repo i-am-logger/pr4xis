@@ -63,20 +63,41 @@ pr4xis::ontology! {
     ],
 }
 
+/// The stratum a WordNet concept belongs to: a synset-level conceptual
+/// entity, a word-level lexical entity, or a semantic/lexical relation.
+///
+/// A closed classification from Miller (1995) §2–3, which distinguishes the
+/// conceptual layer (synsets and the is-a taxonomy nodes built over them)
+/// from the lexical layer (word forms and their senses) and from the
+/// relations that link them — the reason antonymy is word-level while
+/// hypernymy is concept-level. First-class rather than a bare string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WordNetRoleKind {
+    /// A synset-level conceptual entity: a synset or a taxonomy node
+    /// (hypernym/hyponym) built over synsets. Miller (1995) §2.
+    Conceptual,
+    /// A word-level lexical entity: a word form or a (word, synset) sense.
+    /// Miller (1995) §2.
+    Lexical,
+    /// A relation linking words or synsets (meronymy, holonymy, antonymy).
+    /// Miller (1995) §3.
+    Relation,
+}
+
 /// Whether a concept is a lexical unit, a synset, or a lexical relation.
 #[derive(Debug, Clone)]
 pub struct WordNetRole;
 
 impl Quality for WordNetRole {
     type Individual = WordNetConcept;
-    type Value = &'static str;
+    type Value = WordNetRoleKind;
 
-    fn get(&self, c: &WordNetConcept) -> Option<&'static str> {
+    fn get(&self, c: &WordNetConcept) -> Option<WordNetRoleKind> {
         use WordNetConcept as W;
         Some(match c {
-            W::Synset | W::Hypernym | W::Hyponym => "conceptual",
-            W::Word | W::Sense => "lexical",
-            W::Meronym | W::Holonym | W::Antonym => "relation",
+            W::Synset | W::Hypernym | W::Hyponym => WordNetRoleKind::Conceptual,
+            W::Word | W::Sense => WordNetRoleKind::Lexical,
+            W::Meronym | W::Holonym | W::Antonym => WordNetRoleKind::Relation,
         })
     }
 }

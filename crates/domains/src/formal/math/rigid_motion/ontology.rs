@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::ontology::RotationCategory;
 use crate::formal::math::rotation::quaternion::Quaternion;
 use pr4xis::ontology::{Axiom, Ontology};
@@ -96,21 +97,21 @@ impl Axiom for CompositionConsistency {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let poses = canonical_poses();
         let test_points = [
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [1.0, 2.0, 3.0],
+            Vector::new(vec![1.0, 0.0, 0.0]),
+            Vector::new(vec![0.0, 1.0, 0.0]),
+            Vector::new(vec![0.0, 0.0, 1.0]),
+            Vector::new(vec![1.0, 2.0, 3.0]),
         ];
         for a in &poses {
             for b in &poses {
                 let ab = a.compose(b);
                 for p in &test_points {
-                    let direct = ab.transform_point(*p);
-                    let sequential = b.transform_point(a.transform_point(*p));
+                    let direct = ab.transform_point(p);
+                    let sequential = b.transform_point(&a.transform_point(p));
                     let tol = 1e-9;
-                    if (direct[0] - sequential[0]).abs() > tol
-                        || (direct[1] - sequential[1]).abs() > tol
-                        || (direct[2] - sequential[2]).abs() > tol
+                    if (direct.get(0) - sequential.get(0)).abs() > tol
+                        || (direct.get(1) - sequential.get(1)).abs() > tol
+                        || (direct.get(2) - sequential.get(2)).abs() > tol
                     {
                         return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
@@ -155,19 +156,25 @@ fn canonical_poses() -> Vec<Pose> {
     use core::f64::consts::{FRAC_PI_2, FRAC_PI_4};
     vec![
         Pose::identity(),
-        Pose::from_translation([1.0, 0.0, 0.0]),
-        Pose::from_translation([0.0, 2.0, 0.0]),
-        Pose::from_translation([0.0, 0.0, 3.0]),
-        Pose::from_translation([1.0, 2.0, 3.0]),
-        Pose::from_rotation(Quaternion::from_axis_angle([1.0, 0.0, 0.0], FRAC_PI_2)),
-        Pose::from_rotation(Quaternion::from_axis_angle([0.0, 1.0, 0.0], FRAC_PI_4)),
+        Pose::from_translation(Vector::new(vec![1.0, 0.0, 0.0])),
+        Pose::from_translation(Vector::new(vec![0.0, 2.0, 0.0])),
+        Pose::from_translation(Vector::new(vec![0.0, 0.0, 3.0])),
+        Pose::from_translation(Vector::new(vec![1.0, 2.0, 3.0])),
+        Pose::from_rotation(Quaternion::from_axis_angle(
+            &Vector::new(vec![1.0, 0.0, 0.0]),
+            FRAC_PI_2,
+        )),
+        Pose::from_rotation(Quaternion::from_axis_angle(
+            &Vector::new(vec![0.0, 1.0, 0.0]),
+            FRAC_PI_4,
+        )),
         Pose {
-            rotation: Quaternion::from_axis_angle([0.0, 0.0, 1.0], FRAC_PI_2),
-            translation: [1.0, 2.0, 3.0],
+            rotation: Quaternion::from_axis_angle(&Vector::new(vec![0.0, 0.0, 1.0]), FRAC_PI_2),
+            translation: Vector::new(vec![1.0, 2.0, 3.0]),
         },
         Pose {
-            rotation: Quaternion::from_axis_angle([1.0, 0.0, 0.0], FRAC_PI_4),
-            translation: [-1.0, 0.5, 2.0],
+            rotation: Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), FRAC_PI_4),
+            translation: Vector::new(vec![-1.0, 0.5, 2.0]),
         },
     ]
 }

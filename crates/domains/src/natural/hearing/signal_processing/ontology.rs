@@ -14,7 +14,13 @@
 //!   Estimation of Power Spectra", *IEEE Trans. Audio Electroacoust.*
 //!   15(2):70-73.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::level::{
+    LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
+};
+use crate::formal::math::quantity::unit::UNITLESS;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Signal",
@@ -211,16 +217,21 @@ impl Quality for ComputationalComplexity {
 pub struct SidelobeLevel;
 impl Quality for SidelobeLevel {
     type Individual = SignalConcept;
-    type Value = f64;
-    fn get(&self, individual: &SignalConcept) -> Option<f64> {
+    type Value = LogarithmicLevel;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &SignalConcept) -> Option<LogarithmicLevel> {
         use SignalConcept::*;
-        match individual {
-            RectangularWindow => Some(-13.0),
-            HannWindow => Some(-31.5),
-            HammingWindow => Some(-42.0),
-            BlackmanWindow => Some(-58.0),
-            _ => None,
-        }
+        // Peak sidelobe level relative to the mainlobe peak — a relative dB
+        // field ratio (20·log₁₀ of a root-power ratio), IEC 80000-15.
+        // Harris (1978) Proc. IEEE 66(1):51, Table I.
+        let decibels = match individual {
+            RectangularWindow => -13.0,
+            HannWindow => -31.5,
+            HammingWindow => -42.0,
+            BlackmanWindow => -58.0,
+            _ => return None,
+        };
+        Some(LogarithmicLevel::new(decibels, Ref::FieldRatio))
     }
 }
 
@@ -228,15 +239,20 @@ impl Quality for SidelobeLevel {
 pub struct MainlobeBandwidth;
 impl Quality for MainlobeBandwidth {
     type Individual = SignalConcept;
-    type Value = f64;
-    fn get(&self, individual: &SignalConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &SignalConcept) -> Option<Quantity> {
         use SignalConcept::*;
-        match individual {
-            RectangularWindow => Some(1.0),
-            HannWindow => Some(2.0),
-            BlackmanWindow => Some(3.0),
-            _ => None,
-        }
+        // Mainlobe width in DFT bins, normalised to the rectangular window's —
+        // a dimensionless (unitless) figure. Harris (1978) Proc. IEEE
+        // 66(1):51, Table I.
+        let bins = match individual {
+            RectangularWindow => 1.0,
+            HannWindow => 2.0,
+            BlackmanWindow => 3.0,
+            _ => return None,
+        };
+        Some(Quantity::from_unit(bins, &UNITLESS))
     }
 }
 
@@ -291,9 +307,16 @@ impl Axiom for RectangularNarrowestMainlobe {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let r = MainlobeBandwidth
             .get(&RectangularWindow)
+            .map(|q| q.value)
             .unwrap_or(f64::MAX);
-        let h = MainlobeBandwidth.get(&HannWindow).unwrap_or(0.0);
-        let b = MainlobeBandwidth.get(&BlackmanWindow).unwrap_or(0.0);
+        let h = MainlobeBandwidth
+            .get(&HannWindow)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
+        let b = MainlobeBandwidth
+            .get(&BlackmanWindow)
+            .map(|q| q.value)
+            .unwrap_or(0.0);
         if r < h && h < b {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -317,9 +340,9 @@ impl Axiom for BlackmanBestSidelobes {
         use SignalConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let s = SidelobeLevel;
-        let bk = s.get(&BlackmanWindow).unwrap_or(0.0);
-        let hn = s.get(&HannWindow).unwrap_or(0.0);
-        let re = s.get(&RectangularWindow).unwrap_or(0.0);
+        let bk = s.get(&BlackmanWindow).map(|l| l.decibels).unwrap_or(0.0);
+        let hn = s.get(&HannWindow).map(|l| l.decibels).unwrap_or(0.0);
+        let re = s.get(&RectangularWindow).map(|l| l.decibels).unwrap_or(0.0);
         if bk < hn && hn < re {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

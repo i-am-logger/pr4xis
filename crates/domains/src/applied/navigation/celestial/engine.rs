@@ -3,28 +3,29 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::formal::math::angle::Angle;
+use crate::formal::math::coordinate::GeodeticPosition;
+
 /// A celestial observation: measured altitude and azimuth of a body.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CelestialObservation {
     /// Name or catalog ID of the celestial body.
     pub body_name: String,
-    /// Measured altitude above horizon (degrees).
-    pub altitude_deg: f64,
-    /// Measured azimuth from north (degrees).
-    pub azimuth_deg: f64,
-    /// Known declination of the body (degrees).
-    pub declination_deg: f64,
-    /// Known Greenwich Hour Angle of the body (degrees).
-    pub gha_deg: f64,
+    /// Measured altitude above horizon — a typed [`Angle`].
+    pub altitude_deg: Angle,
+    /// Measured azimuth from north — a typed [`Angle`].
+    pub azimuth_deg: Angle,
+    /// Known declination of the body — a typed [`Angle`].
+    pub declination_deg: Angle,
+    /// Known Greenwich Hour Angle of the body — a typed [`Angle`].
+    pub gha_deg: Angle,
 }
 
 /// Celestial fix: position determined from celestial observations.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CelestialFix {
-    /// Latitude (degrees, north positive).
-    pub latitude: f64,
-    /// Longitude (degrees, east positive).
-    pub longitude: f64,
+    /// The fixed geodetic position (latitude/longitude).
+    pub position: GeodeticPosition,
     /// Number of observations used.
     pub num_observations: usize,
 }
@@ -36,8 +37,8 @@ pub struct CelestialSituation {
     pub observations: Vec<CelestialObservation>,
     /// Current fix (if computed).
     pub fix: Option<CelestialFix>,
-    /// Assumed position for sight reduction (latitude, longitude in degrees).
-    pub assumed_position: (f64, f64),
+    /// Assumed position for sight reduction.
+    pub assumed_position: GeodeticPosition,
     /// Step counter.
     pub step: usize,
 }
@@ -64,10 +65,11 @@ pub fn apply_celestial(
 ) -> Result<CelestialSituation, String> {
     match action {
         CelestialAction::Observe(obs) => {
-            if obs.altitude_deg < -90.0 || obs.altitude_deg > 90.0 {
+            let altitude_deg = obs.altitude_deg.degrees();
+            if !(-90.0..=90.0).contains(&altitude_deg) {
                 return Err(format!(
                     "altitude must be in [-90, 90], got {}",
-                    obs.altitude_deg
+                    altitude_deg
                 ));
             }
             let mut new_obs = situation.observations.clone();
@@ -109,23 +111,23 @@ pub fn apply_celestial(
 /// Source: Bowditch (2002) Chapter 18, Sight Reduction.
 fn compute_celestial_fix(
     observations: &[CelestialObservation],
-    assumed_position: (f64, f64),
+    assumed_position: GeodeticPosition,
 ) -> Result<CelestialFix, String> {
     let n = observations.len();
     if n < 2 {
         return Err("need >= 2 observations".into());
     }
 
-    let lat_ap = assumed_position.0.to_radians();
-    let lon_ap = assumed_position.1.to_radians();
+    let lat_ap = assumed_position.latitude.radians();
+    let lon_ap = assumed_position.longitude.radians();
 
     // Solve via least squares in local tangent plane (nautical miles from AP)
     let mut ata = [[0.0_f64; 2]; 2];
     let mut atb = [0.0_f64; 2];
 
     for obs in observations {
-        let dec = obs.declination_deg.to_radians();
-        let gha = obs.gha_deg.to_radians();
+        let dec = obs.declination_deg.radians();
+        let gha = obs.gha_deg.radians();
         let lha = gha + lon_ap; // local hour angle
 
         // Calculated altitude: sin(Hc) = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(LHA)
@@ -133,11 +135,11 @@ fn compute_celestial_fix(
         let hc_deg = sin_hc.clamp(-1.0, 1.0).asin().to_degrees();
 
         // Azimuth to the body (for the line of position direction)
-        let az_rad = obs.azimuth_deg.to_radians();
+        let az_rad = obs.azimuth_deg.radians();
 
         // Intercept: difference between observed and calculated altitude (in nautical miles)
         // 1 arcminute of altitude = 1 nautical mile
-        let intercept_nm = (obs.altitude_deg - hc_deg) * 60.0;
+        let intercept_nm = (obs.altitude_deg.degrees() - hc_deg) * 60.0;
 
         // Line of position: direction perpendicular to azimuth
         // Correction in [north, east] nautical miles:
@@ -164,16 +166,15 @@ fn compute_celestial_fix(
     let delta_east = (ata[0][0] * atb[1] - ata[1][0] * atb[0]) / det;
 
     // Convert nautical miles to degrees
-    let lat_fix = assumed_position.0 + delta_north / 60.0;
+    let lat_fix = assumed_position.latitude_degrees() + delta_north / 60.0;
     let cos_lat = lat_ap.cos();
     if cos_lat.abs() < 1e-10 {
         return Err("celestial fix undefined at poles".into());
     }
-    let lon_fix = assumed_position.1 + delta_east / (60.0 * cos_lat);
+    let lon_fix = assumed_position.longitude_degrees() + delta_east / (60.0 * cos_lat);
 
     Ok(CelestialFix {
-        latitude: lat_fix,
-        longitude: lon_fix,
+        position: GeodeticPosition::from_degrees(lat_fix, lon_fix),
         num_observations: n,
     })
 }

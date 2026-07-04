@@ -2,6 +2,7 @@
 //!
 //! Source: Titterton & Weston (2004), Chapter 4; Groves (2013), Chapter 4.
 
+use crate::formal::math::quantity::unit::{self, Unit};
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -55,22 +56,26 @@ fn is_a(child: ImuConcept, parent: ImuConcept) -> bool {
 // ---------------------------------------------------------------------------
 
 /// Quality: SI unit of each measurement.
+///
+/// The value is the typed `Unit` from the `quantity` ontology, not a prose
+/// symbol string.
 #[derive(Debug, Clone)]
 pub struct MeasurementUnit;
 
 impl Quality for MeasurementUnit {
     type Individual = ImuConcept;
-    type Value = &'static str;
+    type Value = Unit;
 
-    fn get(&self, m: &ImuConcept) -> Option<&'static str> {
+    fn get(&self, m: &ImuConcept) -> Option<Unit> {
+        // `Measurement` is an abstract umbrella concept with no single unit.
         Some(match m {
-            ImuConcept::Measurement => "various",
-            ImuConcept::SpecificForce => "m/s²",
-            ImuConcept::AngularRate => "rad/s",
-            ImuConcept::AccelerometerBias => "m/s²",
-            ImuConcept::GyroscopeBias => "rad/s",
-            ImuConcept::AccelerometerScaleFactor => "dimensionless (ppm)",
-            ImuConcept::GyroscopeScaleFactor => "dimensionless (ppm)",
+            ImuConcept::Measurement => return None,
+            ImuConcept::SpecificForce => unit::METER_PER_SECOND_SQUARED,
+            ImuConcept::AngularRate => unit::RADIAN_PER_SECOND,
+            ImuConcept::AccelerometerBias => unit::METER_PER_SECOND_SQUARED,
+            ImuConcept::GyroscopeBias => unit::RADIAN_PER_SECOND,
+            ImuConcept::AccelerometerScaleFactor => unit::PART_PER_MILLION,
+            ImuConcept::GyroscopeScaleFactor => unit::PART_PER_MILLION,
         })
     }
 }

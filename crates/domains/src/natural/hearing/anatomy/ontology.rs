@@ -23,7 +23,10 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::FinitelyGenerated;
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::HERTZ;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Anatomy",
@@ -256,20 +259,21 @@ impl Quality for IsMechanicallyActive {
     }
 }
 
-/// Characteristic resonant frequency (Hz) for cavity / mechanical resonators.
+/// Characteristic resonant frequency for cavity / mechanical resonators.
 /// Pickles (2012) §3 for ear-canal and tympanic-membrane resonances.
 #[derive(Debug, Clone)]
 pub struct CharacteristicFrequency;
 impl Quality for CharacteristicFrequency {
     type Individual = AnatomyConcept;
-    type Value = f64;
-    fn get(&self, individual: &AnatomyConcept) -> Option<f64> {
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
+    fn get(&self, individual: &AnatomyConcept) -> Option<Quantity> {
         use AnatomyConcept::*;
         match individual {
-            Pinna => Some(2700.0),
-            EarCanal => Some(3000.0),
-            TympanicMembrane => Some(1000.0),
-            Stapes => Some(1000.0),
+            Pinna => Some(Quantity::from_unit(2700.0, &HERTZ)),
+            EarCanal => Some(Quantity::from_unit(3000.0, &HERTZ)),
+            TympanicMembrane => Some(Quantity::from_unit(1000.0, &HERTZ)),
+            Stapes => Some(Quantity::from_unit(1000.0, &HERTZ)),
             _ => None,
         }
     }
@@ -655,7 +659,7 @@ mod tests {
     fn ear_canal_resonance() {
         assert_eq!(
             CharacteristicFrequency.get(&AnatomyConcept::EarCanal),
-            Some(3000.0)
+            Some(Quantity::from_unit(3000.0, &HERTZ))
         );
     }
 
