@@ -8,7 +8,7 @@
 //! smuggled into imperative code as magic numbers, un-cited and un-checkable.
 //!
 //! This module makes the decision ontological. The relationship kinds are a
-//! cited [`ontology!`]; the thresholds are typed, cited [`Quantity`] criteria
+//! cited `ontology!`; the thresholds are typed, cited [`Quantity`] criteria
 //! ([`RelationCriteria`]) — *load, don't encode* — that a deployment tunes; a
 //! measurement is a typed [`RelativeKinematics`]; and [`classify`] matches the
 //! measurement against each concept's declared criterion, so the classification

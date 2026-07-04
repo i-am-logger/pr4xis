@@ -2,7 +2,7 @@
 //! as first-class structs, not `(f64, f64[, f64])` tuples.
 //!
 //! A Cartesian coordinate is a Euclidean vector, so it is a
-//! [`Vector`](crate::formal::math::linear_algebra::vector_space::Vector); the
+//! [`Vector`]; the
 //! *non-Euclidean* coordinate systems (where component-wise vector arithmetic is
 //! meaningless) get their own types here, each with conversions to and from the
 //! Cartesian `Vector`.

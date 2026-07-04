@@ -1,4 +1,4 @@
-//! The circle-group ontology for [`Angle`](super::Angle) — S¹ = ℝ/2πℤ ≅ SO(2),
+//! The circle-group ontology for [`Angle`] — S¹ = ℝ/2πℤ ≅ SO(2),
 //! with the group laws discharged as computed, falsifiable axioms.
 
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};

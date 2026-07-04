@@ -1,7 +1,7 @@
 //! The Constitution — pr4xis's five guarantees, and the machinery that binds
 //! the test suite to them.
 //!
-//! [`ontology`] defines the five guarantees ([`Guarantee`]) as a first-class
+//! The `ontology` submodule defines the five guarantees ([`Guarantee`]) as a first-class
 //! ontology. This module adds the *self-binding* layer: every test in the
 //! workspace declares the guarantee it witnesses with the
 //! [`praxis_value`](crate::praxis_value) attribute, which registers a

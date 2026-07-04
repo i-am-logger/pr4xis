@@ -1,6 +1,6 @@
 //! Angle — a first-class type for angles, grounded in the circle group.
 //!
-//! An angle is **not** a bare `f64` and not a dimensionless [`Quantity`]: it is
+//! An angle is **not** a bare `f64` and not a dimensionless `Quantity`: it is
 //! an element of the circle group **S¹ = ℝ/2πℤ ≅ SO(2)**. Modelling it as its
 //! own type buys real safety a `Quantity(ANGLE)` cannot: radians and degrees
 //! are set by explicit constructors (never confused), you cannot add a length

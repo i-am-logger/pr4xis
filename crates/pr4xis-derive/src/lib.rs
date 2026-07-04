@@ -113,8 +113,7 @@ pub fn ontology(input: TokenStream) -> TokenStream {
 /// Declare which constitutional guarantee(s) a test witnesses.
 ///
 /// The attribute leaves the test function untouched and registers a
-/// [`GuaranteeTag`](pr4xis::constitution::GuaranteeTag) into the
-/// [`CONSTITUTION_TESTS`](pr4xis::constitution::CONSTITUTION_TESTS) distributed
+/// `GuaranteeTag` into the `CONSTITUTION_TESTS` distributed
 /// slice, so the `constitution_coverage` meta-test can partition the suite by
 /// guarantee. The first ident is the *primary* (partition) guarantee; any
 /// further idents are *secondary* guarantees the same irreducible test also
