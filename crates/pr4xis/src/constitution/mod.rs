@@ -17,8 +17,9 @@
 mod ontology;
 
 pub use ontology::{
-    ConstitutionConcept, EveryAxiomCarriesItsExplanation, ExtensiblePreservesEveryGuarantee,
-    Guarantee, OntologyBaseIsConsistent,
+    ConstitutionConcept, DeterminismEnablesVerificationAndExplanation,
+    EveryAxiomCarriesItsExplanation, ExtensiblePreservesEveryGuarantee, Guarantee,
+    HonestGroundsEveryGuarantee, OntologyBaseIsConsistent,
 };
 
 /// How strongly a test witnesses its guarantee.
