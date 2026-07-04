@@ -122,7 +122,7 @@ pub fn ontology(input: TokenStream) -> TokenStream {
 ///
 /// Place it **above** `#[test]` so it sees and re-emits the full test:
 ///
-/// ```ignore
+/// ```text
 /// #[pr4xis::praxis_value(Honest)]
 /// #[test]
 /// fn an_unknown_word_is_left_ungrounded() { /* ... */ }

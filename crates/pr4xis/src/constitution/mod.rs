@@ -80,7 +80,7 @@ pub static CONSTITUTION_TESTS: [GuaranteeTag];
 /// `ItemFn` the attribute can parse. Place the call at module scope, next to
 /// the test:
 ///
-/// ```ignore
+/// ```text
 /// proptest! {
 ///     #[test]
 ///     fn prop_mutated_prx_always_rejected(..) { .. }
