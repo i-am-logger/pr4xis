@@ -12,7 +12,7 @@ For the literature and reasoning behind the values — the enforcement ladder, w
 - **Enforcer** — `Axiom::citation()` is required: no default, no `Option`. An axiom without a citation is a compile error. Domain vocabulary is loaded from cited sources (`praxis.toml` + a `praxis.lock` SHA256), never hand-written into the code.
 - **Violation** — a hardcoded list, a regex over the input, a weight with no axiom behind it.
 
-```
+```bash
 cargo test -p pr4xis-domains --lib -- citation
 ```
 
@@ -24,7 +24,7 @@ A statistical model cannot make this promise: a citation it emits is itself a pr
 - **Enforcer** — transformations are lawful morphisms, and the serialized substrate round-trips byte-exactly. There is no debug-only path and no profile-conditional behavior, so what is tested is what runs.
 - **Violation** — a lossy projection, a `cfg`-gated shortcut, any branch whose result depends on profile, temperature, or seed.
 
-```
+```bash
 cargo test -p pr4xis-domains --lib -- byte_exact
 ```
 
@@ -36,7 +36,7 @@ A statistical model is stochastic by construction; its output depends on samplin
 - **Enforcer** — self-description is a fixed point: the description pr4xis gives of itself, fed back in, reproduces itself (the eigenform). Nothing in the system lives outside the ontology it can report.
 - **Violation** — an unregistered concept, an unexaminable branch, an explanation reconstructed separately from the computation it claims to describe.
 
-```
+```bash
 cargo test -p pr4xis-domains --lib -- eigenform
 ```
 
@@ -48,7 +48,7 @@ A statistical model's explanations are post-hoc and need not be faithful to the 
 - **Enforcer** — an input with no grounding does not get an invented binding; it is left ungrounded, and a derivation that depends on it does not proceed. End to end, the engine answers from a loaded gloss when it has one and abstains when it does not.
 - **Violation** — filling a gap with a plausible guess; answering past the edge of what is grounded.
 
-```
+```bash
 cargo test -p pr4xis-chat -- abstain
 ```
 
@@ -62,7 +62,7 @@ A statistical model has no reliable internal signal for "I am making this up," a
 - **Enforcer** — ontologies compose by functors whose laws are checked; an integration that does not preserve structure fails the law test instead of merging.
 - **Violation** — a merge that drops or distorts structure; an "extension" that is really a rewrite of what it touches.
 
-```
+```bash
 cargo test -p pr4xis-domains --lib -- functor_laws
 ```
 
@@ -94,7 +94,7 @@ These five are not documentation about pr4xis written alongside it. They are che
 
 The constitution is not asserted *about* the test suite from outside — the suite declares its own relationship to it. Every test in `pr4xis-domains` carries the guarantee it witnesses:
 
-```rust
+```text
 #[pr4xis::praxis_value(Honest)]
 #[test]
 fn an_unknown_word_is_left_ungrounded() { /* ... */ }
@@ -102,7 +102,7 @@ fn an_unknown_word_is_left_ungrounded() { /* ... */ }
 
 and property tests (which the attribute cannot wrap) declare it next to the `proptest!` block:
 
-```rust
+```text
 pr4xis::register_praxis_value!(prop_mutated_prx_always_rejected, Honest, Verifiable, Deterministic);
 ```
 
