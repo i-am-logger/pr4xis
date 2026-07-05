@@ -12,11 +12,25 @@
 //!   Wide-Area Event Notification Service*, ACM TOCS 19(3) (SIENA) —
 //!   subscriptions as predicates and content-based routing.
 //! - **Hewitt, Bishop & Steiger (1973)** *A Universal Modular ACTOR
-//!   Formalism for Artificial Intelligence*, IJCAI — actors, messages,
-//!   and mailboxes.
+//!   Formalism for Artificial Intelligence*, IJCAI — actors and
+//!   messages.
+//! - **Agha (1986)** *Actors: A Model of Concurrent Computation in
+//!   Distributed Systems*, MIT Press — the actor's mail queue at its
+//!   mail address (the mailbox).
+//! - **Spector (1982)** *Performing Remote Operations Efficiently on a
+//!   Local Computer Network*, CACM 25(4), and **Birrell & Nelson
+//!   (1984)** *Implementing Remote Procedure Calls*, ACM TOCS 2(1) — the
+//!   remote-operation call semantics (retransmission, duplicate
+//!   suppression) and the at-most-once / at-least-once / exactly-once
+//!   trichotomy, whose modern pub/sub statement is OASIS MQTT 5.0 §4.3
+//!   (QoS 0/1/2).
 //! - **Birman & Joseph (1987)** *Reliable Communication in the Presence
-//!   of Failures*, ACM TOCS 5(1) (ISIS) — delivery guarantees and
-//!   virtual synchrony.
+//!   of Failures*, ACM TOCS 5(1) (ISIS) — atomic all-or-nothing
+//!   delivery (exactly-once at every operational destination) and the
+//!   broadcast primitives.
+//! - **Birman & Joseph (1987)** *Exploiting Virtual Synchrony in
+//!   Distributed Systems*, SOSP — virtual synchrony (ordered, gap-free
+//!   multicast within a view).
 //!
 //! The behavioural axiom is discharged against the broker simulator in
 //! [`super::engine`]: the same published message sequence run under the
@@ -36,7 +50,7 @@ use super::engine::{
 
 pr4xis::ontology! {
     name: "Bus",
-    source: "Eugster, Felber, Guerraoui & Kermarrec (2003) ACM Computing Surveys 35(2); Carzaniga, Rosenblum & Wolf (2001) ACM TOCS 19(3); Hewitt, Bishop & Steiger (1973) IJCAI; Birman & Joseph (1987) ACM TOCS 5(1)",
+    source: "Eugster, Felber, Guerraoui & Kermarrec (2003) ACM Computing Surveys 35(2); Carzaniga, Rosenblum & Wolf (2001) ACM TOCS 19(3); Hewitt, Bishop & Steiger (1973) IJCAI; Agha (1986) Actors (MIT Press); Spector (1982) CACM 25(4); Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3; Birman & Joseph (1987) ACM TOCS 5(1); Birman & Joseph (1987) SOSP",
 
     concepts: [
         // === The medium and its intermediary (Eugster et al. 2003) ===
@@ -56,7 +70,9 @@ pr4xis::ontology! {
         TopicBasedRouting,
         ContentBasedRouting,
 
-        // === Delivery quality of service (Birman & Joseph 1987) ===
+        // === Delivery quality of service (Spector 1982; Birrell &
+        //     Nelson 1984; OASIS MQTT 5.0 sec 4.3; Birman & Joseph 1987
+        //     for atomic exactly-once) ===
         DeliveryGuarantee,
         AtMostOnce,
         AtLeastOnce,
@@ -79,19 +95,20 @@ pr4xis::ontology! {
         Subscription: ("en", "Subscription", "Carzaniga, Rosenblum & Wolf (2001) 'Design and Evaluation of a Wide-Area Event Notification Service', ACM TOCS 19(3) (SIENA): the registered interest - a predicate over notifications the service evaluates."),
         TopicBasedRouting: ("en", "Topic-based routing", "Eugster et al. (2003) ACM CSUR 35(2) sec 4.1: routing by channel name - subscribers receive every event published on the named topic."),
         ContentBasedRouting: ("en", "Content-based routing", "Carzaniga, Rosenblum & Wolf (2001) ACM TOCS 19(3): routing by predicates over message content rather than by channel name."),
-        DeliveryGuarantee: ("en", "Delivery guarantee", "Birman & Joseph (1987) 'Reliable Communication in the Presence of Failures', ACM TOCS 5(1): the abstract delivery quality of service a transport promises - the parent of the three delivery semantics."),
-        AtMostOnce: ("en", "At-most-once", "Birman & Joseph (1987) ACM TOCS 5(1): fire-and-forget - one transmission attempt, no retransmission; loss is possible, duplication is not."),
-        AtLeastOnce: ("en", "At-least-once", "Birman & Joseph (1987) ACM TOCS 5(1): retransmit until acknowledged - no loss, but a delivered-yet-unacknowledged message may be re-sent, so duplication is possible."),
-        ExactlyOnce: ("en", "Exactly-once", "Birman & Joseph (1987) ACM TOCS 5(1): each message delivered exactly once at every operational destination (virtual-synchrony delivery). End-to-end exactly-once is contested: over a lossy channel it is achievable only with transactional or deduplicating cooperation of the endpoints - at-least-once transport plus endpoint dedup."),
+        DeliveryGuarantee: ("en", "Delivery guarantee", "Spector (1982) 'Performing Remote Operations Efficiently on a Local Computer Network', CACM 25(4); Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3 (QoS 0/1/2): the abstract delivery quality of service a transport promises - the parent of the three delivery semantics."),
+        AtMostOnce: ("en", "At-most-once", "Spector (1982) CACM 25(4); OASIS MQTT 5.0 sec 4.3 (QoS 0): fire-and-forget - one transmission attempt, no retransmission; loss is possible, duplication is not."),
+        AtLeastOnce: ("en", "At-least-once", "Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3 (QoS 1): retransmit until acknowledged - no loss, but a delivered-yet-unacknowledged message may be re-sent, so duplication is possible."),
+        ExactlyOnce: ("en", "Exactly-once", "OASIS MQTT 5.0 sec 4.3 (QoS 2); Birman & Joseph (1987) ACM TOCS 5(1): each message delivered exactly once at every operational destination (atomic all-or-nothing delivery; the virtual-synchrony reading is Birman & Joseph (1987) SOSP). End-to-end exactly-once is contested: over a lossy channel it is achievable only with transactional or deduplicating cooperation of the endpoints - at-least-once transport plus endpoint dedup."),
         Actor: ("en", "Actor", "Hewitt, Bishop & Steiger (1973) IJCAI: an autonomous entity communicating solely by messages - no shared state, no other interface."),
-        Mailbox: ("en", "Mailbox", "Hewitt, Bishop & Steiger (1973) IJCAI: an actor's message queue - arriving messages wait here until the actor processes them."),
-        VirtualSynchrony: ("en", "Virtual synchrony", "Birman & Joseph (1987) ACM TOCS 5(1) (ISIS): ordered, gap-free multicast within a view - all operational members observe the same events in the same order."),
+        Mailbox: ("en", "Mailbox", "Agha (1986) 'Actors: A Model of Concurrent Computation in Distributed Systems', MIT Press: an actor's mail queue at its mail address - arriving messages wait here until the actor processes them."),
+        VirtualSynchrony: ("en", "Virtual synchrony", "Birman & Joseph (1987) SOSP, 'Exploiting Virtual Synchrony in Distributed Systems' (ISIS): ordered, gap-free multicast within a view - all operational members observe the same events in the same order; the underlying broadcast primitives are Birman & Joseph (1987) ACM TOCS 5(1)."),
         Decoupling: ("en", "Decoupling", "Eugster et al. (2003) ACM CSUR 35(2) sec 2: the space, time, and synchronization decoupling of publisher and subscriber that defines publish/subscribe."),
     },
 
     is_a: [
-        // Birman & Joseph (1987): the three delivery semantics
-        // specialise the abstract guarantee.
+        // Spector (1982) / Birrell & Nelson (1984) / OASIS MQTT 5.0
+        // sec 4.3: the three delivery semantics specialise the abstract
+        // guarantee.
         (AtMostOnce, DeliveryGuarantee),
         (AtLeastOnce, DeliveryGuarantee),
         (ExactlyOnce, DeliveryGuarantee),
@@ -103,7 +120,7 @@ pr4xis::ontology! {
     ],
 
     has_a: [
-        // Hewitt et al. (1973): the mailbox is part of its actor.
+        // Agha (1986): the mailbox (mail queue) is part of its actor.
         (Actor, Mailbox),
     ],
 
@@ -174,8 +191,9 @@ impl Quality for RoutingStrategy {
 }
 
 /// Which delivery semantics a concept denotes — `Some` for exactly the
-/// three guarantees (Birman & Joseph 1987), `None` for every other
-/// concept, including the abstract `DeliveryGuarantee` parent.
+/// three guarantees (Spector 1982; Birrell & Nelson 1984; OASIS MQTT
+/// 5.0 §4.3), `None` for every other concept, including the abstract
+/// `DeliveryGuarantee` parent.
 #[derive(Debug, Clone)]
 pub struct DeliverySemantics;
 
@@ -196,9 +214,10 @@ impl Quality for DeliverySemantics {
 /// Whether a concept's communication is space-decoupled — Eugster et
 /// al. (2003) §2: pub/sub parties do not know each other's identity
 /// (`true` for the bus, broker, topic, publisher, and subscriber). The
-/// actor model is point-to-point: a sender addresses a *specific*
-/// mailbox (Hewitt et al. 1973), so `Actor` and `Mailbox` are `false`.
-/// `None` for concepts that are not communication parties or media.
+/// actor model is point-to-point: a sender addresses a *specific* mail
+/// address / mailbox (Hewitt et al. 1973; Agha 1986), so `Actor` and
+/// `Mailbox` are `false`. `None` for concepts that are not
+/// communication parties or media.
 #[derive(Debug, Clone)]
 pub struct IsSpaceDecoupled;
 
@@ -240,7 +259,7 @@ fn kinded_edge_exists(from: BusConcept, to: BusConcept, kind: BusRelationKind) -
 // Domain axioms
 // ---------------------------------------------------------------------------
 
-/// Birman & Joseph (1987) / Eugster et al. (2003): the
+/// Spector (1982) / Birrell & Nelson (1984) / OASIS MQTT 5.0 §4.3: the
 /// Subsumption-children of `DeliveryGuarantee` are exactly the set
 /// {`AtMostOnce`, `AtLeastOnce`, `ExactlyOnce`} — verified as a
 /// *bijection* with the closed [`Delivery`] value set via the
@@ -276,12 +295,12 @@ impl Axiom for ThreeDeliveryGuarantees {
     pr4xis::axiom_meta!(
         "ThreeDeliveryGuarantees",
         "the Subsumption-children of DeliveryGuarantee are exactly the set {AtMostOnce, AtLeastOnce, ExactlyOnce} - a bijection with the closed Delivery value set via DeliverySemantics",
-        "Birman & Joseph (1987) ACM TOCS 5(1); Eugster et al. (2003) ACM CSUR 35(2)"
+        "Spector (1982) CACM 25(4); Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3; Eugster et al. (2003) ACM CSUR 35(2)"
     );
 }
 pr4xis::register_axiom!(
     ThreeDeliveryGuarantees,
-    "Birman & Joseph (1987) ACM TOCS 5(1); Eugster et al. (2003) ACM CSUR 35(2)"
+    "Spector (1982) CACM 25(4); Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3; Eugster et al. (2003) ACM CSUR 35(2)"
 );
 
 /// Eugster et al. (2003) §2: the bus decouples publisher from
@@ -420,9 +439,9 @@ impl Axiom for ActorMessagesOnly {
 }
 pr4xis::register_axiom!(ActorMessagesOnly, "Hewitt, Bishop & Steiger (1973) IJCAI");
 
-/// Birman & Joseph (1987): the behavioural separation of the three
-/// delivery semantics, on the *same* fixture message sequence via the
-/// engine's broker simulator:
+/// Spector (1982) / Birrell & Nelson (1984) / OASIS MQTT 5.0 §4.3: the
+/// behavioural separation of the three delivery semantics, on the
+/// *same* fixture message sequence via the engine's broker simulator:
 ///
 /// - **at-most-once** — the dropped message is never redelivered
 ///   (possible loss, no duplicates), and the transport refuses to
@@ -491,12 +510,12 @@ impl Axiom for DeliverySemanticsBehavioral {
     pr4xis::axiom_meta!(
         "DeliverySemanticsBehavioral",
         "on the same fixture message sequence: at-most-once never redelivers the dropped message (loss, no duplicates), at-least-once recovers the loss but duplicates the unacknowledged message, exactly-once with endpoint dedup hands each message over exactly once",
-        "Birman & Joseph (1987) ACM TOCS 5(1)"
+        "Spector (1982) CACM 25(4); Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3; Birman & Joseph (1987) ACM TOCS 5(1) for atomic exactly-once"
     );
 }
 pr4xis::register_axiom!(
     DeliverySemanticsBehavioral,
-    "Birman & Joseph (1987) ACM TOCS 5(1)"
+    "Spector (1982) CACM 25(4); Birrell & Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 sec 4.3; Birman & Joseph (1987) ACM TOCS 5(1) for atomic exactly-once"
 );
 
 // ---------------------------------------------------------------------------
@@ -519,8 +538,8 @@ impl Ontology for BusOntology {
 }
 
 /// The three delivery guarantees — direct Subsumption-children of
-/// `DeliveryGuarantee` (Birman & Joseph 1987). Grounded in the
-/// category's edges, used by tests.
+/// `DeliveryGuarantee` (Spector 1982; Birrell & Nelson 1984; OASIS MQTT
+/// 5.0 §4.3). Grounded in the category's edges, used by tests.
 pub fn delivery_guarantees() -> Vec<BusConcept> {
     direct_children_of(BusConcept::DeliveryGuarantee)
 }

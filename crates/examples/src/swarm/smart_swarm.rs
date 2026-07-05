@@ -175,9 +175,80 @@ mod tests {
         }
     }
 
-    /// The full smart-swarm run, narrated as a trace of data lines
-    /// (cycle / residual / exclusion event) — data, not marketing.
-    fn run_smart_swarm() -> Vec<String> {
+    /// A typed trace event from the smart-swarm run — the load-bearing
+    /// verdicts the run establishes, carried as *data* rather than derived by
+    /// substring-matching prose. String rendering ([`SwarmTraceEvent::render`])
+    /// is purely presentational; the test asserts on these fields.
+    #[derive(Debug, Clone, PartialEq)]
+    enum SwarmTraceEvent {
+        /// A consensus cycle converged: `peer_count` peers gossiped for
+        /// `rounds` rounds; `residual` is the worst per-component deviation of
+        /// any peer from the centralized fuse, which must fall within
+        /// `tolerance`.
+        Convergence {
+            cycle: char,
+            peer_count: usize,
+            rounds: usize,
+            residual: f64,
+            tolerance: f64,
+        },
+        /// One neighbour observed the equivocation: whether it
+        /// `trusted_before` and whether it `excluded_after` (before the next
+        /// aggregation).
+        ExclusionObserved {
+            observer: PeerId,
+            equivocator: PeerId,
+            trusted_before: bool,
+            excluded_after: bool,
+        },
+        /// Every neighbour of `equivocator` excluded it before aggregation.
+        ExclusionSummary {
+            equivocator: PeerId,
+            all_excluded: bool,
+        },
+    }
+
+    impl SwarmTraceEvent {
+        /// Human-readable rendering — data, not marketing. Presentational
+        /// only; the test asserts on the typed fields, never on this string.
+        fn render(&self) -> String {
+            match self {
+                SwarmTraceEvent::Convergence {
+                    cycle,
+                    peer_count,
+                    rounds,
+                    residual,
+                    tolerance,
+                } => format!(
+                    "cycle {cycle}: {peer_count} peers gossip for {rounds} rounds; \
+                     worst deviation from the centralized fuse = {residual:.2e} (tol {tolerance:.0e})"
+                ),
+                SwarmTraceEvent::ExclusionObserved {
+                    observer,
+                    equivocator,
+                    trusted_before,
+                    excluded_after,
+                } => format!(
+                    "cycle B: peer {} observed peer {}'s equivocation \
+                     (trusted before = {trusted_before}, excluded after = {excluded_after})",
+                    observer.0, equivocator.0
+                ),
+                SwarmTraceEvent::ExclusionSummary {
+                    equivocator,
+                    all_excluded,
+                } => format!(
+                    "cycle B: peer {} excluded by every neighbour before aggregation = {all_excluded}",
+                    equivocator.0
+                ),
+            }
+        }
+    }
+
+    /// The full smart-swarm run, returning a trace of **typed** events
+    /// (convergence residuals and exclusion facts) — the load-bearing
+    /// verdicts as data, not prose to be matched. Rendering to human-readable
+    /// lines is presentational ([`SwarmTraceEvent::render`]).
+    fn run_smart_swarm() -> Vec<SwarmTraceEvent> {
         let mut trace = Vec::new();
         let estimates = swarm_estimates();
         let ring = ring_topology();
@@ -187,10 +258,13 @@ mod tests {
         let converged_all =
             consensus_on_information(&estimates, &ring, CONSENSUS_ROUNDS).expect("dims agree");
         let residual_all = max_mean_deviation(&converged_all, &central_all);
-        trace.push(format!(
-            "cycle A: {SWARM_SIZE} peers on a connected ring gossip for {CONSENSUS_ROUNDS} rounds; \
-             worst deviation from the centralized fuse = {residual_all:.2e} (tol {AGREEMENT_TOLERANCE:.0e})"
-        ));
+        trace.push(SwarmTraceEvent::Convergence {
+            cycle: 'A',
+            peer_count: SWARM_SIZE,
+            rounds: CONSENSUS_ROUNDS,
+            residual: residual_all,
+            tolerance: AGREEMENT_TOLERANCE,
+        });
 
         // (b) Equivocation event: peer 4 equivocates; its ring neighbours
         // (3 and 0) exclude it by self-protection, before the next
@@ -209,14 +283,17 @@ mod tests {
             );
             let excluded = !trusts(&after, PeerId(EQUIVOCATOR));
             all_excluded &= before && excluded;
-            trace.push(format!(
-                "cycle B: peer {me} observed peer {EQUIVOCATOR}'s equivocation \
-                 (trusted before = {before}, excluded after = {excluded})"
-            ));
+            trace.push(SwarmTraceEvent::ExclusionObserved {
+                observer: PeerId(me),
+                equivocator: PeerId(EQUIVOCATOR),
+                trusted_before: before,
+                excluded_after: excluded,
+            });
         }
-        trace.push(format!(
-            "cycle B: peer {EQUIVOCATOR} excluded by every neighbour before aggregation = {all_excluded}"
-        ));
+        trace.push(SwarmTraceEvent::ExclusionSummary {
+            equivocator: PeerId(EQUIVOCATOR),
+            all_excluded,
+        });
 
         // (c) Post-exclusion: the trusted four re-converge on the path.
         let trusted: Vec<InformationEstimate> = estimates[..EQUIVOCATOR].to_vec();
@@ -225,10 +302,13 @@ mod tests {
             consensus_on_information(&trusted, &trusted_path_topology(), CONSENSUS_ROUNDS)
                 .expect("dims agree");
         let residual_trusted = max_mean_deviation(&converged_trusted, &central_trusted);
-        trace.push(format!(
-            "cycle C: the {} trusted peers re-converge; worst deviation from their centralized fuse = {residual_trusted:.2e} (tol {AGREEMENT_TOLERANCE:.0e})",
-            SWARM_SIZE - 1
-        ));
+        trace.push(SwarmTraceEvent::Convergence {
+            cycle: 'C',
+            peer_count: SWARM_SIZE - 1,
+            rounds: CONSENSUS_ROUNDS,
+            residual: residual_trusted,
+            tolerance: AGREEMENT_TOLERANCE,
+        });
 
         trace
     }
@@ -278,18 +358,66 @@ mod tests {
     #[test]
     fn narrated_trace_reports_convergence_and_exclusion() {
         let trace = run_smart_swarm();
+
         // The trace covers all three cycles plus the per-neighbour and
-        // summary exclusion lines.
+        // summary exclusion events.
         assert!(trace.len() >= SWARM_SIZE);
-        for line in &trace {
-            // Data, not marketing: each line reports a measured fact.
-            println!("{line}");
+
+        // Data, not marketing: render each typed event for the human reader.
+        // The assertions below read the typed fields, never this string.
+        for event in &trace {
+            println!("{}", event.render());
         }
-        // The summary line asserts the exclusion held for every neighbour.
+
+        // (a)/(c) Both consensus cycles report a residual within tolerance.
+        let mut convergences = 0usize;
+        for event in &trace {
+            if let SwarmTraceEvent::Convergence {
+                residual,
+                tolerance,
+                ..
+            } = event
+            {
+                convergences += 1;
+                assert!(
+                    *residual < *tolerance,
+                    "each consensus cycle must converge within tolerance"
+                );
+            }
+        }
+        assert_eq!(convergences, 2, "cycles A and C each report a convergence");
+
+        // (b) Every neighbour that observed the equivocation trusted the peer
+        // before and excluded it after — the typed facts from the engine.
+        let mut observed = 0usize;
+        for event in &trace {
+            if let SwarmTraceEvent::ExclusionObserved {
+                trusted_before,
+                excluded_after,
+                ..
+            } = event
+            {
+                observed += 1;
+                assert!(*trusted_before, "the neighbour trusted the peer before");
+                assert!(*excluded_after, "the neighbour excluded the peer after");
+            }
+        }
         assert!(
-            trace
-                .iter()
-                .any(|l| l.contains("excluded by every neighbour before aggregation = true")),
+            observed > 0,
+            "at least one neighbour observes the equivocation"
+        );
+
+        // The summary event asserts the exclusion held for every neighbour —
+        // the typed `all_excluded` fact, not a substring of narration.
+        let all_excluded = trace
+            .iter()
+            .find_map(|event| match event {
+                SwarmTraceEvent::ExclusionSummary { all_excluded, .. } => Some(*all_excluded),
+                _ => None,
+            })
+            .expect("the run emits an exclusion summary");
+        assert!(
+            all_excluded,
             "the equivocator must be excluded by every neighbour"
         );
     }

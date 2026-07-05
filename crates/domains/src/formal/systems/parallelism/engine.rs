@@ -69,15 +69,23 @@ pub struct TaskId(pub usize);
 /// single strand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StrandRole {
-    /// A base case `P-FIB(n≤1)`: a single strand returning `n`.
-    BaseCase,
+    /// A base case `P-FIB(n≤1)`: a single strand returning its value.
+    BaseCase {
+        /// The Fibonacci value this base strand returns (0 or 1).
+        value: u64,
+    },
     /// The initial strand of `P-FIB(n≥2)`: the test, then the spawn of
     /// `P-FIB(n−1)` and the continuation.
     Init,
     /// The continuation strand of `P-FIB(n≥2)`: the call to `P-FIB(n−2)`.
     Continue,
     /// The final strand of `P-FIB(n≥2)`: the sync, then `return x + y`.
-    Sync,
+    Sync {
+        /// The two child-exit strands whose returned values it sums
+        /// (`x + y`) — CLRS Ch. 27: a `P-FIB` sync joins exactly the two
+        /// spawned children, so the arity is fixed at two by the type.
+        summands: [TaskId; 2],
+    },
 }
 
 /// One strand of the computation DAG.
@@ -85,17 +93,13 @@ pub enum StrandRole {
 pub struct Strand {
     /// This strand's identity (equal to its index in [`ComputationDag`]).
     pub id: TaskId,
-    /// Its role in the `P-FIB` decomposition.
+    /// Its role in the `P-FIB` decomposition — the role variant carries the
+    /// role-specific payload (a `BaseCase`'s returned value, a `Sync`'s two
+    /// summands), so a strand can never hold a payload its role does not use.
     pub role: StrandRole,
-    /// For a `BaseCase` strand, the value `P-FIB` returns (0 or 1);
-    /// `None` for control strands, whose result is not a Fibonacci value.
-    pub base_value: Option<u64>,
     /// Strands that must complete before this one may run (the DAG's
     /// precedence edges, stored on the target).
     pub preds: Vec<TaskId>,
-    /// For a `Sync` strand, the two child-exit strands whose returned
-    /// values it sums (`x + y`); empty otherwise.
-    pub summands: Vec<TaskId>,
 }
 
 /// A multithreaded computation DAG — CLRS Ch. 27 §1. Strands are stored
@@ -139,54 +143,38 @@ struct NodeHandle {
     exit: TaskId,
 }
 
-fn push_strand(
-    strands: &mut Vec<Strand>,
-    role: StrandRole,
-    base_value: Option<u64>,
-    preds: Vec<TaskId>,
-    summands: Vec<TaskId>,
-) -> TaskId {
+fn push_strand(strands: &mut Vec<Strand>, role: StrandRole, preds: Vec<TaskId>) -> TaskId {
     let id = TaskId(strands.len());
-    strands.push(Strand {
-        id,
-        role,
-        base_value,
-        preds,
-        summands,
-    });
+    strands.push(Strand { id, role, preds });
     id
 }
 
 fn build_fib_node(n: u64, strands: &mut Vec<Strand>) -> NodeHandle {
     // CLRS Ch. 27: P-FIB(n) for n ≤ 1 returns n directly — one strand.
     if n <= 1 {
-        let id = push_strand(
-            strands,
-            StrandRole::BaseCase,
-            Some(n),
-            Vec::new(),
-            Vec::new(),
-        );
+        let id = push_strand(strands, StrandRole::BaseCase { value: n }, Vec::new());
         return NodeHandle {
             entry: id,
             exit: id,
         };
     }
     // Internal call: `init` tests and spawns P-FIB(n−1).
-    let init = push_strand(strands, StrandRole::Init, None, Vec::new(), Vec::new());
+    let init = push_strand(strands, StrandRole::Init, Vec::new());
     let child1 = build_fib_node(n - 1, strands);
     // Spawn edge: init → entry of P-FIB(n−1).
     strands[child1.entry.0].preds.push(init);
     // Continuation: init → continue, which calls P-FIB(n−2).
-    let cont = push_strand(strands, StrandRole::Continue, None, vec![init], Vec::new());
+    let cont = push_strand(strands, StrandRole::Continue, vec![init]);
     let child2 = build_fib_node(n - 2, strands);
     strands[child2.entry.0].preds.push(cont);
-    // Sync: both child exits must finish before `return x + y`.
+    // Sync: both child exits must finish before `return x + y`; the same two
+    // exits are its dataflow summands (carried in the role) and its
+    // scheduling predecessors.
     let sync = push_strand(
         strands,
-        StrandRole::Sync,
-        None,
-        vec![child1.exit, child2.exit],
+        StrandRole::Sync {
+            summands: [child1.exit, child2.exit],
+        },
         vec![child1.exit, child2.exit],
     );
     NodeHandle {
@@ -229,27 +217,66 @@ pub fn fibonacci(n: u64) -> u64 {
     b
 }
 
-/// Evaluate the computation along a given strand order — the order must
-/// be topological (every predecessor precedes its successor), which each
-/// greedy [`Schedule`] flattening is. Base strands return their value,
-/// sync strands sum their two summands, control strands carry no value.
-/// The returned `u64` is the overall computation result (`P-FIB(n)`).
+/// A topological order of the strands named in `requested` — a stable Kahn
+/// (1962) sort that keeps the requested order wherever the DAG's precedence
+/// edges permit, and defers any strand until all of its predecessors precede
+/// it. On an already-topological `requested` (as every greedy [`Schedule`]
+/// flattening is) it returns `requested` unchanged; on any other permutation
+/// it *repairs* the order rather than trusting it. This discharges
+/// [`evaluate_along`]'s ordering precondition internally, so no strand is ever
+/// evaluated before its predecessors.
+fn topological_order(dag: &ComputationDag, requested: &[TaskId]) -> Vec<TaskId> {
+    let mut placed = vec![false; dag.strands.len()];
+    let mut order: Vec<TaskId> = Vec::with_capacity(requested.len());
+    // Sweep `requested` repeatedly, emitting each not-yet-placed strand whose
+    // predecessors are all placed. An acyclic DAG makes progress every sweep.
+    while order.len() < requested.len() {
+        let before = order.len();
+        for &id in requested {
+            if placed[id.0] {
+                continue;
+            }
+            if dag.strands[id.0].preds.iter().all(|p| placed[p.0]) {
+                placed[id.0] = true;
+                order.push(id);
+            }
+        }
+        if order.len() == before {
+            // No progress ⇒ a cycle among the requested strands, which the
+            // acyclic P-FIB construction cannot produce; stop rather than spin.
+            break;
+        }
+    }
+    order
+}
+
+/// Evaluate the computation realised by a schedule — the strands named in
+/// `order` — and return the overall result (`P-FIB(n)`). Base strands return
+/// their carried value, sync strands sum their two carried summands, control
+/// strands carry no value.
+///
+/// The walk follows the topological order `topological_order` derives from
+/// `order`, so every sync sees its two summands already evaluated: the result
+/// is exact, never an additive-identity stand-in for a missing value (CLRS
+/// Ch. 27's dataflow semantics). On a valid schedule flattening the walk order
+/// is `order` itself, so this evaluates *along* the schedule.
 pub fn evaluate_along(dag: &ComputationDag, order: &[TaskId]) -> u64 {
     let mut result: Vec<Option<u64>> = vec![None; dag.strands.len()];
-    for id in order {
+    for id in topological_order(dag, order) {
         let strand = &dag.strands[id.0];
         let value = match strand.role {
-            StrandRole::BaseCase => strand.base_value.unwrap_or(0),
-            StrandRole::Sync => strand
-                .summands
+            StrandRole::BaseCase { value } => value,
+            StrandRole::Sync { summands } => summands
                 .iter()
-                .map(|s| result[s.0].unwrap_or(0))
+                .map(|s| {
+                    result[s.0].expect("topological order evaluates a sync's summands before it")
+                })
                 .sum(),
             StrandRole::Init | StrandRole::Continue => 0,
         };
         result[id.0] = Some(value);
     }
-    result[dag.root_exit.0].unwrap_or(0)
+    result[dag.root_exit.0].expect("the root exit strand is evaluated by the topological walk")
 }
 
 /// Evaluate the computation in its intrinsic topological order (the
@@ -357,10 +384,19 @@ pub fn greedy_schedule(dag: &ComputationDag, p: usize) -> Schedule {
     Schedule { steps }
 }
 
+/// The base of the exponential processor-count grid the greedy and speedup
+/// bounds are probed over: successive **doublings** of the element count, so
+/// the grid sweeps serial → critically-limited in `O(log)` points — Amdahl
+/// (1967) AFIPS 30:483-485 and Gustafson (1988) CACM 31(5):532-533 both plot
+/// speedup against exponentially (doubling) growing processor counts. Shared
+/// with the ontology-side processor grid so the two carry one cited parameter.
+pub const PROCESSOR_GRID_BASE: usize = 2;
+
 /// The processing-element counts to probe the greedy bound over:
-/// successive powers of two up to and past the span, so the tested grid
-/// spans the whole regime from serial (`p = 1`) to critically-limited
-/// (`p > T∞`). Structurally derived from `span`, not hand-listed.
+/// successive powers of [`PROCESSOR_GRID_BASE`] up to and past the span, so
+/// the tested grid spans the whole regime from serial (`p = 1`) to
+/// critically-limited (`p > T∞`). Structurally derived from `span`, not
+/// hand-listed.
 pub fn greedy_processor_counts(span: usize) -> Vec<usize> {
     let mut counts = Vec::new();
     let mut p = 1usize;
@@ -369,7 +405,7 @@ pub fn greedy_processor_counts(span: usize) -> Vec<usize> {
         if p > span {
             break;
         }
-        p *= 2;
+        p *= PROCESSOR_GRID_BASE;
     }
     counts
 }

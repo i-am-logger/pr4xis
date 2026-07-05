@@ -9,7 +9,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use proptest::prelude::*;
 
 use super::engine::{
-    EDF_UTILIZATION_BOUND, PolicyOrder, TaskId, base_model_task, ll_increased_task_set, rm_admits,
+    PolicyOrder, TaskId, base_model_task, edf_utilization_bound, ll_increased_task_set, rm_admits,
     simulate_periodic, utilization,
 };
 use super::ontology::{
@@ -125,7 +125,7 @@ proptest! {
             prop_assert!(
                 trace.met_all_deadlines(),
                 "admitted set must be schedulable: U = {}",
-                utilization(&tasks)
+                utilization(&tasks).value
             );
         }
     }
@@ -135,12 +135,12 @@ proptest! {
     /// (earliest-deadline-first) order over its hyperperiod.
     #[test]
     fn prop_edf_feasible_up_to_full_utilization(tasks in arb_task_set()) {
-        if utilization(&tasks) <= EDF_UTILIZATION_BOUND {
+        if utilization(&tasks) <= edf_utilization_bound() {
             let trace = simulate_periodic(&tasks, PolicyOrder::EarliestDeadlineFirst);
             prop_assert!(
                 trace.met_all_deadlines(),
                 "U <= 1 set must be EDF-schedulable: U = {}",
-                utilization(&tasks)
+                utilization(&tasks).value
             );
         }
     }

@@ -26,7 +26,7 @@ fn arb_concept() -> impl Strategy<Value = MicrokernelConcept> {
 
 /// The documented `KernelPrivilege` classification, restated once so
 /// the proptest checks the quality's totality against an independent
-/// listing (Liedtke 1995 §2–4; Levin et al. 1975; Dijkstra 1968).
+/// listing (Liedtke 1995 §2–3; Levin et al. 1975; Dijkstra 1968).
 fn expected_privilege(c: &MicrokernelConcept) -> Option<Privilege> {
     use MicrokernelConcept as C;
     match c {
@@ -118,7 +118,7 @@ proptest! {
 
     /// Address-space isolation: a Send whose buffer lies in any space
     /// other than the sender's own is rejected, for every thread and
-    /// every foreign space (Liedtke 1995 §3.1).
+    /// every foreign space (Liedtke 1995 §2.1).
     #[test]
     fn prop_foreign_buffer_send_rejected(
         thread in 0..FIXTURE_THREAD_COUNT,
@@ -150,7 +150,7 @@ pr4xis::register_praxis_value!(prop_step_is_deterministic, Deterministic);
 pr4xis::register_praxis_value!(prop_every_delivery_is_mediated, Verifiable);
 pr4xis::register_praxis_value!(prop_foreign_buffer_send_rejected, Verifiable);
 
-/// The canonical client–server round trip (Liedtke 1995 §4; Haertig et
+/// The canonical client–server round trip (Liedtke 1995 §3; Haertig et
 /// al. 1997): the client sends via the endpoint, the kernel switches to
 /// the server, the server receives — the payload arrives with full
 /// mediation provenance and the delivery crosses an address-space

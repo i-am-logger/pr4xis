@@ -14,8 +14,9 @@
 //! - **Liedtke (1995)** *On µ-Kernel Construction*, SOSP — the
 //!   minimality principle (§2): a concept is tolerated inside the
 //!   kernel only if moving it out would prevent required functionality;
-//!   the kernel provides only address spaces (§3.1), threads (§3.2),
-//!   and IPC (§3.3); servers and pagers run in user space (§4).
+//!   the kernel provides only address spaces (§2.1), threads and IPC
+//!   (§2.2); servers, pagers, and drivers run in user space (§3,
+//!   Flexibility).
 //! - **Liedtke (1996)** *Toward Real Microkernels*, CACM 39(9) — the
 //!   monolithic contrast and the scheduling mechanism.
 //! - **Klein et al. (2009)** *seL4: Formal Verification of an OS
@@ -43,7 +44,7 @@ pr4xis::ontology! {
         MonolithicKernel,
         Nucleus,
 
-        // === The three privileged abstractions (Liedtke 1995 sec 3) ===
+        // === The three privileged abstractions (Liedtke 1995 §2.1-2.3) ===
         AddressSpace,
         Thread,
         Ipc,
@@ -53,7 +54,7 @@ pr4xis::ontology! {
         Message,
         Endpoint,
 
-        // === User space (Liedtke 1995 sec 4; Haertig et al. 1997) ===
+        // === User space (Liedtke 1995 §3; Haertig et al. 1997) ===
         UserServer,
         Pager,
 
@@ -73,14 +74,14 @@ pr4xis::ontology! {
         Microkernel: ("en", "Microkernel", "Liedtke (1995) SOSP, On u-Kernel Construction, sec 2 (minimality principle): a kernel providing ONLY address spaces, threads, and IPC - a concept is tolerated inside the kernel only if moving it outside would prevent required functionality."),
         MonolithicKernel: ("en", "Monolithic kernel", "Liedtke (1996) CACM 39(9), Toward Real Microkernels: the contrast concept - drivers, file systems, and policy all run privileged inside the kernel."),
         Nucleus: ("en", "Nucleus", "Brinch Hansen (1970) CACM 13(4), The Nucleus of a Multiprogramming System: the minimal core implementing processes and the message primitives; all other operating-system functions live outside it."),
-        AddressSpace: ("en", "Address space", "Liedtke (1995) sec 3.1: a virtual-to-physical memory mapping; the unit of isolation - page faults are exported to user-level pagers."),
-        Thread: ("en", "Thread", "Liedtke (1995) sec 3.2: an activity with a register set - instruction pointer and stack pointer - executing inside an address space."),
+        AddressSpace: ("en", "Address space", "Liedtke (1995) sec 2.1: a virtual-to-physical memory mapping; the unit of isolation - page faults are exported to user-level pagers."),
+        Thread: ("en", "Thread", "Liedtke (1995) sec 2.2 (Threads and IPC): an activity with a register set - instruction pointer and stack pointer - executing inside an address space."),
         Capability: ("en", "Capability", "Klein et al. (2009) SOSP, seL4: Formal Verification of an OS Kernel; Levin et al. (1975) SOSP: an unforgeable token conferring a specific access right on its holder."),
-        Ipc: ("en", "IPC", "Liedtke (1995) sec 3.3: the kernel's message-passing primitive - the only communication mechanism the microkernel provides."),
+        Ipc: ("en", "IPC", "Liedtke (1995) sec 2.2 (Threads and IPC): the kernel's message-passing primitive - the only communication mechanism the microkernel provides."),
         Message: ("en", "Message", "Brinch Hansen (1970) CACM 13(4): the payload an IPC transfers between processes, buffered by the nucleus."),
         Endpoint: ("en", "Endpoint", "Klein et al. (2009) SOSP: the kernel object messages are sent to and received from - the rendezvous point of IPC."),
-        UserServer: ("en", "User server", "Liedtke (1995) sec 4; Haertig et al. (1997) SOSP, The Performance of u-Kernel-Based Systems: a user-space process implementing a system service - a device driver, a file system, a pager."),
-        Pager: ("en", "Pager", "Liedtke (1995) sec 3.1: a user-space server resolving page faults - memory-management policy exported out of the kernel."),
+        UserServer: ("en", "User server", "Liedtke (1995) sec 3 (Flexibility); Haertig et al. (1997) SOSP, The Performance of u-Kernel-Based Systems: a user-space process implementing a system service - a device driver, a file system, a pager."),
+        Pager: ("en", "Pager", "Liedtke (1995) sec 3 (Flexibility): a user-space server resolving page faults - memory-management policy exported out of the kernel."),
         Scheduler: ("en", "Scheduler", "Liedtke (1996) CACM 39(9): the privileged mechanism choosing which thread runs next."),
         Mechanism: ("en", "Mechanism", "Levin et al. (1975) SOSP, Policy/Mechanism Separation in HYDRA: a policy-free primitive the kernel provides."),
         Policy: ("en", "Policy", "Levin et al. (1975) SOSP: a resource-use decision deliberately kept OUT of the kernel and delegated to unprivileged software."),
@@ -94,10 +95,10 @@ pr4xis::ontology! {
         (Microkernel, Kernel),
         (MonolithicKernel, Kernel),
         (Nucleus, Kernel),
-        // A pager is one kind of user-level server (Liedtke 1995 sec 3.1, 4).
+        // A pager is one kind of user-level server (Liedtke 1995 sec 3).
         (Pager, UserServer),
         // IPC and scheduling are policy-free kernel mechanisms
-        // (Levin et al. 1975; Liedtke 1995 sec 3.3; Liedtke 1996).
+        // (Levin et al. 1975; Liedtke 1995 sec 2.2; Liedtke 1996).
         (Ipc, Mechanism),
         (Scheduler, Mechanism),
     ],
@@ -119,7 +120,7 @@ pr4xis::ontology! {
         (Kernel, Ipc, Privileges),
         (Kernel, Scheduler, Privileges),
 
-        // Liedtke (1995) sec 3.1: the address space is the unit of
+        // Liedtke (1995) sec 2.1: the address space is the unit of
         // isolation for the threads executing inside it.
         (AddressSpace, Thread, Isolates),
 
@@ -132,7 +133,7 @@ pr4xis::ontology! {
         (Capability, AddressSpace, Grants),
         (Capability, Endpoint, Grants),
 
-        // Liedtke (1995) sec 4: servers - including pagers - execute
+        // Liedtke (1995) sec 3: servers - including pagers - execute
         // unprivileged.
         (UserServer, UserMode, RunsInUserSpace),
         (Pager, UserMode, RunsInUserSpace),
@@ -149,7 +150,7 @@ pr4xis::ontology! {
 
 /// The CPU protection domain a concept lives in — the two-mode split of
 /// Dijkstra (1968) CACM 11(5) as inherited by every kernel design
-/// (Liedtke 1995 §2: what is in the kernel runs privileged; §4: servers
+/// (Liedtke 1995 §2: what is in the kernel runs privileged; §3: servers
 /// run unprivileged).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Privilege {
@@ -162,9 +163,9 @@ pub enum Privilege {
 /// Which side of the privilege boundary a concept lives on.
 ///
 /// `Some(Privileged)` for the kernels and everything they implement
-/// privileged (Liedtke 1995 §2–3; Liedtke 1996 for the scheduler) plus
+/// privileged (Liedtke 1995 §2; Liedtke 1996 for the scheduler) plus
 /// the privileged mode itself; `Some(UserSpace)` for servers, pagers,
-/// policy (Liedtke 1995 §4; Levin et al. 1975), and user mode itself.
+/// policy (Liedtke 1995 §3; Levin et al. 1975), and user mode itself.
 ///
 /// `None` for the five mode-neutral concepts, each justified:
 ///
@@ -270,7 +271,7 @@ pub fn privileged_primitives() -> Vec<MicrokernelConcept> {
 }
 
 /// The sources of `RunsInUserSpace` edges — everything the category
-/// asserts to execute unprivileged (Liedtke 1995 §4).
+/// asserts to execute unprivileged (Liedtke 1995 §3).
 pub fn user_space_runners() -> Vec<MicrokernelConcept> {
     use pr4xis::category::{Arrow, Category};
     MicrokernelCategory::morphisms()
@@ -372,7 +373,7 @@ pr4xis::register_axiom!(
     "Levin, Cohen, Corwin, Pollack & Wulf (1975) SOSP, Policy/Mechanism Separation in HYDRA"
 );
 
-/// Liedtke (1995) §4 / Haertig et al. (1997): services run
+/// Liedtke (1995) §3 / Haertig et al. (1997): services run
 /// unprivileged. Every concept with a `RunsInUserSpace` edge has
 /// `KernelPrivilege = Some(UserSpace)`, and both `UserServer` and
 /// `Pager` carry such an edge — so the claim is non-vacuous and the
@@ -399,12 +400,12 @@ impl Axiom for ServersRunUnprivileged {
     pr4xis::axiom_meta!(
         "ServersRunUnprivileged",
         "every concept with a RunsInUserSpace edge has KernelPrivilege = UserSpace, and UserServer and Pager both carry such an edge",
-        "Liedtke (1995) SOSP sec 4; Haertig et al. (1997) SOSP, The Performance of u-Kernel-Based Systems"
+        "Liedtke (1995) SOSP sec 3 (Flexibility); Haertig et al. (1997) SOSP, The Performance of u-Kernel-Based Systems"
     );
 }
 pr4xis::register_axiom!(
     ServersRunUnprivileged,
-    "Liedtke (1995) SOSP sec 4; Haertig et al. (1997) SOSP, The Performance of u-Kernel-Based Systems"
+    "Liedtke (1995) SOSP sec 3 (Flexibility); Haertig et al. (1997) SOSP, The Performance of u-Kernel-Based Systems"
 );
 
 /// Klein et al. (2009) / Liedtke (1996): the microkernel and the

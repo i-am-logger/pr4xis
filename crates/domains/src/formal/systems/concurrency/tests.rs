@@ -10,7 +10,8 @@ use proptest::prelude::*;
 
 use super::engine::{StepProcess, apply_step, enabled_actions, explore, mutex_initial};
 use super::ontology::{
-    ConcurrencyCategory, ConcurrencyConcept, ConcurrencyOntology, IsBlockingPrimitive, PropertyKind,
+    ConcurrencyCategory, ConcurrencyConcept, ConcurrencyOntology, IsBlockingPrimitive,
+    PropertyKind, TemporalPropertyKind,
 };
 use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Ontology, Quality};
@@ -20,16 +21,22 @@ fn arb_concept() -> impl Strategy<Value = ConcurrencyConcept> {
 }
 
 proptest! {
-    /// PropertyKind is defined exactly on the temporal-property
-    /// concepts (Alpern & Schneider 1985 dichotomy) and nowhere else.
+    /// PropertyKind is defined exactly on the temporal-property concepts
+    /// (Alpern & Schneider 1985 dichotomy) and classifies each on the
+    /// correct side: Safety for the safety pole, MutualExclusion (is_a
+    /// SafetyProperty) and Deadlock (a deadlocked state is a discrete
+    /// "bad thing"); Liveness for the liveness pole and Livelock
+    /// (Lamport 1977).
     #[test]
     fn prop_property_kind_exactly_on_properties(c in arb_concept()) {
         use ConcurrencyConcept as C;
-        let is_property = matches!(
-            c,
-            C::SafetyProperty | C::MutualExclusion | C::LivenessProperty | C::Deadlock | C::Livelock
-        );
-        prop_assert_eq!(PropertyKind.get(&c).is_some(), is_property);
+        use TemporalPropertyKind as K;
+        let expected = match c {
+            C::SafetyProperty | C::MutualExclusion | C::Deadlock => Some(K::Safety),
+            C::LivenessProperty | C::Livelock => Some(K::Liveness),
+            _ => None,
+        };
+        prop_assert_eq!(PropertyKind.get(&c), expected);
     }
 
     /// IsBlockingPrimitive is defined exactly on the three concrete

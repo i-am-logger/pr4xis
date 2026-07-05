@@ -86,7 +86,7 @@ pr4xis::ontology! {
         SafetyProperty: ("en", "Safety property", "Lamport (1977) IEEE TSE SE-3(2); Alpern & Schneider (1985) IPL 21(4): 'nothing bad happens' - a property violated by a finite prefix."),
         LivenessProperty: ("en", "Liveness property", "Lamport (1977); Alpern & Schneider (1985): 'something good eventually happens'."),
         Deadlock: ("en", "Deadlock", "Coffman, Elphick & Shoshani (1971) ACM Computing Surveys 3(2): a cycle of processes each holding resources the next needs; no progress."),
-        Livelock: ("en", "Livelock", "Lamport (1977): a liveness failure in which processes act forever without progress."),
+        Livelock: ("en", "Livelock", "Kwong (1979) 'On the Absence of Livelocks in Parallel Programs', LNCS 70: the term for a liveness failure (Lamport 1977) in which processes act forever without making progress."),
         HoldAndWait: ("en", "Hold and wait", "Coffman et al. (1971) condition 2: a process holds resources while waiting for more."),
         NoPreemption: ("en", "No preemption", "Coffman et al. (1971) condition 3: resources cannot be forcibly taken from their holders."),
         CircularWait: ("en", "Circular wait", "Coffman et al. (1971) condition 4: a circular chain of processes, each waiting for a resource the next holds."),
@@ -124,8 +124,11 @@ pr4xis::ontology! {
         // Milner (1980) expansion law: P|Q expands to interleavings.
         (ParallelComposition, Interleaving, ExpandsTo),
 
-        // Lamport (1977): both progress failures violate liveness.
-        (Deadlock, LivenessProperty, Violates),
+        // Alpern & Schneider (1985): a deadlocked state is a discrete,
+        // finite-prefix-observable "bad thing", so a deadlock Violates a
+        // SAFETY property. Livelock — perpetual activity without progress
+        // — is a genuine LIVENESS violation (Lamport 1977).
+        (Deadlock, SafetyProperty, Violates),
         (Livelock, LivenessProperty, Violates),
     ],
 }
@@ -147,9 +150,14 @@ pub enum TemporalPropertyKind {
 }
 
 /// Which side of the Alpern & Schneider (1985) safety/liveness
-/// dichotomy a concept lives on. For `Deadlock` and `Livelock` the
-/// value is the kind of property they *violate* (liveness — Lamport
-/// 1977). `None` for concepts that are not temporal properties.
+/// dichotomy a concept lives on, *derived from the category's edges*
+/// rather than hand-matched — so the edge and the Quality can never
+/// disagree. A concept takes a pole's kind when it is that pole, is
+/// subsumed under it (`MutualExclusion` is_a `SafetyProperty`), or
+/// `Violates` it. Thus `Deadlock` (violates safety — a deadlocked state
+/// is a discrete "bad thing", Alpern & Schneider 1985) is Safety and
+/// `Livelock` (violates liveness — Lamport 1977) is Liveness. `None` for
+/// concepts that are not temporal properties.
 #[derive(Debug, Clone)]
 pub struct PropertyKind;
 
@@ -159,20 +167,33 @@ impl Quality for PropertyKind {
 
     fn get(&self, c: &ConcurrencyConcept) -> Option<TemporalPropertyKind> {
         use ConcurrencyConcept as C;
-        match c {
-            C::SafetyProperty | C::MutualExclusion => Some(TemporalPropertyKind::Safety),
-            C::LivenessProperty | C::Deadlock | C::Livelock => Some(TemporalPropertyKind::Liveness),
-            _ => None,
+        use ConcurrencyRelationKind as R;
+        // Each pole classifies itself, whatever is subsumed under it,
+        // and whatever Violates it — read straight off the morphisms.
+        for (pole, kind) in [
+            (C::SafetyProperty, TemporalPropertyKind::Safety),
+            (C::LivenessProperty, TemporalPropertyKind::Liveness),
+        ] {
+            if *c == pole
+                || kinded_edge_exists(*c, pole, R::Subsumption)
+                || kinded_edge_exists(*c, pole, R::Violates)
+            {
+                return Some(kind);
+            }
         }
+        None
     }
 }
 
 /// Whether a synchronization mechanism blocks the caller until it can
 /// proceed: the semaphore's `P` suspends (Dijkstra 1968), the monitor's
 /// entry and condition queues suspend (Hoare 1974), and the lock's
-/// acquire is the binary-semaphore case (Dijkstra 1968). `None` for
-/// concepts that are not concrete mechanisms (including the abstract
-/// `Synchronization` parent).
+/// acquire is the binary-semaphore case (Dijkstra 1968). Its domain is
+/// *derived from the `Synchronization` taxonomy* — the concrete
+/// mechanisms are exactly its direct children — so the Quality is
+/// coherent-by-construction and cannot drift when a mechanism is added.
+/// `None` for concepts that are not concrete mechanisms (including the
+/// abstract `Synchronization` parent).
 #[derive(Debug, Clone)]
 pub struct IsBlockingPrimitive;
 
@@ -181,10 +202,10 @@ impl Quality for IsBlockingPrimitive {
     type Value = bool;
 
     fn get(&self, c: &ConcurrencyConcept) -> Option<bool> {
-        use ConcurrencyConcept as C;
-        match c {
-            C::Semaphore | C::Monitor | C::Lock => Some(true),
-            _ => None,
+        if direct_children_of(ConcurrencyConcept::Synchronization).contains(c) {
+            Some(true)
+        } else {
+            None
         }
     }
 }
@@ -502,17 +523,20 @@ mod tests {
     #[test]
     fn safety_liveness_classification() {
         let q = PropertyKind;
-        assert_eq!(
-            q.get(&ConcurrencyConcept::SafetyProperty),
-            Some(TemporalPropertyKind::Safety)
-        );
-        assert_eq!(
-            q.get(&ConcurrencyConcept::MutualExclusion),
-            Some(TemporalPropertyKind::Safety)
-        );
+        // Safety: the safety pole, MutualExclusion (is_a SafetyProperty),
+        // and Deadlock — a deadlocked state is a discrete, finite-prefix
+        // "bad thing" (Alpern & Schneider 1985).
+        for c in [
+            ConcurrencyConcept::SafetyProperty,
+            ConcurrencyConcept::MutualExclusion,
+            ConcurrencyConcept::Deadlock,
+        ] {
+            assert_eq!(q.get(&c), Some(TemporalPropertyKind::Safety), "{c:?}");
+        }
+        // Liveness: the liveness pole and Livelock — perpetual activity
+        // without progress, a genuine liveness violation (Lamport 1977).
         for c in [
             ConcurrencyConcept::LivenessProperty,
-            ConcurrencyConcept::Deadlock,
             ConcurrencyConcept::Livelock,
         ] {
             assert_eq!(q.get(&c), Some(TemporalPropertyKind::Liveness), "{c:?}");

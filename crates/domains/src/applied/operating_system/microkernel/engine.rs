@@ -2,7 +2,7 @@
 //!
 //! The situation is a small kernel state in the sense of Liedtke (1995)
 //! SOSP "On µ-Kernel Construction": threads bound to address spaces
-//! (§3.1–3.2), endpoint message queues (Klein et al. 2009 SOSP; Brinch
+//! (§2.1–2.2), endpoint message queues (Klein et al. 2009 SOSP; Brinch
 //! Hansen 1970 CACM 13(4) message buffering), and one current thread
 //! (the scheduler's choice — Liedtke 1996 CACM 39(9)). The transition
 //! function enforces the two kernel guarantees the ontology's axioms
@@ -10,7 +10,7 @@
 //!
 //! 1. **Address-space isolation** — a thread only touches memory in its
 //!    own address space: a `Send` whose buffer lies in a foreign
-//!    address space is rejected (Liedtke 1995 §3.1: the address space
+//!    address space is rejected (Liedtke 1995 §2.1: the address space
 //!    is the unit of isolation).
 //! 2. **Kernel mediation** — every message passes through an endpoint:
 //!    the only representable delivery path is `Send` → endpoint queue →
@@ -30,12 +30,12 @@ use pr4xis::engine::{Action, Situation};
 // Identifiers — typed, never bare indices in APIs
 // ---------------------------------------------------------------------------
 
-/// A thread identity — Liedtke (1995) §3.2: the thread is the unit of
+/// A thread identity — Liedtke (1995) §2.2: the thread is the unit of
 /// activity, so it is named, never an anonymous index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ThreadId(pub usize);
 
-/// An address-space identity — Liedtke (1995) §3.1: the address space
+/// An address-space identity — Liedtke (1995) §2.1: the address space
 /// is the unit of isolation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AddressSpaceId(pub usize);
@@ -56,13 +56,13 @@ pub struct PayloadWord(pub u64);
 // ---------------------------------------------------------------------------
 
 /// A thread control block, reduced to the isolation-relevant binding:
-/// Liedtke (1995) §3.2 characterises a thread by its register set
+/// Liedtke (1995) §2.2 characterises a thread by its register set
 /// *and the address space it executes in*; here the address-space
 /// binding plus the mailbox of kernel-delivered messages (which the
 /// kernel writes into the thread's own space on `Receive`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThreadState {
-    /// The address space this thread executes in (Liedtke 1995 §3.2).
+    /// The address space this thread executes in (Liedtke 1995 §2.2).
     pub space: AddressSpaceId,
     /// Messages the kernel has delivered to this thread, with full
     /// mediation provenance.
@@ -84,7 +84,7 @@ pub struct QueuedMessage {
 /// provenance: *which endpoint* the message passed through. Direct
 /// thread-to-thread delivery is unrepresentable — there is no
 /// constructor path that skips the endpoint (Brinch Hansen 1970;
-/// Liedtke 1995 §3.3: IPC is the only communication primitive).
+/// Liedtke 1995 §2.2: IPC is the only communication primitive).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeliveredMessage {
     /// The thread that sent the message.
@@ -97,7 +97,7 @@ pub struct DeliveredMessage {
 
 /// The message a `Send` names: the payload plus the address space the
 /// send buffer lies in. The kernel checks the buffer space against the
-/// sender's own space — the isolation guard of Liedtke (1995) §3.1.
+/// sender's own space — the isolation guard of Liedtke (1995) §2.1.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KernelMessage {
     /// The address space holding the send buffer.
@@ -166,7 +166,7 @@ impl KernelSituation {
 }
 
 /// One kernel entry — the engine `Action`. The three system calls of
-/// the minimal kernel: IPC send, IPC receive (Liedtke 1995 §3.3), and
+/// the minimal kernel: IPC send, IPC receive (Liedtke 1995 §2.2), and
 /// thread switch (the scheduling mechanism, Liedtke 1996).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KernelAction {
@@ -204,13 +204,13 @@ impl Action for KernelAction {
 
 /// Number of threads in the fixture: a client and a server. The
 /// canonical microkernel interaction is one user-level client invoking
-/// one user-level server by IPC (Liedtke 1995 §4; Haertig et al. 1997
+/// one user-level server by IPC (Liedtke 1995 §3; Haertig et al. 1997
 /// SOSP); two threads is the smallest such configuration.
 pub const FIXTURE_THREAD_COUNT: usize = 2;
 
 /// Number of address spaces in the fixture: one per thread, so the
 /// fixture IPC actually crosses an isolation boundary — the address
-/// space is the unit of isolation (Liedtke 1995 §3.1) and same-space
+/// space is the unit of isolation (Liedtke 1995 §2.1) and same-space
 /// messaging would leave the isolation guard unexercised.
 pub const FIXTURE_ADDRESS_SPACE_COUNT: usize = FIXTURE_THREAD_COUNT;
 
@@ -227,7 +227,7 @@ pub fn fixture_payload(sender: ThreadId) -> PayloadWord {
 }
 
 /// Initial fixture situation: thread `i` bound to address space `i`
-/// (per-server address spaces — Liedtke 1995 §4), all endpoint queues
+/// (per-server address spaces — Liedtke 1995 §3), all endpoint queues
 /// empty, thread 0 (the client) running.
 pub fn kernel_initial() -> KernelSituation {
     KernelSituation {
@@ -256,7 +256,7 @@ pub fn kernel_initial() -> KernelSituation {
 /// - `Send` from a thread that is not running is rejected (only the
 ///   running thread can trap into the kernel);
 /// - `Send` whose buffer lies outside the sender's own address space is
-///   rejected — the isolation guard (Liedtke 1995 §3.1);
+///   rejected — the isolation guard (Liedtke 1995 §2.1);
 /// - `Receive` on an empty queue is rejected — nothing can be delivered
 ///   that did not first pass through the endpoint (Brinch Hansen 1970:
 ///   `wait message` delays the receiver until a message is queued);

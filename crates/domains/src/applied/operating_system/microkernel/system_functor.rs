@@ -34,10 +34,10 @@ impl Functor for MicrokernelToSystem {
         use MicrokernelConcept as M;
         match obj {
             // The executing activities and the user-level services are
-            // the system's elements (Liedtke 1995 sec 3.2, sec 4).
+            // the system's elements (Liedtke 1995 sec 2.2, sec 3).
             M::Thread | M::UserServer | M::Pager => SystemConcept::Component,
             // IPC, its payload, and its rendezvous object are the
-            // relational glue between components (Liedtke 1995 sec 3.3;
+            // relational glue between components (Liedtke 1995 sec 2.2;
             // Brinch Hansen 1970; Klein et al. 2009).
             M::Ipc | M::Message | M::Endpoint => SystemConcept::Interaction,
             // The kernels are the regulator: they decide what runs,
@@ -57,7 +57,7 @@ impl Functor for MicrokernelToSystem {
             // Levin et al. 1975).
             M::Capability | M::Policy => SystemConcept::Constraint,
             // The protection structure demarcates: the address space is
-            // the isolation boundary (Liedtke 1995 sec 3.1), the two
+            // the isolation boundary (Liedtke 1995 sec 2.1), the two
             // CPU modes are the privilege boundary (Dijkstra 1968), and
             // the TCB is the trust boundary (Klein et al. 2009).
             M::AddressSpace | M::PrivilegedMode | M::UserMode | M::TrustedComputingBase => {
@@ -87,7 +87,7 @@ impl Functor for MicrokernelToSystem {
             // subject may reach on a kernel object (Klein et al. 2009).
             MicrokernelRelationKind::Grants => SystemRelationKind::Governs,
             // RunsInUserSpace: a server composing into the unprivileged
-            // side of the system's boundary (Liedtke 1995 sec 4).
+            // side of the system's boundary (Liedtke 1995 sec 3).
             MicrokernelRelationKind::RunsInUserSpace => SystemRelationKind::ComposesInto,
             // Separates: policy/mechanism separation is a demarcation,
             // name-preserved into the target (Levin et al. 1975) —

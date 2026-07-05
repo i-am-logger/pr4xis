@@ -22,11 +22,11 @@ Category laws, ontology validation, five domain axioms (single-point + proptest 
 
 Taxonomy: `Semaphore` / `Monitor` / `Lock` is-a `Synchronization`; `MutualExclusion` is-a `SafetyProperty`.
 
-Custom edge kinds: `NecessaryFor` (the four Coffman conditions → `Deadlock`), `Enforces` (`Semaphore`/`Monitor` → `MutualExclusion`), `CommunicatesVia` (`Process` → `Channel`), `Respects` (`LogicalClock` → `HappensBefore`), `ExpandsTo` (`ParallelComposition` → `Interleaving`), `Violates` (`Deadlock`/`Livelock` → `LivenessProperty`).
+Custom edge kinds: `NecessaryFor` (the four Coffman conditions → `Deadlock`), `Enforces` (`Semaphore`/`Monitor` → `MutualExclusion`), `CommunicatesVia` (`Process` → `Channel`), `Respects` (`LogicalClock` → `HappensBefore`), `ExpandsTo` (`ParallelComposition` → `Interleaving`), `Violates` (`Deadlock` → `SafetyProperty`, `Livelock` → `LivenessProperty`).
 
 ## Qualities
 
-- `PropertyKind` → `TemporalPropertyKind { Safety, Liveness }` — the Alpern & Schneider (1985) dichotomy; for `Deadlock`/`Livelock` the value is the kind of property they violate.
+- `PropertyKind` → `TemporalPropertyKind { Safety, Liveness }` — the Alpern & Schneider (1985) dichotomy, derived from the category's edges (never hand-matched): `Deadlock` violates safety (a deadlocked state is a discrete, finite-prefix "bad thing") so is `Safety`, while `Livelock` violates liveness (Lamport 1977) so is `Liveness`.
 - `IsBlockingPrimitive` → `bool` — defined exactly on the three concrete mechanisms.
 
 ## Domain axioms

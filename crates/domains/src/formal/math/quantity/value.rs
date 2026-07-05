@@ -112,6 +112,22 @@ impl Quantity {
     }
 }
 
+/// Dimension-safe ordering. Two quantities are comparable only when they
+/// share a dimension — ordering across dimensions is meaningless (BIPM SI
+/// Brochure 2019, Section 1: only quantities of the same kind are
+/// comparable) — so `partial_cmp` returns `None` there, mirroring the
+/// dimensional guard on [`Quantity::add`]/[`Quantity::sub`]. Consistent
+/// with the derived `PartialEq` (which requires equal value *and*
+/// dimension).
+impl PartialOrd for Quantity {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        if !self.dimension.is_compatible(&other.dimension) {
+            return None;
+        }
+        self.value.partial_cmp(&other.value)
+    }
+}
+
 /// A closed interval of quantities of a single dimension — `[min, max]`.
 ///
 /// The typed replacement for an ad-hoc `(f64, f64)` or a prose accuracy string

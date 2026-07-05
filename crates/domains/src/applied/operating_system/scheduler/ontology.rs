@@ -27,9 +27,10 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::quantity::unit::{self, Unit};
+use crate::formal::math::quantity::value::Quantity;
 
 use super::engine::{
-    EDF_UTILIZATION_BOUND, LockingProtocol, PolicyOrder, SHA_HIGH_JOB_INDEX, SHA_MEDIUM_JOB_INDEX,
+    LockingProtocol, PolicyOrder, SHA_HIGH_JOB_INDEX, SHA_MEDIUM_JOB_INDEX, edf_utilization_bound,
     ll_example_task_set, rm_admits, rm_utilization_bound, sha_high_completion_bound_slot,
     sha_inversion_jobs, simulate_periodic, simulate_with_shared_resource,
 };
@@ -296,7 +297,10 @@ impl Axiom for LiuLaylandBound {
         let mut ok = true;
         let mut prev = f64::INFINITY;
         for n in 1..=RM_BOUND_TASK_COUNT_GRID_MAX {
-            let u_n = rm_utilization_bound(n);
+            // Numeric-kernel analysis of the closed-form bound: extract
+            // the dimensionless magnitude for the identity/monotonicity
+            // checks (the typed Quantity is returned by the public API).
+            let u_n = rm_utilization_bound(n).value;
             // Defining identity: 1 + U_n/n = 2^(1/n), so (1 + U_n/n)^n = 2.
             let identity = (nth_power(1.0 + u_n / n as f64, n) - 2.0).abs() <= NUMERIC_TOLERANCE;
             // U_1 = 1(2^1 − 1) = 1 exactly.
@@ -346,10 +350,12 @@ pub struct EdfDominatesRm;
 impl Axiom for EdfDominatesRm {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let edf_bound_is_full_utilization = EDF_UTILIZATION_BOUND == 1.0;
+        let edf_bound_is_full_utilization =
+            edf_utilization_bound() == Quantity::from_unit(1.0, &unit::UNITLESS);
         let mut rm_below_one = true;
         for n in 2..=RM_BOUND_TASK_COUNT_GRID_MAX {
-            if rm_utilization_bound(n) >= EDF_UTILIZATION_BOUND {
+            // Typed Quantity ordering (both dimensionless), not a bare float.
+            if rm_utilization_bound(n) >= edf_utilization_bound() {
                 rm_below_one = false;
             }
         }

@@ -134,7 +134,7 @@ pr4xis::ontology! {
         StreamChunk: ("en", "Stream chunk", "Assertive: asserts the next slice of stream content under the prior open's commitment. Searle (1969)."),
         StreamClose: ("en", "Stream close", "Declaration: brings the stream to a definitive end. Searle (1969)."),
         ClientPolicy: ("en", "Client policy", "Self-directed directive: the author binds future-themselves; verifiers enforce it as a self-imposed constraint — Ulysses' mast. Elster (1979) Ulysses and the Sirens; Searle (1969)."),
-        Membership: ("en", "Membership", "The relation between an Identity and a Channel, established by a ChannelJoin accepted under that channel's Constitution. Locke (1689) consent as the ground of membership; Buterin (2022) SSRN soulbound tokens."),
+        Membership: ("en", "Membership", "The relation between an Identity and a Channel, established by a ChannelJoin accepted under that channel's Constitution. Locke (1689) consent as the ground of membership; Weyl, Ohlhaver & Buterin (2022) SSRN 4105763 soulbound tokens."),
         Slashing: ("en", "Slashing", "The structural penalty for a protocol-detectable violation — one whose proof of misbehaviour is a constructable artifact, not a verdict requiring social adjudication. Buterin & Griffith (2017) arXiv:1710.09437 (Casper)."),
         Equivocation: ("en", "Equivocation", "Same device, same seq, two different signed events — misbehaviour detectable from message inconsistency alone. Lamport, Shostak & Pease (1982) ACM TOPLAS 4(3); Li et al. (2004) SUNDR §3."),
         ForkProof: ("en", "Fork proof", "The constructable equivocation proof: the existence of the pair IS the proof; every peer who sees both halves reaches the same verdict. Li et al. (2004) SUNDR §3."),
@@ -275,7 +275,7 @@ pub const VOICE_RANK: RankOrdinal = RankOrdinal(1);
 /// Value type is the EXISTING `SearleCategory` from the pragmatics ontology
 /// (Searle 1969; Austin 1962) — the protocol's event taxonomy maps onto the
 /// speech-act taxonomy rather than redefining it. `None` for every concept
-/// that is not one of the nine event types.
+/// that is not one of the fourteen event types.
 #[derive(Debug, Clone)]
 pub struct IllocutionaryForce;
 
@@ -522,7 +522,7 @@ pr4xis::register_axiom!(
 );
 
 /// prx §8.1 — every event in Praxis is authored by an Identity: the Authors
-/// edge exists AND each of the nine event concepts descends from PraxisEvent.
+/// edge exists AND each of the fourteen event concepts descends from PraxisEvent.
 pub struct EveryEventAuthored;
 
 impl Axiom for EveryEventAuthored {
@@ -545,7 +545,7 @@ impl Axiom for EveryEventAuthored {
 
     pr4xis::axiom_meta!(
         "EveryEventAuthored",
-        "the Authors edge Identity -> PraxisEvent exists and each of the nine event concepts is a Subsumption-descendant of PraxisEvent",
+        "the Authors edge Identity -> PraxisEvent exists and each of the fourteen event concepts is a Subsumption-descendant of PraxisEvent",
         "Lamport (1979) SRI CSL-98; Austin (1962)"
     );
 }
