@@ -14,6 +14,11 @@
 //!   filtering by consensus on information contributions, covariance
 //!   intersection over a network, and the data-incest failure mode of
 //!   naive additive re-fusion on cyclic topologies.
+//! - [`smart_element`] — the `SmartElement` ontology: the synthesis of the
+//!   two above with the autonomic loop — an autonomic edge element that is
+//!   simultaneously a MAPE-K manager (Kephart & Chess 2003) and a
+//!   signed-estimate fusion peer, carrying a queryable local ontology.
 
 pub mod consensus;
 pub mod fusion;
+pub mod smart_element;
