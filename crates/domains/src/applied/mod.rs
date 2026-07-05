@@ -7,6 +7,7 @@ pub mod hmi;
 pub mod industrial;
 pub mod localization;
 pub mod navigation;
+pub mod operating_system;
 pub mod perception;
 pub mod resilience;
 pub mod sensor_fusion;
