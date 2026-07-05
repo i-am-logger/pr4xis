@@ -38,7 +38,7 @@ Runs category laws, ontology validation, the ten domain axioms (single-point + p
 |---|---|---|
 | `Ipv6Only` | RFC 8981 (2021); prx Axiom A1 | Every durably-addressable transport address is `Ipv6Address` |
 | `PostQuantumOnly` | NIST FIPS 204/205 (2024); prx Axiom A2 | Every durable-signing scheme is post-quantum; ed25519 is transient only |
-| `EveryEventAuthored` | Lamport (1979); Austin (1962) | The `Authors` edge exists and all nine event types subsume into `PraxisEvent` |
+| `EveryEventAuthored` | Lamport (1979); Austin (1962) | The `Authors` edge exists and all fourteen event types subsume into `PraxisEvent` |
 | `ConstitutionFoundsAllAuthority` | Hart (1961) | `Constitutes` and `Founds` edges present: all authority descends from the founding act |
 | `SlashingExcludesFromPraxis` | Li et al. (2004) SUNDR §3; Buterin & Griffith (2017) | The `ProvenBy → Triggers → ExcludesFrom` chain holds, and engine gate 0 drops every event authored by a slashed device |
 | `IllocutionaryForceTotal` | Searle (1969); Austin (1962) | `IllocutionaryForce` is total over exactly the fourteen event types and matches the prx §5.3 table |

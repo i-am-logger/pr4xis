@@ -8,8 +8,9 @@
 //!   requests into device operations and the three device classes
 //!   (Ch. 1); hardware registers (Ch. 9); interrupts and their
 //!   handlers (Ch. 10); DMA (Ch. 15).
-//! - **Liedtke (1995)** *On µ-Kernel Construction*, SOSP, sec. 4 —
-//!   the driver as an isolated user-space server.
+//! - **Liedtke (1995)** *On µ-Kernel Construction*, SOSP, sec. 3
+//!   (Flexibility, Device Driver) — the driver as an isolated
+//!   user-space server.
 //! - **Swift, Bershad & Levy (2003)** *Improving the Reliability of
 //!   Commodity Operating Systems*, SOSP — Nooks: driver faults
 //!   dominate OS crashes (sec. 1); lightweight protection domains
@@ -82,7 +83,7 @@ pr4xis::ontology! {
         InterruptHandler: ("en", "Interrupt handler", "Corbet et al. (2005) Ch. 10: the driver routine that services an interrupt."),
         Dma: ("en", "DMA", "Corbet et al. (2005) Ch. 15: direct memory access - device-driven memory transfer that bypasses the CPU."),
         Hal: ("en", "HAL", "Corbet et al. (2005): the hardware abstraction layer decoupling drivers from hardware specifics."),
-        DriverAsServer: ("en", "Driver as server", "Liedtke (1995) SOSP sec. 4: the driver as an isolated user-space process; Swift, Bershad & Levy (2003) SOSP: the strong-isolation end of the driver design space."),
+        DriverAsServer: ("en", "Driver as server", "Liedtke (1995) SOSP sec. 3 (Flexibility, Device Driver): the driver as an isolated user-space process; Swift, Bershad & Levy (2003) SOSP: the strong-isolation end of the driver design space."),
         IsolationDomain: ("en", "Isolation domain", "Swift, Bershad & Levy (2003) SOSP: a fault-containment boundary around a driver - Nooks' lightweight kernel protection domain."),
         Microdriver: ("en", "Microdriver", "Ganapathy, Renzelmann, Balakrishnan, Swift & Jha (2008) ASPLOS: a split driver - the critical path stays in the kernel, the bulk of the code moves to user space."),
         DeviceModel: ("en", "Device model", "Ryzhyk, Chubb, Kuz, Le Sueur & Heiser (2009) SOSP: a formal specification of device behaviour from which the driver is synthesized."),

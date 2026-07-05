@@ -126,35 +126,48 @@ pub fn base_model_task(id: TaskId, wcet_seconds: f64, period_seconds: f64) -> Pe
 // ---------------------------------------------------------------------------
 
 /// The processor utilization factor `U = Σ Ci/Ti` — Liu & Layland
-/// (1973) §4. Each summand is the *typed* dimensionless quotient of two
-/// time quantities.
-pub fn utilization(tasks: &[PeriodicTask]) -> f64 {
-    tasks.iter().fold(0.0, |acc, t| {
-        let share = t.wcet.div(&t.period);
-        assert!(
-            share.is_dimensionless(),
-            "Ci/Ti must be dimensionless (time over time)"
-        );
-        acc + share.value
-    })
+/// (1973) §4, a dimensionless [`Quantity`] (`unit::UNITLESS`). Each
+/// summand is the *typed* dimensionless quotient of two time quantities,
+/// and the running sum stays a typed `UNITLESS` quantity rather than
+/// dropping to a bare float.
+pub fn utilization(tasks: &[PeriodicTask]) -> Quantity {
+    tasks
+        .iter()
+        .fold(Quantity::from_unit(0.0, &unit::UNITLESS), |acc, t| {
+            let share = t.wcet.div(&t.period);
+            assert!(
+                share.is_dimensionless(),
+                "Ci/Ti must be dimensionless (time over time)"
+            );
+            acc.add(&share)
+                .expect("dimensionless summands share the UNITLESS dimension")
+        })
 }
 
 /// Liu & Layland (1973) Theorem 5: the least upper utilization bound
 /// for rate-monotonic (fixed-priority, rate-ordered) scheduling of `n`
-/// tasks is `U_n = n(2^(1/n) − 1)`.
-pub fn rm_utilization_bound(n: usize) -> f64 {
+/// tasks is `U_n = n(2^(1/n) − 1)` — a dimensionless [`Quantity`]
+/// (`unit::UNITLESS`). The closed form is evaluated in the numeric
+/// kernel (raw `f64`) and wrapped as a typed quantity at the boundary.
+pub fn rm_utilization_bound(n: usize) -> Quantity {
     let n_f = n as f64;
-    n_f * ((2.0_f64).powf(1.0 / n_f) - 1.0)
+    let bound = n_f * ((2.0_f64).powf(1.0 / n_f) - 1.0);
+    Quantity::from_unit(bound, &unit::UNITLESS)
 }
 
 /// Liu & Layland (1973) §7, Theorem 7: the deadline-driven (earliest-
 /// deadline-first) algorithm is feasible if and only if `U ≤ 1` — full
-/// processor utilization; the bound is exactly one.
-pub const EDF_UTILIZATION_BOUND: f64 = 1.0;
+/// processor utilization; the bound is exactly one, a dimensionless
+/// [`Quantity`] (`unit::UNITLESS`).
+pub fn edf_utilization_bound() -> Quantity {
+    Quantity::from_unit(1.0, &unit::UNITLESS)
+}
 
 /// The rate-monotonic admission test: `U ≤ n(2^(1/n) − 1)` — Liu &
 /// Layland (1973) Theorem 5. Sufficient, not necessary (the paper's own
-/// §3 example with `C2 = 2` exceeds the bound yet is schedulable).
+/// §3 example with `C2 = 2` exceeds the bound yet is schedulable). The
+/// comparison runs through the typed `Quantity` ordering (both sides are
+/// dimensionless), never a bare float.
 pub fn rm_admits(tasks: &[PeriodicTask]) -> bool {
     utilization(tasks) <= rm_utilization_bound(tasks.len())
 }

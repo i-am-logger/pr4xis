@@ -98,7 +98,7 @@ impl KernelIntegrity {
 /// kernel address space (the commodity default, Swift et al. 2003
 /// sec. 1) or inside a fault-containment boundary (Nooks' lightweight
 /// protection domain, Swift et al. 2003 sec. 3; the user-space server
-/// of Liedtke 1995 sec. 4 is the strong end of the same axis).
+/// of Liedtke 1995 sec. 3 is the strong end of the same axis).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IsolationMembership {
     /// The driver shares the kernel's address space — its faults write
@@ -297,7 +297,7 @@ pub fn in_kernel_initial() -> DriverSituation {
 
 /// Initial situation of the isolated configuration: the driver will
 /// run inside a fault-containment boundary (Swift et al. 2003 sec. 3;
-/// Liedtke 1995 sec. 4).
+/// Liedtke 1995 sec. 3).
 pub fn isolated_initial() -> DriverSituation {
     DriverSituation {
         device: DeviceState::Unprobed,

@@ -12,7 +12,9 @@
 //!    Surveys 3(2).
 //!
 //! Every constant below is a documented structural fixture parameter
-//! cited to the axiom's source — no free magic numbers.
+//! cited to the axiom's source — no free magic numbers — and each is
+//! checked against the fixture it parametrizes by the agreement tests at
+//! the foot of this module, so none can drift silently.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
@@ -706,5 +708,62 @@ impl ResourceAllocationGraph {
                     .collect(),
             },
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Fixture-parameter agreement — each structural constant is checked
+// against the fixture it parametrizes, so none can drift silently.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Count of distinct values an iterator yields.
+    fn distinct<T: Ord>(iter: impl Iterator<Item = T>) -> usize {
+        let mut items: alloc::vec::Vec<T> = iter.collect();
+        items.sort_unstable();
+        items.dedup();
+        items.len()
+    }
+
+    /// The three-step Dijkstra script `P; critical; V` has exactly one
+    /// non-terminal program-counter position per operation, so the phase
+    /// enum encodes `MUTEX_FIXTURE_SCRIPT_LENGTH` pending steps plus the
+    /// terminal `Done` — Dijkstra (1968) EWD-123.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn mutex_script_length_matches_phases() {
+        let pending = ProcessPhase::ALL
+            .iter()
+            .filter(|p| !matches!(p, ProcessPhase::Done))
+            .count();
+        assert_eq!(pending, MUTEX_FIXTURE_SCRIPT_LENGTH);
+    }
+
+    /// The Lamport event fixture runs on exactly
+    /// `LAMPORT_FIXTURE_PROCESS_COUNT` distinct processes — Lamport
+    /// (1978) Figure 1.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn lamport_fixture_process_count_matches() {
+        let processes = distinct(lamport_fixture().iter().map(|e| e.process.0));
+        assert_eq!(processes, LAMPORT_FIXTURE_PROCESS_COUNT);
+    }
+
+    /// The Coffman deadlock fixture is the smallest circular chain:
+    /// `COFFMAN_FIXTURE_PROCESS_COUNT` processes each holding one of
+    /// `COFFMAN_FIXTURE_RESOURCE_COUNT` distinct resources and issuing one
+    /// request apiece — Coffman et al. (1971) §2.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn coffman_fixture_dimensions_match() {
+        let graph = coffman_fixture();
+        let holders = distinct(graph.assignments.iter().map(|a| a.holder.0));
+        let resources = distinct(graph.assignments.iter().map(|a| a.resource.0));
+        assert_eq!(holders, COFFMAN_FIXTURE_PROCESS_COUNT);
+        assert_eq!(resources, COFFMAN_FIXTURE_RESOURCE_COUNT);
+        assert_eq!(graph.requests.len(), COFFMAN_FIXTURE_PROCESS_COUNT);
     }
 }

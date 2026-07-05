@@ -90,8 +90,9 @@ impl Functor for ConcurrencyToParallelism {
             // Composition expanding to interleaving reads as a model
             // relation (the coarser view models the finer).
             ConcurrencyRelationKind::ExpandsTo => ParallelismRelationKind::Models,
-            // A progress failure violating liveness is canonical
-            // opposition.
+            // A progress failure violating its correctness property
+            // (Deadlock a safety property, Livelock a liveness one) is
+            // canonical opposition.
             ConcurrencyRelationKind::Violates => ParallelismRelationKind::Opposition,
             // The four canonical Relations-ontology kinds map to their
             // namesakes (Smith 2005 OBO-RO).

@@ -37,8 +37,8 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 use crate::formal::math::quantity::value::Quantity;
 
 use super::engine::{
-    ComputationDag, FIB_INDEX, SPAN_FIB4, WORK_FIB4, evaluate, evaluate_along, fib_dag, fibonacci,
-    greedy_processor_counts, greedy_schedule, span, unit_time_step,
+    ComputationDag, FIB_INDEX, PROCESSOR_GRID_BASE, SPAN_FIB4, WORK_FIB4, evaluate, evaluate_along,
+    fib_dag, fibonacci, greedy_processor_counts, greedy_schedule, span, unit_time_step,
 };
 
 pr4xis::ontology! {
@@ -263,9 +263,16 @@ impl Quality for IsDeterministicByDefault {
 // Numeric parameters (all named + cited — no magic numbers)
 // ---------------------------------------------------------------------------
 
-/// Serial fractions `f` used to probe Amdahl's bound — the 5%–50% range
-/// Amdahl (1967) AFIPS 30:483-485 argues is typical of real workloads
-/// (the "housekeeping"/data-management fraction that resists speedup).
+/// Serial fractions `f` used to probe Amdahl's bound. Amdahl (1967) AFIPS
+/// 30:483-485 estimates the data-management "housekeeping" fraction — the
+/// part of a production workload that resists speedup — at ~40% of executed
+/// instructions, reducible by a factor of two (~20%) in a dedicated
+/// environment but, in his words, "highly improbable" to reduce by a factor
+/// of three (~13%): a cited serial band of roughly 13-40%. The grid keeps two
+/// points inside that band (0.10 near the improbable ~13% floor, 0.25
+/// interior) and adds 0.05 and 0.50 as extremes bracketing it below and
+/// above, so the monotonicity/boundedness of `S(p,f)=1/(f+(1-f)/p)` is
+/// exercised across and beyond the cited regime.
 pub const AMDAHL_SERIAL_FRACTIONS: [f64; 4] = [0.05, 0.10, 0.25, 0.50];
 
 /// Serial time fractions `s'` measured *on the parallel system*, used to
@@ -273,15 +280,20 @@ pub const AMDAHL_SERIAL_FRACTIONS: [f64; 4] = [0.05, 0.10, 0.25, 0.50];
 /// (distinct in meaning from Amdahl's fixed-size fraction).
 pub const GUSTAFSON_SERIAL_FRACTIONS: [f64; 4] = [0.05, 0.10, 0.25, 0.50];
 
-/// Number of doublings in the processor-count grid: probes
-/// `p ∈ {1, 2, …, 1024}` — Amdahl (1967) and Gustafson (1988) both plot
-/// speedup against exponentially growing processor counts.
+/// Number of [`PROCESSOR_GRID_BASE`] doublings in the processor-count grid:
+/// probes `p ∈ {1, 2, …, 1024}` — Amdahl (1967) and Gustafson (1988) both
+/// plot speedup against exponentially growing processor counts.
 pub const PROCESSOR_GRID_DOUBLINGS: u32 = 10;
 
-/// Pipeline stage counts `k` to probe the pipeline speedup law over —
-/// Ramamoorthy & Li (1977) ACM Computing Surveys 9(1):61-102; Hennessy &
-/// Patterson, *Computer Architecture: A Quantitative Approach* (a 2–8
-/// stage pipeline is the classic RISC range).
+/// Pipeline stage counts `k` to probe the pipeline speedup law over. The
+/// speedup law itself is Ramamoorthy & Li (1977) ACM Computing Surveys
+/// 9(1):61-102. For depth, Hennessy & Patterson (*Computer Architecture: A
+/// Quantitative Approach*) take the 5-stage MIPS datapath (IF/ID/EX/MEM/WB)
+/// as the classic RISC pipeline, and the MIPS R4000's 8-stage integer
+/// pipeline as the canonical *superpipeline*. The grid is the doubling
+/// sequence {2, 4, 8}: its top rung reaches the cited 8-stage R4000
+/// superpipeline depth, and it brackets the 5-stage classic RISC pipeline
+/// between its 4 and 8 rungs.
 pub const PIPELINE_STAGE_COUNTS: [u64; 3] = [2, 4, 8];
 
 /// Float comparison tolerance — the round-off slack for the algebraic
@@ -299,10 +311,13 @@ pub const MIN_PARALLEL_DEGREE: usize = 2;
 /// *concurrent* execution is a total interleaving (Marlow 2012 §1.2).
 pub const SERIAL_PROCESSOR_COUNT: usize = 1;
 
-/// The processor-count grid: `1, 2, 4, …, 2^PROCESSOR_GRID_DOUBLINGS` —
-/// structurally derived, not hand-listed.
+/// The processor-count grid:
+/// `1, PROCESSOR_GRID_BASE, …, PROCESSOR_GRID_BASE^PROCESSOR_GRID_DOUBLINGS`
+/// — structurally derived from the shared cited grid base, not hand-listed.
 fn processor_grid() -> Vec<u64> {
-    (0..=PROCESSOR_GRID_DOUBLINGS).map(|k| 1u64 << k).collect()
+    (0..=PROCESSOR_GRID_DOUBLINGS)
+        .map(|k| (PROCESSOR_GRID_BASE as u64).pow(k))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------

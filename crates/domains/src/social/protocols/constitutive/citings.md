@@ -30,7 +30,7 @@ Reproduces the master reference list of the prx protocol's prose ontology
 ## Cited in the prx ontology outside its §10 list
 
 - **RFC 8981** (2021). *Temporary Address Extensions for Stateless Address Autoconfiguration in IPv6* (Gont, F., Krishnan, S., Narten, T. & Draves, R.) — per-session source-address rotation removes the stable-IP fingerprint. Grounds `Ipv6Address` / `Ipv4Address` and `Ipv6Only` (prx Axiom A1, ontology §0).
-- **Buterin, V.** (2022). *"Decentralized Society: Finding Web3's Soul"* (with Weyl, E. G. & Ohlhaver, P.). SSRN — soulbound tokens as the cryptographic analogue of membership (prx ontology §6.2). Grounds `Membership`.
+- **Weyl, E. G., Ohlhaver, P. & Buterin, V.** (2022). *"Decentralized Society: Finding Web3's Soul"*. SSRN 4105763 — soulbound tokens as the cryptographic analogue of membership (prx ontology §6.2). Grounds `Membership`.
 
 ## Cross-references
 

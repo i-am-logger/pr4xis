@@ -1,6 +1,6 @@
 //! Functor: Microkernel → Bus.
 //!
-//! Kernel IPC *is* a message bus: Liedtke (1995) SOSP §3.3 makes IPC
+//! Kernel IPC *is* a message bus: Liedtke (1995) SOSP §2.2 makes IPC
 //! the kernel's communication medium, and Eugster, Felber, Guerraoui &
 //! Kermarrec (2003) ACM CSUR 35(2) §2 give the bus reading — a medium
 //! decoupling senders from receivers, operated by an intermediary. The
@@ -45,7 +45,7 @@ impl Functor for MicrokernelToBus {
         match obj {
             // === The faithful pairings (Liedtke 1995; Eugster et al. 2003) ===
             // Kernel IPC is the communication medium the parties share —
-            // the message bus itself (Liedtke 1995 sec 3.3).
+            // the message bus itself (Liedtke 1995 sec 2.2).
             M::Ipc => B::MessageBus,
             // The payload is the payload on both readings (Brinch
             // Hansen 1970; Hewitt et al. 1973).
@@ -64,10 +64,10 @@ impl Functor for MicrokernelToBus {
             // 2003): a thread publishes messages.
             M::Thread => B::Publisher,
             // A user-level server waits on an endpoint and serves what
-            // arrives (Liedtke 1995 sec 4) — the consumer registered on
+            // arrives (Liedtke 1995 sec 3) — the consumer registered on
             // a topic: the subscriber.
             M::UserServer => B::Subscriber,
-            // A pager is one such server (Liedtke 1995 sec 3.1) —
+            // A pager is one such server (Liedtke 1995 sec 3) —
             // subscriber, forgetting what it pages.
             M::Pager => B::Subscriber,
 
@@ -135,7 +135,7 @@ impl Functor for MicrokernelToBus {
             MicrokernelRelationKind::Privileges => BusRelationKind::Routes,
             // Isolates: the address space keeping threads apart IS
             // space decoupling — the medium decouples the parties
-            // (Liedtke 1995 sec 3.1; Eugster et al. 2003 sec 2).
+            // (Liedtke 1995 sec 2.1; Eugster et al. 2003 sec 2).
             MicrokernelRelationKind::Isolates => BusRelationKind::Decouples,
             // Mediates: every message passes through the nucleus
             // (Brinch Hansen 1970) — kernel-mediated transfer is the
@@ -148,7 +148,7 @@ impl Functor for MicrokernelToBus {
             MicrokernelRelationKind::Grants => BusRelationKind::Matches,
             // RunsInUserSpace: an unprivileged server is an ordinary
             // party attached to the medium rather than operating it —
-            // the subscriber's registration (Liedtke 1995 sec 4;
+            // the subscriber's registration (Liedtke 1995 sec 3;
             // Eugster et al. 2003).
             MicrokernelRelationKind::RunsInUserSpace => BusRelationKind::Subscribes,
             // Separates: the mechanism/policy separation reads as the
@@ -183,7 +183,7 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn faithful_pairings() {
-        // Liedtke (1995) sec 3.3 + Eugster et al. (2003): kernel IPC
+        // Liedtke (1995) sec 2.2 + Eugster et al. (2003): kernel IPC
         // IS the message bus, the endpoint IS the named channel.
         assert_eq!(
             MicrokernelToBus::map_object(&MicrokernelConcept::Ipc),
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn parties_map_to_pub_sub_roles() {
         // A thread publishes messages; servers consume what arrives on
-        // their endpoints (Liedtke 1995 sec 4; Eugster et al. 2003).
+        // their endpoints (Liedtke 1995 sec 3; Eugster et al. 2003).
         assert_eq!(
             MicrokernelToBus::map_object(&MicrokernelConcept::Thread),
             BusConcept::Publisher
@@ -231,12 +231,12 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn isolation_reads_as_decoupling() {
-        // Liedtke (1995) sec 3.1 read through Eugster et al. (2003)
+        // Liedtke (1995) sec 2.1 read through Eugster et al. (2003)
         // sec 2: address-space isolation is space decoupling.
         let isolates = MicrokernelCategory::morphisms()
             .into_iter()
             .find(|m| m.kind() == MicrokernelRelationKind::Isolates)
-            .expect("the Isolates edge exists (Liedtke 1995 sec 3.1)");
+            .expect("the Isolates edge exists (Liedtke 1995 sec 2.1)");
         let image = MicrokernelToBus::map_morphism(&isolates);
         assert_eq!(image.kind(), BusRelationKind::Decouples);
         assert_eq!(image.source(), BusConcept::MessageBus);

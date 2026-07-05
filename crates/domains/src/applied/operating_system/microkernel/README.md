@@ -15,9 +15,9 @@ Category laws, ontology validation, four domain axioms (single-point + proptest 
 | Family | Concepts |
 |---|---|
 | Kernels (Dijkstra 1968; Brinch Hansen 1970; Liedtke 1995, 1996) | `Kernel`, `Microkernel`, `MonolithicKernel`, `Nucleus` |
-| Privileged abstractions (Liedtke 1995 §3) | `AddressSpace`, `Thread`, `Ipc` |
+| Privileged abstractions (Liedtke 1995 §2) | `AddressSpace`, `Thread`, `Ipc` |
 | Kernel objects (Klein et al. 2009; Brinch Hansen 1970) | `Capability`, `Message`, `Endpoint` |
-| User space (Liedtke 1995 §4; Haertig et al. 1997) | `UserServer`, `Pager` |
+| User space (Liedtke 1995 §3; Haertig et al. 1997) | `UserServer`, `Pager` |
 | Mechanism vs. policy (Levin et al. 1975; Liedtke 1996) | `Scheduler`, `Mechanism`, `Policy` |
 | Protection (Dijkstra 1968; Klein et al. 2009) | `PrivilegedMode`, `UserMode`, `TrustedComputingBase` |
 
@@ -36,12 +36,12 @@ Custom edge kinds: `Privileges` (`Kernel` → the four privileged primitives), `
 |---|---|---|
 | `MinimalPrivilegedSet` | Liedtke (1995) §2 | the `Privileges`-edge targets of `Kernel` are exactly the set {`AddressSpace`, `Thread`, `Ipc`, `Scheduler`} — set equality, not a count |
 | `MechanismPolicySeparation` | Levin et al. (1975) | the `Separates` edge exists and the `IsMechanism` classification is disjoint and non-vacuous |
-| `ServersRunUnprivileged` | Liedtke (1995) §4; Haertig et al. (1997) | every `RunsInUserSpace` source has `KernelPrivilege = UserSpace`; `UserServer` and `Pager` both carry the edge |
+| `ServersRunUnprivileged` | Liedtke (1995) §3; Haertig et al. (1997) | every `RunsInUserSpace` source has `KernelPrivilege = UserSpace`; `UserServer` and `Pager` both carry the edge |
 | `MicrokernelMinimizesTcb` | Klein et al. (2009); Liedtke (1996) | `Microkernel` and `MonolithicKernel` are both Subsumption-children of `Kernel` and an `Opposition` edge connects them |
 
 ## Engine
 
-[`engine.rs`](engine.rs) — a minimal kernel state, every constant documented and cited: `KernelSituation` (threads bound to address spaces, endpoint FIFO queues, a current thread) with `KernelAction::{Send, Receive, Switch}`. The transition function enforces address-space isolation (a `Send` naming a foreign buffer space is rejected — Liedtke 1995 §3.1) and kernel mediation (the only delivery path is `Send` → endpoint queue → `Receive`, with per-delivery endpoint provenance — Brinch Hansen 1970). The fixture is the canonical two-thread client–server configuration across two address spaces and one endpoint.
+[`engine.rs`](engine.rs) — a minimal kernel state, every constant documented and cited: `KernelSituation` (threads bound to address spaces, endpoint FIFO queues, a current thread) with `KernelAction::{Send, Receive, Switch}`. The transition function enforces address-space isolation (a `Send` naming a foreign buffer space is rejected — Liedtke 1995 §2.1) and kernel mediation (the only delivery path is `Send` → endpoint queue → `Receive`, with per-delivery endpoint provenance — Brinch Hansen 1970). The fixture is the canonical two-thread client–server configuration across two address spaces and one endpoint.
 
 ## Cross-functors
 

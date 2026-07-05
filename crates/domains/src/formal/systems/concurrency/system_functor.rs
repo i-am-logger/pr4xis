@@ -80,7 +80,8 @@ impl Functor for ConcurrencyToSystem {
             // parallel interaction (von Bertalanffy 1968 Ch. 3).
             ConcurrencyRelationKind::ExpandsTo => SystemRelationKind::ArisesFrom,
             // Violates: a progress failure stands in opposition to the
-            // liveness constraint — the canonical Opposition kind.
+            // correctness constraint it breaks (Deadlock a safety
+            // property, Livelock a liveness one) — canonical Opposition.
             ConcurrencyRelationKind::Violates => SystemRelationKind::Opposition,
             // The four canonical Relations-ontology kinds map to their
             // target namesakes (Smith 2005 OBO-RO).

@@ -2,8 +2,9 @@
 //!
 //! Hoare (1978) CACM 21(8): communicating sequential processes IS the
 //! microkernel execution model — a thread is a sequential activity, and
-//! kernel IPC is the channel it communicates over (Liedtke 1995 §3.2,
-//! §3.3). Those two pairings (`Thread → Process`, `Ipc → Channel`) are
+//! kernel IPC is the channel it communicates over (Liedtke 1995 §2.2,
+//! Threads and IPC). Those two pairings (`Thread → Process`,
+//! `Ipc → Channel`) are
 //! the faithful heart of this functor.
 //!
 //! Everything else is a *forgetful* reading, documented per arm:
@@ -42,7 +43,7 @@ impl Functor for MicrokernelToConcurrency {
             // A thread is a sequential activity — the CSP process.
             M::Thread => C::Process,
             // Kernel IPC is the medium processes communicate over —
-            // the CSP channel (Liedtke 1995 sec 3.3).
+            // the CSP channel (Liedtke 1995 sec 2.2).
             M::Ipc => C::Channel,
 
             // === Documented collapses onto Channel ===
@@ -63,11 +64,11 @@ impl Functor for MicrokernelToConcurrency {
 
             // === Forgetful collapses onto the Process umbrella ===
             // A user server is a communicating sequential process that
-            // serves requests over IPC (Liedtke 1995 sec 4) — process,
+            // serves requests over IPC (Liedtke 1995 sec 3) — process,
             // forgetting its service role.
             M::UserServer => C::Process,
             // A pager is one such server process (Liedtke 1995
-            // sec 3.1) — forgetting what it pages.
+            // sec 3) — forgetting what it pages.
             M::Pager => C::Process,
 
             // === Forgetful collapses onto the Synchronization umbrella ===

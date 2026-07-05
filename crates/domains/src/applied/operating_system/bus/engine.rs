@@ -8,14 +8,16 @@
 //! application, and a **per-subscriber dedup set** — the endpoint
 //! cooperation without which exactly-once delivery is not achievable.
 //!
-//! The failure model is Birman & Joseph (1987) ACM TOCS 5(1) §2: the
-//! channel may lose a message (omission failure), and it may equally
-//! lose an *acknowledgment* — the sender cannot distinguish the two, so
-//! a retransmission policy that recovers loss can also duplicate. The
-//! one fixture drives the same published message sequence through the
-//! three delivery semantics and observes: possible loss (at-most-once),
-//! possible duplication (at-least-once), and exactly one delivery
-//! (at-least-once transport plus endpoint dedup).
+//! The failure model is the classical omission-failure model (Cristian
+//! 1991 CACM 34(2); Hadzilacos & Toueg 1993): the channel may lose a
+//! message (omission failure), and it may equally lose an
+//! *acknowledgment* — the sender cannot distinguish the two, so a
+//! retransmission policy that recovers loss can also duplicate (Birrell
+//! & Nelson 1984 ACM TOCS 2(1): lost-acknowledgment retransmission).
+//! The one fixture drives the same published message sequence through
+//! the three delivery semantics and observes: possible loss
+//! (at-most-once), possible duplication (at-least-once), and exactly one
+//! delivery (at-least-once transport plus endpoint dedup).
 //!
 //! Every constant below is a documented structural fixture parameter
 //! cited to the axiom's source — no free magic numbers.
@@ -46,13 +48,14 @@ pub struct SubscriberId(pub usize);
 pub struct MessageId(pub usize);
 
 // ---------------------------------------------------------------------------
-// Delivery semantics (Birman & Joseph 1987)
+// Delivery semantics (Spector 1982; Birrell & Nelson 1984; MQTT 5.0 sec 4.3)
 // ---------------------------------------------------------------------------
 
-/// The three delivery guarantees — Birman & Joseph (1987) ACM TOCS
-/// 5(1): what a transport promises about how many times a published
-/// message reaches an operational destination. Parameterises every
-/// engine action via [`apply`].
+/// The three delivery guarantees — Spector (1982) CACM 25(4); Birrell &
+/// Nelson (1984) ACM TOCS 2(1); OASIS MQTT 5.0 §4.3: what a transport
+/// promises about how many times a published message reaches an
+/// operational destination. Parameterises every engine action via
+/// [`apply`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Delivery {
     /// Fire-and-forget: one transmission attempt, no retransmission —
@@ -68,8 +71,8 @@ pub enum Delivery {
 }
 
 impl Delivery {
-    /// The closed three-element set of delivery guarantees — Birman &
-    /// Joseph (1987); Eugster et al. (2003).
+    /// The closed three-element set of delivery guarantees — Spector
+    /// (1982); Birrell & Nelson (1984); OASIS MQTT 5.0 §4.3.
     pub const ALL: [Delivery; 3] = [
         Delivery::AtMostOnce,
         Delivery::AtLeastOnce,
@@ -102,14 +105,14 @@ pub struct PublishedMessage {
 }
 
 /// The transport status of one (message, subscriber) transmission —
-/// the unit the retransmission protocol of Birman & Joseph (1987)
+/// the unit the retransmission protocol of Birrell & Nelson (1984)
 /// reasons about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransmissionStatus {
     /// A transmission attempt is owed to the channel.
     Pending,
-    /// The channel lost the last attempt (omission failure — Birman &
-    /// Joseph 1987 §2).
+    /// The channel lost the last attempt (omission failure — Cristian
+    /// 1991 CACM 34(2)).
     Lost,
     /// An attempt reached the subscriber. The *sender* may still not
     /// know this: if the acknowledgment was lost, its timeout fires and
@@ -118,7 +121,7 @@ pub enum TransmissionStatus {
 }
 
 /// One outstanding transmission: the broker owes (or owed) `message` to
-/// `subscriber` — Birman & Joseph (1987).
+/// `subscriber` — Birrell & Nelson (1984).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transmission {
     /// The message being transmitted.
@@ -130,7 +133,7 @@ pub struct Transmission {
 }
 
 /// One subscriber's inbox: the messages handed to the application, in
-/// arrival order — Hewitt et al. (1973): the mailbox is the actor's
+/// arrival order — Agha (1986): the mailbox (mail queue) is the actor's
 /// message queue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Inbox {
@@ -227,8 +230,8 @@ pub enum BusAction {
         /// The accepted message to route.
         message: MessageId,
     },
-    /// A transmission attempt reaches `subscriber` — Birman & Joseph
-    /// (1987). Under exactly-once, the endpoint dedup set may suppress
+    /// A transmission attempt reaches `subscriber` — Birrell & Nelson
+    /// (1984). Under exactly-once, the endpoint dedup set may suppress
     /// the hand-off to the application.
     Deliver {
         /// The message transmitted.
@@ -237,14 +240,14 @@ pub enum BusAction {
         subscriber: SubscriberId,
     },
     /// The channel loses a transmission attempt (omission failure —
-    /// Birman & Joseph 1987 §2).
+    /// Cristian 1991 CACM 34(2)).
     Drop {
         /// The message whose attempt is lost.
         message: MessageId,
         /// The destination whose attempt is lost.
         subscriber: SubscriberId,
     },
-    /// The sender retransmits — Birman & Joseph (1987): allowed after a
+    /// The sender retransmits — Birrell & Nelson (1984): allowed after a
     /// lost attempt *or* after a delivery whose acknowledgment was lost
     /// (the sender cannot tell the two apart). Refused outright under
     /// at-most-once, which never retransmits.
@@ -267,7 +270,8 @@ impl Action for BusAction {
 /// Apply one bus action under the given delivery semantics. `Err` when
 /// the action is not enabled: duplicate registrations and identities
 /// are rejected, transmissions must exist in the right status, and
-/// at-most-once refuses to retransmit (Birman & Joseph 1987).
+/// at-most-once refuses to retransmit (Spector 1982; Birrell & Nelson
+/// 1984).
 pub fn apply(
     situation: &BrokerSituation,
     action: &BusAction,
@@ -395,7 +399,7 @@ pub fn apply(
             if semantics == Delivery::AtMostOnce {
                 return Err(
                     "at-most-once transport is fire-and-forget: it never retransmits \
-                     (Birman & Joseph 1987)"
+                     (Spector 1982)"
                         .to_string(),
                 );
             }
@@ -408,10 +412,10 @@ pub fn apply(
                     "no lost or unacknowledged transmission of {message:?} to {subscriber:?}"
                 ));
             };
-            // Lost → the retransmission recovers the omission failure;
-            // Delivered → the acknowledgment was lost, the sender's
-            // timeout fires and it re-sends (Birman & Joseph 1987: the
-            // sender cannot distinguish the two cases).
+            // Lost → the retransmission recovers the omission failure
+            // (Cristian 1991); Delivered → the acknowledgment was lost,
+            // the sender's timeout fires and it re-sends (Birrell &
+            // Nelson 1984: the sender cannot distinguish the two cases).
             t.status = TransmissionStatus::Pending;
         }
     }
@@ -419,7 +423,7 @@ pub fn apply(
 }
 
 // ---------------------------------------------------------------------------
-// Fixture parameters (Birman & Joseph 1987; Eugster et al. 2003)
+// Fixture parameters (Cristian 1991; Birrell & Nelson 1984; Eugster et al. 2003)
 // ---------------------------------------------------------------------------
 
 /// The fixture's single named channel — Eugster et al. (2003) §4.1:
@@ -434,20 +438,20 @@ pub const FIXTURE_TOPIC: TopicId = TopicId(0);
 pub const FIXTURE_SUBSCRIBER: SubscriberId = SubscriberId(0);
 
 /// Two published messages — the smallest sequence exhibiting both
-/// channel failure modes of Birman & Joseph (1987) §2 at once: one
-/// message lost on its first transmission, one delivered whose
+/// channel failure modes (omission — Cristian 1991 CACM 34(2)) at once:
+/// one message lost on its first transmission, one delivered whose
 /// acknowledgment is lost.
 pub const FIXTURE_MESSAGE_COUNT: usize = 2;
 
 /// The fixture message whose first transmission attempt the channel
-/// loses (omission failure — Birman & Joseph 1987 §2). At-most-once
+/// loses (omission failure — Cristian 1991 CACM 34(2)). At-most-once
 /// never recovers it; the retransmitting semantics do.
 pub const DROPPED_MESSAGE: MessageId = MessageId(0);
 
 /// The fixture message delivered on its first attempt whose
 /// *acknowledgment* is lost — the sender cannot distinguish a lost
 /// message from a lost acknowledgment, so retransmitting semantics
-/// re-send it and at-least-once duplicates (Birman & Joseph 1987).
+/// re-send it and at-least-once duplicates (Birrell & Nelson 1984).
 pub const UNACKED_MESSAGE: MessageId = MessageId(1);
 
 /// Exactly one hand-off per destination — Birman & Joseph (1987):
@@ -471,7 +475,7 @@ pub fn scenario_messages(count: usize) -> Vec<MessageId> {
 /// and routed; `dropped`'s first attempt is lost by the channel and
 /// `unacked`'s first attempt is delivered but unacknowledged; the
 /// retransmitting semantics (at-least-once, exactly-once) then re-send
-/// both, at-most-once sends nothing further (Birman & Joseph 1987).
+/// both, at-most-once sends nothing further (Birrell & Nelson 1984).
 ///
 /// The *published message sequence* is identical across the three
 /// semantics — only the retransmission policy differs, which is exactly
@@ -533,7 +537,7 @@ pub fn run_scenario(
     // Retransmission round — the policy the semantics parameterises:
     // at-most-once is fire-and-forget (no further action); the
     // retransmitting semantics re-send both the lost message and the
-    // delivered-but-unacknowledged one (Birman & Joseph 1987).
+    // delivered-but-unacknowledged one (Birrell & Nelson 1984).
     if semantics != Delivery::AtMostOnce {
         for message in [dropped, unacked] {
             situation = step(
