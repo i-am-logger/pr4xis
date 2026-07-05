@@ -1,7 +1,9 @@
+pub mod concurrency;
 pub mod control;
 pub mod engine_functor;
 pub mod mape_k;
 pub mod ontology;
+pub mod parallelism;
 pub mod traffic_functor;
 
 pub use ontology::*;
