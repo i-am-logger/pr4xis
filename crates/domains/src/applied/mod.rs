@@ -12,5 +12,6 @@ pub mod perception;
 pub mod resilience;
 pub mod sensor_fusion;
 pub mod space;
+pub mod swarm;
 pub mod tracking;
 pub mod underwater;
