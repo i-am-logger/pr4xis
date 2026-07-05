@@ -10,10 +10,14 @@
 //! # Literature
 //!
 //! - **Searle (1969)** *Speech Acts* — the illocutionary taxonomy that maps
-//!   onto the nine praxis event types (via the existing
+//!   onto the fourteen praxis event types (via the existing
 //!   `cognitive::linguistics::pragmatics::speech_act::SearleCategory`).
 //! - **Austin (1962)** *How to Do Things With Words* — performative
 //!   utterances; a `RoleGrant` is true by being said (published, signed).
+//! - **Oikarinen & Reed (1993)** RFC 1459 / **Kalt (2000)** RFC 2811 — IRC
+//!   channel management: the KICK command (§4.2.8), the +b ban mask
+//!   (RFC 2811 §4.3.1), and the MODE command (§4.2) that the five moderation
+//!   / mode event types re-manifest.
 //! - **Hart (1961)** *The Concept of Law* — primary vs. secondary rules; the
 //!   `Constitution` is the protocol's secondary-rule layer.
 //! - **Lamport (1979)** SRI CSL-98 — to be able to sign is what an identity is.
@@ -56,6 +60,11 @@ pr4xis::ontology! {
         ChannelModes,
         RoleGrant,
         RoleRevoke,
+        Kick,
+        Ban,
+        Unban,
+        Unkick,
+        ChannelModeChange,
 
         // === Constitution cluster (prx ontology §4) ===
         Constitution,
@@ -107,6 +116,11 @@ pr4xis::ontology! {
         ChannelModes: ("en", "Channel modes", "The modulating bits on a channel's manifest — constraints on how authorities are exercised, not authorities themselves. Lessig (1999): code is law — modes are the constitutional law of the channel."),
         RoleGrant: ("en", "Role grant", "Performative authority creation: the role exists in the channel by virtue of the signed declaration — saying it is what makes it true. Austin (1962)."),
         RoleRevoke: ("en", "Role revoke", "Performative authority destruction; the symmetric counterpart of the grant. Austin (1962)."),
+        Kick: ("en", "Kick", "Forcible removal of a member by a channel operator; the removed member may rejoin subject to the channel's join policy — a transient moderation act. Oikarinen & Reed (1993) RFC 1459 §4.2.8 (KICK command)."),
+        Ban: ("en", "Ban", "Durable exclusion of an identity from rejoining, recorded as a ban entry on the channel; in IRC the +b ban mask channel mode, which refuses matching devices including a fresh join. Kalt (2000) RFC 2811 §4.3.1 (Channel Ban and Exception); Oikarinen & Reed (1993) RFC 1459 §4.2.3 (MODE, +b ban mask)."),
+        Unban: ("en", "Unban", "The symmetric lift of a Ban — removes the ban entry (-b in IRC), restoring the identity's eligibility to rejoin. Kalt (2000) RFC 2811 §4.3.1 (-b); Oikarinen & Reed (1993) RFC 1459 §4.2.3 (MODE)."),
+        Unkick: ("en", "Unkick", "The explicit lift of a Kick prior to rejoin. IRC has no UNKICK command — a kick there lapses only on a fresh accepted join; this is prx's explicit symmetric counterpart, grounded in the same moderation authority (RFC 1459 §4.2.8) and Austin's performative symmetry (like RoleRevoke to RoleGrant). Oikarinen & Reed (1993) RFC 1459 §4.2.8; Austin (1962)."),
+        ChannelModeChange: ("en", "Channel mode change", "A runtime change to the channel's effective modes under the existing constitution — the MODE command — without reissuing the channel under a new id (which would lose history). Names the EVENT; the state it amends is the ChannelModes concept. Kalt (2000) RFC 2811 §4.2 / Oikarinen & Reed (1993) RFC 1459 §4.2.3 (MODE command); Lessig (1999) code-as-law."),
         Constitution: ("en", "Constitution", "The founding act of a channel: a manifest signed by a constitutive agency; once constituted, amendments happen under it as praxis events. Hart (1961) secondary rules; Schmitt (1928) Verfassungslehre, constitutive vs. constituted power (cited honestly — see citings.md)."),
         ChannelManifest: ("en", "Channel manifest", "The constitutive document: the founder's constitutive public key, the channel modes, and an SLH-DSA signature over the canonical bytes."),
         ChannelId: ("en", "Channel id", "blake3 of the canonical manifest bytes — the channel's unforgeable external name, containing its constitution by reference."),
@@ -140,7 +154,8 @@ pr4xis::ontology! {
         (OperatorRole, Role),
         (VoiceRole, Role),
 
-        // The nine praxis event types (prx ontology §5.3 table).
+        // The fourteen praxis event types (prx ontology §5.3 table +
+        // the moderation / mode events RFC 1459 §4.2.8 / RFC 2811 §4).
         (ChannelJoin, PraxisEvent),
         (Leave, PraxisEvent),
         (ProfileUpdate, PraxisEvent),
@@ -150,6 +165,11 @@ pr4xis::ontology! {
         (ClientPolicy, PraxisEvent),
         (RoleGrant, PraxisEvent),
         (RoleRevoke, PraxisEvent),
+        (Kick, PraxisEvent),
+        (Ban, PraxisEvent),
+        (Unban, PraxisEvent),
+        (Unkick, PraxisEvent),
+        (ChannelModeChange, PraxisEvent),
 
         // Transport addresses (prx Axiom A1 support).
         (Ipv6Address, TransportAddress),
@@ -201,6 +221,22 @@ pr4xis::ontology! {
 
         // Modes constrain how authorities are exercised (prx §3.3; Lessig 1999).
         (ChannelModes, Authority, Modulates),
+
+        // Moderation edges (RFC 1459 §4.2.8; RFC 2811 §4.3.1; prx role.rs).
+        // A kick strips the target's granted authority (prx apply_kick removes
+        // the target's role grant).
+        (Kick, Authority, Strips),
+        // A ban entails a kick — it does everything the kick does plus records
+        // a durable ban (prx apply_ban: grants.remove + kicked.insert +
+        // banned.insert).
+        (Ban, Kick, Entails),
+        // The explicit symmetric lifts (prx apply_unkick / apply_unban).
+        (Unkick, Kick, Lifts),
+        (Unban, Ban, Lifts),
+        // A mode change amends the channel's modes under the existing
+        // constitution (prx apply_mode_change sets the effective-modes
+        // override; Hart 1961 secondary rules; Lessig 1999).
+        (ChannelModeChange, ChannelModes, Amends),
     ],
 }
 
@@ -250,10 +286,20 @@ impl Quality for IllocutionaryForce {
     fn get(&self, c: &ConstitutiveProtocolConcept) -> Option<SearleCategory> {
         use ConstitutiveProtocolConcept as C;
         match c {
-            // Declarations: performative — saying it (signed, accepted) makes it so.
-            C::ChannelJoin | C::Leave | C::StreamClose | C::RoleGrant | C::RoleRevoke => {
-                Some(SearleCategory::Declaration)
-            }
+            // Declarations: performative — saying it (signed, accepted) makes
+            // it so. The five moderation / mode events join this family: a
+            // signed, accepted kick / ban / unban / unkick / mode change makes
+            // the exclusion or amendment true by being uttered (Austin 1962).
+            C::ChannelJoin
+            | C::Leave
+            | C::StreamClose
+            | C::RoleGrant
+            | C::RoleRevoke
+            | C::Kick
+            | C::Ban
+            | C::Unban
+            | C::Unkick
+            | C::ChannelModeChange => Some(SearleCategory::Declaration),
             // Assertives: truth-value bearers receivers may believe or doubt.
             C::ProfileUpdate | C::StreamChunk => Some(SearleCategory::Assertive),
             // Commissive: commits the author to subsequent chunks.
@@ -358,7 +404,9 @@ impl Quality for RoleRank {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// The nine praxis event concepts — the rows of the prx ontology §5.3 table.
+/// The fourteen praxis event concepts — the rows of the prx ontology §5.3
+/// table plus the five moderation / mode events (RFC 1459 §4.2.8;
+/// RFC 2811 §4).
 pub fn praxis_event_concepts() -> Vec<ConstitutiveProtocolConcept> {
     use ConstitutiveProtocolConcept as C;
     vec![
@@ -371,6 +419,11 @@ pub fn praxis_event_concepts() -> Vec<ConstitutiveProtocolConcept> {
         C::ClientPolicy,
         C::RoleGrant,
         C::RoleRevoke,
+        C::Kick,
+        C::Ban,
+        C::Unban,
+        C::Unkick,
+        C::ChannelModeChange,
     ]
 }
 
@@ -540,8 +593,8 @@ pub struct SlashingExcludesFromPraxis;
 impl Axiom for SlashingExcludesFromPraxis {
     fn verify(&self) -> Verdict {
         use super::engine::{
-            ChannelAction, ChannelRole, ChannelSituation, DEVICE_ID_BYTES, DeviceIdValue,
-            EventDigest, ForkProofClaim, SeqNumber, apply_channel,
+            ChannelAction, ChannelIdValue, ChannelModeSet, ChannelRole, ChannelSituation,
+            DEVICE_ID_BYTES, DeviceIdValue, EventDigest, ForkProofClaim, SeqNumber, apply_channel,
         };
         use ConstitutiveProtocolConcept as C;
 
@@ -569,7 +622,11 @@ impl Axiom for SlashingExcludesFromPraxis {
         // position at which the equivocation pair is observed.
         let founder = DeviceIdValue([1; DEVICE_ID_BYTES]);
         let joiner = DeviceIdValue([2; DEVICE_ID_BYTES]);
-        let s0 = ChannelSituation::founded(founder);
+        let s0 = ChannelSituation::founded(
+            ChannelIdValue([0; DEVICE_ID_BYTES]),
+            founder,
+            ChannelModeSet::default(),
+        );
         let Ok(s1) = apply_channel(&s0, &ChannelAction::AdmitJoin { device: joiner }) else {
             return verdict_from(self, false);
         };
@@ -639,8 +696,9 @@ pr4xis::register_axiom!(
     "Li, Krohn, Mazieres & Shasha (2004) OSDI SUNDR §3; Buterin & Griffith (2017) arXiv:1710.09437"
 );
 
-/// prx §5.3 — the illocutionary taxonomy is total over exactly the nine
-/// event concepts and matches the published table.
+/// prx §5.3 — the illocutionary taxonomy is total over exactly the fourteen
+/// event concepts and matches the published table (the nine original rows
+/// plus the five moderation / mode declarations).
 pub struct IllocutionaryForceTotal;
 
 impl Axiom for IllocutionaryForceTotal {
@@ -658,6 +716,13 @@ impl Axiom for IllocutionaryForceTotal {
             (C::ClientPolicy, SearleCategory::Directive),
             (C::RoleGrant, SearleCategory::Declaration),
             (C::RoleRevoke, SearleCategory::Declaration),
+            // The five moderation / mode events are all Declarations: a
+            // signed, accepted utterance makes the exclusion or amendment so.
+            (C::Kick, SearleCategory::Declaration),
+            (C::Ban, SearleCategory::Declaration),
+            (C::Unban, SearleCategory::Declaration),
+            (C::Unkick, SearleCategory::Declaration),
+            (C::ChannelModeChange, SearleCategory::Declaration),
         ];
         let matches_table = table.iter().all(|(c, force)| q.get(c) == Some(*force));
         // Some for exactly the event concepts, None everywhere else.
@@ -670,7 +735,7 @@ impl Axiom for IllocutionaryForceTotal {
 
     pr4xis::axiom_meta!(
         "IllocutionaryForceTotal",
-        "IllocutionaryForce is Some for exactly the nine praxis event concepts and matches the prx §5.3 illocutionary table",
+        "IllocutionaryForce is Some for exactly the fourteen praxis event concepts and matches the prx §5.3 illocutionary table (nine original rows + five moderation/mode Declarations)",
         "Searle (1969) Speech Acts; Austin (1962) How to Do Things With Words"
     );
 }
@@ -706,6 +771,235 @@ pr4xis::register_axiom!(
     "Oikarinen & Reed (1993) RFC 1459; Kalt (2000) RFC 2811; Saltzer & Schroeder (1975) IEEE Proc 63(9)"
 );
 
+/// prx role.rs / RFC 1459 §4.2.8 — every admitted moderation act (Kick, Ban,
+/// RoleRevoke) requires the actor to hold grant-authority over the target's
+/// current tier (prx `Role::can_grant`), and the Founder tier is never
+/// strippable.
+///
+/// The predicate is `can_grant`, not a raw "strictly superior rank": with the
+/// channel's `op_can_grant_op` mode set, an Operator may moderate a fellow
+/// Operator (equal rank) — RFC 2811 §4.1's channel-creator/operator exception.
+/// With that mode clear (the default) `can_grant` reduces exactly to strict
+/// rank superiority, so `prop_default_mode_moderation_is_strict_rank` records
+/// the sharper "superior rank" guarantee for the default channel.
+pub struct ModerationRequiresGrantAuthority;
+
+impl Axiom for ModerationRequiresGrantAuthority {
+    fn verify(&self) -> Verdict {
+        use super::engine::{
+            ChannelAction, ChannelIdValue, ChannelModeSet, ChannelRole, ChannelSituation,
+            DEVICE_ID_BYTES, DeviceIdValue, apply_channel,
+        };
+
+        let roles = [
+            ChannelRole::Founder,
+            ChannelRole::Operator,
+            ChannelRole::Voice,
+        ];
+        let actor = DeviceIdValue([2; DEVICE_ID_BYTES]);
+        let target = DeviceIdValue([3; DEVICE_ID_BYTES]);
+
+        // Exhaustive over (actor tier, target tier, op_can_grant_op): a kick,
+        // ban, or revoke is admitted iff the actor can_grant over the target's
+        // tier AND the target is not the Founder.
+        for &actor_role in &roles {
+            for &target_role in &roles {
+                for &op_flag in &[false, true] {
+                    let situation = ChannelSituation {
+                        channel: ChannelIdValue([1; DEVICE_ID_BYTES]),
+                        members: vec![actor, target],
+                        roles: vec![(actor, actor_role), (target, target_role)],
+                        kicked: Vec::new(),
+                        banned: Vec::new(),
+                        modes: ChannelModeSet {
+                            op_can_grant_op: op_flag,
+                        },
+                        slashed: Vec::new(),
+                    };
+                    let expected = target_role != ChannelRole::Founder
+                        && actor_role.can_grant(target_role, op_flag);
+                    let kick_ok = apply_channel(
+                        &situation,
+                        &ChannelAction::AdmitKick {
+                            kicker: actor,
+                            target,
+                        },
+                    )
+                    .is_ok();
+                    let ban_ok = apply_channel(
+                        &situation,
+                        &ChannelAction::AdmitBan {
+                            banner: actor,
+                            target,
+                        },
+                    )
+                    .is_ok();
+                    let revoke_ok = apply_channel(
+                        &situation,
+                        &ChannelAction::AdmitRoleRevoke {
+                            revoker: actor,
+                            target,
+                        },
+                    )
+                    .is_ok();
+                    if kick_ok != expected || ban_ok != expected || revoke_ok != expected {
+                        return verdict_from(self, false);
+                    }
+                }
+            }
+        }
+        verdict_from(self, true)
+    }
+
+    pr4xis::axiom_meta!(
+        "ModerationRequiresGrantAuthority",
+        "in the engine a Kick/Ban/RoleRevoke is admitted iff the actor holds grant-authority (Role::can_grant) over the target's current tier and the target is not the Founder; with op_can_grant_op clear this is strict rank superiority",
+        "Saltzer & Schroeder (1975) IEEE Proc 63(9) least privilege; Oikarinen & Reed (1993) RFC 1459 §4.2.8 (KICK); Kalt (2000) RFC 2811 §4.1 (member status)"
+    );
+}
+pr4xis::register_axiom!(
+    ModerationRequiresGrantAuthority,
+    "Saltzer & Schroeder (1975) IEEE Proc 63(9) least privilege; Oikarinen & Reed (1993) RFC 1459 §4.2.8 (KICK); Kalt (2000) RFC 2811 §4.1 (member status)"
+);
+
+/// prx role.rs / RFC 2811 §4.3.1 — a ban is durable: after an admitted Ban the
+/// banned device's fresh `ChannelJoin` is refused until an `Unban` lifts it,
+/// whereas a kick alone does not block rejoin (a fresh join clears the kick).
+pub struct BanExcludesRejoin;
+
+impl Axiom for BanExcludesRejoin {
+    fn verify(&self) -> Verdict {
+        use super::engine::{
+            ChannelAction, ChannelIdValue, ChannelModeSet, ChannelSituation, DEVICE_ID_BYTES,
+            DeviceIdValue, apply_channel,
+        };
+
+        let founder = DeviceIdValue([1; DEVICE_ID_BYTES]);
+        let member = DeviceIdValue([2; DEVICE_ID_BYTES]);
+        let s0 = ChannelSituation::founded(
+            ChannelIdValue([9; DEVICE_ID_BYTES]),
+            founder,
+            ChannelModeSet::default(),
+        );
+
+        // Member joins, then the founder bans them.
+        let Ok(s1) = apply_channel(&s0, &ChannelAction::AdmitJoin { device: member }) else {
+            return verdict_from(self, false);
+        };
+        let Ok(banned) = apply_channel(
+            &s1,
+            &ChannelAction::AdmitBan {
+                banner: founder,
+                target: member,
+            },
+        ) else {
+            return verdict_from(self, false);
+        };
+        // Rejoin is refused while banned...
+        let rejoin_refused =
+            apply_channel(&banned, &ChannelAction::AdmitJoin { device: member }).is_err();
+        // ...and admitted again once the ban is lifted.
+        let Ok(unbanned) = apply_channel(
+            &banned,
+            &ChannelAction::AdmitUnban {
+                lifter: founder,
+                target: member,
+            },
+        ) else {
+            return verdict_from(self, false);
+        };
+        let rejoin_after_unban =
+            apply_channel(&unbanned, &ChannelAction::AdmitJoin { device: member }).is_ok();
+
+        // A kick alone does NOT block rejoin, and a fresh join clears it.
+        let Ok(kicked) = apply_channel(
+            &s1,
+            &ChannelAction::AdmitKick {
+                kicker: founder,
+                target: member,
+            },
+        ) else {
+            return verdict_from(self, false);
+        };
+        let kick_blocks_rejoin =
+            apply_channel(&kicked, &ChannelAction::AdmitJoin { device: member }).is_err();
+        let Ok(rejoined) = apply_channel(&kicked, &ChannelAction::AdmitJoin { device: member })
+        else {
+            return verdict_from(self, false);
+        };
+        let kick_cleared_on_rejoin = !rejoined.is_kicked(&member);
+
+        verdict_from(
+            self,
+            rejoin_refused && rejoin_after_unban && !kick_blocks_rejoin && kick_cleared_on_rejoin,
+        )
+    }
+
+    pr4xis::axiom_meta!(
+        "BanExcludesRejoin",
+        "after an admitted Ban the banned device's fresh ChannelJoin is refused until Unban; a kick alone does not block rejoin (a fresh join clears the kick)",
+        "Kalt (2000) RFC 2811 §4.3.1 (Channel Ban and Exception, +b ban masks); Oikarinen & Reed (1993) RFC 1459 §4.2.8 (KICK)"
+    );
+}
+pr4xis::register_axiom!(
+    BanExcludesRejoin,
+    "Kalt (2000) RFC 2811 §4.3.1 (Channel Ban and Exception, +b ban masks); Oikarinen & Reed (1993) RFC 1459 §4.2.8 (KICK)"
+);
+
+/// prx role.rs / Hart (1961) — a mode change is a constituted amendment: it
+/// overrides the effective modes UNDER the existing constitution and never
+/// mints a new channel identity, leaving the constituted structure
+/// (membership, roles) intact.
+pub struct ModeChangeIsConstitutedAmendment;
+
+impl Axiom for ModeChangeIsConstitutedAmendment {
+    fn verify(&self) -> Verdict {
+        use super::engine::{
+            ChannelAction, ChannelIdValue, ChannelModeSet, ChannelSituation, DEVICE_ID_BYTES,
+            DeviceIdValue, apply_channel,
+        };
+
+        let founder = DeviceIdValue([1; DEVICE_ID_BYTES]);
+        let s0 = ChannelSituation::founded(
+            ChannelIdValue([42; DEVICE_ID_BYTES]),
+            founder,
+            ChannelModeSet::default(),
+        );
+        let new_modes = ChannelModeSet {
+            op_can_grant_op: true,
+        };
+        let Ok(s1) = apply_channel(
+            &s0,
+            &ChannelAction::AdmitModeChange {
+                actor: founder,
+                modes: new_modes,
+            },
+        ) else {
+            return verdict_from(self, false);
+        };
+
+        // Identity untouched (amendment under the constitution, not a
+        // re-founding), modes actually amended, constituted structure intact.
+        let identity_preserved = s1.channel == s0.channel;
+        let modes_amended = s1.modes == new_modes && s0.modes != new_modes;
+        let structure_preserved = s1.members == s0.members && s1.roles == s0.roles;
+        verdict_from(
+            self,
+            identity_preserved && modes_amended && structure_preserved,
+        )
+    }
+
+    pr4xis::axiom_meta!(
+        "ModeChangeIsConstitutedAmendment",
+        "an admitted ChannelModeChange overrides the effective modes while leaving the channel identity and the constituted structure (membership, roles) untouched: amendment under the constitution, not re-founding",
+        "Hart (1961) The Concept of Law, primary/secondary rules; Lessig (1999) Code and Other Laws of Cyberspace"
+    );
+}
+pr4xis::register_axiom!(
+    ModeChangeIsConstitutedAmendment,
+    "Hart (1961) The Concept of Law, primary/secondary rules; Lessig (1999) Code and Other Laws of Cyberspace"
+);
+
 // ---------------------------------------------------------------------------
 // Ontology impl
 // ---------------------------------------------------------------------------
@@ -723,6 +1017,9 @@ impl Ontology for ConstitutiveProtocolOntology {
         axioms.push(Box::new(SlashingExcludesFromPraxis));
         axioms.push(Box::new(IllocutionaryForceTotal));
         axioms.push(Box::new(RoleLadderTotalOrder));
+        axioms.push(Box::new(ModerationRequiresGrantAuthority));
+        axioms.push(Box::new(BanExcludesRejoin));
+        axioms.push(Box::new(ModeChangeIsConstitutedAmendment));
         axioms
     }
 }
@@ -786,6 +1083,24 @@ mod tests {
     #[test]
     fn role_ladder_total_order_holds() {
         assert!(RoleLadderTotalOrder.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn moderation_requires_grant_authority_holds() {
+        assert!(ModerationRequiresGrantAuthority.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn ban_excludes_rejoin_holds() {
+        assert!(BanExcludesRejoin.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn mode_change_is_constituted_amendment_holds() {
+        assert!(ModeChangeIsConstitutedAmendment.verify().is_ok());
     }
 
     fn arb_concept() -> impl Strategy<Value = ConstitutiveProtocolConcept> {
