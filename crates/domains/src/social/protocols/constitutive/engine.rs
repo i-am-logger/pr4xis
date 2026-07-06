@@ -416,6 +416,13 @@ pub fn apply_channel(
             role,
         } => {
             gate_zero(situation, granter)?;
+            // The Founder is unstrippable: no grant may overwrite the founding
+            // authority (prx `apply_grant` guards `target == self.founder`).
+            // `can_grant(_, Founder)` blocks handing *out* the Founder tier, but
+            // not overwriting the founder *device* with a lesser role — without
+            // this guard an Operator could demote the Founder to Voice and then
+            // kick/ban them, bypassing founder-untouchability.
+            refuse_if_founder(situation, grantee)?;
             let granter_role = situation.role_of(granter).ok_or_else(|| {
                 "role grant dropped: granter holds no authority in this channel".to_string()
             })?;

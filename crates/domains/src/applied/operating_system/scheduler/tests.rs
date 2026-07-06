@@ -180,3 +180,39 @@ fn rm_bound_is_sufficient_not_necessary() {
         "the trace realises preemption (the preemptive model in action)"
     );
 }
+
+/// An overloaded set (U > 1) is INFEASIBLE and the simulator must say so —
+/// the direction the other tests never exercise. {(C=2, T=2), (C=1, T=4)}
+/// has U = 1.25; the T=4 task starves and misses its only deadline, which
+/// falls exactly at the hyperperiod boundary (lcm(2,4) = 4). This guards the
+/// horizon boundary check: without it `met_all_deadlines()` would wrongly
+/// report feasibility. Grounded in the Liu & Layland (1973) utilisation model
+/// (U ≤ 1 is necessary for feasibility on one processor).
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn overloaded_set_misses_a_deadline() {
+    let over = vec![
+        base_model_task(TaskId(0), 2.0, 2.0),
+        base_model_task(TaskId(1), 1.0, 4.0),
+    ];
+    for policy in [
+        PolicyOrder::RateMonotonic,
+        PolicyOrder::EarliestDeadlineFirst,
+    ] {
+        let trace = simulate_periodic(&over, policy);
+        assert!(
+            !trace.met_all_deadlines(),
+            "U = 1.25 is infeasible; a deadline at the hyperperiod boundary must be charged ({policy:?})"
+        );
+    }
+    // A feasible control (U = 0.75) still passes, so the boundary scan does not
+    // over-report misses.
+    let feasible = vec![
+        base_model_task(TaskId(0), 1.0, 2.0),
+        base_model_task(TaskId(1), 1.0, 4.0),
+    ];
+    assert!(
+        simulate_periodic(&feasible, PolicyOrder::RateMonotonic).met_all_deadlines(),
+        "U = 0.75 remains feasible under rate-monotonic"
+    );
+}

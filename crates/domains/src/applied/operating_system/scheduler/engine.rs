@@ -363,6 +363,23 @@ pub fn simulate_periodic(tasks: &[PeriodicTask], policy: PolicyOrder) -> Simulat
         }
     }
 
+    // Final-boundary deadline check. The loop stops at `horizon`, so a job
+    // whose absolute deadline equals `horizon` is never charged in-loop — yet
+    // in the base model (deadline == period, `horizon` a common multiple of
+    // every period) each task's last release in the hyperperiod lands its
+    // deadline exactly there. Without this scan an overloaded task whose final
+    // job starves would be silently reported feasible. No job's deadline can
+    // exceed `horizon` (the last release is at `horizon - period`), so scanning
+    // the boundary once covers every otherwise-unchecked final deadline.
+    for (i, task) in tasks.iter().enumerate() {
+        if let Some(job) = &sit.jobs[i]
+            && job.absolute_deadline_slot == horizon
+            && job.remaining_slots > 0
+        {
+            deadline_misses.push((task.id, horizon));
+        }
+    }
+
     SimulationTrace {
         actions,
         deadline_misses,

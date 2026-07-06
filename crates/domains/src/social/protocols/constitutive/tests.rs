@@ -406,6 +406,55 @@ fn founder_is_untouchable() {
         )
         .is_err()
     );
+    // ...and no grant may overwrite the Founder row (prx `apply_grant` guards
+    // the founder device). Blocking only the Founder *tier* would leave a
+    // demote-then-evict escalation open: without the grantee-founder guard an
+    // Operator grants the founder a lesser role and then kicks the demotee.
+    // Direct self-demotion is refused:
+    assert!(
+        apply_channel(
+            &s2,
+            &ChannelAction::AdmitRoleGrant {
+                granter: founder(),
+                grantee: founder(),
+                role: ChannelRole::Voice,
+            }
+        )
+        .is_err()
+    );
+    // Operator-driven demotion is refused, and the founder keeps the tier:
+    let demote = apply_channel(
+        &s2,
+        &ChannelAction::AdmitRoleGrant {
+            granter: alice(),
+            grantee: founder(),
+            role: ChannelRole::Voice,
+        },
+    );
+    assert!(demote.is_err());
+    assert_eq!(s2.role_of(&founder()), Some(ChannelRole::Founder));
+    // The composed escalation (grant-then-ban) therefore cannot begin: even if
+    // an Operator attempts the demote and proceeds to ban, the ban still sees a
+    // Founder and refuses.
+    let after_attempt = apply_channel(
+        &s2,
+        &ChannelAction::AdmitRoleGrant {
+            granter: alice(),
+            grantee: founder(),
+            role: ChannelRole::Voice,
+        },
+    )
+    .unwrap_or_else(|_| s2.clone());
+    assert!(
+        apply_channel(
+            &after_attempt,
+            &ChannelAction::AdmitBan {
+                banner: alice(),
+                target: founder(),
+            }
+        )
+        .is_err()
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
