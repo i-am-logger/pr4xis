@@ -89,10 +89,13 @@ pub const SYNSET_KIND: &str = "Synset";
 /// archive — the schema generator the praxis functor maps to `Subsumption`.
 pub const HYPERNYM_REL: &str = "hypernym";
 
-/// The praxis kind of a written-form atom — an `ontolex:Form` (its `writtenRep`),
-/// carrying NO sense. The honest target of the lexical `denotes` floor: a span
-/// grounds into "this written form occurred", never into a meaning.
-pub const FORM_KIND: &str = "Form";
+// The `ontolex:Form` wire primitives (`FORM_KIND`, `form_atom`) live in the
+// runtime crate beside [`Definition`], so the compiled-ontology emitter
+// (`pr4xis_runtime::emit`) mints Form atoms under the EXACT kind string this
+// bridge — and the composed reasoner — filter on. Re-exported here to keep the
+// `english::bridge::{FORM_KIND, form_atom}` path every downstream grounding site
+// already imports.
+pub use pr4xis_runtime::definition::{FORM_KIND, form_atom};
 
 /// Project the loaded [`English`] struct into a content-addressed source
 /// [`Archive`] — the functor `English → Archive`.
@@ -136,24 +139,6 @@ pub fn project_archive(english: &English) -> Archive {
     Archive {
         nodes,
         connections: Vec::new(),
-    }
-}
-
-/// The `ontolex:Form` atom for a written representation — a bare surface-form
-/// node carrying its `writtenRep` as both `name` and `lexical`, and NOTHING
-/// else: no sense, no synset edge. Its content [`address`](Definition::address)
-/// is what a lexical `denotes` floor edge points AT.
-///
-/// Sense-deferral is STRUCTURAL: a Form has no senses, so a pointer that resolves
-/// to one cannot have over-committed to a meaning (the written-form floor's
-/// honesty tripwire — a `denotes` edge must land on a `Form`, never a synset).
-pub fn form_atom(written_rep: &str) -> Definition {
-    Definition {
-        kind: FORM_KIND.to_string(),
-        name: written_rep.to_string(),
-        edges: Vec::new(),
-        axioms: Vec::new(),
-        lexical: Some(written_rep.to_string()),
     }
 }
 

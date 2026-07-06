@@ -165,19 +165,30 @@ pub fn process_with_reasoner(
         },
     );
 
-    // Single-word LOADED entity → offer a proper-noun (NP) reading too, so
-    // "is <one-word-loaded-X> part of Y" parses (collapse only NP-types MULTI-word
-    // spans). Gated on LOADED-corpus membership — NOT the union lookup — so English
-    // function words (which never resolve to a loaded ontology) keep their copula/
-    // determiner/wh types; the parse is not disturbed. NP is ADDED as an
-    // alternative, never replacing the base type, so a determiner case ("a title")
-    // still reduces via the noun reading and the chart keeps whichever derives S.
+    // A LOADED ontology surface is a noun the chat reasons over. Offer it BOTH
+    // readings so it parses in either syntactic role, gated on LOADED-corpus
+    // membership — NOT the union lookup — so English function words (which never
+    // resolve to a loaded ontology) keep their copula/determiner/wh types:
+    //   - a proper-noun NP reading, so it stands alone as a subject/complement
+    //     ("is <loaded-X> part of Y", "is case law a law"); and
+    //   - a common-noun N reading, so a determiner attaches ("a legal document").
+    // A single-word loaded surface already carries N from tokenize; a COLLAPSED
+    // multi-word surface (a §9 citation/label span) arrives typed NP-only, so
+    // without the N reading "a <multi-word-label>" could not reduce (the determiner
+    // NP/N finds no N). Both are ADDED as alternatives, never replacing the base
+    // type, so the chart keeps whichever derives S.
     {
         use pr4xis_domains::cognitive::linguistics::lambek::types::svo;
         let np = svo::proper_noun();
+        let n = svo::noun();
         for (i, tok) in tokens.iter().enumerate() {
-            if reasoner.is_loaded_surface(&tok.word) && !type_sets[i].contains(&np) {
-                type_sets[i].push(np.clone());
+            if reasoner.is_loaded_surface(&tok.word) {
+                if !type_sets[i].contains(&np) {
+                    type_sets[i].push(np.clone());
+                }
+                if !type_sets[i].contains(&n) {
+                    type_sets[i].push(n.clone());
+                }
             }
         }
     }
@@ -484,6 +495,9 @@ pub fn answer_question(
     use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
     use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
     use pr4xis_domains::cognitive::linguistics::relation_lexicon::subsumption_kind;
+    use pr4xis_domains::formal::relations::ontology::{
+        antisymmetric_relation_kinds, opposition_relation_kind,
+    };
 
     let all_entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
@@ -545,16 +559,53 @@ pub fn answer_question(
                     }
                 }
             }
-            // The negation still TRAVERSED the loaded closure — record it. The
-            // denial phrases with the relation's loaded surface ("is not part of"),
-            // not "is not a".
+            // No forward path child→parent along `kind`. Assert a negation ONLY
+            // when it is PROVABLE — absence of a path is not a disproof, and a
+            // closed-world "No" is dishonest ("a statute is not a law" was exactly
+            // such a false negative). Two positive grounds, both read from LOADED
+            // relation properties (never a hardcoded match):
+            //   1. `kind` is antisymmetric AND the reverse holds (parent→child):
+            //      A ⊑ B ∧ A ≠ B ⇒ ¬(B ⊑ A) — this keeps the real directional
+            //      negations answering No ("is a law a statute"; "is a section
+            //      part of its subsection").
+            //   2. a direct Opposition edge declares child and parent disjoint.
+            // Otherwise the turn ABSTAINS (typed `Abstained`), naming the pair,
+            // rather than fabricating a negation.
+            let kind_is_antisymmetric = antisymmetric_relation_kinds().contains(&kind);
+            let opposition = opposition_relation_kind();
+            let provably_not = child_ids.iter().any(|&cid| {
+                parent_ids.iter().any(|&pid| {
+                    (kind_is_antisymmetric && en.reaches(pid, cid, &kind))
+                        || en.reaches(cid, pid, &opposition)
+                        || en.reaches(pid, cid, &opposition)
+                })
+            });
             let traversed: Vec<ConceptId> = child_ids.iter().chain(parent_ids).copied().collect();
-            let connective = en.surface_for_relation(&kind);
+            if provably_not {
+                // A real, derived answer: the denial phrases with the relation's
+                // loaded surface ("is not part of"), not "is not a".
+                let connective = en.surface_for_relation(&kind);
+                return trace_impls::ResponseResult {
+                    response: realize::realize_negation(child, parent, connective.as_deref()),
+                    entities_found: entities.clone(),
+                    taxonomy_checked: Some((child.clone(), parent.clone(), false)),
+                    from_ontology: true,
+                    reasoned_over: loaded_ontologies_of(en, &traversed),
+                };
+            }
+            // Not derivable and not disprovable → abstain honestly (§4.1). The
+            // reasoner traversed the loaded closure but found neither a path nor a
+            // disproof; `from_ontology: false` makes the caller emit
+            // `ChatOutcome::Abstained { unresolved: [child, parent] }`.
+            let content = ResponseContent::new(ResponseFrame::AcknowledgeGap)
+                .with_predicate(predicate)
+                .with_entity(child)
+                .with_entity(parent);
             return trace_impls::ResponseResult {
-                response: realize::realize_negation(child, parent, connective.as_deref()),
+                response: realize::realize(&content),
                 entities_found: entities.clone(),
                 taxonomy_checked: Some((child.clone(), parent.clone(), false)),
-                from_ontology: true,
+                from_ontology: false,
                 reasoned_over: loaded_ontologies_of(en, &traversed),
             };
         }
@@ -1832,6 +1883,281 @@ mod loaded_corpus_demo {
             answer_question(&composed, "is", &args).taxonomy_checked,
             Some(("subsection".to_string(), "section".to_string(), false)),
             "is → Subsumption fallback → false (the edge is Parthood, not is-a)"
+        );
+    }
+}
+
+// =========================================================================
+// LegalSources base — the guardrail spec-lock: real statute questions over
+// the reasoner
+// =========================================================================
+//
+// The always-loaded LegalSources base (LKIF-Core formal sources of law) wired
+// into the wasm chat is exercised HERE at the chat entry (`process_with_reasoner`
+// / `answer_question`), on the same `ComposedReasoner` the wasm builds. These are
+// the guardrail: they ask the questions a person actually types ("is a statute a
+// law") and lock the TYPED outcomes (`ChatOutcome`, `taxonomy_checked`,
+// `from_ontology`, `reasoned_over`) so a regression that silently stops grounding
+// the label surfaces — or reintroduces a false negation from silence — fails here.
+//
+// The corpus is projected by `emit_with_forms::<LegalSourcesCategory>()` — the
+// SAME lexicalizing projection build.rs bakes into the wasm base — so a concept's
+// ONTOLEX-Lemon label ("law", "case law", "legal document") grounds as a queryable
+// `ontolex:Form` surface, distinct from its Rust identifier. Nothing is hardcoded:
+// the Yes/No/Abstain each question yields is read off the loaded Subsumption
+// closure through the composed reasoner, never a `match` on the question text.
+#[cfg(test)]
+mod legal_sources_base {
+    use super::*;
+    use pr4xis::ontology::meta::OntologyName;
+    use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
+    use pr4xis_domains::formal::information::diagnostics::trace_functors::TraceOntology;
+    use pr4xis_domains::social::judicial::legal_sources::ontology::LegalSourcesCategory;
+    use pr4xis_runtime::emit::emit_with_forms;
+    use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
+
+    /// Materialize the LegalSources ontology into a `RuntimeOntology` through the
+    /// lexicalizing projection — so each concept's Lemon label ("law" for
+    /// `LegalSource`, "case law" for `Precedent`, "legal document" for
+    /// `LegalDocument`) rides as an `ontolex:Form` surface the composed reasoner
+    /// indexes, exactly as the wasm base does.
+    fn legal_corpus() -> RuntimeOntology {
+        let archive = emit_with_forms::<LegalSourcesCategory>();
+        materialize(archive, OntologyName::new_static("LegalSources"))
+            .expect("LegalSources corpus materializes")
+    }
+
+    fn reasoner() -> ComposedReasoner {
+        ComposedReasoner::new(English::sample(), vec![legal_corpus()])
+    }
+
+    /// Two `Sem::Concept` (NP) arguments naming the entities of a relational
+    /// question — what `answer_question` reads via `extract_entity_name`.
+    fn entity_args(child: &str, parent: &str) -> [montague::Sem; 2] {
+        [
+            montague::Sem::Concept {
+                word: child.to_string(),
+                concepts: Vec::new(),
+            },
+            montague::Sem::Concept {
+                word: parent.to_string(),
+                concepts: Vec::new(),
+            },
+        ]
+    }
+
+    /// Whether a turn's provenance names the loaded LegalSources ontology,
+    /// success-marked — the "answered FROM the base" evidence.
+    fn credits_legal_sources(result: &ProcessResult) -> bool {
+        result.trace.reasoned_over().iter().any(|(o, ok)| {
+            matches!(o, TraceOntology::Loaded(n) if n.as_str() == "LegalSources") && *ok
+        })
+    }
+
+    /// Assert a natural-language question answers YES from the base: the typed
+    /// outcome is `Answered`, the answer is from the ontology, the prose affirms,
+    /// and the provenance credits LegalSources.
+    fn assert_yes(question: &str) {
+        let r = process_with_reasoner(&English::sample(), &reasoner(), question);
+        assert_eq!(
+            r.outcome,
+            ChatOutcome::Answered,
+            "{question:?} must be Answered; got {:?} / {:?}",
+            r.outcome,
+            r.response
+        );
+        assert!(
+            r.from_ontology,
+            "{question:?} must answer from the ontology; got {:?}",
+            r.response
+        );
+        assert!(
+            r.response.to_lowercase().contains("yes"),
+            "{question:?} must affirm (Yes); got {:?}",
+            r.response
+        );
+        assert!(
+            credits_legal_sources(&r),
+            "{question:?} must credit the LegalSources base it reasoned over"
+        );
+    }
+
+    #[test]
+    fn a_statute_is_a_law() {
+        // THE headline: Statute ⊑ LegalDocument ⊑ LegalSource(label "law"). The label
+        // surface "law" grounds (emit_with_forms), so the closure query answers Yes.
+        assert_yes("is a statute a law");
+    }
+
+    #[test]
+    fn the_enacted_species_are_all_law() {
+        // Every enacted written instrument reaches the LegalSource genus.
+        assert_yes("is a regulation a law");
+        assert_yes("is a constitution a law");
+        assert_yes("is a treaty a law");
+    }
+
+    #[test]
+    fn a_statute_is_a_legal_document() {
+        // A MULTI-WORD label surface ("legal document") — the recognizer collapses
+        // it and the direct Subsumption Statute ⊑ LegalDocument answers Yes.
+        assert_yes("is a statute a legal document");
+    }
+
+    #[test]
+    fn subsumption_is_reflexive_a_statute_is_a_statute() {
+        // Subsumption is reflexive (per the Relations ontology), so a concept is-a
+        // itself — the reflexive short-circuit, not a fabricated edge.
+        assert_yes("is a statute a statute");
+    }
+
+    #[test]
+    fn case_law_is_a_law() {
+        // Precedent (label "case law") ⊑ LegalSource directly — a multi-word label
+        // on the resolved concept and the genus surface "law".
+        assert_yes("is case law a law");
+    }
+
+    #[test]
+    fn what_is_a_statute_answers_from_the_loaded_gloss() {
+        // A single-entity definitional question reads the LegalSources gloss.
+        let r = process_with_reasoner(&English::sample(), &reasoner(), "what is a statute");
+        assert_eq!(r.outcome, ChatOutcome::Answered);
+        assert!(r.from_ontology, "the gloss comes from the loaded ontology");
+        assert!(
+            r.response.to_lowercase().contains("statute"),
+            "the answer names the queried concept; got {:?}",
+            r.response
+        );
+        assert!(
+            r.response.contains("norm") || r.response.contains("legal person"),
+            "the answer surfaces the loaded LKIF gloss; got {:?}",
+            r.response
+        );
+        assert!(
+            credits_legal_sources(&r),
+            "the definition credits LegalSources"
+        );
+    }
+
+    #[test]
+    fn a_law_is_not_a_statute_provable_negation_from_antisymmetry() {
+        // Subsumption is antisymmetric: Statute ⊑ LegalSource holds AND Statute ≠
+        // LegalSource, so ¬(LegalSource ⊑ Statute) — a PROVABLE No, not silence. The
+        // denial reads "is not a", taxonomy_checked false, but STILL from_ontology
+        // (a derived disproof, the real directional negation the honesty fix keeps).
+        let no = answer_question(&reasoner(), "is", &entity_args("law", "statute"));
+        assert_eq!(
+            no.taxonomy_checked,
+            Some(("law".to_string(), "statute".to_string(), false)),
+            "a law is NOT a statute (antisymmetry); got {:?}",
+            no.taxonomy_checked
+        );
+        assert!(
+            no.from_ontology,
+            "a provable negation is still an ontology answer"
+        );
+        assert!(
+            no.response.to_lowercase().contains("not"),
+            "the denial must read as a negation; got {:?}",
+            no.response
+        );
+    }
+
+    #[test]
+    fn siblings_abstain_not_a_false_no() {
+        // Statute and Regulation are siblings under LegalDocument — no path either
+        // way, no antisymmetric reverse, no opposition. The honesty fix ABSTAINS
+        // (does not fabricate "a statute is not a regulation"): typed Abstained,
+        // from_ontology false, taxonomy_checked recorded false (traversed, no proof).
+        let r = process_with_reasoner(&English::sample(), &reasoner(), "is a statute a regulation");
+        assert!(
+            matches!(r.outcome, ChatOutcome::Abstained { .. }),
+            "siblings must abstain, not assert a false No; got {:?} / {:?}",
+            r.outcome,
+            r.response
+        );
+        assert!(!r.from_ontology, "an abstention is not an ontology answer");
+
+        // At the answer_question layer the abstention is explicit: taxonomy_checked
+        // records the (child, parent, false) it traversed, but from_ontology is false.
+        let a = answer_question(&reasoner(), "is", &entity_args("statute", "regulation"));
+        assert_eq!(
+            a.taxonomy_checked,
+            Some(("statute".to_string(), "regulation".to_string(), false))
+        );
+        assert!(
+            !a.from_ontology,
+            "no path + no disproof ⇒ abstain (from_ontology false), never a fabricated No"
+        );
+    }
+
+    #[test]
+    fn a_cross_universe_pair_abstains() {
+        // "is a statute an animal": `statute` is a loaded LegalSources concept,
+        // `animal` a WordNet (sample) concept — two disjoint identity universes with
+        // no edge between them. No path, no antisymmetric reverse, no opposition ⇒
+        // abstain, never a false No. (Both surfaces DO resolve — the contrast with a
+        // truly-unknown word that would collapse to a definition.)
+        let r = process_with_reasoner(&English::sample(), &reasoner(), "is a statute an animal");
+        assert!(
+            matches!(r.outcome, ChatOutcome::Abstained { .. }),
+            "a cross-universe pair must abstain; got {:?} / {:?}",
+            r.outcome,
+            r.response
+        );
+        assert!(!r.from_ontology);
+    }
+
+    #[test]
+    fn case_law_vs_legal_document_abstains_honestly() {
+        // LKIF places Precedent (case law) DIRECTLY under Legal_Source, NOT under
+        // Legal_Document — so there is no path Precedent ⊑ LegalDocument, no reverse
+        // path, and no declared opposition/disjointness between them. Per the honesty
+        // fix this is an ABSTENTION, not a provable No: "case law is not a legal
+        // document" would require a cited disjointness edge the ontology does not
+        // (yet) assert — a follow-up if a literature-grounded Precedent ⊥
+        // LegalDocument edge is later added.
+        let a = answer_question(
+            &reasoner(),
+            "is",
+            &entity_args("case law", "legal document"),
+        );
+        assert_eq!(
+            a.taxonomy_checked,
+            Some(("case law".to_string(), "legal document".to_string(), false)),
+            "no path Precedent ⊑ LegalDocument; got {:?}",
+            a.taxonomy_checked
+        );
+        assert!(
+            !a.from_ontology,
+            "no path + no disproof ⇒ honest abstention, not a fabricated No"
+        );
+    }
+
+    #[test]
+    fn without_the_base_the_yes_disappears_the_with_without_contrast() {
+        // The contrast that proves the Yes comes from the LOADED base, not a
+        // hardcoded branch: English-only (`process`, no LegalSources) cannot ground
+        // "statute"/"law" (the sample lexicon knows neither) and does NOT answer a
+        // hardcoded Yes; WITH the base the SAME question answers Yes crediting
+        // LegalSources.
+        let (without, _, _) = process(&English::sample(), "is a statute a law");
+        assert!(
+            !without.to_lowercase().contains("yes"),
+            "english-only must NOT answer a hardcoded Yes; got {without:?}"
+        );
+
+        let with = process_with_reasoner(&English::sample(), &reasoner(), "is a statute a law");
+        assert_eq!(with.outcome, ChatOutcome::Answered);
+        assert!(with.response.to_lowercase().contains("yes"));
+        assert!(
+            credits_legal_sources(&with),
+            "the Yes credits the loaded LegalSources base"
+        );
+        assert_ne!(
+            without, with.response,
+            "loading the base must change the answer (it is not hardcoded)"
         );
     }
 }

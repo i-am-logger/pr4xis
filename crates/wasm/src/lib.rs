@@ -135,12 +135,27 @@ impl Pr4xis {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
-        Self {
+        let mut this = Self {
             english: load_english(),
             runtime_ontologies: Vec::new(),
             composed: None,
             history: Vec::new(),
-        }
+        };
+        // Install the always-loaded LegalSources BASE — the LKIF-Core formal
+        // sources-of-law taxonomy, baked in by build.rs (`emit_with_forms`, so its
+        // labels "law"/"case law" ride as `ontolex:Form` surfaces). It goes in
+        // through the EXACT fail-closed core a fetched/uploaded `.prx` takes, so
+        // from construction `composed` is `Some(...)` and EVERY chat reasons over
+        // the formal sources of law: "is a statute a law" answers Yes out of the
+        // box, with no explicit load. A failure here is a build-time invariant
+        // violation (the bytes + pin ship embedded in the wasm).
+        this.load_ontology_prx_core(
+            embedded_prx::EMBEDDED_LEGAL_SOURCES_PRX,
+            embedded_prx::EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME.to_string(),
+            embedded_prx::EMBEDDED_LEGAL_SOURCES_PRX_ROOT_HEX,
+        )
+        .expect("the embedded LegalSources base .prx loads fail-closed against its baked root");
+        this
     }
 
     pub fn chat(&self, input: &str) -> String {
@@ -663,6 +678,16 @@ impl Pr4xis {
 mod acceptance {
     use super::*;
 
+    /// The loaded-ontology count of a freshly-constructed `Pr4xis`: the always-
+    /// loaded LegalSources BASE (installed in `Pr4xis::new`), before any demo /
+    /// USC / OWL load. The demo tests assert RELATIVE to this base, so they test
+    /// the state CHANGE a load makes — not an absolute empty start (which no longer
+    /// holds now that the formal sources of law are an always-present base).
+    const BASE_LOADED: usize = 1;
+    /// The load-history length of a freshly-constructed `Pr4xis`: one event — the
+    /// LegalSources base load recorded at construction.
+    const BASE_HISTORY: usize = 1;
+
     /// Materialize the embedded demo `.prx` straight from its bytes (the same
     /// bytes `Pr4xis` loads) so the test can read its glosses and pick a demo
     /// concept — without reaching into `Pr4xis`'s private state.
@@ -714,7 +739,11 @@ mod acceptance {
         // --- WITHOUT the corpus: a fresh Pr4xis, nothing loaded. The chat
         //     abstains on the unloaded concept and never surfaces its gloss. ---
         let without = Pr4xis::new();
-        assert_eq!(without.loaded_ontology_count(), 0);
+        assert_eq!(
+            without.loaded_ontology_count(),
+            BASE_LOADED,
+            "a fresh Pr4xis carries only the always-loaded LegalSources base"
+        );
         let without_json = without.chat(&question);
         let without_resp = response_of(&without_json);
         assert!(
@@ -737,7 +766,11 @@ mod acceptance {
             .load_embedded_demo_prx_core()
             .expect("the embedded demo .prx loads (fail-closed root matches)");
         assert_eq!(loaded_name, embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME);
-        assert_eq!(with.loaded_ontology_count(), 1);
+        assert_eq!(
+            with.loaded_ontology_count(),
+            BASE_LOADED + 1,
+            "the demo load adds one ontology on top of the LegalSources base"
+        );
 
         let with_json = with.chat(&question);
         let with_resp = response_of(&with_json);
@@ -821,13 +854,13 @@ mod acceptance {
         let with_d = describe(&with);
         assert_eq!(
             with_d["history"].as_array().map(|a| a.len()).unwrap_or(0),
-            1,
-            "the load is recorded as one history event"
+            BASE_HISTORY + 1,
+            "the demo load is recorded on top of the base's load event"
         );
         assert_eq!(
-            with_d["history"][0]["event"].as_str(),
+            with_d["history"][BASE_HISTORY]["event"].as_str(),
             Some("load"),
-            "a first load of a name is a `load` event"
+            "a first load of the demo name is a `load` event"
         );
         assert!(
             with_d["state_cid"].as_str().is_some(),
@@ -838,8 +871,8 @@ mod acceptance {
                 .as_array()
                 .map(|a| a.len())
                 .unwrap_or(0),
-            0,
-            "nothing loaded → empty history (and no state fingerprint)"
+            BASE_HISTORY,
+            "only the base load is recorded before the demo load"
         );
 
         // §3: the embedded demo `.prx` is loaded but NOT a registered source — it
@@ -879,21 +912,25 @@ mod acceptance {
 
         assert_eq!(
             p.loaded_ontology_count(),
-            1,
-            "re-loading a name replaces it — not two copies in the reasoned-over set"
+            BASE_LOADED + 1,
+            "re-loading a name replaces it — not two demo copies atop the base"
         );
 
         let d = serde_json::from_str::<serde_json::Value>(&p.self_describe()).expect("JSON");
         let history = d["history"].as_array().expect("history is an array");
-        assert_eq!(history.len(), 2, "both loads are recorded (append-only)");
-        assert_eq!(history[0]["event"].as_str(), Some("load"));
         assert_eq!(
-            history[1]["event"].as_str(),
+            history.len(),
+            BASE_HISTORY + 2,
+            "both demo loads are recorded (append-only) after the base load"
+        );
+        assert_eq!(history[BASE_HISTORY]["event"].as_str(), Some("load"));
+        assert_eq!(
+            history[BASE_HISTORY + 1]["event"].as_str(),
             Some("replace"),
             "the second load of the same name is a replace"
         );
         assert!(
-            history[1]["displaced"].as_str().is_some(),
+            history[BASE_HISTORY + 1]["displaced"].as_str().is_some(),
             "a replace event carries the displaced root"
         );
     }
@@ -910,12 +947,12 @@ mod acceptance {
         // the reasoner is empty; after, it holds the one projected statute
         // ontology. This is the structural half of "load Title 15 → ask about it".
         let mut p = Pr4xis::new();
-        assert_eq!(p.loaded_ontology_count(), 0);
+        assert_eq!(p.loaded_ontology_count(), BASE_LOADED);
         p.load_source("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
             .expect("a well-formed USLM title loads");
         assert_eq!(
             p.loaded_ontology_count(),
-            1,
+            BASE_LOADED + 1,
             "a loaded statute must become a RuntimeOntology the chat reasons over"
         );
     }
@@ -967,13 +1004,19 @@ mod acceptance {
         );
         assert_eq!(
             p.loaded_ontology_count(),
-            0,
-            "a refused .prx must install nothing"
+            BASE_LOADED,
+            "a refused .prx must install nothing beyond the always-loaded base"
         );
-        // And the chat still abstains (no corpus was admitted).
+        // The reasoner still reflects ONLY the base — the refused demo did not join it.
         assert!(
-            p.composed.is_none(),
-            "a refused load must not build a reasoner"
+            p.composed.is_some(),
+            "the always-loaded base reasoner is present; the refused demo just isn't in it"
+        );
+        assert!(
+            !p.runtime_ontologies
+                .iter()
+                .any(|o| o.id().as_str() == "Dependability"),
+            "the refused demo must not be among the loaded ontologies"
         );
     }
 
@@ -996,7 +1039,73 @@ mod acceptance {
             matches!(err, LoadPrxError::Refused(_)),
             "tampered bytes must be refused by the gate; got: {err:?}"
         );
-        assert_eq!(p.loaded_ontology_count(), 0);
+        assert_eq!(
+            p.loaded_ontology_count(),
+            BASE_LOADED,
+            "a refused .prx installs nothing beyond the always-loaded base"
+        );
+    }
+
+    #[test]
+    fn a_fresh_pr4xis_answers_that_a_statute_is_a_law_from_the_always_loaded_base() {
+        // THE headline of the always-loaded base: NO explicit load. `Pr4xis::new`
+        // installs the LegalSources base at construction, so the chat routes through
+        // the ComposedReasoner with the formal sources of law present. "is a statute
+        // a law" resolves both surfaces to loaded concepts (the label "law" grounds
+        // because the base was emitted with `emit_with_forms`) and reads the
+        // Subsumption closure Statute ⊑ LegalDocument ⊑ LegalSource → Yes.
+        let p = Pr4xis::new();
+        let json = p.chat("is a statute a law");
+        let resp = response_of(&json);
+        assert!(
+            resp.to_lowercase().contains("yes"),
+            "the always-loaded base must answer that a statute is a law with no explicit \
+             load; got: {resp:?}"
+        );
+
+        // The typed outcome crosses the wire as answered.
+        let outcome =
+            serde_json::from_str::<serde_json::Value>(&json).expect("chat JSON")["outcome"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+        assert_eq!(
+            outcome, "answered",
+            "the base answer is a typed answer, not an abstention"
+        );
+
+        // The answer credits the LegalSources base in its reasoned-over provenance.
+        let ontologies =
+            serde_json::from_str::<serde_json::Value>(&json).expect("chat JSON")["ontologies"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+        assert!(
+            ontologies.iter().any(|o| o["ontology"].as_str()
+                == Some(embedded_prx::EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME)),
+            "the Yes must credit the LegalSources base it reasoned over; got: {ontologies:?}"
+        );
+
+        // self_describe lists the LegalSources base (tagged loaded) from construction,
+        // with a non-zero contribution to the loaded concept set.
+        let d = serde_json::from_str::<serde_json::Value>(&p.self_describe())
+            .expect("self_describe JSON");
+        let sources = d["sources"].as_array().expect("sources array");
+        let legal = sources
+            .iter()
+            .find(|s| {
+                s["name"].as_str() == Some(embedded_prx::EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME)
+            })
+            .expect("the always-loaded LegalSources base appears in the self-model catalog");
+        assert_eq!(
+            legal["availability"].as_str(),
+            Some("loaded"),
+            "the always-loaded base is tagged loaded"
+        );
+        assert!(
+            p.loaded_section_count() > 0,
+            "the LegalSources base contributes concepts to the loaded set from construction"
+        );
     }
 
     /// Pull the `response` field out of the chat JSON envelope.
@@ -1087,7 +1196,9 @@ mod browser_acceptance {
         // WITHOUT the corpus: a fresh Pr4xis abstains and never surfaces the
         // dynamically-read gloss.
         let without = Pr4xis::new();
-        assert_eq!(without.loaded_ontology_count(), 0);
+        // A fresh Pr4xis carries the always-loaded LegalSources base (1), but NOT
+        // the Dependability demo — so the demo concept still abstains here.
+        assert_eq!(without.loaded_ontology_count(), 1);
         let without_resp = response_of(&without.chat(&question));
         assert!(
             !without_resp.contains(gloss.as_str()),
@@ -1106,7 +1217,8 @@ mod browser_acceptance {
         let mut with = Pr4xis::new();
         with.load_embedded_demo_prx()
             .expect("the embedded demo .prx loads in the browser (fail-closed)");
-        assert_eq!(with.loaded_ontology_count(), 1);
+        // The LegalSources base (1) plus the just-loaded Dependability demo (1).
+        assert_eq!(with.loaded_ontology_count(), 2);
         let with_resp = response_of(&with.chat(&question));
         assert!(
             with_resp.contains(gloss.as_str()),
