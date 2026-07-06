@@ -184,10 +184,11 @@ proptest! {
         }
     }
 
-    /// Subsumption is reflexive: every concept reaches itself is FALSE
-    /// (Subsumption edges are the strict is_a closure — identities carry
-    /// the Identity kind, not Subsumption). No concept strictly subsumes
-    /// itself: the taxonomy is a DAG.
+    /// Strict subsumption is IRREFLEXIVE: no concept strictly subsumes
+    /// itself. The `Subsumption` closure carries only the strict is_a edges
+    /// (an identity is the `Identity` kind, not `Subsumption`), so the
+    /// taxonomy is a DAG with no self-loops. (Reflexive "x is-a x" is a
+    /// separate reflexive-kind query, not this one.)
     #[test]
     fn prop_no_strict_self_subsumption(c in arb_concept()) {
         prop_assert!(!subsumes_transitively(c, c));
