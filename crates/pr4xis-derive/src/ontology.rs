@@ -11,7 +11,7 @@ use syn::{Expr, Ident, LitStr, Token, braced, bracketed, parenthesized};
 /// as compiled Rust, so the macro reads this projection of it — the build-time
 /// half of "one declaration, two readers" (the runtime half is `pr4xis-runtime`'s
 /// `declared_transitive_kinds`, which reads its own copy of the same cache). The
-/// file is regenerated from `emit::<RelationsCategory>()` and drift-guarded by a
+/// file is regenerated from `emit_kind_vocabulary::<RelationsCategory>()` and drift-guarded by a
 /// `transitive_kinds()` re-derivation in the `domains` test suite; a hand-edit or
 /// a stale cache fails that test. This replaces the former hardcoded
 /// `Subsumption / Parthood / Causation` allowlist (the last "code is ontological"

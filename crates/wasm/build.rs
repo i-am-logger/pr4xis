@@ -66,9 +66,10 @@ fn main() {
     // path; embedding just removes the network from the demo.
     //
     // The generated `embedded_prx.rs` carries TWO embedded ontologies: the
-    // Dependability DEMO (structural `emit`, a browser one-click load) and the
-    // LegalSources BASE (lexicalized `emit_with_forms`, always loaded from
-    // `Pr4xis::new` so the chat answers "is a statute a law" out of the box).
+    // Dependability DEMO (a browser one-click load) and the LegalSources BASE
+    // (always loaded from `Pr4xis::new` so the chat answers "is a statute a law"
+    // out of the box). Both go through the default, lexicalizing `emit`, so each
+    // concept's Lemon label is a query surface by construction.
     emit_embedded_prx(&out_dir);
 }
 
@@ -89,18 +90,20 @@ const LEGAL_SOURCES_ONTOLOGY_NAME: &str = "LegalSources";
 /// exactly the projection a `pr4xis compile` would perform, done here at build
 /// time and frozen into the binary.
 ///
-/// Dependability uses [`emit`] (structural: identifiers + gloss; its identifiers
-/// ARE the browser's query surfaces). LegalSources uses [`emit_with_forms`]
-/// (lexicalized: also mints each concept's Lemon label as an `ontolex:Form`
-/// surface) because its labels — `LegalSource` → "law", `Precedent` → "case law"
-/// — differ from the Rust identifiers, and "law" is the word a person types.
+/// Both ontologies use the default, lexicalizing [`emit`], which mints each
+/// concept's Lemon label as an `ontolex:Form` query surface whenever that label
+/// differs from the Rust identifier. LegalSources needs this (`LegalSource` → "law",
+/// `Precedent` → "case law" — "law" is the word a person types); Dependability gets
+/// it for free (`CorrectService` → "correct service"), so the demo is label-
+/// queryable by construction too. A concept whose label equals its identifier mints
+/// no redundant Form, so identifier-grounded surfaces are unchanged.
 fn emit_embedded_prx(out_dir: &Path) {
     use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
     use pr4xis_domains::social::judicial::legal_sources::ontology::LegalSourcesCategory;
-    use pr4xis_runtime::emit::{emit, emit_with_forms};
+    use pr4xis_runtime::emit::emit;
     use pr4xis_runtime::load;
 
-    // --- The Dependability demo (structural `emit`) ---
+    // --- The Dependability demo (default lexicalizing `emit`) ---
     let archive = emit::<DependabilityCategory>();
     let root = archive
         .root()
@@ -116,8 +119,8 @@ fn emit_embedded_prx(out_dir: &Path) {
         root.to_hex()
     );
 
-    // --- The LegalSources base (lexicalized `emit_with_forms`) ---
-    let legal = emit_with_forms::<LegalSourcesCategory>();
+    // --- The LegalSources base (default lexicalizing `emit`) ---
+    let legal = emit::<LegalSourcesCategory>();
     let legal_root = legal
         .root()
         .expect("the emitted LegalSources archive has a derivable Merkle root");

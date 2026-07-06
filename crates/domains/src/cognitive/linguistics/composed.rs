@@ -49,6 +49,7 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use pr4xis::ontology::meta::OntologyName;
+use pr4xis_runtime::definition::CANONICAL_FORM_REL;
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
@@ -216,6 +217,27 @@ impl ComposedReasoner {
                     }
                 }
 
+                // The PRINTED lemma is the concept's `canonicalForm` Form surface —
+                // its ontolex:Form *writtenRep*, the natural label ("legal document",
+                // "dormant fault") — NOT its Rust identifier (`node.name`, kept below
+                // as the never-printed `original_id`). Frege: identity addresses
+                // (`node.name`), canonicalForm generates (the lemma). Fall back to the
+                // node name when the concept mints no canonicalForm (its label already
+                // equals its identifier case-insensitively, e.g. "Statute" — emit skips
+                // the redundant Form there, and the node name IS the natural word).
+                // GENERATION-only: every Form is still indexed above for LOOKUP, so
+                // this changes what prints, never what resolves.
+                let canonical_lemma = node
+                    .edges
+                    .iter()
+                    .find(|(role, target)| {
+                        role == CANONICAL_FORM_REL
+                            && target.local_name().is_some_and(|f| form_names.contains(f))
+                    })
+                    .and_then(|(_, target)| target.local_name())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| node.name.clone());
+
                 // The synthesized Concept carries the loaded gloss as its
                 // definition, read straight from the materialized ontology
                 // (`RuntimeOntology::lexical`) — this is what `define_word`
@@ -225,7 +247,7 @@ impl ComposedReasoner {
                     id,
                     original_id: node.name.clone(),
                     pos: LmfPos::Noun,
-                    lemmas: alloc::vec![node.name.clone()],
+                    lemmas: alloc::vec![canonical_lemma],
                     definitions: gloss.into_iter().collect(),
                     examples: Vec::new(),
                 });

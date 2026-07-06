@@ -169,7 +169,16 @@ where
 /// identity self-loops dropped, edges sorted for a canonical address; plus every
 /// registered connection (functor / adjunction / natural transformation) whose
 /// source or target is `Cat`'s ontology, content-addressed.
-pub fn emit<Cat>() -> Archive
+///
+/// This is the PLAIN projection — it carries each concept's identity (`name`) and
+/// its ONTOLEX-Lemon gloss (`lexical`), but mints NO lexical Form surfaces. Use it
+/// ONLY for the kernel morphism-kind identity vocabulary (`RelationsCategory` /
+/// `morphism_kinds.prx`), whose descriptive labels ("Subsumption (is-a)") must NOT
+/// become chat surfaces — folding them into Form atoms would change
+/// `morphism_kinds.prx` and move the kernel identity. Every chat-loadable DOMAIN
+/// ontology must use [`emit`] instead, which lexicalizes by default so its natural
+/// labels are query surfaces by construction.
+pub fn emit_kind_vocabulary<Cat>() -> Archive
 where
     // Emits one node per concept variant — enumerates the objects, so the
     // compiled ontology being projected must be finitely generated (closed-world).
@@ -257,31 +266,29 @@ where
     Archive { nodes, connections }
 }
 
-/// Project the compiled ontology `Cat` into a `.prx` [`Archive`] AS [`emit`], then
-/// LEXICALIZE it: for every concept whose ONTOLEX-Lemon label is a written surface
-/// DISTINCT from its identifier (its node name), mint an `ontolex:Form` atom
-/// carrying that label and a [`CANONICAL_FORM_REL`](crate::definition::CANONICAL_FORM_REL)
-/// edge from the concept to it.
+/// Project the compiled ontology `Cat` into a `.prx` [`Archive`] and LEXICALIZE it
+/// — the DEFAULT projection every chat-loadable ontology uses. It first builds the
+/// plain projection ([`emit_kind_vocabulary`]: identity + gloss + connections),
+/// then for every concept whose ONTOLEX-Lemon label is a written surface DISTINCT
+/// from its identifier (its node name) mints an `ontolex:Form` atom carrying that
+/// label and a [`CANONICAL_FORM_REL`](crate::definition::CANONICAL_FORM_REL) edge
+/// from the concept to it.
 ///
-/// # Why a separate projection (the `project_archive` / `project_archive_with_forms` pattern)
+/// # Lexicalization is the default; the plain projection is the marked exception
 ///
-/// [`emit`] carries a concept's IDENTIFIER (`name`) and its GLOSS (`lexical`), but
-/// not its label as a queryable *surface*. That is intentional: the identifier is
-/// what the runtime's kind-vocabulary and content-identity system key on, and a
-/// meta-ontology's descriptive label ("Subsumption (is-a)") is NOT a chat surface
-/// — folding it into `emit` would pollute the default morphism-kind vocab
-/// (`morphism_kinds.prx`) with lexical Form atoms. So lexicalization is an OPT-IN
-/// projection, exactly as the English/USC bridges separate the structural
-/// `project_archive` from the surface-bearing `project_archive_with_forms`.
+/// A concept's label is the word a person actually types — `LegalSource` labelled
+/// "law", `Precedent` labelled "case law", `CorrectService` labelled "correct
+/// service". Minting it as a queryable Form surface is what makes EVERY compiled
+/// ontology chat-queryable by its natural language BY CONSTRUCTION, not opt-in. So
+/// this is the default `emit`; the label-dropping [`emit_kind_vocabulary`] is the
+/// MARKED exception, reserved for the kernel morphism-kind identity vocabulary
+/// (`RelationsCategory` / `morphism_kinds.prx`), whose descriptive labels must NOT
+/// become surfaces.
 ///
-/// A DOMAIN ontology projected for CHAT (a browser-loaded `.prx`, grounded through
-/// the composed reasoner) uses THIS: a concept whose label differs from its
-/// identifier — `LegalSource` labelled "law", `Precedent` labelled "case law" —
-/// then resolves by the natural surface a person types, not only by its Rust
-/// variant name. A concept whose label equals its name (case-insensitively) mints
-/// no redundant Form (the node-name grounding already covers that surface), so an
-/// ontology whose labels all match its variants emits byte-identically to [`emit`].
-pub fn emit_with_forms<Cat>() -> Archive
+/// A concept whose label equals its name (case-insensitively) mints no redundant
+/// Form (the node-name grounding already covers that surface), so an ontology whose
+/// labels all match its variants emits byte-identically to [`emit_kind_vocabulary`].
+pub fn emit<Cat>() -> Archive
 where
     Cat: DomainAxiomatized + 'static,
     Cat::Object: FinitelyGenerated,
@@ -290,7 +297,7 @@ where
     use crate::definition::{CANONICAL_FORM_REL, form_atom};
     use std::collections::BTreeSet;
 
-    let mut archive = emit::<Cat>();
+    let mut archive = emit_kind_vocabulary::<Cat>();
 
     // One Form atom per DISTINCT label surface, minted after the concept edges are
     // aimed at it, so the archive stays referentially closed with no duplicate.
@@ -956,7 +963,7 @@ mod tests {
     // word a person types; the variant name is not.
     pr4xis::ontology! {
         name: "Enactments",
-        source: "pr4xis-runtime emit_with_forms test fixture",
+        source: "pr4xis-runtime emit lexicalization test fixture",
         concepts: [Enactment, Statute],
         labels: {
             Enactment: ("en", "law", "A rule with legal force."),
@@ -968,21 +975,21 @@ mod tests {
     }
 
     #[test]
-    fn emit_with_forms_mints_a_form_for_a_label_distinct_from_the_identifier() {
-        // Plain `emit` carries `Enactment`'s gloss but no surface for "law": the
-        // only surface is the lowercased identifier "enactment".
-        let plain = emit::<EnactmentsCategory>();
+    fn emit_lexicalizes_a_label_distinct_from_the_identifier_but_the_kind_vocab_does_not() {
+        // The MARKED plain projection carries `Enactment`'s gloss but no surface
+        // for "law": the only surface is the lowercased identifier "enactment".
+        let plain = emit_kind_vocabulary::<EnactmentsCategory>();
         assert!(
             !plain.nodes.iter().any(|n| n.kind == "Form"),
-            "plain emit mints no Form atoms"
+            "emit_kind_vocabulary mints no Form atoms"
         );
 
-        // `emit_with_forms` mints one Form ONLY for a label that DIFFERS from its
-        // identifier. `Enactment`'s label "law" differs → minted. `Statute`'s label
-        // "statute" equals its identifier case-insensitively → NOT minted (the
-        // lowercased node-name already grounds "statute"; a redundant Form would
-        // bloat the archive and the surface index).
-        let lex = emit_with_forms::<EnactmentsCategory>();
+        // The DEFAULT `emit` lexicalizes: it mints one Form ONLY for a label that
+        // DIFFERS from its identifier. `Enactment`'s label "law" differs → minted.
+        // `Statute`'s label "statute" equals its identifier case-insensitively →
+        // NOT minted (the lowercased node-name already grounds "statute"; a
+        // redundant Form would bloat the archive and the surface index).
+        let lex = emit::<EnactmentsCategory>();
         let forms: std::collections::BTreeSet<&str> = lex
             .nodes
             .iter()
@@ -1035,17 +1042,18 @@ mod tests {
     }
 
     #[test]
-    fn emit_with_forms_equals_emit_when_every_label_matches_its_identifier() {
+    fn emit_equals_emit_kind_vocabulary_when_every_label_matches_its_identifier() {
         // The Org fixture's labels all equal their variant names (case-insensitively),
-        // so lexicalization mints NO redundant Form and the projection is byte-
-        // identical to plain `emit` — the guarantee that ontologies already grounded
-        // by their identifiers (and the kind meta-vocab) are untouched.
-        let plain = emit::<OrgCategory>();
-        let lex = emit_with_forms::<OrgCategory>();
+        // so lexicalization mints NO redundant Form and the DEFAULT `emit` is byte-
+        // identical to the plain `emit_kind_vocabulary` — the guarantee that
+        // ontologies already grounded by their identifiers (and the kind meta-vocab)
+        // are untouched.
+        let plain = emit_kind_vocabulary::<OrgCategory>();
+        let lex = emit::<OrgCategory>();
         assert_eq!(
             plain.root().unwrap(),
             lex.root().unwrap(),
-            "emit_with_forms must equal emit when labels == identifiers"
+            "emit must equal emit_kind_vocabulary when labels == identifiers"
         );
     }
 }

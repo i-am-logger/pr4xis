@@ -142,8 +142,9 @@ impl Pr4xis {
             history: Vec::new(),
         };
         // Install the always-loaded LegalSources BASE — the LKIF-Core formal
-        // sources-of-law taxonomy, baked in by build.rs (`emit_with_forms`, so its
-        // labels "law"/"case law" ride as `ontolex:Form` surfaces). It goes in
+        // sources-of-law taxonomy, baked in by build.rs (the default lexicalizing
+        // `emit`, so its labels "law"/"case law" ride as `ontolex:Form` surfaces).
+        // It goes in
         // through the EXACT fail-closed core a fetched/uploaded `.prx` takes, so
         // from construction `composed` is `Some(...)` and EVERY chat reasons over
         // the formal sources of law: "is a statute a law" answers Yes out of the
@@ -1052,7 +1053,7 @@ mod acceptance {
         // installs the LegalSources base at construction, so the chat routes through
         // the ComposedReasoner with the formal sources of law present. "is a statute
         // a law" resolves both surfaces to loaded concepts (the label "law" grounds
-        // because the base was emitted with `emit_with_forms`) and reads the
+        // because the base was emitted with the default lexicalizing `emit`) and reads the
         // Subsumption closure Statute ⊑ LegalDocument ⊑ LegalSource → Yes.
         let p = Pr4xis::new();
         let json = p.chat("is a statute a law");
