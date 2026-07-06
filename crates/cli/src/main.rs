@@ -27,7 +27,23 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Start an interactive chat session (default when no subcommand is given).
-    Chat,
+    Chat {
+        /// Load an additional ontology into the chat reasoner, so a NON-legal
+        /// (or any) loaded ontology is chattable interactively. Repeatable.
+        ///
+        /// Accepts, in resolution order:
+        ///   - a built-in demo ontology name — `dependability` (Avizienis et al.
+        ///     2004 fault taxonomy) or `legal-sources` — compiled in-process;
+        ///   - a registered OWL vocabulary name (e.g. `cito`, `doco`),
+        ///     materialised from its committed compact `.prx.gz` (run
+        ///     `pr4xis compile --compact` first if absent);
+        ///   - a path to a `.owl` file, parsed and grounded by its `rdfs:label`s.
+        ///
+        /// The LegalSources base is always loaded (parity with the wasm runtime),
+        /// so `is a statute a law` answers with no explicit `--load`.
+        #[arg(long = "load", value_name = "NAME-OR-PATH")]
+        load: Vec<String>,
+    },
     /// Fetch and verify external data dependencies declared by the
     /// `applied/data_provisioning/` ontology.
     Update {
@@ -141,8 +157,8 @@ enum Command {
 
 fn main() {
     let cli = Cli::parse();
-    match cli.command.unwrap_or(Command::Chat) {
-        Command::Chat => run_chat(),
+    match cli.command.unwrap_or(Command::Chat { load: Vec::new() }) {
+        Command::Chat { load } => run_chat(&load),
         Command::Update {
             name,
             check,
@@ -908,7 +924,7 @@ fn workspace_root() -> anyhow::Result<PathBuf> {
 // `pr4xis chat` — unchanged
 // --------------------------------------------------------------------------
 
-fn run_chat() {
+fn run_chat(load_specs: &[String]) {
     // The chat's English, through the single OWNED loader (`english_load_owned`,
     // content-addressed compact `.prx`, ms-cheap; XML fallback inside), honoring
     // the `WORDNET_XML` dev override. No `Box::leak` / `&'static`.
@@ -922,44 +938,74 @@ fn run_chat() {
         }
     }
 
+    // Assemble the LOADED knowledge set the chat reasons over — grounded into
+    // English by ONE `ComposedReasoner`, the SAME path the wasm runtime uses.
+    // Every loaded ontology carries its `ontolex:Form` label surfaces, so a
+    // concept is chattable by its natural language ("is a statute a law", "is a
+    // dormant fault a fault"). `loaded_names` mirrors it for the startup banner.
+    let mut loaded: Vec<pr4xis_runtime::ontology::RuntimeOntology> = Vec::new();
+    let mut loaded_names: Vec<String> = Vec::new();
+
+    // The always-loaded LegalSources BASE (parity with the wasm runtime): the
+    // LKIF-Core formal sources-of-law taxonomy, compiled in-process via the
+    // default lexicalizing `emit` so its labels ("law", "case law", "legal
+    // document") ride as queryable Form surfaces. So "is a statute a law" answers
+    // out of the box, no explicit `--load`.
+    match legal_sources_base() {
+        Ok(onto) => {
+            loaded_names.push(onto.id().as_str().to_string());
+            loaded.push(onto);
+        }
+        Err(e) => eprintln!("  [warn] LegalSources base unavailable: {e}"),
+    }
+
     // Materialise the U.S. Code corpus through the runtime loader: the
     // content-addressed compact `.prx` fast path when `pr4xis compile` has
-    // produced one (admitted through the fail-closed `praxis.lock` gate),
-    // the USLM XML otherwise. A title absent on disk is skipped, so on a
-    // fresh checkout `usc.section_count()` is honestly 0 — run
-    // `pr4xis update` then `pr4xis compile --compact` to provision it.
+    // produced one (admitted through the fail-closed `praxis.lock` gate), the
+    // USLM XML otherwise. A title absent on disk is skipped, so on a fresh
+    // checkout the USC contributes nothing — run `pr4xis update` then
+    // `pr4xis compile --compact` to provision it.
     let usc = pr4xis_domains::social::software::markup::xml::uslm::corpus::loaded();
-
-    // Reason over the LOADED U.S. Code, not just English: project the loaded
-    // corpus into a RuntimeOntology and compose it with English — the SAME path
-    // the wasm runtime uses (`install_runtime_ontology`) — so "what is section 1"
-    // answers from the loaded statute instead of abstaining. `None` when no title
-    // is on disk (English-only, exactly as before). Built BEFORE `language` so it
-    // owns the one English the tokenizer borrows.
-    let usc_reasoner: Option<ComposedReasoner> = (usc.section_count() > 0)
-        .then(|| usc_runtime_ontology(usc, OntologyName::new("usc")).ok())
-        .flatten()
-        .map(|onto| ComposedReasoner::new(load_chat_english(), vec![onto]));
-
-    // The tokenizer's English: the reasoner's OWN when a corpus is loaded (so the
-    // statute path loads English ONCE, not twice — `reasoner.english()`, the wasm
-    // pattern), else a standalone load. Both honor `WORDNET_XML` via the shared
-    // loader.
-    let standalone_english;
-    let language: &English = match usc_reasoner.as_ref() {
-        Some(reasoner) => reasoner.english(),
-        None => {
-            standalone_english = load_chat_english();
-            &standalone_english
+    if usc.section_count() > 0 {
+        match usc_runtime_ontology(usc, OntologyName::new("usc")) {
+            Ok(onto) => {
+                loaded_names.push(format!("usc ({} sections)", usc.section_count()));
+                loaded.push(onto);
+            }
+            Err(e) => eprintln!("  [warn] U.S. Code corpus unavailable: {e}"),
         }
-    };
+    }
+
+    // Each `--load` spec: a built-in demo, a registered OWL vocab, or an .owl file.
+    for spec in load_specs {
+        match load_chat_ontology(spec) {
+            Ok(onto) => {
+                loaded_names.push(onto.id().as_str().to_string());
+                loaded.push(onto);
+            }
+            Err(e) => eprintln!("  [warn] --load {spec}: {e}"),
+        }
+    }
+
+    // ONE reasoner over English + the whole loaded set. It owns the one English
+    // the tokenizer borrows (`reasoner.english()`, the wasm pattern), so English
+    // is loaded once.
+    let reasoner = ComposedReasoner::new(load_chat_english(), loaded);
+    let language: &English = reasoner.english();
 
     println!("pr4xis — axiomatic intelligence");
     println!(
-        "  {} concepts, {} words, {} USC sections",
+        "  {} concepts, {} words",
         language.concept_count(),
         language.word_count(),
-        usc.section_count(),
+    );
+    println!(
+        "  loaded ontologies: {}",
+        if loaded_names.is_empty() {
+            "(none)".to_string()
+        } else {
+            loaded_names.join(", ")
+        }
     );
     println!("  type 'quit' to exit");
     println!();
@@ -1003,16 +1049,13 @@ fn run_chat() {
         // Resolve anaphoric expressions via language lexicon + Centering Theory
         let resolved_input = resolve_pronouns(input, engine.situation(), language);
 
-        // Process through praxis-chat (shared logic — zero I/O)
-        // Route through the composed reasoner when a corpus is loaded (so loaded
-        // statutes answer), else the English-only path (abstains on an unloaded
-        // concept, exactly as before).
-        let (response_text, user_act, _sys_act) = match &usc_reasoner {
-            Some(reasoner) => {
-                let r = chat::process_with_reasoner(language, reasoner, &resolved_input);
-                (r.response, r.user_act, r.system_act)
-            }
-            None => chat::process(language, &resolved_input),
+        // Process through praxis-chat (shared logic — zero I/O). Always route
+        // through the composed reasoner: it grounds the LegalSources base plus
+        // every `--load`ed ontology into English, so a loaded concept answers and
+        // an unloaded one abstains — the same behavior the wasm runtime has.
+        let (response_text, user_act, _sys_act) = {
+            let r = chat::process_with_reasoner(language, &reasoner, &resolved_input);
+            (r.response, r.user_act, r.system_act)
         };
 
         // Extract referents for discourse tracking
@@ -1052,6 +1095,84 @@ fn run_chat() {
             Err(pr4xis::engine::EngineError::LogicalError { engine: e, .. }) => e,
         };
     }
+}
+
+/// The LegalSources base ontology, compiled in-process via the default
+/// lexicalizing `emit` (labels ride as `ontolex:Form` surfaces) and materialized.
+/// The CLI's always-loaded base — parity with the wasm runtime's embedded base.
+fn legal_sources_base() -> anyhow::Result<pr4xis_runtime::ontology::RuntimeOntology> {
+    use pr4xis_domains::social::judicial::legal_sources::ontology::LegalSourcesCategory;
+    use pr4xis_runtime::emit::emit;
+    use pr4xis_runtime::ontology::materialize;
+    materialize(
+        emit::<LegalSourcesCategory>(),
+        OntologyName::new_static("LegalSources"),
+    )
+    .map_err(|e| anyhow::anyhow!("LegalSources materialize failed: {e}"))
+}
+
+/// Resolve a `--load` spec to a [`RuntimeOntology`] the chat reasoner can ground.
+/// Resolution order: a built-in demo ontology name, then a registered OWL
+/// vocabulary name (from its committed compact `.prx.gz`), then an `.owl` file
+/// path. Reuses the existing loaders — no special-casing per source.
+fn load_chat_ontology(spec: &str) -> anyhow::Result<pr4xis_runtime::ontology::RuntimeOntology> {
+    use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
+    use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
+    use pr4xis_domains::social::software::markup::xml::owl::loaded_vocabularies::loaded_vocabularies;
+    use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
+    use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
+    use pr4xis_runtime::emit::emit;
+    use pr4xis_runtime::ontology::materialize;
+
+    // 1. Built-in demo ontologies, compiled in-process (always available — no
+    //    disk artifacts). `dependability` is the non-legal demo Patrick asked for.
+    match spec.to_lowercase().as_str() {
+        "dependability" => {
+            return materialize(
+                emit::<DependabilityCategory>(),
+                OntologyName::new_static("Dependability"),
+            )
+            .map_err(|e| anyhow::anyhow!("Dependability materialize failed: {e}"));
+        }
+        "legal-sources" | "legalsources" | "legal" => return legal_sources_base(),
+        _ => {}
+    }
+
+    // 2. A registered OWL vocabulary by name (cito, doco, …), materialised from
+    //    its committed compact `.prx.gz` through the SAME registry-driven loader
+    //    every OWL-vocab consumer uses. Absent when the vocab has not been
+    //    compiled (`pr4xis compile --compact`).
+    if let Some(vocab) = loaded_vocabularies().get(spec) {
+        return owl_runtime_ontology(vocab, OntologyName::new(spec.to_string()))
+            .map_err(|e| anyhow::anyhow!("OWL vocab `{spec}` materialize failed: {e}"));
+    }
+
+    // 3. A filesystem path to a raw `.owl` file — parsed and grounded by its
+    //    `rdfs:label`s (the §9 OWL path). Lets a user point at any OWL vocabulary.
+    let path = Path::new(spec);
+    if path.exists()
+        && path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("owl"))
+    {
+        let xml = std::fs::read_to_string(path)
+            .map_err(|e| anyhow::anyhow!("read {}: {e}", path.display()))?;
+        let ont = read_owl(&xml).map_err(|e| anyhow::anyhow!("parse {}: {e}", path.display()))?;
+        let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("owl")
+            .to_string();
+        return owl_runtime_ontology(&vocab, OntologyName::new(name))
+            .map_err(|e| anyhow::anyhow!("{}: materialize failed: {e}", path.display()));
+    }
+
+    anyhow::bail!(
+        "unknown ontology `{spec}` — expected a built-in demo (`dependability`, \
+         `legal-sources`), a registered OWL vocab name (compiled via \
+         `pr4xis compile --compact`), or a path to a `.owl` file"
+    )
 }
 
 /// Resolve anaphoric expressions using language lexicon + discourse state.

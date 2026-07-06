@@ -544,7 +544,10 @@ pub fn answer_question(
                         return trace_impls::ResponseResult {
                             response: build_taxonomy_response(
                                 en,
-                                en.surface_for_relation(&kind).as_deref(),
+                                AnsweredRelation {
+                                    connective: en.surface_for_relation(&kind).as_deref(),
+                                    kind_name: &kind.name,
+                                },
                                 en.relation_chain(cid, pid, &kind),
                                 child,
                                 parent,
@@ -695,6 +698,22 @@ pub fn define_word(en: &dyn LexicalReasoner, word: &str) -> String {
     realize::realize(&content)
 }
 
+/// The answered relation, as the taxonomy realizer needs it: its loaded natural
+/// surface (the `connective`) and its typed kind name. Bundled so the realizer
+/// takes the relation as ONE argument (both fields describe the same relation).
+struct AnsweredRelation<'a> {
+    /// The relation's loaded surface ("part of" for Parthood), already resolved by
+    /// the caller from the typed kind — so the affirmation phrases "X is part of
+    /// Y", not "X is a Y". `None` (Subsumption / is-a) keeps the copula "is a".
+    /// Loaded data, never a hardcoded relation string.
+    connective: Option<&'a str>,
+    /// The answered relation's TYPED kind name (e.g. "Subsumption" / "Parthood"),
+    /// used to read the licensing transitivity rule + citation from the Relations
+    /// ontology when the chain spans more than one hop (Fix 2). Loaded data (the
+    /// kind the closure was keyed on), never a hardcoded relation string.
+    kind_name: &'a str,
+}
+
 /// Build a taxonomy response following the NLG pipeline.
 ///
 /// Reiter & Dale (2000):
@@ -704,11 +723,7 @@ pub fn define_word(en: &dyn LexicalReasoner, word: &str) -> String {
 /// 4. Realization — compose through grammar
 fn build_taxonomy_response(
     en: &dyn LexicalReasoner,
-    // The relation's loaded surface ("part of" for Parthood), already resolved by
-    // the caller from the typed kind — so the affirmation phrases "X is part of Y",
-    // not "X is a Y". `None` (Subsumption / is-a) keeps the copula "is a". Loaded
-    // data, never a hardcoded relation string.
-    connective: Option<&str>,
+    relation: AnsweredRelation<'_>,
     // The ORDERED evidence chain `[child, …, parent]` along the answered relation,
     // pre-resolved by the caller from the typed kind via `relation_chain` (the chat
     // cannot name a `ConceptRef`). For Subsumption it is the is-a chain, for
@@ -789,7 +804,7 @@ fn build_taxonomy_response(
     // ("a subsection is part of a section" for Parthood; "is a" for Subsumption).
     sections.push(format!(
         "Yes. {}.",
-        realize::sentence_relation(child_word, parent_word, connective)
+        realize::sentence_relation(child_word, parent_word, relation.connective)
     ));
 
     // Evidence: HOW — the relation chain explains the connection, each rung
@@ -802,10 +817,30 @@ fn build_taxonomy_response(
             evidence_parts.push(realize::sentence_relation(
                 chain_labels[i],
                 chain_labels[i + 1],
-                connective,
+                relation.connective,
             ));
         }
-        sections.push(evidence_parts.join(", and "));
+        let mut evidence = evidence_parts.join(", and ");
+
+        // The LICENSING rule (Fix 2): a chain of >1 hop is authorized by the
+        // relation's TRANSITIVITY — surface that rule AND its citation, read from
+        // the Relations ontology as DATA (never a hardcoded string here), so the
+        // answer shows the PROOF, not just the witness path. A single-hop (direct
+        // edge, chain length 2) invokes no transitivity, so this block is the only
+        // place it appends. A kind the ontology does not declare transitive yields
+        // no license, so the note is never fabricated. Realized through the NLG
+        // layer (`sentence_transitivity_license`), not a raw format! here.
+        use pr4xis_domains::formal::relations::ontology::transitivity_license;
+        if let Some(license) = transitivity_license(relation.kind_name) {
+            let relation_surface = relation.connective.unwrap_or("is-a");
+            evidence.push_str("; ");
+            evidence.push_str(&realize::sentence_transitivity_license(
+                relation_surface,
+                &license.property.to_lowercase(),
+                &license.citation,
+            ));
+        }
+        sections.push(evidence);
     }
 
     // Elaboration: WHAT each concept means
@@ -1900,8 +1935,8 @@ mod loaded_corpus_demo {
 // `from_ontology`, `reasoned_over`) so a regression that silently stops grounding
 // the label surfaces — or reintroduces a false negation from silence — fails here.
 //
-// The corpus is projected by `emit_with_forms::<LegalSourcesCategory>()` — the
-// SAME lexicalizing projection build.rs bakes into the wasm base — so a concept's
+// The corpus is projected by `emit::<LegalSourcesCategory>()` — the default,
+// lexicalizing projection build.rs bakes into the wasm base — so a concept's
 // ONTOLEX-Lemon label ("law", "case law", "legal document") grounds as a queryable
 // `ontolex:Form` surface, distinct from its Rust identifier. Nothing is hardcoded:
 // the Yes/No/Abstain each question yields is read off the loaded Subsumption
@@ -1913,7 +1948,7 @@ mod legal_sources_base {
     use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
     use pr4xis_domains::formal::information::diagnostics::trace_functors::TraceOntology;
     use pr4xis_domains::social::judicial::legal_sources::ontology::LegalSourcesCategory;
-    use pr4xis_runtime::emit::emit_with_forms;
+    use pr4xis_runtime::emit::emit;
     use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
 
     /// Materialize the LegalSources ontology into a `RuntimeOntology` through the
@@ -1922,7 +1957,7 @@ mod legal_sources_base {
     /// `LegalDocument`) rides as an `ontolex:Form` surface the composed reasoner
     /// indexes, exactly as the wasm base does.
     fn legal_corpus() -> RuntimeOntology {
-        let archive = emit_with_forms::<LegalSourcesCategory>();
+        let archive = emit::<LegalSourcesCategory>();
         materialize(archive, OntologyName::new_static("LegalSources"))
             .expect("LegalSources corpus materializes")
     }
@@ -1985,8 +2020,58 @@ mod legal_sources_base {
     #[test]
     fn a_statute_is_a_law() {
         // THE headline: Statute ⊑ LegalDocument ⊑ LegalSource(label "law"). The label
-        // surface "law" grounds (emit_with_forms), so the closure query answers Yes.
+        // surface "law" grounds (default lexicalizing emit), so the closure query answers Yes.
         assert_yes("is a statute a law");
+    }
+
+    #[test]
+    fn a_multi_hop_answer_renders_labels_and_the_transitivity_license() {
+        // Fix 1 + Fix 2 on the headline, multi-hop path Statute ⊑ LegalDocument ⊑
+        // LegalSource: the evidence chain renders the NATURAL LABELS ("legal
+        // document", "law") read from each concept's `canonicalForm` Form — NEVER
+        // the Rust identifiers "LegalDocument"/"LegalSource" — and the answer
+        // appends the LICENSING rule (is-a is transitive) with its citation, read
+        // from the Relations ontology as data.
+        let r = process_with_reasoner(&English::sample(), &reasoner(), "is a statute a law");
+        assert!(
+            r.response.contains("legal document"),
+            "the middle rung renders its label 'legal document'; got {:?}",
+            r.response
+        );
+        assert!(
+            !r.response.contains("LegalDocument") && !r.response.contains("LegalSource"),
+            "no Rust identifier may leak into the rendered answer; got {:?}",
+            r.response
+        );
+        // The transitivity licensing note — the RULE, not just the path.
+        assert!(
+            r.response.contains("is transitive"),
+            "a multi-hop is-a answer names the transitivity that licensed it; got {:?}",
+            r.response
+        );
+        assert!(
+            r.response.contains("Tarski"),
+            "the transitivity note carries its citation, read from the Relations \
+             ontology; got {:?}",
+            r.response
+        );
+    }
+
+    #[test]
+    fn a_single_hop_answer_invokes_no_transitivity() {
+        // The direct edge Statute ⊑ LegalDocument is a SINGLE hop — no transitivity
+        // is invoked, so the answer states the direct relation only (no licensing note).
+        let r = process_with_reasoner(
+            &English::sample(),
+            &reasoner(),
+            "is a statute a legal document",
+        );
+        assert!(r.response.to_lowercase().contains("yes"));
+        assert!(
+            !r.response.contains("is transitive"),
+            "a single-hop (direct edge) answer must not append a transitivity note; got {:?}",
+            r.response
+        );
     }
 
     #[test]
@@ -2159,5 +2244,123 @@ mod legal_sources_base {
             without, with.response,
             "loading the base must change the answer (it is not hardcoded)"
         );
+    }
+}
+
+// =========================================================================
+// Non-legal guardrail — the Dependability demo through the SAME chat path
+// =========================================================================
+//
+// The three fixes are NOT legal-specific: any compiled ontology, grounded into
+// English, must render its natural labels and surface the transitivity rule. The
+// Avizienis et al. (2004) Dependability taxonomy is the non-legal witness — a
+// `DormantFault ⊑ Fault ⊑ Threat` chain whose multi-word label "dormant fault"
+// (its `canonicalForm` Form) must print in place of the identifier "DormantFault".
+#[cfg(test)]
+mod dependability_demo {
+    use super::*;
+    use pr4xis::ontology::meta::OntologyName;
+    use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
+    use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
+    use pr4xis_domains::formal::information::diagnostics::trace_functors::TraceOntology;
+    use pr4xis_runtime::emit::emit;
+    use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
+
+    /// The Dependability ontology through the default lexicalizing projection, so
+    /// each concept's label ("Dormant fault", "Threat") rides as an `ontolex:Form`.
+    fn dependability_corpus() -> RuntimeOntology {
+        materialize(
+            emit::<DependabilityCategory>(),
+            OntologyName::new_static("Dependability"),
+        )
+        .expect("Dependability corpus materializes")
+    }
+
+    fn reasoner() -> ComposedReasoner {
+        ComposedReasoner::new(English::sample(), vec![dependability_corpus()])
+    }
+
+    fn credits_dependability(r: &ProcessResult) -> bool {
+        r.trace.reasoned_over().iter().any(|(o, ok)| {
+            matches!(o, TraceOntology::Loaded(n) if n.as_str() == "Dependability") && *ok
+        })
+    }
+
+    #[test]
+    fn is_a_dormant_fault_a_fault_renders_the_label_not_the_identifier() {
+        // Fix 1 (non-legal): the multi-word surface "dormant fault" resolves and
+        // the answer renders it — never the Rust identifier "DormantFault". A
+        // direct edge DormantFault ⊑ Fault, so a Yes crediting the loaded corpus.
+        let r = process_with_reasoner(
+            &English::sample(),
+            &reasoner(),
+            "is a dormant fault a fault",
+        );
+        assert_eq!(
+            r.outcome,
+            ChatOutcome::Answered,
+            "a dormant fault IS a fault; got {:?} / {:?}",
+            r.outcome,
+            r.response
+        );
+        assert!(r.response.to_lowercase().contains("yes"));
+        assert!(
+            r.response.contains("dormant fault"),
+            "the answer renders the natural label 'dormant fault'; got {:?}",
+            r.response
+        );
+        assert!(
+            !r.response.contains("DormantFault"),
+            "the Rust identifier 'DormantFault' must never print; got {:?}",
+            r.response
+        );
+        assert!(
+            credits_dependability(&r),
+            "the answer credits the loaded Dependability ontology it reasoned over"
+        );
+    }
+
+    #[test]
+    fn a_multi_hop_dependability_answer_carries_the_transitivity_note() {
+        // Fix 2 (non-legal): DormantFault ⊑ Fault ⊑ Threat is a multi-hop is-a
+        // chain, so the SAME transitivity licensing note appears — the rule is a
+        // property of the relation, not of the legal domain.
+        let r = process_with_reasoner(
+            &English::sample(),
+            &reasoner(),
+            "is a dormant fault a threat",
+        );
+        assert_eq!(r.outcome, ChatOutcome::Answered, "got {:?}", r.response);
+        assert!(r.response.to_lowercase().contains("yes"));
+        assert!(
+            r.response.contains("is transitive") && r.response.contains("Tarski"),
+            "a multi-hop answer names the transitivity rule + its citation; got {:?}",
+            r.response
+        );
+        // The intermediate whole renders by label, not identifier.
+        assert!(
+            !r.response.contains("DormantFault"),
+            "no identifier leaks in the chain; got {:?}",
+            r.response
+        );
+    }
+
+    #[test]
+    fn what_is_a_dormant_fault_answers_from_the_avizienis_gloss() {
+        // The definitional path reads the loaded Avizienis gloss for the concept.
+        let r = process_with_reasoner(&English::sample(), &reasoner(), "what is a dormant fault");
+        assert_eq!(r.outcome, ChatOutcome::Answered);
+        assert!(r.from_ontology, "the gloss comes from the loaded ontology");
+        assert!(
+            r.response.to_lowercase().contains("dormant fault"),
+            "the answer names the queried concept by label; got {:?}",
+            r.response
+        );
+        assert!(
+            r.response.contains("not yet been activated"),
+            "the answer surfaces the loaded Avizienis gloss; got {:?}",
+            r.response
+        );
+        assert!(credits_dependability(&r));
     }
 }

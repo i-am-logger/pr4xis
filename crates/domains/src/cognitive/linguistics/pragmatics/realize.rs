@@ -131,6 +131,26 @@ fn sentence_relation_neg(subject: &str, complement: &str, connective: Option<&st
     }
 }
 
+/// Realize the transitivity LICENSING clause of a multi-hop affirmative answer —
+/// the *rule* that authorized crossing two or more rungs, not the witness chain:
+/// "and is-a is transitive (Tarski (1941) …)". Every part is loaded data the
+/// caller read from the Relations ontology (the relation's surface, the
+/// `Transitive` structural-property label, its citation) — never composed here.
+/// When `citation` is empty (a transitive kind with no dedicated citation axiom
+/// yet), the property is still surfaced and the citation is silently omitted, so
+/// the caller can name the rule and treat the citation as a documented follow-up.
+pub fn sentence_transitivity_license(
+    relation_surface: &str,
+    property: &str,
+    citation: &str,
+) -> String {
+    if citation.is_empty() {
+        format!("and {relation_surface} is {property}")
+    } else {
+        format!("and {relation_surface} is {property} ({citation})")
+    }
+}
+
 /// Build a copula question: "is {subject} {complement}?"
 /// Inversion: (S[q]/NP)/NP + NP + NP → S[q]
 fn sentence_question(subject: &str, complement: &str) -> String {

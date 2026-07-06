@@ -303,6 +303,53 @@ pub fn opposition_relation_kind() -> ConceptRef {
     relations_kind(RelationsConcept::Opposition.name())
 }
 
+/// The transitivity license for a relation kind — the *rule* that authorizes a
+/// multi-hop answer over that kind, read from THIS ontology as data: the ontolex
+/// label of the `Transitive` structural property, and the citation grounding the
+/// kind's transitivity. `Some` iff the kind declares `Transitive(R)` via its
+/// `(R, Transitive, HasProperty)` edge (so a single Similarity/Association hop —
+/// non-transitive — yields `None`, and a chain over it invokes no transitivity).
+///
+/// The citation is read off the kind's dedicated transitivity axiom
+/// ([`SubsumptionIsTransitive`] → Tarski 1941; [`ParthoodIsTransitive`] → Casati
+/// & Varzi 1999) — a first-class cited surface, never a literal in the caller. A
+/// transitive kind with no dedicated citation axiom yet returns the property name
+/// with an empty citation, so a caller can still surface "R is transitive" and
+/// treat the citation as a documented follow-up.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransitivityLicense {
+    /// The `Transitive` structural property's ontolex label ("Transitive").
+    pub property: String,
+    /// The citation grounding this kind's transitivity, from its axiom — empty
+    /// when no dedicated transitivity axiom cites this kind yet.
+    pub citation: String,
+}
+
+/// The transitivity license for the relation kind named `kind_name` (matched
+/// against the Relations concept names, e.g. `"Subsumption"` / `"Parthood"`).
+/// See [`TransitivityLicense`].
+pub fn transitivity_license(kind_name: &str) -> Option<TransitivityLicense> {
+    use pr4xis::category::{Concept, FinitelyGenerated};
+    let concept = RelationsConcept::variants()
+        .into_iter()
+        .find(|c| c.name() == kind_name)?;
+    if !relation_has_property(concept, RelationsConcept::Transitive) {
+        return None;
+    }
+    let property = RelationsConcept::Transitive
+        .lexical()
+        .map(|l| l.label.as_str().to_string())
+        .unwrap_or_else(|| RelationsConcept::Transitive.name().to_string());
+    let citation = match concept {
+        RelationsConcept::Subsumption => SubsumptionIsTransitive.citation().as_str().to_string(),
+        RelationsConcept::Parthood => ParthoodIsTransitive.citation().as_str().to_string(),
+        // Transitive per the catalog, but no dedicated citation axiom wired yet:
+        // surface the named property; the citation is a documented follow-up.
+        _ => String::new(),
+    };
+    Some(TransitivityLicense { property, citation })
+}
+
 fn kinded_edge_exists(
     from: RelationsConcept,
     to: RelationsConcept,
@@ -363,6 +410,51 @@ impl Axiom for SubsumptionIsAntisymmetric {
         "SubsumptionIsAntisymmetric",
         "RelationProperty catalog declares Subsumption as Antisymmetric (Tarski 1941): (A R B) \u{2227} (B R A) \u{21d2} A = B",
         "Guarino (2009) The Ontological Level; Tarski (1941) J. Symbolic Logic 6"
+    );
+}
+
+/// Guarino / Tarski — Subsumption is transitive. The structural property that
+/// LICENSES a multi-hop is-a chain: `A ⊑ B ∧ B ⊑ C ⇒ A ⊑ C`. Read by the chat
+/// engine (via [`transitivity_license`]) to surface the *rule* that authorized a
+/// transitive answer, not just the witness chain.
+pub struct SubsumptionIsTransitive;
+
+impl Axiom for SubsumptionIsTransitive {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(RelationsConcept::Subsumption, RelationsConcept::Transitive) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SubsumptionIsTransitive",
+        "RelationProperty catalog declares Subsumption as Transitive (Tarski 1941): (A R B) \u{2227} (B R C) \u{21d2} (A R C) — the property that licenses a multi-hop is-a chain",
+        "Tarski (1941) Calculus of Relations, J. Symbolic Logic 6"
+    );
+}
+
+/// Casati & Varzi / OBO-RO — Parthood is transitive. A part of a part is a part
+/// of the whole: `A part-of B ∧ B part-of C ⇒ A part-of C`. The licensing rule
+/// for a multi-hop mereological chain (`clause → section → title`).
+pub struct ParthoodIsTransitive;
+
+impl Axiom for ParthoodIsTransitive {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(RelationsConcept::Parthood, RelationsConcept::Transitive) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ParthoodIsTransitive",
+        "RelationProperty catalog declares Parthood as Transitive (Casati & Varzi 1999; OBO-RO): a part of a part is a part of the whole",
+        "Casati & Varzi (1999) Parts and Places; Smith et al. (2005) Genome Biology 6:R46 OBO-RO"
     );
 }
 
@@ -513,6 +605,8 @@ impl Ontology for RelationsOntology {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         axioms.push(Box::new(OppositionIsSymmetric));
         axioms.push(Box::new(SubsumptionIsAntisymmetric));
+        axioms.push(Box::new(SubsumptionIsTransitive));
+        axioms.push(Box::new(ParthoodIsTransitive));
         axioms.push(Box::new(CausationIsAsymmetric));
         axioms.push(Box::new(ParthoodIsDistinctFromSubsumption));
         axioms.push(Box::new(SubsumptionSpecialisationAreInverses));
@@ -590,6 +684,45 @@ mod tests {
         assert!(SubsumptionIsAntisymmetric.verify().is_ok());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn subsumption_is_transitive_holds() {
+        assert!(SubsumptionIsTransitive.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn parthood_is_transitive_holds() {
+        assert!(ParthoodIsTransitive.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn transitivity_license_reads_the_property_and_citation_as_data() {
+        // The licensing rule surfaced for a multi-hop answer is READ from this
+        // ontology: Subsumption's transitivity carries the `Transitive` property
+        // label + the Tarski (1941) citation off its axiom; Parthood carries the
+        // Casati & Varzi citation; a non-transitive kind (Opposition) has no
+        // license — so the chat never fabricates a transitivity note.
+        let sub = super::transitivity_license("Subsumption").expect("Subsumption is transitive");
+        assert_eq!(sub.property, "Transitive");
+        assert!(
+            sub.citation.contains("Tarski"),
+            "Subsumption transitivity cites Tarski; got {:?}",
+            sub.citation
+        );
+        let part = super::transitivity_license("Parthood").expect("Parthood is transitive");
+        assert!(
+            part.citation.contains("Casati"),
+            "Parthood transitivity cites Casati & Varzi; got {:?}",
+            part.citation
+        );
+        assert!(
+            super::transitivity_license("Opposition").is_none(),
+            "Opposition is not transitive — no license"
+        );
+    }
+
     /// Regenerate the committed `relations_transitive_kinds.txt` caches that the
     /// `ontology!` macro (`pr4xis-derive`) and the kernel (`pr4xis-runtime`) read.
     /// `#[ignore]`d (it WRITES, asserting nothing) — the relation-kind analogue of
@@ -603,7 +736,7 @@ mod tests {
         use pr4xis::ontology::meta::OntologyName;
         use pr4xis_runtime::ontology::{materialize, transitive_kinds};
 
-        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let archive = pr4xis_runtime::emit::emit_kind_vocabulary::<RelationsCategory>();
         let relations =
             materialize(archive, OntologyName::new_static("Relations")).expect("materializes");
         let mut names: Vec<String> = transitive_kinds(&relations)
@@ -639,7 +772,7 @@ mod tests {
         use pr4xis::ontology::meta::OntologyName;
         use pr4xis_runtime::ontology::{materialize, transitive_kinds};
 
-        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let archive = pr4xis_runtime::emit::emit_kind_vocabulary::<RelationsCategory>();
         let relations =
             materialize(archive, OntologyName::new_static("Relations")).expect("materializes");
         let declared: alloc::collections::BTreeSet<String> = transitive_kinds(&relations)
@@ -684,7 +817,7 @@ mod tests {
     #[test]
     #[ignore]
     fn regenerate_morphism_kinds_prx() {
-        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let archive = pr4xis_runtime::emit::emit_kind_vocabulary::<RelationsCategory>();
         let bytes = pr4xis_runtime::load::emit(&archive).expect("emit morphism_kinds.prx bytes");
         std::fs::write(
             concat!(
@@ -703,13 +836,14 @@ mod tests {
     /// Drift guard (normal suite) for the committed `morphism_kinds.prx` — the
     /// relation-kind vocabulary the runtime's default morphism-kind vocab loads. The
     /// committed projection must deserialize, fail-closed against the LIVE Relations
-    /// root, to the SAME archive a fresh `emit::<RelationsCategory>()` produces; a
+    /// root, to the SAME archive a fresh `emit_kind_vocabulary::<RelationsCategory>()`
+    /// produces; a
     /// kind or a `HasProperty`/inter-kind edge changed without regenerating FAILS
     /// here (closing the rule-7 second-declaration gap, as the transitive cache does).
     #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn morphism_kinds_prx_matches_the_relations_ontology() {
-        let fresh = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let fresh = pr4xis_runtime::emit::emit_kind_vocabulary::<RelationsCategory>();
         let committed: &[u8] = include_bytes!("../../../../pr4xis-runtime/src/morphism_kinds.prx");
         let loaded = pr4xis_runtime::load::load(committed, fresh.root().expect("roots")).expect(
             "committed morphism_kinds.prx is STALE — regenerate with \
@@ -762,7 +896,7 @@ mod tests {
         use pr4xis_runtime::definition::EdgeTarget;
         use pr4xis_runtime::ontology::{ConceptRef, materialize, transitive_kinds};
 
-        let archive = pr4xis_runtime::emit::emit::<RelationsCategory>();
+        let archive = pr4xis_runtime::emit::emit_kind_vocabulary::<RelationsCategory>();
 
         // The loaded `.prx` data itself carries `(Subsumption, Transitive,
         // HasProperty)` — the assertion `RelationProperty::get` reads typed at
