@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.27.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.5...pr4xis-domains-v0.27.0) - 2026-07-06
+
+### Docs
+
+- *(legal_sources)* clarify the strict-subsumption test comment (PR #231 review)
+
+### Feat
+
+- *(runtime)* [**breaking**] mint lexical surfaces on every emitted ontology by default
+- *(chat)* answer conceptual legal questions from a loaded ontology
+- *(domains)* constitutive protocol — moderation events, modes, and admissions (prx parity)
+- *(domains)* smart_element — the smart driver / smart sensor synthesis
+- *(domains)* applied/swarm family — consensus + distributed fusion
+- *(domains)* applied/operating_system family — microkernel, scheduler, bus, driver
+- *(domains)* concurrency, parallelism, and constitutive-protocol ontologies
+- integrate the new ontologies via literature-grounded functors
+- [**breaking**] type the ontology stack end-to-end (Vector/Matrix, coordinate/level/angle)
+- constitution coverage — every test declares its guarantee, gate-enforced
+
+### Fix
+
+- *(domains)* correctness deep-review — founder-untouchability + scheduler deadline horizon
+- *(domains)* ontological-purity audit corrections across the smart-edge ontologies
+- *(docs)* repair broken intra-doc links surfaced by the Docs gate
+- *(data)* pin cito/doco to immutable SPAR URLs, not mutable /current/
+- make rubber-stamp axioms falsifiable + add property-based coverage
+- harden 18 latent panic/overflow sites (audit pass-2 latent findings)
+- 9 more reachable panic/DoS sites from a second, deeper audit
+- 3 more reachable panic/DoS sites the audit verifier over-refuted
+- bound 4 more reachable panic/DoS sites found by an exhaustive audit
+
 ## [0.26.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.5...pr4xis-domains-v0.26.0) - 2026-07-04
 
 ### Feat
