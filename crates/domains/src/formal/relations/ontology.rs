@@ -280,6 +280,29 @@ pub fn reflexive_relation_kinds() -> BTreeSet<ConceptRef> {
         .collect()
 }
 
+/// The relation kinds carrying the `Antisymmetric` structural property (Tarski
+/// 1941; loaded from this ontology's `HasProperty` edges, never hardcoded).
+/// A reasoner uses this to license a *provable* negation: for an antisymmetric
+/// `R`, `A R B ∧ A ≠ B ⇒ ¬(B R A)` — so "is a law a statute" is a real No,
+/// not an abstention, once "a statute is a law" holds.
+pub fn antisymmetric_relation_kinds() -> BTreeSet<ConceptRef> {
+    use pr4xis::category::{Concept, FinitelyGenerated};
+    RelationsConcept::variants()
+        .into_iter()
+        .filter(|c| relation_has_property(*c, RelationsConcept::Antisymmetric))
+        .map(|c| relations_kind(c.name()))
+        .collect()
+}
+
+/// The `Opposition` relation kind (SKOS `related` with polarity; Saussure 1916;
+/// Cruse 1986) — symmetric and irreflexive, so a *direct* opposition edge is the
+/// only thing that licenses a provable negation on the disjointness axis. A
+/// reasoner checks a single edge (Opposition is non-transitive), never a closure.
+pub fn opposition_relation_kind() -> ConceptRef {
+    use pr4xis::category::Concept;
+    relations_kind(RelationsConcept::Opposition.name())
+}
+
 fn kinded_edge_exists(
     from: RelationsConcept,
     to: RelationsConcept,

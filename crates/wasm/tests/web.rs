@@ -22,6 +22,14 @@ use wasm_bindgen_test::*;
 // 13 acceptance tests below actually gate the wasm runtime.
 wasm_bindgen_test_configure!(run_in_browser);
 
+/// The always-loaded base: the embedded `LegalSources` ontology `Pr4xis::new`
+/// installs so the chat can answer "is a statute a law" with no explicit load.
+/// Every `loaded_section_count` assertion is RELATIVE to this base so the tests
+/// neither hardcode the base's size nor regress if it changes.
+fn base_concepts() -> usize {
+    Pr4xis::new().loaded_section_count()
+}
+
 // A minimal full-shape USLM title: `<uscDoc>` wrapper, USLM namespace,
 // one `<section>`. Mirrors the runtime reader's known-good fixture
 // (`uslm::lens::tests::SAMPLE_TITLE`). The namespace is load-bearing —
@@ -82,14 +90,22 @@ fn self_describe_reports_the_source_catalog() {
 #[wasm_bindgen_test]
 fn load_source_materializes_a_live_usc() {
     let mut p = Pr4xis::new();
-    assert_eq!(p.loaded_section_count(), 0, "nothing loaded initially");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts(),
+        "only the always-loaded base is present"
+    );
 
     p.load_source("usc_title_18".to_string(), SAMPLE_TITLE)
         .expect("a well-formed USLM title parses");
 
     // The proof of "loaded into memory like English": a live UsCode with
     // real, queryable sections — not inert bytes.
-    assert_eq!(p.loaded_section_count(), 1, "one section materialized");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts() + 1,
+        "one section materialized atop the base"
+    );
     let json = p.self_describe();
     assert!(
         json.contains("usc_title_18"),
@@ -106,7 +122,7 @@ fn load_source_is_idempotent() {
         .unwrap();
     assert_eq!(
         p.loaded_section_count(),
-        1,
+        base_concepts() + 1,
         "reloading the same source replaces, not duplicates"
     );
 }
@@ -119,7 +135,11 @@ fn load_source_rejects_malformed_xml() {
             .is_err(),
         "a document with no USLM root must fail closed"
     );
-    assert_eq!(p.loaded_section_count(), 0, "nothing loaded on failure");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts(),
+        "a failed load leaves only the always-loaded base"
+    );
 }
 
 #[wasm_bindgen_test]
@@ -190,7 +210,11 @@ fn available_ontologies_lists_registered_owl_vocabularies() {
 #[wasm_bindgen_test]
 fn load_owl_source_materializes_a_live_vocabulary() {
     let mut p = Pr4xis::new();
-    assert_eq!(p.loaded_section_count(), 0, "nothing loaded initially");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts(),
+        "only the always-loaded base is present"
+    );
 
     p.load_owl_source("cito".to_string(), SAMPLE_OWL)
         .expect("a well-formed OWL vocabulary parses");
@@ -199,8 +223,8 @@ fn load_owl_source_materializes_a_live_vocabulary() {
     // inert bytes.
     assert_eq!(
         p.loaded_section_count(),
-        3,
-        "one class + two object properties materialized"
+        base_concepts() + 3,
+        "one class + two object properties materialized atop the base"
     );
     let json = p.self_describe();
     assert!(json.contains("cito"), "cito is in the catalog: {json}");
@@ -213,7 +237,7 @@ fn load_owl_source_is_idempotent() {
     p.load_owl_source("cito".to_string(), SAMPLE_OWL).unwrap();
     assert_eq!(
         p.loaded_section_count(),
-        3,
+        base_concepts() + 3,
         "reloading the same vocabulary replaces, not duplicates"
     );
 }
@@ -225,7 +249,11 @@ fn load_owl_source_rejects_malformed_xml() {
         p.load_owl_source("cito".to_string(), "<<<not xml").is_err(),
         "malformed OWL must fail closed"
     );
-    assert_eq!(p.loaded_section_count(), 0, "nothing loaded on failure");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts(),
+        "a failed load leaves only the always-loaded base"
+    );
 }
 
 #[wasm_bindgen_test]
@@ -242,7 +270,11 @@ fn load_prx_rejects_unregistered_vocabulary() {
         .is_err(),
         "an unpinned vocabulary cannot be validated, so load_prx refuses"
     );
-    assert_eq!(p.loaded_section_count(), 0, "nothing loaded on failure");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts(),
+        "a failed load leaves only the always-loaded base"
+    );
 }
 
 #[wasm_bindgen_test]
@@ -259,5 +291,9 @@ fn load_prx_rejects_corrupt_blob_for_registered_vocabulary() {
         .is_err(),
         "a corrupt .prx.gz for a registered vocabulary must fail closed"
     );
-    assert_eq!(p.loaded_section_count(), 0, "nothing loaded on failure");
+    assert_eq!(
+        p.loaded_section_count(),
+        base_concepts(),
+        "a failed load leaves only the always-loaded base"
+    );
 }

@@ -64,39 +64,48 @@ fn main() {
     // Archive format, NOT the legacy `.prx.gz` envelope. A network-fetched or
     // user-uploaded `.prx` would flow through the SAME `load_ontology_prx`
     // path; embedding just removes the network from the demo.
-    emit_embedded_demo_prx(&out_dir);
+    //
+    // The generated `embedded_prx.rs` carries TWO embedded ontologies: the
+    // Dependability DEMO (structural `emit`, a browser one-click load) and the
+    // LegalSources BASE (lexicalized `emit_with_forms`, always loaded from
+    // `Pr4xis::new` so the chat answers "is a statute a law" out of the box).
+    emit_embedded_prx(&out_dir);
 }
 
-/// The compiled domain ontology projected into the embedded demo `.prx`.
-/// Its name is the runtime [`OntologyName`] the materialized ontology carries,
-/// and the const baked into `lib.rs` so the load method and the test agree on
-/// it without restating the string.
+/// The Dependability demo ontology's runtime [`OntologyName`] — the const baked
+/// into `lib.rs` so the load method and the test agree on it without restating
+/// the string.
 const DEMO_ONTOLOGY_NAME: &str = "Dependability";
 
-/// Emit the embedded demo `.prx` (the Dependability ontology) and a generated
-/// `embedded_prx.rs` module carrying the bytes path + the trusted Merkle root
-/// hex + the ontology name. The runtime loads the bytes fail-closed against the
-/// root.
+/// The always-loaded LegalSources base ontology's runtime [`OntologyName`].
+const LEGAL_SOURCES_ONTOLOGY_NAME: &str = "LegalSources";
+
+/// Emit the two embedded `.prx` ontologies and ONE generated `embedded_prx.rs`
+/// module carrying both constant sets (bytes path + trusted Merkle root hex +
+/// ontology name each). The runtime loads each fail-closed against its baked root.
 ///
 /// build.rs runs natively, so it can use the `emit` feature (which deps the
 /// compile-time `pr4xis` category model) to project the live `Category` —
 /// exactly the projection a `pr4xis compile` would perform, done here at build
 /// time and frozen into the binary.
-fn emit_embedded_demo_prx(out_dir: &Path) {
+///
+/// Dependability uses [`emit`] (structural: identifiers + gloss; its identifiers
+/// ARE the browser's query surfaces). LegalSources uses [`emit_with_forms`]
+/// (lexicalized: also mints each concept's Lemon label as an `ontolex:Form`
+/// surface) because its labels — `LegalSource` → "law", `Precedent` → "case law"
+/// — differ from the Rust identifiers, and "law" is the word a person types.
+fn emit_embedded_prx(out_dir: &Path) {
     use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
-    use pr4xis_runtime::{emit::emit, load};
+    use pr4xis_domains::social::judicial::legal_sources::ontology::LegalSourcesCategory;
+    use pr4xis_runtime::emit::{emit, emit_with_forms};
+    use pr4xis_runtime::load;
 
-    // Project the compiled ontology → Archive (content-addressed). emit()
-    // carries each concept's ONTOLEX-Lemon gloss INTO the `.prx` via
-    // `Concept::lexical`, so the browser — which has no compile-time labels
-    // table — still gets every concept's meaning.
+    // --- The Dependability demo (structural `emit`) ---
     let archive = emit::<DependabilityCategory>();
     let root = archive
         .root()
         .expect("the emitted Dependability archive has a derivable Merkle root");
     let bytes = load::emit(&archive).expect("the Dependability archive encodes to canonical .prx");
-
-    // Stage the bytes in OUT_DIR; `include_bytes!` bakes them into the wasm.
     let prx_path = out_dir.join("dependability.prx");
     std::fs::write(&prx_path, &bytes).expect("write embedded demo .prx");
     eprintln!(
@@ -107,8 +116,25 @@ fn emit_embedded_demo_prx(out_dir: &Path) {
         root.to_hex()
     );
 
-    // Generate the module the wasm includes: the bytes (by path), the trusted
-    // root hex (the fail-closed pin), and the ontology name.
+    // --- The LegalSources base (lexicalized `emit_with_forms`) ---
+    let legal = emit_with_forms::<LegalSourcesCategory>();
+    let legal_root = legal
+        .root()
+        .expect("the emitted LegalSources archive has a derivable Merkle root");
+    let legal_bytes =
+        load::emit(&legal).expect("the LegalSources archive encodes to canonical .prx");
+    let legal_path = out_dir.join("legal_sources.prx");
+    std::fs::write(&legal_path, &legal_bytes).expect("write embedded LegalSources .prx");
+    eprintln!(
+        "Emitted embedded base .prx: {} ({} nodes, {} bytes), root {}",
+        LEGAL_SOURCES_ONTOLOGY_NAME,
+        legal.nodes.len(),
+        legal_bytes.len(),
+        legal_root.to_hex()
+    );
+
+    // Generate the ONE module the wasm includes: for each embedded ontology, the
+    // bytes (by path), the trusted root hex (the fail-closed pin), and the name.
     let module = format!(
         "/// The embedded demo `.prx` — the Avizienis et al. (2004) Dependability\n\
          /// taxonomy projected to a content-addressed Archive at build time.\n\
@@ -118,11 +144,25 @@ fn emit_embedded_demo_prx(out_dir: &Path) {
          /// mismatch — the fail-closed pin, derived from the SAME archive whose\n\
          /// bytes are embedded above.\n\
          pub const EMBEDDED_DEMO_PRX_ROOT_HEX: &str = {root_hex:?};\n\
-         /// The runtime ontology name the embedded `.prx` materializes under.\n\
-         pub const EMBEDDED_DEMO_ONTOLOGY_NAME: &str = {name:?};\n",
+         /// The runtime ontology name the embedded demo `.prx` materializes under.\n\
+         pub const EMBEDDED_DEMO_ONTOLOGY_NAME: &str = {name:?};\n\
+         \n\
+         /// The embedded LegalSources BASE `.prx` — the LKIF-Core-grounded formal\n\
+         /// sources-of-law taxonomy, LEXICALIZED (each concept's Lemon label minted\n\
+         /// as an `ontolex:Form` surface) so \"law\"/\"case law\" ground for chat.\n\
+         /// Loaded at `Pr4xis::new` as an always-present base.\n\
+         pub static EMBEDDED_LEGAL_SOURCES_PRX: &[u8] = include_bytes!({legal_path:?});\n\
+         /// The trusted Merkle root of [`EMBEDDED_LEGAL_SOURCES_PRX`] (lowercase hex),\n\
+         /// the fail-closed pin re-derived from the same archive whose bytes are above.\n\
+         pub const EMBEDDED_LEGAL_SOURCES_PRX_ROOT_HEX: &str = {legal_root_hex:?};\n\
+         /// The runtime ontology name the embedded LegalSources `.prx` materializes under.\n\
+         pub const EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME: &str = {legal_name:?};\n",
         prx_path = prx_path,
         root_hex = root.to_hex(),
         name = DEMO_ONTOLOGY_NAME,
+        legal_path = legal_path,
+        legal_root_hex = legal_root.to_hex(),
+        legal_name = LEGAL_SOURCES_ONTOLOGY_NAME,
     );
     std::fs::write(out_dir.join("embedded_prx.rs"), module).expect("write embedded_prx module");
 }

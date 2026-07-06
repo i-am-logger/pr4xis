@@ -179,6 +179,38 @@ impl Definition {
     }
 }
 
+/// The praxis kind of a written-form atom — an `ontolex:Form` (its `writtenRep`),
+/// carrying NO sense. A `Form` node is a bare surface: it grounds "this written
+/// form occurred", never a meaning. It is the honest target a lexical surface
+/// edge (`canonicalForm` / `otherForm` / `denotes`) points AT, and the surface
+/// the composed reasoner indexes as queryable text distinct from a node's
+/// identifier. The wire constant lives here (beside [`Definition`]) so every
+/// producer — the English/OWL/USC bridges AND the compiled-ontology emitter —
+/// agrees on the exact kind string the reasoner filters on.
+pub const FORM_KIND: &str = "Form";
+
+/// The Lemon `ontolex:canonicalForm` lexicalization role — the edge from a
+/// concept to its one canonical written surface ([`FORM_KIND`] atom). Wire DATA.
+pub const CANONICAL_FORM_REL: &str = "canonicalForm";
+
+/// The `ontolex:Form` atom for a written representation — a bare surface-form
+/// node carrying its `writtenRep` as both `name` and `lexical`, and NOTHING
+/// else: no sense, no synset edge. Its content [`address`](Definition::address)
+/// is what a lexical surface edge points AT.
+///
+/// Sense-deferral is STRUCTURAL: a Form has no senses, so a pointer that resolves
+/// to one cannot have over-committed to a meaning (the written-form floor's
+/// honesty tripwire — a surface edge must land on a `Form`, never a synset).
+pub fn form_atom(written_rep: &str) -> Definition {
+    Definition {
+        kind: FORM_KIND.to_string(),
+        name: written_rep.to_string(),
+        edges: Vec::new(),
+        axioms: Vec::new(),
+        lexical: Some(written_rep.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

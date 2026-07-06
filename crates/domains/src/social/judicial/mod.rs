@@ -9,6 +9,7 @@ pub mod entity;
 pub mod evidence_requirement;
 pub mod fact;
 pub mod finding;
+pub mod legal_sources;
 pub mod lifecycle;
 pub mod modality;
 pub mod ontology;
