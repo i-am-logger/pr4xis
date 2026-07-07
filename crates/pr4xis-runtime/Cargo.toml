@@ -26,6 +26,14 @@ serde = { version = "1", features = ["derive"] }
 # form; rkyv's layout is toolchain-bound and stays a local cache, never the
 # address). Pure-Rust; builds for wasm32.
 serde_ipld_dagcbor = "0.6"
+# Zero-copy binary archival — the LOCAL cache/query lens over an `Archive`
+# (`lens::archive_lens::ArchiveLens`), NOT the content address (that stays
+# DAG-CBOR above). Same version + feature set pr4xis-domains pins for the OWL
+# `.prx.gz` envelope, so the workspace stays on one rkyv. `alloc`+`bytecheck`
+# only (no std-only features) — core+alloc-clean, builds for wasm32.
+# Cite: Hill, D. *rkyv: zero-copy deserialization framework for Rust*, v0.8,
+# MIT, <https://github.com/rkyv/rkyv>.
+rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"] }
 
 # Lints inlined (not inherited from `[workspace.lints]`) so the crate parses
 # cleanly when unpacked standalone — crate2nix vendors each member into its own
