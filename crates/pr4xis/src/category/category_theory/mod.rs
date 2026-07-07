@@ -6,4 +6,7 @@
 
 pub mod ontology;
 
-pub use ontology::{CategoryTheoryCategory, CategoryTheoryConcept, CategoryTheoryOntology};
+pub use ontology::{
+    CategoryTheoryCategory, CategoryTheoryConcept, CategoryTheoryOntology,
+    is_grounding_functor_kind,
+};

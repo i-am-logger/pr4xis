@@ -43,17 +43,13 @@ use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
-use pr4xis_runtime::connection::{Connection, GeneratorAction};
+use pr4xis_runtime::connection::Connection;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
-use pr4xis_runtime::emit::emit;
-use pr4xis_runtime::grounding::ground;
 use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
 
 use super::UsCode;
 use super::section_aux::UscSubdivision;
 use crate::cognitive::linguistics::english::bridge::form_atom;
-use crate::social::judicial::legal_sources::ontology::LegalSourcesCategory;
-use crate::social::judicial::statute_structure::grounding::instantiates_lens;
 
 /// The RAW USLM node tag of a section in the SOURCE archive — the `<section>`
 /// element name the projector emits, before the committed `usc_functor.prx`
@@ -266,9 +262,11 @@ fn usc_functor() -> Connection {
 /// Code root `code ↦ Code` (`map_object`) and the typing relation
 /// `instantiates ↦ Subsumption` (`map_morphism`, the reachability kind the typing
 /// edge asserts). It is NOT applied by [`apply`] (that relabels a node's own
-/// kind); it drives the [`instantiates_lens`] grounding step, which MINTS a
-/// cross-ontology [`EdgeTarget::Grounded`](pr4xis_runtime::definition::EdgeTarget::Grounded)
-/// edge per typed node into the LegalSources concept's atom. Re-emitting it
+/// kind); it is APPENDED to the USC archive as data ([`usc_archive`]) and read by
+/// the general [`ground_declared`](crate::formal::meta::grounding::ground_declared)
+/// step, which MINTS a cross-ontology
+/// [`EdgeTarget::Grounded`](pr4xis_runtime::definition::EdgeTarget::Grounded)
+/// edge per typed node into the LOADED LegalSources peer's atom. Re-emitting it
 /// (say `Section ↦ Regulation`) re-aims the grounding without touching code.
 ///
 /// Grounding: LKIF-Core (Hoekstra et al. 2007) — `lkif:Statute` (a section bears
@@ -284,7 +282,7 @@ const USC_LEGAL_SOURCES_FUNCTOR_PRX: &[u8] = include_bytes!(concat!(
 /// `--ignored regenerate_usc_legal_sources_functor_prx` test and bake the printed
 /// root here).
 const USC_LEGAL_SOURCES_FUNCTOR_ROOT_HEX: &str =
-    "94effaf40f8ffd77395d68cb1eeacadf2ee9e43256f3eda6d23a0c3aa54148f4";
+    "65dc0286ef18d3620a167eaec7ab58f0a79beda042b337d1cc2f7c1fbace4e54";
 
 /// Load the USC → LegalSources type-grounding functor from its committed `.prx`
 /// ([`USC_LEGAL_SOURCES_FUNCTOR_PRX`]) — FAIL-CLOSED against
@@ -301,65 +299,50 @@ fn usc_legal_sources_functor() -> Connection {
         .expect("usc_legal_sources_functor.prx carries exactly one Connection")
 }
 
-/// The type-grounding STEP: ground a praxis-relabeled USC [`Archive`] into the
-/// LegalSources taxonomy — the produce half of the type link. Reads the committed
-/// `usc_legal_sources_functor` (`map_object` = kind → LegalSources concept,
-/// `map_morphism` = the typing relation's reachability kind), computes each
-/// LegalSources concept's atom over `emit::<LegalSourcesCategory>()` (the SAME
-/// projection the loaded LegalSources uses, so atoms agree by content address),
-/// and mints one `Grounded` edge per typed node via the generic
-/// [`instantiates_lens`] + [`ground`]. Idempotent on an archive with no typed
-/// kinds (grounds nothing).
-fn ground_legal_types(praxis: &Archive) -> Archive {
-    let GeneratorAction::Functor {
-        map_object,
-        map_morphism,
-    } = &usc_legal_sources_functor().action
-    else {
-        // The committed functor is always a Functor action; a non-Functor is a
-        // build-time invariant violation, so ground nothing rather than guess.
-        return praxis.clone();
-    };
-    // The reachability kind the typing edge asserts — the functor's single
-    // `map_morphism` image (`instantiates ↦ Subsumption`). Fail-closed to
-    // Subsumption if the table is empty (the copula's default kind).
-    let relation = map_morphism
-        .iter()
-        .map(|(_, target)| target.clone())
-        .next()
-        .unwrap_or_else(|| "Subsumption".to_string());
-    // The LegalSources projection the atoms are addressed over — byte-for-byte the
-    // one the CLI/wasm load as the always-present base.
-    let legal_sources = emit::<LegalSourcesCategory>();
-    ground(
-        praxis,
-        instantiates_lens(map_object, &relation, &legal_sources),
-    )
+/// Project a loaded [`UsCode`] into the generic runtime [`Archive`], CARRYING its
+/// USC→LegalSources grounding functor as DATA — the schema-relabeled provisions
+/// PLUS the committed `usc_legal_sources_functor` appended as a
+/// [`Connection`](pr4xis_runtime::connection::Connection).
+///
+/// [`project_archive`] → [`apply`]`(usc_functor)` (relabel raw USLM kinds to
+/// praxis kinds) → append the grounding [`Connection`]. The archive now DECLARES
+/// its cross-ontology typing (`Section ↦ legal_sources:Statute`, `code ↦ Code`) as
+/// data the general loader step
+/// [`ground_declared`](crate::formal::meta::grounding::ground_declared) reads and
+/// mints from — the SAME path any `.prx` carrying an instance functor takes. No
+/// USC-specific grounding code and no `emit::<LegalSourcesCategory>()` hardcode:
+/// the target atoms come from the LOADED `LegalSources` peer at grounding time.
+pub fn usc_archive(usc: &UsCode) -> Archive {
+    let raw = project_archive(usc);
+    let mut praxis = apply(&usc_functor().action, &raw)
+        .expect("the loaded usc_functor is always a Functor action, which apply interprets");
+    // APPEND the grounding functor as DATA — not applied here (that would relabel a
+    // node's own kind); the general `ground_declared` step interprets it against
+    // the loaded LegalSources peer, minting the type edges. Re-emitting the
+    // committed `.prx` (say `Section ↦ Regulation`) re-aims the grounding.
+    praxis.connections.push(usc_legal_sources_functor());
+    praxis
 }
 
-/// Bridge a loaded [`UsCode`] into a generic [`RuntimeOntology`] — the whole
-/// pipeline: [`project_archive`] → [`apply`]`(usc_functor)` (relabel raw USLM
-/// kinds to praxis kinds) → [`ground_legal_types`] (mint the USC→LegalSources TYPE
-/// grounding edges) → [`materialize`](pr4xis_runtime::ontology::materialize). The
-/// two committed `.prx` functors (`usc_functor.prx` for the schema relabel,
-/// `usc_legal_sources_functor.prx` for the cross-ontology typing) are loaded
-/// fail-closed; the grounding step is the twin of the English `denotes` floor,
-/// retargeted to LegalSources.
+/// Bridge a loaded [`UsCode`] into a generic [`RuntimeOntology`] — [`usc_archive`]
+/// (project → apply → append the grounding functor as data) →
+/// [`materialize`](pr4xis_runtime::ontology::materialize).
+///
+/// The materialized ontology CARRIES its grounding `Connection`, but its cross-
+/// ontology type edges are NOT minted here — that is the loader's general
+/// [`ground_loaded_set`](crate::formal::meta::grounding::ground_loaded_set) step,
+/// which grounds this ontology against the LOADED `LegalSources` peer (the same
+/// step that grounds any instance-functor `.prx`). This is what makes USC a plain
+/// special case of the general grounding mechanism rather than a hardcoded path.
 ///
 /// `apply` cannot fail here (the loaded `usc_functor` is always a `Functor`
 /// action); materialization can still fail closed (a codec error on the root),
-/// propagated typed. The `Grounded` type edges are carried past `materialize`
-/// (which skips foreign atoms in its referential-closure check) and read back by
-/// the composed reasoner's cross-ontology `reaches`.
+/// propagated typed.
 pub fn usc_runtime_ontology(
     usc: &UsCode,
     name: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
-    let raw = project_archive(usc);
-    let praxis = apply(&usc_functor().action, &raw)
-        .expect("the loaded usc_functor is always a Functor action, which apply interprets");
-    let grounded = ground_legal_types(&praxis);
-    materialize(grounded, name)
+    materialize(usc_archive(usc), name)
 }
 
 #[cfg(test)]
@@ -367,6 +350,7 @@ mod tests {
     use super::*;
     use crate::cognitive::linguistics::english::bridge::FORM_KIND;
     use alloc::collections::BTreeSet;
+    use pr4xis_runtime::connection::GeneratorAction;
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
@@ -556,7 +540,12 @@ mod tests {
     /// declares the reachability kind the typing edge asserts.
     fn usc_legal_sources_functor_archive() -> Archive {
         let conn = Connection {
-            kind: "TypeGrounding".to_string(),
+            // The grounding-functor kind is the META-ONTOLOGY concept the loader's
+            // discriminator (`is_grounding_functor_kind`) reaches to `InstanceFunctor`
+            // (Spivak 2012 FDM §3) — NOT an ad-hoc "TypeGrounding" string. This is
+            // what makes the general `ground_declared` step recognise it as a
+            // grounding functor to mint type edges from.
+            kind: "InstanceFunctor".to_string(),
             source: "us_code".to_string(),
             target: "LegalSources".to_string(),
             action: GeneratorAction::Functor {
@@ -653,12 +642,15 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_pipeline_mints_type_grounding_edges_into_legal_sources() {
-        use pr4xis_runtime::lens::archive_lens::archived_grounded;
-        // With the grounding functor applied, a materialized section carries a
-        // cross-ontology Grounded edge into LegalSources (its Statute typing), and
-        // the Code root carries one into legal_sources:Code — the produce side of
-        // the type link. (The raw `project_archive` has NO such edge; the functor
-        // is what mints it — the with/without-functor contrast.)
+        use crate::formal::meta::grounding::ground_declared;
+        use crate::social::judicial::legal_sources::ontology::LegalSourcesCategory;
+        use pr4xis_runtime::definition::EdgeTarget;
+        use pr4xis_runtime::emit::emit;
+        // The USC archive CARRIES its grounding functor as data (a Connection); the
+        // GENERAL `ground_declared` step mints the cross-ontology Grounded edges —
+        // a section into legal_sources:Statute, the Code root into Code — against
+        // the LOADED LegalSources peer. (The raw `project_archive` has NO such edge;
+        // the with/without-grounding contrast.)
         let raw = project_archive(&UsCode::sample());
         assert!(
             raw.nodes.iter().all(|n| n
@@ -668,9 +660,19 @@ mod tests {
             "the RAW structural projection carries no cross-ontology grounded edge"
         );
 
-        let onto = usc_runtime_ontology(&UsCode::sample(), OntologyName::new_static("us_code"))
-            .expect("the USC pipeline materializes");
+        // The USC archive-with-grounding-functor-as-data, and the LegalSources peer
+        // (built here from the same projection the runtime loads as the base, so the
+        // atoms agree by content address).
+        let usc = usc_archive(&UsCode::sample());
+        assert!(
+            usc.connections.iter().any(|c| c.kind == "InstanceFunctor"),
+            "usc_archive carries its grounding functor as a Connection (data)"
+        );
         let legal = emit::<LegalSourcesCategory>();
+        let mut peers = alloc::collections::BTreeMap::new();
+        peers.insert("LegalSources".to_string(), legal.clone());
+        let grounded = ground_declared(&usc, &peers).expect("USC grounds into LegalSources");
+
         let statute_atom = legal
             .nodes
             .iter()
@@ -678,18 +680,17 @@ mod tests {
             .unwrap()
             .address()
             .unwrap();
-
         // Some section grounds into the Statute atom of LegalSources.
-        let grounds_statute = onto.archive().nodes.iter().any(|n| {
+        let grounds_statute = grounded.nodes.iter().any(|n| {
             n.kind.as_str() == SECTION_KIND
-                && n.edges.iter().any(|e| {
-                    archived_grounded(&e.1)
-                        .is_some_and(|(ont, atom)| ont == "LegalSources" && atom == statute_atom)
+                && n.edges.iter().any(|(_, t)| {
+                    matches!(t, EdgeTarget::Grounded { ontology, atom }
+                        if ontology == "LegalSources" && *atom == statute_atom)
                 })
         });
         assert!(
             grounds_statute,
-            "the grounding functor mints a section→legal_sources:Statute edge"
+            "ground_declared mints a section→legal_sources:Statute edge"
         );
 
         // The Code root grounds into legal_sources:Code.
@@ -700,18 +701,17 @@ mod tests {
             .unwrap()
             .address()
             .unwrap();
-        let code_node = onto
-            .archive()
+        let code_node = grounded
             .nodes
             .iter()
             .find(|n| n.name == CODE_ROOT_URN)
-            .expect("the Code root node survives materialize");
+            .expect("the Code root node survives grounding");
         assert!(
-            code_node.edges.iter().any(|e| {
-                archived_grounded(&e.1)
-                    .is_some_and(|(ont, atom)| ont == "LegalSources" && atom == code_atom)
+            code_node.edges.iter().any(|(_, t)| {
+                matches!(t, EdgeTarget::Grounded { ontology, atom }
+                    if ontology == "LegalSources" && *atom == code_atom)
             }),
-            "the grounding functor mints a Code-root→legal_sources:Code edge"
+            "ground_declared mints a Code-root→legal_sources:Code edge"
         );
     }
 }

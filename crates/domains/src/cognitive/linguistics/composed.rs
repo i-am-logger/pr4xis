@@ -50,9 +50,8 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use pr4xis::ontology::meta::OntologyName;
-use pr4xis_runtime::archive::Archive;
-use pr4xis_runtime::definition::{CANONICAL_FORM_REL, EdgeTarget};
-use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
+use pr4xis_runtime::address::ContentAddress;
+use pr4xis_runtime::definition::CANONICAL_FORM_REL;
 use pr4xis_runtime::lens::archive_lens::{archived_grounded, archived_local_name};
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
@@ -160,23 +159,20 @@ pub struct ComposedReasoner {
     /// while "is X a X" stays `true`.
     reflexive_kinds: BTreeSet<ConceptRef>,
 
-    /// Owned archives of the loaded ontologies that are TYPE-GROUNDING TARGETS —
-    /// the ontologies some loaded node carries a cross-ontology
-    /// [`Grounded`](EdgeTarget::Grounded) edge INTO (e.g. `LegalSources`, the
-    /// target of the USC section→`Statute` typing). Held OWNED (not the zero-copy
-    /// view) because the generic [`AtomResolver`] indexes a peer by
-    /// `Definition::address`. Keyed by ontology name; empty when no loaded ontology
-    /// grounds into a peer. Scanned off the loaded archives' edges — data-driven,
-    /// never a hardcoded target list.
-    grounding_peers: BTreeMap<String, Archive>,
-    /// The manifest pinning each [`grounding_peers`](Self::grounding_peers) entry
-    /// to its loaded root — the fail-closed gate the [`AtomResolver`] builds
-    /// against (a peer whose supplied root disagrees with its pin refuses to
-    /// resolve). Derived from the loaded set itself, so the pin always matches the
-    /// supplied archive; the meaningful fail-closed leg is atom PRESENCE (a typing
-    /// edge minted against a LegalSources the running system does not hold resolves
-    /// to nothing).
-    grounding_manifest: ConnectedOntologies,
+    /// The TYPE-GROUNDING atom index, built ONCE at construction — for each loaded
+    /// ontology that is a grounding TARGET (some loaded node carries a cross-
+    /// ontology [`Grounded`](pr4xis_runtime::definition::EdgeTarget::Grounded) edge INTO it, e.g. `LegalSources`,
+    /// the target of the USC section→`Statute` typing), a map from each of its
+    /// nodes' content addresses to that node's name. A cross-ontology `reaches`
+    /// resolves a grounded edge's foreign `atom` to the peer concept's NAME by an
+    /// O(log n) lookup here — the resolution `AtomResolver::resolve` performed, but
+    /// the index is computed once at construction, NOT rebuilt per query. Keyed by
+    /// ontology name; empty when no loaded ontology grounds into a peer. Data-driven
+    /// off the loaded archives' edges, never a hardcoded target list. The pin gate
+    /// is trivially satisfied (the index is derived from the loaded archives
+    /// themselves), so the meaningful fail-closed leg is atom PRESENCE — a typing
+    /// edge into an ontology the system does not hold resolves to nothing.
+    grounding_atoms: BTreeMap<String, BTreeMap<ContentAddress, String>>,
 }
 
 impl ComposedReasoner {
@@ -363,27 +359,28 @@ impl ComposedReasoner {
                 }
             }
         }
-        // For each loaded ontology that IS such a target, hold its owned archive as
-        // a resolver peer, pinned to its own loaded root (so the pin always agrees;
-        // the fail-closed leg is atom presence). A loaded ontology no edge grounds
-        // into (e.g. USC itself) is NOT indexed — the resolver stays small.
-        let mut grounding_peers: BTreeMap<String, Archive> = BTreeMap::new();
-        let mut manifest_entries: Vec<ConnectedOntology> = Vec::new();
+        // For each loaded ontology that IS such a target, build its atom index ONCE
+        // (each node's content address → its name) — the resolution the per-query
+        // `AtomResolver` did, hoisted to construction so `cross_reaches` is a pure
+        // lookup. A loaded ontology no edge grounds into (e.g. USC itself) is NOT
+        // indexed — the index stays small (LegalSources is nine nodes).
+        let mut grounding_atoms: BTreeMap<String, BTreeMap<ContentAddress, String>> =
+            BTreeMap::new();
         for onto in &loaded {
             let name = onto.id().as_str().to_string();
             if !target_names.contains(&name) {
                 continue;
             }
             if let Ok(archive) = onto.to_owned_archive() {
-                manifest_entries.push(ConnectedOntology {
-                    name: name.clone(),
-                    root: onto.root(),
-                    role: "instantiates".to_string(),
-                });
-                grounding_peers.insert(name, archive);
+                let mut index: BTreeMap<ContentAddress, String> = BTreeMap::new();
+                for node in &archive.nodes {
+                    if let Ok(addr) = node.address() {
+                        index.insert(addr, node.name.clone());
+                    }
+                }
+                grounding_atoms.insert(name, index);
             }
         }
-        let grounding_manifest = ConnectedOntologies(manifest_entries);
 
         // `loaded_ids` (ConceptRef → id) is retained as reasoner state so the
         // loaded-side closure answers — a set of `ConceptRef`s read off each
@@ -420,8 +417,7 @@ impl ComposedReasoner {
             // ontology's `(R, Reflexive, HasProperty)` edges — so the `reaches`
             // `c == a` short-circuit consults the loaded data, not a hardcoded list.
             reflexive_kinds: crate::formal::relations::ontology::reflexive_relation_kinds(),
-            grounding_peers,
-            grounding_manifest,
+            grounding_atoms,
         }
     }
 
@@ -471,7 +467,8 @@ impl ComposedReasoner {
     /// ontology (the USC section→`legal_sources:Statute` typing minted by the
     /// `usc_legal_sources_functor` grounding lens). It reads `c`'s grounded edges
     /// of the queried `kind`, resolves each foreign atom to the peer's
-    /// [`ConceptRef`] via the generic [`AtomResolver`], and CONTINUES the query
+    /// [`ConceptRef`] via the precomputed
+    /// [`grounding_atoms`](Self::grounding_atoms) index, and CONTINUES the query
     /// inside the peer ontology's own materialized closure — so
     /// `reaches(section, Statute)` is the direct typing and `reaches(section, law)`
     /// is that typing THEN the LegalSources `Statute ⊑ … ⊑ LegalSource` closure.
@@ -485,27 +482,23 @@ impl ComposedReasoner {
         let Some(onto) = self.ontology_of(c) else {
             return false;
         };
-        // The resolver over the loaded grounding-target peers. Rebuilt per query
-        // (each target peer is small — LegalSources is nine nodes), fail-closed on
-        // a root skew.
-        let Ok(resolver) = AtomResolver::new(&self.grounding_manifest, &self.grounding_peers)
-        else {
-            return false;
-        };
         for g in onto.grounded_edges_from(c) {
             // Only a grounded edge asserting the QUERIED relation kind bridges (a
             // `denotes` lexical edge, say, does not answer an is-a query).
             if &g.kind != kind {
                 continue;
             }
-            let target = EdgeTarget::Grounded {
-                ontology: g.ontology.clone(),
-                atom: g.atom,
-            };
-            let Ok(def) = resolver.resolve(&target) else {
+            // Resolve the foreign `atom` to the peer concept's NAME via the
+            // precomputed atom index (built once at construction), fail-closed to no
+            // path when the target ontology is not held or the atom is absent.
+            let Some(name) = self
+                .grounding_atoms
+                .get(&g.ontology)
+                .and_then(|index| index.get(&g.atom))
+            else {
                 continue;
             };
-            let t = ConceptRef::new(OntologyName::new(g.ontology.clone()), def.name.clone());
+            let t = ConceptRef::new(OntologyName::new(g.ontology.clone()), name.clone());
             // The typing lands directly on `a`…
             if &t == a {
                 return true;
@@ -878,6 +871,124 @@ mod tests {
         );
         // And the multi-word Form surface makes the recognizer active.
         assert!(composed.max_surface_words() >= 2);
+    }
+
+    /// THE GENERAL GROUNDING MECHANISM, on a NON-STATUTE fixture with zero legal
+    /// vocabulary — a `menagerie` instance archive grounds into a `taxonomy` base
+    /// through the SAME loader path USC→LegalSources takes: an `InstanceFunctor`
+    /// connection carried as data, minted by `ground_loaded_set`, resolved by the
+    /// generic `cross_reaches`. `rex` (a `Pet`) instantiates `taxonomy:Dog`, so it
+    /// reaches `Dog ⊑ Mammal ⊑ Animal` — but NOT the unrelated `Rock`. This proves
+    /// grounding is a source-agnostic mechanism, not a statute special case.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
+    #[test]
+    fn a_non_statute_instance_grounds_into_its_taxonomy_by_the_general_path() {
+        use pr4xis_runtime::connection::{Connection, GeneratorAction};
+        use pr4xis_runtime::ontology::relations_kind;
+
+        // The base taxonomy: Dog ⊑ Mammal ⊑ Animal, plus an unrelated Rock. Zero
+        // legal vocabulary anywhere in this test.
+        fn taxonomy() -> Archive {
+            let concept = |name: &str, parent: Option<&str>, gloss: &str| Definition {
+                kind: "Concept".to_string(),
+                name: name.to_string(),
+                edges: parent
+                    .map(|p| {
+                        alloc::vec![("Subsumption".to_string(), EdgeTarget::Local(p.to_string()))]
+                    })
+                    .unwrap_or_default(),
+                axioms: alloc::vec![],
+                lexical: Some(gloss.to_string()),
+            };
+            Archive {
+                nodes: alloc::vec![
+                    concept("Dog", Some("Mammal"), "a domesticated canine"),
+                    concept("Mammal", Some("Animal"), "a warm-blooded vertebrate"),
+                    concept("Animal", None, "a living organism"),
+                    concept("Rock", None, "an inanimate mineral mass"),
+                ],
+                connections: alloc::vec![],
+            }
+        }
+
+        // The instance archive: `rex` (a `Pet`) carrying a grounding functor as DATA
+        // typing `Pet ↦ taxonomy:Dog`.
+        let menagerie = Archive {
+            nodes: alloc::vec![Definition {
+                kind: "Pet".to_string(),
+                name: "rex".to_string(),
+                edges: alloc::vec![],
+                axioms: alloc::vec![],
+                lexical: Some("a good dog".to_string()),
+            }],
+            connections: alloc::vec![Connection {
+                kind: "InstanceFunctor".to_string(),
+                source: "menagerie".to_string(),
+                target: "taxonomy".to_string(),
+                action: GeneratorAction::Functor {
+                    map_object: alloc::vec![("Pet".to_string(), "Dog".to_string())],
+                    map_morphism: alloc::vec![(
+                        "instantiates".to_string(),
+                        "Subsumption".to_string()
+                    )],
+                },
+                laws: alloc::vec!["PreservesTyping".to_string()],
+            }],
+        };
+
+        // Both load orders: base before instance AND instance before base — the
+        // general grounding pass grounds `rex` regardless of position.
+        for base_first in [true, false] {
+            let tax = materialize(taxonomy(), OntologyName::new_static("taxonomy"))
+                .expect("taxonomy materializes");
+            let men = materialize(menagerie.clone(), OntologyName::new_static("menagerie"))
+                .expect("menagerie materializes");
+            let mut set = if base_first {
+                alloc::vec![Rc::new(tax), Rc::new(men)]
+            } else {
+                alloc::vec![Rc::new(men), Rc::new(tax)]
+            };
+            crate::formal::meta::grounding::ground_loaded_set(&mut set);
+            let composed = ComposedReasoner::new(English::sample_static(), set);
+            let subsumption = subsumption_kind();
+
+            // Select the LOADED concept for each surface — English also knows
+            // "animal"/"dog"/"mammal", and English ids sort first in the union, so a
+            // bare `[0]` would pick the English concept (a mixed-universe query). The
+            // grounding lives between the LOADED vertices.
+            let loaded_id = |surface: &str| {
+                composed
+                    .lookup(surface)
+                    .iter()
+                    .copied()
+                    .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+                    .unwrap_or_else(|| panic!("no loaded concept resolves for {surface:?}"))
+            };
+            let rex = loaded_id("rex");
+            let animal = loaded_id("animal");
+            let mammal = loaded_id("mammal");
+            let rock = loaded_id("rock");
+
+            // rex types as Dog, so it reaches Mammal and Animal in the peer closure.
+            assert!(
+                composed.reaches(rex, animal, &subsumption),
+                "rex (a Pet grounded as Dog) reaches taxonomy:Animal (base_first={base_first})"
+            );
+            assert!(
+                composed.reaches(rex, mammal, &subsumption),
+                "rex reaches taxonomy:Mammal by the peer's Dog ⊑ Mammal closure"
+            );
+            // NOT a blanket yes: rex does not reach the unrelated Rock.
+            assert!(
+                !composed.reaches(rex, rock, &subsumption),
+                "rex does NOT reach the unrelated Rock — the grounding reads the real closure"
+            );
+            // §9 over-generation guard: a Parthood query does not spuriously hold.
+            assert!(
+                !composed.reaches(rex, animal, &relations_kind("Parthood")),
+                "the grounding mints only the instantiates (Subsumption) edge, not Parthood"
+            );
+        }
     }
 
     /// The relation-parametric `reaches` reads each relation's OWN materialized

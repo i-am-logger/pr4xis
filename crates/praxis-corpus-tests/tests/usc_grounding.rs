@@ -182,91 +182,104 @@ fn the_real_title_projects_a_parthood_mereology() {
 fn a_loaded_usc_section_reaches_statute_and_law_by_composition() {
     let usc = require(first_provisioned_title(), "usc");
 
-    // The grounded USC (project → usc_functor → type-grounding → materialize) and
-    // the always-loaded LegalSources base (the CLI/wasm path: default lexicalizing
-    // emit, materialized under "LegalSources").
-    let usc_onto = usc_runtime_ontology(&usc, OntologyName::new_static("usc"))
-        .expect("the USC pipeline materializes");
-    let legal = materialize(
-        emit::<LegalSourcesCategory>(),
-        OntologyName::new_static("LegalSources"),
-    )
-    .expect("LegalSources materializes");
+    // The gate is asserted for BOTH load orders — LegalSources loaded BEFORE the
+    // USC corpus AND after it. Grounding is the general `ground_loaded_set` pass
+    // over the loaded set (the same step the CLI/wasm install runs), so a USC
+    // section grounds into `legal_sources:Statute` whether its base peer arrived
+    // first or last — the mint is a pure function of the loaded set, not its order.
+    for base_first in [true, false] {
+        // The USC corpus carries its grounding functor as DATA (usc_runtime_ontology
+        // materializes it ungrounded); LegalSources is the always-loaded base.
+        let usc_onto = usc_runtime_ontology(&usc, OntologyName::new_static("usc"))
+            .expect("the USC pipeline materializes");
+        let legal = materialize(
+            emit::<LegalSourcesCategory>(),
+            OntologyName::new_static("LegalSources"),
+        )
+        .expect("LegalSources materializes");
 
-    let composed = ComposedReasoner::new(
-        English::sample_static(),
-        vec![Rc::new(legal), Rc::new(usc_onto)],
-    );
-    let subsumption = subsumption_kind();
+        let mut set = if base_first {
+            vec![Rc::new(legal), Rc::new(usc_onto)]
+        } else {
+            vec![Rc::new(usc_onto), Rc::new(legal)]
+        };
+        // THE GENERAL GROUNDING STEP — mints the USC→LegalSources type edges from
+        // the functor USC carries as data, against the loaded LegalSources peer.
+        pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set);
 
-    // The conceptual layer still answers: statute ⊑ … ⊑ law inside LegalSources.
-    let statute = composed.lookup("statute").to_vec();
-    let law = composed.lookup("law").to_vec();
-    assert!(
-        !statute.is_empty() && !law.is_empty(),
-        "the LegalSources surfaces 'statute' and 'law' resolve"
-    );
-    assert!(
-        statute
+        let composed = ComposedReasoner::new(English::sample_static(), set);
+        let subsumption = subsumption_kind();
+
+        // The conceptual layer still answers: statute ⊑ … ⊑ law inside LegalSources.
+        let statute = composed.lookup("statute").to_vec();
+        let law = composed.lookup("law").to_vec();
+        assert!(
+            !statute.is_empty() && !law.is_empty(),
+            "the LegalSources surfaces 'statute' and 'law' resolve (base_first={base_first})"
+        );
+        assert!(
+            statute
+                .iter()
+                .any(|&s| law.iter().any(|&l| composed.reaches(s, l, &subsumption))),
+            "the base taxonomy holds: a statute is a law"
+        );
+
+        // A LOADED section — addressed by its URN surface (no hardcoded section
+        // number; the first provisioned section of the first title).
+        let section_urn = usc.all_sections()[0].urn.value().to_lowercase();
+        let section = composed.lookup(&section_urn).to_vec();
+        assert!(
+            !section.is_empty(),
+            "the loaded section {section_urn} resolves by its URN surface"
+        );
+
+        // THE FIX: the loaded section reaches legal_sources:Statute (its typing) …
+        let reaches_statute = section.iter().any(|&sec| {
+            statute
+                .iter()
+                .any(|&st| composed.reaches(sec, st, &subsumption))
+        });
+        assert!(
+            reaches_statute,
+            "a LOADED USC section reaches legal_sources:Statute through the grounding functor \
+             (base_first={base_first}) — the instance→type link"
+        );
+
+        // … and transitively legal_sources:LegalSource ("law"), the cross-ontology
+        // fold (section --instantiates--> Statute ⊑ LegalDocument ⊑ LegalSource).
+        let reaches_law = section
             .iter()
-            .any(|&s| law.iter().any(|&l| composed.reaches(s, l, &subsumption))),
-        "the base taxonomy holds: a statute is a law"
-    );
+            .any(|&sec| law.iter().any(|&l| composed.reaches(sec, l, &subsumption)));
+        assert!(
+            reaches_law,
+            "a LOADED USC section reaches legal_sources:LegalSource ('law') by composition \
+             (base_first={base_first})"
+        );
 
-    // A LOADED section — addressed by its URN surface (no hardcoded section number;
-    // the first provisioned section of the first title).
-    let section_urn = usc.all_sections()[0].urn.value().to_lowercase();
-    let section = composed.lookup(&section_urn).to_vec();
-    assert!(
-        !section.is_empty(),
-        "the loaded section {section_urn} resolves by its URN surface"
-    );
+        // NOT a blanket yes: the section does NOT reach `Precedent` ("case law"), a
+        // sibling Statute does not subsume — the cross-ontology reaches reads the
+        // REAL LegalSources closure, crediting the functor + closure, not a hardcode.
+        let case_law = composed.lookup("case law").to_vec();
+        assert!(
+            !case_law.is_empty(),
+            "the LegalSources surface 'case law' (Precedent) resolves"
+        );
+        let reaches_precedent = section.iter().any(|&sec| {
+            case_law
+                .iter()
+                .any(|&p| composed.reaches(sec, p, &subsumption))
+        });
+        assert!(
+            !reaches_precedent,
+            "a section is NOT case law — the type grounding is discriminating (reads the \
+             closure), not a blanket cross-ontology yes (base_first={base_first})"
+        );
 
-    // THE FIX: the loaded section reaches legal_sources:Statute (its typing) …
-    let reaches_statute = section.iter().any(|&sec| {
-        statute
-            .iter()
-            .any(|&st| composed.reaches(sec, st, &subsumption))
-    });
-    assert!(
-        reaches_statute,
-        "a LOADED USC section reaches legal_sources:Statute through the type-grounding functor \
-         (this is the complaint's fix — the instance→type link)"
-    );
-
-    // … and transitively legal_sources:LegalSource ("law"), the cross-ontology fold
-    // (section --instantiates--> Statute ⊑ LegalDocument ⊑ LegalSource).
-    let reaches_law = section
-        .iter()
-        .any(|&sec| law.iter().any(|&l| composed.reaches(sec, l, &subsumption)));
-    assert!(
-        reaches_law,
-        "a LOADED USC section reaches legal_sources:LegalSource ('law') by composition"
-    );
-
-    // NOT a blanket yes: the section does NOT reach `Precedent` ("case law"), a
-    // sibling Statute does not subsume — the cross-ontology reaches reads the REAL
-    // LegalSources closure, crediting the functor + closure, not a hardcode.
-    let case_law = composed.lookup("case law").to_vec();
-    assert!(
-        !case_law.is_empty(),
-        "the LegalSources surface 'case law' (Precedent) resolves"
-    );
-    let reaches_precedent = section.iter().any(|&sec| {
-        case_law
-            .iter()
-            .any(|&p| composed.reaches(sec, p, &subsumption))
-    });
-    assert!(
-        !reaches_precedent,
-        "a section is NOT case law — the type grounding is discriminating (reads the closure), \
-         not a blanket cross-ontology yes"
-    );
-
-    eprintln!(
-        "USC TYPE-GROUNDING GATE: loaded section {section_urn} reaches legal_sources:Statute → \
-         LegalSource ('law'), but NOT Precedent ('case law') — cross-ontology composition."
-    );
+        eprintln!(
+            "USC TYPE-GROUNDING GATE (base_first={base_first}): loaded section {section_urn} \
+             reaches legal_sources:Statute → LegalSource ('law'), but NOT Precedent ('case law')."
+        );
+    }
 }
 
 /// The RESOLVE-SIDE contrast: the SAME grounded USC, composed WITHOUT the
@@ -280,9 +293,12 @@ fn without_the_legal_sources_peer_the_type_link_is_fail_closed() {
     let usc_onto = usc_runtime_ontology(&usc, OntologyName::new_static("usc"))
         .expect("the USC pipeline materializes");
 
-    // Compose the grounded USC ALONE (no LegalSources). The section still carries
-    // its `Grounded` typing edge, but there is no peer to resolve it against.
-    let composed = ComposedReasoner::new(English::sample_static(), vec![Rc::new(usc_onto)]);
+    // Compose the USC ALONE (no LegalSources). The general grounding pass DEFERS —
+    // with no LegalSources peer there is nothing to mint the type edge against, so
+    // the section carries no cross-ontology typing (never a silent wrong bind).
+    let mut set = vec![Rc::new(usc_onto)];
+    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set);
+    let composed = ComposedReasoner::new(English::sample_static(), set);
 
     // With LegalSources absent, 'statute'/'law' do not resolve to any concept —
     // there is nothing for the section to be tied to, so the question abstains
