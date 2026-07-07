@@ -18,7 +18,7 @@ Key references:
 | Senses | `SenseId` — one per word-meaning pair |
 | Lexical entries | `LexicalEntry` (see `../lexicon/pos.rs` for rich types) |
 
-The `English` struct holds: `concepts`, `word_index`, `taxonomy_children`/`taxonomy_parents`, `opposition`, `mereology_parts`, `synset_to_concept`, `sense_to_id`, `function_words`, `verb_transitivity`, `writing`, `morphology`.
+The `English` struct holds: `concepts`, `word_index`, `taxonomy_children`/`taxonomy_parents`, `opposition`, `mereology_parts`, `synset_to_concept`, `function_words`, `verb_transitivity`, `writing`, `morphology`. (Sense-relation resolution uses a `sense_to_id` index built transiently in `from_wordnet` and dropped once the sense-level folds finish — it is not retained.)
 
 ## Relations
 

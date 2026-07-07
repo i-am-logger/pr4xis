@@ -89,8 +89,6 @@ pub struct English {
     relations: WordnetRelations,
     /// Synset ID string → ConceptId mapping.
     synset_to_concept: HashMap<String, ConceptId>,
-    /// Sense ID string → SenseId mapping.
-    pub sense_to_id: HashMap<String, SenseId>,
 
     // === Language trait data ===
     /// Function words (closed class, OLiA-classified).
@@ -387,7 +385,6 @@ impl English {
         opposition: HashMap<SenseId, Vec<SenseId>>,
         mereology_parts: HashMap<ConceptId, Vec<ConceptId>>,
         synset_to_concept: HashMap<String, ConceptId>,
-        sense_to_id: HashMap<String, SenseId>,
         function_words: HashMap<String, Vec<LexicalEntry>>,
         function_word_list: Vec<String>,
         verb_transitivity: HashMap<String, Vec<Transitivity>>,
@@ -410,7 +407,6 @@ impl English {
             mereology_parts,
             relations: WordnetRelations::default(),
             synset_to_concept,
-            sense_to_id,
             function_words,
             function_word_list,
             verb_transitivity,
@@ -764,6 +760,16 @@ impl English {
         // pre-computes every other adjacency map.
         let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
 
+        // `sense_to_id` is a BUILD-TIME index only: it keys the sense-level
+        // relation folds above (opposition — Phase 4 — and the derivation /
+        // pertainym / similar-sense / participle / exemplifies passes in
+        // Phase 5b). Nothing reads a sense's numeric id after construction —
+        // there is no forward-facing accessor — so it is intentionally NOT
+        // stored on `English`; the ~185k-entry `String`-keyed map is dropped
+        // here with the rest of the load transients. The codegen path
+        // (`language::from_codegen`) never builds it at all.
+        drop(sense_to_id);
+
         English {
             // Transcode the owned concept build into the compact store ONCE; the
             // source `Vec<Concept>` is consumed and freed, only the archived form
@@ -779,7 +785,6 @@ impl English {
             mereology_parts,
             relations,
             synset_to_concept,
-            sense_to_id,
             function_words,
             function_word_list,
             verb_transitivity,
