@@ -177,8 +177,14 @@ fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
 /// absent, so it cannot chain its pin from the lock it populates — it gates
 /// against this BAKED root instead, exactly as the runtime
 /// `load_registry_manifest` does.
+// MUST equal `registry_prx::PRAXIS_REGISTRY_ROOT_HEX` (the runtime trust anchor)
+// — this is the blake3 of the committed `praxis-registry.prx`. The two are
+// regenerated together by `regenerate_praxis_registry_prx`; `build_side_registry_root_hex_matches_runtime_anchor`
+// (registry_prx.rs tests) fails if they drift. (Previously stale: the in-workspace
+// build reads the root from `praxis.lock`, so this constant is only exercised by
+// the isolated `cargo publish --verify`, which is why the drift reached CI.)
 const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "bb9b3d4d43b1a06fddaf31064a9c6c4a6a6c61c9f8ecb0dbdfaf52235cfafb30";
+    "74ef53c9205fca5deaf7cb260408761ffaed3152bfbe4a7c8caa7d442a5a16e6";
 
 /// Decode the committed registry MANIFEST `.prx`
 /// (`crates/domains/data/registry/praxis-registry.prx`) into its

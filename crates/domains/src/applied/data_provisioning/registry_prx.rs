@@ -315,6 +315,36 @@ mod tests {
         );
     }
 
+    /// DRIFT GUARD: `build.rs`'s baked `PRAXIS_REGISTRY_ROOT_HEX` MUST equal this
+    /// runtime anchor. They are two independent copies of the same blake3 root of
+    /// the committed `praxis-registry.prx`. The in-workspace build reads the root
+    /// from `praxis.lock`, so build.rs's copy is exercised ONLY by the isolated
+    /// `cargo publish --verify` — a drift there is invisible to every ordinary
+    /// build and TEST, so it stayed hidden until release, wedging the v0.26.0 and
+    /// v0.27.0 publishes of `pr4xis-domains`. This test runs in the ordinary suite
+    /// and fails the instant the two constants diverge, so the drift can never
+    /// reach a release again.
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn build_side_registry_root_hex_matches_runtime_anchor() {
+        let build_rs = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/build.rs"))
+            .expect("read build.rs");
+        let after = build_rs
+            .split("const PRAXIS_REGISTRY_ROOT_HEX: &str =")
+            .nth(1)
+            .expect("build.rs declares PRAXIS_REGISTRY_ROOT_HEX");
+        let baked = after
+            .split('"')
+            .nth(1)
+            .expect("build.rs const carries a string literal");
+        assert_eq!(
+            baked, PRAXIS_REGISTRY_ROOT_HEX,
+            "build.rs baked registry root has DRIFTED from the runtime anchor — the \
+             isolated `cargo publish --verify` will reject the committed .prx and wedge \
+             the release. Sync build.rs to {PRAXIS_REGISTRY_ROOT_HEX}."
+        );
+    }
+
     // ENCODE/DECODE ROUND-TRIP (the manifest ⇄ `.prx` GetPut law): forall
     // toml/lock byte payloads, `decode(encode(t, l)) == (t, l)` and the content
     // address is a deterministic pure function of the inputs.
