@@ -693,7 +693,7 @@ impl Pr4xis {
         // functor each carries as data, order-independent (a source grounds whether
         // its base loaded before or after it). Idempotent: an ontology already
         // carrying its grounding edges is not re-materialized.
-        ground_loaded_set(&mut self.runtime_ontologies);
+        ground_loaded_set(&mut self.runtime_ontologies, english_static());
         // The reasoner BORROWS the single embedded English (no owned rebuild) and
         // reasons over the SAME loaded ontologies — `clone()` on a `Vec<Rc<_>>`
         // bumps refcounts, it does NOT deep-copy the archives/closures.

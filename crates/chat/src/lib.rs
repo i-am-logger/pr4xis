@@ -487,6 +487,33 @@ fn loaded_ontologies_of(en: &dyn LexicalReasoner, ids: &[ConceptId]) -> Vec<Onto
     names
 }
 
+/// The ontologies a relational answer `child → parent` reasoned over: the loaded
+/// `.prx` ontologies its concepts belong to ([`loaded_ontologies_of`]) PLUS the
+/// English substrate when the answer CROSSED into it — a LOADED child
+/// (`ontology_of_concept` = `Some`) reaching an ENGLISH ancestor
+/// (`ontology_of_concept` = `None`). That pairing holds ONLY through the declared
+/// into-English typing (the W2.2 cross-universe arm), so WordNet genuinely supplied
+/// the is-a chain and is credited by its `english_wordnet` name. This is a
+/// PROVENANCE claim (WordNet's taxonomy was consulted), NOT a structural one:
+/// English is still never a loaded `RuntimeOntology` (gate i governs
+/// `composed.loaded()`, a disjoint fact).
+fn reasoned_over_of(
+    en: &dyn LexicalReasoner,
+    child: ConceptId,
+    parent: ConceptId,
+) -> Vec<OntologyName> {
+    let mut names = loaded_ontologies_of(en, &[child, parent]);
+    if en.ontology_of_concept(child).is_some() && en.ontology_of_concept(parent).is_none() {
+        let english = OntologyName::new(
+            pr4xis_domains::cognitive::linguistics::english::bridge::ENGLISH_ONTOLOGY,
+        );
+        if !names.contains(&english) {
+            names.push(english);
+        }
+    }
+    names
+}
+
 pub fn answer_question(
     en: &dyn LexicalReasoner,
     predicate: &str,
@@ -557,7 +584,7 @@ pub fn answer_question(
                             entities_found: entities.clone(),
                             taxonomy_checked: Some((child.clone(), parent.clone(), true)),
                             from_ontology: true,
-                            reasoned_over: loaded_ontologies_of(en, &[cid, pid]),
+                            reasoned_over: reasoned_over_of(en, cid, pid),
                         };
                     }
                 }
@@ -2252,6 +2279,140 @@ mod legal_sources_base {
             without, with.response,
             "loading the base must change the answer (it is not hardcoded)"
         );
+    }
+}
+
+// =========================================================================
+// W2.2 — WORDS ARE POINTERS INTO ENGLISH, through the SAME chat path
+// =========================================================================
+//
+// A loaded `.prx` node that DECLARES an into-English typing functor
+// (`Canine ↦ english_wordnet:s-dog`) inherits English's taxonomy: "is rex an
+// animal" affirms through WordNet's own `s-dog ⊑ s-mammal ⊑ s-animal` chain, and
+// the answer credits English as reasoned-over — WITHOUT English ever being a
+// loaded ontology. An UNDECLARED node (typed `Mineral`, surface an animal word)
+// does NOT link — DECLARED-TYPE grounding, not surface auto-matching (§9), so the
+// chat ABSTAINS. Nothing is hardcoded: the Yes/Abstain is read off the composed
+// reasoner's cross-universe `reaches`, never a `match` on the question text.
+#[cfg(test)]
+mod into_english_base {
+    use std::rc::Rc;
+
+    use super::*;
+    use pr4xis::ontology::meta::OntologyName;
+    use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
+    use pr4xis_domains::formal::information::diagnostics::trace_functors::TraceOntology;
+    use pr4xis_runtime::archive::Archive;
+    use pr4xis_runtime::connection::{Connection, GeneratorAction};
+    use pr4xis_runtime::definition::Definition;
+    use pr4xis_runtime::ontology::materialize;
+
+    /// The menagerie grounded into English through the loader's GENERAL grounding
+    /// pass (`ground_loaded_set`, which seeds English as the transient target peer
+    /// and mints the declared into-English typing edge). English is NEVER installed
+    /// as a loaded `RuntimeOntology`.
+    fn menagerie_reasoner() -> ComposedReasoner {
+        let archive = Archive {
+            nodes: vec![
+                Definition {
+                    kind: "Canine".into(),
+                    name: "rex".into(),
+                    edges: vec![],
+                    axioms: vec![],
+                    lexical: Some("a companion dog".into()),
+                },
+                Definition {
+                    kind: "Mineral".into(),
+                    name: "salmon".into(),
+                    edges: vec![],
+                    axioms: vec![],
+                    lexical: Some("typed a Mineral; its surface is an animal word".into()),
+                },
+            ],
+            connections: vec![Connection {
+                kind: "InstanceFunctor".into(),
+                source: "menagerie".into(),
+                target: "english_wordnet".into(),
+                action: GeneratorAction::Functor {
+                    map_object: vec![("Canine".into(), "s-dog".into())],
+                    map_morphism: vec![("denotes".into(), "Subsumption".into())],
+                },
+                laws: vec!["PreservesTyping".into()],
+            }],
+        };
+        let onto = materialize(archive, OntologyName::new_static("menagerie"))
+            .expect("the menagerie materializes");
+        let mut set = vec![Rc::new(onto)];
+        pr4xis_domains::formal::meta::grounding::ground_loaded_set(
+            &mut set,
+            English::sample_static(),
+        );
+        ComposedReasoner::new(English::sample_static(), set)
+    }
+
+    #[test]
+    fn is_a_declared_node_an_animal_affirms_through_english() {
+        let composed = menagerie_reasoner();
+        // GATE (i): English is never a loaded ontology.
+        assert!(
+            composed
+                .loaded()
+                .iter()
+                .all(|o| o.id().as_str() != "english_wordnet"),
+            "english_wordnet must never be a loaded ontology"
+        );
+
+        let r = process_with_reasoner(&English::sample(), &composed, "is rex an animal");
+        assert_eq!(
+            r.outcome,
+            ChatOutcome::Answered,
+            "a declared node is an animal via English's chain; got {:?} / {:?}",
+            r.outcome,
+            r.response
+        );
+        assert!(
+            r.from_ontology,
+            "the affirmation is an ontology answer; got {:?}",
+            r.response
+        );
+        assert!(
+            r.response.to_lowercase().contains("yes"),
+            "the answer must affirm (Yes); got {:?}",
+            r.response
+        );
+        // reasoned_over credits the loaded menagerie AND the English substrate
+        // (WordNet supplied the is-a chain), success-marked.
+        let prov = r.trace.reasoned_over();
+        assert!(
+            prov.iter().any(
+                |(o, ok)| matches!(o, TraceOntology::Loaded(n) if n.as_str() == "menagerie") && *ok
+            ),
+            "the answer credits the loaded menagerie; got {prov:?}"
+        );
+        assert!(
+            prov.iter().any(
+                |(o, ok)| matches!(o, TraceOntology::Loaded(n) if n.as_str() == "english_wordnet")
+                    && *ok
+            ),
+            "reasoned_over must include english — WordNet's taxonomy supplied the is-a chain; \
+             got {prov:?}"
+        );
+    }
+
+    #[test]
+    fn is_an_undeclared_node_an_animal_abstains() {
+        let composed = menagerie_reasoner();
+        // The undeclared `salmon` (kind Mineral) carries no into-English typing, so
+        // even though its surface is an animal word, the chat ABSTAINS (§9 — Policy B
+        // / WSD surface-matching declined), never a fabricated Yes.
+        let r = process_with_reasoner(&English::sample(), &composed, "is salmon an animal");
+        assert!(
+            matches!(r.outcome, ChatOutcome::Abstained { .. }),
+            "an undeclared node must abstain (§9); got {:?} / {:?}",
+            r.outcome,
+            r.response
+        );
+        assert!(!r.from_ontology, "an abstention is not an ontology answer");
     }
 }
 
