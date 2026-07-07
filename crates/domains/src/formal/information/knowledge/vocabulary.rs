@@ -21,6 +21,7 @@ use alloc::vec::Vec;
 
 use pr4xis::ontology::Vocabulary;
 use pr4xis::ontology::meta::{ConceptName, Morphism, MorphismKind};
+use pr4xis_runtime::lens::archive_lens::archived_local_name;
 use pr4xis_runtime::ontology::RuntimeOntology;
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
@@ -61,12 +62,14 @@ pub fn runtime_ontology_vocabulary(onto: &RuntimeOntology) -> Vocabulary {
     let mut morphisms: Vec<Morphism> = Vec::new();
     for node in archive.nodes.iter().filter(|n| n.kind != FORM_KIND) {
         concepts.push(ConceptName::new(node.name.to_string()));
-        for (kind, target) in &node.edges {
+        for edge in node.edges.iter() {
+            // Archived edges are `ArchivedTuple2(kind, target)`.
+            let (kind, target) = (&edge.0, &edge.1);
             // A cross-ontology grounded edge (no local target) is a denotation link
             // to a foreign atom, not an intra-ontology morphism between concepts —
             // skip it (else it would mint a morphism with an empty target name and
             // inflate the count).
-            let Some(target_name) = target.local_name() else {
+            let Some(target_name) = archived_local_name(target) else {
                 continue;
             };
             // A lexicalization edge into a Form surface is not a taxonomy morphism.
@@ -76,7 +79,7 @@ pub fn runtime_ontology_vocabulary(onto: &RuntimeOntology) -> Vocabulary {
             morphisms.push(Morphism::new(
                 ConceptName::new(node.name.to_string()),
                 ConceptName::new(target_name.to_string()),
-                MorphismKind::from_name(kind),
+                MorphismKind::from_name(kind.as_str()),
             ));
         }
     }

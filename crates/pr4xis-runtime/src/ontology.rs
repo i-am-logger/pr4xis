@@ -88,6 +88,11 @@ use crate::archive::Archive;
 use crate::codec::CodecError;
 use crate::connection::GeneratorAction;
 use crate::definition::EdgeTarget;
+use crate::lens::archive_lens::{
+    ArchiveLens, ArchiveLensError, ArchivedArchiveView, archived_local_name,
+};
+
+use rkyv::util::AlignedVec;
 
 extern crate alloc;
 #[allow(unused_imports)]
@@ -557,6 +562,11 @@ pub enum MaterializeError {
     /// closure is violated. Carries a [`DanglingEdge`] counterexample naming the
     /// orphan, never a silent bool.
     DanglingEdge(DanglingEdge),
+    /// The `rkyv` cache buffer failed `bytecheck` validation — a corrupted
+    /// transcode (in [`materialize`]) or a corrupted input buffer (in
+    /// [`materialize_bytes`]). Fail-closed rather than storing an unvalidated
+    /// buffer the zero-copy query path would `access_unchecked`.
+    Archive(ArchiveLensError),
 }
 
 /// The typed counterexample to referential closure: an edge whose `endpoint`
@@ -580,6 +590,7 @@ impl core::fmt::Display for MaterializeError {
                 "materialize: dangling edge {}--{}-->{}: target node {:?} is not declared",
                 d.source, d.kind, d.orphan, d.orphan
             ),
+            MaterializeError::Archive(e) => write!(f, "materialize: rkyv cache buffer: {e}"),
         }
     }
 }
@@ -590,14 +601,42 @@ impl std::error::Error for MaterializeError {}
 ///
 /// Identity is the content address: two `RuntimeOntology`s are equal iff their
 /// archive roots ([`Archive::root`]) agree. The reachability engine (the
-/// per-kind generating adjacency, queried lazily) is held alongside the archive
-/// (the open form) and the root (the identity).
-#[derive(Debug, Clone)]
+/// per-kind generating adjacency, queried lazily) is held alongside the archived
+/// buffer (the open form) and the root (the identity).
+///
+/// # The open form is the archived BUFFER, reasoned over in place (Step 1c)
+///
+/// The archive is NOT held as an owned [`Archive`] of `String`/`Vec`-heavy
+/// [`Definition`]s; it is held as its `rkyv` local-cache bytes
+/// ([`ArchiveLens::put_aligned`]), `bytecheck`-validated ONCE at materialize.
+/// Every query reads a borrowed [`ArchivedArchiveView`] straight out of that
+/// immutable, 16-aligned buffer ([`archive`](Self::archive)) — zero owned
+/// rebuild. This is the runtime half of "reason over the archived buffer, not an
+/// owned graph" (review §3.1, Lever A): the loaded USC / OWL / legal-source
+/// path stops materializing a second owned copy of the whole graph. The closure
+/// keys on owned [`ConceptRef`]s (never archived references), so the buffer is a
+/// plain `&self` field, not a self-referential struct.
+#[derive(Clone)]
 pub struct RuntimeOntology {
     id: OntologyName,
     root: ContentAddress,
-    archive: Archive,
+    /// The `rkyv` cache bytes of the archive — 16-aligned, `bytecheck`-validated
+    /// at materialize, immutable thereafter. Queried zero-copy via
+    /// [`archive`](Self::archive).
+    buf: AlignedVec<16>,
     closure: MaterializedClosure,
+}
+
+impl core::fmt::Debug for RuntimeOntology {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // The buffer is opaque cache bytes; print its length, not its contents.
+        f.debug_struct("RuntimeOntology")
+            .field("id", &self.id)
+            .field("root", &self.root)
+            .field("buf_len", &self.buf.len())
+            .field("closure", &self.closure)
+            .finish()
+    }
 }
 
 impl PartialEq for RuntimeOntology {
@@ -621,9 +660,17 @@ impl RuntimeOntology {
         self.root
     }
 
-    /// The open form this ontology was materialized from.
-    pub fn archive(&self) -> &Archive {
-        &self.archive
+    /// The open form this ontology was materialized from — a borrowed,
+    /// zero-copy [`ArchivedArchiveView`] over the validated `rkyv` buffer (no
+    /// owned rebuild). Its fields mirror [`Archive`] but every leaf is its
+    /// archived form (`ArchivedString`, `ArchivedVec`, …); read an edge target's
+    /// local name with [`archived_local_name`].
+    pub fn archive(&self) -> &ArchivedArchiveView {
+        // SAFETY: `self.buf` was `bytecheck`-validated by `ArchiveLens::access`
+        // at materialize time and is immutable for the lifetime of `self`, so the
+        // zero-copy access is sound. This is the deliberate `access_unchecked`
+        // that pays bytecheck exactly once — the memory notes' never-used unsafe.
+        unsafe { ArchiveLens::access_unchecked(self.buf.as_slice()) }
     }
 
     /// The reachability engine — the per-kind generating adjacency, queried
@@ -644,22 +691,24 @@ impl RuntimeOntology {
     /// concept, as typed [`RuntimeEdge`]s. (Generating edges, not the closure;
     /// the closure is served by [`reachable_from`](Self::reachable_from).)
     pub fn morphisms_from(&self, c: &ConceptRef) -> Vec<RuntimeEdge> {
-        self.archive
+        self.archive()
             .nodes
             .iter()
-            .filter(|n| n.name == c.name)
+            .filter(|n| n.name == c.name.as_str())
             .flat_map(|n| {
-                n.edges.iter().filter_map(move |(kind_name, target)| {
+                n.edges.iter().filter_map(move |edge| {
+                    // Archived edges are `ArchivedTuple2(kind_name, target)`.
+                    let (kind_name, target) = (&edge.0, &edge.1);
                     // Only LOCAL edges are morphisms within this ontology; a
                     // Grounded target is a cross-ontology atom, resolved by the
                     // ContainsAtom step, not a generator of this graph.
-                    let name = target.local_name()?;
+                    let name = archived_local_name(target)?;
                     // EVERY local edge is a morphism now — its kind-name resolves
                     // into the one Relations vocabulary; no kind is dropped (the
                     // old `from_edge_kind` 3-kind filter is gone).
                     Some(RuntimeEdge {
                         source: c.clone(),
-                        kind: relations_kind(kind_name.clone()),
+                        kind: relations_kind(kind_name.as_str()),
                         target: ConceptRef::new(self.id.clone(), name.to_string()),
                     })
                 })
@@ -694,10 +743,10 @@ impl RuntimeOntology {
     /// if the declaring [`Definition`](crate::definition::Definition) carries
     /// one.
     pub fn lexical(&self, c: &ConceptRef) -> Option<&str> {
-        self.archive
+        self.archive()
             .nodes
             .iter()
-            .find(|n| n.name == c.name)
+            .find(|n| n.name == c.name.as_str())
             .and_then(|n| n.lexical.as_deref())
     }
 
@@ -757,6 +806,70 @@ pub fn materialize(
     archive: Archive,
     id: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
+    // Derive the content root + verify referential closure + capture the
+    // generating adjacency over the OWNED archive (the root needs `Definition`
+    // addressing, which the archived view does not carry).
+    let (root, closure) = analyze(&archive, &id)?;
+
+    // Transcode the owned archive into its 16-aligned `rkyv` cache bytes (the
+    // ArchiveLens PUT), then drop the owned archive — the buffer is the retained
+    // open form. Validate ONCE with `bytecheck` here so every later zero-copy
+    // query over the buffer is sound without re-paying validation.
+    let buf = ArchiveLens::put_aligned(&archive);
+    ArchiveLens::access(buf.as_slice()).map_err(MaterializeError::Archive)?;
+
+    Ok(RuntimeOntology {
+        id,
+        root,
+        buf,
+        closure,
+    })
+}
+
+/// Materialize a [`RuntimeOntology`] from `rkyv` cache bytes already in hand —
+/// the buffer-first sibling of [`materialize`] for a caller that holds an
+/// [`ArchiveLens::put_aligned`] buffer (e.g. a cached `.prx` blob) rather than an
+/// owned [`Archive`].
+///
+/// The buffer is `bytecheck`-validated once, then read back to an owned
+/// [`Archive`] SOLELY to derive the content root and verify referential closure
+/// (both need `Definition` addressing); the validated buffer itself is kept
+/// verbatim as the retained open form — no re-PUT. The resulting ontology is
+/// query-identical to `materialize(ArchiveLens::get(&buf)?, id)`.
+pub fn materialize_bytes(
+    buf: AlignedVec<16>,
+    id: OntologyName,
+) -> Result<RuntimeOntology, MaterializeError> {
+    // Validate the incoming buffer before it is ever `access_unchecked`-ed.
+    ArchiveLens::access(buf.as_slice()).map_err(MaterializeError::Archive)?;
+    // Owning decode only to derive root + referential closure + generators.
+    let archive = ArchiveLens::get(buf.as_slice()).map_err(MaterializeError::Archive)?;
+    let (root, closure) = analyze(&archive, &id)?;
+    Ok(RuntimeOntology {
+        id,
+        root,
+        buf,
+        closure,
+    })
+}
+
+/// Derive the content-address root and the per-kind generating adjacency of an
+/// owned [`Archive`], validating referential closure — the shared kernel of
+/// [`materialize`] and [`materialize_bytes`].
+///
+/// 1. Capture the archive's Merkle root (the content-address identity).
+/// 2. Build the generating edges over [`ConceptRef`] from each node's
+///    `Definition.edges`.
+/// 3. VALIDATE referential closure: every LOCAL edge endpoint must be a declared
+///    node — a dangling target returns [`MaterializeError::DanglingEdge`]. A
+///    GROUNDED target is a foreign atom held as a cross-ontology edge (resolved
+///    by the ContainsAtom step), not validated here.
+/// 4. Capture the generating adjacency (the free-functor image kept as its
+///    generators; reachability is evaluated lazily at query time).
+fn analyze(
+    archive: &Archive,
+    id: &OntologyName,
+) -> Result<(ContentAddress, MaterializedClosure), MaterializeError> {
     // 1. Capture the content-address identity up front.
     let root = archive.root().map_err(MaterializeError::Root)?;
 
@@ -808,12 +921,7 @@ pub fn materialize(
     // lazily per queried vertex (see [`MaterializedClosure`]).
     let closure = MaterializedClosure::fold(&edges, &declared_transitive_kinds());
 
-    Ok(RuntimeOntology {
-        id,
-        root,
-        archive,
-        closure,
-    })
+    Ok((root, closure))
 }
 
 /// The project-less core of every envelope loader: interpret a *raw* source
@@ -907,12 +1015,13 @@ pub fn transitive_kinds(relations: &RuntimeOntology) -> BTreeSet<ConceptRef> {
         .nodes
         .iter()
         .filter(|node| {
-            node.edges.iter().any(|(rel, target)| {
-                rel == HAS_PROPERTY_REL
-                    && matches!(target, EdgeTarget::Local(name) if name == TRANSITIVE_CONCEPT)
+            node.edges.iter().any(|edge| {
+                // Archived edges are `ArchivedTuple2(rel, target)`.
+                edge.0 == HAS_PROPERTY_REL
+                    && matches!(archived_local_name(&edge.1), Some(name) if name == TRANSITIVE_CONCEPT)
             })
         })
-        .map(|node| ConceptRef::new(relations.id().clone(), node.name.clone()))
+        .map(|node| ConceptRef::new(relations.id().clone(), node.name.to_string()))
         .collect()
 }
 
@@ -1051,6 +1160,51 @@ mod tests {
     }
 
     #[test]
+    fn materialize_bytes_matches_materialize_over_the_same_archive() {
+        // The buffer-first loader is query-identical to the owned-archive loader:
+        // same content root, same lexical, same reachability — it just skips the
+        // owned Archive the caller already transcoded.
+        let archive = emit::emit::<OrgCategory>();
+        let by_archive =
+            materialize(archive.clone(), OntologyName::new_static("Org")).expect("materializes");
+
+        let buf = ArchiveLens::put_aligned(&archive);
+        let by_bytes = materialize_bytes(buf, OntologyName::new_static("Org"))
+            .expect("materializes from bytes");
+
+        assert_eq!(by_archive.root(), by_bytes.root(), "same content root");
+        assert_eq!(by_archive, by_bytes, "content-address identity holds");
+        // Same reachability image and same gloss, read over the two open forms.
+        let employer = by_bytes.concept("Employer");
+        assert_eq!(
+            by_archive.reachable_from(&employer, subsumption_kind()),
+            by_bytes.reachable_from(&employer, subsumption_kind()),
+            "same Subsumption reachable set"
+        );
+        assert_eq!(
+            by_archive.lexical(&employer),
+            by_bytes.lexical(&employer),
+            "same gloss"
+        );
+    }
+
+    #[test]
+    fn materialize_bytes_rejects_a_corrupted_buffer() {
+        // A truncated cache buffer fails closed before it is ever queried.
+        let archive = emit::emit::<OrgCategory>();
+        let full = ArchiveLens::put_aligned(&archive);
+        let mut truncated = AlignedVec::<16>::new();
+        truncated.extend_from_slice(&full.as_slice()[..full.len() / 2]);
+        assert!(
+            matches!(
+                materialize_bytes(truncated, OntologyName::new_static("Org")),
+                Err(MaterializeError::Archive(_))
+            ),
+            "a truncated rkyv buffer must fail closed at materialize_bytes"
+        );
+    }
+
+    #[test]
     fn referential_closure_counterexample_on_a_dangling_edge() {
         // Hand-built archive: an edge whose target node is not declared.
         let archive = Archive {
@@ -1179,7 +1333,7 @@ mod tests {
                 .archive()
                 .nodes
                 .iter()
-                .flat_map(|n| onto.morphisms_from(&onto.concept(n.name.clone())))
+                .flat_map(|n| onto.morphisms_from(&onto.concept(n.name.to_string())))
                 .collect::<Vec<_>>(),
             &declared_transitive_kinds(),
         );

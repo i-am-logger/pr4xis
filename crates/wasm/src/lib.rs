@@ -710,9 +710,9 @@ mod acceptance {
     /// the loaded nodes against a fresh English model.
     fn demo_concept(english: &English) -> (String, String) {
         let onto = embedded_ontology();
-        for node in &onto.archive().nodes {
+        for node in onto.archive().nodes.iter() {
             let surface = node.name.to_lowercase();
-            let cref = onto.concept(node.name.clone());
+            let cref = onto.concept(node.name.to_string());
             if let Some(gloss) = onto.lexical(&cref)
                 && english.lookup(&surface).is_empty()
             {
@@ -1167,9 +1167,9 @@ mod browser_acceptance {
     /// gloss is whatever the loaded `.prx` actually declares.
     fn demo_concept(english: &English) -> (String, String) {
         let onto = embedded_ontology();
-        for node in &onto.archive().nodes {
+        for node in onto.archive().nodes.iter() {
             let surface = node.name.to_lowercase();
-            let cref = onto.concept(node.name.clone());
+            let cref = onto.concept(node.name.to_string());
             if let Some(gloss) = onto.lexical(&cref)
                 && english.lookup(&surface).is_empty()
             {

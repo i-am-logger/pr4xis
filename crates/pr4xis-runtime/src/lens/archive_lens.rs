@@ -54,11 +54,17 @@
 //! [`envelope_from_bytes`](../../../../pr4xis_domains/social/software/markup/xml/owl/prx/fn.envelope_from_bytes.html)
 //! in the OWL leaf.
 //!
-//! Step 0 (this module) deliberately uses **validated owning** deserialization
-//! to keep the round-trip simple and green: `get` returns an owned [`Archive`].
-//! **Step 1** switches the query path to zero-copy `rkyv::access` (returning a
-//! validated `&ArchivedArchive` view materialized in place, no owned rebuild) —
-//! that switch is NOT made here.
+//! Two GETs live here. [`ArchiveLens::get`] uses **validated owning**
+//! deserialization — it returns an owned [`Archive`], for callers that need one
+//! (e.g. re-deriving the content root, which needs [`Definition`] addressing).
+//! [`ArchiveLens::access`] is the **zero-copy** GET (Step 1c): it
+//! `bytecheck`-validates the buffer once and returns a borrowed
+//! [`ArchivedArchiveView`] materialized IN PLACE (no owned rebuild), and
+//! [`ArchiveLens::access_unchecked`] serves the hot query path over that
+//! already-validated, immutable buffer. That is what [`RuntimeOntology`] reasons
+//! over.
+//!
+//! [`RuntimeOntology`]: crate::ontology::RuntimeOntology
 //!
 //! ## Lens laws
 //!
@@ -410,25 +416,97 @@ impl ArchivedArchive {
 // ArchiveLens — the bidirectional rkyv lens (put ⊣ get).
 // =============================================================================
 
+/// The zero-copy archived VIEW of the runtime graph — `rkyv`'s in-buffer form of
+/// the [`ArchivedArchive`] mirror. A `&ArchivedArchiveView` borrows the validated
+/// bytes directly (no owned rebuild); its fields mirror [`ArchivedArchive`] but
+/// every leaf is its `rkyv` archived form (`ArchivedString`, `ArchivedVec`,
+/// `ArchivedOption`, …). This is what [`RuntimeOntology`] reasons over in place.
+///
+/// [`RuntimeOntology`]: crate::ontology::RuntimeOntology
+pub type ArchivedArchiveView = rkyv::Archived<ArchivedArchive>;
+
+/// The zero-copy archived form of one [`ArchivedDefinition`] node — the element
+/// type of [`ArchivedArchiveView`]'s `nodes`.
+pub type ArchivedDefinitionView = rkyv::Archived<ArchivedDefinition>;
+
+/// The zero-copy archived form of an [`ArchivedEdgeTarget`] — the target half of
+/// an [`ArchivedDefinitionView`]'s `edges`. Read its local name with
+/// [`archived_local_name`].
+pub type ArchivedEdgeTargetView = rkyv::Archived<ArchivedEdgeTarget>;
+
+/// The local target name of an archived edge target, or `None` for a grounded
+/// (cross-ontology) target — the zero-copy analogue of
+/// [`EdgeTarget::local_name`](crate::definition::EdgeTarget::local_name), for
+/// traversers reading the graph straight out of the `rkyv` buffer. It forces the
+/// foreign case to be handled explicitly, never silently read as a local name.
+pub fn archived_local_name(target: &ArchivedEdgeTargetView) -> Option<&str> {
+    match target {
+        ArchivedArchivedEdgeTarget::Local(name) => Some(name.as_str()),
+        ArchivedArchivedEdgeTarget::Grounded { .. } => None,
+    }
+}
+
 /// The `rkyv` local-cache/query lens between a runtime [`Archive`] and its
 /// zero-copy bytes. See the [module docs](self) for why this is NOT the
 /// content-address form.
 pub struct ArchiveLens;
 
 impl ArchiveLens {
-    /// The lens PUT: `rkyv`-serialize the archive's mirror to the local
-    /// cache/query bytes. **Not** the DAG-CBOR content-address form — the byte
-    /// layout is `rkyv`-version- and target-bound and is never an address.
+    /// The lens PUT, keeping `rkyv`'s own 16-aligned buffer: `rkyv`-serialize the
+    /// archive's mirror to the local cache/query bytes as an [`AlignedVec<16>`]
+    /// — the alignment [`access`](Self::access) / [`access_unchecked`](Self::access_unchecked)
+    /// require, and the form [`RuntimeOntology`](crate::ontology::RuntimeOntology)
+    /// stores. **Not** the DAG-CBOR content-address form (the layout is
+    /// `rkyv`-version- and target-bound, never an address).
     ///
-    /// Infallible for these owned mirror types: `rkyv`'s default `Vec`-backed
-    /// serializer over `String`/`Vec`/`Option`/tuple/enum data has no fallible
-    /// leg, so a serialization error here would be a `rkyv` bug, not a data
-    /// condition — hence the [`Vec<u8>`] (not `Result`) return.
-    pub fn put(archive: &Archive) -> Vec<u8> {
+    /// Infallible for these owned mirror types: `rkyv`'s default serializer over
+    /// `String`/`Vec`/`Option`/tuple/enum data has no fallible leg, so a
+    /// serialization error here would be a `rkyv` bug, not a data condition.
+    pub fn put_aligned(archive: &Archive) -> rkyv::util::AlignedVec<16> {
         let mirror = ArchivedArchive::from_live(archive);
         rkyv::to_bytes::<rkyv::rancor::Error>(&mirror)
             .expect("rkyv serialization of the owned Archive mirror is infallible")
-            .to_vec()
+    }
+
+    /// The lens PUT as a plain `Vec<u8>` — [`put_aligned`](Self::put_aligned)
+    /// with the alignment guarantee dropped, for callers that only round-trip the
+    /// bytes through [`get`](Self::get) (which re-aligns) or compare them (the
+    /// lens-law axioms). The zero-copy query path uses `put_aligned` instead.
+    pub fn put(archive: &Archive) -> Vec<u8> {
+        Self::put_aligned(archive).to_vec()
+    }
+
+    /// The ZERO-COPY GET: `bytecheck`-validate `bytes` and return a borrowed
+    /// [`ArchivedArchiveView`] over them — NO owned rebuild (contrast
+    /// [`get`](Self::get), which materializes an owned [`Archive`]). `bytes` must
+    /// be 16-aligned (an [`AlignedVec<16>`] as [`put_aligned`](Self::put_aligned)
+    /// produces); a fetched/mmapped `&[u8]` must be re-aligned first. Fail-closed
+    /// on a corrupted / truncated / misaligned blob, so the returned view never
+    /// borrows unsound bytes.
+    ///
+    /// This is Step 1c: the runtime validates ONCE here at materialize, then
+    /// serves every hot query through [`access_unchecked`](Self::access_unchecked)
+    /// over the same immutable buffer.
+    pub fn access(bytes: &[u8]) -> Result<&ArchivedArchiveView, ArchiveLensError> {
+        rkyv::access::<ArchivedArchiveView, rkyv::rancor::Error>(bytes)
+            .map_err(|e| ArchiveLensError::Rkyv(e.to_string()))
+    }
+
+    /// The ZERO-COPY GET without re-validation — the hot query path. Returns a
+    /// borrowed [`ArchivedArchiveView`] over `bytes` with no `bytecheck` pass.
+    ///
+    /// # Safety
+    ///
+    /// `bytes` must be a 16-aligned buffer previously accepted by
+    /// [`access`](Self::access) (bytecheck-validated) and kept immutable since.
+    /// This is the deliberate `access_unchecked` the runtime uses to pay
+    /// bytecheck exactly once: [`RuntimeOntology`](crate::ontology::RuntimeOntology)
+    /// validates its buffer at materialize and never mutates it, so every
+    /// query-path call is sound.
+    pub unsafe fn access_unchecked(bytes: &[u8]) -> &ArchivedArchiveView {
+        // SAFETY: forwarded to the caller's contract above — validated once,
+        // immutable since.
+        unsafe { rkyv::access_unchecked::<ArchivedArchiveView>(bytes) }
     }
 
     /// The lens GET: `bytecheck`-validate the bytes and materialize an owned
@@ -437,10 +515,11 @@ impl ArchiveLens {
     /// validates before materializing, so a corrupted/truncated blob fails
     /// closed rather than producing unsound references.
     ///
-    /// Step 0 uses validated **owning** deserialization for simplicity;
-    /// **Step 1** switches this query path to zero-copy `rkyv::access` (a
-    /// validated `&ArchivedArchive` view, no owned rebuild). That switch is not
-    /// made here.
+    /// This is the OWNING GET — kept for callers that genuinely need an owned
+    /// [`Archive`] (the content root is derived over [`Definition`] addressing,
+    /// which the archived view does not carry). The zero-copy query path uses
+    /// [`access`](Self::access) / [`access_unchecked`](Self::access_unchecked)
+    /// instead of rebuilding.
     pub fn get(bytes: &[u8]) -> Result<Archive, ArchiveLensError> {
         let mut aligned = rkyv::util::AlignedVec::<16>::new();
         aligned.extend_from_slice(bytes);
@@ -759,6 +838,56 @@ mod tests {
             ArchiveLens::put(&got),
             bytes,
             "the cache form is stable under decode/re-encode"
+        );
+    }
+
+    /// The ZERO-COPY GET: `access` over `put_aligned` bytes returns a borrowed
+    /// view whose node/edge/lexical image equals the live archive's — no owned
+    /// rebuild. This is the Step 1c query surface.
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn access_reads_the_archive_image_zero_copy() {
+        let archive = witness_archives().pop().expect("the rich witness archive");
+        let buf = ArchiveLens::put_aligned(&archive);
+        let view = ArchiveLens::access(buf.as_slice()).expect("canonical bytes validate");
+
+        // Same node set, in order, with names/kinds/lexicals/edge local-names
+        // read straight from the buffer.
+        assert_eq!(view.nodes.len(), archive.nodes.len());
+        for (node, live) in view.nodes.iter().zip(&archive.nodes) {
+            assert_eq!(node.name.as_str(), live.name, "node name");
+            assert_eq!(node.kind.as_str(), live.kind, "node kind");
+            assert_eq!(
+                node.lexical.as_deref(),
+                live.lexical.as_deref(),
+                "node lexical"
+            );
+            assert_eq!(node.edges.len(), live.edges.len(), "edge count");
+            for (edge, live_edge) in node.edges.iter().zip(&live.edges) {
+                // Archived edges are `ArchivedTuple2(rel, target)`.
+                assert_eq!(edge.0.as_str(), live_edge.0, "edge relation");
+                assert_eq!(
+                    archived_local_name(&edge.1),
+                    live_edge.1.local_name(),
+                    "edge local name (grounded ⇒ None)"
+                );
+            }
+        }
+        assert_eq!(view.connections.len(), archive.connections.len());
+    }
+
+    /// `access` fails closed on a truncated blob — the zero-copy view is never
+    /// handed out over unsound bytes (the `access_unchecked` precondition).
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn access_rejects_a_corrupted_blob() {
+        let archive = witness_archives().pop().expect("a witness archive");
+        let buf = ArchiveLens::put_aligned(&archive);
+        let mut truncated = rkyv::util::AlignedVec::<16>::new();
+        truncated.extend_from_slice(&buf.as_slice()[..buf.len() / 2]);
+        assert!(
+            ArchiveLens::access(truncated.as_slice()).is_err(),
+            "a truncated rkyv blob must fail closed at access"
         );
     }
 
