@@ -129,7 +129,7 @@ fn senses_for_word(written_rep: &str, english: &English) -> Vec<Sense> {
         .map(|c| {
             Sense::new(ConceptRef {
                 ontology: "english_wordnet".to_string(),
-                concept: c.original_id.clone(),
+                concept: c.original_id().to_string(),
             })
         })
         .collect()

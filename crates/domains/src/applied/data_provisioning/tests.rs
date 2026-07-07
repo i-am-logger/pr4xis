@@ -398,7 +398,7 @@ fn full_chain_raw_bytes_to_english_ontology() {
     let english = English::from_wordnet(&wordnet);
     assert!(english.word_index.contains("dog"));
     assert!(english.word_index.contains("cat"));
-    assert_eq!(english.concepts.len(), 2);
+    assert_eq!(english.concept_count(), 2);
 }
 
 /// Negative full-chain: corrupt the version attribute, confirm the

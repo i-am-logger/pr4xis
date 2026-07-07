@@ -690,7 +690,7 @@ pub fn define_word(en: &dyn LexicalReasoner, word: &str) -> String {
     let mut content = ResponseContent::new(ResponseFrame::AssertKnowledge).with_entity(word);
     for &id in ids.iter().take(5) {
         if let Some(concept) = en.concept(id) {
-            for def in &concept.definitions {
+            for def in concept.definitions() {
                 content = content.with_definition(word, def);
             }
         }
@@ -761,10 +761,9 @@ fn build_taxonomy_response(
             } else {
                 en.concept(id)
                     .map(|c| {
-                        c.lemmas
-                            .first()
-                            .map(|l| l.as_str())
-                            .unwrap_or(&c.original_id)
+                        c.lemmas()
+                            .next()
+                            .unwrap_or_else(|| c.original_id())
                             .to_string()
                     })
                     .unwrap_or_else(|| parent_word.to_string())
@@ -778,8 +777,8 @@ fn build_taxonomy_response(
         .iter()
         .filter_map(|(label, id)| {
             en.concept(*id)
-                .and_then(|c| c.definitions.first())
-                .map(|def| (label.as_str(), def.as_str()))
+                .and_then(|c| c.definitions().next())
+                .map(|def| (label.as_str(), def))
         })
         .collect();
 
@@ -788,11 +787,7 @@ fn build_taxonomy_response(
         .children(child_id)
         .iter()
         .take(5)
-        .filter_map(|&id| {
-            en.concept(id)
-                .and_then(|c| c.lemmas.first())
-                .map(|l| l.as_str())
-        })
+        .filter_map(|&id| en.concept(id).and_then(|c| c.lemmas().next()))
         .collect();
 
     // ---- Stage 2: Document Planning (RST) ----
@@ -886,7 +881,7 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
         if let Some(&id) = ids.first()
             && let Some(concept) = en.concept(id)
         {
-            if let Some(def) = concept.definitions.first() {
+            if let Some(def) = concept.definitions().next() {
                 lines.push(format!("{word}: {def}"));
             }
 
@@ -901,10 +896,9 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
                 .skip(1)
                 .filter_map(|anc| {
                     en.concept(anc).map(|pc| {
-                        pc.lemmas
-                            .first()
-                            .map(|l| l.as_str())
-                            .unwrap_or(&pc.original_id)
+                        pc.lemmas()
+                            .next()
+                            .unwrap_or_else(|| pc.original_id())
                             .to_string()
                     })
                 })
@@ -936,11 +930,7 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
                     } else if let Some(lca) = en.common_ancestor(id1, id2)
                         && let Some(c) = en.concept(lca)
                     {
-                        let label = c
-                            .lemmas
-                            .first()
-                            .map(|l| l.as_str())
-                            .unwrap_or(&c.original_id);
+                        let label = c.lemmas().next().unwrap_or_else(|| c.original_id());
                         let s1 = realize::sentence_copula(w1, label);
                         let s2 = realize::sentence_copula(w2, label);
                         lines.push(format!("{s1}, and {s2}"));

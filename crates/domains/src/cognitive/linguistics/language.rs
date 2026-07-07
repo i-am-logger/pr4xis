@@ -137,7 +137,7 @@ impl Language for EnglishLanguage {
             && let Some(concept) = self.ontology.concept(cid)
         {
             let transitivities = self.verb_transitivities(word);
-            return lmf_pos_to_lexical_entries(word, concept.pos, transitivities)
+            return lmf_pos_to_lexical_entries(word, concept.pos(), transitivities)
                 .into_iter()
                 .next();
         }
@@ -157,12 +157,12 @@ impl Language for EnglishLanguage {
         let mut seen_pos = hashbrown::HashSet::new();
         for &cid in self.ontology.lookup(word) {
             if let Some(concept) = self.ontology.concept(cid)
-                && seen_pos.insert(concept.pos)
+                && seen_pos.insert(concept.pos())
             {
                 let transitivities = self.verb_transitivities(word);
                 results.extend(lmf_pos_to_lexical_entries(
                     word,
-                    concept.pos,
+                    concept.pos(),
                     transitivities,
                 ));
             }

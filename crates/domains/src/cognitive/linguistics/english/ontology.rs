@@ -7,6 +7,7 @@ use pr4xis::category::quiver::ReachabilityClosure;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
+use crate::cognitive::linguistics::english::concept_store::{ConceptStore, ConceptView};
 use crate::cognitive::linguistics::english::word_index::WordIndex;
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
@@ -51,8 +52,13 @@ pub type SenseId = Reference<4>;
 #[derive(Debug)]
 pub struct English {
     // === WordNet concept data ===
-    /// All concepts (synsets) indexed by ConceptId.
-    pub concepts: Vec<Concept>,
+    /// All concepts (synsets) indexed by [`ConceptId`]. Held as a compact,
+    /// zero-copy [`ConceptStore`] — under `prx` a single `rkyv`-archived buffer
+    /// (the largest reclaim of the loaded reasoner's footprint after the
+    /// [`word_index`](super::word_index) reclaim), an owned `Vec<Concept>`
+    /// otherwise. Read through [`ConceptView`] via [`concept`](Self::concept);
+    /// see [`concept_store`](super::concept_store).
+    concepts: ConceptStore,
     /// Word text → concept IDs (one word can mean multiple things). Held as a
     /// compact, zero-copy [`WordIndex`] — under `prx` a single packed archive
     /// (the largest single reclaim of the loaded reasoner's footprint), an owned
@@ -194,8 +200,8 @@ pub struct Concept {
 /// canonical implementor; the methods mirror its inherent query API 1:1.
 pub trait LexicalReasoner {
     fn lookup(&self, word: &str) -> &[ConceptId];
-    fn concept(&self, id: ConceptId) -> Option<&Concept>;
-    fn concept_by_synset(&self, synset_id: &str) -> Option<&Concept>;
+    fn concept(&self, id: ConceptId) -> Option<ConceptView<'_>>;
+    fn concept_by_synset(&self, synset_id: &str) -> Option<ConceptView<'_>>;
     fn parents(&self, id: ConceptId) -> &[ConceptId];
     fn children(&self, id: ConceptId) -> &[ConceptId];
     fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool;
@@ -340,10 +346,10 @@ impl LexicalReasoner for English {
     fn lookup(&self, word: &str) -> &[ConceptId] {
         English::lookup(self, word)
     }
-    fn concept(&self, id: ConceptId) -> Option<&Concept> {
+    fn concept(&self, id: ConceptId) -> Option<ConceptView<'_>> {
         English::concept(self, id)
     }
-    fn concept_by_synset(&self, s: &str) -> Option<&Concept> {
+    fn concept_by_synset(&self, s: &str) -> Option<ConceptView<'_>> {
         English::concept_by_synset(self, s)
     }
     fn parents(&self, id: ConceptId) -> &[ConceptId] {
@@ -390,7 +396,10 @@ impl English {
     ) -> Self {
         let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
         Self {
-            concepts,
+            // Transcode the owned concept build into the compact store ONCE; the
+            // source `Vec<Concept>` is consumed and freed, only the archived form
+            // survives (§`concept_store`).
+            concepts: ConceptStore::build(concepts),
             // Transcode the owned build into the compact index ONCE; the source
             // map is consumed and freed, only the packed form survives.
             word_index: WordIndex::build(word_index),
@@ -756,7 +765,10 @@ impl English {
         let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
 
         English {
-            concepts,
+            // Transcode the owned concept build into the compact store ONCE; the
+            // source `Vec<Concept>` is consumed and freed, only the archived form
+            // survives (§`concept_store`).
+            concepts: ConceptStore::build(concepts),
             // Transcode the owned build into the compact index ONCE; the source
             // map is consumed and freed, only the packed form survives.
             word_index: WordIndex::build(word_index),
@@ -783,16 +795,24 @@ impl English {
         self.word_index.lookup(word)
     }
 
-    /// Get a concept by its ConceptId.
-    pub fn concept(&self, id: ConceptId) -> Option<&Concept> {
-        self.concepts.get(id.value() as usize)
+    /// Get a concept by its [`ConceptId`], as a [`ConceptView`] over the compact
+    /// store.
+    pub fn concept(&self, id: ConceptId) -> Option<ConceptView<'_>> {
+        self.concepts.get(id)
     }
 
     /// Get a concept by its original WordNet synset ID string.
-    pub fn concept_by_synset(&self, synset_id: &str) -> Option<&Concept> {
+    pub fn concept_by_synset(&self, synset_id: &str) -> Option<ConceptView<'_>> {
         self.synset_to_concept
             .get(synset_id)
             .and_then(|id| self.concept(*id))
+    }
+
+    /// Every concept, as a [`ConceptView`], in [`ConceptId`] order — the
+    /// representation-agnostic replacement for reading the (now compact) store's
+    /// records directly.
+    pub fn concepts(&self) -> impl Iterator<Item = ConceptView<'_>> {
+        self.concepts.iter()
     }
 
     /// Direct parents (hypernyms) of a concept — is-a targets.
@@ -1061,7 +1081,7 @@ impl crate::cognitive::linguistics::language::Language for English {
             let transitivities = self.verb_transitivities(word);
             return crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
                 word,
-                concept.pos,
+                concept.pos(),
                 transitivities,
             )
             .into_iter()
@@ -1078,13 +1098,13 @@ impl crate::cognitive::linguistics::language::Language for English {
         let mut seen_pos = hashbrown::HashSet::new();
         for &cid in self.lookup(word) {
             if let Some(concept) = self.concept(cid)
-                && seen_pos.insert(concept.pos)
+                && seen_pos.insert(concept.pos())
             {
                 let transitivities = self.verb_transitivities(word);
                 results.extend(
                     crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
                         word,
-                        concept.pos,
+                        concept.pos(),
                         transitivities,
                     ),
                 );
@@ -1101,13 +1121,13 @@ impl crate::cognitive::linguistics::language::Language for English {
             {
                 for &cid in self.lookup(stem) {
                     if let Some(concept) = self.concept(cid)
-                        && seen_pos.insert(concept.pos)
+                        && seen_pos.insert(concept.pos())
                     {
                         let transitivities = self.verb_transitivities(stem);
                         results.extend(
                             crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
                                 stem,
-                                concept.pos,
+                                concept.pos(),
                                 transitivities,
                             ),
                         );
