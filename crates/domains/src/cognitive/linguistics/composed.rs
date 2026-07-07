@@ -54,6 +54,7 @@ use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
 use crate::cognitive::linguistics::english::{Concept, ConceptId, English, LexicalReasoner};
+use crate::cognitive::linguistics::interner::{Interner, Symbol};
 use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
 use crate::social::software::markup::xml::lmf::ontology::LmfPos;
 
@@ -91,10 +92,18 @@ pub struct ComposedReasoner {
     /// typed `ConceptRef` (`F: OntologyConcepts → Lexicon`). Held so the
     /// grounding is inspectable and so `lookup` is a pure union over it.
     lexicon: Lexicon,
-    /// `surface → ConceptId`s : the UNION of English's `lookup(word)` and the
-    /// grounded loaded entries whose surface matches. Returned by reference
-    /// from [`LexicalReasoner::lookup`].
-    surface_index: HashMap<String, Vec<ConceptId>>,
+    /// The interner holding every surface's bytes ONCE, keyed by [`Symbol`]. It
+    /// is the shared arena for English's surfaces AND every loaded ontology's —
+    /// so `surface_index` keys on 4-byte handles instead of re-owning a `String`
+    /// per surface (the strings the graph already owns). Held so the query path
+    /// can intern a lookup word back to its handle (`interner.get`), and so a
+    /// handle resolves to its surface for the `max_surface_words` bookkeeping.
+    interner: Interner,
+    /// interned `surface → ConceptId`s : the UNION of English's `lookup(word)`
+    /// and the grounded loaded entries whose surface matches, keyed by the
+    /// surface's interned [`Symbol`] (see `interner`). Returned by reference
+    /// from [`LexicalReasoner::lookup`], which interns the query word first.
+    surface_index: HashMap<Symbol, Vec<ConceptId>>,
     /// The loaded concepts, indexed by `ConceptId::value() - base`. `base` is
     /// `english.concept_count()`; this keeps loaded ids disjoint from English.
     loaded_refs: Vec<ConceptRef>,
@@ -149,14 +158,20 @@ impl ComposedReasoner {
         let mut loaded_refs: Vec<ConceptRef> = Vec::new();
         let mut loaded_ids: BTreeMap<ConceptRef, ConceptId> = BTreeMap::new();
         let mut loaded_concepts: Vec<Concept> = Vec::new();
-        let mut surface_index: HashMap<String, Vec<ConceptId>> = HashMap::new();
+        // The shared surface arena — English's surfaces and every loaded
+        // ontology's are interned into ONE interner, so `surface_index` keys on
+        // a 4-byte `Symbol` handle rather than a fresh owned `String` per surface.
+        let mut interner = Interner::new();
+        let mut surface_index: HashMap<Symbol, Vec<ConceptId>> = HashMap::new();
 
         // 1. Seed the surface index with the embedded English lexicon. We copy
-        //    rather than borrow so the union slice can be returned by reference.
+        //    the ConceptIds (so the union slice can be returned by reference) but
+        //    intern the surface — its handle keys the union, not a copied String.
         for word in english_surface_forms(&english) {
             let ids = english.lookup(&word).to_vec();
             if !ids.is_empty() {
-                surface_index.entry(word).or_default().extend(ids);
+                let symbol = interner.intern(&word);
+                surface_index.entry(symbol).or_default().extend(ids);
             }
         }
 
@@ -198,8 +213,10 @@ impl ComposedReasoner {
                 let surface = node.name.to_lowercase();
                 lexicon.add_entry(surface.clone(), ontology_name.clone(), node.name.clone());
 
-                // Union into the lookup surface (disjoint id appended).
-                surface_index.entry(surface.clone()).or_default().push(id);
+                // Union into the lookup surface (disjoint id appended), keyed by
+                // the surface's interned handle rather than a copied String.
+                let symbol = interner.intern(&surface);
+                surface_index.entry(symbol).or_default().push(id);
 
                 // Each Form atom this concept denotes (its `writtenRep`) is a
                 // queryable surface of the concept — one *Bedeutung*, many *Sinne*.
@@ -213,7 +230,8 @@ impl ComposedReasoner {
                             ontology_name.clone(),
                             node.name.clone(),
                         );
-                        surface_index.entry(form_surface).or_default().push(id);
+                        let form_symbol = interner.intern(&form_surface);
+                        surface_index.entry(form_symbol).or_default().push(id);
                     }
                 }
 
@@ -302,7 +320,8 @@ impl ComposedReasoner {
         // a relation phrase. 1 when all surfaces are single words (then no-op).
         let max_surface_words = surface_index
             .keys()
-            .chain(relation_surface_index.keys())
+            .map(|&symbol| interner.resolve(symbol))
+            .chain(relation_surface_index.keys().map(String::as_str))
             .map(|k| k.split_whitespace().count())
             .max()
             .unwrap_or(1)
@@ -312,6 +331,7 @@ impl ComposedReasoner {
             english,
             loaded,
             lexicon,
+            interner,
             surface_index,
             loaded_refs,
             loaded_concepts,
@@ -379,8 +399,12 @@ fn english_surface_forms(english: &English) -> Vec<String> {
 
 impl LexicalReasoner for ComposedReasoner {
     fn lookup(&self, word: &str) -> &[ConceptId] {
-        self.surface_index
+        // Resolve the query surface to its handle (non-mutating: an un-interned
+        // word was never a key, so it resolves to nothing — the same answer the
+        // String-keyed `get(word)` gave), then index the union by that handle.
+        self.interner
             .get(word)
+            .and_then(|symbol| self.surface_index.get(&symbol))
             .map(|v| v.as_slice())
             .unwrap_or(&[])
     }
