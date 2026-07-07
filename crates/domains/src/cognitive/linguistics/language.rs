@@ -180,7 +180,7 @@ impl Language for EnglishLanguage {
 
     fn known_words(&self) -> Vec<&str> {
         let mut words: Vec<&str> = self.function_word_list.iter().map(|s| s.as_str()).collect();
-        words.extend(self.ontology.word_index.keys().map(|s| s.as_str()));
+        words.extend(self.ontology.word_index.words());
         words
     }
 

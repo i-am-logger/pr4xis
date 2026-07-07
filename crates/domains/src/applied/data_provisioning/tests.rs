@@ -396,8 +396,8 @@ fn full_chain_raw_bytes_to_english_ontology() {
     assert_eq!(wordnet.entries.len(), 2);
 
     let english = English::from_wordnet(&wordnet);
-    assert!(english.word_index.contains_key("dog"));
-    assert!(english.word_index.contains_key("cat"));
+    assert!(english.word_index.contains("dog"));
+    assert!(english.word_index.contains("cat"));
     assert_eq!(english.concepts.len(), 2);
 }
 
