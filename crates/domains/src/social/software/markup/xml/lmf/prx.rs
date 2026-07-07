@@ -1257,12 +1257,12 @@ mod tests {
             let in_archive: Vec<&str> = loaded
                 .lookup(word)
                 .iter()
-                .filter_map(|&c| loaded.concept(c).map(|x| x.original_id.as_str()))
+                .filter_map(|&c| loaded.concept(c).map(|x| x.original_id()))
                 .collect();
             let in_reference: Vec<&str> = reference
                 .lookup(word)
                 .iter()
-                .filter_map(|&c| reference.concept(c).map(|x| x.original_id.as_str()))
+                .filter_map(|&c| reference.concept(c).map(|x| x.original_id()))
                 .collect();
             assert_eq!(
                 in_archive, in_reference,
@@ -1271,15 +1271,15 @@ mod tests {
         }
 
         // The hypernym chain survives: dog is-a mammal is-a animal.
-        let dog = loaded.concept_by_synset("s-dog").expect("dog synset").id;
+        let dog = loaded.concept_by_synset("s-dog").expect("dog synset").id();
         let mammal = loaded
             .concept_by_synset("s-mammal")
             .expect("mammal synset")
-            .id;
+            .id();
         let animal = loaded
             .concept_by_synset("s-animal")
             .expect("animal synset")
-            .id;
+            .id();
         assert!(loaded.is_a(dog, mammal), "dog is_a mammal");
         assert!(loaded.is_a(dog, animal), "dog is_a animal (transitive)");
     }

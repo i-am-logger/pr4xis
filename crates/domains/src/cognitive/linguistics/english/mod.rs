@@ -1,3 +1,4 @@
+pub mod concept_store;
 pub mod ontology;
 pub mod word_index;
 
@@ -9,6 +10,7 @@ pub mod word_index;
 #[cfg(feature = "std")]
 pub mod bridge;
 
+pub use concept_store::{ConceptStore, ConceptStrs, ConceptView};
 pub use ontology::{
     Concept, ConceptId, English, LexicalReasoner, SenseId, english_load_owned, english_loaded,
 };

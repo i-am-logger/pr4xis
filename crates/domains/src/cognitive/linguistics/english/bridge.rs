@@ -114,25 +114,24 @@ pub use pr4xis_runtime::definition::{FORM_KIND, form_atom};
 /// referential closure [`materialize`](pr4xis_runtime::ontology) requires.
 pub fn project_archive(english: &English) -> Archive {
     let nodes = english
-        .concepts
-        .iter()
+        .concepts()
         .map(|concept| Definition {
             kind: SYNSET_KIND.to_string(),
-            name: concept.original_id.clone(),
+            name: concept.original_id().to_string(),
             edges: english
-                .parents(concept.id)
+                .parents(concept.id())
                 .iter()
                 .filter_map(|&parent| {
                     english.concept(parent).map(|p| {
                         (
                             HYPERNYM_REL.to_string(),
-                            EdgeTarget::Local(p.original_id.clone()),
+                            EdgeTarget::Local(p.original_id().to_string()),
                         )
                     })
                 })
                 .collect(),
             axioms: Vec::new(),
-            lexical: concept.definitions.first().cloned(),
+            lexical: concept.definitions().next().map(|d| d.to_string()),
         })
         .collect();
 
@@ -245,7 +244,7 @@ pub fn concept_refs_for_word(
         .lookup(word)
         .iter()
         .filter_map(|&id| english.concept(id))
-        .map(|concept| onto.concept(concept.original_id.clone()))
+        .map(|concept| onto.concept(concept.original_id().to_string()))
         .collect()
 }
 
@@ -521,8 +520,14 @@ mod tests {
         let animal_id = english.lookup("animal")[0];
         let english_says = LexicalReasoner::is_a(&english, dog_id, animal_id);
 
-        let dog_ref = onto.concept(english.concept(dog_id).unwrap().original_id.clone());
-        let animal_ref = onto.concept(english.concept(animal_id).unwrap().original_id.clone());
+        let dog_ref = onto.concept(english.concept(dog_id).unwrap().original_id().to_string());
+        let animal_ref = onto.concept(
+            english
+                .concept(animal_id)
+                .unwrap()
+                .original_id()
+                .to_string(),
+        );
         let engine_says = onto.is_a(&dog_ref, &animal_ref).is_ok();
 
         assert_eq!(

@@ -374,7 +374,7 @@ pub fn understand_term(
                 .senses
                 .iter()
                 .filter_map(|s| english.concept_by_synset(&s.reference.concept))
-                .filter_map(|c| lmf_pos_to_pos_tag(c.pos))
+                .filter_map(|c| lmf_pos_to_pos_tag(c.pos()))
                 .collect();
             pos_tags.sort_by_key(|p| format!("{p:?}"));
             pos_tags.dedup();

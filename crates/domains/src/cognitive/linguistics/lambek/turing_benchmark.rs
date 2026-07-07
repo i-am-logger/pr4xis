@@ -66,7 +66,7 @@ mod tests {
         assert!(!ids.is_empty());
         let concept = en.concept(ids[0]).unwrap();
         assert!(
-            !concept.definitions.is_empty(),
+            concept.definitions().next().is_some(),
             "dog should have a definition"
         );
     }

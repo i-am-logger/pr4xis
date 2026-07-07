@@ -86,7 +86,10 @@ fn word_lookup() {
     let dog_concepts = en.lookup("dog");
     assert_eq!(dog_concepts.len(), 1);
     let dog = en.concept(dog_concepts[0]).unwrap();
-    assert_eq!(dog.definitions[0], "a domesticated carnivore");
+    assert_eq!(
+        dog.definitions().next().unwrap(),
+        "a domesticated carnivore"
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -104,8 +107,8 @@ fn concept_has_lemmas() {
     let en = sample_english();
     let big_id = en.lookup("big")[0];
     let big = en.concept(big_id).unwrap();
-    assert!(big.lemmas.contains(&"big".to_string()));
-    assert!(big.lemmas.contains(&"large".to_string()));
+    assert!(big.lemmas().any(|l| l == "big"));
+    assert!(big.lemmas().any(|l| l == "large"));
 }
 
 // =============================================================================
@@ -120,7 +123,7 @@ fn direct_hypernym() {
     let parents = en.parents(dog_id);
     assert_eq!(parents.len(), 1);
     let parent = en.concept(parents[0]).unwrap();
-    assert!(parent.lemmas.contains(&"mammal".to_string()));
+    assert!(parent.lemmas().any(|l| l == "mammal"));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -438,7 +441,7 @@ fn load_full_english() {
     let is_a_time = t3.elapsed();
 
     // Memory estimate: size of pre-computed structures
-    let concept_mem = en.concepts.len() * std::mem::size_of::<Concept>();
+    let concept_mem = en.concept_count() * std::mem::size_of::<Concept>();
     let taxonomy_mem = en.taxonomy_count() * std::mem::size_of::<ConceptId>();
     let word_index_mem = en.word_count() * 64; // rough estimate per entry
 
@@ -471,14 +474,14 @@ fn load_full_english() {
             .iter()
             .filter_map(|&p| {
                 en.concept(p)
-                    .map(|c| c.lemmas.first().cloned().unwrap_or_default())
+                    .map(|c| c.lemmas().next().map(str::to_string).unwrap_or_default())
             })
             .collect();
         eprintln!(
             "  sense {}: {:?} ({}) → parents: {:?}",
             did.value(),
-            c.pos,
-            c.definitions.first().unwrap_or(&String::new()),
+            c.pos(),
+            c.definitions().next().unwrap_or(""),
             parent_names
         );
     }
@@ -490,7 +493,7 @@ fn load_full_english() {
         eprintln!(
             "  sense {}: {}",
             mid.value(),
-            c.definitions.first().unwrap_or(&String::new())
+            c.definitions().next().unwrap_or("")
         );
     }
 

@@ -56,7 +56,9 @@ use pr4xis_runtime::lens::archive_lens::{archived_grounded, archived_local_name}
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
-use crate::cognitive::linguistics::english::{Concept, ConceptId, English, LexicalReasoner};
+use crate::cognitive::linguistics::english::{
+    Concept, ConceptId, ConceptView, English, LexicalReasoner,
+};
 use crate::cognitive::linguistics::interner::{Interner, Symbol};
 use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
 use crate::social::software::markup::xml::lmf::ontology::LmfPos;
@@ -534,17 +536,20 @@ impl LexicalReasoner for ComposedReasoner {
         self.max_surface_words
     }
 
-    fn concept(&self, id: ConceptId) -> Option<&Concept> {
+    fn concept(&self, id: ConceptId) -> Option<ConceptView<'_>> {
         match self.decode(id)? {
             GroundedConcept::English(cid) => self.english.concept(cid),
             GroundedConcept::Loaded(_) => {
-                // The synthesized Concept lives at the disjoint index.
-                self.loaded_concepts.get((id.value() - self.base) as usize)
+                // The synthesized Concept lives at the disjoint index; it is an
+                // OWNED `Concept`, viewed through the owned arm.
+                self.loaded_concepts
+                    .get((id.value() - self.base) as usize)
+                    .map(ConceptView::Owned)
             }
         }
     }
 
-    fn concept_by_synset(&self, synset_id: &str) -> Option<&Concept> {
+    fn concept_by_synset(&self, synset_id: &str) -> Option<ConceptView<'_>> {
         // Synset ids are an English-only addressing scheme; loaded concepts are
         // addressed by ConceptRef, not synset id. Delegate to English.
         self.english.concept_by_synset(synset_id)
@@ -844,11 +849,11 @@ mod tests {
         let concept = composed.concept(ids[0]).expect("its concept resolves");
         assert!(
             concept
-                .definitions
-                .first()
+                .definitions()
+                .next()
                 .is_some_and(|d| d.contains("number")),
             "the surface resolves to the section's gloss; got {:?}",
-            concept.definitions
+            concept.definitions().collect::<alloc::vec::Vec<_>>()
         );
 
         // The Form atom is NOT a concept of its own: the URN still resolves to the

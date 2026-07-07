@@ -209,7 +209,7 @@ fn main() {
     };
     let after_english = read_memory();
     report(
-        &format!("5. embedded English ({} concepts)", english.concepts.len()),
+        &format!("5. embedded English ({} concepts)", english.concept_count()),
         after_english,
         before_english,
     );
