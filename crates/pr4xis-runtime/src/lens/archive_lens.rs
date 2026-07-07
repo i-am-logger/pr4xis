@@ -446,6 +446,24 @@ pub fn archived_local_name(target: &ArchivedEdgeTargetView) -> Option<&str> {
     }
 }
 
+/// The `(ontology, atom)` a GROUNDED (cross-ontology) archived edge target names,
+/// or `None` for a local target — the zero-copy dual of [`archived_local_name`],
+/// for a traverser reading a node's foreign-atom edges straight out of the `rkyv`
+/// buffer. This is the query surface [`morphisms_from`](crate::ontology::RuntimeOntology::morphisms_from)
+/// deliberately DROPS (a grounded target is not a local generator): the resolve
+/// side reads it here, then resolves the atom against a connected ontology via the
+/// generic [`AtomResolver`](crate::grounding::AtomResolver). A grounded target
+/// whose `atom_hex` is not a valid content address is `None` (the same fail-closed
+/// stance the owning [`into_live`](ArchivedEdgeTarget::into_live) decode takes).
+pub fn archived_grounded(target: &ArchivedEdgeTargetView) -> Option<(&str, ContentAddress)> {
+    match target {
+        ArchivedArchivedEdgeTarget::Local(_) => None,
+        ArchivedArchivedEdgeTarget::Grounded { ontology, atom_hex } => {
+            ContentAddress::from_hex(atom_hex.as_str()).map(|atom| (ontology.as_str(), atom))
+        }
+    }
+}
+
 /// The `rkyv` local-cache/query lens between a runtime [`Archive`] and its
 /// zero-copy bytes. See the [module docs](self) for why this is NOT the
 /// content-address form.
