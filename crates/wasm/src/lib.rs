@@ -70,10 +70,37 @@ fn embedded_base() -> impl Iterator<Item = &'static embedded_prx::EmbeddedOntolo
         .filter(|e| e.default_loaded)
 }
 
+/// The number of on-demand (non-`default_loaded`) entries in the embedded
+/// manifest, counted in a `const fn` so the cardinality is known at compile time.
+const fn on_demand_demo_count() -> usize {
+    let mut count = 0;
+    let mut i = 0;
+    while i < embedded_prx::EMBEDDED_PRX.len() {
+        if !embedded_prx::EMBEDDED_PRX[i].default_loaded {
+            count += 1;
+        }
+        i += 1;
+    }
+    count
+}
+
+/// The manifest must carry EXACTLY ONE on-demand demo — the single entry
+/// [`embedded_demo`] returns. Enforced at COMPILE time (not a runtime or
+/// `debug_assert` check that could disappear between profiles): a second
+/// non-`default_loaded` entry added to `build.rs` fails the build right here, so
+/// [`embedded_demo`]'s `.find` can never silently shadow one behind another.
+const _: () = assert!(
+    on_demand_demo_count() == 1,
+    "the embedded manifest must carry exactly one on-demand demo .prx"
+);
+
 /// The single on-demand embedded demo `.prx` — the manifest's non-`default_loaded`
 /// entry (the Dependability taxonomy). The UI offers it as a one-click load; it
 /// flows through the same fail-closed `.prx` core as the base and any fetched
-/// `.prx`.
+/// `.prx`. `.find` returns THE one entry, not merely the first of several: the
+/// `on_demand_demo_count() == 1` compile-time assertion above guarantees exactly
+/// one non-`default_loaded` entry exists, so the `.expect` is an unreachable total
+/// witness, never a silent tie-break.
 fn embedded_demo() -> &'static embedded_prx::EmbeddedOntology {
     embedded_prx::EMBEDDED_PRX
         .iter()
