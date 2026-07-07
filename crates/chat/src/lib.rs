@@ -1349,6 +1349,8 @@ mod tests {
 // read back through `RuntimeOntology::lexical`.
 #[cfg(test)]
 mod loaded_corpus_demo {
+    use std::rc::Rc;
+
     use super::*;
     use pr4xis::ontology::meta::OntologyName;
     use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
@@ -1430,7 +1432,8 @@ mod loaded_corpus_demo {
         // --- WITH the corpus: ground the loaded Statute ontology into English
         //     via the ComposedReasoner, then ask the SAME question through the
         //     SAME pipeline. The answer is the loaded gloss. ---
-        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(statute_corpus())]);
         let with = process_with_reasoner(&english, &composed, question).response;
         assert!(
             with.contains(gloss.as_str()),
@@ -1483,7 +1486,7 @@ mod loaded_corpus_demo {
         };
         let onto = materialize(archive, OntologyName::new_static("usc_test"))
             .expect("the multi-word-named ontology materializes");
-        let composed = ComposedReasoner::new(English::sample(), vec![onto]);
+        let composed = ComposedReasoner::new(English::sample_static(), vec![Rc::new(onto)]);
         assert!(
             composed.max_surface_words() >= 2,
             "the loaded surface 'section 1514a' is multi-word, so the recognizer is active"
@@ -1525,7 +1528,7 @@ mod loaded_corpus_demo {
         let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
         let onto = owl_runtime_ontology(&vocab, OntologyName::new_static("cito"))
             .expect("the OWL vocabulary materializes");
-        let composed = ComposedReasoner::new(English::sample(), vec![onto]);
+        let composed = ComposedReasoner::new(English::sample_static(), vec![Rc::new(onto)]);
 
         let resp = process_with_reasoner(&english, &composed, "what is cites as evidence").response;
         assert!(
@@ -1541,7 +1544,8 @@ mod loaded_corpus_demo {
         // alone returns nothing for it; the composed reasoner returns the loaded
         // concept id (typed-disjoint from English's), and `define_word` reads
         // its gloss straight from the materialized ontology.
-        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(statute_corpus())]);
 
         assert!(
             English::sample().lookup("title").is_empty(),
@@ -1577,7 +1581,8 @@ mod loaded_corpus_demo {
         use pr4xis_domains::formal::information::diagnostics::trace_functors::TraceOntology;
 
         let english = English::sample();
-        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(statute_corpus())]);
 
         let with = process_with_reasoner(&english, &composed, "what is a title");
         let provenance = with.trace.reasoned_over();
@@ -1607,7 +1612,8 @@ mod loaded_corpus_demo {
         // ABSTAINS and NAMES the unresolved surface (what to load), as a value —
         // not a string the UI has to sniff.
         let english = English::sample();
-        let composed = ComposedReasoner::new(English::sample(), vec![statute_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(statute_corpus())]);
 
         let answered = process_with_reasoner(&english, &composed, "what is a title");
         assert_eq!(
@@ -1696,7 +1702,10 @@ mod loaded_corpus_demo {
         // image-meet-chain: `relation_chain` reads the Parthood closure, so a deep
         // mereology's answer shows the part-of EVIDENCE path through the
         // intermediate whole — not just the two endpoints.
-        let composed = ComposedReasoner::new(English::sample(), vec![deep_parthood_corpus()]);
+        let composed = ComposedReasoner::new(
+            English::sample_static(),
+            vec![Rc::new(deep_parthood_corpus())],
+        );
         let yes = answer_question(&composed, "part of", &entity_args("clause", "title"));
         assert_eq!(
             yes.taxonomy_checked,
@@ -1738,7 +1747,8 @@ mod loaded_corpus_demo {
         // the loaded relation lexicon to the Parthood kind, and the reasoner reads
         // the loaded ontology's MATERIALIZED Parthood closure — the structural
         // query Track C + §9 left dark (gloss worked; "is X part of Y" did not).
-        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(parthood_corpus())]);
         let args = entity_args("subsection", "section");
 
         let yes = answer_question(&composed, "part of", &args);
@@ -1770,7 +1780,8 @@ mod loaded_corpus_demo {
     fn is_section_part_of_subsection_answers_no_parthood_is_directional() {
         // Parthood is antisymmetric (BFO:0000050): the whole is NOT part of its
         // part. The reverse-direction convenience that would mask this is gone.
-        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(parthood_corpus())]);
         let no = answer_question(&composed, "part of", &entity_args("section", "subsection"));
         assert_eq!(
             no.taxonomy_checked,
@@ -1826,7 +1837,10 @@ mod loaded_corpus_demo {
         // relation from the complement → answer_question reads the Parthood
         // closure. No constructed Sem — a person types the question.
         let english = English::sample();
-        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus_multiword()]);
+        let composed = ComposedReasoner::new(
+            English::sample_static(),
+            vec![Rc::new(parthood_corpus_multiword())],
+        );
         let question = "is section ninety part of title fifteen";
 
         let with = process_with_reasoner(&english, &composed, question);
@@ -1868,7 +1882,8 @@ mod loaded_corpus_demo {
         // "is X part of Y" parses from raw text. Gated on loaded membership, so
         // English function words are untouched (process_taxonomy_question etc. green).
         let english = English::sample();
-        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(parthood_corpus())]);
         let question = "is subsection part of section";
 
         let with = process_with_reasoner(&english, &composed, question);
@@ -1896,7 +1911,8 @@ mod loaded_corpus_demo {
         // The Smith et al. (2005) part_of ≠ is_a distinction, end-to-end: the
         // subsection→section edge is Parthood, so "is X part of Y" is true but
         // "is X a Y" (the bare copula "is" → Subsumption fallback) is false.
-        let composed = ComposedReasoner::new(English::sample(), vec![parthood_corpus()]);
+        let composed =
+            ComposedReasoner::new(English::sample_static(), vec![Rc::new(parthood_corpus())]);
         let args = entity_args("subsection", "section");
 
         assert_eq!(
@@ -1933,6 +1949,8 @@ mod loaded_corpus_demo {
 // closure through the composed reasoner, never a `match` on the question text.
 #[cfg(test)]
 mod legal_sources_base {
+    use std::rc::Rc;
+
     use super::*;
     use pr4xis::ontology::meta::OntologyName;
     use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
@@ -1953,7 +1971,7 @@ mod legal_sources_base {
     }
 
     fn reasoner() -> ComposedReasoner {
-        ComposedReasoner::new(English::sample(), vec![legal_corpus()])
+        ComposedReasoner::new(English::sample_static(), vec![Rc::new(legal_corpus())])
     }
 
     /// Two `Sem::Concept` (NP) arguments naming the entities of a relational
@@ -2248,6 +2266,8 @@ mod legal_sources_base {
 // (its `canonicalForm` Form) must print in place of the identifier "DormantFault".
 #[cfg(test)]
 mod dependability_demo {
+    use std::rc::Rc;
+
     use super::*;
     use pr4xis::ontology::meta::OntologyName;
     use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
@@ -2267,7 +2287,10 @@ mod dependability_demo {
     }
 
     fn reasoner() -> ComposedReasoner {
-        ComposedReasoner::new(English::sample(), vec![dependability_corpus()])
+        ComposedReasoner::new(
+            English::sample_static(),
+            vec![Rc::new(dependability_corpus())],
+        )
     }
 
     fn credits_dependability(r: &ProcessResult) -> bool {

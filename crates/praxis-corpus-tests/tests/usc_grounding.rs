@@ -12,6 +12,8 @@
 //! provisions them, so a plain checkout HARD-FAILS via `require` naming
 //! `pr4xis update usc` — tests do not skip.
 
+use std::rc::Rc;
+
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_domains::applied::data_provisioning::registry::data_sources;
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
@@ -191,7 +193,10 @@ fn a_loaded_usc_section_reaches_statute_and_law_by_composition() {
     )
     .expect("LegalSources materializes");
 
-    let composed = ComposedReasoner::new(English::sample(), vec![legal, usc_onto]);
+    let composed = ComposedReasoner::new(
+        English::sample_static(),
+        vec![Rc::new(legal), Rc::new(usc_onto)],
+    );
     let subsumption = subsumption_kind();
 
     // The conceptual layer still answers: statute ⊑ … ⊑ law inside LegalSources.
@@ -277,7 +282,7 @@ fn without_the_legal_sources_peer_the_type_link_is_fail_closed() {
 
     // Compose the grounded USC ALONE (no LegalSources). The section still carries
     // its `Grounded` typing edge, but there is no peer to resolve it against.
-    let composed = ComposedReasoner::new(English::sample(), vec![usc_onto]);
+    let composed = ComposedReasoner::new(English::sample_static(), vec![Rc::new(usc_onto)]);
 
     // With LegalSources absent, 'statute'/'law' do not resolve to any concept —
     // there is nothing for the section to be tied to, so the question abstains

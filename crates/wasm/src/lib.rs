@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use wasm_bindgen::prelude::*;
 
 use pr4xis::ontology::Staging;
@@ -29,6 +31,21 @@ const ENGLISH_PRX_GZ: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/english.
 
 fn load_english() -> English {
     load_english_prx(ENGLISH_PRX_GZ)
+}
+
+/// The single embedded English instance, materialized ONCE from the baked
+/// `.prx.gz` behind a process-wide `OnceLock` and shared as a `&'static English`.
+///
+/// This is the browser analogue of the native `english_loaded()` — but built from
+/// the baked bytes ([`load_english`]) instead of `std::fs`, because the wasm
+/// runtime has no filesystem. Both [`Pr4xis`] and the [`ComposedReasoner`] it
+/// builds BORROW this one instance, so the ~73 MiB WordNet model is resident
+/// exactly once rather than owned twice. Sound because `English` is `Sync` and the
+/// `OnceLock` makes the instance genuinely `'static`.
+fn english_static() -> &'static English {
+    use std::sync::OnceLock;
+    static INSTANCE: OnceLock<English> = OnceLock::new();
+    INSTANCE.get_or_init(load_english)
 }
 
 /// Build-time catalog of the authoritative source documents available to
@@ -121,7 +138,10 @@ const ENGLISH_SOURCE: &str = "english_wordnet";
 /// among whatever the registry offers.
 #[wasm_bindgen]
 pub struct Pr4xis {
-    english: English,
+    /// The embedded English language model — BORROWED from the single
+    /// [`english_static`] instance, not owned. The `ComposedReasoner` in
+    /// `composed` borrows the SAME instance, so English is resident once.
+    english: &'static English,
     /// Every runtime-loaded source — USC titles, OWL vocabularies, and
     /// new-format `.prx` ontologies — projected into the generic
     /// [`Archive`](pr4xis_runtime::archive::Archive) by its functor-as-data
@@ -130,7 +150,12 @@ pub struct Pr4xis {
     /// chat reasons over all of it (grounded into English by `composed`) and the
     /// self-model catalog reports all of it. No source is held aside in a second
     /// collection the reasoner never sees.
-    runtime_ontologies: Vec<RuntimeOntology>,
+    ///
+    /// Held as shared `Rc` handles: the `ComposedReasoner` in `composed` reasons
+    /// over the SAME `RuntimeOntology` instances (cheap `Rc` clones), so each
+    /// loaded archive/closure buffer is resident once, never deep-copied into the
+    /// reasoner.
+    runtime_ontologies: Vec<Rc<RuntimeOntology>>,
     /// The embedded English model COMPOSED with the loaded `.prx` ontologies as
     /// one [`ComposedReasoner`] — `None` until at least one `.prx` is loaded.
     /// Rebuilt whenever `runtime_ontologies` changes (a rare, deliberate load
@@ -187,7 +212,7 @@ impl Pr4xis {
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
         let mut this = Self {
-            english: load_english(),
+            english: english_static(),
             runtime_ontologies: Vec::new(),
             composed: None,
             history: Vec::new(),
@@ -222,7 +247,7 @@ impl Pr4xis {
             Some(composed) => {
                 pr4xis_chat::process_with_reasoner(composed.english(), composed, input)
             }
-            None => pr4xis_chat::process_with_metadata(&self.english, input),
+            None => pr4xis_chat::process_with_metadata(self.english, input),
         };
         let reasoned = result.trace.reasoned_over();
         let trace = result.trace.serialize_with_functors();
@@ -529,16 +554,16 @@ impl Pr4xis {
         let loaded = self
             .runtime_ontologies
             .iter()
-            .map(runtime_ontology_vocabulary)
+            .map(|o| runtime_ontology_vocabulary(o))
             .collect();
         // Per-ontology capabilities (doc §4.7) — what each loaded ontology can
         // answer (gloss / populated relation kinds), so "loaded" stops lying.
         let capabilities = self
             .runtime_ontologies
             .iter()
-            .map(ontology_capabilities)
+            .map(|o| ontology_capabilities(o))
             .collect();
-        pr4xis_chat::self_describe_with_loaded(&self.english, loaded)
+        pr4xis_chat::self_describe_with_loaded(self.english, loaded)
             .with_catalog(catalog)
             .with_capabilities(capabilities)
             .with_history(self.history.clone(), self.state_cid())
@@ -622,11 +647,12 @@ impl Pr4xis {
     /// version per source, doc §4.5), recording a `Replace` event; a DIFFERENT
     /// name with identical content coexists (content equality is not the identity).
     ///
-    /// The composed reasoner OWNS its own [`English`] (rebuilt once here from the
-    /// baked codegen data — the same constructor `Pr4xis::new` uses), so the
-    /// loaded ontologies are grounded into a complete English lexicon via the
-    /// Lemon functor. This rebuild happens only on a load (a rare, deliberate
-    /// action), keeping the per-chat path a cheap branch.
+    /// The composed reasoner BORROWS the single embedded [`English`]
+    /// ([`english_static`], the same instance `Pr4xis` holds), so the loaded
+    /// ontologies are grounded into a complete English lexicon via the Lemon
+    /// functor without rebuilding or re-owning the ~73 MiB model. This rebuild of
+    /// the grounding happens only on a load (a rare, deliberate action), keeping
+    /// the per-chat path a cheap branch.
     fn install_runtime_ontology(&mut self, onto: RuntimeOntology) {
         // Replace BY NAME — a `.prx` is identified by its OntologyName, so a new
         // version displaces the old (one current version per source, doc §4.5),
@@ -654,10 +680,12 @@ impl Pr4xis {
         };
         self.history.push(event);
 
-        self.runtime_ontologies.push(onto);
-        let english = load_english();
+        self.runtime_ontologies.push(Rc::new(onto));
+        // The reasoner BORROWS the single embedded English (no owned rebuild) and
+        // reasons over the SAME loaded ontologies — `clone()` on a `Vec<Rc<_>>`
+        // bumps refcounts, it does NOT deep-copy the archives/closures.
         self.composed = Some(ComposedReasoner::new(
-            english,
+            english_static(),
             self.runtime_ontologies.clone(),
         ));
     }

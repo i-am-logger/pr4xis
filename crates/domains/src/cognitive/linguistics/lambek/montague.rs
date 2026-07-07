@@ -266,7 +266,7 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_x_part_of_y_interprets_to_a_relational_question() {
-        let en = ComposedReasoner::new(English::sample(), Vec::new());
+        let en = ComposedReasoner::new(English::sample_static(), Vec::new());
         let tokens = alloc::vec![
             TypedToken {
                 word: "is".into(),
@@ -312,7 +312,7 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_x_a_y_keeps_the_copula_predicate() {
-        let en = ComposedReasoner::new(English::sample(), Vec::new());
+        let en = ComposedReasoner::new(English::sample_static(), Vec::new());
         let tokens = alloc::vec![
             TypedToken {
                 word: "is".into(),
