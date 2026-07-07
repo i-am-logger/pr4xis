@@ -3,11 +3,11 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use hashbrown::HashMap;
 
-use pr4xis::category::quiver::ReachabilityClosure;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
 use crate::cognitive::linguistics::english::concept_store::{ConceptStore, ConceptView};
+use crate::cognitive::linguistics::english::taxonomy_store::TaxonomyStore;
 use crate::cognitive::linguistics::english::word_index::WordIndex;
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
@@ -64,21 +64,17 @@ pub struct English {
     /// (the largest single reclaim of the loaded reasoner's footprint), an owned
     /// map otherwise. See [`word_index`](super::word_index).
     pub word_index: WordIndex,
-    /// Pre-computed taxonomy: parent → children.
-    taxonomy_children: HashMap<ConceptId, Vec<ConceptId>>,
-    /// Pre-computed taxonomy: child → parents.
-    taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>>,
-    /// The MATERIALIZED hypernym (Subsumption) closure — the reflexive-
-    /// transitive is-a image of every concept, folded ONCE from the
-    /// `taxonomy_parents` generators (the free-functor image into the thin
-    /// reachability category, the SAME [`ReachabilityClosure`] construct
-    /// `pr4xis-runtime`'s `MaterializedClosure` and the `ontology!` macro use).
+    /// The hypernym (Subsumption) taxonomy — both adjacency directions
+    /// (child → parents, parent → children) held as a compact, zero-copy
+    /// [`TaxonomyStore`] CSR under `prx` (an owned pair of `HashMap`s otherwise).
     ///
-    /// `is_a` / `ancestors` / `common_ancestor` are O(1) membership / lattice-
-    /// meet lookups into this set — never a per-query breadth-first ascent. The
-    /// reasoner OWNS the closure; queries read its image, they do not re-derive
-    /// reachability.
-    hypernym_closure: ReachabilityClosure<ConceptId>,
+    /// `is_a` / `ancestors` / `common_ancestor` / `ancestor_chain` are answered by
+    /// a bounded, `Sync`, per-query breadth-first ascent over these edges — no
+    /// pre-folded reflexive-transitive closure and no interior mutability. WordNet's
+    /// hypernym DAG is shallow (max is-a depth 16, max reflexive ancestor set 33),
+    /// so a query visits only a few tens of nodes and reproduces the closure's
+    /// answer exactly. See [`taxonomy_store`](super::taxonomy_store).
+    taxonomy: TaxonomyStore,
     /// Pre-computed opposition: sense → opposite senses.
     opposition: HashMap<SenseId, Vec<SenseId>>,
     /// Pre-computed mereology: whole → parts.
@@ -391,7 +387,7 @@ impl English {
         writing: WritingSystem,
         morphology: Vec<MorphologicalRule>,
     ) -> Self {
-        let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
+        let concept_count = concepts.len();
         Self {
             // Transcode the owned concept build into the compact store ONCE; the
             // source `Vec<Concept>` is consumed and freed, only the archived form
@@ -400,9 +396,9 @@ impl English {
             // Transcode the owned build into the compact index ONCE; the source
             // map is consumed and freed, only the packed form survives.
             word_index: WordIndex::build(word_index),
-            taxonomy_children,
-            taxonomy_parents,
-            hypernym_closure,
+            // Transcode the owned adjacency maps into the compact taxonomy CSR
+            // ONCE; the source maps are consumed and freed (§`taxonomy_store`).
+            taxonomy: TaxonomyStore::build(taxonomy_parents, taxonomy_children, concept_count),
             opposition,
             mereology_parts,
             relations: WordnetRelations::default(),
@@ -413,36 +409,6 @@ impl English {
             writing,
             morphology,
         }
-    }
-
-    /// Fold the materialized hypernym (Subsumption) closure ONCE from the direct
-    /// child→parent taxonomy generators. This is the free-functor image into the
-    /// thin reachability category (Mac Lane 1971 CWM II.7) — the SAME
-    /// [`ReachabilityClosure`] fold `pr4xis-runtime`'s `MaterializedClosure` and
-    /// the `ontology!` macro's Floyd-Warshall use, applied to WordNet's hypernym
-    /// relation over `ConceptId`s.
-    ///
-    /// # Eager materialization is the right call here
-    ///
-    /// English WordNet 2025 is ~120k synsets, but the hypernym relation is a
-    /// SPARSE DAG: each synset has ~1-2 direct hypernyms and a reflexive ancestor
-    /// chain of ~10-18 up to the unique root (`entity`). The total closure is
-    /// therefore on the order of (synsets × avg-depth) ≈ 1-2M `(child, ancestor)`
-    /// pairs — built once at load and reused for every query, paid at the same
-    /// `from_wordnet` initialization phase that already pre-computes every
-    /// adjacency map. Eager folding is the discipline's preferred "materialized
-    /// closure"; we do NOT keep a per-query BFS. (Were the relation dense enough
-    /// to make eager folding too costly for WASM startup, the construct would be
-    /// folded lazily on first use and cached — still reasoner-owned, never
-    /// re-derived per query — but the sparsity makes that unnecessary here.)
-    fn fold_hypernym_closure(
-        taxonomy_parents: &HashMap<ConceptId, Vec<ConceptId>>,
-    ) -> ReachabilityClosure<ConceptId> {
-        ReachabilityClosure::fold(
-            taxonomy_parents
-                .iter()
-                .flat_map(|(&child, parents)| parents.iter().map(move |&parent| (child, parent))),
-        )
     }
 
     /// Replace the SKOS-style cross-reference map (synset-level
@@ -755,11 +721,6 @@ impl English {
         let writing = crate::cognitive::linguistics::orthography::english_writing_system();
         let morphology = crate::cognitive::linguistics::morphology::english::english_rules();
 
-        // Materialize the hypernym closure ONCE from the direct taxonomy
-        // generators just built (Phase 3) — the same initialization phase that
-        // pre-computes every other adjacency map.
-        let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
-
         // `sense_to_id` is a BUILD-TIME index only: it keys the sense-level
         // relation folds above (opposition — Phase 4 — and the derivation /
         // pertainym / similar-sense / participle / exemplifies passes in
@@ -770,6 +731,7 @@ impl English {
         // (`language::from_codegen`) never builds it at all.
         drop(sense_to_id);
 
+        let concept_count = concepts.len();
         English {
             // Transcode the owned concept build into the compact store ONCE; the
             // source `Vec<Concept>` is consumed and freed, only the archived form
@@ -778,9 +740,12 @@ impl English {
             // Transcode the owned build into the compact index ONCE; the source
             // map is consumed and freed, only the packed form survives.
             word_index: WordIndex::build(word_index),
-            taxonomy_children,
-            taxonomy_parents,
-            hypernym_closure,
+            // Transcode the owned adjacency maps (Phase 3) into the compact
+            // taxonomy CSR ONCE; the source maps are consumed and freed. The
+            // reflexive-transitive is-a reachability is computed per query by a
+            // bounded, `Sync` breadth-first ascent over these edges — no eager
+            // closure fold (§`taxonomy_store`).
+            taxonomy: TaxonomyStore::build(taxonomy_parents, taxonomy_children, concept_count),
             opposition,
             mereology_parts,
             relations,
@@ -822,76 +787,50 @@ impl English {
 
     /// Direct parents (hypernyms) of a concept — is-a targets.
     pub fn parents(&self, id: ConceptId) -> &[ConceptId] {
-        self.taxonomy_parents
-            .get(&id)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.taxonomy.parents(id)
     }
 
     /// Direct children (hyponyms) of a concept — is-a sources.
     pub fn children(&self, id: ConceptId) -> &[ConceptId] {
-        self.taxonomy_children
-            .get(&id)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.taxonomy.children(id)
     }
 
-    /// Check if `child` is-a `ancestor` (reflexive-transitively) — an O(1)
-    /// membership lookup into the MATERIALIZED hypernym closure, never a
-    /// per-query ascent. `ancestor` is in `child`'s reflexive Subsumption image
-    /// iff the is-a relation holds (reflexive: every concept is-a itself).
+    /// Check if `child` is-a `ancestor` (reflexive-transitively) — a bounded,
+    /// `Sync` breadth-first ascent over the archived parent edges. WordNet's
+    /// hypernym DAG is shallow (max reflexive ancestor set 33), so this visits a
+    /// few tens of nodes and reproduces the eager closure's answer exactly.
+    /// `ancestor` is in `child`'s reflexive Subsumption image iff the is-a relation
+    /// holds (reflexive: every concept is-a itself). See
+    /// [`taxonomy_store`](super::taxonomy_store).
     pub fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool {
-        self.hypernym_closure.reaches(&child, &ancestor)
+        self.taxonomy.is_a(child, ancestor)
     }
 
     /// The reflexive-transitive hypernym image of `id` — `id` itself plus every
-    /// ancestor reachable up the taxonomy, ordered nearest-first (by minimal
-    /// is-a distance). A lookup over the materialized closure, never a BFS.
+    /// ancestor reachable up the taxonomy, ordered nearest-first by
+    /// `(minimal is-a distance, ConceptId.value())`. A bounded per-query ascent.
     pub fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
-        let mut image = self.hypernym_closure.reflexive_image(&id);
-        // Deterministic, nearest-first order: by distance, then by id so the
-        // result is stable across runs (the closure's map order is not).
-        image.sort_unstable_by(|(a, da), (b, db)| {
-            da.cmp(db).then_with(|| a.value().cmp(&b.value()))
-        });
-        image.into_iter().map(|(v, _)| v).collect()
+        self.taxonomy.ancestors(id)
     }
 
     /// The lowest common ancestor of `a` and `b` — the nearest shared hypernym,
-    /// computed as the LATTICE MEET over the materialized closure (the argmin,
-    /// by distance from `b`, of `strict_ancestors(b) ∩ ancestors(a)`). A
-    /// categorical meet over the materialized set, never a hand-BFS. Ties are
-    /// broken by the smaller `ConceptId` for a deterministic result.
+    /// computed as the LATTICE MEET over the hypernym relation (the argmin, by
+    /// distance from `b`, of `strict_ancestors(b) ∩ reflexive_ancestors(a)`).
+    /// Ties are broken by the smaller `ConceptId.value()` for a deterministic
+    /// result, exactly as the eager closure's `meet_by`.
     pub fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
-        self.hypernym_closure.meet_by(&a, &b, |id| id.value())
+        self.taxonomy.common_ancestor(a, b)
     }
 
     /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first) when
-    /// `child` is-a `ancestor`, else `None`. The is-a evidence path, read off
-    /// the materialized closure — never a `0..N` parent hand-walk.
-    ///
-    /// The chain is exactly those reflexive ancestors `x` of `child` from which
-    /// `ancestor` is itself reachable (so `x` lies on a `child ⇝ ancestor`
-    /// path), ordered by is-a distance from `child`. `child` (distance 0) and
-    /// `ancestor` are the chain's endpoints; on a tree taxonomy this is the
-    /// unique path, and on a DAG it is the distance-ordered set of intermediate
+    /// `child` is-a `ancestor`, else `None`. The is-a evidence path: exactly those
+    /// reflexive ancestors `x` of `child` from which `ancestor` is itself reachable
+    /// (so `x` lies on a `child ⇝ ancestor` path), ordered by
+    /// `(is-a distance from child, ConceptId.value())`. On a tree taxonomy this is
+    /// the unique path; on a DAG it is the distance-ordered set of intermediate
     /// hypernyms on a shortest witnessing path.
     pub fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
-        if !self.hypernym_closure.reaches(&child, &ancestor) {
-            return None;
-        }
-        // Reflexive ancestors of `child` that still reach `ancestor` lie on a
-        // child⇝ancestor path; order them nearest-first by is-a distance.
-        let mut chain: Vec<(ConceptId, u32)> = self
-            .hypernym_closure
-            .reflexive_image(&child)
-            .into_iter()
-            .filter(|(x, _)| self.hypernym_closure.reaches(x, &ancestor))
-            .collect();
-        chain.sort_unstable_by(|(a, da), (b, db)| {
-            da.cmp(db).then_with(|| a.value().cmp(&b.value()))
-        });
-        Some(chain.into_iter().map(|(v, _)| v).collect())
+        self.taxonomy.ancestor_chain(child, ancestor)
     }
 
     /// Direct parts (meronyms) of a concept.
@@ -922,7 +861,7 @@ impl English {
 
     /// Total taxonomy relations.
     pub fn taxonomy_count(&self) -> usize {
-        self.taxonomy_parents.values().map(|v| v.len()).sum()
+        self.taxonomy.parent_edge_count()
     }
 
     /// Total opposition relations.
@@ -1057,6 +996,17 @@ pub fn english_loaded() -> &'static English {
     static INSTANCE: OnceLock<English> = OnceLock::new();
     INSTANCE.get_or_init(english_load_owned)
 }
+
+/// `English` is `Sync` — required for the `OnceLock<English>` static above. Every
+/// field is `Sync` with NO interior mutability: the taxonomy reachability is a
+/// per-query breadth-first ascent over immutable edges (no `RefCell` memo), which
+/// is precisely what lets us drop the eager closure yet keep the process-wide
+/// static valid. This compile-time assertion fails the moment a `!Sync` field
+/// (e.g. a memoizing closure) is reintroduced.
+const _: fn() = || {
+    fn assert_sync<T: Sync>() {}
+    assert_sync::<English>();
+};
 
 impl crate::cognitive::linguistics::language::Language for English {
     fn name(&self) -> &str {

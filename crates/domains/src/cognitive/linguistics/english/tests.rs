@@ -193,6 +193,72 @@ fn common_ancestor_is_the_nearest_shared_hypernym() {
     );
 }
 
+/// A genuine **DAG tie**: `a` and `b` each have the SAME two parents `p1`, `p2`
+/// (equidistant, distance 1). The lattice meet `common_ancestor(a, b)` and the
+/// `ancestor_chain` ordering must therefore break the tie by the smaller
+/// `ConceptId.value()` — the exact behaviour a tree-shaped fixture can never
+/// witness. Synsets are declared `s-g, s-p1, s-p2, s-a, s-b`, so `from_wordnet`
+/// assigns dense ids in that order and `value(p1) < value(p2)`; the meet must be
+/// `p1` (not `g`, which is nearer the root — distance dominates the tie key), and
+/// the chain must list `p1` before `p2`.
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn dag_tie_break_is_by_conceptid_value() {
+    const DIAMOND_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-gg"><Lemma writtenForm="gg" partOfSpeech="n"/><Sense id="gg-01" synset="s-g"/></LexicalEntry>
+    <LexicalEntry id="e-pp1"><Lemma writtenForm="pp1" partOfSpeech="n"/><Sense id="pp1-01" synset="s-p1"/></LexicalEntry>
+    <LexicalEntry id="e-pp2"><Lemma writtenForm="pp2" partOfSpeech="n"/><Sense id="pp2-01" synset="s-p2"/></LexicalEntry>
+    <LexicalEntry id="e-aa"><Lemma writtenForm="aa" partOfSpeech="n"/><Sense id="aa-01" synset="s-a"/></LexicalEntry>
+    <LexicalEntry id="e-bb"><Lemma writtenForm="bb" partOfSpeech="n"/><Sense id="bb-01" synset="s-b"/></LexicalEntry>
+    <Synset id="s-g" ili="i1" partOfSpeech="n"><Definition>top</Definition></Synset>
+    <Synset id="s-p1" ili="i2" partOfSpeech="n"><Definition>parent one</Definition><SynsetRelation relType="hypernym" target="s-g"/></Synset>
+    <Synset id="s-p2" ili="i3" partOfSpeech="n"><Definition>parent two</Definition><SynsetRelation relType="hypernym" target="s-g"/></Synset>
+    <Synset id="s-a" ili="i4" partOfSpeech="n"><Definition>node a</Definition><SynsetRelation relType="hypernym" target="s-p1"/><SynsetRelation relType="hypernym" target="s-p2"/></Synset>
+    <Synset id="s-b" ili="i5" partOfSpeech="n"><Definition>node b</Definition><SynsetRelation relType="hypernym" target="s-p1"/><SynsetRelation relType="hypernym" target="s-p2"/></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+    let wn = lmf::reader::read_wordnet(DIAMOND_LMF).unwrap();
+    let en = English::from_wordnet(&wn);
+
+    let g = en.lookup("gg")[0];
+    let p1 = en.lookup("pp1")[0];
+    let p2 = en.lookup("pp2")[0];
+    let a = en.lookup("aa")[0];
+    let b = en.lookup("bb")[0];
+
+    // The fixture's whole point: p1 and p2 are two DISTINCT, equidistant parents.
+    assert!(
+        p1.value() < p2.value(),
+        "p1 must have the smaller ConceptId"
+    );
+    assert_ne!(p1.value(), p2.value());
+
+    // common_ancestor breaks the (distance-1) tie by the smaller ConceptId.value()
+    // → p1, NOT g (g is a common ancestor too, but at distance 2: distance
+    // dominates the tie key).
+    assert_eq!(
+        en.common_ancestor(a, b),
+        Some(p1),
+        "meet must pick the smaller-ConceptId equidistant parent"
+    );
+
+    // ancestor_chain(a, g) lists the two equidistant mids in ConceptId.value()
+    // order: [a, p1, p2, g].
+    assert_eq!(
+        en.ancestor_chain(a, g),
+        Some(alloc::vec![a, p1, p2, g]),
+        "chain must order equidistant ancestors by ConceptId.value()"
+    );
+
+    // Sanity: the reflexive is-a image and reachability hold on the DAG.
+    assert!(en.is_a(a, g));
+    assert!(en.is_a(a, p1) && en.is_a(a, p2));
+    assert_eq!(en.ancestors(a), alloc::vec![a, p1, p2, g]);
+}
+
 // =============================================================================
 // Opposition (antonym) tests
 // =============================================================================
