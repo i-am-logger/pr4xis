@@ -30,9 +30,11 @@
 //! stage as unavailable rather than failing.
 
 use std::panic;
+use std::rc::Rc;
 
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
+use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::english::bridge::english_runtime_ontology;
 use pr4xis_domains::cognitive::linguistics::english::english_load_owned;
 use pr4xis_runtime::archive::Archive;
@@ -207,6 +209,12 @@ fn main() {
         );
         return;
     };
+    // The `ComposedReasoner` now BORROWS a `&'static English` (single-substrate-
+    // instance ownership). This measurement harness is a one-shot process, so the
+    // one English we just loaded is promoted to `'static` in place — the reasoner
+    // references it rather than owning a second ~73 MiB copy (which is the very
+    // saving this profile demonstrates).
+    let english: &'static English = Box::leak(Box::new(english));
     let after_english = read_memory();
     report(
         &format!("5. embedded English ({} concepts)", english.concept_count()),
@@ -216,7 +224,7 @@ fn main() {
 
     // 6. English AS a RuntimeOntology — the closure path for the full corpus.
     let english_onto =
-        english_runtime_ontology(&english).expect("English materializes into a RuntimeOntology");
+        english_runtime_ontology(english).expect("English materializes into a RuntimeOntology");
     let after_english_onto = read_memory();
     report(
         "6. english_runtime_ontology",
@@ -225,7 +233,7 @@ fn main() {
     );
 
     // 7. ComposedReasoner — English composed as one LexicalReasoner.
-    let _reasoner = ComposedReasoner::new(english, vec![english_onto]);
+    let _reasoner = ComposedReasoner::new(english, vec![Rc::new(english_onto)]);
     let after_reasoner = read_memory();
     report("7. ComposedReasoner", after_reasoner, after_english_onto);
 

@@ -43,6 +43,7 @@
 //!   English's finite `ConceptId` space without an explicit disjoint offset.
 
 use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -85,12 +86,20 @@ pub enum GroundedConcept {
 /// closure.
 #[derive(Debug)]
 pub struct ComposedReasoner {
-    /// The always-present embedded substrate.
-    english: English,
-    /// The loaded ontologies, in load order. A loaded `ConceptId`'s
-    /// `value()` indexes `loaded_refs`; its source ontology is found here by
-    /// matching `ConceptRef::ontology`.
-    loaded: Vec<RuntimeOntology>,
+    /// The always-present embedded substrate — BORROWED, not owned. The single
+    /// English instance lives once (the wasm-side `english_static()` / native
+    /// `english_loaded()` `OnceLock`, or a test's `English::sample_static()`); the
+    /// reasoner and the no-composed chat path reference that ONE instance rather
+    /// than each holding an owned ~73 MiB copy. Sound because `English` is `Sync`
+    /// and the shared instance is genuinely `'static`.
+    english: &'static English,
+    /// The loaded ontologies, in load order — SHARED (`Rc`), not deep-copied. The
+    /// same `RuntimeOntology` instances the owner (`Pr4xis`) holds; building the
+    /// reasoner clones the `Rc` handles (a refcount bump), never the ~39 MiB
+    /// archive/closure buffers. A loaded `ConceptId`'s `value()` indexes
+    /// `loaded_refs`; its source ontology is found here by matching
+    /// `ConceptRef::ontology`.
+    loaded: Vec<Rc<RuntimeOntology>>,
 
     // --- grounded surface (built once at construction) ---
     /// The Lemon lexicon grounding every loaded node's surface form to its
@@ -174,7 +183,7 @@ impl ComposedReasoner {
     /// Compose the embedded `english` model with the `loaded` ontologies,
     /// grounding every loaded node into the English lexicon via the Lemon
     /// functor and pre-folding the per-concept handles.
-    pub fn new(english: English, loaded: Vec<RuntimeOntology>) -> Self {
+    pub fn new(english: &'static English, loaded: Vec<Rc<RuntimeOntology>>) -> Self {
         let base = english.concept_count() as u64;
 
         let mut lexicon = Lexicon::new("en");
@@ -190,7 +199,7 @@ impl ComposedReasoner {
         // 1. Seed the surface index with the embedded English lexicon. We copy
         //    the ConceptIds (so the union slice can be returned by reference) but
         //    intern the surface — its handle keys the union, not a copied String.
-        for word in english_surface_forms(&english) {
+        for word in english_surface_forms(english) {
             let ids = english.lookup(&word).to_vec();
             if !ids.is_empty() {
                 let symbol = interner.intern(&word);
@@ -416,9 +425,10 @@ impl ComposedReasoner {
         }
     }
 
-    /// The embedded English substrate (the pipeline's linguistic ground).
-    pub fn english(&self) -> &English {
-        &self.english
+    /// The embedded English substrate (the pipeline's linguistic ground) — the
+    /// single shared instance the reasoner borrows.
+    pub fn english(&self) -> &'static English {
+        self.english
     }
 
     /// The Lemon lexicon grounding the loaded ontologies (inspectable for tests
@@ -427,8 +437,8 @@ impl ComposedReasoner {
         &self.lexicon
     }
 
-    /// The loaded ontologies, in load order.
-    pub fn loaded(&self) -> &[RuntimeOntology] {
+    /// The loaded ontologies, in load order (the shared `Rc` handles).
+    pub fn loaded(&self) -> &[Rc<RuntimeOntology>] {
         &self.loaded
     }
 
@@ -450,7 +460,10 @@ impl ComposedReasoner {
 
     /// The loaded ontology that owns `cref`, by `OntologyName` identity.
     fn ontology_of(&self, cref: &ConceptRef) -> Option<&RuntimeOntology> {
-        self.loaded.iter().find(|o| o.id() == &cref.ontology)
+        self.loaded
+            .iter()
+            .find(|o| o.id() == &cref.ontology)
+            .map(|o| o.as_ref())
     }
 
     /// CROSS-ONTOLOGY reachability along `kind`: `c` and `a` live in DIFFERENT
@@ -837,7 +850,7 @@ mod tests {
         };
         let onto = materialize(archive, OntologyName::new_static("usc_test"))
             .expect("the Form-bearing archive materializes");
-        let composed = ComposedReasoner::new(English::sample(), alloc::vec![onto]);
+        let composed = ComposedReasoner::new(English::sample_static(), alloc::vec![Rc::new(onto)]);
 
         // The Form's writtenRep "section 1" resolves to the section concept, and
         // reading it back yields the section's gloss.
@@ -903,7 +916,7 @@ mod tests {
         };
         let onto = materialize(archive, OntologyName::new_static("part_test"))
             .expect("the Parthood archive materializes");
-        let composed = ComposedReasoner::new(English::sample(), alloc::vec![onto]);
+        let composed = ComposedReasoner::new(English::sample_static(), alloc::vec![Rc::new(onto)]);
         let sub = composed.lookup("subsection")[0];
         let sec = composed.lookup("section")[0];
 

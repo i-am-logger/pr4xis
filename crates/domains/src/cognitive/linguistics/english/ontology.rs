@@ -493,6 +493,20 @@ impl English {
         Self::from_wordnet(&wn)
     }
 
+    /// [`English::sample`] behind a process-wide `OnceLock`, for callers that need
+    /// a shared `&'static English` — the [`ComposedReasoner`] fixtures, which now
+    /// BORROW their English (single-substrate-instance ownership) rather than own
+    /// it. `sample()` is a deterministic const-fixture parse, so one shared static
+    /// instance is observationally identical to a fresh `sample()` per call. Sound
+    /// because `English` is `Sync` (see the `assert_sync` witness below).
+    ///
+    /// [`ComposedReasoner`]: crate::cognitive::linguistics::composed::ComposedReasoner
+    pub fn sample_static() -> &'static English {
+        use std::sync::OnceLock;
+        static INSTANCE: OnceLock<English> = OnceLock::new();
+        INSTANCE.get_or_init(English::sample)
+    }
+
     /// Build the English ontology from a WordNet instance.
     /// This is the functor: WordNet → English.
     /// Computes all adjacency maps ONCE (the initialization phase).

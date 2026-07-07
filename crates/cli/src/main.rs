@@ -925,9 +925,11 @@ fn workspace_root() -> anyhow::Result<PathBuf> {
 // --------------------------------------------------------------------------
 
 fn run_chat(load_specs: &[String]) {
-    // The chat's English, through the single OWNED loader (`english_load_owned`,
+    // The chat's English, through the single loader (`english_load_owned`,
     // content-addressed compact `.prx`, ms-cheap; XML fallback inside), honoring
-    // the `WORDNET_XML` dev override. No `Box::leak` / `&'static`.
+    // the `WORDNET_XML` dev override. Materialized ONCE behind a process `OnceLock`
+    // and shared as a `&'static English`: the `ComposedReasoner` now BORROWS its
+    // English (single-substrate-instance ownership), so this is the one instance.
     fn load_chat_english() -> English {
         match std::env::var("WORDNET_XML") {
             Ok(path) => load_language(&path).unwrap_or_else(|e| {
@@ -936,6 +938,10 @@ fn run_chat(load_specs: &[String]) {
             }),
             Err(_) => english_load_owned(),
         }
+    }
+    fn chat_english_static() -> &'static English {
+        static INSTANCE: std::sync::OnceLock<English> = std::sync::OnceLock::new();
+        INSTANCE.get_or_init(load_chat_english)
     }
 
     // Assemble the LOADED knowledge set the chat reasons over — grounded into
@@ -987,10 +993,13 @@ fn run_chat(load_specs: &[String]) {
         }
     }
 
-    // ONE reasoner over English + the whole loaded set. It owns the one English
-    // the tokenizer borrows (`reasoner.english()`, the wasm pattern), so English
-    // is loaded once.
-    let reasoner = ComposedReasoner::new(load_chat_english(), loaded);
+    // ONE reasoner over English + the whole loaded set. It BORROWS the one shared
+    // English the tokenizer also uses (`reasoner.english()`, the wasm pattern), so
+    // English is resident once; the loaded ontologies are shared as `Rc` handles.
+    let reasoner = ComposedReasoner::new(
+        chat_english_static(),
+        loaded.into_iter().map(std::rc::Rc::new).collect(),
+    );
     let language: &English = reasoner.english();
 
     println!("pr4xis — axiomatic intelligence");
