@@ -18,26 +18,38 @@
 //! FinitelyGenerated relaxation exists for (Reiter 1978; `entity.rs`). Identity
 //! is the typed pair, never `String ==`.
 //!
-//! # Materialization IS the free-functor image (not a query-time BFS)
+//! # Reachability is the free-functor image, evaluated LAZILY per vertex
 //!
-//! The [`MaterializedClosure`] is computed ONCE, at [`materialize`] time, by
-//! re-folding the archive's *generating* edges per transitive relation-kind
-//! into their transitive-closure set. This re-fold is the runtime analogue of
-//! the `ontology!` macro's compile-time Floyd-Warshall
-//! (`pr4xis-derive/ontology.rs`), and categorically it is the image of the free
-//! functor `FreeCategory<Q> → ReachCat` into the thin reachability category —
-//! exactly the `Collapse` / `ReachCat` reflection in
-//! [`quiver`](pr4xis::category::quiver) (CWM II.7): every generating path
-//! collapses to its `(source, target)` reachability arrow. We **always** re-fold
-//! from the generators and never trust a stored closure (a `.prx`'s edges may
-//! themselves be a closure, but the materialize step does not depend on that —
-//! the closure of a closure is the same closure, so the re-fold is correct
-//! either way).
+//! The reasoning answer is the image of the free functor `FreeCategory<Q> →
+//! ReachCat` into the thin reachability category — the `Collapse` / `ReachCat`
+//! reflection in [`quiver`](pr4xis::category::quiver) (CWM II.7): every
+//! generating path collapses to its `(source, target)` reachability arrow. The
+//! [`MaterializedClosure`] holds only the *generating adjacency* per transitive
+//! relation-kind (linear in the edge count); it does **not** eagerly saturate
+//! and store the whole transitive-closure set (which is `O(V · depth)` — for
+//! English's 107,519 concepts, hundreds of MB of pre-folded owned pairs). The
+//! reflexive-transitive image of a *queried* vertex is instead computed ON
+//! DEMAND by a bounded, cycle-safe breadth-first walk over the generators
+//! (shortest-path grading; Moore 1959), and **memoized** per source: the first
+//! query for a vertex pays the walk, every later one hits the memo with no
+//! re-traversal (an `is_a` membership test then borrows the cached image
+//! allocation-free; an image query copies it, O(image)). A
+//! running chat touches a handful of vertices, so the resident footprint is the
+//! adjacency plus the images actually asked for — never the 107k-concept
+//! closure nobody queried.
 //!
-//! Materialization is *not* query. Once the closure is folded, every query is an
-//! O(1) relational-image LOOKUP into the pre-folded `BTreeSet` — never a
-//! per-query traversal. A query-time BFS would be the forbidden mechanical
-//! anti-pattern; reachability here is the *image* of the materialized functor.
+//! This is a REPRESENTATION change, not a semantics change. The lazy per-vertex
+//! image is exactly the eager fold's image restricted to that vertex — same
+//! reachable set, same shortest-path distances (BFS min-hops over the same
+//! generators equals the Floyd–Warshall fixpoint over the same generators) — so
+//! every query answer is SET-and-distance-identical to the eagerly-saturated
+//! form. (The image-returning methods now enumerate in deterministic BFS order,
+//! not the eager `HashMap`'s arbitrary order — a strictly-more-canonical order
+//! on which no caller relies: `chain` sorts, `meet` argmins, `reachable_from`
+//! collects into a `BTreeSet`.)
+//! A `.prx`'s edges may themselves already be a closure; the walk does not
+//! depend on that (the closure of a closure is the same closure), so it is
+//! correct either way, exactly as the eager fold was.
 //!
 //! # Identity is the content address
 //!
@@ -63,10 +75,10 @@
 //! - Reiter (1978) *On Closed World Data Bases* — the open/closed-world split the
 //!   Concept / FinitelyGenerated relaxation realizes.
 
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet, VecDeque};
+use core::cell::RefCell;
 
 use pr4xis::category::Concept;
-use pr4xis::category::quiver::ReachabilityClosure;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
@@ -166,66 +178,246 @@ pub struct RuntimeEdge {
     pub target: ConceptRef,
 }
 
-/// The materialized transitive closure — per transitive relation-kind
-/// [`ConceptRef`], the set of `(ConceptRef → ConceptRef)` pairs reachable along
-/// that kind's generating edges.
+/// Lazy, memoized reachability over ONE transitive relation-kind's GENERATING
+/// adjacency — the per-kind engine [`MaterializedClosure`] partitions by kind.
 ///
-/// Computed ONCE at [`materialize`] time by re-folding the generators (never a
-/// stored closure). Keyed by `ConceptRef` so an N-ontology composite can union
-/// these maps. Every query is an O(1) relational-image lookup into `reachable`
-/// — never a traversal.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct MaterializedClosure {
-    /// `kind → ReachabilityClosure` — one shared
-    /// [`ReachabilityClosure`]
-    /// per transitive relation kind. The fold, the fixpoint, and the
-    /// O(1)-lookup invariant all live in that one shared construct (the same one
-    /// the English hypernym closure uses); this type only partitions it by kind
-    /// and re-exposes the reachable SET (for the existing `BTreeSet`-returning
-    /// query surface).
-    reachable: BTreeMap<ConceptRef, ReachabilityClosure<ConceptRef>>,
+/// It stores only the direct generators (`source → targets`), linear in the
+/// edge count — NOT the eagerly-saturated `O(V · depth)` transitive closure.
+/// The reflexive-transitive image of a vertex is the free functor
+/// `FreeCategory<Q> → ReachCat` (Mac Lane 1971 CWM II.7) restricted to that
+/// vertex, computed ON DEMAND by a bounded, cycle-safe breadth-first walk over
+/// the generators and MEMOIZED per source: the first query for a vertex pays
+/// the walk, every later one hits the memo with no re-traversal (a `reaches`
+/// membership test borrows the cached image allocation-free; an image query
+/// copies it). The walk's hop count is the
+/// minimal number of generating edges to each reachable vertex (BFS shortest
+/// path; Moore 1959) — the same shortest-path grading the eager
+/// Floyd–Warshall fold produced over the same generators, so the graded image
+/// is identical.
+///
+/// Literature:
+/// - Mac Lane (1971) *CWM* II.7 — the free category on a quiver and the unique
+///   functor into the thin reachability category; this image IS that functor's
+///   action, evaluated lazily per vertex rather than saturated in bulk.
+/// - Moore (1959) "The shortest path through a maze" — breadth-first search
+///   yields the minimal-hop distance to every reachable vertex; the grading
+///   here is that distance over the generating edges.
+#[derive(Debug, Default)]
+struct LazyKindReach {
+    /// `source → direct targets` — the generators of this kind. Deduped, and
+    /// self-loops are dropped (a `source == target` generator carries nothing
+    /// beyond the implicit reflexive arrow), matching the eager fold's handling.
+    adjacency: BTreeMap<ConceptRef, Vec<ConceptRef>>,
+    /// Memoized STRICT images: `source → [(descendant, min hops)]`, filled on
+    /// first query. Interior mutability keeps the query surface `&self`. This
+    /// `RefCell` makes `LazyKindReach` — hence `MaterializedClosure` and
+    /// `RuntimeOntology` — `!Sync`; that is a DELIBERATE INVARIANT of the runtime
+    /// (chat / wasm are single-threaded, and no `static`/`OnceLock` holds a
+    /// `RuntimeOntology`). A future threaded native server that shares
+    /// `&RuntimeOntology` across threads must put this memo behind a `Mutex`, not
+    /// weaken the invariant silently. The cache is a *derived* view of
+    /// `adjacency` — never part of identity — so equality and the union merge
+    /// ignore it.
+    memo: RefCell<BTreeMap<ConceptRef, Vec<(ConceptRef, u32)>>>,
 }
 
-impl MaterializedClosure {
-    /// Re-fold the closure from `edges` — the categorical free-functor image
-    /// into the thin reachability category (Mac Lane 1971 CWM II.7: the unique
-    /// functor `FreeCategory<Q> → ReachCat` that collapses each generating path
-    /// to its `(source, target)` reachability arrow). Runtime analogue of the
-    /// `ontology!` macro's compile-time Floyd-Warshall.
-    ///
-    /// This is **materialization**, not query: the transitive closure is
-    /// saturated here, once, so every later query is an O(1) lookup. We always
-    /// fold from the GENERATING edges and never trust a pre-stored closure. The
-    /// per-kind fold delegates to the shared
-    /// [`ReachabilityClosure`] —
-    /// no bespoke fixpoint loop lives here.
-    pub fn fold(edges: &[RuntimeEdge], transitive: &BTreeSet<ConceptRef>) -> Self {
-        let mut reachable: BTreeMap<ConceptRef, ReachabilityClosure<ConceptRef>> = BTreeMap::new();
-        // `transitive` is the LOADED transitive-kind vocabulary (the kinds OWL-RL
-        // marks `Transitive`); the generic engine folds one closure per kind in
-        // it — never a hardcoded array.
-        for kind in transitive {
-            let closure = ReachabilityClosure::fold(
-                edges
-                    .iter()
-                    .filter(|e| &e.kind == kind)
-                    .map(|e| (e.source.clone(), e.target.clone())),
-            );
-            reachable.insert(kind.clone(), closure);
+impl Clone for LazyKindReach {
+    fn clone(&self) -> Self {
+        Self {
+            adjacency: self.adjacency.clone(),
+            // The memo is a valid derived cache of the same adjacency; carrying
+            // it over a clone is sound (it could equally be dropped empty).
+            memo: RefCell::new(self.memo.borrow().clone()),
         }
-        Self { reachable }
+    }
+}
+
+impl PartialEq for LazyKindReach {
+    /// Identity is the GENERATORS; the memo is a derived cache, not part of it.
+    fn eq(&self, other: &Self) -> bool {
+        self.adjacency == other.adjacency
+    }
+}
+
+impl Eq for LazyKindReach {}
+
+impl LazyKindReach {
+    /// Add a generating edge `source → target`. Self-loops are dropped and
+    /// duplicate targets deduped, so the adjacency stays the minimal generator
+    /// set the eager fold would have consumed.
+    fn insert_edge(&mut self, source: ConceptRef, target: ConceptRef) {
+        if source == target {
+            return;
+        }
+        let targets = self.adjacency.entry(source).or_default();
+        if !targets.contains(&target) {
+            targets.push(target);
+        }
     }
 
-    /// The pre-folded reachable set from `source` along `kind` — an O(1)
-    /// relational-image lookup, never a traversal. Empty set if `source` has no
-    /// outgoing edges of `kind`. This is the STRICT reachable set (descendants
-    /// of `source`; the reflexive `source → source` arrow is implicit in the
-    /// shared closure and is not included here, matching the prior behavior).
+    /// The cycle-safe BFS walk that computes `source`'s STRICT reachable image
+    /// from the generators — the pure kernel behind both [`strict_image`] (which
+    /// memoizes + clones it out) and [`reaches`] (which scans it without
+    /// cloning). The first time a vertex is enqueued is along a shortest
+    /// (fewest-hop) path, so its recorded hop count is minimal (Moore 1959); the
+    /// `seen` set makes the walk terminating even on cyclic generators (each
+    /// vertex is enqueued at most once) — bounded by the reachable-set size,
+    /// never divergent.
+    ///
+    /// [`strict_image`]: Self::strict_image
+    /// [`reaches`]: Self::reaches
+    fn compute_image(&self, source: &ConceptRef) -> Vec<(ConceptRef, u32)> {
+        let mut image: Vec<(ConceptRef, u32)> = Vec::new();
+        let mut seen: BTreeSet<ConceptRef> = BTreeSet::new();
+        seen.insert(source.clone());
+        let mut queue: VecDeque<(ConceptRef, u32)> = VecDeque::new();
+        queue.push_back((source.clone(), 0));
+        while let Some((vertex, hops)) = queue.pop_front() {
+            if let Some(targets) = self.adjacency.get(&vertex) {
+                for target in targets {
+                    if seen.insert(target.clone()) {
+                        image.push((target.clone(), hops + 1));
+                        queue.push_back((target.clone(), hops + 1));
+                    }
+                }
+            }
+        }
+        image
+    }
+
+    /// The STRICT reachable image of `source` — its descendants under the
+    /// closure (excluding `source`), each with the minimal number of generating
+    /// edges to it. Computed once by a cycle-safe BFS, then memoized; the
+    /// reflexive `source → source` (hop 0) arrow is implicit and added by
+    /// [`reflexive_image`](Self::reflexive_image).
+    fn strict_image(&self, source: &ConceptRef) -> Vec<(ConceptRef, u32)> {
+        if let Some(hit) = self.memo.borrow().get(source) {
+            return hit.clone();
+        }
+        let image = self.compute_image(source);
+        self.memo.borrow_mut().insert(source.clone(), image.clone());
+        image
+    }
+
+    /// Does `source` STRICTLY reach `target`? — membership in `source`'s
+    /// (memoized) strict image. The reflexive `source == target` case is the
+    /// caller's decision (per-relation), never assumed here.
+    ///
+    /// Membership only, so it borrows the cached image and scans it WITHOUT
+    /// cloning — the eager form's O(1) `contains`; a full-image clone here would
+    /// be wasteful on the hot is-a path. On a miss it computes the image, tests
+    /// it, then stores it (populating the memo for later `strict_image` calls).
+    fn reaches(&self, source: &ConceptRef, target: &ConceptRef) -> bool {
+        if let Some(hit) = self.memo.borrow().get(source) {
+            return hit.iter().any(|(v, _)| v == target);
+        }
+        let image = self.compute_image(source);
+        let found = image.iter().any(|(v, _)| v == target);
+        self.memo.borrow_mut().insert(source.clone(), image);
+        found
+    }
+
+    /// The reflexive image of `source` — `source` at hop 0 plus its strict
+    /// image.
+    fn reflexive_image(&self, source: &ConceptRef) -> Vec<(ConceptRef, u32)> {
+        let mut out = alloc::vec![(source.clone(), 0u32)];
+        out.extend(self.strict_image(source));
+        out
+    }
+
+    /// Whether this kind has ANY generating edge — the basis for
+    /// [`MaterializedClosure::populated_kinds`]. A kind whose only generators
+    /// were self-loops (all dropped) has empty adjacency and is not populated,
+    /// matching the eager form (whose closure would have been empty).
+    fn has_edges(&self) -> bool {
+        self.adjacency.values().any(|targets| !targets.is_empty())
+    }
+
+    /// The lattice meet of `a` and `b` — the nearest vertex in
+    /// `strict_image(b) ∩ reflexive_image(a)`, ranked by hops from `b` (nearest
+    /// first), ties broken by `tie_key`. Verbatim the semantics of the eager
+    /// `ReachabilityClosure::meet_by`, over the lazily-computed images.
+    fn meet_by<K: Ord>(
+        &self,
+        a: &ConceptRef,
+        b: &ConceptRef,
+        tie_key: impl Fn(&ConceptRef) -> K,
+    ) -> Option<ConceptRef> {
+        let anc_a: BTreeSet<ConceptRef> = self
+            .reflexive_image(a)
+            .into_iter()
+            .map(|(v, _)| v)
+            .collect();
+        self.strict_image(b)
+            .into_iter()
+            .filter(|(v, _)| anc_a.contains(v))
+            .min_by(|(v1, d1), (v2, d2)| d1.cmp(d2).then_with(|| tie_key(v1).cmp(&tie_key(v2))))
+            .map(|(v, _)| v)
+    }
+}
+
+/// The reachability answer of a materialized ontology — per transitive
+/// relation-kind [`ConceptRef`], the generating adjacency, queried LAZILY.
+///
+/// It holds only the generators (linear in the edge count), NOT the
+/// eagerly-saturated transitive-closure set; the reflexive-transitive image of
+/// a queried vertex is computed on demand and memoized (see [`LazyKindReach`]).
+/// Keyed by `ConceptRef` so an N-ontology composite can [`union`](Self::union)
+/// these maps. Every query answer is identical to the eagerly-folded form — a
+/// representation change (footprint), not a semantics change.
+#[derive(Debug, Clone, Default)]
+pub struct MaterializedClosure {
+    /// `kind → LazyKindReach` — the per-kind generating adjacency. An entry
+    /// exists for EVERY declared transitive kind (even one with no edges), so
+    /// [`populated_kinds`](Self::populated_kinds) filters the truly non-empty.
+    per_kind: BTreeMap<ConceptRef, LazyKindReach>,
+}
+
+impl PartialEq for MaterializedClosure {
+    /// Identity is the per-kind generators; the memoized images are a derived
+    /// cache and are ignored (that comparison lives in [`LazyKindReach`]).
+    fn eq(&self, other: &Self) -> bool {
+        self.per_kind == other.per_kind
+    }
+}
+
+impl Eq for MaterializedClosure {}
+
+impl MaterializedClosure {
+    /// Build the per-kind generating adjacency from `edges` — the free-functor
+    /// image `FreeCategory<Q> → ReachCat` (Mac Lane 1971 CWM II.7) captured as
+    /// its generators, NOT saturated. Unlike the former eager fold, no
+    /// transitive closure is computed here; reachability is evaluated lazily per
+    /// vertex at query time (see the module docs and [`LazyKindReach`]). We keep
+    /// only the GENERATING edges and never trust a pre-stored closure: a `.prx`
+    /// whose edges are already a closure just supplies redundant generators the
+    /// BFS ignores (the closure of a closure is the same closure).
+    pub fn fold(edges: &[RuntimeEdge], transitive: &BTreeSet<ConceptRef>) -> Self {
+        let mut per_kind: BTreeMap<ConceptRef, LazyKindReach> = BTreeMap::new();
+        // `transitive` is the LOADED transitive-kind vocabulary (the kinds OWL-RL
+        // marks `Transitive`); one adjacency per kind in it — never a hardcoded
+        // array. An entry is inserted for every kind (even edge-less), matching
+        // the eager form so `populated_kinds` reports identically.
+        for kind in transitive {
+            let mut reach = LazyKindReach::default();
+            for edge in edges.iter().filter(|e| &e.kind == kind) {
+                reach.insert_edge(edge.source.clone(), edge.target.clone());
+            }
+            per_kind.insert(kind.clone(), reach);
+        }
+        Self { per_kind }
+    }
+
+    /// The reachable set from `source` along `kind` — the STRICT reachable set
+    /// (descendants of `source`; the reflexive `source → source` arrow is
+    /// implicit and not included, matching the prior behavior). Computed by a
+    /// bounded, memoized BFS on first ask, an O(1) cache hit after. Empty set if
+    /// `source` has no outgoing edges of `kind`.
     pub fn reachable_from(&self, source: &ConceptRef, kind: ConceptRef) -> BTreeSet<ConceptRef> {
-        self.reachable
+        self.per_kind
             .get(&kind)
-            .map(|closure| {
-                closure
+            .map(|reach| {
+                reach
                     .strict_image(source)
                     .into_iter()
                     .map(|(v, _)| v)
@@ -234,57 +426,56 @@ impl MaterializedClosure {
             .unwrap_or_default()
     }
 
-    /// Does `source` reach `target` along `kind`? — a direct O(1) membership
-    /// query into the shared closure, never materializing the intermediate set.
-    /// (Strict reachability: a vertex does not reach itself along the closure
-    /// here, matching [`reachable_from`](Self::reachable_from); the reflexive
-    /// `is-a` case is the caller's `child == ancestor` short-circuit.)
+    /// Does `source` reach `target` along `kind`? — membership in `source`'s
+    /// (memoized) strict image. (Strict reachability: a vertex does not reach
+    /// itself here, matching [`reachable_from`](Self::reachable_from); the
+    /// reflexive `is-a` case is the caller's `child == ancestor` short-circuit.)
     pub fn reaches(&self, source: &ConceptRef, target: &ConceptRef, kind: ConceptRef) -> bool {
-        self.reachable
+        self.per_kind
             .get(&kind)
-            .is_some_and(|closure| source != target && closure.reaches(source, target))
+            .is_some_and(|reach| source != target && reach.reaches(source, target))
     }
 
-    /// The relation kinds this closure actually POPULATES — the keys whose
-    /// reachability is non-empty. A transitive kind with no folded edges (the
-    /// closure folds an entry for EVERY declared transitive kind, even empty
-    /// ones) is omitted, so this reports what the ontology can really answer, not
-    /// what the vocabulary permits. The data-driven basis for an ontology's
-    /// CAPABILITIES (doc §4.7): a USC mereology populates `Parthood`, an OWL
-    /// vocabulary `Subsumption` — read off the materialized data, not hardcoded.
+    /// The relation kinds this ontology actually POPULATES — the keys with at
+    /// least one generating edge. A transitive kind with no edges (an entry is
+    /// held for EVERY declared transitive kind) is omitted, so this reports what
+    /// the ontology can really answer, not what the vocabulary permits. The
+    /// data-driven basis for an ontology's CAPABILITIES (doc §4.7): a USC
+    /// mereology populates `Parthood`, an OWL vocabulary `Subsumption` — read
+    /// off the loaded data, not hardcoded.
     pub fn populated_kinds(&self) -> Vec<ConceptRef> {
-        self.reachable
+        self.per_kind
             .iter()
-            .filter(|(_, closure)| closure.edges_iter().next().is_some())
+            .filter(|(_, reach)| reach.has_edges())
             .map(|(kind, _)| kind.clone())
             .collect()
     }
 
-    /// The reflexive image of `c` along the relation `kind` — `c` itself plus every
-    /// node reachable from it under that kind's closure, each with its minimal
-    /// distance. RELATION-PARAMETRIC: `image(c, Subsumption)` is the hypernym
-    /// ancestors, `image(c, Parthood)` the wholes `c` is transitively part of. A
-    /// lookup over the materialized set, never a per-query BFS.
+    /// The strict image of `c` along the relation `kind` — every node reachable
+    /// from it under that kind (excluding `c`), each with its minimal hop count.
+    /// RELATION-PARAMETRIC: `image(c, Subsumption)` is the hypernym ancestors,
+    /// `image(c, Parthood)` the wholes `c` is transitively part of. A bounded,
+    /// memoized per-vertex BFS, not a bulk-saturated lookup.
     pub fn image(&self, c: &ConceptRef, kind: &ConceptRef) -> Vec<(ConceptRef, u32)> {
-        self.reachable
+        self.per_kind
             .get(kind)
-            .map(|closure| closure.strict_image(c))
+            .map(|reach| reach.strict_image(c))
             .unwrap_or_default()
     }
 
-    /// The reflexive Subsumption (hypernym) image of `c` — `image(c, Subsumption)`.
+    /// The Subsumption (hypernym) image of `c` — `image(c, Subsumption)`.
     /// The loaded-ontology analogue of `English::ancestors`.
     pub fn subsumption_image(&self, c: &ConceptRef) -> Vec<(ConceptRef, u32)> {
         self.image(c, &subsumption_kind())
     }
 
-    /// The lattice MEET of `a` and `b` over the relation `kind`'s closure — the
-    /// nearest node both reach (`strict_image(b) ∩ image(a)`, nearest-first), ties
-    /// broken by `(ontology, name)`. RELATION-PARAMETRIC: the nearest common
-    /// hypernym for Subsumption, the nearest common whole for Parthood.
+    /// The lattice MEET of `a` and `b` over the relation `kind` — the nearest
+    /// node both reach (`strict_image(b) ∩ reflexive_image(a)`, nearest-first),
+    /// ties broken by `(ontology, name)`. RELATION-PARAMETRIC: the nearest
+    /// common hypernym for Subsumption, the nearest common whole for Parthood.
     pub fn meet(&self, a: &ConceptRef, b: &ConceptRef, kind: &ConceptRef) -> Option<ConceptRef> {
-        self.reachable.get(kind).and_then(|closure| {
-            closure.meet_by(a, b, |c| (c.ontology.as_str().to_string(), c.name.clone()))
+        self.per_kind.get(kind).and_then(|reach| {
+            reach.meet_by(a, b, |c| (c.ontology.as_str().to_string(), c.name.clone()))
         })
     }
 
@@ -295,26 +486,26 @@ impl MaterializedClosure {
     }
 
     /// The ordered chain `[child, …, ancestor]` (nearest-first) along the relation
-    /// `kind` when `child` reaches `ancestor`, else `None` — the EVIDENCE path, read
-    /// off the materialized closure rather than hand-walked. RELATION-PARAMETRIC:
-    /// the is-a chain for Subsumption, the part-of chain (`subsection → section →
-    /// title`) for Parthood.
+    /// `kind` when `child` reaches `ancestor`, else `None` — the EVIDENCE path,
+    /// read off the (lazily-computed) reachability rather than hand-walked.
+    /// RELATION-PARAMETRIC: the is-a chain for Subsumption, the part-of chain
+    /// (`subsection → section → title`) for Parthood.
     pub fn chain(
         &self,
         child: &ConceptRef,
         ancestor: &ConceptRef,
         kind: &ConceptRef,
     ) -> Option<Vec<ConceptRef>> {
-        let closure = self.reachable.get(kind)?;
-        if child != ancestor && !closure.reaches(child, ancestor) {
+        let reach = self.per_kind.get(kind)?;
+        if child != ancestor && !reach.reaches(child, ancestor) {
             return None;
         }
         // Reflexive ancestors of `child` that still reach `ancestor` lie on a
         // child⇝ancestor path; order them nearest-first by is-a distance.
-        let mut chain: Vec<(ConceptRef, u32)> = closure
+        let mut chain: Vec<(ConceptRef, u32)> = reach
             .reflexive_image(child)
             .into_iter()
-            .filter(|(x, _)| x == ancestor || closure.reaches(x, ancestor))
+            .filter(|(x, _)| x == ancestor || reach.reaches(x, ancestor))
             .collect();
         chain.sort_unstable_by(|(a, da), (b, db)| {
             da.cmp(db)
@@ -335,20 +526,24 @@ impl MaterializedClosure {
     }
 
     /// Union another closure into this one — the structural hook for an
-    /// N-ontology composite. The union of two reachability sets is itself a
-    /// reachability relation; we re-fold the combined generating image so the
-    /// result stays a valid materialized closure (with correct shortest-path
-    /// grading) rather than a hand-merged set. (Single-ontology callers never
-    /// need it; it exists so the closure is N-ready by construction.)
+    /// N-ontology composite. We merge the GENERATING adjacency per kind (the
+    /// union of two generator sets generates the union reachability), and
+    /// invalidate the affected memo so later queries recompute over the enlarged
+    /// graph. Simpler and stricter than the former eager re-fold: no closure is
+    /// materialized, and BFS over the merged generators is exactly the union
+    /// reachability. (Single-ontology callers never need it; it exists so the
+    /// closure is N-ready by construction.)
     pub fn union(&mut self, other: &MaterializedClosure) {
-        for (kind, other_closure) in &other.reachable {
-            let into = self.reachable.entry(kind.clone()).or_default();
-            // Re-fold from the union of both closures' (source → target) pairs.
-            // Folding an already-closed pair set is idempotent, so this recovers
-            // the combined closure correctly.
-            let merged =
-                ReachabilityClosure::fold(into.edges_iter().chain(other_closure.edges_iter()));
-            *into = merged;
+        for (kind, other_reach) in &other.per_kind {
+            let into = self.per_kind.entry(kind.clone()).or_default();
+            for (source, targets) in &other_reach.adjacency {
+                for target in targets {
+                    into.insert_edge(source.clone(), target.clone());
+                }
+            }
+            // The adjacency grew — any cached images are now stale; drop them so
+            // the next query re-walks the merged generators.
+            into.memo.borrow_mut().clear();
         }
     }
 }
@@ -394,8 +589,9 @@ impl std::error::Error for MaterializeError {}
 /// One loaded `.prx` as a single typed, queryable ontology.
 ///
 /// Identity is the content address: two `RuntimeOntology`s are equal iff their
-/// archive roots ([`Archive::root`]) agree. The materialized closure is held
-/// alongside the archive (the open form) and the root (the identity).
+/// archive roots ([`Archive::root`]) agree. The reachability engine (the
+/// per-kind generating adjacency, queried lazily) is held alongside the archive
+/// (the open form) and the root (the identity).
 #[derive(Debug, Clone)]
 pub struct RuntimeOntology {
     id: OntologyName,
@@ -430,7 +626,8 @@ impl RuntimeOntology {
         &self.archive
     }
 
-    /// The materialized transitive closure.
+    /// The reachability engine — the per-kind generating adjacency, queried
+    /// lazily (see [`MaterializedClosure`]).
     pub fn closure(&self) -> &MaterializedClosure {
         &self.closure
     }
@@ -441,7 +638,7 @@ impl RuntimeOntology {
         ConceptRef::new(self.id.clone(), name)
     }
 
-    // --- query surface (relational image over the materialized closure) ---
+    // --- query surface (lazily-computed reachability over the generators) ---
 
     /// Every outgoing GENERATING edge from `c` — the morphisms departing this
     /// concept, as typed [`RuntimeEdge`]s. (Generating edges, not the closure;
@@ -470,8 +667,9 @@ impl RuntimeOntology {
             .collect()
     }
 
-    /// The pre-folded reachable set from `c` along `kind` — an O(1) relational-
-    /// image lookup into the materialized closure. Never a query-time BFS.
+    /// The reachable set from `c` along `kind` — the strict descendants under
+    /// that relation, computed by a bounded, memoized BFS over the generators
+    /// (O(1) once cached).
     pub fn reachable_from(&self, c: &ConceptRef, kind: ConceptRef) -> BTreeSet<ConceptRef> {
         self.closure.reachable_from(c, kind)
     }
@@ -480,7 +678,8 @@ impl RuntimeOntology {
     /// Subsumption closure. Returns the witnessing [`Verdict`] (never a bool): a
     /// [`Proof`](pr4xis::logic::proof::Proof) carrying the relation when it
     /// holds, a [`Counterexample`](pr4xis::logic::proof::Counterexample) when it
-    /// does not. The decision is a closure-membership lookup, not a traversal.
+    /// does not. The decision is a membership test in `child`'s (memoized)
+    /// Subsumption image.
     pub fn is_a(&self, child: &ConceptRef, ancestor: &ConceptRef) -> Verdict {
         let holds = self.closure.reaches(child, ancestor, subsumption_kind());
         let meta = self.is_a_meta(child, ancestor);
@@ -535,8 +734,9 @@ impl RuntimeOntology {
 ///    — a dangling target returns a typed [`MaterializeError::DanglingEdge`]
 ///    with a [`DanglingEdge`] counterexample naming the orphan, never a silent
 ///    bool. (Self-edges to the node's own name are trivially closed.)
-/// 4. Re-fold the materialized closure from the generating edges (the free-
-///    functor image; never a stored closure).
+/// 4. Capture the generating adjacency (the free-functor image, kept as its
+///    generators; reachability is evaluated lazily at query time, never a stored
+///    closure).
 ///
 /// ## Honestly deferred — connection-law verification
 ///
@@ -600,10 +800,12 @@ pub fn materialize(
         }
     }
 
-    // 4. Re-fold the closure from the generators — the free-functor image — over
-    // the loaded transitive-kind set, read from the Relations vocabulary cache
-    // ([`declared_transitive_kinds`]); the `ontology!` macro reads its own copy of
-    // the SAME cache, so the compile-time and runtime closures fold identical kinds.
+    // 4. Capture the generating adjacency per kind — the free-functor image kept
+    // as its generators — over the loaded transitive-kind set, read from the
+    // Relations vocabulary cache ([`declared_transitive_kinds`]); the `ontology!`
+    // macro reads its own copy of the SAME cache, so the compile-time and runtime
+    // reachability range over identical kinds. Reachability is then evaluated
+    // lazily per queried vertex (see [`MaterializedClosure`]).
     let closure = MaterializedClosure::fold(&edges, &declared_transitive_kinds());
 
     Ok(RuntimeOntology {
@@ -791,8 +993,8 @@ mod tests {
         let onto = org();
         let employer = onto.concept("Employer");
         let agent = onto.concept("Agent");
-        // Relational image over the materialized closure — Employer ⊑ Person ⊑
-        // Agent collapses to Employer → Agent. O(1) lookup, no traversal.
+        // Reachability image over the generators — Employer ⊑ Person ⊑ Agent
+        // collapses to Employer → Agent (a bounded, memoized BFS, O(1) once cached).
         let descendants = onto.reachable_from(&employer, subsumption_kind());
         assert!(
             descendants.contains(&agent),
@@ -963,9 +1165,10 @@ mod tests {
 
     #[test]
     fn closure_refold_is_idempotent_on_a_prefolded_input() {
-        // emit() already emits the materialized closure as edges; re-folding it
-        // must yield the same closure (closure of a closure = closure) — the
-        // re-fold never trusts, and is correct regardless of, the stored form.
+        // emit() already emits the closure's transitive edges as generators;
+        // capturing them again as adjacency and querying must yield the same
+        // reachable set (closure of a closure = closure) — the BFS is correct
+        // regardless of whether the stored edges are already transitively closed.
         let onto = org();
         let employer = onto.concept("Employer");
         let direct_then_closed = onto.reachable_from(&employer, subsumption_kind());
@@ -983,6 +1186,108 @@ mod tests {
         assert_eq!(
             refolded.reachable_from(&employer, subsumption_kind()),
             direct_then_closed
+        );
+    }
+
+    /// A concept reference in a throwaway test ontology `T`.
+    fn tref(name: &str) -> ConceptRef {
+        ConceptRef::new(OntologyName::new_static("T"), name)
+    }
+
+    /// One Subsumption edge `source → target`.
+    fn sub_edge(source: &ConceptRef, target: &ConceptRef) -> RuntimeEdge {
+        RuntimeEdge {
+            kind: subsumption_kind(),
+            source: source.clone(),
+            target: target.clone(),
+        }
+    }
+
+    #[test]
+    fn union_merges_generators_and_recomputes_across_the_seam() {
+        // The N-ontology composite hook (no production caller yet). Two closures
+        // whose generators only compose ACROSS the merge seam: A → B and B → C.
+        // Neither alone reaches A ⇝ C; the union must.
+        let kind = subsumption_kind();
+        let mut transitive = BTreeSet::new();
+        transitive.insert(kind.clone());
+        let (a, b, cc) = (tref("A"), tref("B"), tref("C"));
+
+        let mut left = MaterializedClosure::fold(&[sub_edge(&a, &b)], &transitive);
+        let right = MaterializedClosure::fold(&[sub_edge(&b, &cc)], &transitive);
+
+        // Warm `left`'s memo for A BEFORE the union, so we exercise the memo
+        // invalidation: pre-union, A reaches only B.
+        assert!(left.reaches(&a, &b, kind.clone()));
+        assert!(!left.reaches(&a, &cc, kind.clone()));
+
+        left.union(&right);
+
+        // Post-union the merged generators saturate across the seam: A ⇝ B ⇝ C.
+        // (A stale memo — not invalidated by `union` — would still answer "A
+        // reaches only B" here, so this pins the invalidation.)
+        assert!(
+            left.reaches(&a, &cc, kind.clone()),
+            "union must merge generators so A transitively reaches C"
+        );
+        let img = left.image(&a, &kind);
+        // Shortest-path grading survives the merge: A → B one hop, A → C two.
+        assert_eq!(img.iter().find(|(v, _)| v == &b).map(|(_, d)| *d), Some(1));
+        assert_eq!(img.iter().find(|(v, _)| v == &cc).map(|(_, d)| *d), Some(2));
+    }
+
+    #[test]
+    fn lazy_matches_eager_on_a_diamond_and_a_cycle() {
+        // The two cases the synthetic memory probe never exercises — a
+        // multi-parent diamond and a directed cycle — pinned against the eager
+        // Floyd–Warshall engine directly, so lazy/eager equivalence is proven
+        // exactly where a hand-rolled BFS is most likely to diverge.
+        use pr4xis::category::quiver::ReachabilityClosure;
+        let kind = subsumption_kind();
+        let mut transitive = BTreeSet::new();
+        transitive.insert(kind.clone());
+
+        let (a, b, cc, d, x, y, z) = (
+            tref("A"),
+            tref("B"),
+            tref("C"),
+            tref("D"),
+            tref("X"),
+            tref("Y"),
+            tref("Z"),
+        );
+        // Diamond: D → B, D → C, B → A, C → A (A reachable two ways, distance 2).
+        // Cycle: X → Y → Z → X (must terminate via the `seen` guard).
+        let raw = [
+            (d.clone(), b.clone()),
+            (d.clone(), cc.clone()),
+            (b.clone(), a.clone()),
+            (cc.clone(), a.clone()),
+            (x.clone(), y.clone()),
+            (y.clone(), z.clone()),
+            (z.clone(), x.clone()),
+        ];
+        let edges: Vec<RuntimeEdge> = raw.iter().map(|(s, t)| sub_edge(s, t)).collect();
+
+        let lazy = MaterializedClosure::fold(&edges, &transitive);
+        let eager = ReachabilityClosure::fold(raw.iter().cloned());
+
+        // Every vertex's strict image — set AND shortest-path distance — matches
+        // the eager engine's.
+        for v in [&a, &b, &cc, &d, &x, &y, &z] {
+            let lazy_img: BTreeMap<ConceptRef, u32> = lazy.image(v, &kind).into_iter().collect();
+            let eager_img: BTreeMap<ConceptRef, u32> = eager.strict_image(v).into_iter().collect();
+            assert_eq!(lazy_img, eager_img, "lazy/eager images diverge at {v:?}");
+        }
+
+        // The diamond's shared descendant A is reached from D at distance 2 (via
+        // either parent), and the cycle walk terminated (no divergence above).
+        assert_eq!(
+            lazy.image(&d, &kind)
+                .into_iter()
+                .find(|(v, _)| v == &a)
+                .map(|(_, hops)| hops),
+            Some(2)
         );
     }
 }

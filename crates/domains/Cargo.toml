@@ -248,6 +248,14 @@ required-features = ["prx"]
 name = "emit_prx"
 required-features = ["fetch", "codegen"]
 
+# Resident-memory gate: measures VmRSS/VmHWM at each stage of building the
+# reasoning substrate (synthetic English-scale taxonomy → materialize →
+# queries → embedded English → ComposedReasoner). The committed, re-derivable
+# "measured gate" for the runtime's footprint (the eager→lazy closure change).
+[[example]]
+name = "resident_memory"
+required-features = ["prx"]
+
 # The ALL-SOURCES SOURCE round-trip (issue #15, STAGE 1): for every registered
 # OWL/USC/WordNet source on disk, `hash(decompile(compile(source))) ==
 # hash(source)`, plus the completeness-meter declared-vs-achieved cross-check.
