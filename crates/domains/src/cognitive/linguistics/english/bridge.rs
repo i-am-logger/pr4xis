@@ -156,7 +156,7 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
     let mut archive = project_archive(english);
     archive
         .nodes
-        .extend(english.word_index.keys().map(|word| form_atom(word)));
+        .extend(english.word_index.words().map(form_atom));
     archive
 }
 

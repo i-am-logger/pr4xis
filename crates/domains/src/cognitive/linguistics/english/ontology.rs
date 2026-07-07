@@ -7,6 +7,7 @@ use pr4xis::category::quiver::ReachabilityClosure;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
+use crate::cognitive::linguistics::english::word_index::WordIndex;
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
 use crate::cognitive::linguistics::morphology::MorphologicalRule;
@@ -52,8 +53,11 @@ pub struct English {
     // === WordNet concept data ===
     /// All concepts (synsets) indexed by ConceptId.
     pub concepts: Vec<Concept>,
-    /// Word text → concept IDs (one word can mean multiple things).
-    pub word_index: HashMap<String, Vec<ConceptId>>,
+    /// Word text → concept IDs (one word can mean multiple things). Held as a
+    /// compact, zero-copy [`WordIndex`] — under `prx` a single packed archive
+    /// (the largest single reclaim of the loaded reasoner's footprint), an owned
+    /// map otherwise. See [`word_index`](super::word_index).
+    pub word_index: WordIndex,
     /// Pre-computed taxonomy: parent → children.
     taxonomy_children: HashMap<ConceptId, Vec<ConceptId>>,
     /// Pre-computed taxonomy: child → parents.
@@ -387,7 +391,9 @@ impl English {
         let hypernym_closure = Self::fold_hypernym_closure(&taxonomy_parents);
         Self {
             concepts,
-            word_index,
+            // Transcode the owned build into the compact index ONCE; the source
+            // map is consumed and freed, only the packed form survives.
+            word_index: WordIndex::build(word_index),
             taxonomy_children,
             taxonomy_parents,
             hypernym_closure,
@@ -751,7 +757,9 @@ impl English {
 
         English {
             concepts,
-            word_index,
+            // Transcode the owned build into the compact index ONCE; the source
+            // map is consumed and freed, only the packed form survives.
+            word_index: WordIndex::build(word_index),
             taxonomy_children,
             taxonomy_parents,
             hypernym_closure,
@@ -772,10 +780,7 @@ impl English {
 
     /// Look up a word → all concepts (meanings) it can express.
     pub fn lookup(&self, word: &str) -> &[ConceptId] {
-        self.word_index
-            .get(word)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.word_index.lookup(word)
     }
 
     /// Get a concept by its ConceptId.
@@ -924,6 +929,43 @@ impl English {
 /// [cd]: crate::social::software::markup::xml::lmf::prx::english_compact_prx_cache_dir
 /// [usc]: crate::social::software::markup::xml::uslm::corpus::loaded
 pub fn english_load_owned() -> English {
+    let english = english_load_owned_inner();
+    // Return the freed load transient to the OS. Building `English` materializes
+    // a large, short-lived word→concept map that is transcoded into the packed
+    // `WordIndex` buffer and dropped (§`word_index`); glibc keeps those freed
+    // small allocations in its arena rather than returning the pages, which would
+    // otherwise mask the buffer's reclaim in RSS. This one-shot page-return makes
+    // the reclaim resident. It is an OS-accounting call, not a correctness device
+    // — the live-heap reduction holds on every platform; this is a no-op off
+    // glibc.
+    return_freed_pages();
+    english
+}
+
+/// Return freed pages held in the glibc arena back to the OS (`malloc_trim`).
+/// glibc-only; a no-op on every other target (musl, wasm32, non-Linux), where
+/// the packed-buffer live-heap reduction still holds — this only affects when the
+/// freed load transient stops counting toward RSS.
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+fn return_freed_pages() {
+    // SAFETY: `malloc_trim` is a glibc libc entry point with no preconditions; it
+    // returns freed top-of-arena pages and reports whether any were released.
+    unsafe {
+        unsafe extern "C" {
+            fn malloc_trim(pad: usize) -> core::ffi::c_int;
+        }
+        let _ = malloc_trim(0);
+    }
+}
+
+/// No-op page-return on non-glibc targets (see the glibc variant).
+#[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+fn return_freed_pages() {}
+
+/// The load body — reads the compact `.prx` fast path, else parses the WN-LMF
+/// XML. Wrapped by [`english_load_owned`], which returns the freed load transient
+/// to the OS afterwards.
+fn english_load_owned_inner() -> English {
     use crate::applied::data_provisioning::registry::data_sources;
     use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
     use crate::social::software::markup::xml::lmf::reader::read_wordnet;
@@ -1086,7 +1128,7 @@ impl crate::cognitive::linguistics::language::Language for English {
 
     fn known_words(&self) -> Vec<&str> {
         let mut words: Vec<&str> = self.function_word_list.iter().map(|s| s.as_str()).collect();
-        words.extend(self.word_index.keys().map(|s| s.as_str()));
+        words.extend(self.word_index.words());
         words
     }
 

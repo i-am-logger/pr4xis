@@ -1,4 +1,5 @@
 pub mod ontology;
+pub mod word_index;
 
 /// The WordNet → `.prx` runtime bridge — projects the loaded [`English`] struct
 /// into a content-addressed [`Archive`](pr4xis_runtime::archive::Archive) and
