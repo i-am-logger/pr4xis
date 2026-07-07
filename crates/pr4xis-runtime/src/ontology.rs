@@ -89,7 +89,8 @@ use crate::codec::CodecError;
 use crate::connection::GeneratorAction;
 use crate::definition::EdgeTarget;
 use crate::lens::archive_lens::{
-    ArchiveLens, ArchiveLensError, ArchivedArchiveView, archived_grounded, archived_local_name,
+    ArchiveLens, ArchiveLensError, ArchivedArchiveView, ArchivedDefinitionView, archived_grounded,
+    archived_local_name,
 };
 
 use rkyv::util::AlignedVec;
@@ -616,6 +617,12 @@ impl core::fmt::Display for MaterializeError {
 
 impl std::error::Error for MaterializeError {}
 
+/// Node name → the archive-node indices carrying that name — the by-name lookup
+/// index built once at materialize (see [`RuntimeOntology::node_index`]). A `Vec`
+/// of indices, not one, so the lookup reproduces the all-matches behaviour of the
+/// former full scan even when the archive admits duplicate-named nodes.
+type NodeIndex = BTreeMap<String, Vec<usize>>;
+
 /// One loaded `.prx` as a single typed, queryable ontology.
 ///
 /// Identity is the content address: two `RuntimeOntology`s are equal iff their
@@ -644,6 +651,17 @@ pub struct RuntimeOntology {
     /// [`archive`](Self::archive).
     buf: AlignedVec<16>,
     closure: MaterializedClosure,
+    /// Node name → the indices of the archive nodes carrying that name, built
+    /// ONCE at materialize so a by-name node lookup is an O(log N) map hit rather
+    /// than the former O(N) scan of every node (17,713 for a loaded USC title).
+    /// It maps a name to a *list* of indices — not a single index — to preserve
+    /// the exact all-matches semantics of the scan it replaces: the archive layer
+    /// admits duplicate-named nodes (they collapse only in the Merkle root), so a
+    /// name may address several nodes, visited here in archive order. Indices are
+    /// into [`archive`](Self::archive)`().nodes`, whose order `rkyv` preserves
+    /// verbatim from the owned [`Archive`]. Derived, not identity: like `buf` it
+    /// is re-derivable from the archive and takes no part in `PartialEq`.
+    node_index: NodeIndex,
 }
 
 impl core::fmt::Debug for RuntimeOntology {
@@ -706,14 +724,31 @@ impl RuntimeOntology {
 
     // --- query surface (lazily-computed reachability over the generators) ---
 
+    /// The archive nodes named `name`, in archive order — the O(log N) by-name
+    /// node lookup every by-name query surface shares ([`morphisms_from`](Self::morphisms_from),
+    /// [`grounded_edges_from`](Self::grounded_edges_from), [`lexical`](Self::lexical)),
+    /// replacing their former `nodes.iter().filter(|n| n.name == …)` full scan.
+    /// It yields EVERY node carrying the name (the archive layer admits duplicates),
+    /// so a `filter` caller iterates all and a `find` caller takes the first — the
+    /// same nodes, in the same order, the scan visited. Empty when the name is
+    /// absent.
+    fn nodes_named<'s>(
+        &'s self,
+        name: &str,
+    ) -> impl Iterator<Item = &'s ArchivedDefinitionView> + 's {
+        let view = self.archive();
+        self.node_index
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(move |&i| &view.nodes[i])
+    }
+
     /// Every outgoing GENERATING edge from `c` — the morphisms departing this
     /// concept, as typed [`RuntimeEdge`]s. (Generating edges, not the closure;
     /// the closure is served by [`reachable_from`](Self::reachable_from).)
     pub fn morphisms_from(&self, c: &ConceptRef) -> Vec<RuntimeEdge> {
-        self.archive()
-            .nodes
-            .iter()
-            .filter(|n| n.name == c.name.as_str())
+        self.nodes_named(c.name.as_str())
             .flat_map(|n| {
                 n.edges.iter().filter_map(move |edge| {
                     // Archived edges are `ArchivedTuple2(kind_name, target)`.
@@ -746,10 +781,7 @@ impl RuntimeOntology {
     /// reads it here, resolves the atom to the peer concept, and CONTINUES its
     /// reachability query inside the peer ontology's closure.
     pub fn grounded_edges_from(&self, c: &ConceptRef) -> Vec<GroundedEdge> {
-        self.archive()
-            .nodes
-            .iter()
-            .filter(|n| n.name == c.name.as_str())
+        self.nodes_named(c.name.as_str())
             .flat_map(|n| {
                 n.edges.iter().filter_map(move |edge| {
                     let (kind_name, target) = (&edge.0, &edge.1);
@@ -803,10 +835,8 @@ impl RuntimeOntology {
     /// if the declaring [`Definition`](crate::definition::Definition) carries
     /// one.
     pub fn lexical(&self, c: &ConceptRef) -> Option<&str> {
-        self.archive()
-            .nodes
-            .iter()
-            .find(|n| n.name == c.name.as_str())
+        self.nodes_named(c.name.as_str())
+            .next()
             .and_then(|n| n.lexical.as_deref())
     }
 
@@ -867,9 +897,9 @@ pub fn materialize(
     id: OntologyName,
 ) -> Result<RuntimeOntology, MaterializeError> {
     // Derive the content root + verify referential closure + capture the
-    // generating adjacency over the OWNED archive (the root needs `Definition`
-    // addressing, which the archived view does not carry).
-    let (root, closure) = analyze(&archive, &id)?;
+    // generating adjacency AND the name→node index over the OWNED archive (the
+    // root needs `Definition` addressing, which the archived view does not carry).
+    let (root, closure, node_index) = analyze(&archive, &id)?;
 
     // Transcode the owned archive into its 16-aligned `rkyv` cache bytes (the
     // ArchiveLens PUT), then drop the owned archive — the buffer is the retained
@@ -883,6 +913,7 @@ pub fn materialize(
         root,
         buf,
         closure,
+        node_index,
     })
 }
 
@@ -902,14 +933,16 @@ pub fn materialize_bytes(
 ) -> Result<RuntimeOntology, MaterializeError> {
     // Validate the incoming buffer before it is ever `access_unchecked`-ed.
     ArchiveLens::access(buf.as_slice()).map_err(MaterializeError::Archive)?;
-    // Owning decode only to derive root + referential closure + generators.
+    // Owning decode only to derive root + referential closure + generators +
+    // the name→node index.
     let archive = ArchiveLens::get(buf.as_slice()).map_err(MaterializeError::Archive)?;
-    let (root, closure) = analyze(&archive, &id)?;
+    let (root, closure, node_index) = analyze(&archive, &id)?;
     Ok(RuntimeOntology {
         id,
         root,
         buf,
         closure,
+        node_index,
     })
 }
 
@@ -926,20 +959,28 @@ pub fn materialize_bytes(
 ///    by the ContainsAtom step), not validated here.
 /// 4. Capture the generating adjacency (the free-functor image kept as its
 ///    generators; reachability is evaluated lazily at query time).
+/// 5. Capture the name→node index (name → the archive-node indices carrying it),
+///    so a by-name query is an O(log N) map hit, not an O(N) scan.
 fn analyze(
     archive: &Archive,
     id: &OntologyName,
-) -> Result<(ContentAddress, MaterializedClosure), MaterializeError> {
+) -> Result<(ContentAddress, MaterializedClosure, NodeIndex), MaterializeError> {
     // 1. Capture the content-address identity up front.
     let root = archive.root().map_err(MaterializeError::Root)?;
 
     // The declared node names — the referential universe.
     let declared: BTreeSet<&str> = archive.nodes.iter().map(|n| n.name.as_str()).collect();
 
-    // 2 + 3. Build the generating edges over ConceptRef, validating that every
-    // endpoint is a declared node (referential closure) as we go.
+    // 2 + 3 + 5. Build the generating edges over ConceptRef (validating that every
+    // endpoint is a declared node — referential closure — as we go) AND, in the
+    // same pass, the name→node index every by-name query surface reads. The index
+    // maps to a `Vec` of indices, not one, so it reproduces the all-matches
+    // behaviour of the scan it replaces byte-for-byte (a duplicate-named node is
+    // admitted by the archive layer and must still be visited).
     let mut edges: Vec<RuntimeEdge> = Vec::new();
-    for node in &archive.nodes {
+    let mut node_index = NodeIndex::new();
+    for (i, node) in archive.nodes.iter().enumerate() {
+        node_index.entry(node.name.clone()).or_default().push(i);
         for (kind_name, target) in &node.edges {
             let local = match target {
                 // A LOCAL target must name a declared node — referential closure.
@@ -981,7 +1022,7 @@ fn analyze(
     // lazily per queried vertex (see [`MaterializedClosure`]).
     let closure = MaterializedClosure::fold(&edges, &declared_transitive_kinds());
 
-    Ok((root, closure))
+    Ok((root, closure, node_index))
 }
 
 /// The project-less core of every envelope loader: interpret a *raw* source
