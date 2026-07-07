@@ -14,6 +14,7 @@ use pr4xis_domains::formal::information::knowledge::{
     source_catalog,
 };
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
+use pr4xis_domains::formal::meta::grounding::{ground_declared, ground_loaded_set};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
 use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
 use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
@@ -183,6 +184,9 @@ enum LoadPrxError {
     /// The admitted archive could not be materialized (e.g. a dangling edge —
     /// referential closure violated).
     Materialize(pr4xis_runtime::ontology::MaterializeError),
+    /// The archive declares a cross-ontology grounding functor whose target
+    /// ontology is not loaded — fail-closed, never a silent empty grounding.
+    Grounding(pr4xis_runtime::grounding::LinkError),
 }
 
 impl core::fmt::Display for LoadPrxError {
@@ -196,6 +200,7 @@ impl core::fmt::Display for LoadPrxError {
             }
             LoadPrxError::Refused(e) => write!(f, ".prx load refused: {e}"),
             LoadPrxError::Materialize(e) => write!(f, ".prx materialize failed: {e}"),
+            LoadPrxError::Grounding(e) => write!(f, ".prx grounding failed: {e}"),
         }
     }
 }
@@ -681,6 +686,14 @@ impl Pr4xis {
         self.history.push(event);
 
         self.runtime_ontologies.push(Rc::new(onto));
+        // GROUNDING PASS: mint every loaded ontology's declared cross-ontology type
+        // edges against the current loaded set (re-ground-on-peer-arrival). This is
+        // the general grounding step — a USC title grounds into `LegalSources`, any
+        // instance-functor `.prx` grounds into its target — driven entirely by the
+        // functor each carries as data, order-independent (a source grounds whether
+        // its base loaded before or after it). Idempotent: an ontology already
+        // carrying its grounding edges is not re-materialized.
+        ground_loaded_set(&mut self.runtime_ontologies);
         // The reasoner BORROWS the single embedded English (no owned rebuild) and
         // reasons over the SAME loaded ontologies — `clone()` on a `Vec<Rc<_>>`
         // bumps refcounts, it does NOT deep-copy the archives/closures.
@@ -688,6 +701,21 @@ impl Pr4xis {
             english_static(),
             self.runtime_ontologies.clone(),
         ));
+    }
+
+    /// The owned archives of the currently-loaded ontologies, by name — the peer
+    /// set the fail-closed [`ground_declared`] step resolves a newly-loaded
+    /// archive's grounding functors against.
+    fn peer_archives(
+        &self,
+    ) -> std::collections::BTreeMap<String, pr4xis_runtime::archive::Archive> {
+        let mut peers = std::collections::BTreeMap::new();
+        for o in &self.runtime_ontologies {
+            if let Ok(archive) = o.to_owned_archive() {
+                peers.insert(o.id().as_str().to_string(), archive);
+            }
+        }
+        peers
     }
 
     /// The plain-Rust core of [`Self::load_ontology_prx`] — fail-closed load +
@@ -706,9 +734,16 @@ impl Pr4xis {
         // Fail-closed: decode + re-derive the root + refuse on mismatch.
         let archive =
             pr4xis_runtime::load::load(bytes, trusted_root).map_err(LoadPrxError::Refused)?;
-        // Materialize the admitted open form into one live, queryable ontology.
+        // GROUND fail-closed: mint the archive's declared cross-ontology type edges
+        // against the loaded peers. A `.prx` declaring a grounding functor whose
+        // target ontology is not loaded is REFUSED with a typed MissingPeerArchive
+        // — never installed with a silent empty grounding. (Under the base-first
+        // contract the targets — LegalSources, English — are always present.)
+        let peers = self.peer_archives();
+        let grounded = ground_declared(&archive, &peers).map_err(LoadPrxError::Grounding)?;
+        // Materialize the admitted, grounded open form into one live ontology.
         let onto =
-            materialize(archive, OntologyName::new(name)).map_err(LoadPrxError::Materialize)?;
+            materialize(grounded, OntologyName::new(name)).map_err(LoadPrxError::Materialize)?;
         self.install_runtime_ontology(onto);
         Ok(())
     }

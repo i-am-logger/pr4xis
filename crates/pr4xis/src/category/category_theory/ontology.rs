@@ -354,6 +354,59 @@ impl Ontology for CategoryTheoryOntology {
     }
 }
 
+/// META-ONTOLOGY DISCRIMINATOR — does a connection's `kind` name a GROUNDING
+/// (instance) functor: is it [`InstanceFunctor`](CategoryTheoryConcept::InstanceFunctor)
+/// or a refinement subsumed by it?
+///
+/// Spivak (2012) *Functorial Data Migration* §3: an instance functor `I: S → Set`
+/// interprets each schema object as its SET of instances — exactly the
+/// "this typed node IS an instance of that concept" grounding a `.prx` carries as
+/// DATA. A loader uses this to decide, PER CONNECTION, whether that connection is
+/// a cross-ontology grounding functor to mint type edges from, or a plain schema
+/// relabel to leave to the runtime `apply` step.
+///
+/// It is a genuine reflexive-transitive reachability query over THIS
+/// meta-ontology's `Subsumption` edges (`kind ⊑* InstanceFunctor`), never a
+/// `kind == "InstanceFunctor"` string match and never a `source != target` test.
+/// A `FullyFaithful` schema-relabel functor (the USC/OWL `apply` relabels) has
+/// `source != target` yet is a bare [`Functor`](CategoryTheoryConcept::Functor)
+/// that does NOT reach `InstanceFunctor`, so it is correctly excluded — it is an
+/// `apply`-relabel, not a grounding. Symmetrically a broad
+/// [`Interpretation`](CategoryTheoryConcept::Interpretation) is a SUPERtype of
+/// `InstanceFunctor`, so it does not reach it either (wrong direction) — only the
+/// instance-grounding refinement qualifies.
+pub fn is_grounding_functor_kind(kind: &str) -> bool {
+    use crate::category::{Arrow, Category, Concept, FinitelyGenerated};
+    let Some(start) = CategoryTheoryConcept::variants()
+        .into_iter()
+        .find(|c| c.name() == kind)
+    else {
+        // A kind that is not even a category-theory concept cannot be a grounding
+        // functor (fail-closed — never treat an unknown kind as grounding).
+        return false;
+    };
+    let goal = CategoryTheoryConcept::InstanceFunctor;
+    // Reflexive-transitive Subsumption reachability: does `start` reach `goal`
+    // following child ⊑ parent edges (source ⊑ target)?
+    let mut frontier = alloc::vec![start];
+    let mut seen: alloc::vec::Vec<CategoryTheoryConcept> = alloc::vec::Vec::new();
+    while let Some(c) = frontier.pop() {
+        if c == goal {
+            return true;
+        }
+        if seen.contains(&c) {
+            continue;
+        }
+        seen.push(c);
+        for m in CategoryTheoryCategory::morphisms() {
+            if m.kind() == CategoryTheoryRelationKind::Subsumption && m.source() == c {
+                frontier.push(m.target());
+            }
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -500,6 +553,28 @@ mod tests {
             CategoryTheoryConcept::Syntactic,
             CategoryTheoryConcept::Semantic
         )));
+    }
+
+    #[test]
+    fn is_grounding_functor_kind_discriminates_instance_from_relabel() {
+        // Spivak (2012) FDM §3: only an InstanceFunctor (or a refinement below it)
+        // is a grounding functor. The discriminator is a reachability query, so:
+        // - InstanceFunctor itself qualifies (reflexive),
+        assert!(is_grounding_functor_kind("InstanceFunctor"));
+        // - `FullyFaithful` (the kind the USC/OWL `apply` relabels actually carry)
+        //   is not a registered concept, so it is excluded by the fail-closed
+        //   unknown-kind branch — a schema-relabel is never grounded,
+        assert!(!is_grounding_functor_kind("FullyFaithful"));
+        // - and the REACHABILITY exclusion proper: `Functor` IS a registered
+        //   concept but is a PARENT of InstanceFunctor, so it does not reach it
+        //   (this, not `source != target`, is the discriminating test),
+        assert!(!is_grounding_functor_kind("Functor"));
+        // - a broad Interpretation is a SUPERtype of InstanceFunctor, so it does
+        //   not reach it (wrong direction) — only the instance refinement grounds,
+        assert!(!is_grounding_functor_kind("Interpretation"));
+        // - and a kind that is not even a category-theory concept is fail-closed.
+        assert!(!is_grounding_functor_kind("TypeGrounding"));
+        assert!(!is_grounding_functor_kind("NotAConcept"));
     }
 
     #[test]

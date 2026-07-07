@@ -57,6 +57,60 @@ pub fn ground(
     }
 }
 
+/// The TYPE grounding LENS — the general, source-agnostic producer of typed
+/// cross-ontology `instantiates` edges, over ANY target ontology.
+///
+/// It is the PRODUCE side of an instance-grounding FUNCTOR carried as `.prx`
+/// DATA (a [`Connection`](crate::connection::Connection) whose kind reaches
+/// `InstanceFunctor` in the meta-ontology). `type_map` is the functor's
+/// `map_object` (a source node KIND → the target concept NAME it instantiates —
+/// `Section ↦ Statute`, `Pet ↦ Dog`), `relation` is the functor's `map_morphism`
+/// image (the reachability kind the instantiation edge asserts, e.g.
+/// `Subsumption`), `target_ontology` is the connected ontology the edges address
+/// (`LegalSources`, `taxonomy`, …), and `peer` is that ontology's LOADED archive
+/// — the atoms are its nodes' content addresses, so the generic
+/// [`AtomResolver`] binds them by agreement.
+///
+/// For each node whose kind is a key in `type_map`, it emits one
+/// `(relation, `[`EdgeTarget::Grounded`]`)` edge into the target concept's
+/// `Definition` atom BY CONTENT ADDRESS. A node whose kind is not in `type_map`,
+/// or a mapped concept name absent from the peer, is left UNGROUNDED (no edge) —
+/// the floor asserts only a typing whose target atom actually exists. There is no
+/// `match node.kind` hardcode and no target-ontology name baked in: both are the
+/// loaded functor's DATA and the loaded peer's archive.
+///
+/// Spivak (2012) *Functorial Data Migration* — an instance is a functor into the
+/// schema; a typed node's grounding IS that functor, carried as data and produced
+/// here.
+pub fn type_lens<'a>(
+    type_map: &'a [(String, String)],
+    relation: &'a str,
+    target_ontology: &'a str,
+    peer: &'a Archive,
+) -> impl Fn(&Definition) -> Vec<(String, EdgeTarget)> + 'a {
+    move |node| {
+        type_map
+            .iter()
+            .find(|(source_kind, _)| source_kind.as_str() == node.kind.as_str())
+            .and_then(|(_, concept)| {
+                let atom = peer
+                    .nodes
+                    .iter()
+                    .find(|n| n.name.as_str() == concept.as_str())?
+                    .address()
+                    .ok()?;
+                Some(vec![(
+                    relation.to_string(),
+                    EdgeTarget::Grounded {
+                        ontology: target_ontology.to_string(),
+                        atom,
+                    },
+                )])
+            })
+            .unwrap_or_default()
+    }
+}
+
 /// One declared connection: a connected ontology, the `root` its lock pins, and
 /// the `role` the grounding edges into it carry (the kind — `denotes` for the
 /// lexical floor; carried here so the floor spends no per-edge kind tag).

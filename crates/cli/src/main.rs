@@ -996,10 +996,13 @@ fn run_chat(load_specs: &[String]) {
     // ONE reasoner over English + the whole loaded set. It BORROWS the one shared
     // English the tokenizer also uses (`reasoner.english()`, the wasm pattern), so
     // English is resident once; the loaded ontologies are shared as `Rc` handles.
-    let reasoner = ComposedReasoner::new(
-        chat_english_static(),
-        loaded.into_iter().map(std::rc::Rc::new).collect(),
-    );
+    let mut loaded_rc: Vec<std::rc::Rc<_>> = loaded.into_iter().map(std::rc::Rc::new).collect();
+    // GROUNDING PASS: mint every loaded ontology's declared cross-ontology type
+    // edges (a USC title into `LegalSources`, any instance-functor `.prx` into its
+    // target) against the loaded set — the general grounding step, driven by the
+    // functor each carries as data. Order-independent and idempotent.
+    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut loaded_rc);
+    let reasoner = ComposedReasoner::new(chat_english_static(), loaded_rc);
     let language: &English = reasoner.english();
 
     println!("pr4xis — axiomatic intelligence");

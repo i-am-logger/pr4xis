@@ -13,6 +13,7 @@ pub mod citation_quality;
 pub mod constitution_coverage;
 pub mod dtd;
 pub mod gap_analysis;
+pub mod grounding;
 pub mod identifier_format;
 pub mod lens_composition;
 pub mod omv;
