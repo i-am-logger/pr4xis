@@ -50,6 +50,7 @@ use hashbrown::HashMap;
 
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::definition::CANONICAL_FORM_REL;
+use pr4xis_runtime::lens::archive_lens::archived_local_name;
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
@@ -196,14 +197,14 @@ impl ComposedReasoner {
                 .map(|n| n.name.as_str())
                 .collect();
 
-            for node in &onto.archive().nodes {
+            for node in onto.archive().nodes.iter() {
                 // A Form atom is a SURFACE, not a concept — it gets no synthesized
                 // Concept and no id; it is indexed (below) as a surface of the
                 // concept that denotes it.
                 if node.kind == FORM_KIND {
                     continue;
                 }
-                let cref = ConceptRef::new(onto.id().clone(), node.name.clone());
+                let cref = ConceptRef::new(onto.id().clone(), node.name.to_string());
                 let id = ConceptId::new(base + loaded_refs.len() as u64);
 
                 // The Lemon functor F: surface form → ConceptRef. The node's OWN
@@ -211,7 +212,11 @@ impl ComposedReasoner {
                 // name IS a natural word; the URN/IRI case is covered by its Form
                 // atoms below, so this stays until every producer mints Forms).
                 let surface = node.name.to_lowercase();
-                lexicon.add_entry(surface.clone(), ontology_name.clone(), node.name.clone());
+                lexicon.add_entry(
+                    surface.clone(),
+                    ontology_name.clone(),
+                    node.name.to_string(),
+                );
 
                 // Union into the lookup surface (disjoint id appended), keyed by
                 // the surface's interned handle rather than a copied String.
@@ -220,15 +225,16 @@ impl ComposedReasoner {
 
                 // Each Form atom this concept denotes (its `writtenRep`) is a
                 // queryable surface of the concept — one *Bedeutung*, many *Sinne*.
-                for (_role, target) in &node.edges {
-                    if let Some(form) = target.local_name()
+                for edge in node.edges.iter() {
+                    // Archived edges are `ArchivedTuple2(role, target)`.
+                    if let Some(form) = archived_local_name(&edge.1)
                         && form_names.contains(form)
                     {
                         let form_surface = form.to_lowercase();
                         lexicon.add_entry(
                             form_surface.clone(),
                             ontology_name.clone(),
-                            node.name.clone(),
+                            node.name.to_string(),
                         );
                         let form_symbol = interner.intern(&form_surface);
                         surface_index.entry(form_symbol).or_default().push(id);
@@ -248,13 +254,14 @@ impl ComposedReasoner {
                 let canonical_lemma = node
                     .edges
                     .iter()
-                    .find(|(role, target)| {
-                        role == CANONICAL_FORM_REL
-                            && target.local_name().is_some_and(|f| form_names.contains(f))
+                    .find(|edge| {
+                        // Archived edges are `ArchivedTuple2(role, target)`.
+                        edge.0 == CANONICAL_FORM_REL
+                            && archived_local_name(&edge.1).is_some_and(|f| form_names.contains(f))
                     })
-                    .and_then(|(_, target)| target.local_name())
+                    .and_then(|edge| archived_local_name(&edge.1))
                     .map(|s| s.to_string())
-                    .unwrap_or_else(|| node.name.clone());
+                    .unwrap_or_else(|| node.name.to_string());
 
                 // The synthesized Concept carries the loaded gloss as its
                 // definition, read straight from the materialized ontology
@@ -263,7 +270,7 @@ impl ComposedReasoner {
                 let gloss = onto.lexical(&cref).map(|g| g.to_string());
                 loaded_concepts.push(Concept {
                     id,
-                    original_id: node.name.clone(),
+                    original_id: node.name.to_string(),
                     pos: LmfPos::Noun,
                     lemmas: alloc::vec![canonical_lemma],
                     definitions: gloss.into_iter().collect(),
@@ -284,8 +291,8 @@ impl ComposedReasoner {
         // clones the vocab `OntologyName`, so hoist it out of the per-edge filter.
         let subsumption = subsumption_kind();
         for onto in &loaded {
-            for node in &onto.archive().nodes {
-                let cref = ConceptRef::new(onto.id().clone(), node.name.clone());
+            for node in onto.archive().nodes.iter() {
+                let cref = ConceptRef::new(onto.id().clone(), node.name.to_string());
                 let Some(&child_id) = loaded_ids.get(&cref) else {
                     continue;
                 };

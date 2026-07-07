@@ -146,7 +146,7 @@ fn the_real_title_projects_a_parthood_mereology() {
     .expect("the USC pipeline materializes");
     let parthood = relations_kind("Parthood");
     let has_transitive_mereology = onto.archive().nodes.iter().any(|n| {
-        let node = onto.concept(n.name.clone());
+        let node = onto.concept(n.name.to_string());
         onto.reachable_from(&node, parthood.clone()).len() > n.edges.len()
     });
     assert!(
