@@ -35,6 +35,7 @@ pub mod ontology;
 pub mod raw_source_prx;
 pub mod registry;
 pub mod registry_prx;
+pub mod source_role;
 
 #[cfg(feature = "fetch")]
 pub mod fetch;

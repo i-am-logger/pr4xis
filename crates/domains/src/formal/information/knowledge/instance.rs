@@ -238,6 +238,10 @@ impl Present for SelfModelInstance {
                 src.set("name", SchemaValue::Text(s.name.clone()));
                 src.set("version", SchemaValue::Text(s.version.clone()));
                 src.set("kind", SchemaValue::Text(s.kind.clone()));
+                // The source's prov:Role (SourceRole concept name). Every
+                // catalog row is ChatKnowledge (the knowledge-boundary
+                // filter); carried so the UI can name the role explicitly.
+                src.set("role", SchemaValue::Text(s.role.clone()));
                 src.set("source", SchemaValue::Text(s.citation.clone()));
                 // Wire field name mirrors the Rust ontology
                 // (`SourceAvailability` per
@@ -481,6 +485,7 @@ mod wire_surface {
                 name: "biro".into(),
                 version: "1.1.1".into(),
                 kind: "OntologyVocabulary".into(),
+                role: "ChatKnowledge".into(),
                 citation: "BiRO Bibliographic Reference Ontology".into(),
                 availability: SourceAvailability::Loaded,
                 staging: None,
@@ -491,6 +496,7 @@ mod wire_surface {
                 name: "doco".into(),
                 version: "1.3".into(),
                 kind: "OntologyVocabulary".into(),
+                role: "ChatKnowledge".into(),
                 citation: "DoCO Document Components Ontology".into(),
                 availability: SourceAvailability::Available,
                 staging: None,

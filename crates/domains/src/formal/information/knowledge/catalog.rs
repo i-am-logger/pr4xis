@@ -40,6 +40,8 @@ use alloc::vec::Vec;
 use pr4xis::ontology::Staging;
 
 use crate::applied::data_provisioning::registry::data_sources;
+use crate::applied::data_provisioning::source_role::functor::{is_chat_loadable, source_role};
+use crate::applied::data_provisioning::source_role::ontology::{SourceRoleConcept, role_name};
 use crate::formal::meta::source_taxonomy::ontology::concept_name;
 
 pr4xis::ontology! {
@@ -140,6 +142,12 @@ pub struct SourceStatus {
     pub version: String,
     /// Semantic kind, as the registry taxonomy concept's name.
     pub kind: String,
+    /// The source's `prov:Role` (the `SourceRole` concept name) — the
+    /// activity that consumes it. Every catalog row is `ChatKnowledge`
+    /// (that is the filter the catalog applies); the field is carried so
+    /// the self-model surface can name each row's role explicitly rather
+    /// than leaving it implicit.
+    pub role: String,
     /// Provenance line for display (description, falling back to URL).
     pub citation: String,
     pub availability: SourceAvailability,
@@ -150,21 +158,35 @@ pub struct SourceStatus {
     pub morphisms: usize,
 }
 
-/// Build the catalog: every registered source tagged Loaded/Available by
-/// joining [`data_sources`] (the full registry) against the runtime's
-/// reported loaded set (the *monitoring* input), PLUS every loaded ontology that
-/// is NOT a registered source (an embedded or uploaded `.prx`) — by its
-/// OntologyName (doc §3). So the catalog reflects EVERY loaded source, not only
-/// the registry: a load the registry never heard of is still part of the live
-/// knowledge boundary, not dropped silently.
+/// Build the catalog: every **chat-loadable** registered source tagged
+/// Loaded/Available by joining [`data_sources`] (the registry) against the
+/// runtime's reported loaded set (the *monitoring* input), PLUS every loaded
+/// ontology that is NOT a registered source (an embedded or uploaded `.prx`) —
+/// by its OntologyName (doc §3). So the catalog reflects EVERY loaded source,
+/// not only the registry: a load the registry never heard of is still part of
+/// the live knowledge boundary, not dropped silently.
 ///
-/// Generic over source kind — it reasons only about registry identity and
-/// load membership, never about what a particular source *is*.
+/// **The knowledge boundary is the `ChatKnowledge` role, not the whole
+/// registry.** The registry also hash-pins `DecoderInput` sources (schemas,
+/// glyph lists, test suites, the language-engine substrate) and
+/// `NotYetLoadable` sources (PDF legal corpora with no decoder yet). Those are
+/// legitimate managed sources but a chat user can never load them AS
+/// knowledge, so counting them inflated the "N of M" denominator (the review
+/// doc §2.4 bug: 2/47 with an unreachable 47). The catalog filters through
+/// [`is_chat_loadable`] — the ontology query `IsChatLoadable ∘
+/// SourceKindToRole` — so the denominator is the reasoner-reachable set. The
+/// excluded roles stay in the provisioning registry, just not on the
+/// knowledge boundary.
+///
+/// Generic over source kind — it reasons only about registry identity, role
+/// (via the functor), and load membership, never about what a particular
+/// source *is* by name.
 pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
     let registered: BTreeSet<&str> = data_sources().iter().map(|e| e.name.as_str()).collect();
 
     let mut catalog: Vec<SourceStatus> = data_sources()
         .iter()
+        .filter(|entry| is_chat_loadable(entry))
         .map(|entry| {
             let hit = loaded.iter().find(|l| l.name == entry.name);
             let (availability, staging, concepts, morphisms) = match hit {
@@ -180,6 +202,7 @@ pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
                 name: entry.name.clone(),
                 version: entry.version.clone(),
                 kind: concept_name(entry.kind).to_string(),
+                role: role_name(source_role(entry.kind)).to_string(),
                 citation: entry
                     .description
                     .clone()
@@ -201,6 +224,9 @@ pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
                 name: l.name.clone(),
                 version: String::new(),
                 kind: "Loaded ontology".to_string(),
+                // A materialized-and-loaded ontology is, by definition, chat
+                // knowledge — the reasoner already holds it.
+                role: role_name(SourceRoleConcept::ChatKnowledge).to_string(),
                 citation: "Loaded at runtime — content-addressed .prx".to_string(),
                 availability: SourceAvailability::Loaded,
                 staging: Some(l.staging),
@@ -228,12 +254,27 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn catalog_covers_every_registered_source() {
+    fn catalog_covers_every_chat_loadable_source() {
+        // The knowledge boundary is the ChatKnowledge role, not the whole
+        // registry (review doc §2.4). With nothing loaded, the catalog must
+        // enumerate exactly the chat-loadable registered sources — the
+        // reasoner-reachable denominator, NOT all 47 registered sources
+        // (which include DecoderInput schemas/glyph-lists and NotYetLoadable
+        // PDF legal corpora).
         let catalog = source_catalog(&[]);
+        let chat_loadable = data_sources()
+            .iter()
+            .filter(|e| is_chat_loadable(e))
+            .count();
         assert_eq!(
             catalog.len(),
-            data_sources().len(),
-            "catalog must enumerate every registered source"
+            chat_loadable,
+            "catalog must enumerate every chat-loadable source"
+        );
+        // And it is a proper subset — the decoder/pending sources are excluded.
+        assert!(
+            chat_loadable < data_sources().len(),
+            "the registry carries non-chat-loadable sources that must be excluded"
         );
     }
 
@@ -256,10 +297,13 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_reported_source_is_marked_loaded() {
-        // Pick a real registry name to report as loaded.
+        // Pick a real CHAT-LOADABLE registry name to report as loaded — a
+        // DecoderInput/NotYetLoadable source is (correctly) absent from the
+        // catalog, so it could not be found below.
         let some = data_sources()
-            .first()
-            .expect("registry non-empty")
+            .iter()
+            .find(|e| is_chat_loadable(e))
+            .expect("registry has a chat-loadable source")
             .name
             .clone();
         let loaded = [LoadedRef::new(some.clone(), Staging::Embedded, 42, 7)];
