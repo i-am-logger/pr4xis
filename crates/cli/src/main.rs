@@ -1001,7 +1001,10 @@ fn run_chat(load_specs: &[String]) {
     // edges (a USC title into `LegalSources`, any instance-functor `.prx` into its
     // target) against the loaded set — the general grounding step, driven by the
     // functor each carries as data. Order-independent and idempotent.
-    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut loaded_rc);
+    pr4xis_domains::formal::meta::grounding::ground_loaded_set(
+        &mut loaded_rc,
+        chat_english_static(),
+    );
     let reasoner = ComposedReasoner::new(chat_english_static(), loaded_rc);
     let language: &English = reasoner.english();
 

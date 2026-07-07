@@ -23,8 +23,13 @@
 //!    with a notice if the corpus is not on disk (a fresh checkout has no
 //!    WordNet — run `pr4xis update`).
 //! 6. english_runtime_ontology — English AS a `RuntimeOntology` (the closure path
-//!    for the 107,519-concept corpus).
+//!    for the 107,519-concept corpus) — the +183 MiB fat path the W2.2 into-English
+//!    grounding DELIBERATELY avoids.
 //! 7. ComposedReasoner — English composed as one `LexicalReasoner`.
+//! 8. into-English grounding (W2.2) — a menagerie `.prx` grounds a declared type
+//!    INTO `english_wordnet` (control-vs-with delta): English is never a loaded
+//!    ontology, the resident into-English atom index is bounded (one entry per
+//!    grounded target), and the path never runs the stage-6 projection.
 //!
 //! `/proc/self/status` is Linux-only; on a non-Linux host the reader reports the
 //! stage as unavailable rather than failing.
@@ -237,6 +242,106 @@ fn main() {
     let after_reasoner = read_memory();
     report("7. ComposedReasoner", after_reasoner, after_english_onto);
 
+    // 8. INTO-ENGLISH grounding (W2.2). A tiny menagerie `.prx` DECLARES a typing
+    //    functor into `english_wordnet` (`Canine ↦ <synset>`). The into-English path
+    //    is ISOLATED as a CONTROL-vs-WITH delta so the costs SHARED with any
+    //    English-composed reasoner cancel: BOTH reasoners build the full English
+    //    surface index (~150k words) AND pay `ground_loaded_set`'s transient English
+    //    target projection (`project_archive_with_forms`, dropped after the pass —
+    //    CATEGORICALLY NOT `english_runtime_ontology`'s +191 MiB `apply_then_materialize`
+    //    at stage 6). The ONLY difference is the declared functor: the WITH reasoner
+    //    mints one grounded edge and retains a ONE-ENTRY into-English atom index, so
+    //    Δ(8b − 8a) is the into-English mechanism's RESIDENT fat — expected ~0.
+    //
+    //    A REAL synset `original_id` from the loaded corpus, so `Canine ↦ <synset>`
+    //    resolves an atom (the sample's `s-dog` is absent from full WordNet).
+    let real_synset = english
+        .concepts()
+        .next()
+        .expect("the loaded WordNet has at least one synset")
+        .original_id()
+        .to_string();
+    let menagerie = |with_functor: bool| Archive {
+        nodes: vec![Definition {
+            kind: "Canine".to_string(),
+            name: "rex".to_string(),
+            edges: Vec::new(),
+            axioms: Vec::new(),
+            lexical: Some("a companion dog".to_string()),
+        }],
+        connections: if with_functor {
+            vec![into_english_functor(&real_synset)]
+        } else {
+            Vec::new()
+        },
+    };
+    let compose = |with_functor: bool| {
+        let men = materialize(
+            menagerie(with_functor),
+            OntologyName::new_static("menagerie"),
+        )
+        .expect("the menagerie materializes");
+        let mut set = vec![Rc::new(men)];
+        pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set, english);
+        ComposedReasoner::new(english, set)
+    };
+
+    // CONTROL (8a): the same menagerie with NO into-English functor. Measured in
+    // ISOLATION — its count captured and the reasoner DROPPED before 8b — so 8a and
+    // 8b are each a single full reasoner, not two held concurrently. (The earlier
+    // form kept `control` alive for its final print, so 8b built a SECOND ~42 MiB
+    // English surface index and the subtraction measured that, not the mechanism.)
+    let before_control = read_memory();
+    let control = compose(false);
+    let after_control = read_memory();
+    report("8a. control reasoner", after_control, before_control);
+    let control_index_entries = control.english_atom_count();
+    drop(control);
+
+    // WITH (8b): the menagerie carrying the declared into-English functor, built
+    // after `control` is freed — so 8b is a single reasoner comparable to 8a. Their
+    // near-equality is the resident proof the into-English mechanism adds ~0: the
+    // ONLY retained difference is the bounded atom index (1 entry below), and
+    // `ground_loaded_set`'s transient `project_archive_with_forms` English target is
+    // dropped after the pass (categorically NOT stage 6's +183 MiB projection). RSS
+    // deltas here are allocator-noisy (freed pages are retained in-arena); the GATE
+    // is the two direct readouts on the next line, not the delta.
+    let into_english = compose(true);
+    let after_into_english = read_memory();
+    report(
+        "8b. into-English reasoner",
+        after_into_english,
+        after_control,
+    );
+    println!(
+        "     GATE (direct): english_wordnet a loaded ontology: {}; into-English atom \
+         index entries: {}; control index entries: {}",
+        into_english
+            .loaded()
+            .iter()
+            .any(|o| o.id().as_str() == "english_wordnet"),
+        into_english.english_atom_count(),
+        control_index_entries,
+    );
+
     println!();
-    report("TOTAL (since baseline)", after_reasoner, baseline);
+    report("TOTAL (since baseline)", after_into_english, baseline);
+}
+
+/// The into-English grounding functor a menagerie carries as data — `Canine ↦
+/// english_wordnet:s-dog`, `denotes ↦ Subsumption`. Built inline here (the probe
+/// is not a committed `.prx` consumer); the committed on-disk twin lives beside the
+/// `grounding` tests.
+fn into_english_functor(synset_original_id: &str) -> pr4xis_runtime::connection::Connection {
+    use pr4xis_runtime::connection::{Connection, GeneratorAction};
+    Connection {
+        kind: "InstanceFunctor".to_string(),
+        source: "menagerie".to_string(),
+        target: "english_wordnet".to_string(),
+        action: GeneratorAction::Functor {
+            map_object: vec![("Canine".to_string(), synset_original_id.to_string())],
+            map_morphism: vec![("denotes".to_string(), "Subsumption".to_string())],
+        },
+        laws: vec!["PreservesTyping".to_string()],
+    }
 }

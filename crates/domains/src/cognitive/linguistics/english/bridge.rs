@@ -44,6 +44,7 @@
 //!   a functor is determined by its finite action on generators, which is why
 //!   the relation→kind table is carried as data and applied by a table lookup.
 
+use alloc::collections::BTreeMap;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
@@ -157,6 +158,29 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
         .nodes
         .extend(english.word_index.words().map(form_atom));
     archive
+}
+
+/// The reverse index a cross-ontology `reaches` needs to resolve an into-English
+/// grounded edge: each synset node's content address → its `original_id` (the
+/// synset name, e.g. `s-dog`) — the inverse of the addressing
+/// [`project_archive`] mints.
+///
+/// DERIVED from [`project_archive`] (the same synset nodes an into-English
+/// grounding functor targets by content address via
+/// [`type_lens`](pr4xis_runtime::grounding::type_lens); the Form atoms
+/// [`project_archive_with_forms`] appends do not change a synset node's address,
+/// so the synset-only projection and the with-forms grounding target agree on
+/// every synset address). COUPLING-FREE: it knows only `&English`, never the
+/// loaded set or which atoms are grounded into — the CALLER
+/// ([`ComposedReasoner`](crate::cognitive::linguistics::composed::ComposedReasoner))
+/// retains only the edge-targeted subset, so the resident index is bounded by
+/// grounded-target count, not synset count.
+pub fn english_synset_atoms(english: &English) -> BTreeMap<ContentAddress, alloc::string::String> {
+    project_archive(english)
+        .nodes
+        .iter()
+        .filter_map(|n| n.address().ok().map(|addr| (addr, n.name.clone())))
+        .collect()
 }
 
 /// The committed WordNet→praxis projection functor — the CANONICAL home of the

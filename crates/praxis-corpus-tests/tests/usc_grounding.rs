@@ -205,7 +205,10 @@ fn a_loaded_usc_section_reaches_statute_and_law_by_composition() {
         };
         // THE GENERAL GROUNDING STEP — mints the USC→LegalSources type edges from
         // the functor USC carries as data, against the loaded LegalSources peer.
-        pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set);
+        pr4xis_domains::formal::meta::grounding::ground_loaded_set(
+            &mut set,
+            English::sample_static(),
+        );
 
         let composed = ComposedReasoner::new(English::sample_static(), set);
         let subsumption = subsumption_kind();
@@ -297,7 +300,7 @@ fn without_the_legal_sources_peer_the_type_link_is_fail_closed() {
     // with no LegalSources peer there is nothing to mint the type edge against, so
     // the section carries no cross-ontology typing (never a silent wrong bind).
     let mut set = vec![Rc::new(usc_onto)];
-    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set);
+    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static());
     let composed = ComposedReasoner::new(English::sample_static(), set);
 
     // With LegalSources absent, 'statute'/'law' do not resolve to any concept —

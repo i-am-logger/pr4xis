@@ -46,6 +46,11 @@ use pr4xis_runtime::connection::GeneratorAction;
 use pr4xis_runtime::grounding::{LinkError, ground, type_lens};
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
 
+use crate::cognitive::linguistics::english::English;
+use crate::cognitive::linguistics::english::bridge::{
+    ENGLISH_ONTOLOGY, project_archive_with_forms,
+};
+
 /// The reachability kind an instance-functor's typing edge asserts, fail-closed to
 /// `Subsumption` (the copula's default kind) when the functor's `map_morphism`
 /// table is empty.
@@ -136,12 +141,27 @@ pub fn ground_declared(
 /// would dangle. Grounding-target-that-grounds is future work (it needs the peer
 /// set re-derived in dependency order, a topological pass); for now the base-first
 /// corpus makes every target a leaf and this pass is exact.
-pub fn ground_loaded_set(loaded: &mut [Rc<RuntimeOntology>]) {
+pub fn ground_loaded_set(loaded: &mut [Rc<RuntimeOntology>], english: &English) {
     // The peer set: every loaded ontology's owned archive, addressed by name — a
     // grounding functor's target atoms are its peer archive's node addresses. Base
     // ontologies (the grounding targets) are small; a large corpus is present too
     // but is a grounding SOURCE, never looked up as a target.
     let mut peers: BTreeMap<String, Archive> = BTreeMap::new();
+    // Seed English as a grounding TARGET peer — so a `.prx` that DECLARES an
+    // into-English InstanceFunctor (its `kind ↦ synset` map_object) grounds its
+    // typed nodes onto WordNet synsets, exactly as a domain source grounds into
+    // `LegalSources`. The peer is the LEAN pre-materialize atom layer
+    // ([`project_archive_with_forms`] — a transient `Vec<Definition>` dropped when
+    // this pass returns): CATEGORICALLY NOT [`english_runtime_ontology`], the
+    // measured +183 MiB `apply_then_materialize`. English is NEVER installed as a
+    // loaded `RuntimeOntology`; it enters grounding only as this transient target
+    // archive, so `loaded` never gains an `english_wordnet` slot. A loaded set with
+    // no into-English functor simply never resolves against this peer (it costs the
+    // one transient projection and nothing else).
+    peers.insert(
+        ENGLISH_ONTOLOGY.to_string(),
+        project_archive_with_forms(english),
+    );
     for o in loaded.iter() {
         if let Ok(archive) = o.to_owned_archive() {
             peers.insert(o.id().as_str().to_string(), archive);
@@ -314,6 +334,226 @@ mod tests {
             rex.edges.len(),
             1,
             "re-grounding mints no duplicate — exactly one type edge"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // W2.2 DORMANCY DISCHARGE — a REAL committed `.prx` that CARRIES an
+    // into-English grounding functor, loaded FROM DISK BYTES fail-closed, so the
+    // functor-as-data path is proven end-to-end (not only an inline Rust
+    // `Connection` literal). A menagerie declares `Canine ↦ english_wordnet:s-dog`
+    // as data; the loaded node then inherits English's is-a chain and "is rex an
+    // animal" answers through WordNet's `s-dog ⊑ s-mammal ⊑ s-animal`, while an
+    // UNDECLARED `Mineral` node (surface an animal word) does NOT link (§9).
+    // -----------------------------------------------------------------------
+
+    /// The committed into-English menagerie `.prx` — a domain taxonomy that
+    /// CARRIES its into-English `InstanceFunctor` as data (nodes + one Connection),
+    /// admitted only against its baked root.
+    const MENAGERIE_INTO_ENGLISH_PRX: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/taxonomy/menagerie_into_english.prx"
+    ));
+
+    /// The trusted Merkle root of [`MENAGERIE_INTO_ENGLISH_PRX`] — the fail-closed
+    /// integrity pin (file ⇔ pin coherence asserted below; regenerate with the
+    /// `--ignored regenerate_menagerie_into_english_prx` test and bake the printed
+    /// root here).
+    const MENAGERIE_INTO_ENGLISH_ROOT_HEX: &str =
+        "fa28bdaa273d8553764770a152e007ff72fda7f8cb47da3caa9bac05741722e6";
+
+    /// The into-English menagerie as an [`Archive`] — the SOURCE OF TRUTH the
+    /// committed `.prx` must equal. TWO nodes: a DECLARED `Canine` (`rex`, typed by
+    /// the functor as `english_wordnet:s-dog`) and an UNDECLARED `Mineral`
+    /// (`salmon`, whose surface is literally an English animal word yet carries NO
+    /// functor entry). ONE Connection: the into-English `InstanceFunctor`
+    /// (`Canine ↦ s-dog`, `denotes ↦ Subsumption`). Built from code ONLY here (the
+    /// regenerate + drift guard); the runtime loads it from the committed bytes.
+    fn menagerie_into_english_archive() -> Archive {
+        Archive {
+            nodes: alloc::vec![
+                Definition {
+                    kind: "Canine".to_string(),
+                    name: "rex".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: Some("a companion dog kept in the menagerie".to_string()),
+                },
+                Definition {
+                    kind: "Mineral".to_string(),
+                    name: "salmon".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: Some(
+                        "a specimen labelled with the fish word 'salmon' but typed a \
+                         Mineral — an UNDECLARED control: it carries no into-English \
+                         functor entry, so it must NOT link to 'animal' (§9)."
+                            .to_string()
+                    ),
+                },
+            ],
+            connections: alloc::vec![Connection {
+                // The grounding-functor kind the meta-ontology discriminator reaches
+                // to InstanceFunctor — NOT an ad-hoc string.
+                kind: "InstanceFunctor".to_string(),
+                source: "menagerie".to_string(),
+                target: ENGLISH_ONTOLOGY.to_string(),
+                action: GeneratorAction::Functor {
+                    // DECLARED-TYPE grounding: the node KIND `Canine` types as the
+                    // WordNet synset `s-dog` (its original_id) — NOT a surface match.
+                    map_object: alloc::vec![("Canine".to_string(), "s-dog".to_string())],
+                    // The typing edge asserts Subsumption (is-a into English's chain).
+                    map_morphism: alloc::vec![("denotes".to_string(), "Subsumption".to_string())],
+                },
+                laws: alloc::vec!["PreservesTyping".to_string()],
+            }],
+        }
+    }
+
+    /// The committed into-English `.prx` path.
+    fn committed_menagerie_into_english_prx_path() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("data/taxonomy/menagerie_into_english.prx")
+    }
+
+    /// Load the committed menagerie `.prx` FROM DISK BYTES — FAIL-CLOSED against
+    /// [`MENAGERIE_INTO_ENGLISH_ROOT_HEX`]; a tampered/stale file is refused.
+    fn load_menagerie_into_english() -> Archive {
+        let root =
+            pr4xis_runtime::address::ContentAddress::from_hex(MENAGERIE_INTO_ENGLISH_ROOT_HEX)
+                .expect("MENAGERIE_INTO_ENGLISH_ROOT_HEX is valid 64-hex");
+        pr4xis_runtime::load::load(MENAGERIE_INTO_ENGLISH_PRX, root)
+            .expect("committed menagerie_into_english.prx must load against its baked root")
+    }
+
+    /// REGENERATE PATH (`--ignored`, WRITES): re-emit the committed
+    /// `menagerie_into_english.prx` from [`menagerie_into_english_archive`], then
+    /// PRINT the root to bake into [`MENAGERIE_INTO_ENGLISH_ROOT_HEX`]. Mirrors the
+    /// USC `regenerate_usc_legal_sources_functor_prx` pattern. Run:
+    /// `cargo test -p pr4xis-domains --features prx -- --ignored regenerate_menagerie_into_english_prx`.
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    #[ignore = "WRITES the committed .prx; run explicitly to regenerate"]
+    fn regenerate_menagerie_into_english_prx() {
+        let archive = menagerie_into_english_archive();
+        let bytes = pr4xis_runtime::load::emit(&archive).expect("encode menagerie .prx");
+        let out = committed_menagerie_into_english_prx_path();
+        if let Some(parent) = out.parent() {
+            std::fs::create_dir_all(parent).expect("create data/taxonomy/");
+        }
+        std::fs::write(&out, &bytes).expect("write menagerie_into_english.prx");
+        let root = archive.root().expect("root").to_hex();
+        eprintln!("wrote {} ({} bytes)", out.display(), bytes.len());
+        println!("MENAGERIE_INTO_ENGLISH_ROOT_HEX = {root}");
+    }
+
+    /// STALENESS GUARD (normal suite): the committed `.prx` must be a FRESH emit of
+    /// the source-of-truth archive, and its baked root must match.
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn committed_menagerie_into_english_prx_matches_source() {
+        let archive = menagerie_into_english_archive();
+        let fresh = pr4xis_runtime::load::emit(&archive).expect("encode");
+        let committed = std::fs::read(committed_menagerie_into_english_prx_path())
+            .expect("read committed menagerie_into_english.prx");
+        assert_eq!(
+            fresh, committed,
+            "committed menagerie_into_english.prx is STALE — regenerate with \
+             `--ignored regenerate_menagerie_into_english_prx` and bake the printed root"
+        );
+        assert_eq!(
+            archive.root().unwrap().to_hex(),
+            MENAGERIE_INTO_ENGLISH_ROOT_HEX,
+            "MENAGERIE_INTO_ENGLISH_ROOT_HEX is STALE vs the committed archive"
+        );
+    }
+
+    /// THE DORMANCY-DISCHARGE PROOF: load the committed `.prx` FROM DISK BYTES
+    /// fail-closed, ground its declared into-English functor against the transient
+    /// English target peer, materialize, compose, and answer a CONCEPTUAL question
+    /// ("is rex an animal") through English's synset taxonomy — proving the
+    /// functor-as-data path end-to-end from bytes, not an inline literal.
+    #[pr4xis::praxis_value(Verifiable, Honest)]
+    #[test]
+    fn the_committed_into_english_prx_answers_through_english_from_disk_bytes() {
+        use crate::cognitive::linguistics::composed::{ComposedReasoner, GroundedConcept};
+        use crate::cognitive::linguistics::english::{English, LexicalReasoner};
+        use pr4xis::ontology::meta::OntologyName;
+        use pr4xis_runtime::ontology::subsumption_kind;
+
+        // FROM DISK BYTES, fail-closed: the committed file loads against its root…
+        let archive = load_menagerie_into_english();
+        // …and a WRONG root is refused (the fail-closed leg).
+        assert!(
+            pr4xis_runtime::load::load(
+                MENAGERIE_INTO_ENGLISH_PRX,
+                pr4xis_runtime::address::ContentAddress::of(b"wrong")
+            )
+            .is_err(),
+            "a wrong root is refused — the load is fail-closed"
+        );
+
+        // Ground the declared into-English functor against the TRANSIENT English
+        // target peer (the lean pre-materialize atom layer), materialize, compose.
+        let english = English::sample_static();
+        let mut peers: BTreeMap<String, Archive> = BTreeMap::new();
+        peers.insert(
+            ENGLISH_ONTOLOGY.to_string(),
+            project_archive_with_forms(english),
+        );
+        let grounded =
+            ground_declared(&archive, &peers).expect("grounds against the English target peer");
+        let onto = materialize(grounded, OntologyName::new_static("menagerie"))
+            .expect("the grounded menagerie materializes");
+        let composed = ComposedReasoner::new(english, alloc::vec![Rc::new(onto)]);
+
+        // GATE (i): English is NEVER a loaded ontology — it entered only as a
+        // transient grounding target, never a `RuntimeOntology` slot.
+        assert!(
+            composed
+                .loaded()
+                .iter()
+                .all(|o| o.id().as_str() != ENGLISH_ONTOLOGY),
+            "english_wordnet must never be a loaded ontology"
+        );
+
+        let subsumption = subsumption_kind();
+        let loaded_id = |surface: &str| {
+            composed
+                .lookup(surface)
+                .iter()
+                .copied()
+                .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+                .unwrap_or_else(|| panic!("no loaded concept resolves for {surface:?}"))
+        };
+        let english_id = |surface: &str| {
+            composed
+                .lookup(surface)
+                .iter()
+                .copied()
+                .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::English(_))))
+                .unwrap_or_else(|| panic!("no english concept resolves for {surface:?}"))
+        };
+
+        let rex = loaded_id("rex");
+        let animal = english_id("animal");
+        // DECLARED: rex (kind Canine ↦ s-dog) reaches English's `animal` through
+        // WordNet's own s-dog ⊑ s-mammal ⊑ s-animal chain — answered FROM DISK.
+        assert!(
+            composed.reaches(rex, animal, &subsumption),
+            "rex (declared Canine ↦ s-dog) is an animal via English's is-a chain"
+        );
+        // GATE (ii) §9 negative control: the UNDECLARED `salmon` (kind Mineral, an
+        // animal-word surface) does NOT link — no declared functor entry, no path.
+        let salmon = loaded_id("salmon");
+        assert!(
+            !composed.reaches(salmon, animal, &subsumption),
+            "the undeclared Mineral 'salmon' must NOT link to animal (surface-match declined, §9)"
+        );
+        // GATE (iii) directional: English's `animal` does not reach the loaded rex.
+        assert!(
+            !composed.reaches(animal, rex, &subsumption),
+            "reaches into English is directional — animal does not reach the loaded node"
         );
     }
 }

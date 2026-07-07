@@ -55,7 +55,9 @@ use pr4xis_runtime::definition::CANONICAL_FORM_REL;
 use pr4xis_runtime::lens::archive_lens::{archived_grounded, archived_local_name};
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
-use crate::cognitive::linguistics::english::bridge::FORM_KIND;
+use crate::cognitive::linguistics::english::bridge::{
+    ENGLISH_ONTOLOGY, FORM_KIND, english_synset_atoms,
+};
 use crate::cognitive::linguistics::english::{
     Concept, ConceptId, ConceptView, English, LexicalReasoner,
 };
@@ -173,6 +175,25 @@ pub struct ComposedReasoner {
     /// themselves), so the meaningful fail-closed leg is atom PRESENCE — a typing
     /// edge into an ontology the system does not hold resolves to nothing.
     grounding_atoms: BTreeMap<String, BTreeMap<ContentAddress, String>>,
+
+    /// The INTO-ENGLISH atom index, built ONCE at construction — for each atom some
+    /// loaded node grounds into `english_wordnet` (a DECLARED into-English
+    /// InstanceFunctor's typing edge, e.g. `Canine ↦ s-dog`), the synset's
+    /// `original_id`. A cross-universe `reaches` from a LOADED node to an ENGLISH
+    /// concept resolves the grounded atom to its synset name here, then continues in
+    /// English's archived hypernym closure (see
+    /// [`reaches_into_english`](Self::reaches_into_english)).
+    ///
+    /// GATED on some loaded edge actually grounding into `english_wordnet`
+    /// (`ENGLISH_ONTOLOGY` ∈ the grounded-target set) — empty otherwise, so a load
+    /// with no into-English functor pays nothing. DERIVED from
+    /// [`english_synset_atoms`] (the `project_archive` addressing), retaining ONLY
+    /// the edge-targeted atoms, so the resident index is BOUNDED by grounded-target
+    /// count — single-MiB, never the ~107k-synset table. English is NEVER a loaded
+    /// ontology: this index is the ONLY English-side state a cross-universe query
+    /// consults, and it points into the borrowed `english`'s archived taxonomy (W1),
+    /// adding zero new materialization.
+    english_atoms: BTreeMap<ContentAddress, String>,
 }
 
 impl ComposedReasoner {
@@ -350,11 +371,19 @@ impl ComposedReasoner {
         // LegalSources, the target of the USC section→Statute typing). Data-driven:
         // the target set is read off the loaded archives, never a hardcoded list.
         let mut target_names: BTreeSet<String> = BTreeSet::new();
+        // The atoms some loaded node grounds INTO english_wordnet (a declared
+        // into-English InstanceFunctor's typing edges) — collected in the SAME edge
+        // scan, so the into-English index is bounded by these, never the synset
+        // table. Empty unless a loaded `.prx` carries an into-English functor.
+        let mut english_targeted: BTreeSet<ContentAddress> = BTreeSet::new();
         for onto in &loaded {
             for node in onto.archive().nodes.iter() {
                 for edge in node.edges.iter() {
-                    if let Some((ont, _)) = archived_grounded(&edge.1) {
+                    if let Some((ont, atom)) = archived_grounded(&edge.1) {
                         target_names.insert(ont.to_string());
+                        if ont == ENGLISH_ONTOLOGY {
+                            english_targeted.insert(atom);
+                        }
                     }
                 }
             }
@@ -381,6 +410,22 @@ impl ComposedReasoner {
                 grounding_atoms.insert(name, index);
             }
         }
+
+        // The INTO-ENGLISH atom index — GATED on some loaded edge grounding into
+        // english_wordnet, DERIVED from the coupling-free `english_synset_atoms`
+        // (project_archive addressing), retaining ONLY the edge-targeted synset
+        // atoms. The full synset→address map is a transient dropped here; the
+        // resident index holds one entry per grounded target (single-MiB), never the
+        // ~107k-synset table. English is never a loaded ontology, so this is the only
+        // English-side state a cross-universe query reads.
+        let english_atoms: BTreeMap<ContentAddress, String> = if english_targeted.is_empty() {
+            BTreeMap::new()
+        } else {
+            english_synset_atoms(english)
+                .into_iter()
+                .filter(|(addr, _)| english_targeted.contains(addr))
+                .collect()
+        };
 
         // `loaded_ids` (ConceptRef → id) is retained as reasoner state so the
         // loaded-side closure answers — a set of `ConceptRef`s read off each
@@ -418,6 +463,7 @@ impl ComposedReasoner {
             // `c == a` short-circuit consults the loaded data, not a hardcoded list.
             reflexive_kinds: crate::formal::relations::ontology::reflexive_relation_kinds(),
             grounding_atoms,
+            english_atoms,
         }
     }
 
@@ -436,6 +482,15 @@ impl ComposedReasoner {
     /// The loaded ontologies, in load order (the shared `Rc` handles).
     pub fn loaded(&self) -> &[Rc<RuntimeOntology>] {
         &self.loaded
+    }
+
+    /// The number of entries in the INTO-ENGLISH atom index — one per synset a
+    /// loaded node grounds into `english_wordnet` (bounded by grounded-target count,
+    /// never the ~107k synset table). Exposed so the resident-memory gate can report
+    /// that the into-English path's resident index is single-MiB, not a projection
+    /// of the whole WordNet taxonomy.
+    pub fn english_atom_count(&self) -> usize {
+        self.english_atoms.len()
     }
 
     /// Decode a `ConceptId` back into the typed [`GroundedConcept`] join key —
@@ -508,6 +563,56 @@ impl ComposedReasoner {
                 && peer.id().as_str() == g.ontology
                 && peer.closure().reaches(&t, a, kind.clone())
             {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// CROSS-UNIVERSE reachability from a LOADED node INTO English: `c` is a loaded
+    /// `.prx` vertex that carries a DECLARED into-English typing edge (an
+    /// into-English `InstanceFunctor`'s `kind ↦ synset` grounding, minted by
+    /// [`ground_declared`](crate::formal::meta::grounding::ground_declared)), and
+    /// `a` is an English (WordNet) [`ConceptId`]. The loaded node inherits English's
+    /// taxonomy through that one declared edge: it reads `c`'s `Grounded` edges of
+    /// the queried `kind` into `english_wordnet`, resolves each atom to its synset
+    /// `original_id` via the precomputed [`english_atoms`](Self::english_atoms)
+    /// index, maps that to English's `ConceptId`, and answers in English's own
+    /// archived hypernym closure — `s == a || english.is_a(s, a)` (the W1 archived
+    /// taxonomy, zero new materialization).
+    ///
+    /// This is DECLARED-TYPE grounding (`node_kind ↦ synset`), NOT surface
+    /// auto-matching: a node that carries no into-English typing edge — even one
+    /// whose gloss is verbatim an English animal word — resolves to NO path (Policy
+    /// B / WSD is §9-forbidden and declined). Fail-closed at every rung: a wrong
+    /// kind, a non-English target, an atom the index does not hold, or a synset
+    /// English does not know each contributes nothing — an honest false, never a
+    /// guess. The `&g.kind != kind` comparison is the VERBATIM `subsumption_kind()`
+    /// comparison [`cross_reaches`](Self::cross_reaches) uses, not a re-derived
+    /// kind string.
+    fn reaches_into_english(&self, c: &ConceptRef, a: ConceptId, kind: &ConceptRef) -> bool {
+        let Some(onto) = self.ontology_of(c) else {
+            return false;
+        };
+        for g in onto.grounded_edges_from(c) {
+            // Only a grounded edge asserting the QUERIED kind into english_wordnet
+            // types the node — a denotes/lexical edge, or an edge into another peer,
+            // does not answer an is-a-into-English query.
+            if &g.kind != kind || g.ontology != ENGLISH_ONTOLOGY {
+                continue;
+            }
+            // Resolve the foreign synset atom to its original_id, then to English's
+            // ConceptId, fail-closed to no path when either lookup misses.
+            let Some(original_id) = self.english_atoms.get(&g.atom) else {
+                continue;
+            };
+            let Some(synset) = self.english.concept_by_synset(original_id) else {
+                continue;
+            };
+            let s = synset.id();
+            // The typing lands directly on `a`, or `a` is a hypernym `s` reaches in
+            // English's archived taxonomy.
+            if s == a || self.english.is_a(s, a) {
                 return true;
             }
         }
@@ -609,9 +714,16 @@ impl LexicalReasoner for ComposedReasoner {
                     self.cross_reaches(&c, &a, &subsumption_kind())
                 }
             }
-            // Mixed English/loaded: no cross-universe subsumption edges exist in
-            // this composition, so the relation does not hold (honest false, not
-            // a guess).
+            // Loaded child grounded INTO English: the loaded node carries a DECLARED
+            // into-English typing edge (a `kind ↦ synset` InstanceFunctor), so it
+            // inherits English's is-a chain — `is <node> an animal` answers through
+            // WordNet's synset taxonomy. Directional: an English child never reaches
+            // a loaded ancestor (no such edge exists), so that pairing stays false.
+            (Some(GroundedConcept::Loaded(c)), Some(GroundedConcept::English(a))) => {
+                self.reaches_into_english(&c, a, &subsumption_kind())
+            }
+            // English child / loaded ancestor, or any other mix: no cross-universe
+            // subsumption edge exists in this composition (honest false, not a guess).
             _ => false,
         }
     }
@@ -654,8 +766,17 @@ impl LexicalReasoner for ComposedReasoner {
             {
                 self.english.is_a(c, a)
             }
-            // Mixed universes, or a non-Subsumption English query: no such edge
-            // exists in this composition (honest false, not a guess).
+            // Loaded child grounded INTO English along Subsumption (the into-English
+            // functor's `denotes ↦ Subsumption` morphism): the loaded node inherits
+            // English's is-a chain. Only Subsumption — the declared into-English
+            // typing asserts no other kind, so a Parthood query into English is false.
+            (Some(GroundedConcept::Loaded(c)), Some(GroundedConcept::English(a)))
+                if *kind == subsumption_kind() =>
+            {
+                self.reaches_into_english(&c, a, kind)
+            }
+            // Mixed universes otherwise, or a non-Subsumption English query: no such
+            // edge exists in this composition (honest false, not a guess).
             _ => false,
         }
     }
@@ -948,7 +1069,7 @@ mod tests {
             } else {
                 alloc::vec![Rc::new(men), Rc::new(tax)]
             };
-            crate::formal::meta::grounding::ground_loaded_set(&mut set);
+            crate::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static());
             let composed = ComposedReasoner::new(English::sample_static(), set);
             let subsumption = subsumption_kind();
 
@@ -989,6 +1110,124 @@ mod tests {
                 "the grounding mints only the instantiates (Subsumption) edge, not Parthood"
             );
         }
+    }
+
+    /// W2.2 — WORDS (declared types) ARE POINTERS INTO ENGLISH: a loaded `.prx`
+    /// node grounds INTO `english_wordnet` through a DECLARED into-English
+    /// InstanceFunctor (`Canine ↦ s-dog`, carried as data), so it INHERITS English's
+    /// taxonomy and "is <node> an animal" answers through WordNet's own
+    /// `s-dog ⊑ s-mammal ⊑ s-animal` chain — NOT a loaded taxonomy peer (as the
+    /// USC/menagerie test above), and NEVER by installing English as a loaded
+    /// ontology. The UNDECLARED control (kind `Mineral`, surface an animal word)
+    /// does NOT link — DECLARED-TYPE grounding, not surface auto-matching (§9).
+    #[pr4xis::praxis_value(Verifiable, Honest)]
+    #[test]
+    fn a_declared_node_points_into_english_and_inherits_its_taxonomy() {
+        use pr4xis_runtime::connection::{Connection, GeneratorAction};
+        use pr4xis_runtime::ontology::relations_kind;
+
+        // The menagerie: a DECLARED `Canine` (`rex`) and an UNDECLARED `Mineral`
+        // (`salmon`, whose very surface is an English animal word), plus the
+        // into-English `InstanceFunctor` typing ONLY `Canine ↦ english_wordnet:s-dog`.
+        let menagerie = Archive {
+            nodes: alloc::vec![
+                Definition {
+                    kind: "Canine".to_string(),
+                    name: "rex".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: Some("a companion dog".to_string()),
+                },
+                Definition {
+                    kind: "Mineral".to_string(),
+                    name: "salmon".to_string(),
+                    edges: alloc::vec![],
+                    axioms: alloc::vec![],
+                    lexical: Some("typed a Mineral; its surface is an animal word".to_string()),
+                },
+            ],
+            connections: alloc::vec![Connection {
+                kind: "InstanceFunctor".to_string(),
+                source: "menagerie".to_string(),
+                target: "english_wordnet".to_string(),
+                action: GeneratorAction::Functor {
+                    map_object: alloc::vec![("Canine".to_string(), "s-dog".to_string())],
+                    map_morphism: alloc::vec![("denotes".to_string(), "Subsumption".to_string())],
+                },
+                laws: alloc::vec!["PreservesTyping".to_string()],
+            }],
+        };
+
+        let men = materialize(menagerie, OntologyName::new_static("menagerie"))
+            .expect("menagerie materializes");
+        let mut set = alloc::vec![Rc::new(men)];
+        // The MINT-side seeds English as the transient grounding target peer.
+        crate::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static());
+        let composed = ComposedReasoner::new(English::sample_static(), set);
+        let subsumption = subsumption_kind();
+
+        // GATE (i): English is NEVER a loaded ontology.
+        assert!(
+            composed
+                .loaded()
+                .iter()
+                .all(|o| o.id().as_str() != "english_wordnet"),
+            "english_wordnet must never appear in the loaded set"
+        );
+
+        // The LOADED node (disjoint id) and the ENGLISH ancestor (below base).
+        let loaded_id = |surface: &str| {
+            composed
+                .lookup(surface)
+                .iter()
+                .copied()
+                .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+                .unwrap_or_else(|| panic!("no loaded concept resolves for {surface:?}"))
+        };
+        let english_id = |surface: &str| {
+            composed
+                .lookup(surface)
+                .iter()
+                .copied()
+                .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::English(_))))
+                .unwrap_or_else(|| panic!("no english concept resolves for {surface:?}"))
+        };
+
+        let rex = loaded_id("rex");
+        let animal = english_id("animal");
+        let mammal = english_id("mammal");
+
+        // DECLARED: rex (Canine ↦ s-dog) reaches English's `animal` via English's own
+        // s-dog ⊑ s-mammal ⊑ s-animal chain (and `mammal` on the way).
+        assert!(
+            composed.reaches(rex, animal, &subsumption),
+            "rex points into english_wordnet:s-dog, so it is an animal via English's is-a chain"
+        );
+        assert!(
+            composed.reaches(rex, mammal, &subsumption),
+            "rex reaches English's `mammal` through WordNet's s-dog ⊑ s-mammal"
+        );
+
+        // GATE (ii) §9: the UNDECLARED `salmon` (kind Mineral) carries no functor
+        // entry, so it does NOT link to `animal` — surface auto-matching declined.
+        let salmon = loaded_id("salmon");
+        assert!(
+            !composed.reaches(salmon, animal, &subsumption),
+            "the undeclared Mineral 'salmon' must NOT link to animal (§9 — no declared typing)"
+        );
+
+        // GATE (iii) directional: English's `animal` does not reach the loaded rex.
+        assert!(
+            !composed.reaches(animal, rex, &subsumption),
+            "reaches into English is directional — the English concept does not reach the loaded node"
+        );
+
+        // §9 over-generation guard: the into-English typing asserts ONLY Subsumption,
+        // so a Parthood query into English is false.
+        assert!(
+            !composed.reaches(rex, animal, &relations_kind("Parthood")),
+            "the into-English functor mints only the Subsumption typing, not Parthood"
+        );
     }
 
     /// The relation-parametric `reaches` reads each relation's OWN materialized
