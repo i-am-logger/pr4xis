@@ -7,6 +7,10 @@
 pub mod composed;
 pub mod english;
 pub mod grammar;
+// A string interner for lexical surfaces (a `no_std`+`alloc` mechanism, hence
+// ungated) — used by `composed` to key its union lookup on `Symbol` handles
+// instead of duplicating every surface as an owned `String`.
+pub mod interner;
 pub mod lambek;
 pub mod language;
 pub mod lemon;
