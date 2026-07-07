@@ -65,11 +65,14 @@ fn main() {
     // user-uploaded `.prx` would flow through the SAME `load_ontology_prx`
     // path; embedding just removes the network from the demo.
     //
-    // The generated `embedded_prx.rs` carries TWO embedded ontologies: the
-    // Dependability DEMO (a browser one-click load) and the LegalSources BASE
-    // (always loaded from `Pr4xis::new` so the chat answers "is a statute a law"
-    // out of the box). Both go through the default, lexicalizing `emit`, so each
-    // concept's Lemon label is a query surface by construction.
+    // The generated `embedded_prx.rs` carries ONE `EMBEDDED_PRX` manifest of
+    // build-baked ontologies — the LegalSources BASE (`default_loaded: true`,
+    // installed by `Pr4xis::new` so the chat answers "is a statute a law" out of
+    // the box) and the Dependability DEMO (`default_loaded: false`, a one-click
+    // load). Neither is a privileged hardcode: `new()` iterates the manifest's
+    // `default_loaded` entries through the SAME fail-closed `.prx` core a
+    // fetched/uploaded `.prx` takes. Both go through the default, lexicalizing
+    // `emit`, so each concept's Lemon label is a query surface by construction.
     emit_embedded_prx(&out_dir);
 }
 
@@ -82,8 +85,12 @@ const DEMO_ONTOLOGY_NAME: &str = "Dependability";
 const LEGAL_SOURCES_ONTOLOGY_NAME: &str = "LegalSources";
 
 /// Emit the two embedded `.prx` ontologies and ONE generated `embedded_prx.rs`
-/// module carrying both constant sets (bytes path + trusted Merkle root hex +
-/// ontology name each). The runtime loads each fail-closed against its baked root.
+/// module carrying a single `EMBEDDED_PRX: &[EmbeddedOntology]` manifest — each
+/// entry the bytes (by path), the trusted Merkle root hex, the runtime ontology
+/// name, and a `default_loaded` residency flag. The runtime loads each
+/// fail-closed against its baked root through ONE `.prx` core; `Pr4xis::new`
+/// iterates the `default_loaded` entries, so no embedded ontology is a
+/// privileged hardcode in `new()`.
 ///
 /// build.rs runs natively, so it can use the `emit` feature (which deps the
 /// compile-time `pr4xis` category model) to project the live `Category` —
@@ -136,30 +143,52 @@ fn emit_embedded_prx(out_dir: &Path) {
         legal_root.to_hex()
     );
 
-    // Generate the ONE module the wasm includes: for each embedded ontology, the
-    // bytes (by path), the trusted root hex (the fail-closed pin), and the name.
+    // Generate the ONE module the wasm includes: a single `EMBEDDED_PRX`
+    // manifest of `EmbeddedOntology` entries (bytes by path + trusted root hex +
+    // name + `default_loaded`). The runtime loads each fail-closed against its
+    // baked root through the same `.prx` core; `Pr4xis::new` iterates the
+    // `default_loaded` entries. The LegalSources base is `default_loaded: true`
+    // (always installed at construction); the Dependability demo is
+    // `default_loaded: false` (an on-demand one-click load).
     let module = format!(
-        "/// The embedded demo `.prx` — the Avizienis et al. (2004) Dependability\n\
-         /// taxonomy projected to a content-addressed Archive at build time.\n\
-         pub static EMBEDDED_DEMO_PRX: &[u8] = include_bytes!({prx_path:?});\n\
-         /// The trusted Merkle root of [`EMBEDDED_DEMO_PRX`] (lowercase hex). The\n\
-         /// runtime re-derives the root from the bytes and refuses to load on a\n\
-         /// mismatch — the fail-closed pin, derived from the SAME archive whose\n\
-         /// bytes are embedded above.\n\
-         pub const EMBEDDED_DEMO_PRX_ROOT_HEX: &str = {root_hex:?};\n\
-         /// The runtime ontology name the embedded demo `.prx` materializes under.\n\
-         pub const EMBEDDED_DEMO_ONTOLOGY_NAME: &str = {name:?};\n\
+        "/// One build-baked embedded `.prx` ontology — a compiled domain `Category`\n\
+         /// projected to a content-addressed Archive at build time — plus how the\n\
+         /// runtime provisions it. Every entry (base or demo) loads through the SAME\n\
+         /// fail-closed `.prx` core a network-fetched or user-uploaded `.prx` takes.\n\
+         pub struct EmbeddedOntology {{\n\
+         \x20   /// The runtime ontology name this `.prx` materializes under.\n\
+         \x20   pub name: &'static str,\n\
+         \x20   /// The canonical content-addressed Archive bytes (baked via `include_bytes!`).\n\
+         \x20   pub bytes: &'static [u8],\n\
+         \x20   /// The trusted Merkle root (lowercase hex) the fail-closed load re-derives\n\
+         \x20   /// from the bytes and checks against, refusing on mismatch.\n\
+         \x20   pub root_hex: &'static str,\n\
+         \x20   /// Residency: `true` means `Pr4xis::new` installs it as an always-present\n\
+         \x20   /// base (no network, no explicit load); `false` means an on-demand load.\n\
+         \x20   pub default_loaded: bool,\n\
+         }}\n\
          \n\
-         /// The embedded LegalSources BASE `.prx` — the LKIF-Core-grounded formal\n\
-         /// sources-of-law taxonomy, LEXICALIZED (each concept's Lemon label minted\n\
-         /// as an `ontolex:Form` surface) so \"law\"/\"case law\" ground for chat.\n\
-         /// Loaded at `Pr4xis::new` as an always-present base.\n\
-         pub static EMBEDDED_LEGAL_SOURCES_PRX: &[u8] = include_bytes!({legal_path:?});\n\
-         /// The trusted Merkle root of [`EMBEDDED_LEGAL_SOURCES_PRX`] (lowercase hex),\n\
-         /// the fail-closed pin re-derived from the same archive whose bytes are above.\n\
-         pub const EMBEDDED_LEGAL_SOURCES_PRX_ROOT_HEX: &str = {legal_root_hex:?};\n\
-         /// The runtime ontology name the embedded LegalSources `.prx` materializes under.\n\
-         pub const EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME: &str = {legal_name:?};\n",
+         /// The embedded `.prx` manifest — the single source of truth for which\n\
+         /// build-baked ontologies exist and how each is provisioned. `Pr4xis::new`\n\
+         /// iterates the `default_loaded` entries through the one fail-closed core, so\n\
+         /// no embedded ontology is a privileged hardcode in `new()`. The LegalSources\n\
+         /// BASE is LEXICALIZED (each concept's Lemon label minted as an `ontolex:Form`\n\
+         /// surface) so \"law\"/\"case law\" ground for chat; the Dependability DEMO is the\n\
+         /// Avizienis et al. (2004) taxonomy the UI offers as a one-click load.\n\
+         pub static EMBEDDED_PRX: &[EmbeddedOntology] = &[\n\
+         \x20   EmbeddedOntology {{\n\
+         \x20       name: {legal_name:?},\n\
+         \x20       bytes: include_bytes!({legal_path:?}),\n\
+         \x20       root_hex: {legal_root_hex:?},\n\
+         \x20       default_loaded: true,\n\
+         \x20   }},\n\
+         \x20   EmbeddedOntology {{\n\
+         \x20       name: {name:?},\n\
+         \x20       bytes: include_bytes!({prx_path:?}),\n\
+         \x20       root_hex: {root_hex:?},\n\
+         \x20       default_loaded: false,\n\
+         \x20   }},\n\
+         ];\n",
         prx_path = prx_path,
         root_hex = root.to_hex(),
         name = DEMO_ONTOLOGY_NAME,
