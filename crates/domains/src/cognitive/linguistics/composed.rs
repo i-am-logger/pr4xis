@@ -49,8 +49,10 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use pr4xis::ontology::meta::OntologyName;
-use pr4xis_runtime::definition::CANONICAL_FORM_REL;
-use pr4xis_runtime::lens::archive_lens::archived_local_name;
+use pr4xis_runtime::archive::Archive;
+use pr4xis_runtime::definition::{CANONICAL_FORM_REL, EdgeTarget};
+use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
+use pr4xis_runtime::lens::archive_lens::{archived_grounded, archived_local_name};
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
@@ -146,6 +148,24 @@ pub struct ComposedReasoner {
     /// `kind` is in this set, so "is X part of X" is `false` (strict, per the data)
     /// while "is X a X" stays `true`.
     reflexive_kinds: BTreeSet<ConceptRef>,
+
+    /// Owned archives of the loaded ontologies that are TYPE-GROUNDING TARGETS —
+    /// the ontologies some loaded node carries a cross-ontology
+    /// [`Grounded`](EdgeTarget::Grounded) edge INTO (e.g. `LegalSources`, the
+    /// target of the USC section→`Statute` typing). Held OWNED (not the zero-copy
+    /// view) because the generic [`AtomResolver`] indexes a peer by
+    /// `Definition::address`. Keyed by ontology name; empty when no loaded ontology
+    /// grounds into a peer. Scanned off the loaded archives' edges — data-driven,
+    /// never a hardcoded target list.
+    grounding_peers: BTreeMap<String, Archive>,
+    /// The manifest pinning each [`grounding_peers`](Self::grounding_peers) entry
+    /// to its loaded root — the fail-closed gate the [`AtomResolver`] builds
+    /// against (a peer whose supplied root disagrees with its pin refuses to
+    /// resolve). Derived from the loaded set itself, so the pin always matches the
+    /// supplied archive; the meaningful fail-closed leg is atom PRESENCE (a typing
+    /// edge minted against a LegalSources the running system does not hold resolves
+    /// to nothing).
+    grounding_manifest: ConnectedOntologies,
 }
 
 impl ComposedReasoner {
@@ -317,6 +337,43 @@ impl ComposedReasoner {
         let relation_surface_index =
             crate::cognitive::linguistics::relation_lexicon::relation_surface_index();
 
+        // TYPE-GROUNDING resolver inputs. Scan every loaded node's edges for a
+        // cross-ontology `Grounded` target and collect the ontologies they point
+        // INTO — the peers a cross-ontology `reaches` must resolve against (e.g.
+        // LegalSources, the target of the USC section→Statute typing). Data-driven:
+        // the target set is read off the loaded archives, never a hardcoded list.
+        let mut target_names: BTreeSet<String> = BTreeSet::new();
+        for onto in &loaded {
+            for node in onto.archive().nodes.iter() {
+                for edge in node.edges.iter() {
+                    if let Some((ont, _)) = archived_grounded(&edge.1) {
+                        target_names.insert(ont.to_string());
+                    }
+                }
+            }
+        }
+        // For each loaded ontology that IS such a target, hold its owned archive as
+        // a resolver peer, pinned to its own loaded root (so the pin always agrees;
+        // the fail-closed leg is atom presence). A loaded ontology no edge grounds
+        // into (e.g. USC itself) is NOT indexed — the resolver stays small.
+        let mut grounding_peers: BTreeMap<String, Archive> = BTreeMap::new();
+        let mut manifest_entries: Vec<ConnectedOntology> = Vec::new();
+        for onto in &loaded {
+            let name = onto.id().as_str().to_string();
+            if !target_names.contains(&name) {
+                continue;
+            }
+            if let Ok(archive) = onto.to_owned_archive() {
+                manifest_entries.push(ConnectedOntology {
+                    name: name.clone(),
+                    root: onto.root(),
+                    role: "instantiates".to_string(),
+                });
+                grounding_peers.insert(name, archive);
+            }
+        }
+        let grounding_manifest = ConnectedOntologies(manifest_entries);
+
         // `loaded_ids` (ConceptRef → id) is retained as reasoner state so the
         // loaded-side closure answers — a set of `ConceptRef`s read off each
         // ontology's MATERIALIZED Subsumption closure — can be re-keyed back to
@@ -352,6 +409,8 @@ impl ComposedReasoner {
             // ontology's `(R, Reflexive, HasProperty)` edges — so the `reaches`
             // `c == a` short-circuit consults the loaded data, not a hardcoded list.
             reflexive_kinds: crate::formal::relations::ontology::reflexive_relation_kinds(),
+            grounding_peers,
+            grounding_manifest,
         }
     }
 
@@ -390,6 +449,61 @@ impl ComposedReasoner {
     /// The loaded ontology that owns `cref`, by `OntologyName` identity.
     fn ontology_of(&self, cref: &ConceptRef) -> Option<&RuntimeOntology> {
         self.loaded.iter().find(|o| o.id() == &cref.ontology)
+    }
+
+    /// CROSS-ONTOLOGY reachability along `kind`: `c` and `a` live in DIFFERENT
+    /// loaded ontologies, bridged by a `Grounded` TYPE edge `c` carries into `a`'s
+    /// ontology (the USC section→`legal_sources:Statute` typing minted by the
+    /// `usc_legal_sources_functor` grounding lens). It reads `c`'s grounded edges
+    /// of the queried `kind`, resolves each foreign atom to the peer's
+    /// [`ConceptRef`] via the generic [`AtomResolver`], and CONTINUES the query
+    /// inside the peer ontology's own materialized closure — so
+    /// `reaches(section, Statute)` is the direct typing and `reaches(section, law)`
+    /// is that typing THEN the LegalSources `Statute ⊑ … ⊑ LegalSource` closure.
+    ///
+    /// Fail-closed: an unresolvable atom (the target ontology not loaded, a
+    /// version skew, or an absent atom) contributes NO path — an honest false,
+    /// never a guess. This is the resolve half of "integration via a functor": the
+    /// type link exists only when BOTH the grounding functor minted the edge AND
+    /// the target ontology is loaded to resolve it.
+    fn cross_reaches(&self, c: &ConceptRef, a: &ConceptRef, kind: &ConceptRef) -> bool {
+        let Some(onto) = self.ontology_of(c) else {
+            return false;
+        };
+        // The resolver over the loaded grounding-target peers. Rebuilt per query
+        // (each target peer is small — LegalSources is nine nodes), fail-closed on
+        // a root skew.
+        let Ok(resolver) = AtomResolver::new(&self.grounding_manifest, &self.grounding_peers)
+        else {
+            return false;
+        };
+        for g in onto.grounded_edges_from(c) {
+            // Only a grounded edge asserting the QUERIED relation kind bridges (a
+            // `denotes` lexical edge, say, does not answer an is-a query).
+            if &g.kind != kind {
+                continue;
+            }
+            let target = EdgeTarget::Grounded {
+                ontology: g.ontology.clone(),
+                atom: g.atom,
+            };
+            let Ok(def) = resolver.resolve(&target) else {
+                continue;
+            };
+            let t = ConceptRef::new(OntologyName::new(g.ontology.clone()), def.name.clone());
+            // The typing lands directly on `a`…
+            if &t == a {
+                return true;
+            }
+            // …or `a` is a supertype `t` reaches inside the peer ontology's closure.
+            if let Some(peer) = self.ontology_of(a)
+                && peer.id().as_str() == g.ontology
+                && peer.closure().reaches(&t, a, kind.clone())
+            {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -472,11 +586,17 @@ impl LexicalReasoner for ComposedReasoner {
                 if c == a {
                     return true;
                 }
-                // Cross-ontology subsumption is not asserted in the
-                // single-ontology demo; same-ontology is the closure lookup.
-                self.ontology_of(&c)
-                    .map(|onto| onto.closure().reaches(&c, &a, subsumption_kind()))
-                    .unwrap_or(false)
+                if c.ontology == a.ontology {
+                    // Same ontology: the closure lookup.
+                    self.ontology_of(&c)
+                        .map(|onto| onto.closure().reaches(&c, &a, subsumption_kind()))
+                        .unwrap_or(false)
+                } else {
+                    // Different ontologies: follow a `Grounded` TYPE edge across the
+                    // boundary (the USC section→legal_sources:Statute typing), then
+                    // continue in the peer's Subsumption closure.
+                    self.cross_reaches(&c, &a, &subsumption_kind())
+                }
             }
             // Mixed English/loaded: no cross-universe subsumption edges exist in
             // this composition, so the relation does not hold (honest false, not
@@ -506,9 +626,15 @@ impl LexicalReasoner for ComposedReasoner {
                 if c == a {
                     return self.reflexive_kinds.contains(kind);
                 }
-                self.ontology_of(&c)
-                    .map(|onto| onto.closure().reaches(&c, &a, kind.clone()))
-                    .unwrap_or(false)
+                if c.ontology == a.ontology {
+                    self.ontology_of(&c)
+                        .map(|onto| onto.closure().reaches(&c, &a, kind.clone()))
+                        .unwrap_or(false)
+                } else {
+                    // Cross-ontology: resolve `c`'s `Grounded` type edge into the
+                    // peer ontology and continue the `kind` query there.
+                    self.cross_reaches(&c, &a, kind)
+                }
             }
             // Both English: the embedded taxonomy answers ONLY a Subsumption
             // query — it carries no other relation's closure (honest false).

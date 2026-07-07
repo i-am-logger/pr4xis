@@ -33,12 +33,20 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
 
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::english::bridge::{ENGLISH_ONTOLOGY, form_atom};
 
 use super::term_extractor::extract_lemmas;
+
+/// The runtime name of the always-loaded LegalSources base ontology — the
+/// connected ontology a USC node's TYPE grounding points into (parity with
+/// `crates/cli/src/main.rs` `legal_sources_base()` and the wasm embed). A USC
+/// section's `instantiates` grounded edge names this ontology; the composed
+/// reasoner resolves the atom against the loaded LegalSources of THIS name.
+pub const LEGAL_SOURCES_ONTOLOGY: &str = "LegalSources";
 
 /// One written-form `denotes` pointer: the surface `word` that occurred and the
 /// [`Grounded`](EdgeTarget::Grounded) edge into its `ontolex:Form` atom in
@@ -93,6 +101,66 @@ pub fn denotes_lens(english: &English) -> impl Fn(&Definition) -> Vec<(String, E
                 .map(|p| ("denotes".to_string(), p.target))
                 .collect()
         })
+    }
+}
+
+/// The TYPE grounding LENS — the twin of [`denotes_lens`], retargeted from the
+/// English lexicon to the LegalSources taxonomy. Where `denotes` grounds a node's
+/// PROSE into `english_wordnet` Form atoms (the lexical floor), this grounds a
+/// node's TYPE: a loaded USC section IS a `legal_sources:Statute`, the United
+/// States Code IS a `legal_sources:Code`.
+///
+/// It is the PRODUCE side of a USC→LegalSources grounding FUNCTOR carried as
+/// `.prx` DATA (`usc_legal_sources_functor.prx`), not code: `type_map` is the
+/// functor's `map_object` (a USC node KIND → the LegalSources concept NAME it
+/// instantiates — `Section ↦ Statute`, the Code root ↦ `Code`), and `relation`
+/// is the functor's `map_morphism` image (the reachability kind the instantiation
+/// edge asserts — `Subsumption`, so "is section X a statute" reads the same
+/// materialized closure "is a statute a law" does). For each node whose kind is a
+/// key in `type_map`, it emits one `(relation, `[`EdgeTarget::Grounded`]`)` edge
+/// into the LegalSources concept's `Definition` atom BY CONTENT ADDRESS, resolved
+/// by the generic `AtomResolver` — never a bespoke string side-channel, never a
+/// `match node.kind` hardcode (the map is loaded data).
+///
+/// A node whose kind is not in `type_map`, or a mapped concept name absent from
+/// `legal_sources`, is left UNGROUNDED (no edge) — the floor asserts only a typing
+/// whose target atom actually exists in the connected taxonomy.
+///
+/// Citation: LKIF-Core (Hoekstra et al. 2007) — a USC section bears enacted
+/// statutory norms (`lkif:Statute`), the USC is a `lkif:Code` (compilation of
+/// legislation); Salmond on Jurisprudence (a codified section IS enacted law);
+/// 1 U.S.C. § 204 (the United States Code). The instance-as-functor grounding
+/// pattern: Spivak (2012) *Functorial Data Migration* — an instance is a functor
+/// into the schema; here the USC nodes' typing is a functor into LegalSources.
+pub fn instantiates_lens<'a>(
+    type_map: &'a [(String, String)],
+    relation: &'a str,
+    legal_sources: &'a Archive,
+) -> impl Fn(&Definition) -> Vec<(String, EdgeTarget)> + 'a {
+    move |node| {
+        type_map
+            .iter()
+            .find(|(source_kind, _)| source_kind.as_str() == node.kind.as_str())
+            .and_then(|(_, concept)| {
+                // The target atom is the CONTENT ADDRESS of the LegalSources
+                // concept's `Definition` node — the same atom the loaded
+                // LegalSources holds (both minted by `emit::<LegalSourcesCategory>()`),
+                // so the generic resolver binds them by agreement.
+                let atom = legal_sources
+                    .nodes
+                    .iter()
+                    .find(|n| n.name.as_str() == concept.as_str())?
+                    .address()
+                    .ok()?;
+                Some(alloc::vec![(
+                    relation.to_string(),
+                    EdgeTarget::Grounded {
+                        ontology: LEGAL_SOURCES_ONTOLOGY.to_string(),
+                        atom,
+                    },
+                )])
+            })
+            .unwrap_or_default()
     }
 }
 

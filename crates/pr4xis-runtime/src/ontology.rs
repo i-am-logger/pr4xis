@@ -89,7 +89,7 @@ use crate::codec::CodecError;
 use crate::connection::GeneratorAction;
 use crate::definition::EdgeTarget;
 use crate::lens::archive_lens::{
-    ArchiveLens, ArchiveLensError, ArchivedArchiveView, archived_local_name,
+    ArchiveLens, ArchiveLensError, ArchivedArchiveView, archived_grounded, archived_local_name,
 };
 
 use rkyv::util::AlignedVec;
@@ -181,6 +181,25 @@ pub struct RuntimeEdge {
     pub source: ConceptRef,
     pub kind: ConceptRef,
     pub target: ConceptRef,
+}
+
+/// A CROSS-ONTOLOGY typed edge departing a node — the foreign-atom half
+/// [`RuntimeEdge`] / [`morphisms_from`](RuntimeOntology::morphisms_from) drop
+/// (they carry only LOCAL generators). It names the connected `ontology` and the
+/// content `atom` of the target node there; the `kind` is the edge's relation
+/// (minted via [`relations_kind`]) so a reachability query can match it against
+/// the kind it asks along. The atom is resolved to the peer's `Definition` — and
+/// thence a [`ConceptRef`] — by the generic
+/// [`AtomResolver`](crate::grounding::AtomResolver), the same primitive the
+/// lexical `denotes` floor already uses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroundedEdge {
+    /// The edge's relation kind, in the one Relations vocabulary.
+    pub kind: ConceptRef,
+    /// The connected ontology the target atom lives in.
+    pub ontology: String,
+    /// The content address of the target atom in that ontology.
+    pub atom: ContentAddress,
 }
 
 /// Lazy, memoized reachability over ONE transitive relation-kind's GENERATING
@@ -714,6 +733,47 @@ impl RuntimeOntology {
                 })
             })
             .collect()
+    }
+
+    /// Every CROSS-ONTOLOGY grounded edge departing `c` — the foreign-atom edges
+    /// [`morphisms_from`](Self::morphisms_from) deliberately drops. Read straight
+    /// off the archived buffer via [`archived_grounded`]; each carries its relation
+    /// `kind`, the connected `ontology`, and the target `atom` a resolver binds.
+    ///
+    /// This is the read half of the type-grounding path: a loaded USC section
+    /// carries a grounded edge into `LegalSources` (its `Statute` typing), minted
+    /// by the `usc_legal_sources_functor` grounding lens; a composed reasoner
+    /// reads it here, resolves the atom to the peer concept, and CONTINUES its
+    /// reachability query inside the peer ontology's closure.
+    pub fn grounded_edges_from(&self, c: &ConceptRef) -> Vec<GroundedEdge> {
+        self.archive()
+            .nodes
+            .iter()
+            .filter(|n| n.name == c.name.as_str())
+            .flat_map(|n| {
+                n.edges.iter().filter_map(move |edge| {
+                    let (kind_name, target) = (&edge.0, &edge.1);
+                    let (ontology, atom) = archived_grounded(target)?;
+                    Some(GroundedEdge {
+                        kind: relations_kind(kind_name.as_str()),
+                        ontology: ontology.to_string(),
+                        atom,
+                    })
+                })
+            })
+            .collect()
+    }
+
+    /// The owned [`Archive`] this ontology was materialized from — the OWNING GET
+    /// over the retained `rkyv` buffer ([`ArchiveLens::get`]). The zero-copy query
+    /// path reads [`archive`](Self::archive) instead; this is for the rare caller
+    /// that needs the owned form (e.g. a peer archive an
+    /// [`AtomResolver`](crate::grounding::AtomResolver) indexes by
+    /// [`Definition::address`](crate::definition::Definition::address), which the
+    /// archived view does not carry). Fail-closed on a corrupted buffer, though the
+    /// buffer was already `bytecheck`-validated at materialize.
+    pub fn to_owned_archive(&self) -> Result<Archive, ArchiveLensError> {
+        ArchiveLens::get(self.buf.as_slice())
     }
 
     /// The reachable set from `c` along `kind` — the strict descendants under
