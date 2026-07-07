@@ -47,14 +47,38 @@ mod ontologies_manifest {
     include!(concat!(env!("OUT_DIR"), "/ontologies_manifest.rs"));
 }
 
-/// The embedded new-format `.prx` demo ontology — the Avizienis et al. (2004)
-/// Dependability taxonomy, projected to a content-addressed Archive by
-/// `build.rs` (via `emit::<DependabilityCategory>()`), with its bytes and
-/// trusted Merkle root baked in. The browser loads these bytes fail-closed
-/// against the root without any network — and a fetched/uploaded `.prx` would
-/// flow through the exact same [`Pr4xis::load_ontology_prx`] path.
+/// The embedded new-format `.prx` manifest — one `EMBEDDED_PRX` table of
+/// [`embedded_prx::EmbeddedOntology`] entries, each a compiled domain `Category`
+/// projected to a content-addressed Archive by `build.rs` with its bytes,
+/// trusted Merkle root, name, and `default_loaded` residency baked in. The
+/// LegalSources base (`default_loaded: true`) and the Avizienis et al. (2004)
+/// Dependability demo (`default_loaded: false`) are ordinary manifest entries;
+/// the browser loads any of them fail-closed against its root without a network,
+/// and a fetched/uploaded `.prx` flows through the exact same
+/// [`Pr4xis::load_ontology_prx`] path.
 mod embedded_prx {
     include!(concat!(env!("OUT_DIR"), "/embedded_prx.rs"));
+}
+
+/// The embedded default-loaded base entries — the always-present grounding
+/// ontologies `Pr4xis::new` installs at construction (currently the single
+/// LegalSources base). The one place the `default_loaded` residency partition
+/// is read on the install side, so `new()` carries no per-name special case.
+fn embedded_base() -> impl Iterator<Item = &'static embedded_prx::EmbeddedOntology> {
+    embedded_prx::EMBEDDED_PRX
+        .iter()
+        .filter(|e| e.default_loaded)
+}
+
+/// The single on-demand embedded demo `.prx` — the manifest's non-`default_loaded`
+/// entry (the Dependability taxonomy). The UI offers it as a one-click load; it
+/// flows through the same fail-closed `.prx` core as the base and any fetched
+/// `.prx`.
+fn embedded_demo() -> &'static embedded_prx::EmbeddedOntology {
+    embedded_prx::EMBEDDED_PRX
+        .iter()
+        .find(|e| !e.default_loaded)
+        .expect("the embedded manifest carries exactly one on-demand demo .prx")
 }
 
 /// Registry primary key of the embedded English base
@@ -141,21 +165,22 @@ impl Pr4xis {
             composed: None,
             history: Vec::new(),
         };
-        // Install the always-loaded LegalSources BASE — the LKIF-Core formal
-        // sources-of-law taxonomy, baked in by build.rs (the default lexicalizing
-        // `emit`, so its labels "law"/"case law" ride as `ontolex:Form` surfaces).
-        // It goes in
-        // through the EXACT fail-closed core a fetched/uploaded `.prx` takes, so
-        // from construction `composed` is `Some(...)` and EVERY chat reasons over
-        // the formal sources of law: "is a statute a law" answers Yes out of the
-        // box, with no explicit load. A failure here is a build-time invariant
-        // violation (the bytes + pin ship embedded in the wasm).
-        this.load_ontology_prx_core(
-            embedded_prx::EMBEDDED_LEGAL_SOURCES_PRX,
-            embedded_prx::EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME.to_string(),
-            embedded_prx::EMBEDDED_LEGAL_SOURCES_PRX_ROOT_HEX,
-        )
-        .expect("the embedded LegalSources base .prx loads fail-closed against its baked root");
+        // De-privileged base install: iterate the embedded `.prx` manifest and
+        // load every `default_loaded` entry through the EXACT fail-closed `.prx`
+        // core a fetched/uploaded `.prx` takes — no hand-wired special case for
+        // any one ontology. The always-loaded LegalSources BASE (LKIF-Core formal
+        // sources-of-law taxonomy, lexicalized so "law"/"case law" ground for
+        // chat) is simply the manifest's `default_loaded` entry, so from
+        // construction `composed` is `Some(...)` and EVERY chat reasons over the
+        // formal sources of law: "is a statute a law" answers Yes out of the box,
+        // with no explicit load. A failure here is a build-time invariant
+        // violation (the bytes + pins ship embedded in the wasm).
+        for entry in embedded_base() {
+            this.load_ontology_prx_core(entry.bytes, entry.name.to_string(), entry.root_hex)
+                .expect(
+                    "an embedded default-loaded base .prx loads fail-closed against its baked root",
+                );
+        }
         this
     }
 
@@ -398,25 +423,17 @@ impl Pr4xis {
     /// fail-closed load checks against; `bytes` is the size of the embedded
     /// content-addressed archive (no network — it ships in the wasm).
     pub fn embedded_demo_prx(&self) -> String {
+        let demo = embedded_demo();
         let mut p = Presentation::new();
-        p.set(
-            "name",
-            SchemaValue::Text(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME.into()),
-        );
-        p.set(
-            "root",
-            SchemaValue::Text(embedded_prx::EMBEDDED_DEMO_PRX_ROOT_HEX.into()),
-        );
-        p.set(
-            "bytes",
-            SchemaValue::Unsigned(embedded_prx::EMBEDDED_DEMO_PRX.len() as u64),
-        );
+        p.set("name", SchemaValue::Text(demo.name.into()));
+        p.set("root", SchemaValue::Text(demo.root_hex.into()));
+        p.set("bytes", SchemaValue::Unsigned(demo.bytes.len() as u64));
         p.set(
             "loaded",
             SchemaValue::Boolean(
                 self.runtime_ontologies
                     .iter()
-                    .any(|o| o.id().as_str() == embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME),
+                    .any(|o| o.id().as_str() == demo.name),
             ),
         );
         p.to_json()
@@ -645,12 +662,9 @@ impl Pr4xis {
     /// build-baked Dependability `.prx` through the same fail-closed core and
     /// return its name.
     fn load_embedded_demo_prx_core(&mut self) -> Result<String, LoadPrxError> {
-        let name = embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME.to_string();
-        self.load_ontology_prx_core(
-            embedded_prx::EMBEDDED_DEMO_PRX,
-            name.clone(),
-            embedded_prx::EMBEDDED_DEMO_PRX_ROOT_HEX,
-        )?;
+        let demo = embedded_demo();
+        let name = demo.name.to_string();
+        self.load_ontology_prx_core(demo.bytes, name.clone(), demo.root_hex)?;
         Ok(name)
     }
 }
@@ -693,14 +707,21 @@ mod acceptance {
     /// bytes `Pr4xis` loads) so the test can read its glosses and pick a demo
     /// concept — without reaching into `Pr4xis`'s private state.
     fn embedded_ontology() -> RuntimeOntology {
-        let root = ContentAddress::from_hex(embedded_prx::EMBEDDED_DEMO_PRX_ROOT_HEX).unwrap();
-        let archive = pr4xis_runtime::load::load(embedded_prx::EMBEDDED_DEMO_PRX, root)
+        let demo = embedded_demo();
+        let root = ContentAddress::from_hex(demo.root_hex).unwrap();
+        let archive = pr4xis_runtime::load::load(demo.bytes, root)
             .expect("embedded demo .prx loads fail-closed against its baked root");
-        materialize(
-            archive,
-            OntologyName::new(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME),
-        )
-        .expect("embedded demo .prx materializes")
+        materialize(archive, OntologyName::new(demo.name)).expect("embedded demo .prx materializes")
+    }
+
+    /// The name of the always-loaded base (the manifest's single `default_loaded`
+    /// entry — currently the LegalSources base), read from the manifest so the
+    /// test never restates the string.
+    fn base_name() -> &'static str {
+        embedded_base()
+            .next()
+            .expect("a default-loaded embedded base")
+            .name
     }
 
     /// A demo concept the embedded ontology DEFINES (carries a gloss for) whose
@@ -766,7 +787,7 @@ mod acceptance {
         let loaded_name = with
             .load_embedded_demo_prx_core()
             .expect("the embedded demo .prx loads (fail-closed root matches)");
-        assert_eq!(loaded_name, embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME);
+        assert_eq!(loaded_name, embedded_demo().name);
         assert_eq!(
             with.loaded_ontology_count(),
             BASE_LOADED + 1,
@@ -882,7 +903,7 @@ mod acceptance {
         let sources = with_d["sources"].as_array().expect("sources array");
         let demo = sources
             .iter()
-            .find(|s| s["name"].as_str() == Some(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME))
+            .find(|s| s["name"].as_str() == Some(embedded_demo().name))
             .expect("the unregistered loaded demo .prx appears in the catalog (doc §3)");
         assert_eq!(
             demo["availability"].as_str(),
@@ -894,7 +915,7 @@ mod acceptance {
                 .as_array()
                 .map(|ss| !ss
                     .iter()
-                    .any(|s| s["name"].as_str() == Some(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME)))
+                    .any(|s| s["name"].as_str() == Some(embedded_demo().name)))
                 .unwrap_or(true),
             "without the load, the unregistered demo is absent from the catalog"
         );
@@ -988,11 +1009,7 @@ mod acceptance {
         let mut p = Pr4xis::new();
         let wrong_root = ContentAddress::of(b"not the dependability root").to_hex();
         let err = p
-            .load_ontology_prx_core(
-                embedded_prx::EMBEDDED_DEMO_PRX,
-                "Dependability".into(),
-                &wrong_root,
-            )
+            .load_ontology_prx_core(embedded_demo().bytes, "Dependability".into(), &wrong_root)
             .expect_err("a wrong trusted root must be refused (fail-closed)");
         // The typed verdict IS a root mismatch (not a decode error, not a
         // materialize error) — the gate re-derived the root and rejected it.
@@ -1026,15 +1043,11 @@ mod acceptance {
         // Flip a byte of the embedded `.prx`: either decode fails or the
         // re-derived root no longer matches the (correct) trusted root. Either
         // way — refused.
-        let mut bytes = embedded_prx::EMBEDDED_DEMO_PRX.to_vec();
+        let mut bytes = embedded_demo().bytes.to_vec();
         *bytes.last_mut().unwrap() ^= 0xff;
         let mut p = Pr4xis::new();
         let err = p
-            .load_ontology_prx_core(
-                &bytes,
-                "Dependability".into(),
-                embedded_prx::EMBEDDED_DEMO_PRX_ROOT_HEX,
-            )
+            .load_ontology_prx_core(&bytes, "Dependability".into(), embedded_demo().root_hex)
             .expect_err("tampered .prx bytes must be refused (fail-closed)");
         assert!(
             matches!(err, LoadPrxError::Refused(_)),
@@ -1082,8 +1095,9 @@ mod acceptance {
                 .cloned()
                 .unwrap_or_default();
         assert!(
-            ontologies.iter().any(|o| o["ontology"].as_str()
-                == Some(embedded_prx::EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME)),
+            ontologies
+                .iter()
+                .any(|o| o["ontology"].as_str() == Some(base_name())),
             "the Yes must credit the LegalSources base it reasoned over; got: {ontologies:?}"
         );
 
@@ -1094,9 +1108,7 @@ mod acceptance {
         let sources = d["sources"].as_array().expect("sources array");
         let legal = sources
             .iter()
-            .find(|s| {
-                s["name"].as_str() == Some(embedded_prx::EMBEDDED_LEGAL_SOURCES_ONTOLOGY_NAME)
-            })
+            .find(|s| s["name"].as_str() == Some(base_name()))
             .expect("the always-loaded LegalSources base appears in the self-model catalog");
         assert_eq!(
             legal["availability"].as_str(),
@@ -1147,14 +1159,11 @@ mod browser_acceptance {
     /// concept at test time — the wasm32 mirror of the native acceptance
     /// harness. Nothing about the gloss is hardcoded.
     fn embedded_ontology() -> RuntimeOntology {
-        let root = ContentAddress::from_hex(embedded_prx::EMBEDDED_DEMO_PRX_ROOT_HEX).unwrap();
-        let archive = pr4xis_runtime::load::load(embedded_prx::EMBEDDED_DEMO_PRX, root)
+        let demo = embedded_demo();
+        let root = ContentAddress::from_hex(demo.root_hex).unwrap();
+        let archive = pr4xis_runtime::load::load(demo.bytes, root)
             .expect("embedded demo .prx loads fail-closed against its baked root");
-        materialize(
-            archive,
-            OntologyName::new(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME),
-        )
-        .expect("embedded demo .prx materializes")
+        materialize(archive, OntologyName::new(demo.name)).expect("embedded demo .prx materializes")
     }
 
     /// A demo concept the embedded ontology DEFINES (carries a gloss for) whose
