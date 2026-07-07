@@ -1563,6 +1563,7 @@ dependencies = [
  "blake3",
  "pr4xis",
  "proptest",
+ "rkyv",
  "serde",
  "serde_ipld_dagcbor",
  "sha2 0.11.0",

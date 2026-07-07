@@ -42,6 +42,7 @@ pub mod definition;
 #[cfg(feature = "emit")]
 pub mod emit;
 pub mod grounding;
+pub mod lens;
 pub mod load;
 pub mod meta;
 #[cfg(feature = "emit")]
