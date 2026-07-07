@@ -128,6 +128,11 @@ impl Ontology for InfoOntology {
 /// referent (what it points to) gives it meaning; the Reference itself is
 /// just an address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// `repr(transparent)` GUARANTEES this single-field struct shares `u64`'s layout,
+// so the zero-copy archived-buffer reads (`word_index`, `concept_store`,
+// `taxonomy_store` cast `&[ArchivedU64]`/`*const u64` to `&[Ref]`) are sound by
+// the type's contract, not merely by de-facto `repr(Rust)` layout.
+#[repr(transparent)]
 pub struct Ref<const BYTES: usize> {
     value: u64,
 }
