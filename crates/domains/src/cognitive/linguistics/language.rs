@@ -783,7 +783,6 @@ pub fn from_codegen(
         HashMap::<SenseId, Vec<SenseId>>::new(), // opposition (sense-level needs full LMF)
         mereology_parts,
         synset_to_concept,
-        HashMap::new(), // sense_to_id
         function_words,
         function_word_list,
         HashMap::new(), // verb_transitivity (chart parser resolves in context)
