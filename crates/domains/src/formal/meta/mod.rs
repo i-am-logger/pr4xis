@@ -24,6 +24,12 @@ pub mod praxis_knowledge_graph;
 pub mod source_syntax;
 pub mod source_taxonomy;
 pub mod staging;
+/// Self-describing ontology of the compact bit-packed `.prx` succinct codec.
+/// Gated on `feature = "prx"`: the codec it describes
+/// ([`crate::social::software::markup::xml::succinct`] + `owl::prx`) only exists
+/// under `prx`.
+#[cfg(feature = "prx")]
+pub mod succinct_codec;
 pub mod syntrometry;
 pub mod versioning;
 pub mod well_behaved_lens;
