@@ -8,6 +8,7 @@
 /// - Herre & Loebe, "A Meta-ontological Architecture" (FOIS 2005)
 pub mod algebra;
 pub mod artifact_identity;
+pub mod canonical_codec;
 pub mod categorical_structure;
 pub mod citation_quality;
 pub mod constitution_coverage;
