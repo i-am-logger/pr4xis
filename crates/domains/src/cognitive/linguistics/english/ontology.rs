@@ -7,6 +7,8 @@ use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
 use crate::cognitive::linguistics::english::concept_store::{ConceptStore, ConceptView};
+use crate::cognitive::linguistics::english::relation_store::{RelationKind, RelationStore};
+use crate::cognitive::linguistics::english::synset_index::SynsetIndex;
 use crate::cognitive::linguistics::english::taxonomy_store::TaxonomyStore;
 use crate::cognitive::linguistics::english::word_index::WordIndex;
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
@@ -75,16 +77,20 @@ pub struct English {
     /// so a query visits only a few tens of nodes and reproduces the closure's
     /// answer exactly. See [`taxonomy_store`](super::taxonomy_store).
     taxonomy: TaxonomyStore,
-    /// Pre-computed opposition: sense → opposite senses.
-    opposition: HashMap<SenseId, Vec<SenseId>>,
-    /// Pre-computed mereology: whole → parts.
-    mereology_parts: HashMap<ConceptId, Vec<ConceptId>>,
-    /// All other WordNet relations (derivation, pertainym,
-    /// domain_topic, attribute, causes, entails, …). Bundled
-    /// to keep the [`English::new`] constructor manageable.
-    relations: WordnetRelations,
-    /// Synset ID string → ConceptId mapping.
-    synset_to_concept: HashMap<String, ConceptId>,
+    /// Every non-taxonomy WordNet relation — opposition (antonym), mereology
+    /// (whole → parts), and the ~25 `WordnetRelations` sub-maps (derivation,
+    /// pertainym, domain_topic, attribute, causes, entails, …) — held as ONE
+    /// compact, zero-copy [`RelationStore`] family of labelled CSRs under `prx`
+    /// (owned `HashMap`s otherwise). Read through [`RelationKind`]-keyed accessors
+    /// ([`opposites`](Self::opposites) / [`parts`](Self::parts) /
+    /// [`derivations`](Self::derivations) / …). See
+    /// [`relation_store`](super::relation_store).
+    relations: RelationStore,
+    /// Synset ID string → [`ConceptId`], held as a compact, zero-copy
+    /// [`SynsetIndex`] sorted-key dictionary under `prx` (an owned `HashMap`
+    /// otherwise). Backs [`concept_by_synset`](Self::concept_by_synset). See
+    /// [`synset_index`](super::synset_index).
+    synset_index: SynsetIndex,
 
     // === Language trait data ===
     /// Function words (closed class, OLiA-classified).
@@ -372,6 +378,11 @@ impl LexicalReasoner for English {
 impl English {
     /// Construct an English ontology from pre-computed parts.
     /// Used by the Language module's deployment functors (codegen, mmap, async).
+    ///
+    /// `sense_count` is the dense sense-id key space (`0..sense_count`) for the
+    /// sense-level relations (opposition, derivation, …); a deployment path with
+    /// no assigned senses (codegen) passes `0`. The synset-level relations
+    /// (mereology, `also_synset`, …) are keyed over `concepts.len()`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         concepts: Vec<Concept>,
@@ -380,6 +391,8 @@ impl English {
         taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>>,
         opposition: HashMap<SenseId, Vec<SenseId>>,
         mereology_parts: HashMap<ConceptId, Vec<ConceptId>>,
+        relations: WordnetRelations,
+        sense_count: usize,
         synset_to_concept: HashMap<String, ConceptId>,
         function_words: HashMap<String, Vec<LexicalEntry>>,
         function_word_list: Vec<String>,
@@ -399,10 +412,18 @@ impl English {
             // Transcode the owned adjacency maps into the compact taxonomy CSR
             // ONCE; the source maps are consumed and freed (§`taxonomy_store`).
             taxonomy: TaxonomyStore::build(taxonomy_parents, taxonomy_children, concept_count),
-            opposition,
-            mereology_parts,
-            relations: WordnetRelations::default(),
-            synset_to_concept,
+            // Transcode every relation map into the compact labelled CSR family
+            // ONCE; the source maps are consumed and freed (§`relation_store`).
+            relations: RelationStore::build(
+                opposition,
+                mereology_parts,
+                relations,
+                sense_count,
+                concept_count,
+            ),
+            // Transcode the synset-id dictionary into the compact index ONCE; the
+            // source map is consumed and freed (§`synset_index`).
+            synset_index: SynsetIndex::build(synset_to_concept),
             function_words,
             function_word_list,
             verb_transitivity,
@@ -411,55 +432,30 @@ impl English {
         }
     }
 
-    /// Replace the SKOS-style cross-reference map (synset-level
-    /// `also_synset`) with the supplied edges. Used by `from_codegen`
-    /// to wire the static `RAW_REFERENCES` array into the runtime
-    /// `WordnetRelations::also_synset` slot.
-    pub fn set_also_synset_references(
-        &mut self,
-        edges: impl IntoIterator<Item = (ConceptId, ConceptId)>,
-    ) {
-        let mut map: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
-        for (from, to) in edges {
-            map.entry(from).or_default().push(to);
-        }
-        self.relations.also_synset = map;
-    }
-
-    /// Access to the full bundle of non-taxonomy / non-opposition /
-    /// non-mereology relations loaded from WordNet.
-    pub fn relations(&self) -> &WordnetRelations {
-        &self.relations
-    }
-
     /// All derivation links for a sense (sense ↔ morphologically-
     /// related sense per Fellbaum-Osherson-Clark 2009).
     pub fn derivations(&self, sense: SenseId) -> &[SenseId] {
-        self.relations
-            .derivation
-            .get(&sense)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.relations.rel(RelationKind::Derivation, sense)
     }
 
     /// Pertainym targets for a sense (relational-adjective → noun
     /// base per Fellbaum 1998 §5.2).
     pub fn pertainyms(&self, sense: SenseId) -> &[SenseId] {
-        self.relations
-            .pertainym
-            .get(&sense)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.relations.rel(RelationKind::Pertainym, sense)
     }
 
     /// Domain-topic labels assigned to a concept (term → domain,
     /// per Bentivogli & Pianta 2004).
     pub fn has_domain_topic(&self, concept: ConceptId) -> &[ConceptId] {
-        self.relations
-            .has_domain_topic
-            .get(&concept)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.relations.rel(RelationKind::HasDomainTopic, concept)
+    }
+
+    /// The number of edges of a given relation `kind` — the discoverable count
+    /// accessor over the labelled [`RelationStore`], replacing the removed
+    /// `relations()` struct exposure (the sole reader was a self-test asserting a
+    /// relation is populated).
+    pub fn relation_edge_count(&self, kind: RelationKind) -> usize {
+        self.relations.edge_count(kind)
     }
 
     /// Minimal sample English for testing — no full WordNet needed.
@@ -760,10 +756,22 @@ impl English {
             // bounded, `Sync` breadth-first ascent over these edges — no eager
             // closure fold (§`taxonomy_store`).
             taxonomy: TaxonomyStore::build(taxonomy_parents, taxonomy_children, concept_count),
-            opposition,
-            mereology_parts,
-            relations,
-            synset_to_concept,
+            // Transcode every relation map (opposition — Phase 4, mereology —
+            // Phase 5, and the WordnetRelations web — Phase 5b) into the compact
+            // labelled CSR family ONCE; the source maps are consumed and freed
+            // (§`relation_store`). Sense-level relations are keyed over the
+            // `sense_counter` dense space assigned in Phase 2.
+            relations: RelationStore::build(
+                opposition,
+                mereology_parts,
+                relations,
+                sense_counter as usize,
+                concept_count,
+            ),
+            // Transcode the synset-id → ConceptId dictionary (Phase 1) into the
+            // compact index ONCE; the source map is consumed and freed
+            // (§`synset_index`).
+            synset_index: SynsetIndex::build(synset_to_concept),
             function_words,
             function_word_list,
             verb_transitivity,
@@ -787,9 +795,9 @@ impl English {
 
     /// Get a concept by its original WordNet synset ID string.
     pub fn concept_by_synset(&self, synset_id: &str) -> Option<ConceptView<'_>> {
-        self.synset_to_concept
-            .get(synset_id)
-            .and_then(|id| self.concept(*id))
+        self.synset_index
+            .lookup(synset_id)
+            .and_then(|id| self.concept(id))
     }
 
     /// Every concept, as a [`ConceptView`], in [`ConceptId`] order — the
@@ -849,18 +857,12 @@ impl English {
 
     /// Direct parts (meronyms) of a concept.
     pub fn parts(&self, id: ConceptId) -> &[ConceptId] {
-        self.mereology_parts
-            .get(&id)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.relations.rel(RelationKind::MereologyParts, id)
     }
 
     /// Opposites (antonyms) of a sense.
     pub fn opposites(&self, sense_id: SenseId) -> &[SenseId] {
-        self.opposition
-            .get(&sense_id)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.relations.rel(RelationKind::Opposition, sense_id)
     }
 
     /// Total number of concepts.
@@ -880,7 +882,7 @@ impl English {
 
     /// Total opposition relations.
     pub fn opposition_count(&self) -> usize {
-        self.opposition.values().map(|v| v.len()).sum()
+        self.relations.edge_count(RelationKind::Opposition)
     }
 
     /// Get verb transitivity options from pre-computed frames.
@@ -1233,23 +1235,22 @@ mod inflection_index_tests {
 </LexicalResource>"#;
         let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(LMF).expect("LMF");
         let en = English::from_wordnet(&wn);
-        let rels = en.relations();
 
         // Derivation: compensate ↔ compensation, both directions.
         assert!(
-            !rels.derivation.is_empty(),
+            en.relation_edge_count(RelationKind::Derivation) > 0,
             "derivation relation should be populated"
         );
 
         // Pertainym: "legal" → "law".
         assert!(
-            !rels.pertainym.is_empty(),
+            en.relation_edge_count(RelationKind::Pertainym) > 0,
             "pertainym relation should be populated"
         );
 
         // Domain-topic: compensation has_domain_topic LAW.
         assert!(
-            !rels.has_domain_topic.is_empty(),
+            en.relation_edge_count(RelationKind::HasDomainTopic) > 0,
             "has_domain_topic should be populated"
         );
     }
