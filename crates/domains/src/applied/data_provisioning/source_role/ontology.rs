@@ -37,7 +37,7 @@
 //! exactly one), mirroring how [`super::super::ontology::canonical_encoding`]
 //! assigns exactly one `ContentType` per kind. The partition is realized by
 //! the [`super::functor::SourceKindToRole`] functor and machine-checked by
-//! [`RolePartitionIsTotal`](super::functor::RolePartitionIsTotal).
+//! [`EveryRegisteredKindHasConcreteRole`](super::functor::EveryRegisteredKindHasConcreteRole).
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
@@ -157,17 +157,19 @@ impl Ontology for SourceRoleOntology {
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         // The registry-facing invariants live in `functor.rs` (they consult
-        // the functor + registry); include them here so `validate()` runs the
-        // complete axiom set for this ontology. These carry the real,
-        // registry-grounded coverage — every source maps to exactly one role and
-        // no leaf maps to the abstract root. (The former
-        // `ChatKnowledgeIsTheSoleLoadableRole` was a tautology: its `verify()`
-        // merely re-read `IsChatLoadable::get`'s own match arms with no
-        // independent ground — loadability IS the role classification — so it
-        // was removed rather than shipped as `f == def`. The sole-loadable fact
-        // is covered by the `only_chat_knowledge_is_loadable` and
+        // the functor + registry); include it here so `validate()` runs the
+        // complete axiom set for this ontology. It carries the real,
+        // registry-grounded coverage — every registered source maps to exactly
+        // one concrete role, no leaf maps to the abstract root. (The former
+        // `RolePartitionIsTotal` was logically equivalent — both `Ok` iff no kind
+        // maps to the abstract root — and carried a vacuous role-count-sum leg a
+        // total exhaustive match always satisfies, so it was collapsed into this
+        // one. The earlier `ChatKnowledgeIsTheSoleLoadableRole` was a tautology:
+        // its `verify()` merely re-read `IsChatLoadable::get`'s own match arms with
+        // no independent ground — loadability IS the role classification — so it
+        // too was removed rather than shipped as `f == def`. The sole-loadable
+        // fact is covered by the `only_chat_knowledge_is_loadable` and
         // `is_chat_loadable_selects_only_chat_knowledge_entries` tests.)
-        axioms.push(Box::new(super::functor::RolePartitionIsTotal));
         axioms.push(Box::new(super::functor::EveryRegisteredKindHasConcreteRole));
         axioms
     }

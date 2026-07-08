@@ -329,4 +329,69 @@ mod tests {
             "distinct values must encode differently — a constant encoder is falsified"
         );
     }
+
+    use proptest::prelude::*;
+
+    /// A generated [`OwnedCodegenData`] over which the succinct round-trip must
+    /// hold. Every field is independent (the codec serializes each column on its
+    /// own and reads it back to its own length), so an arbitrary well-formed value
+    /// round-trips — the strategy just bounds sizes and value ranges to keep the
+    /// bit-packed widths small. `entity_count` is an independent header (not derived
+    /// from the vec lengths), handles/endpoints are small integers, and words may
+    /// repeat or be empty — all faithfully preserved by the codec.
+    fn owned_codegen_strategy() -> impl Strategy<Value = OwnedCodegenData> {
+        let text_col = || prop::collection::vec("[a-z]{0,6}", 0..5);
+        let edge_table = || prop::collection::vec((0u64..30, 0u64..30), 0..5);
+        let word_index =
+            prop::collection::vec(("[a-z]{0,6}", prop::collection::vec(0u64..30, 0..4)), 0..4);
+        (
+            0u64..40,
+            (text_col(), text_col(), text_col(), text_col()),
+            word_index,
+            (
+                edge_table(),
+                edge_table(),
+                edge_table(),
+                edge_table(),
+                edge_table(),
+                edge_table(),
+            ),
+        )
+            .prop_map(
+                |(
+                    entity_count,
+                    (entity_ids, entity_kind, entity_labels, entity_defs),
+                    word_index,
+                    (taxonomy, mereology, opposition, equivalence, causation, references),
+                )| OwnedCodegenData {
+                    entity_count,
+                    entity_ids,
+                    entity_kind,
+                    entity_labels,
+                    entity_defs,
+                    word_index,
+                    taxonomy,
+                    mereology,
+                    opposition,
+                    equivalence,
+                    causation,
+                    references,
+                },
+            )
+    }
+
+    proptest! {
+        /// ∀-strengthening of [`SuccinctCodecRoundTrip`]: over the generated space
+        /// of `OwnedCodegenData`, `from_succinct(to_succinct(d)) == d`. The witness
+        /// axiom fixes one WordNet-shaped value; this drives the compact codec over
+        /// arbitrary column contents (empty/duplicate strings, variable CSR runs,
+        /// every edge table populated).
+        #[test]
+        fn prop_succinct_codec_round_trips(d in owned_codegen_strategy()) {
+            let back = OwnedCodegenData::from_succinct(&d.to_succinct());
+            prop_assert_eq!(back, d);
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_succinct_codec_round_trips, Deterministic);
 }

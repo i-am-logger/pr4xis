@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d9cf9fa2a1f56d27e45440f9e4c0b6a7dec84de08ca1e58ca2690ba83f463eb2 # shrinks to d = OwnedCodegenData { entity_count: 0, entity_ids: [], entity_kind: [], entity_labels: [], entity_defs: [], word_index: [], taxonomy: [], mereology: [], opposition: [], equivalence: [], causation: [], references: [] }

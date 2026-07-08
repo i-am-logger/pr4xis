@@ -168,65 +168,43 @@ pub fn is_chat_loadable(entry: &RegistryEntry) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// Registry-facing axioms (consult the functor + registry)
+// Registry-facing axiom (consults the functor + registry)
 // ---------------------------------------------------------------------------
 
-/// Axiom: the role functor is a *total partition* of the registry — every
-/// registered source maps to exactly one of the three concrete roles, and the
-/// three role-counts sum to the registry size.
-///
-/// PROV-O (Lebo et al. 2013) §3: an entity has exactly one function w.r.t. a
-/// given activity. The partition mirrors the `canonical_encoding` totality:
-/// no registered source is left without a role, none straddles two.
-pub struct RolePartitionIsTotal;
-
-impl Axiom for RolePartitionIsTotal {
-    fn verify(&self) -> Verdict {
-        use SourceRoleConcept as R;
-        let mut chat = 0usize;
-        let mut decoder = 0usize;
-        let mut pending = 0usize;
-        for entry in crate::applied::data_provisioning::registry::data_sources() {
-            match source_role(entry.kind) {
-                R::ChatKnowledge => chat += 1,
-                R::DecoderInput => decoder += 1,
-                R::NotYetLoadable => pending += 1,
-                // A registered (leaf) kind must never resolve to the abstract
-                // root — that would be an unclassified source.
-                R::SourceRole => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
-            }
-        }
-        let total = crate::applied::data_provisioning::registry::data_sources().len();
-        if chat + decoder + pending == total {
-            Ok(Box::new(SimpleProof::new(self.meta())))
-        } else {
-            Err(Box::new(SimpleCounterexample::new(self.meta())))
-        }
-    }
-
-    pr4xis::axiom_meta!(
-        "RolePartitionIsTotal",
-        "every registered source maps to exactly one concrete role; the three role-counts sum to the registry size",
-        "Lebo, Sahoo & McGuinness (2013) PROV-O: The PROV Ontology, W3C Recommendation — §3 prov:Role"
-    );
+/// True iff `kind` resolves to a CONCRETE role — never the abstract `SourceRole`
+/// root. The per-entry leg [`EveryRegisteredKindHasConcreteRole`] folds over the
+/// registry, factored out so a teeth test can drive it with the mis-mapped
+/// abstract-root kind the live registry never declares (every registered kind is
+/// a taxonomy leaf).
+pub(crate) fn maps_to_concrete_role(kind: SourceTaxonomyConcept) -> bool {
+    source_role(kind) != SourceRoleConcept::SourceRole
 }
 
-pr4xis::register_axiom!(
-    RolePartitionIsTotal,
-    "Lebo, Sahoo & McGuinness (2013) PROV-O: The PROV Ontology, W3C Recommendation — §3 prov:Role"
-);
-
-/// Axiom: every *registered* source kind resolves to a concrete role (never
-/// the abstract `SourceRole` root). Because the registry only ever declares
-/// taxonomy *leaves* ([`KindIsTaxonomyLeaf`](crate::applied::data_provisioning::ontology::KindIsTaxonomyLeaf)),
+/// Axiom: every *registered* source kind resolves to exactly one CONCRETE role
+/// (never the abstract `SourceRole` root). Because the registry only ever
+/// declares taxonomy *leaves*
+/// ([`KindIsTaxonomyLeaf`](crate::applied::data_provisioning::ontology::KindIsTaxonomyLeaf)),
 /// this asserts the functor sends every leaf that can be registered to a real
-/// role — the object-level counterpart of `RolePartitionIsTotal`.
+/// role — no registered source is left unclassified, and, since `source_role` is
+/// a *total function* into the three concrete roles (its `match` is exhaustive
+/// and only `C::Source` — never registered — hits the abstract root), a
+/// concrete role for every entry IS the total partition of the registry (mirrors
+/// the [`canonical_encoding`](crate::applied::data_provisioning::ontology::canonical_encoding)
+/// totality).
+///
+/// This is the ONE registry-partition axiom (the former `RolePartitionIsTotal`
+/// was logically equivalent — both are `Ok` iff no kind maps to the abstract
+/// root — and additionally carried a VACUOUS "the three role-counts sum to the
+/// registry size" leg, which a total exhaustive match always satisfies; it was
+/// collapsed into this one). Real teeth: it is FALSIFIED by any kind that maps to
+/// the abstract root ([`maps_to_concrete_role`] returns `false` for `C::Source`),
+/// proven by `abstract_root_kind_is_rejected`.
 pub struct EveryRegisteredKindHasConcreteRole;
 
 impl Axiom for EveryRegisteredKindHasConcreteRole {
     fn verify(&self) -> Verdict {
         for entry in crate::applied::data_provisioning::registry::data_sources() {
-            if source_role(entry.kind) == SourceRoleConcept::SourceRole {
+            if !maps_to_concrete_role(entry.kind) {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -327,13 +305,50 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn role_partition_is_total_over_the_registry() {
-        RolePartitionIsTotal
-            .verify()
-            .unwrap_or_else(|c| panic!("{}", c.meta().description.as_str()));
+    fn every_registered_kind_has_a_concrete_role_over_the_registry() {
         EveryRegisteredKindHasConcreteRole
             .verify()
             .unwrap_or_else(|c| panic!("{}", c.meta().description.as_str()));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn abstract_root_kind_is_rejected() {
+        // TEETH for the collapsed partition axiom: the abstract taxonomy root
+        // `C::Source` maps to the abstract role root `R::SourceRole`, so it is NOT
+        // a concrete role — the ONE kind the axiom must reject. The live registry
+        // declares only leaves, so this is the synthetic mis-mapping that proves
+        // the axiom's `!maps_to_concrete_role` guard can FAIL, not just pass.
+        assert!(
+            !maps_to_concrete_role(SourceTaxonomyConcept::Source),
+            "the abstract Source root must NOT resolve to a concrete role"
+        );
+        // Every concrete leaf, by contrast, passes the guard.
+        assert!(maps_to_concrete_role(SourceTaxonomyConcept::Language));
+        assert!(maps_to_concrete_role(
+            SourceTaxonomyConcept::XmlSchemaDefinition
+        ));
+        assert!(maps_to_concrete_role(SourceTaxonomyConcept::Statute));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn chat_loadable_cardinality_is_seventeen() {
+        // The pinned chat-loadable count the review doc cites (denominator 47 →
+        // 17 chat-loadable). Derived through the functor, not hardcoded per name:
+        // the ChatKnowledge-role kinds registered in `praxis.toml` are
+        // `9 UsCodeTitle + 6 OntologyVocabulary + 1 Language + 1 LegalLexicon`.
+        // A functor edit that reclassified any of these — or a registry edit that
+        // added/removed a chat-loadable source — moves this number, so it is
+        // gate-guarded, not a doc claim.
+        let loadable = crate::applied::data_provisioning::registry::data_sources()
+            .iter()
+            .filter(|e| is_chat_loadable(e))
+            .count();
+        assert_eq!(
+            loadable, 17,
+            "expected 17 chat-loadable registered sources (the review doc's pinned figure)"
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]
