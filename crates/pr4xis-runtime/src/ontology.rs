@@ -197,8 +197,12 @@ pub struct RuntimeEdge {
 pub struct GroundedEdge {
     /// The edge's relation kind, in the one Relations vocabulary.
     pub kind: ConceptRef,
-    /// The connected ontology the target atom lives in.
-    pub ontology: String,
+    /// The connected ontology the target atom lives in — the typed in-memory
+    /// [`OntologyName`], LIFTED once here from the archived wire form (the
+    /// `EdgeTarget::Grounded.ontology` wire `String`) exactly as `kind` is lifted
+    /// into the Relations vocabulary. It sits beside [`ConceptRef::ontology`] (also
+    /// `OntologyName`), so the resolver keys never re-wrap a bare `String`.
+    pub ontology: OntologyName,
     /// The content address of the target atom in that ontology.
     pub atom: ContentAddress,
 }
@@ -788,7 +792,10 @@ impl RuntimeOntology {
                     let (ontology, atom) = archived_grounded(target)?;
                     Some(GroundedEdge {
                         kind: relations_kind(kind_name.as_str()),
-                        ontology: ontology.to_string(),
+                        // LIFT the archived wire `String` to the typed in-memory
+                        // OntologyName — the single lowering boundary (see the
+                        // `GroundedEdge.ontology` and `EdgeTarget::Grounded` docs).
+                        ontology: OntologyName::new(ontology.to_string()),
                         atom,
                     })
                 })

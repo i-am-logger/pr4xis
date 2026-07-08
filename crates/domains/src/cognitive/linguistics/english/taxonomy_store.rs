@@ -230,7 +230,13 @@ impl core::fmt::Debug for TaxonomyStore {
 /// directly. Kept as the mandatory non-`prx` (and big-endian) path, mirroring the
 /// [`concept_store`](super::concept_store) / [`word_index`](super::word_index)
 /// splits.
-#[cfg(not(all(feature = "prx", target_endian = "little")))]
+///
+/// Compiled ALSO under `test` on the archived (`prx` + little-endian) path so the
+/// CSR unit tests can build both representations from the same adjacency and
+/// assert the zero-copy archived store returns byte-identical slices to this
+/// owned fallback (it is only `pub use`d as `TaxonomyStore` on the non-archived
+/// path, so there is no re-export conflict).
+#[cfg(any(not(all(feature = "prx", target_endian = "little")), test))]
 mod owned {
     use super::*;
 
@@ -470,5 +476,91 @@ mod archived {
         pub fn concept_count(&self) -> usize {
             self.n
         }
+    }
+}
+
+// ── CSR unit tests (archived path) ───────────────────────────────────────────
+//
+// Direct coverage of the zero-copy CSR build + the unsafe id-slice cast: a small
+// KNOWN adjacency (a multi-parent node, a root with no parents, a leaf with no
+// children), asserting the archived `parents`/`children` slices are exactly right,
+// out-of-range ids give `&[]`, AND the archived store returns slices byte-identical
+// to the owned fallback built from the SAME adjacency.
+#[cfg(all(test, feature = "prx", target_endian = "little"))]
+mod csr_tests {
+    use super::TaxonomyStore; // the archived, zero-copy store (the crate-level re-export)
+    use super::owned::TaxonomyStore as OwnedStore; // the owned fallback (compiled under `test`)
+    use super::{ConceptId, HashMap};
+    use alloc::vec::Vec;
+
+    /// One adjacency direction: concept → its neighbours (parents or children).
+    type Adjacency = HashMap<ConceptId, Vec<ConceptId>>;
+
+    fn cid(i: u64) -> ConceptId {
+        ConceptId::new(i)
+    }
+
+    /// A small KNOWN 4-concept taxonomy.
+    /// parents (child → parents):  0:[] (root)  1:[0]  2:[0,1] (multi-parent)  3:[2]
+    /// children (parent → kids):   0:[1,2]  1:[2]  2:[3]  3:[] (leaf)
+    fn fixture() -> (Adjacency, Adjacency, usize) {
+        let mut parents: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+        parents.insert(cid(1), alloc::vec![cid(0)]);
+        parents.insert(cid(2), alloc::vec![cid(0), cid(1)]);
+        parents.insert(cid(3), alloc::vec![cid(2)]);
+        let mut children: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+        children.insert(cid(0), alloc::vec![cid(1), cid(2)]);
+        children.insert(cid(1), alloc::vec![cid(2)]);
+        children.insert(cid(2), alloc::vec![cid(3)]);
+        (parents, children, 4)
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn archived_csr_slices_match_the_known_adjacency() {
+        let (p, c, n) = fixture();
+        let store = TaxonomyStore::build(p, c, n);
+        let empty: &[ConceptId] = &[];
+        // Root with no parents.
+        assert_eq!(store.parents(cid(0)), empty);
+        assert_eq!(store.parents(cid(1)), &[cid(0)]);
+        // Multi-parent node — order preserved through the cast.
+        assert_eq!(store.parents(cid(2)), &[cid(0), cid(1)]);
+        assert_eq!(store.parents(cid(3)), &[cid(2)]);
+        // Children; leaf 3 has none.
+        assert_eq!(store.children(cid(0)), &[cid(1), cid(2)]);
+        assert_eq!(store.children(cid(1)), &[cid(2)]);
+        assert_eq!(store.children(cid(2)), &[cid(3)]);
+        assert_eq!(store.children(cid(3)), empty);
+        // Out-of-range id → empty slice (the `i >= n` guard, both directions).
+        assert_eq!(store.parents(cid(99)), empty);
+        assert_eq!(store.children(cid(99)), empty);
+        assert_eq!(store.concept_count(), 4);
+        assert_eq!(store.parent_edge_count(), 4); // 0 + 1 + 2 + 1
+    }
+
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn archived_csr_slices_are_identical_to_the_owned_fallback() {
+        let (p, c, n) = fixture();
+        let (po, co, _) = fixture();
+        let archived = TaxonomyStore::build(p, c, n);
+        let owned = OwnedStore::build(po, co, n);
+        // 0..4 valid ids plus one out-of-range (id 4) — the archived zero-copy cast
+        // must return slices byte-identical to the owned `HashMap` fallback.
+        for i in 0..5u64 {
+            assert_eq!(
+                archived.parents(cid(i)),
+                owned.parents(cid(i)),
+                "parents {i}"
+            );
+            assert_eq!(
+                archived.children(cid(i)),
+                owned.children(cid(i)),
+                "children {i}"
+            );
+        }
+        assert_eq!(archived.concept_count(), owned.concept_count());
+        assert_eq!(archived.parent_edge_count(), owned.parent_edge_count());
     }
 }

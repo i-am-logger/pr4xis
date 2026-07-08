@@ -238,4 +238,29 @@ mod tests {
             "a truncated encoding must not round-trip to the original value"
         );
     }
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// ∀-strengthening of [`CodecRoundTrip`]: over a generated space of maps and
+        /// binary blobs, `canonical_decode(canonical_encode(v)) == v`. The witness
+        /// axiom fixes a handful of shapes; this drives the DAG-CBOR round-trip over
+        /// the whole generated domain (arbitrary keys, values incl. every byte).
+        #[test]
+        fn prop_canonical_codec_round_trips(
+            map in prop::collection::btree_map("[a-z]{0,8}", any::<i64>(), 0..8),
+            blob in prop::collection::vec(any::<u8>(), 0..48),
+        ) {
+            let map_bytes = canonical_encode(&map).expect("encode map");
+            let map_back = canonical_decode::<BTreeMap<String, i64>>(&map_bytes)
+                .expect("decode map");
+            prop_assert_eq!(map_back, map);
+
+            let blob_bytes = canonical_encode(&blob).expect("encode blob");
+            let blob_back = canonical_decode::<Vec<u8>>(&blob_bytes).expect("decode blob");
+            prop_assert_eq!(blob_back, blob);
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_canonical_codec_round_trips, Deterministic);
 }

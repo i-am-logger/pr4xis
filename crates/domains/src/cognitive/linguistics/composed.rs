@@ -174,7 +174,7 @@ pub struct ComposedReasoner {
     /// is trivially satisfied (the index is derived from the loaded archives
     /// themselves), so the meaningful fail-closed leg is atom PRESENCE — a typing
     /// edge into an ontology the system does not hold resolves to nothing.
-    grounding_atoms: BTreeMap<String, BTreeMap<ContentAddress, String>>,
+    grounding_atoms: BTreeMap<OntologyName, BTreeMap<ContentAddress, String>>,
 
     /// The INTO-ENGLISH atom index, built ONCE at construction — for each atom some
     /// loaded node grounds into `english_wordnet` (a DECLARED into-English
@@ -393,11 +393,14 @@ impl ComposedReasoner {
         // `AtomResolver` did, hoisted to construction so `cross_reaches` is a pure
         // lookup. A loaded ontology no edge grounds into (e.g. USC itself) is NOT
         // indexed — the index stays small (LegalSources is nine nodes).
-        let mut grounding_atoms: BTreeMap<String, BTreeMap<ContentAddress, String>> =
+        // Keyed by the typed `OntologyName` (in-memory), so `cross_reaches` looks a
+        // GroundedEdge's `ontology` up directly — never `OntologyName::new(clone)`.
+        let mut grounding_atoms: BTreeMap<OntologyName, BTreeMap<ContentAddress, String>> =
             BTreeMap::new();
         for onto in &loaded {
-            let name = onto.id().as_str().to_string();
-            if !target_names.contains(&name) {
+            // `target_names` holds the wire ontology-name strings read off the
+            // grounded edges; compare via the id's `&str`.
+            if !target_names.contains(onto.id().as_str()) {
                 continue;
             }
             if let Ok(archive) = onto.to_owned_archive() {
@@ -407,7 +410,7 @@ impl ComposedReasoner {
                         index.insert(addr, node.name.clone());
                     }
                 }
-                grounding_atoms.insert(name, index);
+                grounding_atoms.insert(onto.id().clone(), index);
             }
         }
 
@@ -553,14 +556,15 @@ impl ComposedReasoner {
             else {
                 continue;
             };
-            let t = ConceptRef::new(OntologyName::new(g.ontology.clone()), name.clone());
+            // `g.ontology` is already the typed OntologyName — no re-wrap.
+            let t = ConceptRef::new(g.ontology.clone(), name.clone());
             // The typing lands directly on `a`…
             if &t == a {
                 return true;
             }
             // …or `a` is a supertype `t` reaches inside the peer ontology's closure.
             if let Some(peer) = self.ontology_of(a)
-                && peer.id().as_str() == g.ontology
+                && peer.id() == &g.ontology
                 && peer.closure().reaches(&t, a, kind.clone())
             {
                 return true;
@@ -598,7 +602,7 @@ impl ComposedReasoner {
             // Only a grounded edge asserting the QUERIED kind into english_wordnet
             // types the node — a denotes/lexical edge, or an edge into another peer,
             // does not answer an is-a-into-English query.
-            if &g.kind != kind || g.ontology != ENGLISH_ONTOLOGY {
+            if &g.kind != kind || g.ontology.as_str() != ENGLISH_ONTOLOGY {
                 continue;
             }
             // Resolve the foreign synset atom to its original_id, then to English's

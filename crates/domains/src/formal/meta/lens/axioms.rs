@@ -135,6 +135,70 @@ impl Lens for Broken {
     }
 }
 
+/// A NON-IDENTITY lens `Pair ⇆ Pair` — `get`/`put` swap the two fields. It is a
+/// perfectly well-behaved lens, but it is NOT the identity, so composing it in
+/// where the identity belongs CHANGES behaviour. The teeth witness for
+/// [`LensIdentityUnit`]: `SwapPair ; Fst` does not behave as `Fst`, so the
+/// identity-unit law is non-vacuous (a bogus "unit" is rejected).
+struct SwapPair;
+impl Lens for SwapPair {
+    type Source = Pair;
+    type View = Pair;
+    type Error = Infallible;
+    fn get(&self, s: &Pair) -> Result<Pair, Infallible> {
+        Ok(Pair { a: s.b, b: s.a })
+    }
+    fn put(&self, v: &Pair, _s: &Pair) -> Result<Pair, Infallible> {
+        Ok(Pair { a: v.b, b: v.a })
+    }
+}
+
+/// A deliberately NON-ASSOCIATIVE sequential-composition combinator — same shape
+/// as the real [`Compose`], but its `get` is MIS-WIRED to add the intermediate
+/// view (`second.get(first.get(s)) + first.get(s)`) instead of the clean
+/// function composition `second.get ∘ first.get`. That extra `+ intermediate`
+/// term makes the operation non-associative: over the [`Fst`]/[`PlusOne`]
+/// witnesses `(l ⊗ k) ⊗ m` and `l ⊗ (k ⊗ m)` disagree (15 vs 12). It is the teeth
+/// witness for [`LensCompositionAssociative`]: were the real `Compose::get`
+/// mis-wired this way, the associativity law would FAIL — so the axiom's
+/// left==right check is a genuine constraint, not `f == f`. (Its `put` is the
+/// correct Foster formula; only `get` carries the defect, which suffices to
+/// demonstrate a non-associative operation.)
+struct NonAssocCompose<L1, L2> {
+    first: L1,
+    second: L2,
+}
+impl<L1, L2> NonAssocCompose<L1, L2> {
+    fn new(first: L1, second: L2) -> Self {
+        Self { first, second }
+    }
+}
+impl<L1, L2> Lens for NonAssocCompose<L1, L2>
+where
+    L1: Lens,
+    L2: Lens<Source = L1::View, View = L1::View>,
+    L1::View: Copy + core::ops::Add<Output = L1::View>,
+{
+    type Source = L1::Source;
+    type View = L2::View;
+    type Error = crate::formal::meta::lens_composition::ComposeError<L1::Error, L2::Error>;
+    fn get(&self, source: &Self::Source) -> Result<Self::View, Self::Error> {
+        use crate::formal::meta::lens_composition::ComposeError;
+        let v = self.first.get(source).map_err(ComposeError::First)?;
+        let w = self.second.get(&v).map_err(ComposeError::Second)?;
+        // MIS-WIRED: the `+ v` is the defect that breaks associativity.
+        Ok(w + v)
+    }
+    fn put(&self, view: &Self::View, source: &Self::Source) -> Result<Self::Source, Self::Error> {
+        use crate::formal::meta::lens_composition::ComposeError;
+        // The correct Foster put (only `get` is broken) — kept well-typed so the
+        // combinator nests.
+        let v = self.first.get(source).map_err(ComposeError::First)?;
+        let v2 = self.second.put(view, &v).map_err(ComposeError::Second)?;
+        self.first.put(&v2, source).map_err(ComposeError::First)
+    }
+}
+
 /// The canonical witness source shared by the axioms.
 fn pair() -> Pair {
     Pair { a: 3, b: 7 }
@@ -294,7 +358,15 @@ impl Axiom for LensCompositionAssociative {
         // `Infallible` legs), so these `Ok` patterns are irrefutable.
         let (Ok(lg), Ok(rg)) = (left.get(&s), right.get(&s));
         let (Ok(lp), Ok(rp)) = (left.put(&12, &s), right.put(&12, &s));
-        if lg == rg && lp == rp {
+        // TEETH: a genuinely non-associative composition (the mis-wired
+        // `NonAssocCompose`, which adds the intermediate view) must DISAGREE under
+        // the two associations — proving the `lg == rg && lp == rp` check above is a
+        // real constraint a mis-wired `Compose::get` would violate, not `f == f`.
+        let nleft = NonAssocCompose::new(NonAssocCompose::new(Fst, PlusOne), PlusOne);
+        let nright = NonAssocCompose::new(Fst, NonAssocCompose::new(PlusOne, PlusOne));
+        let (Ok(nl), Ok(nr)) = (nleft.get(&s), nright.get(&s));
+        let non_assoc_detected = nl != nr;
+        if lg == rg && lp == rp && non_assoc_detected {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -323,7 +395,13 @@ impl Axiom for LensIdentityUnit {
         let (Ok(bare_g), Ok(lg), Ok(rg)) = (Fst.get(&s), left.get(&s), right.get(&s));
         let (Ok(bare_p), Ok(lp), Ok(rp)) =
             (Fst.put(&10, &s), left.put(&10, &s), right.put(&10, &s));
-        if lg == bare_g && rg == bare_g && lp == bare_p && rp == bare_p {
+        // TEETH: a NON-identity lens spliced in where the identity belongs must
+        // CHANGE behaviour — `SwapPair ; Fst` does not behave as bare `Fst` — so the
+        // unit law is non-vacuous (a bogus "unit" is rejected, not silently passed).
+        let bogus_unit = Compose::new(SwapPair, Fst);
+        let (Ok(bogus_g),) = (bogus_unit.get(&s),);
+        let non_unit_rejected = bogus_g != bare_g;
+        if lg == bare_g && rg == bare_g && lp == bare_p && rp == bare_p && non_unit_rejected {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -384,4 +462,101 @@ mod tests {
             "StashingLens must violate PutPut (well-behaved, not very-well-behaved)"
         );
     }
+
+    /// Teeth for [`LensCompositionAssociative`]: the mis-wired [`NonAssocCompose`]
+    /// (which adds the intermediate view to `get`) is genuinely NON-associative —
+    /// `(l ⊗ k) ⊗ m` and `l ⊗ (k ⊗ m)` disagree over the witnesses — so the
+    /// associativity law's left==right check is a real constraint a mis-wired
+    /// `Compose::get` would violate, not `f == f`.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn a_non_associative_composition_is_detected() {
+        let s = pair();
+        let left = NonAssocCompose::new(NonAssocCompose::new(Fst, PlusOne), PlusOne);
+        let right = NonAssocCompose::new(Fst, NonAssocCompose::new(PlusOne, PlusOne));
+        let (Ok(lg), Ok(rg)) = (left.get(&s), right.get(&s));
+        assert_ne!(
+            lg, rg,
+            "a non-associative compose must be detected: left={lg} right={rg}"
+        );
+        // The real, correctly-wired `Compose` IS associative on the same witnesses —
+        // the contrast that makes the axiom's check meaningful.
+        let cl = Compose::new(Compose::new(Fst, PlusOne), PlusOne);
+        let cr = Compose::new(Fst, Compose::new(PlusOne, PlusOne));
+        let (Ok(clg), Ok(crg)) = (cl.get(&s), cr.get(&s));
+        assert_eq!(clg, crg, "the real Compose is associative");
+    }
+
+    /// Teeth for [`LensIdentityUnit`]: a NON-identity lens ([`SwapPair`]) spliced in
+    /// where the identity belongs CHANGES behaviour — `SwapPair ; Fst` does not
+    /// behave as bare `Fst` — so the identity-unit law is non-vacuous (a bogus
+    /// "unit" is rejected, not silently passed).
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn a_non_identity_unit_is_rejected() {
+        let s = pair();
+        let (Ok(bare),) = (Fst.get(&s),);
+        let bogus = Compose::new(SwapPair, Fst);
+        let (Ok(bogus_g),) = (bogus.get(&s),);
+        assert_ne!(
+            bogus_g, bare,
+            "a non-identity 'unit' (SwapPair) must change behaviour"
+        );
+        // The genuine identity IS the unit — the contrast.
+        let real = Compose::new(IdentityLens::<Pair>::new(), Fst);
+        let (Ok(real_g),) = (real.get(&s),);
+        assert_eq!(
+            real_g, bare,
+            "the real identity lens is the composition unit"
+        );
+    }
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// ∀-strengthening of the six lens laws over generated `Pair`/`i32`: the
+        /// three well-behaved-lens laws (GetPut/PutGet/PutPut), composition
+        /// preserving well-behavedness, associativity, and the identity unit — all
+        /// hold over the very-well-behaved witnesses (`Fst`, `PlusOne`, identity,
+        /// and their composite) for every generated source and view. Values are
+        /// bounded to keep `PlusOne`'s `±1` arithmetic in range (the law content,
+        /// not the range, is what is under test).
+        #[test]
+        fn prop_lens_laws_hold(
+            a in -100_000i32..100_000,
+            b in -100_000i32..100_000,
+            v in -100_000i32..100_000,
+            v2 in -100_000i32..100_000,
+        ) {
+            let s = Pair { a, b };
+            // GetPut: put(get(s), s) == s.
+            prop_assert!(get_put_holds(&Fst, &s));
+            prop_assert!(get_put_holds(&PlusOne, &a));
+            prop_assert!(get_put_holds(&IdentityLens::<Pair>::new(), &s));
+            // PutGet: get(put(v, s)) == v.
+            prop_assert!(put_get_holds(&Fst, &v, &s));
+            prop_assert!(put_get_holds(&PlusOne, &v, &a));
+            // PutPut: put(v2, put(v, s)) == put(v2, s) (very-well-behaved witnesses).
+            prop_assert!(put_put_holds(&Fst, &v, &v2, &s));
+            prop_assert!(put_put_holds(&PlusOne, &v, &v2, &a));
+            // Composition preserves well-behavedness.
+            let comp = Compose::new(Fst, PlusOne);
+            prop_assert!(get_put_holds(&comp, &s));
+            prop_assert!(put_get_holds(&comp, &v, &s));
+            // Associativity: (Fst;PlusOne);PlusOne == Fst;(PlusOne;PlusOne).
+            let l = Compose::new(Compose::new(Fst, PlusOne), PlusOne);
+            let r = Compose::new(Fst, Compose::new(PlusOne, PlusOne));
+            prop_assert_eq!(l.get(&s).ok(), r.get(&s).ok());
+            prop_assert_eq!(l.put(&v, &s).ok(), r.put(&v, &s).ok());
+            // Identity unit: id;Fst and Fst;id both behave as Fst.
+            let idl = Compose::new(IdentityLens::<Pair>::new(), Fst);
+            let idr = Compose::new(Fst, IdentityLens::<i32>::new());
+            prop_assert_eq!(idl.get(&s).ok(), Fst.get(&s).ok());
+            prop_assert_eq!(idr.get(&s).ok(), Fst.get(&s).ok());
+            prop_assert_eq!(idl.put(&v, &s).ok(), Fst.put(&v, &s).ok());
+            prop_assert_eq!(idr.put(&v, &s).ok(), Fst.put(&v, &s).ok());
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_lens_laws_hold, Verifiable);
 }

@@ -120,8 +120,13 @@ pub(crate) fn get_cv(buf: &[u8], pos: &mut usize) -> Vec<usize> {
 
 /// A MONOTONE non-decreasing sequence (CSR offsets) stored as its consecutive
 /// GAPS, bit-packed via [`put_cv`]. The gaps are the per-node lengths — small —
-/// so the packed width is tiny, the same compression Elias-Fano gives on offsets
-/// but wasm32-safe and dependency-free. Prefix-summed back on read.
+/// so the packed width is tiny: comparable gap-compression to what Elias-Fano
+/// achieves on offsets, but wasm32-safe and dependency-free. This does NOT
+/// implement Elias-Fano (no upper/lower-bit split + unary + select rank/select
+/// structure) — the `put_ef` name is HISTORICAL; it is plain gap/delta coding of
+/// a monotone integer sequence (Witten, Moffat & Bell 1999 §3.3), the same
+/// disclaimer carried by `succinct_codec/ontology.rs`'s `MonotoneGapColumn`.
+/// Prefix-summed back on read.
 pub(crate) fn put_ef(out: &mut Vec<u8>, vals: &[usize]) {
     let mut gaps = Vec::with_capacity(vals.len());
     let mut prev = 0usize;

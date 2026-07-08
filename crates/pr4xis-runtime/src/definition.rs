@@ -50,6 +50,15 @@ pub enum EdgeTarget {
     /// `atom` address (the foreign-atom slot; resolved by address agreement).
     Grounded {
         /// The connected ontology the atom lives in.
+        ///
+        /// This is the ARCHIVED WIRE form — a plain `String`, kept here (not lifted
+        /// to `OntologyName`) as the codebase's single "strings are wire, lifted
+        /// once" lowering boundary (the same doctrine `kind` follows): `OntologyName`
+        /// is a `Cow<'static, str>` that does not cleanly derive `rkyv::Archive`, so
+        /// forcing it into this rkyv-archived / DAG-CBOR-serialized wire type would
+        /// add friction for no gain. It is LIFTED to the typed
+        /// [`OntologyName`](pr4xis::ontology::meta::OntologyName) exactly once, at the
+        /// in-memory `GroundedEdge` (see `ontology::GroundedEdge::ontology`).
         ontology: String,
         /// The content address of the foreign atom.
         atom: ContentAddress,

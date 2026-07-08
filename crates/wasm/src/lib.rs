@@ -1221,11 +1221,12 @@ mod acceptance {
     /// FIX 1 REGRESSION: a valid into-English `.prx` (declares a grounding functor
     /// whose target is `english_wordnet`, which is NOT among the loaded peer
     /// archives) must load through the PUBLIC `load_ontology_prx_core` path — NOT
-    /// be refused before install. Before the fix, a pre-materialize `ground_declared`
-    /// pre-check resolved against `peer_archives()` (which seeds only
-    /// `runtime_ontologies`, never English) and REFUSED with `MissingPeerArchive`.
-    /// Now the single `ground_loaded_set` pass (which seeds English) grounds it, and
-    /// "is rex an animal" answers through WordNet's own is-a chain.
+    /// be refused before install. Before the fix, the old pre-materialize peer-set
+    /// pre-check built its peer set only from the loaded `runtime_ontologies` (never
+    /// seeding English), so a `ground_declared` pre-check against it REFUSED an
+    /// into-English target with `MissingPeerArchive`. Now the single
+    /// `ground_loaded_set` pass (which seeds English) grounds it, and "is rex an
+    /// animal" answers through WordNet's own is-a chain.
     #[test]
     fn an_into_english_prx_loads_and_grounds_through_the_public_path() {
         use pr4xis_runtime::definition::EdgeTarget;
