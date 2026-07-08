@@ -26,12 +26,19 @@
 //!   Relation Ontology), *Genome Biology* 6:R46 — the `depends on`
 //!   (RO:0002502) relation the `ContentAddress → CanonicalEncoding` morphism
 //!   is kinded by.
+//! - **Bormann & Hoffman (2020)** RFC 8949 §5.3 (Validity of Items) and
+//!   Appendix F (Well-Formedness Errors) — the well-formedness rules a decoder
+//!   enforces to be fail-closed, grounding `DecodeTotality`.
+//! - **Sassaman, Patterson, Bratus & Locasto (2011)** *Security Applications
+//!   of Formal Language Theory* (Dartmouth TR2011-709) — LangSec: an input
+//!   handler must be a full recognizer that rejects malformed input before
+//!   acting, the defensive-parsing basis for the fail-closed decode.
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "CanonicalCodec",
-    source: "Bormann & Hoffman (2020) Concise Binary Object Representation (CBOR), RFC 8949 §4.2 (deterministically encoded CBOR); IPLD DAG-CBOR codec specification (https://ipld.io/specs/codecs/dag-cbor/); Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
+    source: "Bormann & Hoffman (2020) Concise Binary Object Representation (CBOR), RFC 8949 §3 (Specification of the CBOR Encoding), §4.2 (deterministically encoded CBOR), §5.3 (Validity of Items) & Appendix F (Well-Formedness Errors); IPLD DAG-CBOR codec specification (https://ipld.io/specs/codecs/dag-cbor/); Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Sassaman, Patterson, Bratus & Locasto (2011) Security Applications of Formal Language Theory, Dartmouth TR2011-709 (LangSec); Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
 
     concepts: [
         CanonicalEncoding,
@@ -46,9 +53,9 @@ pr4xis::ontology! {
         ContentAddress: ("en", "Content address",
             "Merkle (1987): the cryptographic-hash identity of a value, computed OVER its canonical encoding; identical data yield the identical address. It depends on the canonical encoding — a drift in the encoding is a drift in the address."),
         CodecRoundTrip: ("en", "Codec round-trip",
-            "Foster et al. (2007) get/put fidelity, here the total inverse law of a codec: decode(encode(v)) == v, so no information is lost across the encode/decode boundary the runtime loads ontologies through."),
+            "IPLD DAG-CBOR: the total inverse law of a serialization codec (a section/retract isomorphism, decode ∘ encode = id — NOT a lens law: one type, no distinct source/view), so no information is lost across the encode/decode boundary the runtime loads ontologies through."),
         DecodeTotality: ("en", "Decode totality",
-            "Grice (1975) maxim of Quality at the untrusted-input boundary: decode is a TOTAL, fail-closed function on arbitrary bytes — an adversarial input (e.g. a length prefix declaring 2^64-1 items) is REFUSED with a typed error, never an unbounded allocation, OOM, or panic."),
+            "Bormann & Hoffman (2020) RFC 8949 §5.3 (Validity of Items) / Appendix F (Well-Formedness Errors); LangSec input-recognizer robustness (Sassaman, Patterson, Bratus & Locasto 2011): decode is a TOTAL, fail-closed recognizer on arbitrary bytes — an adversarial input (e.g. a length prefix declaring 2^64-1 items) is REFUSED with a typed error, never an unbounded allocation, OOM, or panic."),
     },
 
     // The one relation that matters here: the content address is DERIVED FROM
@@ -82,7 +89,9 @@ impl Quality for ConceptDescription {
                 "deterministic DAG-CBOR bytes; equal values → equal bytes (RFC 8949 §4.2)"
             }
             C::ContentAddress => "hash identity computed over the canonical encoding (Merkle 1987)",
-            C::CodecRoundTrip => "decode(encode(v)) == v — the codec loses nothing (Foster 2007)",
+            C::CodecRoundTrip => {
+                "decode(encode(v)) == v — a total inverse pair; the codec loses nothing (IPLD DAG-CBOR)"
+            }
             C::DecodeTotality => {
                 "decode is total/fail-closed: adversarial input is refused, never OOM/panic"
             }

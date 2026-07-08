@@ -45,7 +45,7 @@
 //! [`super::well_behaved_lens::harness`] and [`super::ontology_archive`], and
 //! `RoundTripHarnessAllVerified` reads the on-disk corpus). They are registered
 //! through the same `register_axiom!` / `axiom_by_name` machinery and cite the
-//! same Foster et al. 2007 §2.2 laws, so the whole lens-law family — general
+//! same Foster et al. 2007 §3 laws, so the whole lens-law family — general
 //! algebra, byte-anchored round-trip, archive round-trip — resolves through the
 //! one registry the Lens concept vocabulary now names.
 //!
@@ -53,23 +53,25 @@
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
 //!   Bidirectional Tree Transformations: A Linguistic Approach to the
-//!   View-Update Problem", *ACM TOPLAS* 29(3) Article 17 — §2.2 (the
-//!   well-behaved-lens laws GetPut / PutGet / PutPut; well-behaved vs
-//!   very-well-behaved) and §3 (sequential composition, the identity lens, and
-//!   that lenses form a category).
+//!   View-Update Problem", *ACM TOPLAS* 29(3) Article 17 — §3 "Semantic
+//!   Foundations": Def. 3.2 (the well-behaved-lens laws GetPut / PutGet; the
+//!   very-well-behaved PutPut law follows in §3) and, later in §3, sequential
+//!   composition, the identity lens, and that lenses form a category.
 //! - **Pierce (2006)** *Lenses* lecture notes — the lens category.
 //! - **Bancilhon & Spyratos (1981)** "Update Semantics of Relational Views",
 //!   *ACM TODS* 6(4) — the constant complement the `RawBytesComplementFloor`
 //!   fidelity records.
-//! - **Mac Lane (1998)** *Categories for the Working Mathematician*, GTM 5,
-//!   2nd ed., §IV.1 (adjunction `get ⊣ put`) and §IV.4 (equivalence of
-//!   categories — the byte-exact counit).
+//!
+//! The lens is treated here as an ALGEBRAIC structure (a `(get, put)` pair
+//! obeying the well-behaved laws), not as an adjunction: `get ⊣ put` is NOT a
+//! theorem of lens theory, so no adjunction / equivalence-of-categories law is
+//! claimed.
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Lens",
-    source: "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations: A Linguistic Approach to the View-Update Problem, ACM TOPLAS 29(3) Article 17 §2.2 (well-behaved-lens laws) & §3 (composition, identity, the lens category); Pierce (2006) Lenses lecture notes; Bancilhon & Spyratos (1981) Update Semantics of Relational Views, ACM TODS 6(4); Mac Lane (1998) Categories for the Working Mathematician, GTM 5, 2nd ed., §IV.1 & §IV.4",
+    source: "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations: A Linguistic Approach to the View-Update Problem, ACM TOPLAS 29(3) Article 17 §3 (Semantic Foundations: well-behaved-lens laws Def. 3.2; composition, identity, the lens category); Pierce (2006) Lenses lecture notes; Bancilhon & Spyratos (1981) Update Semantics of Relational Views, ACM TODS 6(4)",
 
     concepts: [
         Lens,
@@ -85,27 +87,27 @@ pr4xis::ontology! {
 
     labels: {
         Lens: ("en", "Lens",
-            "Foster et al. (2007) §2.2: a bidirectional transformation between a source S and a view V — a pair (get : S → V, put : V × S → S) that extracts a view and writes an updated view back into a source."),
+            "Foster et al. (2007) §3, Def. 3.2: a bidirectional transformation between a source S and a view V — a pair (get : S → V, put : V × S → S) that extracts a view and writes an updated view back into a source."),
         GetPut: ("en", "GetPut law",
-            "Foster et al. (2007) §2.2: put(get(s), s) = s — putting back an unchanged view leaves the source untouched (no phantom edit)."),
+            "Foster et al. (2007) §3, Def. 3.2: put(get(s), s) = s — putting back an unchanged view leaves the source untouched (no phantom edit)."),
         PutGet: ("en", "PutGet law",
-            "Foster et al. (2007) §2.2: get(put(v, s)) = v — getting a just-put view returns exactly that view (the write is faithful up to the source-equivalence, e.g. canonical form or byte identity)."),
+            "Foster et al. (2007) §3, Def. 3.2: get(put(v, s)) = v — getting a just-put view returns exactly that view (the write is faithful up to the source-equivalence, e.g. canonical form or byte identity)."),
         PutPut: ("en", "PutPut law",
-            "Foster et al. (2007) §2.2: put(v', put(v, s)) = put(v', s) — a later put overwrites an earlier one; successive puts are idempotent in source space. The extra law of a VERY well-behaved lens."),
+            "Foster et al. (2007) §3, Def. 3.2: put(v', put(v, s)) = put(v', s) — a later put overwrites an earlier one; successive puts are idempotent in source space. The extra law of a VERY well-behaved lens."),
         WellBehavedLens: ("en", "Well-behaved lens",
-            "Foster et al. (2007) §2.2: a lens satisfying GetPut and PutGet. In praxis the runtime signature-of-understanding for a loaded source: get parses bytes into the ontology, put re-emits, and the round-trip preserves the source up to its published canonical form."),
+            "Foster et al. (2007) §3, Def. 3.2: a lens satisfying GetPut and PutGet. In praxis the runtime signature-of-understanding for a loaded source: get parses bytes into the ontology, put re-emits, and the round-trip preserves the source up to its published canonical form."),
         VeryWellBehavedLens: ("en", "Very well-behaved lens",
-            "Foster et al. (2007) §2.2: a well-behaved lens that ALSO satisfies PutPut. A well-behaved lens need not be very well behaved — one whose put stashes prior state into a complement obeys GetPut and PutGet yet violates PutPut."),
+            "Foster et al. (2007) §3, Def. 3.2: a well-behaved lens that ALSO satisfies PutPut. A well-behaved lens need not be very well behaved — one whose put stashes prior state into a complement obeys GetPut and PutGet yet violates PutPut."),
         SequentialComposition: ("en", "Sequential composition",
             "Foster et al. (2007) §3: the composite l ; k of l : S ⇆ V and k : V ⇆ W, a lens S ⇆ W with get = k.get ∘ l.get and put(w, s) = l.put(k.put(w, l.get(s)), s). Composition of well-behaved lenses is well-behaved and is associative — the lenses form a category."),
         IdentityLens: ("en", "Identity lens",
             "Foster et al. (2007) §3: the lens S ⇆ S with get = id and put = fst; the unit of sequential composition (id ; l = l = l ; id)."),
         RoundTripFidelity: ("en", "Round-trip fidelity",
-            "praxis M4.ι: the grade of PutGet a well-behaved lens is held to — ByteExactGraphFaithful (put(get(b)) = b byte-for-byte, reconstructed from the graph alone; the equivalence-of-categories counit at byte identity, Mac Lane §IV.4) or the RawBytesComplementFloor (byte identity via a stored constant complement, Bancilhon & Spyratos 1981)."),
+            "praxis M4.ι: the grade of PutGet a well-behaved lens is held to — ByteExactGraphFaithful (put(get(b)) = b byte-for-byte, reconstructed from the graph alone) or the RawBytesComplementFloor (byte identity via a stored constant complement, Bancilhon & Spyratos 1981)."),
     },
 
     // Subsumption: a well-behaved lens is a lens; a very-well-behaved lens is a
-    // well-behaved one; the identity lens is a lens (Foster et al. 2007 §2.2, §3).
+    // well-behaved one; the identity lens is a lens (Foster et al. 2007 §3).
     is_a: [
         (WellBehavedLens, Lens),
         (VeryWellBehavedLens, WellBehavedLens),
@@ -141,15 +143,13 @@ impl Quality for ConceptDescription {
     fn get(&self, c: &LensConcept) -> Option<&'static str> {
         use LensConcept as C;
         Some(match c {
-            C::Lens => "a (get : S → V, put : V × S → S) pair (Foster et al. 2007 §2.2)",
-            C::GetPut => "put(get(s), s) == s — no phantom edit (Foster 2007 §2.2)",
-            C::PutGet => "get(put(v, s)) == v — the write is faithful (Foster 2007 §2.2)",
-            C::PutPut => {
-                "put(v', put(v, s)) == put(v', s) — puts are idempotent (Foster 2007 §2.2)"
-            }
-            C::WellBehavedLens => "a lens satisfying GetPut + PutGet (Foster 2007 §2.2)",
+            C::Lens => "a (get : S → V, put : V × S → S) pair (Foster et al. 2007 §3)",
+            C::GetPut => "put(get(s), s) == s — no phantom edit (Foster 2007 §3)",
+            C::PutGet => "get(put(v, s)) == v — the write is faithful (Foster 2007 §3)",
+            C::PutPut => "put(v', put(v, s)) == put(v', s) — puts are idempotent (Foster 2007 §3)",
+            C::WellBehavedLens => "a lens satisfying GetPut + PutGet (Foster 2007 §3)",
             C::VeryWellBehavedLens => {
-                "a well-behaved lens that also satisfies PutPut (Foster 2007 §2.2)"
+                "a well-behaved lens that also satisfies PutPut (Foster 2007 §3)"
             }
             C::SequentialComposition => {
                 "l ; k — well-behaved, associative; lenses form a category (Foster 2007 §3)"
@@ -224,7 +224,7 @@ mod tests {
     /// (`RoundTripHarnessAllVerified`, `EmitLoadWellBehaved`,
     /// `ArchiveLensGetPut` / `ArchiveLensPutGet`) are registered through the
     /// same `register_axiom!` / `axiom_by_name` machinery and cite the same
-    /// Foster et al. 2007 §2.2 laws, so they resolve through this one registry
+    /// Foster et al. 2007 §3 laws, so they resolve through this one registry
     /// alongside these — the whole lens-law family is one query. They are not
     /// asserted here because their `register_axiom!` constructors are dead-strip
     /// eligible in a filtered unit-test binary that never references their

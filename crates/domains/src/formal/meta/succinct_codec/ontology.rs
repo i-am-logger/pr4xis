@@ -14,27 +14,21 @@
 //!
 //! It is a DIFFERENT codec from [`super::super::canonical_codec`]: DAG-CBOR is
 //! the self-describing interchange form whose guarantee is a stable content
-//! address; the succinct codec is the COMPACT form whose guarantee is
-//! information-near-minimal size at zero information loss. Neither codec's axioms
-//! cover the other.
+//! address; this one is a lossless COMPRESSION of the corpus whose guarantee is
+//! a smaller wire form at zero information loss. It is a compression codec (a
+//! full owned `Vec` is materialized on every accessor), NOT a succinct
+//! rank/select structure — there is no usable-without-decompressing claim.
+//! Neither codec's axioms cover the other.
 //!
 //! # Literature
 //!
-//! - **Jacobson (1989)** *Space-efficient static trees and graphs*, FOCS '89 —
-//!   the succinct-data-structure program: store a structure in space close to
-//!   its information-theoretic minimum while keeping it usable without
-//!   decompressing.
-//! - **Elias (1974)** *Efficient storage and retrieval by content and address of
-//!   static files*, JACM 21(2) §II, and **Fano (1971)** *On the number of bits
-//!   required to implement an associative memory*, MIT Project MAC memo — the
-//!   monotone-integer-sequence compression the `put_ef` column is named after,
-//!   realized here as dependency-free gap coding.
-//! - **Witten, Moffat & Bell (1999)** *Managing Gigabytes*, 2nd ed., §3.3
-//!   (gap/delta coding) and §4.2 (front coding) — the string-dictionary and
-//!   offset compressions.
-//! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** *Combinators for
-//!   bidirectional tree transformations*, ACM TOPLAS 29(3) §2.2 — the get/put
-//!   fidelity law the round-trip axiom instantiates.
+//! - **Witten, Moffat & Bell (1999)** *Managing Gigabytes: Compressing and
+//!   Indexing Documents and Images*, 2nd ed., §3.3 (gap/delta coding of
+//!   monotone integer sequences) and §4.2 (front coding) — the offset and
+//!   string-dictionary compressions, and the lossless round-trip
+//!   (`from_succinct ∘ to_succinct = id`, a total inverse pair). The `put_ef`
+//!   column is plain gap coding; its name is historical and does NOT denote an
+//!   Elias-Fano structure (no upper/lower-bit split, no select).
 //! - **Smith et al. (2005)** *Relations in biomedical ontologies* (OBO Relation
 //!   Ontology), *Genome Biology* 6:R46 — the `part of` (RO:0000050) and
 //!   `depends on` (RO:0002502) relations the codec's morphisms are kinded by.
@@ -43,7 +37,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "SuccinctCodec",
-    source: "Jacobson (1989) Space-efficient static trees and graphs, FOCS '89 (succinct data structures); Elias (1974) Efficient storage and retrieval by content and address of static files, JACM 21(2) §II; Fano (1971) On the number of bits required to implement an associative memory, MIT Project MAC memo; Witten, Moffat & Bell (1999) Managing Gigabytes, 2nd ed., §3.3, §4.2; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
+    source: "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §3.3 (gap/delta coding of monotone integer sequences), §4.2 (front coding) — lossless compression + the total-inverse-pair round-trip; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
 
     concepts: [
         SuccinctEncoding,
@@ -55,15 +49,15 @@ pr4xis::ontology! {
 
     labels: {
         SuccinctEncoding: ("en", "Succinct encoding",
-            "Jacobson (1989): the compact bit-packed .prx byte encoding of the runtime reasoning view — a shared front-coded dictionary plus bit-packed index columns and gap-coded CSR offsets — in space close to the information-theoretic minimum, and usable (decodable on any target incl. wasm32) without an external index."),
+            "Witten, Moffat & Bell (1999): the compact bit-packed .prx byte encoding of the runtime reasoning view — a shared front-coded dictionary plus bit-packed index columns and gap-coded CSR offsets — a lossless COMPRESSION of the corpus, decodable on any target incl. wasm32 (each accessor materializes a full owned Vec; this is compression, not a rank/select succinct structure)."),
         BitPackedColumn: ("en", "Bit-packed column",
             "A column of unsigned integers stored at exactly bits(max) bits per value (the minimal fixed width that represents the largest value), LSB-first into a byte stream. The kernel the other columns build on: gap-coded offsets and dictionary indices are all bit-packed columns."),
         MonotoneGapColumn: ("en", "Monotone gap column",
-            "Elias (1974); Fano (1971): a monotone non-decreasing offset sequence (a CSR offset array) stored as its consecutive gaps, then bit-packed. Because per-node gaps are small even when the cumulative offsets span a large range, the gap column is far narrower than the absolute one — the compression Elias-Fano gives on offsets, realized dependency-free."),
+            "Witten, Moffat & Bell (1999) §3.3: a monotone non-decreasing offset sequence (a CSR offset array) stored as its consecutive gaps, then bit-packed. Because per-node gaps are small even when the cumulative offsets span a large range, the gap column is far narrower than the absolute one — gap/delta coding of monotone integer sequences (the `put_ef` name is historical, not an Elias-Fano structure)."),
         FrontCodedDictionary: ("en", "Front-coded dictionary",
             "Witten, Moffat & Bell (1999) §4.2: a string dictionary storing each entry as (shared-prefix-length, suffix) against the previous entry, so a prefix shared with the previous entry (heavy for sorted IRIs under a common namespace) is written once, not per entry. Lossless for any input order; sorting maximizes the elided prefix."),
         SuccinctRoundTrip: ("en", "Succinct round-trip",
-            "Foster et al. (2007) get/put fidelity, here the total inverse law of the succinct codec: from_succinct(to_succinct(d)) == d, so the compact wire form loses nothing across the encode/decode boundary the runtime and the wasm/web demo load the corpus and registry through."),
+            "Witten, Moffat & Bell (1999) lossless coding, here the total inverse law of the compression codec: from_succinct(to_succinct(d)) == d (a serialization inverse pair, NOT a lens law), so the compact wire form loses nothing across the encode/decode boundary the runtime and the wasm/web demo load the corpus and registry through."),
     },
 
     // Kinded morphisms (OBO-RO; Smith et al. 2005). Mereology: the succinct
@@ -95,19 +89,19 @@ impl Quality for ConceptDescription {
         use SuccinctCodecConcept as C;
         Some(match c {
             C::SuccinctEncoding => {
-                "compact bit-packed .prx bytes near the information-theoretic minimum (Jacobson 1989)"
+                "compact bit-packed .prx bytes — a lossless compression of the corpus (Witten-Moffat-Bell 1999)"
             }
             C::BitPackedColumn => {
                 "integers at bits(max) bits per value, LSB-first — the packing kernel"
             }
             C::MonotoneGapColumn => {
-                "monotone offsets stored as gaps; narrow width despite a wide range (Elias 1974)"
+                "monotone offsets stored as gaps; narrow width despite a wide range (Witten-Moffat-Bell 1999 §3.3)"
             }
             C::FrontCodedDictionary => {
                 "sorted string dict with shared prefixes written once (Witten-Moffat-Bell 1999)"
             }
             C::SuccinctRoundTrip => {
-                "from_succinct(to_succinct(d)) == d — the compact codec loses nothing (Foster 2007)"
+                "from_succinct(to_succinct(d)) == d — a total inverse pair; the compact codec loses nothing (Witten-Moffat-Bell 1999)"
             }
         })
     }

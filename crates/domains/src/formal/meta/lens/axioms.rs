@@ -12,7 +12,7 @@
 //! Each axiom verifies a genuinely-uncovered lens law over REAL lens values
 //! and has teeth — a wrong lens fails it:
 //!
-//! - The three well-behaved-lens laws (Foster et al. 2007 §2.2) —
+//! - The three well-behaved-lens laws (Foster et al. 2007 §3, Def. 3.2) —
 //!   [`LensGetPutLaw`], [`LensPutGetLaw`], [`LensPutPutLaw`] — hold over the
 //!   well-behaved witnesses AND reject a deliberately mis-paired [`Broken`]
 //!   lens; [`LensPutPutLaw`] additionally proves the well-behaved /
@@ -34,9 +34,10 @@
 //! # Literature
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 (the lens
-//!   laws; well-behaved vs very-well-behaved) and §3 (composition, identity,
-//!   the lens category).
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3 "Semantic
+//!   Foundations" — Def. 3.2 (the well-behaved-lens laws GetPut/PutGet; the
+//!   very-well-behaved PutPut law follows in §3) and, later in §3, composition,
+//!   identity, and that lenses form a category.
 
 use alloc::boxed::Box;
 use core::convert::Infallible;
@@ -90,7 +91,7 @@ impl Lens for PlusOne {
 }
 
 /// A WELL-BEHAVED but NOT very-well-behaved lens `Pair ⇆ i32` (Foster et al.
-/// 2007 §2.2): `get` focuses `a`; `put` writes the new view into `a` and, ONLY
+/// 2007 §3, Def. 3.2): `get` focuses `a`; `put` writes the new view into `a` and, ONLY
 /// when the view actually changes, stashes the OLD view into `b` (a constant
 /// complement, Bancilhon & Spyratos 1981).
 ///
@@ -140,10 +141,10 @@ fn pair() -> Pair {
 }
 
 // =============================================================================
-// Well-behaved-lens laws (Foster et al. 2007 §2.2).
+// Well-behaved-lens laws (Foster et al. 2007 §3, Def. 3.2).
 // =============================================================================
 
-/// GetPut (Foster et al. 2007 §2.2): `put(get(s), s) == s`. Holds over the
+/// GetPut (Foster et al. 2007 §3, Def. 3.2): `put(get(s), s) == s`. Holds over the
 /// well-behaved witnesses (identity, `Fst`, `PlusOne`, `StashingLens`, and a
 /// composite) AND is FALSIFIED by the mis-paired [`Broken`] lens — so the law
 /// is non-vacuous.
@@ -169,13 +170,13 @@ impl Axiom for LensGetPutLaw {
     pr4xis::axiom_meta!(
         "LensGetPutLaw",
         "put(get(s), s) == s over the well-behaved witness lenses, and a mis-paired lens is rejected",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3 (Semantic Foundations), Def. 3.2 (well-behaved); the very-well-behaved/PutPut law follows in §3"
     );
 }
 
 pr4xis::register_axiom!(LensGetPutLaw, constructor);
 
-/// PutGet (Foster et al. 2007 §2.2): `get(put(v, s)) == v`. Holds over the
+/// PutGet (Foster et al. 2007 §3, Def. 3.2): `get(put(v, s)) == v`. Holds over the
 /// well-behaved witnesses AND is FALSIFIED by the mis-paired [`Broken`] lens.
 pub struct LensPutGetLaw;
 
@@ -198,13 +199,13 @@ impl Axiom for LensPutGetLaw {
     pr4xis::axiom_meta!(
         "LensPutGetLaw",
         "get(put(v, s)) == v over the well-behaved witness lenses, and a mis-paired lens is rejected",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3 (Semantic Foundations), Def. 3.2 (well-behaved); the very-well-behaved/PutPut law follows in §3"
     );
 }
 
 pr4xis::register_axiom!(LensPutGetLaw, constructor);
 
-/// PutPut (Foster et al. 2007 §2.2): `put(v', put(v, s)) == put(v', s)` — the
+/// PutPut (Foster et al. 2007 §3): `put(v', put(v, s)) == put(v', s)` — the
 /// extra law of a VERY well-behaved lens. Holds over the very-well-behaved
 /// witnesses (identity, `Fst`, `PlusOne`, and a composite) AND is FALSIFIED by
 /// [`StashingLens`], which obeys GetPut + PutGet yet not PutPut — so the axiom
@@ -236,7 +237,7 @@ impl Axiom for LensPutPutLaw {
     pr4xis::axiom_meta!(
         "LensPutPutLaw",
         "put(v', put(v, s)) == put(v', s) over the very-well-behaved witnesses, and a well-behaved-but-not-very-well-behaved lens is falsified",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3 (Semantic Foundations), Def. 3.2 (well-behaved); the very-well-behaved/PutPut law follows in §3"
     );
 }
 

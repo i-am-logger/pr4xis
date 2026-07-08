@@ -44,17 +44,12 @@ use pr4xis::category::category_theory::is_grounding_functor_kind;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::GeneratorAction;
 use pr4xis_runtime::grounding::{LinkError, ground, type_lens};
-use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
+use pr4xis_runtime::ontology::{RuntimeOntology, materialize, subsumption_kind};
 
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::english::bridge::{
     ENGLISH_ONTOLOGY, project_archive_with_forms,
 };
-
-/// The reachability kind an instance-functor's typing edge asserts, fail-closed to
-/// `Subsumption` (the copula's default kind) when the functor's `map_morphism`
-/// table is empty.
-const DEFAULT_TYPING_RELATION: &str = "Subsumption";
 
 /// Mint the cross-ontology TYPE edges an [`Archive`] declares — the general
 /// grounding step.
@@ -97,7 +92,10 @@ pub fn ground_declared(
             .iter()
             .map(|(_, target)| target.clone())
             .next()
-            .unwrap_or_else(|| DEFAULT_TYPING_RELATION.to_string());
+            // Fail-closed to the copula's default kind when the functor's
+            // `map_morphism` table is empty — derived from the one typed Relations
+            // vocabulary (`subsumption_kind()`), never a bare string literal.
+            .unwrap_or_else(|| subsumption_kind().name);
         current = ground(
             &current,
             type_lens(map_object, &relation, &conn.target, peer),

@@ -13,9 +13,10 @@
 //!
 //! It is the WRITTEN-FORM FLOOR (the weakest adequate claim): the pointer lands
 //! on a Form — "this written form occurred" — NEVER on a sense. Fine-grained
-//! word-sense disambiguation is 59–82% accurate; a written-form anchor is ~0
-//! error (Halpin & Hayes 2010; the design's written-form-floor decision). Sense
-//! is licensed only by a statute's own definitions, a stronger kind deferred.
+//! word-sense disambiguation is 59–82% accurate (Navigli 2009, "Word Sense
+//! Disambiguation: A Survey", ACM Comput. Surv. 41(2)); a written-form anchor is
+//! ~0 error — the design's written-form-floor decision. Sense is licensed only
+//! by a statute's own definitions, a stronger kind deferred.
 //!
 //! # The ontological, general way
 //!

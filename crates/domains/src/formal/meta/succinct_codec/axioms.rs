@@ -13,7 +13,7 @@
 //! gap-coded monotone offsets, and a front-coded string dictionary — that the
 //! `.cprx.gz` English corpus and the registry ship in. Its round-trip and its
 //! two compaction invariants are covered by NO canonical-codec axiom (a
-//! DAG-CBOR round-trip says nothing about Elias-Fano offsets or front-coding)
+//! DAG-CBOR round-trip says nothing about gap-coded offsets or front-coding)
 //! and, before this module, by exactly one on-disk integration test
 //! (`compact_prx_gz_is_smaller_than_source_and_reasoning_equivalent`) — named in
 //! no `ontology!`, invisible to the self-model graph.
@@ -117,9 +117,10 @@ fn witness() -> OwnedCodegenData {
 /// the six edge tables — is falsified. Distinct from
 /// [`super::super::canonical_codec::axioms::CodecRoundTrip`]: that proves the
 /// DAG-CBOR interchange form round-trips; this proves the COMPACT bit-packed
-/// wire form does, a different codec over a different structure. Foster,
-/// Greenwald, Moore, Pierce & Schmitt (2007) §2.2 (get/put fidelity); Jacobson
-/// (1989) succinct data structures.
+/// wire form does, a different codec over a different structure. This is a
+/// lossless-compression inverse pair (`from_succinct ∘ to_succinct = id`), NOT
+/// a lens law. Witten, Moffat & Bell (1999) *Managing Gigabytes* (lossless
+/// coding).
 pub struct SuccinctCodecRoundTrip;
 
 impl Axiom for SuccinctCodecRoundTrip {
@@ -136,7 +137,7 @@ impl Axiom for SuccinctCodecRoundTrip {
     pr4xis::axiom_meta!(
         "SuccinctCodecRoundTrip",
         "from_succinct(to_succinct(d)) == d over a WordNet+registry-shaped OwnedCodegenData (the compact bit-packed .prx wire form is a total inverse pair)",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2 (get/put fidelity); Jacobson (1989) Space-efficient static trees and graphs, FOCS '89 (succinct data structures)"
+        "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed. — lossless coding: from_succinct ∘ to_succinct = identity (a total inverse pair)"
     );
 }
 
@@ -148,12 +149,13 @@ pr4xis::register_axiom!(SuccinctCodecRoundTrip, constructor);
 /// AND its encoded size is STRICTLY smaller than the same values stored as an
 /// absolute bit-packed column (`put_cv`) — because the per-node gaps are small
 /// (a narrow bit width) even when the cumulative offsets span a large range (a
-/// wide bit width). This is the Elias-Fano-style compression the code names its
-/// `put_ef` after, realized dependency-free as gap coding. Non-tautological on
-/// BOTH legs: the round-trip alone would pass for a codec that stored absolute
-/// offsets, so the strict-inequality compaction leg is what proves the gaps are
-/// actually elided. Elias (1974) §II; Fano (1971); Witten, Moffat & Bell (1999)
-/// §3.3 (gap/delta coding of monotone integer sequences).
+/// wide bit width). This is gap/delta coding of a monotone integer sequence
+/// (the `put_ef` NAME is historical — it does NOT implement Elias-Fano's
+/// upper/lower-bit split + unary + select; it is plain gap coding). Non-
+/// tautological on BOTH legs: the round-trip alone would pass for a codec that
+/// stored absolute offsets, so the strict-inequality compaction leg is what
+/// proves the gaps are actually elided. Witten, Moffat & Bell (1999) §3.3
+/// (gap/delta coding of monotone integer sequences).
 pub struct MonotoneOffsetsCompact;
 
 impl Axiom for MonotoneOffsetsCompact {
@@ -194,7 +196,7 @@ impl Axiom for MonotoneOffsetsCompact {
     pr4xis::axiom_meta!(
         "MonotoneOffsetsCompact",
         "a monotone offset column gap-codes (put_ef) losslessly AND strictly smaller than the absolute bit-packed column (put_cv)",
-        "Elias (1974) Efficient storage and retrieval by content and address of static files, JACM 21(2) §II; Fano (1971) On the number of bits required to implement an associative memory, MIT Project MAC memo; Witten, Moffat & Bell (1999) Managing Gigabytes, 2nd ed., §3.3"
+        "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §3.3 (gap/delta coding of monotone integer sequences)"
     );
 }
 

@@ -119,8 +119,10 @@ pr4xis::register_axiom!(CanonicalEncodingDeterministic, constructor);
 /// binary blob spanning `0x00`/`0xFF` — so a codec that dropped, reordered, or
 /// widened any shape is falsified. This DAG-CBOR round-trip is covered by no
 /// other axiom (the rkyv + gzip round-trips in `ontology_archive` are
-/// different codecs over a different type). Foster, Greenwald, Moore, Pierce &
-/// Schmitt (2007) §2.2 (get/put fidelity); IPLD DAG-CBOR.
+/// different codecs over a different type). This is a serialization
+/// isomorphism (a section/retract inverse pair, `decode ∘ encode = id`), NOT a
+/// lens law — there is one type, no distinct source/view and no prior-source
+/// `put`. IPLD DAG-CBOR codec specification (total, deterministic, round-trippable).
 pub struct CodecRoundTrip;
 
 impl Axiom for CodecRoundTrip {
@@ -157,7 +159,7 @@ impl Axiom for CodecRoundTrip {
     pr4xis::axiom_meta!(
         "CodecRoundTrip",
         "canonical_decode(canonical_encode(v)) == v over the witness values (DAG-CBOR is a total inverse pair)",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; IPLD DAG-CBOR codec specification"
+        "IPLD DAG-CBOR codec specification (https://ipld.io/specs/codecs/dag-cbor/) — a total, deterministic, round-trippable encoding: canonical_decode ∘ canonical_encode = identity (a serialization isomorphism / section-retract inverse pair over well-formed values)"
     );
 }
 
@@ -199,7 +201,7 @@ impl Axiom for DecodeRefusesAdversarialLength {
     pr4xis::axiom_meta!(
         "DecodeRefusesAdversarialLength",
         "canonical_decode refuses an input declaring a 2^64-1 length with a typed error, never OOM/panics",
-        "Bormann & Hoffman (2020) Concise Binary Object Representation (CBOR), RFC 8949 §3, §5.1"
+        "Bormann & Hoffman (2020) Concise Binary Object Representation (CBOR), RFC 8949 §3 (Specification of the CBOR Encoding — the head/argument length encoding of arrays, byte strings, and maps)"
     );
 }
 
