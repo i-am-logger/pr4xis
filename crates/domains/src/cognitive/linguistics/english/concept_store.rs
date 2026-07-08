@@ -221,7 +221,13 @@ impl ExactSizeIterator for ConceptStrs<'_> {}
 
 /// The owned fallback: a plain `Vec<Concept>`. Kept as the mandatory non-`prx`
 /// (and big-endian) path, mirroring the [`word_index`](super::word_index) split.
-#[cfg(not(all(feature = "prx", target_endian = "little")))]
+///
+/// Compiled ALSO under `test` on the archived (`prx` + little-endian) path so the
+/// cast unit tests can build both representations from the same records and assert
+/// the archived store reads each field identically to this owned fallback (it is
+/// only `pub use`d as `ConceptStore` on the non-archived path, so there is no
+/// re-export conflict).
+#[cfg(any(not(all(feature = "prx", target_endian = "little")), test))]
 mod owned {
     use super::*;
 
@@ -442,5 +448,132 @@ mod archived {
                 .field("len", &self.len())
                 .finish()
         }
+    }
+}
+
+// ── record cast unit tests (archived path) ───────────────────────────────────
+//
+// Direct coverage of the zero-copy record access — `get` casting an index into the
+// buffer to a `ConceptView::Archived` borrow of an `ArchivedConceptRecord`, whose
+// `original_id`/`pos`/`lemmas`/`definitions`/`examples` accessors read through
+// rkyv's own archived accessors. A small KNOWN two-record store (distinct pos,
+// single- and multi-valued string fields, one empty field), asserting the archived
+// view reads each field exactly, an out-of-range id → `None`, AND the archived
+// view reads field-identically to the owned fallback built from the SAME records.
+#[cfg(all(test, feature = "prx", target_endian = "little"))]
+mod cast_tests {
+    use super::ConceptStore; // the archived, zero-copy store (the crate-level re-export)
+    use super::owned::ConceptStore as OwnedStore; // the owned fallback (compiled under `test`)
+    use super::{Concept, ConceptId, ConceptView, LmfPos};
+    use alloc::string::String;
+    use alloc::vec::Vec;
+
+    fn cid(i: u64) -> ConceptId {
+        ConceptId::new(i)
+    }
+
+    /// Two KNOWN concept records (the owned build the two representations share). A
+    /// record's id IS its index (§module docs): the archived build drops `id` and
+    /// re-derives it from the slot, the owned build reads it back — so each fixture
+    /// record's `id` is set to its position and the two must agree.
+    fn fixture() -> Vec<Concept> {
+        alloc::vec![
+            Concept {
+                id: cid(0),
+                original_id: String::from("oewn-00001740-n"),
+                pos: LmfPos::Noun,
+                lemmas: alloc::vec![String::from("entity")],
+                definitions: alloc::vec![String::from("that which is perceived or known")],
+                examples: Vec::new(),
+            },
+            Concept {
+                id: cid(1),
+                original_id: String::from("oewn-02604760-v"),
+                pos: LmfPos::Verb,
+                lemmas: alloc::vec![String::from("be"), String::from("exist")],
+                definitions: alloc::vec![
+                    String::from("have the quality of being"),
+                    String::from("occupy a certain position"),
+                ],
+                examples: alloc::vec![String::from("there is a God")],
+            },
+        ]
+    }
+
+    /// Assert two views expose byte/value-identical `id`/`original_id`/`pos`/
+    /// `lemmas`/`definitions`/`examples` — the fields read through the archived
+    /// cast against the same fields read from the owned record.
+    fn assert_views_identical(a: ConceptView<'_>, b: ConceptView<'_>) {
+        assert_eq!(a.id(), b.id());
+        assert_eq!(a.original_id(), b.original_id());
+        assert_eq!(a.pos(), b.pos());
+        assert_eq!(
+            a.lemmas().collect::<Vec<_>>(),
+            b.lemmas().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            a.definitions().collect::<Vec<_>>(),
+            b.definitions().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            a.examples().collect::<Vec<_>>(),
+            b.examples().collect::<Vec<_>>()
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn archived_get_reads_the_known_records() {
+        let store = ConceptStore::build(fixture());
+        assert_eq!(store.len(), 2);
+        assert!(!store.is_empty());
+
+        let c0 = store.get(cid(0)).expect("id 0 is in range");
+        assert_eq!(c0.id(), cid(0));
+        assert_eq!(c0.original_id(), "oewn-00001740-n");
+        assert_eq!(c0.pos(), LmfPos::Noun);
+        assert_eq!(c0.lemmas().collect::<Vec<_>>(), ["entity"]);
+        assert_eq!(
+            c0.definitions().collect::<Vec<_>>(),
+            ["that which is perceived or known"]
+        );
+        assert_eq!(c0.examples().collect::<Vec<_>>(), Vec::<&str>::new());
+
+        let c1 = store.get(cid(1)).expect("id 1 is in range");
+        assert_eq!(c1.id(), cid(1));
+        assert_eq!(c1.pos(), LmfPos::Verb);
+        assert_eq!(c1.lemmas().collect::<Vec<_>>(), ["be", "exist"]);
+        assert_eq!(
+            c1.definitions().collect::<Vec<_>>(),
+            ["have the quality of being", "occupy a certain position"]
+        );
+        assert_eq!(c1.examples().collect::<Vec<_>>(), ["there is a God"]);
+
+        // Out-of-range id → None (the `idx >= len` guard).
+        assert!(store.get(cid(2)).is_none());
+        assert!(store.get(cid(99)).is_none());
+    }
+
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn archived_get_is_identical_to_the_owned_fallback() {
+        let archived = ConceptStore::build(fixture());
+        let owned = OwnedStore::build(fixture());
+        assert_eq!(archived.len(), owned.len());
+        assert_eq!(archived.is_empty(), owned.is_empty());
+        // Every record reads field-identically through the archived cast and the
+        // owned record …
+        for i in 0..archived.len() as u64 {
+            let a = archived.get(cid(i)).expect("in range");
+            let o = owned.get(cid(i)).expect("in range");
+            assert_views_identical(a, o);
+        }
+        // … `iter()` walks the same records in id order …
+        for (a, o) in archived.iter().zip(owned.iter()) {
+            assert_views_identical(a, o);
+        }
+        // … and an out-of-range id → None on both.
+        assert!(archived.get(cid(2)).is_none());
+        assert!(owned.get(cid(2)).is_none());
     }
 }
