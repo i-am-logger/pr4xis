@@ -339,10 +339,30 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn is_chat_loadable_selects_only_chat_knowledge_entries() {
-        // Every registered entry: is_chat_loadable iff its role is ChatKnowledge.
+        // Every registered entry: the catalog-facing `is_chat_loadable` composite
+        // agrees with the role partition — is_chat_loadable iff its functor image
+        // is ChatKnowledge. This pins the consumer-facing predicate against the
+        // live registry through the functor (a broken `is_chat_loadable` — e.g.
+        // one that also admitted DecoderInput — would disagree here).
+        let mut loadable = 0usize;
+        let mut not_loadable = 0usize;
         for entry in crate::applied::data_provisioning::registry::data_sources() {
             let by_role = source_role(entry.kind) == SourceRoleConcept::ChatKnowledge;
             assert_eq!(is_chat_loadable(entry), by_role, "{}", entry.name);
+            if by_role {
+                loadable += 1;
+            } else {
+                not_loadable += 1;
+            }
         }
+        // Non-vacuous: the loadable set is a genuine PROPER, NON-EMPTY subset of
+        // the registry — there really are chat-loadable sources AND there really
+        // are non-loadable (decoder-input / not-yet-loadable) ones. Were the
+        // functor to collapse every kind into one role, this would fail.
+        assert!(loadable > 0, "some registered source must be chat-loadable");
+        assert!(
+            not_loadable > 0,
+            "some registered source must NOT be chat-loadable"
+        );
     }
 }

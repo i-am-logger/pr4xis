@@ -42,7 +42,6 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
@@ -157,52 +156,22 @@ impl Ontology for SourceRoleOntology {
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
-        axioms.push(Box::new(ChatKnowledgeIsTheSoleLoadableRole));
         // The registry-facing invariants live in `functor.rs` (they consult
         // the functor + registry); include them here so `validate()` runs the
-        // complete axiom set for this ontology.
+        // complete axiom set for this ontology. These carry the real,
+        // registry-grounded coverage — every source maps to exactly one role and
+        // no leaf maps to the abstract root. (The former
+        // `ChatKnowledgeIsTheSoleLoadableRole` was a tautology: its `verify()`
+        // merely re-read `IsChatLoadable::get`'s own match arms with no
+        // independent ground — loadability IS the role classification — so it
+        // was removed rather than shipped as `f == def`. The sole-loadable fact
+        // is covered by the `only_chat_knowledge_is_loadable` and
+        // `is_chat_loadable_selects_only_chat_knowledge_entries` tests.)
         axioms.push(Box::new(super::functor::RolePartitionIsTotal));
         axioms.push(Box::new(super::functor::EveryRegisteredKindHasConcreteRole));
         axioms
     }
 }
-
-/// Axiom: `ChatKnowledge` is the *unique* role the reasoner can load — the
-/// [`IsChatLoadable`] quality is true for exactly `ChatKnowledge` and false
-/// for the other two concrete roles.
-///
-/// PROV-O (Lebo et al. 2013) §3: a role is the function of an entity w.r.t.
-/// the activity that uses it. Only the source whose consuming activity is the
-/// reasoner is loadable *as knowledge*; a decoder input's consuming activity
-/// is a decoder, and a not-yet-loadable source has no consuming activity at
-/// all. The three are disjoint, so the loadable role is unique.
-pub struct ChatKnowledgeIsTheSoleLoadableRole;
-
-impl Axiom for ChatKnowledgeIsTheSoleLoadableRole {
-    fn verify(&self) -> Verdict {
-        use SourceRoleConcept as R;
-        let q = IsChatLoadable;
-        let ok = q.get(&R::ChatKnowledge) == Some(true)
-            && q.get(&R::DecoderInput) == Some(false)
-            && q.get(&R::NotYetLoadable) == Some(false);
-        if ok {
-            Ok(Box::new(SimpleProof::new(self.meta())))
-        } else {
-            Err(Box::new(SimpleCounterexample::new(self.meta())))
-        }
-    }
-
-    pr4xis::axiom_meta!(
-        "ChatKnowledgeIsTheSoleLoadableRole",
-        "the IsChatLoadable quality is true for exactly the ChatKnowledge role",
-        "Lebo, Sahoo & McGuinness (2013) PROV-O: The PROV Ontology, W3C Recommendation — §3 prov:Role"
-    );
-}
-
-pr4xis::register_axiom!(
-    ChatKnowledgeIsTheSoleLoadableRole,
-    "Lebo, Sahoo & McGuinness (2013) PROV-O: The PROV Ontology, W3C Recommendation — §3 prov:Role"
-);
 
 #[cfg(test)]
 mod tests {
