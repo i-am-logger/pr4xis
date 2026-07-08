@@ -1,5 +1,7 @@
 pub mod concept_store;
 pub mod ontology;
+pub mod relation_store;
+pub mod synset_index;
 pub mod taxonomy_store;
 pub mod word_index;
 
@@ -13,8 +15,11 @@ pub mod bridge;
 
 pub use concept_store::{ConceptStore, ConceptStrs, ConceptView};
 pub use ontology::{
-    Concept, ConceptId, English, LexicalReasoner, SenseId, english_load_owned, english_loaded,
+    Concept, ConceptId, English, LexicalReasoner, SenseId, WordnetRelations, english_load_owned,
+    english_loaded,
 };
+pub use relation_store::{RelationKind, RelationStore};
+pub use synset_index::SynsetIndex;
 pub use taxonomy_store::TaxonomyStore;
 
 #[cfg(test)]

@@ -58,141 +58,6 @@ pub trait Language {
     fn word_count(&self) -> usize;
 }
 
-/// English language — implements Language using WordNet + function words.
-///
-/// Function words (closed class) are constructed during language initialization,
-/// classified by OLiA categories. Content words come from WordNet's POS.
-/// Both are accessed through the same `lexical_lookup` interface.
-pub struct EnglishLanguage {
-    pub ontology: super::english::English,
-    pub writing: WritingSystem,
-    pub morphology: Vec<MorphologicalRule>,
-    /// Function words — the closed class, built at construction time.
-    function_words: HashMap<String, Vec<LexicalEntry>>,
-    /// All function word texts, for spelling correction.
-    function_word_list: Vec<String>,
-    /// Verb transitivity from WordNet subcategorization frames.
-    /// Pre-computed at construction time from LMF Sense.subcat.
-    verb_transitivity: HashMap<String, Vec<Transitivity>>,
-}
-
-impl EnglishLanguage {
-    /// Create English from a WordNet instance.
-    /// Function words are constructed here — part of the language, not a separate file.
-    /// Verb transitivity is pre-computed from WordNet subcategorization frames.
-    pub fn from_wordnet(wn: &crate::social::software::markup::xml::lmf::ontology::WordNet) -> Self {
-        let function_words = build_english_function_words();
-        let function_word_list: Vec<String> = function_words.keys().cloned().collect();
-        let verb_transitivity = build_verb_transitivity(wn);
-        Self {
-            ontology: super::english::English::from_wordnet(wn),
-            writing: super::orthography::english_writing_system(),
-            morphology: super::morphology::english::english_rules(),
-            function_words,
-            function_word_list,
-            verb_transitivity,
-        }
-    }
-
-    /// Access the underlying English ontology (for concept/taxonomy queries).
-    pub fn english(&self) -> &super::english::English {
-        &self.ontology
-    }
-
-    /// Get verb transitivity options for a word from pre-computed frames.
-    fn verb_transitivities(&self, word: &str) -> &[Transitivity] {
-        self.verb_transitivity
-            .get(word)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
-    }
-}
-
-impl Language for EnglishLanguage {
-    fn name(&self) -> &str {
-        "English"
-    }
-
-    fn code(&self) -> &str {
-        "en"
-    }
-
-    fn writing_system(&self) -> &WritingSystem {
-        &self.writing
-    }
-
-    fn morphological_rules(&self) -> &[MorphologicalRule] {
-        &self.morphology
-    }
-
-    fn lexical_lookup(&self, word: &str) -> Option<LexicalEntry> {
-        // Function words first (closed class — finite, checked first)
-        if let Some(entries) = self.function_words.get(word) {
-            return entries.first().cloned();
-        }
-
-        // Content words from WordNet (open class)
-        let concept_ids = self.ontology.lookup(word);
-        if let Some(&cid) = concept_ids.first()
-            && let Some(concept) = self.ontology.concept(cid)
-        {
-            let transitivities = self.verb_transitivities(word);
-            return lmf_pos_to_lexical_entries(word, concept.pos(), transitivities)
-                .into_iter()
-                .next();
-        }
-
-        None
-    }
-
-    fn lexical_lookup_all(&self, word: &str) -> Vec<LexicalEntry> {
-        let mut results = Vec::new();
-
-        // Function word entries
-        if let Some(entries) = self.function_words.get(word) {
-            results.extend(entries.iter().cloned());
-        }
-
-        // Content word entries from WordNet — use verb frames for transitivity
-        let mut seen_pos = hashbrown::HashSet::new();
-        for &cid in self.ontology.lookup(word) {
-            if let Some(concept) = self.ontology.concept(cid)
-                && seen_pos.insert(concept.pos())
-            {
-                let transitivities = self.verb_transitivities(word);
-                results.extend(lmf_pos_to_lexical_entries(
-                    word,
-                    concept.pos(),
-                    transitivities,
-                ));
-            }
-        }
-
-        results
-    }
-
-    fn pregroup_types(&self, word: &str) -> Vec<PregroupType> {
-        self.lexical_lookup_all(word)
-            .iter()
-            .map(lexical_entry_to_pregroup)
-            .collect()
-    }
-
-    fn known_words(&self) -> Vec<&str> {
-        let mut words: Vec<&str> = self.function_word_list.iter().map(|s| s.as_str()).collect();
-        words.extend(self.ontology.word_index.words());
-        words
-    }
-
-    fn concept_count(&self) -> usize {
-        self.ontology.concept_count()
-    }
-
-    fn word_count(&self) -> usize {
-        self.ontology.word_count() + self.function_word_list.len()
-    }
-}
-
 /// Map WordNet's LmfPos to ALL possible lexical entries.
 /// For verbs, uses transitivity from WordNet subcategorization frames.
 /// If no frames are available, returns both transitive and intransitive.
@@ -769,37 +634,43 @@ pub fn from_codegen(
         mereology_parts.entry(w).or_default().push(p);
     }
 
+    // Phase 4b: WordNet relation web. Codegen carries only the SKOS seeAlso
+    // (WordNet `also`) edges — wired into the `also_synset` slot of
+    // `WordnetRelations`, which `English::new` folds into its labelled
+    // `RelationStore` at construction (replacing the removed post-construction
+    // `set_also_synset_references` mutator, incompatible with the immutable
+    // archived store). Miles & Bechhofer (2009) W3C SKOS §8.
+    let mut relations = super::english::WordnetRelations::default();
+    for &(from, to) in data.references {
+        relations
+            .also_synset
+            .entry(ConceptId::new(from.value()))
+            .or_default()
+            .push(ConceptId::new(to.value()));
+    }
+
     // Language-specific data (function words, writing system, morphology)
     let function_words = build_english_function_words();
     let function_word_list: Vec<String> = function_words.keys().cloned().collect();
     let writing = super::orthography::english_writing_system();
     let morphology = super::morphology::english::english_rules();
 
-    let mut english = super::english::English::new(
+    super::english::English::new(
         concepts,
         word_index,
         taxonomy_children,
         taxonomy_parents,
         HashMap::<SenseId, Vec<SenseId>>::new(), // opposition (sense-level needs full LMF)
         mereology_parts,
+        relations,
+        0, // sense_count: codegen assigns no senses (all sense-level relations empty)
         synset_to_concept,
         function_words,
         function_word_list,
         HashMap::new(), // verb_transitivity (chart parser resolves in context)
         writing,
         morphology,
-    );
-
-    // SKOS seeAlso (WordNet `also`) wired into the existing
-    // `also_synset` slot in WordnetRelations. Miles & Bechhofer (2009)
-    // W3C SKOS §8.
-    english.set_also_synset_references(
-        data.references
-            .iter()
-            .map(|&(from, to)| (ConceptId::new(from.value()), ConceptId::new(to.value()))),
-    );
-
-    english
+    )
 }
 
 #[cfg(test)]
@@ -845,7 +716,7 @@ mod tests {
     #[test]
     fn english_language_trait() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         assert_eq!(en.name(), "English");
         assert_eq!(en.code(), "en");
         assert_eq!(en.writing_system().direction, Direction::LeftToRight);
@@ -856,7 +727,7 @@ mod tests {
     #[test]
     fn lexical_lookup_function_word() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         let the = en.lexical_lookup("the").unwrap();
         assert_eq!(the.pos_tag(), PosTag::Determiner);
     }
@@ -865,7 +736,7 @@ mod tests {
     #[test]
     fn lexical_lookup_content_word() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         let dog = en.lexical_lookup("dog").unwrap();
         assert_eq!(dog.pos_tag(), PosTag::Noun);
     }
@@ -874,7 +745,7 @@ mod tests {
     #[test]
     fn lexical_lookup_copula() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         let is = en.lexical_lookup("is").unwrap();
         assert_eq!(is.pos_tag(), PosTag::Copula);
     }
@@ -883,7 +754,7 @@ mod tests {
     #[test]
     fn lexical_lookup_interrogative_pronoun() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         let what = en.lexical_lookup("what").unwrap();
         assert!(what.is_interrogative());
         assert!(!what.is_anaphoric());
@@ -893,7 +764,7 @@ mod tests {
     #[test]
     fn lexical_lookup_personal_pronoun() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         let it = en.lexical_lookup("it").unwrap();
         assert!(it.is_anaphoric());
         assert!(!it.is_interrogative());
@@ -903,7 +774,7 @@ mod tests {
     #[test]
     fn lexical_lookup_unknown() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         assert!(en.lexical_lookup("xyzzy").is_none());
     }
 
@@ -911,7 +782,7 @@ mod tests {
     #[test]
     fn known_words_includes_both() {
         let wn = sample_wn();
-        let en = EnglishLanguage::from_wordnet(&wn);
+        let en = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         let words = en.known_words();
         assert!(words.contains(&"the")); // function word
         assert!(words.contains(&"dog")); // content word
@@ -937,7 +808,7 @@ mod tests {
     #[test]
     fn pregroup_the_dog_runs() {
         let wn = sample_wn();
-        let lang = EnglishLanguage::from_wordnet(&wn);
+        let lang = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
 
         let words = ["the", "dog", "runs"];
         let types: Vec<pregroup::PregroupType> = words
@@ -964,7 +835,7 @@ mod tests {
     #[test]
     fn pregroup_she_sees_the_dog() {
         let wn = sample_wn();
-        let lang = EnglishLanguage::from_wordnet(&wn);
+        let lang = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
 
         let words = ["she", "sees", "the", "dog"];
         let types: Vec<pregroup::PregroupType> = words
@@ -995,7 +866,7 @@ mod tests {
     #[test]
     fn every_function_word_has_pregroup_type() {
         let wn = sample_wn();
-        let lang = EnglishLanguage::from_wordnet(&wn);
+        let lang = crate::cognitive::linguistics::english::English::from_wordnet(&wn);
         for word in ["the", "a", "is", "she", "it", "what", "and", "in", "not"] {
             let pts = lang.pregroup_types(word);
             assert!(
