@@ -29,9 +29,22 @@ crate="${1:-pr4xis-domains}"
 enforce="${2:-}"
 libname="${crate//-/_}"
 
+# In `pr4xis-domains`, `prx` gates the serialization machinery (the .prx codecs +
+# the ontologies that describe them — ontology_archive, canonical_codec,
+# succinct_codec). Without it the gate is MASKED: `cargo test --lib` with default
+# features lists neither those tests NOR their tags, so they match trivially and
+# the machinery escapes the untagged=0 invariant. `--features prx` is a strict
+# superset of the default test set (no default-only tests exist), so enforcing
+# under it covers everything. Only `pr4xis-domains` has this feature; other crates
+# run with default features so the gate stays runnable for any `$crate`.
+feature_args=()
+if [ "$crate" = "pr4xis-domains" ]; then
+  feature_args=(--features prx)
+fi
+
 # Listed: every lib test function (proptests once). No test is exempt — the
 # meta-test itself carries a tag, so the self-binding gate has no special case.
-listed=$(cargo test -p "$crate" --lib -- --list 2>/dev/null |
+listed=$(cargo test -p "$crate" "${feature_args[@]}" --lib -- --list 2>/dev/null |
   grep ': test$' |
   sed 's/: test$//' |
   sort -u)
@@ -43,7 +56,7 @@ listed=$(cargo test -p "$crate" --lib -- --list 2>/dev/null |
 tagsfile=$(mktemp)
 trap 'rm -f "$tagsfile"' EXIT
 PRAXIS_CONSTITUTION_TAGS_OUT="$tagsfile" \
-  cargo test -p "$crate" --lib -- constitution_coverage >/dev/null 2>&1
+  cargo test -p "$crate" "${feature_args[@]}" --lib -- constitution_coverage >/dev/null 2>&1
 registered=$(sed "s/^${libname}:://" "$tagsfile" | sort -u)
 
 untagged=$(comm -23 <(printf '%s\n' "$listed") <(printf '%s\n' "$registered") | grep -v '^$' || true)
