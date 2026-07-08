@@ -104,7 +104,13 @@ impl core::fmt::Debug for WordIndex {
 
 /// The owned fallback: a plain `HashMap`. Kept as the mandatory non-`prx` (and
 /// big-endian) path, mirroring the `english_load_owned` `prx` split.
-#[cfg(not(all(feature = "prx", target_endian = "little")))]
+///
+/// Compiled ALSO under `test` on the archived (`prx` + little-endian) path so the
+/// cast unit tests can build both representations from the same map and assert the
+/// zero-copy archived index returns id slices value-identical to this owned
+/// fallback (it is only `pub use`d as `WordIndex` on the non-archived path, so
+/// there is no re-export conflict).
+#[cfg(any(not(all(feature = "prx", target_endian = "little")), test))]
 mod owned {
     use super::*;
 
@@ -327,5 +333,77 @@ mod archived {
         pub fn words(&self) -> impl Iterator<Item = &str> {
             (0..self.n).map(move |i| self.key_str(i))
         }
+    }
+}
+
+// ── dictionary cast unit tests (archived path) ───────────────────────────────
+//
+// Direct coverage of the zero-copy dictionary build + the unsafe id-slice cast in
+// `ids_at` (the `from_raw_parts` reinterpreting packed little-endian `u64`s as
+// `&[ConceptId]`): a small KNOWN word→ids map (a multi-id surface, two single-id
+// surfaces, plus misses), asserting the archived `lookup` returns exactly the
+// expected `&[ConceptId]`, a miss returns `&[]`, AND the archived index returns id
+// slices value-identical to the owned fallback built from the SAME map.
+#[cfg(all(test, feature = "prx", target_endian = "little"))]
+mod cast_tests {
+    use super::WordIndex; // the archived, zero-copy index (the crate-level re-export)
+    use super::owned::WordIndex as OwnedIndex; // the owned fallback (compiled under `test`)
+    use super::{ConceptId, HashMap};
+    use alloc::string::String;
+    use alloc::vec::Vec;
+
+    fn cid(i: u64) -> ConceptId {
+        ConceptId::new(i)
+    }
+
+    /// A small KNOWN word index (returned as the owned build the two representations
+    /// share). Keys sort by raw bytes to `alpha < beta < gamma`.
+    ///   "alpha" → [7]         (single-id surface)
+    ///   "beta"  → [42]        (single-id surface — sorts between the others)
+    ///   "gamma" → [3, 9, 1]   (multi-id surface — the cast must preserve run order)
+    fn fixture() -> HashMap<String, Vec<ConceptId>> {
+        let mut map: HashMap<String, Vec<ConceptId>> = HashMap::new();
+        map.insert(String::from("alpha"), alloc::vec![cid(7)]);
+        map.insert(String::from("beta"), alloc::vec![cid(42)]);
+        map.insert(String::from("gamma"), alloc::vec![cid(3), cid(9), cid(1)]);
+        map
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn archived_lookup_matches_the_known_map() {
+        let index = WordIndex::build(fixture());
+        let empty: &[ConceptId] = &[];
+        // Single-id surfaces — one packed id, cast back to a length-1 slice.
+        assert_eq!(index.lookup("alpha"), &[cid(7)]);
+        assert_eq!(index.lookup("beta"), &[cid(42)]);
+        // Multi-id surface — the cast reinterprets the whole packed run, in order.
+        assert_eq!(index.lookup("gamma"), &[cid(3), cid(9), cid(1)]);
+        // Miss → empty slice; a prefix of a present key is still a miss (the binary
+        // search is exact, not a prefix match).
+        assert_eq!(index.lookup("delta"), empty);
+        assert_eq!(index.lookup("alph"), empty);
+        assert_eq!(index.len(), 3);
+        // Keys come back in sorted (key-byte) order.
+        let words: Vec<&str> = index.words().collect();
+        let expected: Vec<&str> = alloc::vec!["alpha", "beta", "gamma"];
+        assert_eq!(words, expected);
+    }
+
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn archived_lookup_is_identical_to_the_owned_fallback() {
+        let archived = WordIndex::build(fixture());
+        let owned = OwnedIndex::build(fixture());
+        assert_eq!(archived.len(), owned.len());
+        // Every word the owned map holds resolves, through the archived zero-copy
+        // cast, to the byte/value-identical id slice …
+        for word in owned.words() {
+            assert_eq!(archived.lookup(word), owned.lookup(word), "lookup {word}");
+        }
+        // … and a surface neither holds is `&[]` on both.
+        let empty: &[ConceptId] = &[];
+        assert_eq!(archived.lookup("delta"), empty);
+        assert_eq!(owned.lookup("delta"), empty);
     }
 }
