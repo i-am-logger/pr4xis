@@ -1001,10 +1001,16 @@ fn run_chat(load_specs: &[String]) {
     // edges (a USC title into `LegalSources`, any instance-functor `.prx` into its
     // target) against the loaded set — the general grounding step, driven by the
     // functor each carries as data. Order-independent and idempotent.
-    pr4xis_domains::formal::meta::grounding::ground_loaded_set(
+    // The single order-independent grounding pass. A LOUD fault (a declared target
+    // absent from a present peer, an unsupported multi-level chain) is fail-closed:
+    // surface it and refuse to start rather than run a silently-mis-grounded set.
+    if let Err(e) = pr4xis_domains::formal::meta::grounding::ground_loaded_set(
         &mut loaded_rc,
         chat_english_static(),
-    );
+    ) {
+        eprintln!("  [fatal] grounding the loaded set failed: {e}");
+        return;
+    }
     let reasoner = ComposedReasoner::new(chat_english_static(), loaded_rc);
     let language: &English = reasoner.english();
 

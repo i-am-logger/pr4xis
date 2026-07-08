@@ -77,6 +77,7 @@ fn a_real_statute_provision_grounds_into_an_english_form_atom() {
         .iter()
         .find_map(|n| {
             lens(n)
+                .expect("the denotes floor never fails closed")
                 .into_iter()
                 .next()
                 .map(|(_, target)| (n.name.clone(), target))
@@ -208,7 +209,8 @@ fn a_loaded_usc_section_reaches_statute_and_law_by_composition() {
         pr4xis_domains::formal::meta::grounding::ground_loaded_set(
             &mut set,
             English::sample_static(),
-        );
+        )
+        .expect("the USC→LegalSources single-level grounding succeeds");
 
         let composed = ComposedReasoner::new(English::sample_static(), set);
         let subsumption = subsumption_kind();
@@ -300,7 +302,8 @@ fn without_the_legal_sources_peer_the_type_link_is_fail_closed() {
     // with no LegalSources peer there is nothing to mint the type edge against, so
     // the section carries no cross-ontology typing (never a silent wrong bind).
     let mut set = vec![Rc::new(usc_onto)];
-    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static());
+    pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static())
+        .expect("USC-alone grounding defers cleanly (no LegalSources peer, no loud fault)");
     let composed = ComposedReasoner::new(English::sample_static(), set);
 
     // With LegalSources absent, 'statute'/'law' do not resolve to any concept —

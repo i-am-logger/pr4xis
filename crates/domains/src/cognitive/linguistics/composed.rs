@@ -1069,7 +1069,8 @@ mod tests {
             } else {
                 alloc::vec![Rc::new(men), Rc::new(tax)]
             };
-            crate::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static());
+            crate::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static())
+                .expect("the single-level menagerie grounds");
             let composed = ComposedReasoner::new(English::sample_static(), set);
             let subsumption = subsumption_kind();
 
@@ -1162,7 +1163,8 @@ mod tests {
             .expect("menagerie materializes");
         let mut set = alloc::vec![Rc::new(men)];
         // The MINT-side seeds English as the transient grounding target peer.
-        crate::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static());
+        crate::formal::meta::grounding::ground_loaded_set(&mut set, English::sample_static())
+            .expect("the single-level menagerie grounds");
         let composed = ComposedReasoner::new(English::sample_static(), set);
         let subsumption = subsumption_kind();
 
