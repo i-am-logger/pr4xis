@@ -16,6 +16,7 @@ pub mod dtd;
 pub mod gap_analysis;
 pub mod grounding;
 pub mod identifier_format;
+pub mod lens;
 pub mod lens_composition;
 pub mod omv;
 pub mod ontology_archive;
