@@ -282,7 +282,8 @@ fn main() {
         )
         .expect("the menagerie materializes");
         let mut set = vec![Rc::new(men)];
-        pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set, english);
+        pr4xis_domains::formal::meta::grounding::ground_loaded_set(&mut set, english)
+            .expect("the single-level menagerie grounds");
         ComposedReasoner::new(english, set)
     };
 

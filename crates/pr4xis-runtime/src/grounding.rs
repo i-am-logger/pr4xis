@@ -38,23 +38,25 @@ use crate::definition::{Definition, EdgeTarget};
 /// ontology (English, a cited title, …) enters; `ground` itself is
 /// source-agnostic, so any content archive (USC, English, …) grounds the same way
 /// — the returned archive's grounded edges resolve through [`AtomResolver`].
+/// The lens is FALLIBLE: it returns a typed [`LinkError`] when a node DECLARES a
+/// grounding whose target atom cannot be realized (a declared-but-unresolvable
+/// target — an authoring/version fault), so a declared grounding is never
+/// silently dropped. A node that declares nothing returns `Ok(vec![])` (a
+/// legitimate no-op), distinct from a declared target that fails to resolve.
 pub fn ground(
     archive: &Archive,
-    lens: impl Fn(&Definition) -> Vec<(String, EdgeTarget)>,
-) -> Archive {
-    let nodes = archive
-        .nodes
-        .iter()
-        .map(|node| {
-            let mut grounded = node.clone();
-            grounded.edges.extend(lens(node));
-            grounded
-        })
-        .collect();
-    Archive {
+    lens: impl Fn(&Definition) -> Result<Vec<(String, EdgeTarget)>, LinkError>,
+) -> Result<Archive, LinkError> {
+    let mut nodes = Vec::with_capacity(archive.nodes.len());
+    for node in &archive.nodes {
+        let mut grounded = node.clone();
+        grounded.edges.extend(lens(node)?);
+        nodes.push(grounded);
+    }
+    Ok(Archive {
         nodes,
         connections: archive.connections.clone(),
-    }
+    })
 }
 
 /// The TYPE grounding LENS — the general, source-agnostic producer of typed
@@ -73,11 +75,13 @@ pub fn ground(
 ///
 /// For each node whose kind is a key in `type_map`, it emits one
 /// `(relation, `[`EdgeTarget::Grounded`]`)` edge into the target concept's
-/// `Definition` atom BY CONTENT ADDRESS. A node whose kind is not in `type_map`,
-/// or a mapped concept name absent from the peer, is left UNGROUNDED (no edge) —
-/// the floor asserts only a typing whose target atom actually exists. There is no
-/// `match node.kind` hardcode and no target-ontology name baked in: both are the
-/// loaded functor's DATA and the loaded peer's archive.
+/// `Definition` atom BY CONTENT ADDRESS. A node whose kind is NOT in `type_map` is
+/// left ungrounded (`Ok(vec![])`) — a legitimate no-op. A node whose kind IS a
+/// `type_map` key but whose mapped concept NAME is absent from the `peer` is a
+/// DECLARED-but-unrealizable grounding — an authoring/version fault — and FAILS
+/// CLOSED with [`LinkError::GroundTargetAbsent`], never a silent empty edge. There
+/// is no `match node.kind` hardcode and no target-ontology name baked in: both are
+/// the loaded functor's DATA and the loaded peer's archive.
 ///
 /// Spivak (2012) *Functorial Data Migration* — an instance is a functor into the
 /// schema; a typed node's grounding IS that functor, carried as data and produced
@@ -87,27 +91,35 @@ pub fn type_lens<'a>(
     relation: &'a str,
     target_ontology: &'a str,
     peer: &'a Archive,
-) -> impl Fn(&Definition) -> Vec<(String, EdgeTarget)> + 'a {
+) -> impl Fn(&Definition) -> Result<Vec<(String, EdgeTarget)>, LinkError> + 'a {
     move |node| {
-        type_map
+        // A node whose kind is NOT declared by the functor is a legitimate no-op.
+        let Some((_, concept)) = type_map
             .iter()
             .find(|(source_kind, _)| source_kind.as_str() == node.kind.as_str())
-            .and_then(|(_, concept)| {
-                let atom = peer
-                    .nodes
-                    .iter()
-                    .find(|n| n.name.as_str() == concept.as_str())?
-                    .address()
-                    .ok()?;
-                Some(vec![(
-                    relation.to_string(),
-                    EdgeTarget::Grounded {
-                        ontology: target_ontology.to_string(),
-                        atom,
-                    },
-                )])
-            })
-            .unwrap_or_default()
+        else {
+            return Ok(Vec::new());
+        };
+        // The kind IS declared: the mapped target concept MUST resolve to a peer
+        // atom. A miss is a declared-but-unrealizable grounding (a stale map entry,
+        // a version skew, a typo) — fail closed, never a silently dropped edge.
+        let target = peer
+            .nodes
+            .iter()
+            .find(|n| n.name.as_str() == concept.as_str())
+            .ok_or_else(|| LinkError::GroundTargetAbsent {
+                kind: node.kind.clone(),
+                target: concept.clone(),
+                peer: target_ontology.to_string(),
+            })?;
+        let atom = target.address().map_err(LinkError::Codec)?;
+        Ok(vec![(
+            relation.to_string(),
+            EdgeTarget::Grounded {
+                ontology: target_ontology.to_string(),
+                atom,
+            },
+        )])
     }
 }
 
@@ -159,6 +171,29 @@ pub enum LinkError {
         ontology: String,
         atom: ContentAddress,
     },
+    /// A node's kind IS declared by a grounding functor's `map_object`, but the
+    /// concept NAME it maps to is absent from the (present) target peer — a
+    /// declared-but-unrealizable grounding (stale map entry / version skew /
+    /// typo). Fail-closed: the declared grounding is never silently dropped.
+    /// Distinct from [`MissingPeerArchive`](Self::MissingPeerArchive): the peer IS
+    /// loaded; it just does not hold the named concept.
+    GroundTargetAbsent {
+        /// The source node kind the functor declared a grounding for.
+        kind: String,
+        /// The target concept name the functor mapped that kind to.
+        target: String,
+        /// The target ontology (present) that lacks the named concept.
+        peer: String,
+    },
+    /// A loaded ontology used AS a grounding TARGET is itself a grounding SOURCE —
+    /// the unsupported multi-level chain. Grounding freezes the peer set before any
+    /// slot is grounded, so re-materializing a target (to add ITS grounding edges)
+    /// shifts the very node addresses a source grounded against. Fail-closed: the
+    /// documented one-level contract is enforced at runtime, not left to dangle.
+    GroundingTargetIsSource {
+        /// The ontology that is both a grounding target and a grounding source.
+        target: String,
+    },
     /// The target is a [`Local`](EdgeTarget::Local) edge — not a grounded edge
     /// to resolve. (Callers traverse local edges by name, not through here.)
     NotGrounded,
@@ -190,6 +225,16 @@ impl core::fmt::Display for LinkError {
                 f,
                 "grounding: {ontology:?} holds no atom at {}",
                 atom.to_hex()
+            ),
+            LinkError::GroundTargetAbsent { kind, target, peer } => write!(
+                f,
+                "grounding: declared target {target:?} for kind {kind:?} is absent from \
+                 loaded peer {peer:?} (declared-but-unrealizable grounding)"
+            ),
+            LinkError::GroundingTargetIsSource { target } => write!(
+                f,
+                "grounding: {target:?} is used as a grounding target but is itself a \
+                 grounding source — the unsupported multi-level chain (one-level contract)"
             ),
             LinkError::NotGrounded => write!(f, "grounding: target is local, not a grounded edge"),
             LinkError::Codec(e) => write!(f, "grounding: {e}"),
@@ -345,14 +390,15 @@ mod tests {
         // A lens that grounds any node into the fixture's atom (a stand-in for a
         // real denotes producer).
         let grounded = ground(&content, |_node| {
-            vec![(
+            Ok(vec![(
                 "denotes".to_string(),
                 EdgeTarget::Grounded {
                     ontology: "english_wordnet".to_string(),
                     atom,
                 },
-            )]
-        });
+            )])
+        })
+        .expect("the infallible lens grounds");
         let edge = &grounded.nodes[0].edges[0];
         assert_eq!(edge.0, "denotes");
         let resolver = AtomResolver::new(&manifest, &peers).unwrap();
@@ -432,6 +478,55 @@ mod tests {
         assert_eq!(
             resolver.resolve(&EdgeTarget::Local("s-dog".to_string())),
             Err(LinkError::NotGrounded)
+        );
+    }
+
+    #[test]
+    fn type_lens_kind_not_in_map_is_a_silent_noop() {
+        // A node whose kind is NOT a functor key grounds nothing — Ok(empty), the
+        // legitimate no-op (distinct from a declared-but-absent target).
+        let (peers, _, _) = fixture();
+        let english = peers.get("english_wordnet").unwrap();
+        let type_map = vec![("Canine".to_string(), "s-dog".to_string())];
+        let lens = type_lens(&type_map, "Subsumption", "english_wordnet", english);
+        let node = Definition {
+            kind: "Mineral".into(), // NOT a key in the map
+            name: "salmon".into(),
+            edges: vec![],
+            axioms: vec![],
+            lexical: None,
+        };
+        assert_eq!(
+            lens(&node),
+            Ok(vec![]),
+            "an undeclared kind grounds nothing"
+        );
+    }
+
+    #[test]
+    fn type_lens_declared_but_absent_target_fails_closed() {
+        // A node whose kind IS a functor key but whose mapped concept is absent
+        // from the present peer is a declared-but-unrealizable grounding — it must
+        // FAIL CLOSED (typed GroundTargetAbsent), NOT silently drop the edge.
+        let (peers, _, _) = fixture();
+        let english = peers.get("english_wordnet").unwrap();
+        let type_map = vec![("Canine".to_string(), "s-DOESNOTEXIST".to_string())];
+        let lens = type_lens(&type_map, "Subsumption", "english_wordnet", english);
+        let node = Definition {
+            kind: "Canine".into(), // declared, but the target concept is absent
+            name: "rex".into(),
+            edges: vec![],
+            axioms: vec![],
+            lexical: None,
+        };
+        assert_eq!(
+            lens(&node),
+            Err(LinkError::GroundTargetAbsent {
+                kind: "Canine".to_string(),
+                target: "s-DOESNOTEXIST".to_string(),
+                peer: "english_wordnet".to_string(),
+            }),
+            "a declared but unresolvable target fails closed, never a silent empty edge"
         );
     }
 }

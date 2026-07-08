@@ -35,6 +35,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
+use pr4xis_runtime::grounding::LinkError;
 
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::english::bridge::{ENGLISH_ONTOLOGY, form_atom};
@@ -86,14 +87,20 @@ pub fn denotes_pointers(text: &str, english: &English) -> Vec<DenotesPointer> {
 /// `(denotes, `[`EdgeTarget::Grounded`]`)` edges resolved by the generic
 /// `AtomResolver`. English is confined to THIS lens — `ground` itself is
 /// source-agnostic, and `cites` / `defines` are other lenses of the same shape.
-pub fn denotes_lens(english: &English) -> impl Fn(&Definition) -> Vec<(String, EdgeTarget)> + '_ {
+pub fn denotes_lens(
+    english: &English,
+) -> impl Fn(&Definition) -> Result<Vec<(String, EdgeTarget)>, LinkError> + '_ {
+    // The written-form floor never fails closed: a word English does not know is a
+    // legitimate no-op (the floor only grounds forms that exist), not an
+    // authoring fault. So every node yields `Ok(..)` — but the lens is fallible in
+    // shape so it composes with the generic (fallible) [`ground`].
     move |node| {
-        node.lexical.as_deref().map_or_else(Vec::new, |text| {
+        Ok(node.lexical.as_deref().map_or_else(Vec::new, |text| {
             denotes_pointers(text, english)
                 .into_iter()
                 .map(|p| ("denotes".to_string(), p.target))
                 .collect()
-        })
+        }))
     }
 }
 
@@ -207,7 +214,7 @@ mod tests {
         };
 
         // Ground it with the lexical denotes lens — typed Grounded edges added.
-        let grounded = ground(&content, denotes_lens(&english));
+        let grounded = ground(&content, denotes_lens(&english)).expect("the denotes floor grounds");
         let provision = &grounded.nodes[0];
         let denotes: Vec<&str> = provision
             .edges

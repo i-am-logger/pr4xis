@@ -2346,7 +2346,8 @@ mod into_english_base {
         pr4xis_domains::formal::meta::grounding::ground_loaded_set(
             &mut set,
             English::sample_static(),
-        );
+        )
+        .expect("the single-level menagerie grounds");
         ComposedReasoner::new(English::sample_static(), set)
     }
 

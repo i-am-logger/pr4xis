@@ -35,7 +35,7 @@
 //! double-mint an edge it already carries, so re-grounding is a safe re-materialize
 //! of the source.
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -96,10 +96,12 @@ pub fn ground_declared(
             // `map_morphism` table is empty — derived from the one typed Relations
             // vocabulary (`subsumption_kind()`), never a bare string literal.
             .unwrap_or_else(|| subsumption_kind().name);
+        // Fail-closed: a declared target concept NAME absent from the present peer
+        // surfaces as GroundTargetAbsent (never a silently dropped edge).
         current = ground(
             &current,
             type_lens(map_object, &relation, &conn.target, peer),
-        );
+        )?;
     }
     dedup_edges(&mut current);
     Ok(current)
@@ -126,20 +128,41 @@ pub fn ground_declared(
 /// verdict; here a later pass (when the peer arrives) completes it, never a silent
 /// wrong bind.
 ///
-/// # Contract: grounding targets are pure bases (one-level grounding)
+/// # Contract: grounding targets are pure bases (one-level grounding), guarded
 ///
 /// The peer set is frozen from the loaded archives *before* any slot is grounded,
 /// so a functor's target atoms are the target's *pre-grounding* node addresses. A
-/// grounding TARGET is therefore expected to be a pure base — an ontology that
-/// declares no grounding functor of its own (every current target: `LegalSources`,
-/// English, a domain taxonomy). A multi-level chain — a target that *itself*
-/// grounds into a further base — is NOT yet supported: re-materializing that target
-/// (line below) changes its node content-addresses, which the already-frozen peer
-/// set would not reflect, so a source grounded against its pre-grounding addresses
-/// would dangle. Grounding-target-that-grounds is future work (it needs the peer
-/// set re-derived in dependency order, a topological pass); for now the base-first
-/// corpus makes every target a leaf and this pass is exact.
-pub fn ground_loaded_set(loaded: &mut [Rc<RuntimeOntology>], english: &English) {
+/// grounding TARGET must therefore be a pure base — an ontology that declares no
+/// grounding functor of its own (every current target: `LegalSources`, English, a
+/// domain taxonomy). A multi-level chain — a target that *itself* grounds into a
+/// further base — is NOT supported: re-materializing that target (to add ITS
+/// grounding edges) changes its node content-addresses, which the already-frozen
+/// peer set would not reflect, so a source grounded against its pre-grounding
+/// addresses would dangle SILENTLY. This is no longer left to prose: it is enforced
+/// by [`guard_one_level_grounding`], a FAIL-CLOSED runtime guard that refuses the
+/// whole pass with [`LinkError::GroundingTargetIsSource`] when any loaded ontology
+/// is BOTH a grounding target and a grounding source. Grounding-target-that-grounds
+/// is future work (it needs the peer set re-derived in dependency order, a
+/// topological pass); until then the guard makes the unsupported case LOUD.
+///
+/// # Fail-closed vs deferred
+///
+/// A [`MissingPeerArchive`](LinkError::MissingPeerArchive) — a declared target
+/// ontology not yet loaded — DEFERS (that slot is left ungrounded; a later pass
+/// grounds it when the peer arrives). Every OTHER grounding fault is LOUD and
+/// aborts the pass with the typed error: a declared target NAME absent from a
+/// PRESENT peer ([`GroundTargetAbsent`](LinkError::GroundTargetAbsent)), a root
+/// skew, a codec fault, or the multi-level guard. The caller surfaces it (a load
+/// is refused, a REPL prints it) rather than installing a silently-mis-grounded
+/// set.
+pub fn ground_loaded_set(
+    loaded: &mut [Rc<RuntimeOntology>],
+    english: &English,
+) -> Result<(), LinkError> {
+    // FAIL-CLOSED one-level guard (the documented contract, enforced): refuse the
+    // whole pass if any loaded ontology is both a grounding target and a grounding
+    // source — the unsupported multi-level chain that would dangle silently.
+    guard_one_level_grounding(loaded)?;
     // The peer set: every loaded ontology's owned archive, addressed by name — a
     // grounding functor's target atoms are its peer archive's node addresses. Base
     // ontologies (the grounding targets) are small; a large corpus is present too
@@ -169,11 +192,15 @@ pub fn ground_loaded_set(loaded: &mut [Rc<RuntimeOntology>], english: &English) 
         let Ok(raw) = slot.to_owned_archive() else {
             continue;
         };
-        // Fail-closed per connection; a missing peer DEFERS this ontology (a later
-        // pass completes it once the target loads — base-first makes that the
-        // common no-defer case).
-        let Ok(grounded) = ground_declared(&raw, &peers) else {
-            continue;
+        // Per connection: a missing peer ARCHIVE DEFERS this ontology (a later pass
+        // completes it once the target loads — base-first makes that the common
+        // no-defer case). EVERY other fault — a declared target NAME absent from a
+        // present peer, a root skew, a codec fault — is LOUD: it aborts the pass so
+        // the caller refuses rather than installing a silently-mis-grounded set.
+        let grounded = match ground_declared(&raw, &peers) {
+            Ok(grounded) => grounded,
+            Err(LinkError::MissingPeerArchive { .. }) => continue,
+            Err(loud) => return Err(loud),
         };
         if grounded == raw {
             // Already grounded (or nothing to ground) — no content change, so no
@@ -186,6 +213,44 @@ pub fn ground_loaded_set(loaded: &mut [Rc<RuntimeOntology>], english: &English) 
             *slot = Rc::new(regrounded);
         }
     }
+    Ok(())
+}
+
+/// FAIL-CLOSED one-level-grounding guard — refuse the whole pass if any LOADED
+/// ontology is BOTH a grounding target and a grounding source.
+///
+/// [`ground_loaded_set`] freezes the peer set before grounding, so a grounding
+/// target's atoms are its *pre-grounding* addresses. If a loaded ontology used as
+/// a target were itself a source, grounding it would re-materialize it — shifting
+/// the very addresses another source grounded against, leaving that source's edges
+/// dangling SILENTLY. That multi-level chain is unsupported; this guard makes it
+/// LOUD ([`GroundingTargetIsSource`](LinkError::GroundingTargetIsSource)) instead
+/// of dangling. The supported cases are untouched: into-English targets
+/// `english_wordnet` (never a loaded slot, so never in `sources`), and
+/// USC→`LegalSources` targets a pure base (declares no grounding functor).
+fn guard_one_level_grounding(loaded: &[Rc<RuntimeOntology>]) -> Result<(), LinkError> {
+    // A loaded ontology is a SOURCE if it declares any grounding functor; the
+    // TARGETS are the ontologies those functors point at.
+    let mut sources: BTreeSet<String> = BTreeSet::new();
+    let mut targets: BTreeSet<String> = BTreeSet::new();
+    for o in loaded {
+        let Ok(archive) = o.to_owned_archive() else {
+            continue;
+        };
+        for conn in &archive.connections {
+            if is_grounding_functor_kind(&conn.kind) {
+                sources.insert(o.id().as_str().to_string());
+                targets.insert(conn.target.clone());
+            }
+        }
+    }
+    // A loaded ontology that is both a target and a source is the multi-level chain.
+    if let Some(target) = targets.intersection(&sources).next() {
+        return Err(LinkError::GroundingTargetIsSource {
+            target: target.clone(),
+        });
+    }
+    Ok(())
 }
 
 /// Drop exact-duplicate `(kind, target)` edges per node (order-preserving), so a
@@ -332,6 +397,92 @@ mod tests {
             rex.edges.len(),
             1,
             "re-grounding mints no duplicate — exactly one type edge"
+        );
+    }
+
+    /// A one-node menagerie whose functor declares a target concept NAME the peer
+    /// does not hold (`Pet ↦ <target>`) — the authoring-error fixture for FIX 2.
+    fn menagerie_targeting(target: &str) -> Archive {
+        let mut m = menagerie("InstanceFunctor");
+        if let GeneratorAction::Functor { map_object, .. } = &mut m.connections[0].action {
+            map_object[0] = ("Pet".to_string(), target.to_string());
+        }
+        m
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn a_declared_but_absent_target_fails_closed() {
+        // The peer (`taxonomy`) IS present, but the functor declares
+        // `Pet ↦ DOESNOTEXIST`, a concept the peer does not hold. That is a
+        // declared-but-unrealizable grounding — it must FAIL CLOSED with a typed
+        // GroundTargetAbsent, NOT be silently installed ungrounded (the FIX 2 bug).
+        let mut peers = BTreeMap::new();
+        peers.insert("taxonomy".to_string(), taxonomy());
+        assert_eq!(
+            ground_declared(&menagerie_targeting("DOESNOTEXIST"), &peers),
+            Err(LinkError::GroundTargetAbsent {
+                kind: "Pet".to_string(),
+                target: "DOESNOTEXIST".to_string(),
+                peer: "taxonomy".to_string(),
+            }),
+            "a present peer that lacks the declared concept fails closed, never a silent drop"
+        );
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn a_multi_level_chain_triggers_the_one_level_guard() {
+        // Build a 2-level chain of LOADED ontologies: `menagerie` grounds into
+        // `taxonomy`, and `taxonomy` ITSELF grounds into `base`. `taxonomy` is thus
+        // both a grounding target (of menagerie) and a grounding source (into base)
+        // — the unsupported multi-level chain. `ground_loaded_set` must refuse the
+        // whole pass, LOUD, rather than silently dangle (the FIX 3 contract).
+        use pr4xis::ontology::meta::OntologyName;
+
+        // A pure base: one node, no grounding functor.
+        let base = Archive {
+            nodes: alloc::vec![Definition {
+                kind: "Concept".to_string(),
+                name: "Root".to_string(),
+                edges: alloc::vec![],
+                axioms: alloc::vec![],
+                lexical: Some("the root of the base".to_string()),
+            }],
+            connections: alloc::vec![],
+        };
+        // A taxonomy that is ALSO a source: its `Dog ⊑ Animal` nodes plus a
+        // grounding functor typing its `Concept` nodes into `base:Root`.
+        let mut taxonomy_src = taxonomy();
+        taxonomy_src.connections.push(Connection {
+            kind: "InstanceFunctor".to_string(),
+            source: "taxonomy".to_string(),
+            target: "base".to_string(),
+            action: GeneratorAction::Functor {
+                map_object: alloc::vec![("Concept".to_string(), "Root".to_string())],
+                map_morphism: alloc::vec![("instantiates".to_string(), "Subsumption".to_string())],
+            },
+            laws: alloc::vec!["PreservesTyping".to_string()],
+        });
+
+        let set: alloc::vec::Vec<Rc<RuntimeOntology>> = alloc::vec![
+            Rc::new(
+                materialize(
+                    menagerie("InstanceFunctor"),
+                    OntologyName::new_static("menagerie")
+                )
+                .unwrap()
+            ),
+            Rc::new(materialize(taxonomy_src, OntologyName::new_static("taxonomy")).unwrap()),
+            Rc::new(materialize(base, OntologyName::new_static("base")).unwrap()),
+        ];
+        let mut set = set;
+        assert_eq!(
+            ground_loaded_set(&mut set, English::sample_static()),
+            Err(LinkError::GroundingTargetIsSource {
+                target: "taxonomy".to_string(),
+            }),
+            "a target that is itself a source is the unsupported multi-level chain — LOUD, not dangling"
         );
     }
 

@@ -14,7 +14,7 @@ use pr4xis_domains::formal::information::knowledge::{
     source_catalog,
 };
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
-use pr4xis_domains::formal::meta::grounding::{ground_declared, ground_loaded_set};
+use pr4xis_domains::formal::meta::grounding::ground_loaded_set;
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::load_prx_gz as load_english_prx;
 use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
 use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
@@ -184,8 +184,11 @@ enum LoadPrxError {
     /// The admitted archive could not be materialized (e.g. a dangling edge —
     /// referential closure violated).
     Materialize(pr4xis_runtime::ontology::MaterializeError),
-    /// The archive declares a cross-ontology grounding functor whose target
-    /// ontology is not loaded — fail-closed, never a silent empty grounding.
+    /// Installing the archive surfaced a LOUD grounding fault from the single
+    /// [`ground_loaded_set`] pass — a declared target concept NAME absent from a
+    /// present peer, an unsupported multi-level chain, or a skew. Fail-closed:
+    /// nothing installs. (A merely not-yet-loaded target ontology DEFERS, it does
+    /// not error.)
     Grounding(pr4xis_runtime::grounding::LinkError),
 }
 
@@ -351,7 +354,8 @@ impl Pr4xis {
         let usc = UsCode::from_uslm_titles_owned(vec![title]);
         let onto = usc_runtime_ontology(&usc, OntologyName::new(name))
             .map_err(|e| format!("USC materialize failed: {e:?}"))?;
-        self.install_runtime_ontology(onto);
+        self.install_runtime_ontology(onto)
+            .map_err(|e| format!("USC grounding failed: {e}"))?;
         Ok(())
     }
 
@@ -404,7 +408,8 @@ impl Pr4xis {
         // never sees.
         let onto = owl_runtime_ontology(&vocab, OntologyName::new(name))
             .map_err(|e| JsValue::from_str(&format!("OWL materialize failed for {key}: {e:?}")))?;
-        self.install_runtime_ontology(onto);
+        self.install_runtime_ontology(onto)
+            .map_err(|e| JsValue::from_str(&format!("OWL grounding failed for {key}: {e}")))?;
         Ok(())
     }
 
@@ -428,7 +433,8 @@ impl Pr4xis {
         let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
         let onto = owl_runtime_ontology(&vocab, OntologyName::new(name))
             .map_err(|e| JsValue::from_str(&format!("OWL materialize failed: {e:?}")))?;
-        self.install_runtime_ontology(onto);
+        self.install_runtime_ontology(onto)
+            .map_err(|e| JsValue::from_str(&format!("OWL grounding failed: {e}")))?;
         Ok(())
     }
 
@@ -658,7 +664,17 @@ impl Pr4xis {
     /// functor without rebuilding or re-owning the ~73 MiB model. This rebuild of
     /// the grounding happens only on a load (a rare, deliberate action), keeping
     /// the per-chat path a cheap branch.
-    fn install_runtime_ontology(&mut self, onto: RuntimeOntology) {
+    fn install_runtime_ontology(
+        &mut self,
+        onto: RuntimeOntology,
+    ) -> Result<(), pr4xis_runtime::grounding::LinkError> {
+        // Fail-closed rollback snapshot: if grounding the new set surfaces a LOUD
+        // fault (a declared target NAME absent from a present peer, a multi-level
+        // chain, a skew), NOTHING installs — the prior good set + `composed` stand.
+        // Cloning a `Vec<Rc<_>>` bumps refcounts, it does NOT deep-copy archives.
+        let prior_ontologies = self.runtime_ontologies.clone();
+        let prior_history_len = self.history.len();
+
         // Replace BY NAME — a `.prx` is identified by its OntologyName, so a new
         // version displaces the old (one current version per source, doc §4.5),
         // not by content (which would let two versions of Title 15 coexist). The
@@ -686,43 +702,39 @@ impl Pr4xis {
         self.history.push(event);
 
         self.runtime_ontologies.push(Rc::new(onto));
-        // GROUNDING PASS: mint every loaded ontology's declared cross-ontology type
-        // edges against the current loaded set (re-ground-on-peer-arrival). This is
-        // the general grounding step — a USC title grounds into `LegalSources`, any
-        // instance-functor `.prx` grounds into its target — driven entirely by the
-        // functor each carries as data, order-independent (a source grounds whether
-        // its base loaded before or after it). Idempotent: an ontology already
-        // carrying its grounding edges is not re-materialized.
-        ground_loaded_set(&mut self.runtime_ontologies, english_static());
-        // The reasoner BORROWS the single embedded English (no owned rebuild) and
-        // reasons over the SAME loaded ontologies — `clone()` on a `Vec<Rc<_>>`
-        // bumps refcounts, it does NOT deep-copy the archives/closures.
-        self.composed = Some(ComposedReasoner::new(
-            english_static(),
-            self.runtime_ontologies.clone(),
-        ));
-    }
-
-    /// The owned archives of the currently-loaded ontologies, by name — the peer
-    /// set the fail-closed [`ground_declared`] step resolves a newly-loaded
-    /// archive's grounding functors against.
-    fn peer_archives(
-        &self,
-    ) -> std::collections::BTreeMap<String, pr4xis_runtime::archive::Archive> {
-        let mut peers = std::collections::BTreeMap::new();
-        for o in &self.runtime_ontologies {
-            if let Ok(archive) = o.to_owned_archive() {
-                peers.insert(o.id().as_str().to_string(), archive);
+        // GROUNDING PASS: the SINGLE, order-independent grounding authority — mint
+        // every loaded ontology's declared cross-ontology type edges against the
+        // current loaded set (a USC title into `LegalSources`, an into-English
+        // `.prx` onto WordNet synsets — the seeded English target peer), driven by
+        // the functor each carries as data. A source whose base has not yet loaded
+        // DEFERS (re-grounds on the base's arrival); a declared-but-unrealizable
+        // grounding is LOUD and rolls the install back. Idempotent.
+        match ground_loaded_set(&mut self.runtime_ontologies, english_static()) {
+            Ok(()) => {
+                // The reasoner BORROWS the single embedded English and reasons over
+                // the SAME loaded ontologies.
+                self.composed = Some(ComposedReasoner::new(
+                    english_static(),
+                    self.runtime_ontologies.clone(),
+                ));
+                Ok(())
+            }
+            Err(fault) => {
+                // Roll back to the prior good set — install nothing, `composed`
+                // untouched.
+                self.runtime_ontologies = prior_ontologies;
+                self.history.truncate(prior_history_len);
+                Err(fault)
             }
         }
-        peers
     }
 
     /// The plain-Rust core of [`Self::load_ontology_prx`] — fail-closed load +
-    /// materialize + ground — returning a TYPED [`LoadPrxError`] (no `JsValue`),
-    /// so it is exercisable in native tests. The wasm method is a thin wrapper
-    /// that renders the error to a `JsValue`. This IS the browser load path; it
-    /// just carries the typed verdict instead of a string.
+    /// materialize + install (the install runs the single grounding pass) —
+    /// returning a TYPED [`LoadPrxError`] (no `JsValue`), so it is exercisable in
+    /// native tests. The wasm method is a thin wrapper that renders the error to a
+    /// `JsValue`. This IS the browser load path; it just carries the typed verdict
+    /// instead of a string.
     fn load_ontology_prx_core(
         &mut self,
         bytes: &[u8],
@@ -731,20 +743,22 @@ impl Pr4xis {
     ) -> Result<(), LoadPrxError> {
         let trusted_root = ContentAddress::from_hex(expected_root_hex)
             .ok_or_else(|| LoadPrxError::BadRootHex(expected_root_hex.to_string()))?;
-        // Fail-closed: decode + re-derive the root + refuse on mismatch.
+        // Fail-closed: decode + re-derive the root + refuse on mismatch. (root +
+        // decode are the early, peer-INDEPENDENT fail-closed gate; a malformed
+        // archive is refused here before install.)
         let archive =
             pr4xis_runtime::load::load(bytes, trusted_root).map_err(LoadPrxError::Refused)?;
-        // GROUND fail-closed: mint the archive's declared cross-ontology type edges
-        // against the loaded peers. A `.prx` declaring a grounding functor whose
-        // target ontology is not loaded is REFUSED with a typed MissingPeerArchive
-        // — never installed with a silent empty grounding. (Under the base-first
-        // contract the targets — LegalSources, English — are always present.)
-        let peers = self.peer_archives();
-        let grounded = ground_declared(&archive, &peers).map_err(LoadPrxError::Grounding)?;
-        // Materialize the admitted, grounded open form into one live ontology.
+        // Materialize the admitted OPEN (un-grounded) form into one live ontology.
+        // Grounding is NOT pre-checked against a hand-built peer set here — that
+        // seeded only `runtime_ontologies` and never English, so a valid
+        // into-English `.prx` was wrongly REFUSED before install ran. Instead the
+        // install below runs `ground_loaded_set`, the SINGLE order-independent
+        // grounding authority (it seeds English + every loaded base, defers on a
+        // missing peer, and is LOUD on a declared-but-unrealizable target).
         let onto =
-            materialize(grounded, OntologyName::new(name)).map_err(LoadPrxError::Materialize)?;
-        self.install_runtime_ontology(onto);
+            materialize(archive, OntologyName::new(name)).map_err(LoadPrxError::Materialize)?;
+        self.install_runtime_ontology(onto)
+            .map_err(LoadPrxError::Grounding)?;
         Ok(())
     }
 
@@ -1147,6 +1161,162 @@ mod acceptance {
             p.loaded_ontology_count(),
             BASE_LOADED,
             "a refused .prx installs nothing beyond the always-loaded base"
+        );
+    }
+
+    /// Build an into-English menagerie `.prx` in memory: one `Canine` node named
+    /// `rex` and one `InstanceFunctor` connection typing `Canine ↦ <synset>` into
+    /// `english_wordnet`. Returns `(bytes, root_hex)` for the fail-closed public
+    /// load. The `synset` is a REAL WordNet synset id (discovered from
+    /// `english_static()`), so the grounding is exercised against the SAME full
+    /// WordNet the browser carries, not a sample.
+    fn into_english_menagerie_prx(synset: &str) -> (Vec<u8>, String) {
+        use pr4xis_domains::cognitive::linguistics::english::bridge::ENGLISH_ONTOLOGY;
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::connection::{Connection, GeneratorAction};
+        use pr4xis_runtime::definition::Definition;
+        let archive = Archive {
+            nodes: vec![Definition {
+                kind: "Canine".to_string(),
+                name: "rex".to_string(),
+                edges: vec![],
+                axioms: vec![],
+                lexical: Some("a companion dog kept in the menagerie".to_string()),
+            }],
+            connections: vec![Connection {
+                kind: "InstanceFunctor".to_string(),
+                source: "menagerie".to_string(),
+                target: ENGLISH_ONTOLOGY.to_string(),
+                action: GeneratorAction::Functor {
+                    map_object: vec![("Canine".to_string(), synset.to_string())],
+                    map_morphism: vec![("denotes".to_string(), "Subsumption".to_string())],
+                },
+                laws: vec!["PreservesTyping".to_string()],
+            }],
+        };
+        let bytes = pr4xis_runtime::load::emit(&archive).expect("emit the menagerie .prx");
+        let root = archive.root().expect("root").to_hex();
+        (bytes, root)
+    }
+
+    /// A real WordNet synset id for a `dog` sense that is-a some `animal` sense —
+    /// discovered from the live `english_static()`, never hardcoded. The grounding
+    /// target for the into-English load tests.
+    fn a_dog_synset_that_is_an_animal() -> String {
+        let english = english_static();
+        let animals = english.lookup("animal");
+        let dog = english
+            .lookup("dog")
+            .iter()
+            .copied()
+            .find(|&d| animals.iter().any(|&a| english.is_a(d, a)))
+            .expect("WordNet has a 'dog' sense that is-a an 'animal' sense");
+        english
+            .concept(dog)
+            .expect("the discovered dog synset resolves")
+            .original_id()
+            .to_string()
+    }
+
+    /// FIX 1 REGRESSION: a valid into-English `.prx` (declares a grounding functor
+    /// whose target is `english_wordnet`, which is NOT among the loaded peer
+    /// archives) must load through the PUBLIC `load_ontology_prx_core` path — NOT
+    /// be refused before install. Before the fix, a pre-materialize `ground_declared`
+    /// pre-check resolved against `peer_archives()` (which seeds only
+    /// `runtime_ontologies`, never English) and REFUSED with `MissingPeerArchive`.
+    /// Now the single `ground_loaded_set` pass (which seeds English) grounds it, and
+    /// "is rex an animal" answers through WordNet's own is-a chain.
+    #[test]
+    fn an_into_english_prx_loads_and_grounds_through_the_public_path() {
+        use pr4xis_runtime::definition::EdgeTarget;
+        let synset = a_dog_synset_that_is_an_animal();
+        let (bytes, root_hex) = into_english_menagerie_prx(&synset);
+
+        let mut p = Pr4xis::new();
+        // THE regression: this returns Ok now (before the fix: Err(Grounding(
+        // MissingPeerArchive { english_wordnet }))).
+        p.load_ontology_prx_core(&bytes, "menagerie".to_string(), &root_hex)
+            .expect("a valid into-English .prx must load through the public path, not be refused");
+        assert_eq!(
+            p.loaded_ontology_count(),
+            BASE_LOADED + 1,
+            "the into-English menagerie installs on top of the base"
+        );
+
+        // The grounding actually happened: the installed `rex` node carries a
+        // Grounded edge into `english_wordnet` (minted by the single grounding pass,
+        // not silently dropped, not refused). Read the OWNED archive (plain
+        // Definition/EdgeTarget, not the rkyv-archived view).
+        let menagerie = p
+            .runtime_ontologies
+            .iter()
+            .find(|o| o.id().as_str() == "menagerie")
+            .expect("the menagerie is installed")
+            .to_owned_archive()
+            .expect("the menagerie archive decodes");
+        let rex = menagerie
+            .nodes
+            .iter()
+            .find(|n| n.name == "rex")
+            .expect("rex is a node");
+        assert!(
+            rex.edges.iter().any(|(_, t)| matches!(
+                t,
+                EdgeTarget::Grounded { ontology, .. } if ontology == "english_wordnet"
+            )),
+            "rex must carry the minted Grounded edge into english_wordnet; got {:?}",
+            rex.edges
+        );
+
+        // The NET RESULT: "is rex an animal" is answerable through English's is-a
+        // chain — the same public chat the browser drives.
+        let json = p.chat("is rex an animal");
+        let resp = response_of(&json).to_lowercase();
+        let outcome =
+            serde_json::from_str::<serde_json::Value>(&json).expect("chat JSON")["outcome"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+        assert_eq!(
+            outcome, "answered",
+            "the grounded menagerie must answer 'is rex an animal', not abstain; got: {resp:?}"
+        );
+        assert!(
+            resp.contains("yes"),
+            "rex (Canine ↦ a dog synset) is an animal via WordNet's chain; got: {resp:?}"
+        );
+    }
+
+    /// FIX 1/2 FAIL-CLOSED at the public path: an into-English `.prx` whose declared
+    /// target synset does NOT exist in the present English peer is a
+    /// declared-but-unrealizable grounding — the load must FAIL CLOSED (typed
+    /// `Grounding` verdict) and install NOTHING, not silently install ungrounded.
+    #[test]
+    fn an_into_english_prx_with_an_absent_target_fails_closed_at_the_public_path() {
+        let (bytes, root_hex) = into_english_menagerie_prx("s-DOESNOTEXIST-in-wordnet");
+        let mut p = Pr4xis::new();
+        let err = p
+            .load_ontology_prx_core(&bytes, "menagerie".to_string(), &root_hex)
+            .expect_err("a declared-but-absent target must fail closed at the public path");
+        assert!(
+            matches!(
+                err,
+                LoadPrxError::Grounding(
+                    pr4xis_runtime::grounding::LinkError::GroundTargetAbsent { .. }
+                )
+            ),
+            "the refusal must be a typed declared-but-absent grounding fault; got: {err:?}"
+        );
+        assert_eq!(
+            p.loaded_ontology_count(),
+            BASE_LOADED,
+            "a fail-closed grounding install nothing beyond the base (transactional rollback)"
+        );
+        assert!(
+            !p.runtime_ontologies
+                .iter()
+                .any(|o| o.id().as_str() == "menagerie"),
+            "the mis-grounded menagerie must not be among the loaded ontologies"
         );
     }
 
