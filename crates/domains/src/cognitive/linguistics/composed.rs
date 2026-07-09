@@ -122,17 +122,26 @@ pub struct ComposedReasoner {
     // A resident owned `Lexicon` duplicate (5–9 MiB at corpus scale) had ZERO
     // production readers and was deleted by the audit-5 wave; the typed
     // reference is still fully inspectable through `decode`.
-    /// The interner holding every surface's bytes ONCE, keyed by [`Symbol`]. It
-    /// is the shared arena for English's surfaces AND every loaded ontology's —
-    /// so `surface_index` keys on 4-byte handles instead of re-owning a `String`
-    /// per surface (the strings the graph already owns). Held so the query path
-    /// can intern a lookup word back to its handle (`interner.get`), and so a
-    /// handle resolves to its surface for the `max_surface_words` bookkeeping.
+    /// The interner holding each LOADED surface's bytes ONCE, keyed by
+    /// [`Symbol`]. It interns ONLY the loaded ontologies' surfaces (node names +
+    /// `ontolex:Form` writtenReps, ~17.8k at USC-title scale) — NEVER English's
+    /// ~131.8k words, whose bytes already live zero-copy in the borrowed
+    /// [`WordIndex`](crate::cognitive::linguistics::english::word_index::WordIndex)
+    /// buffer. Held so the query path can resolve a lookup word to its overlay
+    /// handle (`interner.get`; a miss means "not a loaded surface — fall through
+    /// to English").
     interner: Interner,
-    /// interned `surface → ConceptId`s : the UNION of English's `lookup(word)`
-    /// and the grounded loaded entries whose surface matches, keyed by the
-    /// surface's interned [`Symbol`] (see `interner`). Returned by reference
-    /// from [`LexicalReasoner::lookup`], which interns the query word first.
+    /// The LOADED-ONLY OVERLAY: interned loaded `surface → ConceptId`s, keyed by
+    /// the surface's [`Symbol`] (see `interner`). An entry exists ONLY for a
+    /// surface some loaded node mints (its lowercased name or a Form writtenRep);
+    /// a COLLISION entry (a loaded surface that is ALSO an English word,
+    /// byte-exact) is pre-seeded with `english.lookup(surface)` so it carries the
+    /// full union `[english ids…, loaded ids…]` and `lookup` can still return ONE
+    /// borrowed slice. Everything else falls through to `english.lookup()` (the
+    /// zero-copy packed read) — English's 131,876-entry id image is NOT copied
+    /// here (the former eager union re-owned 9.75–12.4 MiB of id vecs + 5.25 MiB
+    /// of surface bytes that the audit-5 wave 2 overlay deleted). The union
+    /// semantics are the registered [`ComposedSurfaceUnionFaithful`] axiom.
     surface_index: HashMap<Symbol, Vec<ConceptId>>,
     /// The loaded concepts, indexed by `ConceptId::value() - base`. `base` is
     /// `english.concept_count()`; this keeps loaded ids disjoint from English.
@@ -225,28 +234,35 @@ impl ComposedReasoner {
         let mut loaded_refs: Vec<ConceptRef> = Vec::new();
         let mut loaded_ids: BTreeMap<ConceptRef, ConceptId> = BTreeMap::new();
         let mut loaded_nodes: Vec<LoadedNodeRef> = Vec::new();
-        // The shared surface arena — English's surfaces and every loaded
-        // ontology's are interned into ONE interner, so `surface_index` keys on
-        // a 4-byte `Symbol` handle rather than a fresh owned `String` per surface.
+        // The LOADED-ONLY surface arena — only the loaded ontologies' surfaces
+        // are interned (English's words stay zero-copy in the borrowed
+        // `WordIndex` buffer and are resolved by fall-through, never copied).
         let mut interner = Interner::new();
         let mut surface_index: HashMap<Symbol, Vec<ConceptId>> = HashMap::new();
+        // Append `id` under the loaded surface's handle. A FIRST sighting of a
+        // surface pre-seeds the entry with `english.lookup(surface)` — the
+        // COLLISION contract: a surface present in BOTH universes carries the
+        // union `[english ids…, loaded ids…]` in that pinned order (English's
+        // packed run order first, then loaded ids in mint order), so `lookup`
+        // returns one borrowed slice with the exact image the former eager
+        // union index held. A non-colliding loaded surface pre-seeds empty
+        // (English's lookup of it is the empty run).
+        let overlay_push = |interner: &mut Interner,
+                            surface_index: &mut HashMap<Symbol, Vec<ConceptId>>,
+                            surface: &str,
+                            id: ConceptId| {
+            let symbol = interner.intern(surface);
+            surface_index
+                .entry(symbol)
+                .or_insert_with(|| english.lookup(surface).to_vec())
+                .push(id);
+        };
 
-        // 1. Seed the surface index with the embedded English lexicon. We copy
-        //    the ConceptIds (so the union slice can be returned by reference) but
-        //    intern the surface — its handle keys the union, not a copied String.
-        for word in english_surface_forms(english) {
-            let ids = english.lookup(&word).to_vec();
-            if !ids.is_empty() {
-                let symbol = interner.intern(&word);
-                surface_index.entry(symbol).or_default().extend(ids);
-            }
-        }
-
-        // 2. Ground each loaded ontology's nodes into the union index (the
-        //    applied Lemon functor: surface → typed ConceptRef, carried as the
-        //    interned surface's disjoint id + the id's `ConceptRef` decode row).
-        //    Each node also gets an index-only [`LoadedNodeRef`] so `concept(id)`
-        //    can view its gloss against the archive buffer on demand.
+        // Ground each loaded ontology's nodes into the overlay (the applied
+        // Lemon functor: surface → typed ConceptRef, carried as the interned
+        // surface's disjoint id + the id's `ConceptRef` decode row). Each node
+        // also gets an index-only [`LoadedNodeRef`] so `concept(id)` can view
+        // its gloss against the archive buffer on demand.
         for (onto_idx, onto) in loaded.iter().enumerate() {
             // The `ontolex:Form` atoms in this archive — their `writtenRep` NAMES
             // are natural-language SURFACES (a heading / label / citation), the
@@ -279,11 +295,10 @@ impl ComposedReasoner {
                 // name is kept as a surface ADDITIVELY (a compiled ontology's node
                 // name IS a natural word; the URN/IRI case is covered by its Form
                 // atoms below, so this stays until every producer mints Forms).
-                // Union into the lookup surface (disjoint id appended), keyed by
-                // the surface's interned handle rather than a copied String.
+                // Union into the overlay (disjoint id appended), keyed by the
+                // surface's interned handle rather than a copied String.
                 let surface = node.name.to_lowercase();
-                let symbol = interner.intern(&surface);
-                surface_index.entry(symbol).or_default().push(id);
+                overlay_push(&mut interner, &mut surface_index, &surface, id);
 
                 // Each Form atom this concept denotes (its `writtenRep`) is a
                 // queryable surface of the concept — one *Bedeutung*, many *Sinne*.
@@ -293,8 +308,7 @@ impl ComposedReasoner {
                         && form_nodes.contains_key(form)
                     {
                         let form_surface = form.to_lowercase();
-                        let form_symbol = interner.intern(&form_surface);
-                        surface_index.entry(form_symbol).or_default().push(id);
+                        overlay_push(&mut interner, &mut surface_index, &form_surface, id);
                     }
                 }
 
@@ -438,12 +452,15 @@ impl ComposedReasoner {
         // ontology's MATERIALIZED Subsumption closure — can be re-keyed back to
         // the `LexicalReasoner`'s `ConceptId` surface without a linear scan.
         // The widest surface the recognizer must scan for — the max word count
-        // over every key: English collocations + loaded multi-word surfaces AND
-        // the relational surfaces ("part of"), so the recognizer's window reaches
-        // a relation phrase. 1 when all surfaces are single words (then no-op).
+        // over every RESOLVABLE surface: English's words (iterated borrowed off
+        // the packed `WordIndex`, the collocations' spaces counted — NOT copied)
+        // + the loaded overlay's multi-word surfaces AND the relational surfaces
+        // ("part of"), so the recognizer's window reaches a relation phrase. 1
+        // when all surfaces are single words (then no-op).
         let max_surface_words = surface_index
             .keys()
             .map(|&symbol| interner.resolve(symbol))
+            .chain(english.word_index.words())
             .chain(relation_surface_index.keys().map(String::as_str))
             .map(|k| k.split_whitespace().count())
             .max()
@@ -620,27 +637,154 @@ impl ComposedReasoner {
     }
 }
 
-/// Every surface form English can resolve — its WordNet words plus its function
-/// words. Used to seed the union lookup index.
-fn english_surface_forms(english: &English) -> Vec<String> {
-    use crate::cognitive::linguistics::language::Language;
-    english
-        .known_words()
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect()
+/// THE SURFACE-UNION EQUIVALENCE AXIOM — the loaded-only overlay resolves every
+/// word to EXACTLY the union the former eager index materialized:
+///
+/// ```text
+/// ∀ word:  composed.lookup(word) == english.lookup(word) ++ overlay(word)
+/// ```
+///
+/// with the ORDER CONTRACT pinned: English's ids first (in the packed
+/// `WordIndex` run order), then the loaded ids in MINT order (archive node
+/// order; per node, the name surface then its Form surfaces). Verified over an
+/// explicit witness set covering all four word classes — English-only,
+/// loaded-only (incl. a multi-word `ontolex:Form` surface), BOTH (a collision
+/// surface, where the order contract has teeth), and neither — against
+/// [`English::sample_static`] composed with a witness `.prx` archive. The
+/// full-corpus oracle (every real WordNet word, identical pre/post) runs as the
+/// `composed_surface_overlay` corpus test; the generated-word property test
+/// lives in this module's tests.
+pub struct ComposedSurfaceUnionFaithful;
+
+impl ComposedSurfaceUnionFaithful {
+    /// The witness composition: sample English ⊕ a three-node archive minting a
+    /// collision surface ("dog", also an English word — twice: a node name and a
+    /// Form), a loaded-only node ("rex") and a loaded-only multi-word Form
+    /// ("good boy").
+    fn witness() -> ComposedReasoner {
+        use pr4xis_runtime::archive::Archive;
+        use pr4xis_runtime::definition::{Definition, EdgeTarget};
+        use pr4xis_runtime::ontology::materialize;
+
+        let concept = |name: &str, forms: &[&str], gloss: &str| Definition {
+            kind: "Concept".to_string(),
+            name: name.to_string(),
+            edges: forms
+                .iter()
+                .map(|f| {
+                    (
+                        CANONICAL_FORM_REL.to_string(),
+                        EdgeTarget::Local(f.to_string()),
+                    )
+                })
+                .collect(),
+            axioms: alloc::vec![],
+            lexical: Some(gloss.to_string()),
+        };
+        let form = |name: &str| Definition {
+            kind: FORM_KIND.to_string(),
+            name: name.to_string(),
+            edges: alloc::vec![],
+            axioms: alloc::vec![],
+            lexical: Some(name.to_string()),
+        };
+        let archive = Archive {
+            nodes: alloc::vec![
+                // Collision by NODE NAME: "Dog".to_lowercase() == English "dog".
+                concept("Dog", &[], "a loaded canine kind"),
+                // Loaded-only node + a loaded-only MULTI-WORD Form surface.
+                concept("rex", &["good boy"], "a specific companion dog"),
+                form("good boy"),
+                // Collision by FORM: a second loaded id under English's "dog".
+                concept("Hound", &["dog"], "a hunting canine kind"),
+                form("dog"),
+            ],
+            connections: alloc::vec![],
+        };
+        let onto = materialize(archive, OntologyName::new_static("overlay_witness"))
+            .expect("the overlay witness archive materializes");
+        ComposedReasoner::new(English::sample_static(), alloc::vec![Rc::new(onto)])
+    }
 }
+
+impl pr4xis::ontology::Axiom for ComposedSurfaceUnionFaithful {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use alloc::boxed::Box;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+
+        let composed = Self::witness();
+        let english = composed.english();
+        let base = english.concept_count() as u64;
+        // Mint order: non-Form nodes in archive order — Dog, rex, Hound.
+        let dog = ConceptId::new(base);
+        let rex = ConceptId::new(base + 1);
+        let hound = ConceptId::new(base + 2);
+
+        // The expected union per witness word — english ids first (packed run
+        // order), then loaded ids in mint order.
+        let union = |word: &str, loaded: &[ConceptId]| -> alloc::vec::Vec<ConceptId> {
+            let mut v = english.lookup(word).to_vec();
+            v.extend_from_slice(loaded);
+            v
+        };
+        let cases: [(&str, alloc::vec::Vec<ConceptId>); 6] = [
+            // English-only: the fall-through IS English's own read.
+            ("cat", union("cat", &[])),
+            // Neither: empty on both sides.
+            ("florble", alloc::vec![]),
+            // Loaded-only, by node name.
+            ("rex", union("rex", &[rex])),
+            // Loaded-only, by a multi-word Form surface.
+            ("good boy", union("good boy", &[rex])),
+            // BOTH — the collision entry: English's "dog" ids FIRST, then the
+            // two loaded ids in mint order (Dog the node, Hound via its Form).
+            ("dog", union("dog", &[dog, hound])),
+            // English word with taxonomy above the collision — untouched.
+            ("mammal", union("mammal", &[])),
+        ];
+        let holds = cases
+            .iter()
+            .all(|(word, expected)| composed.lookup(word) == expected.as_slice())
+            // English-only resolution is non-empty (the fall-through really fell
+            // through) and the neither-word is really absent from BOTH.
+            && !english.lookup("cat").is_empty()
+            && english.lookup("florble").is_empty();
+
+        if holds {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ComposedSurfaceUnionFaithful",
+        "for every word the composed reasoner's loaded-only overlay resolves exactly union(english.lookup(word), overlay(word)) — English ids first in packed run order, then loaded ids in mint order",
+        "McCrae, Bosque-Gil, Gracia, Buitelaar & Cimiano (2017) The OntoLex-Lemon Model: Development and Applications, Proc. eLex 2017 — the lexicon-ontology interface whose union image the overlay carries"
+    );
+}
+
+pr4xis::register_axiom!(ComposedSurfaceUnionFaithful, constructor);
 
 impl LexicalReasoner for ComposedReasoner {
     fn lookup(&self, word: &str) -> &[ConceptId] {
-        // Resolve the query surface to its handle (non-mutating: an un-interned
-        // word was never a key, so it resolves to nothing — the same answer the
-        // String-keyed `get(word)` gave), then index the union by that handle.
-        self.interner
+        // The LOADED-ONLY OVERLAY first: a surface some loaded node minted
+        // resolves to its overlay entry — which, for a collision surface (also
+        // an English word, byte-exact), already carries the full pinned union
+        // `[english ids…, loaded ids…]`. Everything else FALLS THROUGH to the
+        // borrowed English lexicon's zero-copy packed read — English's id image
+        // is never copied into the reasoner. The extensional equality with the
+        // former eager union index is the registered
+        // [`ComposedSurfaceUnionFaithful`] axiom (∀word: resolve(word) ==
+        // english.lookup(word) ++ overlay-loaded-ids(word)).
+        if let Some(ids) = self
+            .interner
             .get(word)
             .and_then(|symbol| self.surface_index.get(&symbol))
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        {
+            return ids;
+        }
+        self.english.lookup(word)
     }
 
     fn max_surface_words(&self) -> usize {
@@ -1398,5 +1542,154 @@ mod tests {
             Some(want),
             "ancestors and ancestor_chain must agree on the kernel ordering"
         );
+    }
+
+    /// THE EQUIVALENCE AXIOM HOLDS: the loaded-only overlay resolves every
+    /// witness word to `union(english.lookup(word), overlay(word))` with the
+    /// pinned order contract (English ids first, loaded ids in mint order).
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn composed_surface_union_axiom_holds() {
+        use pr4xis::ontology::Axiom;
+        assert!(
+            ComposedSurfaceUnionFaithful.verify().is_ok(),
+            "∀word: resolve(word) == english.lookup(word) ++ overlay(word)"
+        );
+    }
+
+    /// The axiom re-binds by name through the registry — discoverable as every
+    /// other lens/equivalence law is.
+    #[pr4xis::praxis_value(Explainable)]
+    #[test]
+    fn composed_surface_union_axiom_discoverable() {
+        assert!(
+            pr4xis::ontology::registry::axiom_by_name("ComposedSurfaceUnionFaithful").is_some(),
+            "ComposedSurfaceUnionFaithful must re-bind through the registry"
+        );
+    }
+
+    /// The INDEPENDENT overlay oracle for the axiom's witness composition —
+    /// re-derives the Lemon-functor image by walking the witness archive the
+    /// way the seeding does (non-Form nodes in order; per node the lowercased
+    /// name surface, then each Form-atom surface), WITHOUT reading the
+    /// reasoner's own index.
+    fn witness_overlay_oracle(
+        composed: &ComposedReasoner,
+    ) -> BTreeMap<String, alloc::vec::Vec<ConceptId>> {
+        let base = composed.english().concept_count() as u64;
+        let mut oracle: BTreeMap<String, alloc::vec::Vec<ConceptId>> = BTreeMap::new();
+        let mut next = base;
+        for onto in composed.loaded() {
+            let form_names: BTreeSet<&str> = onto
+                .archive()
+                .nodes
+                .iter()
+                .filter(|n| n.kind == FORM_KIND)
+                .map(|n| n.name.as_str())
+                .collect();
+            for node in onto.archive().nodes.iter() {
+                if node.kind == FORM_KIND {
+                    continue;
+                }
+                let id = ConceptId::new(next);
+                next += 1;
+                oracle.entry(node.name.to_lowercase()).or_default().push(id);
+                for edge in node.edges.iter() {
+                    if let Some(form) = archived_local_name(&edge.1)
+                        && form_names.contains(form)
+                    {
+                        oracle.entry(form.to_lowercase()).or_default().push(id);
+                    }
+                }
+            }
+        }
+        oracle
+    }
+
+    /// The union expectation for one word against the independent oracle.
+    fn expected_union(
+        composed: &ComposedReasoner,
+        oracle: &BTreeMap<String, alloc::vec::Vec<ConceptId>>,
+        word: &str,
+    ) -> alloc::vec::Vec<ConceptId> {
+        let mut v = composed.english().lookup(word).to_vec();
+        if let Some(loaded) = oracle.get(word) {
+            v.extend_from_slice(loaded);
+        }
+        v
+    }
+
+    /// PROPERTY — over GENERATED words (arbitrary strings plus draws pinned to
+    /// each of the four classes: English-only, loaded-only, BOTH, neither), the
+    /// overlay resolves exactly the oracle union, order included.
+    mod overlay_union_property {
+        use super::*;
+        use proptest::prelude::*;
+
+        /// Words spanning all four classes: arbitrary lowercase strings (mostly
+        /// "neither", occasionally colliding), the sample-English words
+        /// (English-only + the "dog" collision), and the witness's loaded
+        /// surfaces (loaded-only + the collision + the multi-word Form).
+        fn word_strategy() -> impl Strategy<Value = String> {
+            prop_oneof![
+                "[a-z]{1,10}",
+                "[a-z]{1,4} [a-z]{1,4}",
+                prop::sample::select(alloc::vec![
+                    "cat", "dog", "mammal", "animal", "run", "see", "big", // English
+                    "rex", "hound", "good boy", // loaded (dog = BOTH above)
+                    "florble", "good", "boy", // neither
+                ])
+                .prop_map(String::from),
+            ]
+        }
+
+        proptest! {
+            /// ∀ generated word: resolve == union(english.lookup, overlay), in
+            /// the pinned order — the axiom's property over generated inputs.
+            #[test]
+            fn prop_resolve_is_the_ordered_union(word in word_strategy()) {
+                let composed = ComposedSurfaceUnionFaithful::witness();
+                let oracle = witness_overlay_oracle(&composed);
+                let expected = expected_union(&composed, &oracle, &word);
+                prop_assert_eq!(
+                    composed.lookup(&word),
+                    expected.as_slice(),
+                    "resolve({:?}) must equal english ++ overlay in pinned order",
+                    &word
+                );
+            }
+        }
+
+        pr4xis::register_praxis_value!(prop_resolve_is_the_ordered_union, Verifiable);
+    }
+
+    /// The EXHAUSTIVE unit-scale sweep: EVERY word either side knows — all of
+    /// sample English's words (word-index AND function words) plus every loaded
+    /// surface — resolves to exactly the oracle union. The unit twin of the
+    /// full-corpus sweep in `praxis-corpus-tests/tests/composed_surface_overlay.rs`.
+    #[pr4xis::praxis_value(Verifiable, Honest)]
+    #[test]
+    fn every_known_word_resolves_to_the_ordered_union() {
+        use crate::cognitive::linguistics::language::Language;
+        let composed = ComposedSurfaceUnionFaithful::witness();
+        let english = composed.english();
+        let oracle = witness_overlay_oracle(&composed);
+        let words: BTreeSet<String> = english
+            .known_words()
+            .into_iter()
+            .map(|w| w.to_string())
+            .chain(oracle.keys().cloned())
+            .collect();
+        for word in &words {
+            assert_eq!(
+                composed.lookup(word),
+                expected_union(&composed, &oracle, word).as_slice(),
+                "resolve({word:?}) must equal english ++ overlay in pinned order"
+            );
+        }
+        // The sweep saw all four classes (the fixture guarantees them).
+        assert!(words.contains("cat"), "an English-only word swept");
+        assert!(words.contains("rex"), "a loaded-only word swept");
+        assert!(words.contains("dog"), "a collision word swept");
     }
 }
