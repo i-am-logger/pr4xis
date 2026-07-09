@@ -127,7 +127,11 @@ impl Ontology for InfoOntology {
 /// Reference is a Word (fixed-size) used as a location identifier. The
 /// referent (what it points to) gives it meaning; the Reference itself is
 /// just an address.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// `PartialOrd`/`Ord` are DERIVED over the single `u64` field, so a `Ref`'s total
+// order IS its `value()` order — the tie-break the English taxonomy's full-corpus
+// oracle pins (`(distance, ConceptId.value())`), now carried by the type itself so
+// the shared graded-reach kernel (`pr4xis::category::reach`) can key on `V: Ord`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // `repr(transparent)` GUARANTEES this single-field struct shares `u64`'s layout,
 // so the zero-copy archived-buffer reads (`word_index`, `concept_store`,
 // `taxonomy_store` cast `&[ArchivedU64]`/`*const u64` to `&[Ref]`) are sound by
