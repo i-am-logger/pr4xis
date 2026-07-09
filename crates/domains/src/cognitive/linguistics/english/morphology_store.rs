@@ -9,22 +9,22 @@
 //!
 //! # The representation
 //!
-//! An authored [`MorphologicalRuleRecord`] mirror tree (kept OFF the live
+//! An authored `MorphologicalRuleRecord` mirror tree (kept OFF the live
 //! [`MorphologicalRule`] domain types per the
 //! [`concept_store`](super::concept_store) / OWL `prx` precedent) is
-//! `rkyv`-serialized into a single [`AlignedVec<16>`], `bytecheck`-validated ONCE
+//! `rkyv`-serialized into a single `AlignedVec<16>`, `bytecheck`-validated ONCE
 //! at build.
 //!
 //! # Reads — one warm, one cold
 //!
-//! * [`suffix_texts`](archived::MorphologyStore::suffix_texts) — the WARM reader:
+//! * `suffix_texts` — the WARM reader:
 //!   the stemming loop in
 //!   [`lexical_lookup_all`](super::ontology::English) iterates the suffix affixes
 //!   and strips them from the surface. This reads the archive ZERO-COPY (each
-//!   suffix's `text` as an [`ArchivedString`](rkyv::string::ArchivedString)
+//!   suffix's `text` as an `ArchivedString`
 //!   `&str`), no allocation, byte-identical stripping.
-//! * [`rules`](archived::MorphologyStore::rules) — the COLD reader: the
-//!   [`Language::morphological_rules`] trait method (TEST-ONLY — grep-confirmed no
+//! * `rules` — the COLD reader: the
+//!   `Language::morphological_rules` trait method (TEST-ONLY — grep-confirmed no
 //!   tokenizer/runtime caller). It deserializes the 17 records; the archive yields
 //!   a structurally distinct `Archived*` type, so a `&[MorphologicalRule]` borrow
 //!   is impossible without an owned copy anyway. This is why the trait signature is
@@ -243,7 +243,7 @@ mod archived {
     // ── leaf lens: Vec<MorphologicalRule> ⇄ MorphologicalRuleRecords ──────────
 
     /// PUT leg: project the owned rules into their record mirror (per-element via
-    /// the [`From<&MorphologicalRule>`](MorphologicalRuleRecord) leaf conversion).
+    /// the `From<&MorphologicalRule>` leaf conversion).
     impl RkyvMirror<Vec<MorphologicalRule>> for MorphologicalRuleRecords {
         fn from_owned(rules: &Vec<MorphologicalRule>) -> Self {
             MorphologicalRuleRecords {
@@ -253,7 +253,7 @@ mod archived {
     }
 
     /// Owned PUT leg: CONSUME the rule vector, MOVING each rule (per-element via
-    /// the by-value [`From<MorphologicalRule>`](MorphologicalRuleRecord) leaf
+    /// the by-value `From<MorphologicalRule>` leaf
     /// conversion) into the mirror. Byte-identical to
     /// [`from_owned`](RkyvMirror::from_owned).
     impl RkyvMirrorOwned<Vec<MorphologicalRule>> for MorphologicalRuleRecords {

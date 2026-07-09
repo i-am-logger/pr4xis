@@ -13,11 +13,11 @@
 //! # The representation
 //!
 //! Under `prx` on a little-endian target the owned `Vec<Concept>` is transcoded
-//! ONCE, at load, into a single `rkyv`-archived [`AlignedVec<16>`] buffer holding
+//! ONCE, at load, into a single `rkyv`-archived `AlignedVec<16>` buffer holding
 //! the concept records in their zero-copy archived form. This is the SAME
 //! "materialize the owned build into a packed archive, free the intermediate"
 //! discipline the [`word_index`](super::word_index) reclaim applies, and the same
-//! `rkyv` [`AlignedVec`] + `access` zero-copy primitives `pr4xis-runtime`'s
+//! `rkyv` `AlignedVec` + `access` zero-copy primitives `pr4xis-runtime`'s
 //! archive lens uses. The owned `Vec<Concept>` is consumed by
 //! [`ConceptStore::build`] and dropped; only the archive buffer survives — a
 //! REPLACEMENT of the owned build, not an addition on top of it (so steady-state
@@ -39,15 +39,15 @@
 //! `examples` accessors read `&str` / [`LmfPos`] straight out of whichever
 //! representation backs it, so a consumer reads glosses and lemmas identically
 //! against both. The archived arm reads through `rkyv`'s own
-//! [`ArchivedString`](rkyv::string::ArchivedString) /
-//! [`ArchivedVec`](rkyv::vec::ArchivedVec) accessors (`.as_str()` / `.iter()`) —
+//! `ArchivedString` /
+//! `ArchivedVec` accessors (`.as_str()` / `.iter()`) —
 //! a safe zero-copy borrow of the buffer, no owned rebuild, no transmute.
 //!
 //! # Endianness invariant (why the archived variant is `little`-only)
 //!
 //! `rkyv`'s zero-copy archived layout is little-endian by construction (its
-//! relative pointers and integers are stored little-endian); [`access`] /
-//! [`access_unchecked`] reinterpret the buffer in place, so they are sound only
+//! relative pointers and integers are stored little-endian); `access` /
+//! `access_unchecked` reinterpret the buffer in place, so they are sound only
 //! where the machine's native byte order matches. wasm32 and x86-64 — the two
 //! targets praxis ships — are both little-endian. The archived variant is
 //! therefore compiled only under `cfg(target_endian = "little")`; a

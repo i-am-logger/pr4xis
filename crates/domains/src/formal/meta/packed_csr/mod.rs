@@ -9,7 +9,7 @@
 //! its own aligned-buffer `Packer`, and its own owned `HashMap` fallback. That is
 //! the same representation five times (`feedback_prefer_composition` /
 //! `feedback_no_mechanical`). This module centralizes the representation ONCE:
-//! the single [`cast_elems`] cast, the single [`read_u32_le`] CSR reader, the
+//! the single `cast_elems` cast, the single `read_u32_le` CSR reader, the
 //! single little-endian invariant, and the single aligned packer live here; each
 //! store shrinks to a type alias plus its query-name wrappers.
 //!
@@ -32,7 +32,7 @@
 //!
 //! Every value element is a [`PodElem`]: a `Copy` POD whose in-memory bytes equal
 //! a fixed little-endian serialization, so a write of its `le_bytes` followed by a
-//! [`cast_elems`] reinterpretation is value-preserving on a little-endian target.
+//! `cast_elems` reinterpretation is value-preserving on a little-endian target.
 //! [`Ref<4>`] (the id type) is a single little-endian `u64`; a `#[repr(u8)]`
 //! fieldless enum (`Transitivity`) is a single discriminant byte. The value
 //! dimension forks on how the payload is trusted:
@@ -50,8 +50,8 @@
 //! x86-64 — the two targets praxis ships — are both little-endian. The whole
 //! packed (zero-copy) representation is therefore compiled only under
 //! `cfg(target_endian = "little")` with `feature = "prx"` (where `rkyv`'s
-//! [`AlignedVec`] is linked); every other build uses the owned `HashMap`
-//! fallback, exactly as a non-`prx` build does. A `const _` in [`archived`]
+//! `AlignedVec` is linked); every other build uses the owned `HashMap`
+//! fallback, exactly as a non-`prx` build does. A `const _` in `archived`
 //! asserts the invariant at compile time.
 //!
 //! # Lens laws
@@ -61,10 +61,10 @@
 //! `pack` (build the buffer) is the PUT, `unpack` (reconstruct the map) is the
 //! GET, and the GetPut/PutGet legs plus the archived-reads-equal-owned-reads
 //! faithfulness and the per-label family faithfulness are registered, cited
-//! axioms in [`crate::formal::meta::lens::packed_csr_laws`].
+//! axioms in `crate::formal::meta::lens::packed_csr_laws`.
 //!
 //! Reference: Hill, D. *rkyv: zero-copy deserialization framework for Rust*
-//! (v0.8) — [`AlignedVec`] is rkyv's own little-endian aligned buffer, whose
+//! (v0.8) — `AlignedVec` is rkyv's own little-endian aligned buffer, whose
 //! aligned-buffer discipline this module reuses. See <https://github.com/rkyv/rkyv>.
 
 use core::marker::PhantomData;
@@ -83,7 +83,7 @@ pub type DenseKey = Ref<4>;
 
 /// A plain-old-data value element that round-trips zero-copy through the packed
 /// payload: its in-memory bytes equal `le_bytes()[..SIZE]`, so a write of those
-/// bytes followed by a [`cast_elems`] reinterpretation is value-preserving on a
+/// bytes followed by a `cast_elems` reinterpretation is value-preserving on a
 /// little-endian target.
 pub trait PodElem: Copy + PartialEq + core::fmt::Debug {
     /// Byte width of this element in the packed array.

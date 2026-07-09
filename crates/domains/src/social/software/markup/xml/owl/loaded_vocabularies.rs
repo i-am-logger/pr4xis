@@ -43,7 +43,7 @@
 //!
 //! ## The corpus-wide audit
 //!
-//! [`audit_loaded_vocabularies`] is the heart of this module. Per
+//! `audit_loaded_vocabularies` is the heart of this module. Per
 //! `feedback_corpus_wide_audit_on_load`, it walks **every** record of
 //! **every** loaded vocabulary — not a spot-check — and fails loudly on the
 //! first unresolved item:
@@ -53,7 +53,7 @@
 //! - every subsumption edge has both endpoints in `0..entity_count()`;
 //! - the loaded class / property counts equal what [`read_owl`] saw in the
 //!   same bytes, and equal the `omv:numberOfClasses` /
-//!   `omv:numberOfProperties` [`build_envelope`] recorded — nothing was
+//!   `omv:numberOfProperties` `build_envelope` recorded — nothing was
 //!   silently dropped.
 //!
 //! Counts are derived from the data and cross-checked for internal
@@ -82,7 +82,6 @@
 //!
 //! [rec]: super::vocabulary::OwlEntityRecord
 //! [`read_owl`]: super::reader::read_owl
-//! [`build_envelope`]: super::prx::build_envelope
 
 #[allow(unused_imports)]
 use alloc::{

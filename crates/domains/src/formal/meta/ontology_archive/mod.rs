@@ -5,7 +5,7 @@
 //! - [`ontology`] — the concepts (`ContentAddressableNode`, `MerkleDag`,
 //!   `BinaryEnvelope`, `SourcePin`, `LoadGate`, …) and their structure;
 //!   always compiled, format-agnostic.
-//! - [`axioms`] — the runnable `verify()` predicates that exercise the
+//! - `axioms` — the runnable `verify()` predicates that exercise the
 //!   real realisation; gated on `feature = "prx"` (where the first
 //!   realisation lives). USC (#271) becomes a second consumer of the
 //!   same ontology.

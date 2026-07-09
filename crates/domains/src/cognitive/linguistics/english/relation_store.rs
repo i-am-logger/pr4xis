@@ -5,12 +5,12 @@
 //! `English` historically owned these as ~27 separate `HashMap`s. Every one of
 //! them is keyed by a *dense* id assigned at
 //! [`from_wordnet`](super::ontology::English::from_wordnet) time — a
-//! [`SenseId`](super::ontology::SenseId) or a [`ConceptId`](super::ontology::ConceptId),
+//! [`SenseId`](super::ontology::SenseId) or a [`ConceptId`],
 //! both the same `repr(transparent)` single-`u64` [`Reference<4>`](crate::formal::information::ontology::Reference).
 //! So the whole family is ONE instance of the shared
-//! [`PackedCsrFamily`](crate::formal::meta::packed_csr::PackedCsrFamily): a
+//! [`PackedCsrFamily`]: a
 //! [`DenseId`](crate::formal::meta::packed_csr::DenseId)-indexed family of
-//! [`PodRun`](crate::formal::meta::packed_csr::PodRun)`<ConceptId>` columns
+//! [`PodRun`]`<ConceptId>` columns
 //! labelled by [`RelationKind`], packed into one buffer at load. The zero-copy
 //! `&[ConceptId]` cast, the CSR reader, the little-endian invariant, and the
 //! owned fallback all live in that one hand-audited generic; [`rel`](RelationStore::rel)
@@ -26,7 +26,7 @@ use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 /// The labelled family of relations `English` holds — the tag on each CSR. The
 /// discriminant order IS the layout order ([`ALL`](Self::ALL)); `kind as usize`
 /// indexes the per-relation metadata, so the enum order and `ALL` MUST agree with
-/// the [`normalize`] bundle below.
+/// the `normalize` bundle below.
 ///
 /// Literature: the relation identities are the Global WordNet Association LMF
 /// relation set (Fellbaum 1998; Fellbaum-Osherson-Clark 2009 for `derivation`;
@@ -92,7 +92,7 @@ pub enum RelationKind {
 }
 
 impl RelationKind {
-    /// Every relation, in layout order — the SAME order the [`normalize`] bundle
+    /// Every relation, in layout order — the SAME order the `normalize` bundle
     /// emits and the buffer packs. `kind as usize` is the index into it.
     pub const ALL: [RelationKind; 27] = [
         RelationKind::Opposition,

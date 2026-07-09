@@ -6,7 +6,7 @@
 //!
 //! These run in EVERY build: the general [`Lens`] trait and its law checkers
 //! ([`get_put_holds`], [`put_get_holds`], [`put_put_holds`]) are unconditional
-//! domains code (contrast [`super::super::ontology_archive::axioms`], gated on
+//! domains code (contrast `super::super::ontology_archive::axioms`, gated on
 //! `feature = "prx"`).
 //!
 //! Each axiom verifies a genuinely-uncovered lens law over REAL lens values
@@ -14,9 +14,9 @@
 //!
 //! - The three well-behaved-lens laws (Foster et al. 2007 §3, Def. 3.2) —
 //!   [`LensGetPutLaw`], [`LensPutGetLaw`], [`LensPutPutLaw`] — hold over the
-//!   well-behaved witnesses AND reject a deliberately mis-paired [`Broken`]
+//!   well-behaved witnesses AND reject a deliberately mis-paired `Broken`
 //!   lens; [`LensPutPutLaw`] additionally proves the well-behaved /
-//!   very-well-behaved boundary by falsifying [`StashingLens`], a lens that
+//!   very-well-behaved boundary by falsifying `StashingLens`, a lens that
 //!   obeys GetPut + PutGet yet violates PutPut.
 //! - The three category laws (Foster et al. 2007 §3, lenses form a category) —
 //!   [`LensCompositionWellBehaved`] (composition preserves well-behavedness,
@@ -210,7 +210,7 @@ fn pair() -> Pair {
 
 /// GetPut (Foster et al. 2007 §3, Def. 3.2): `put(get(s), s) == s`. Holds over the
 /// well-behaved witnesses (identity, `Fst`, `PlusOne`, `StashingLens`, and a
-/// composite) AND is FALSIFIED by the mis-paired [`Broken`] lens — so the law
+/// composite) AND is FALSIFIED by the mis-paired `Broken` lens — so the law
 /// is non-vacuous.
 pub struct LensGetPutLaw;
 
@@ -241,7 +241,7 @@ impl Axiom for LensGetPutLaw {
 pr4xis::register_axiom!(LensGetPutLaw, constructor);
 
 /// PutGet (Foster et al. 2007 §3, Def. 3.2): `get(put(v, s)) == v`. Holds over the
-/// well-behaved witnesses AND is FALSIFIED by the mis-paired [`Broken`] lens.
+/// well-behaved witnesses AND is FALSIFIED by the mis-paired `Broken` lens.
 pub struct LensPutGetLaw;
 
 impl Axiom for LensPutGetLaw {
@@ -272,7 +272,7 @@ pr4xis::register_axiom!(LensPutGetLaw, constructor);
 /// PutPut (Foster et al. 2007 §3): `put(v', put(v, s)) == put(v', s)` — the
 /// extra law of a VERY well-behaved lens. Holds over the very-well-behaved
 /// witnesses (identity, `Fst`, `PlusOne`, and a composite) AND is FALSIFIED by
-/// [`StashingLens`], which obeys GetPut + PutGet yet not PutPut — so the axiom
+/// `StashingLens`, which obeys GetPut + PutGet yet not PutPut — so the axiom
 /// genuinely distinguishes well-behaved from very-well-behaved (Foster's own
 /// distinction), not a tautology.
 pub struct LensPutPutLaw;
@@ -314,7 +314,7 @@ pr4xis::register_axiom!(LensPutPutLaw, constructor);
 /// Composition preserves well-behavedness (Foster et al. 2007 §3): the
 /// composite `Fst ; PlusOne` of two well-behaved lenses is itself well-behaved
 /// (satisfies GetPut and PutGet). Non-vacuous: composing with the mis-paired
-/// [`Broken`] lens yields a composite that is REJECTED, so the axiom is not the
+/// `Broken` lens yields a composite that is REJECTED, so the axiom is not the
 /// trivial "every composite is fine".
 pub struct LensCompositionWellBehaved;
 

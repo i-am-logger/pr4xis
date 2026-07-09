@@ -197,7 +197,7 @@ pub(crate) fn maps_to_concrete_role(kind: SourceTaxonomyConcept) -> bool {
 /// root — and additionally carried a VACUOUS "the three role-counts sum to the
 /// registry size" leg, which a total exhaustive match always satisfies; it was
 /// collapsed into this one). Real teeth: it is FALSIFIED by any kind that maps to
-/// the abstract root ([`maps_to_concrete_role`] returns `false` for `C::Source`),
+/// the abstract root (`maps_to_concrete_role` returns `false` for `C::Source`),
 /// proven by `abstract_root_kind_is_rejected`.
 pub struct EveryRegisteredKindHasConcreteRole;
 

@@ -9,7 +9,7 @@
 //! [`GeneratorAction::Functor`] whose rows load from a cited CCGbank artifact
 //! (`data/grammar/olia-ccg-categories.tsv`), content-addressed and re-emittable,
 //! NOT a hand-written table in Rust. The class identity is a loaded OLiA Concept
-//! (resolved against [`olia::reference_model`]); the category is its standard
+//! (resolved against `olia::reference_model`); the category is its standard
 //! CCGbank notation, lowered to a [`LambekType`] by the
 //! [`notation parser`](super::notation_parser) — the one codec crossing.
 //!

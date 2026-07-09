@@ -698,7 +698,7 @@ pub struct LexiconMetadata {
 /// A complete WordNet lexicon loaded from LMF.
 ///
 /// `PartialEq + Eq` so the graph-faithful `.prx` envelope
-/// ([`WordNetPrxEnvelope`](super::prx::WordNetPrxEnvelope)) — which carries this
+/// (`WordNetPrxEnvelope`) — which carries this
 /// ontology directly — can derive the structural equality the rkyv round-trip
 /// tests assert (`assert_eq!(envelope, decoded)`); every field type is itself
 /// `Eq` (String/Vec/Option over the `Eq` LMF structs).

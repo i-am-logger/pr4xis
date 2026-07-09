@@ -11,17 +11,17 @@
 //!
 //! [`LexicalEntry`] is a 13-variant data-carrying enum whose leaves are `String` /
 //! `Option<String>` / `char`-free `Copy` unit enums — all archivable. An authored
-//! [`FunctionWordRecords`] mirror (kept OFF the live domain types per the
+//! `FunctionWordRecords` mirror (kept OFF the live domain types per the
 //! [`concept_store`](super::concept_store) / OWL `prx` precedent) carries a
 //! sorted-by-key `Vec<String>` of the function-word texts alongside a parallel
 //! `Vec<Vec<LexicalEntryRecord>>` of their readings. It is `rkyv`-serialized into a
-//! single [`AlignedVec<16>`], `bytecheck`-validated ONCE at build. The separate
+//! single `AlignedVec<16>`, `bytecheck`-validated ONCE at build. The separate
 //! `function_word_list` field is GONE — the sorted key set IS the word list
-//! ([`words`](archived::FunctionWordStore::words)).
+//! (`words`).
 //!
 //! # Reads
 //!
-//! * [`first`](archived::FunctionWordStore::first) / [`all`](archived::FunctionWordStore::all)
+//! * `first` / `all`
 //!   — binary-search the archived keys (zero-copy `&str` compares), then
 //!   materialize only the readings the caller consumes, each through
 //!   [`From<&ArchivedLexicalEntryRecord>`] — `first` materializes exactly ONE
@@ -29,7 +29,7 @@
 //!   deserialize. The call sites (`lexical_lookup` `.first()`, `lexical_lookup_all`
 //!   iterate) own the resulting `LexicalEntry`s, so this is output-identical to a
 //!   clone while reading through the buffer — no borrow of the archive escapes.
-//! * [`words`](archived::FunctionWordStore::words) — the sorted key set, as
+//! * `words` — the sorted key set, as
 //!   zero-copy `&str` (the `known_words` / `word_count` reader).
 //!
 //! # Endianness invariant
@@ -503,7 +503,7 @@ mod archived {
     // ── leaf lens: HashMap<String, Vec<LexicalEntry>> ⇄ FunctionWordRecords ───
 
     /// PUT leg: sort the owned map by raw UTF-8 key bytes (the order
-    /// [`slot`](FunctionWordStore::slot)'s binary search assumes) and project into
+    /// `slot`'s binary search assumes) and project into
     /// the parallel sorted-key / reading-vector mirror.
     impl RkyvMirror<HashMap<String, Vec<LexicalEntry>>> for FunctionWordRecords {
         fn from_owned(map: &HashMap<String, Vec<LexicalEntry>>) -> Self {
@@ -523,7 +523,7 @@ mod archived {
     /// (the same order [`from_owned`](RkyvMirror::from_owned) produces — keys are
     /// unique, so the sort is total and the order is identical), then MOVE each
     /// key and each reading (per-element via the by-value
-    /// [`From<LexicalEntry>`](LexicalEntryRecord) leaf) into the mirror rather
+    /// `From<LexicalEntry>` leaf) into the mirror rather
     /// than cloning them. Byte-identical to the borrowing leg.
     impl RkyvMirrorOwned<HashMap<String, Vec<LexicalEntry>>> for FunctionWordRecords {
         fn from_owned_value(map: HashMap<String, Vec<LexicalEntry>>) -> Self {

@@ -101,7 +101,7 @@ pub fn is_loaded_class(fragment: &str) -> bool {
 /// Map an OLiA class fragment (the part after #) to a PosTag.
 ///
 /// The single authority on which OLiA class fragments praxis recognizes;
-/// the loaded [`reference_model`] is the ontology these fragments name.
+/// the loaded `reference_model` is the ontology these fragments name.
 pub fn from_fragment(fragment: &str) -> Option<PosTag> {
     // The top MorphosyntacticCategory subclasses → PosTag (OLiA Reference Model;
     // Chiarcos & Sukhareva 2015). The ONLY OLiA fragments named in Rust — every

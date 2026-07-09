@@ -34,7 +34,7 @@
 //! # What registering this lens does
 //!
 //! The completeness meter
-//! ([`crate::formal::meta::well_behaved_lens::completeness`]) reads each
+//! (`crate::formal::meta::well_behaved_lens::completeness`) reads each
 //! source's DECLARED fidelity from its registered lens's
 //! [`WellBehavedLens::FIDELITY`]. Without a lens a source can only declare the
 //! floor (no graph-faithful writer ⇒ no graph-faithful claim). Registering
@@ -42,7 +42,7 @@
 //! `english_wordnet` graph-faithful and drops its `write_wordnet` gap; when the
 //! corpus is provisioned on disk the harness MEASURES the achieved tier by
 //! running the byte-exact law, and the anti-lie cross-check
-//! ([`crate::formal::meta::well_behaved_lens::completeness::declared_matches_achieved`])
+//! (`crate::formal::meta::well_behaved_lens::completeness::declared_matches_achieved`)
 //! confirms declared == achieved.
 //!
 //! # Citations

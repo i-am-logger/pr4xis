@@ -535,7 +535,7 @@ type NodeIndex = BTreeMap<String, Vec<usize>>;
 /// # The open form is the archived BUFFER, reasoned over in place (Step 1c)
 ///
 /// The archive is NOT held as an owned [`Archive`] of `String`/`Vec`-heavy
-/// [`Definition`]s; it is held as its `rkyv` local-cache bytes
+/// `Definition`s; it is held as its `rkyv` local-cache bytes
 /// ([`ArchiveLens::put_aligned`]), `bytecheck`-validated ONCE at materialize.
 /// Every query reads a borrowed [`ArchivedArchiveView`] straight out of that
 /// immutable, 16-aligned buffer ([`archive`](Self::archive)) — zero owned

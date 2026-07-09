@@ -12,8 +12,8 @@
 //! image-shaped answer by the total order `(hops, V::Ord)` and breaks every
 //! argmin tie by `V::Ord`. The falsifiable claim is NEIGHBOR-ORDER
 //! INVARIANCE: reverse every neighbor list and nothing changes. This module
-//! lifts that claim into a registered, discoverable [`Axiom`],
-//! [`GradedReachDeterminism`], verifying over witness graphs with teeth
+//! lifts that claim into a registered, discoverable `Axiom`,
+//! `GradedReachDeterminism`, verifying over witness graphs with teeth
 //! (an anti-`Ord` enumeration that a discovery-order tie-break would answer
 //! differently, a cycle, and both memo policies of the generic engine),
 //! mirroring the `packed_csr_laws` shape.

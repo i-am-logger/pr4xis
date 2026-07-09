@@ -26,9 +26,9 @@
 //!
 //! Both hypernym directions (child→parents, parent→children) are ONE instance of
 //! the shared
-//! [`PackedCsrFamily`](crate::formal::meta::packed_csr::PackedCsrFamily): a
+//! [`PackedCsrFamily`]: a
 //! [`DenseId`](crate::formal::meta::packed_csr::DenseId)-indexed family of
-//! [`PodRun`](crate::formal::meta::packed_csr::PodRun)`<ConceptId>` columns,
+//! [`PodRun`]`<ConceptId>` columns,
 //! labelled by [`Direction`]. Because a [`ConceptId`] is the *dense* synset index
 //! `0..N`, each column is indexed directly by the id — no hashing. The zero-copy
 //! `&[ConceptId]` cast, the CSR reader, the little-endian invariant, and the

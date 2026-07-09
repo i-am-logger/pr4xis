@@ -3,7 +3,7 @@
 //! codec ([`pr4xis_runtime::codec`]) rather than asserting a doc-comment
 //! (North Star W3 slice 1; `feedback_praxis_as_compiler_self_describing`).
 //!
-//! Unlike [`super::super::ontology_archive::axioms`] (gated on `feature =
+//! Unlike `super::super::ontology_archive::axioms` (gated on `feature =
 //! "prx"`, where the `.prx` realisation lives), these run in EVERY build: the
 //! [`pr4xis_runtime`] dependency — and its `codec` module — is unconditional.
 //!
@@ -73,7 +73,7 @@ impl serde::Serialize for UnsortedMap {
 /// content address is a stable identity independent of construction order), and
 /// a distinct value encodes to DIFFERENT bytes (a constant/degenerate encoder is
 /// falsified). Non-tautological on BOTH legs: the witnesses serialize their keys
-/// in genuinely opposite orders (via [`UnsortedMap`], not a self-sorting
+/// in genuinely opposite orders (via `UnsortedMap`, not a self-sorting
 /// `BTreeMap`), so an encoder that streamed keys in input order — failing to
 /// sort — would make `a != b` and be caught; this is not `encode(x) == encode(x)`.
 /// Bormann & Hoffman (2020) RFC 8949 §4.2; IPLD DAG-CBOR.

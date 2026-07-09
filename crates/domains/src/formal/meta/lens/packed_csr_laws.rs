@@ -6,23 +6,23 @@
 //! `pack` (build the packed buffer from an owned `HashMap`) is the lens PUT;
 //! `unpack` (reconstruct the owned map from the buffer) is the GET. This module
 //! lifts the two well-behaved-lens legs plus the two faithfulness properties into
-//! registered, discoverable [`Axiom`]s, each verifying over synthetic witnesses
+//! registered, discoverable `Axiom`s, each verifying over synthetic witnesses
 //! with teeth, mirroring `pr4xis_runtime`'s `ArchiveLensGetPut` / `ArchiveLensPutGet`:
 //!
-//! - [`PackedCsrGetPut`] — `pack(unpack(b)) == b`: the packed bytes are stable
+//! - `PackedCsrGetPut` — `pack(unpack(b)) == b`: the packed bytes are stable
 //!   under a decode/re-encode round-trip (the cache blob is canonical for the map).
-//! - [`PackedCsrPutGet`] — `unpack(pack(m)) == m`: an owned map round-trips through
+//! - `PackedCsrPutGet` — `unpack(pack(m)) == m`: an owned map round-trips through
 //!   the packed form with its full query image intact.
-//! - [`PackedCsrZeroCopyFaithful`] — the archived zero-copy read equals the owned
+//! - `PackedCsrZeroCopyFaithful` — the archived zero-copy read equals the owned
 //!   `HashMap` read for EVERY key (dict) and every `(label, id)` (family); the one
 //!   property the five stores' now-deleted `*_is_identical_to_the_owned_fallback`
 //!   unit tests each asserted, proven once here over all three value columns.
-//! - [`PackedCsrFamilyLabelFaithful`] — every family label reads its OWN column and
+//! - `PackedCsrFamilyLabelFaithful` — every family label reads its OWN column and
 //!   no other's; the generalization of `relation_store`'s
 //!   `every_kind_returns_its_own_distinct_edge`.
 //!
-//! Gated on `prx` + little-endian, where the zero-copy [`ArchivedCsrDict`] /
-//! [`ArchivedCsrFamily`] exist (the owned fallback needs no lens laws — its `pack`
+//! Gated on `prx` + little-endian, where the zero-copy `ArchivedCsrDict` /
+//! `ArchivedCsrFamily` exist (the owned fallback needs no lens laws — its `pack`
 //! is the identity). The four axioms self-register through `register_axiom!`, so
 //! they resolve by name through the same registry as every other lens law.
 //!

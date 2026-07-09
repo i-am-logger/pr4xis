@@ -558,6 +558,7 @@ dependencies = [
  "hashbrown",
  "hex",
  "linkme",
+ "miniz_oxide",
  "pr4xis",
  "pr4xis-runtime",
  "quick-xml",

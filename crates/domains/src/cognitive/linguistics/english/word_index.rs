@@ -8,9 +8,9 @@
 //! HashMap is consumed and dropped, only the buffer survives.
 //!
 //! This is one instance of the shared
-//! [`PackedCsrDict`](crate::formal::meta::packed_csr::PackedCsrDict): a
+//! [`PackedCsrDict`]: a
 //! [`SortedKeys`] dictionary whose value column is a
-//! [`PodRun`](crate::formal::meta::packed_csr::PodRun) of [`ConceptId`] (each
+//! [`PodRun`] of [`ConceptId`] (each
 //! word maps to a run of the ids it can express). The zero-copy `&[ConceptId]`
 //! cast, the CSR reader, the little-endian invariant, and the owned fallback all
 //! live in that one hand-audited generic.
