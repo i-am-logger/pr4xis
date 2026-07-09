@@ -114,3 +114,6 @@ crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
 # on a fresh checkout so `pr4xis update` verifies it locally instead of re-cloning
 # the fork. Only the content-addressed `.prx` (data/themes/*.prx) ships.
 crates/domains/data/tinted-schemes/
+
+# Internal working notes (architecture reviews, session scratch) — never tracked
+.notes/
