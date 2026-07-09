@@ -115,7 +115,7 @@ mod archived {
 
     use rkyv::util::AlignedVec;
 
-    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvOwned};
+    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvMirrorOwned, RkyvOwned};
 
     use super::*;
     use crate::cognitive::linguistics::lexicon::pos::PosTag;
@@ -193,6 +193,30 @@ mod archived {
         }
     }
 
+    /// Owned build-side conversion: MOVE the affix `text` into the record instead
+    /// of cloning it — the by-value twin of the borrowing [`From<&MorphologicalRule>`],
+    /// used by the owned PUT leg when `build` consumes its rule vector.
+    impl From<MorphologicalRule> for MorphologicalRuleRecord {
+        fn from(r: MorphologicalRule) -> Self {
+            let affix = match r.affix {
+                Affix::Prefix(p) => AffixRecord::Prefix(AffixMorphRecord {
+                    text: p.text,
+                    effect: p.effect,
+                }),
+                Affix::Suffix(s) => AffixRecord::Suffix(AffixMorphRecord {
+                    text: s.text,
+                    effect: s.effect,
+                }),
+            };
+            Self {
+                affix,
+                input_pos: r.input_pos,
+                output_pos: r.output_pos,
+                effect: r.effect,
+            }
+        }
+    }
+
     // ── record → owned (read side, after deserialize) ─────────────────────────
 
     impl From<MorphologicalRuleRecord> for MorphologicalRule {
@@ -228,6 +252,21 @@ mod archived {
         }
     }
 
+    /// Owned PUT leg: CONSUME the rule vector, MOVING each rule (per-element via
+    /// the by-value [`From<MorphologicalRule>`](MorphologicalRuleRecord) leaf
+    /// conversion) into the mirror. Byte-identical to
+    /// [`from_owned`](RkyvMirror::from_owned).
+    impl RkyvMirrorOwned<Vec<MorphologicalRule>> for MorphologicalRuleRecords {
+        fn from_owned_value(rules: Vec<MorphologicalRule>) -> Self {
+            MorphologicalRuleRecords {
+                rules: rules
+                    .into_iter()
+                    .map(MorphologicalRuleRecord::from)
+                    .collect(),
+            }
+        }
+    }
+
     /// GET leg: rebuild the owned rules (per-element via the
     /// [`From<MorphologicalRuleRecord>`](MorphologicalRule) leaf conversion).
     /// Total — the record → rule decode cannot fail.
@@ -254,7 +293,10 @@ mod archived {
         /// through the shared [`RkyvLens`]), validated once here so the reads are
         /// sound.
         pub fn build(rules: Vec<MorphologicalRule>) -> Self {
-            let buf = MorphologyLens::put_aligned(&rules);
+            // CONSUME `rules` through the OWNED PUT leg, moving each rule's affix
+            // text into the mirror rather than cloning it (byte-identical to the
+            // borrowing `put_aligned(&rules)` by `RkyvLensOwnedPutAgrees`).
+            let buf = MorphologyLens::put_aligned_owned(rules);
             MorphologyLens::access(buf.as_slice())
                 .expect("freshly-serialized morphology records must bytecheck-validate");
             Self { buf }

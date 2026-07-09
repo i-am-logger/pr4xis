@@ -20,6 +20,10 @@
 //! - [`RkyvLensDeterminism`] — `put(o) == put(o)`: the cache bytes are a
 //!   deterministic function of the owned value alone (the law underwriting
 //!   GetPut).
+//! - [`RkyvLensOwnedPutAgrees`] — `put_aligned_owned(x.clone()) == put_aligned(&x)`:
+//!   the owned-consuming (MOVE) PUT leg the store builds through is byte-identical
+//!   to the borrowing (clone) PUT leg, so consuming the owned build to halve the
+//!   load-time transient peak changes not one archived byte.
 //!
 //! Gated on `prx` + little-endian, where the archived stores (and their mirror
 //! roots) exist. The three axioms self-register through `register_axiom!`, so
@@ -44,7 +48,9 @@ use hashbrown::HashMap;
 
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
-use pr4xis_runtime::lens::rkyv_lens::{determinism_holds, getput_holds, putget_holds};
+use pr4xis_runtime::lens::rkyv_lens::{
+    determinism_holds, getput_holds, owned_put_agrees_holds, putget_holds,
+};
 
 use crate::cognitive::linguistics::english::concept_store::ConceptRecords;
 use crate::cognitive::linguistics::english::function_word_store::FunctionWordRecords;
@@ -250,6 +256,45 @@ impl Axiom for RkyvLensDeterminism {
 
 pr4xis::register_axiom!(RkyvLensDeterminism, constructor);
 
+/// Owned-PUT-agreement leg of the shared `RkyvLens` over the four rich English
+/// M2 stores: `put_aligned_owned(x.clone()) == put_aligned(&x)` — the
+/// owned-consuming (MOVE) PUT leg each store's `build` now takes is byte-identical
+/// to the borrowing (clone) PUT leg, over the concept, function-word, morphology
+/// and writing-system instances. This is the law that licenses consuming the
+/// owned build to MOVE its heap payloads into the archive (halving the load-time
+/// transient peak — the concept store's ~10⁵ records are never duplicated) as a
+/// pure optimization: it cannot change a single archived byte. Foster, Greenwald,
+/// Moore, Pierce & Schmitt (2007) §2.2 (PUT is a function of its argument alone).
+pub struct RkyvLensOwnedPutAgrees;
+
+impl Axiom for RkyvLensOwnedPutAgrees {
+    fn verify(&self) -> Verdict {
+        let holds = owned_put_agrees_holds::<Vec<Concept>, ConceptRecords>(&concept_witnesses())
+            && owned_put_agrees_holds::<HashMap<String, Vec<LexicalEntry>>, FunctionWordRecords>(
+                &function_word_witnesses(),
+            )
+            && owned_put_agrees_holds::<Vec<MorphologicalRule>, MorphologicalRuleRecords>(
+                &morphology_witnesses(),
+            )
+            && owned_put_agrees_holds::<WritingSystem, WritingSystemRecord>(
+                &writing_system_witnesses(),
+            );
+        if holds {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "RkyvLensOwnedPutAgrees",
+        "put_aligned_owned(x.clone()) == put_aligned(&x): each rich English store's owned-consuming (move) PUT leg is byte-identical to its borrowing (clone) PUT leg",
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+    );
+}
+
+pr4xis::register_axiom!(RkyvLensOwnedPutAgrees, constructor);
+
 // ── discoverability + the laws hold ──────────────────────────────────────────
 
 #[cfg(test)]
@@ -258,21 +303,30 @@ mod tests {
 
     use pr4xis::ontology::registry::axiom_by_name;
 
-    /// The three lens-law axioms hold over the four rich English store instances.
+    /// The four lens-law axioms hold over the four rich English store instances.
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rkyv_lens_laws_hold() {
         assert!(RkyvLensGetPut.verify().is_ok(), "put(get(b)) == b");
         assert!(RkyvLensPutGet.verify().is_ok(), "get(put(o)) == o");
         assert!(RkyvLensDeterminism.verify().is_ok(), "put(o) == put(o)");
+        assert!(
+            RkyvLensOwnedPutAgrees.verify().is_ok(),
+            "put_aligned_owned(x.clone()) == put_aligned(&x)"
+        );
     }
 
-    /// The three axioms re-bind by name through the registry — discoverable as
+    /// The four axioms re-bind by name through the registry — discoverable as
     /// any statute's law is (the load-time rebind gate).
     #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn laws_discoverable_via_registry() {
-        for name in ["RkyvLensGetPut", "RkyvLensPutGet", "RkyvLensDeterminism"] {
+        for name in [
+            "RkyvLensGetPut",
+            "RkyvLensPutGet",
+            "RkyvLensDeterminism",
+            "RkyvLensOwnedPutAgrees",
+        ] {
             assert!(
                 axiom_by_name(name).is_some(),
                 "rkyv lens axiom {name} must re-bind through the registry"

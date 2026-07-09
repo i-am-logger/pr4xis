@@ -60,6 +60,47 @@ pub trait RkyvMirror<Owned> {
     fn from_owned(owned: &Owned) -> Self;
 }
 
+/// The OWNED-CONSUMING PUT leg of a leaf lens: build the `Mirror` by CONSUMING
+/// the owned value, MOVING its heap payloads (`String` / `Vec`) into the mirror
+/// rather than cloning them. Extends [`RkyvMirror`] (which only *borrows*, so it
+/// must clone every field); the provided default delegates straight to the
+/// borrow leg, so adding this trait forces NO change on any existing
+/// [`RkyvMirror`] instance — an instance opts into the move only by overriding
+/// [`from_owned_value`](Self::from_owned_value).
+///
+/// # Why it exists
+///
+/// A store whose `build` OWNS its input and drops it immediately after — e.g.
+/// `ConceptStore::build` consuming a `Vec<Concept>` of ~10⁵ rich records (each
+/// five heap `String`/`Vec` allocations) — that PUTs through the borrow leg holds
+/// BOTH the owned build AND its freshly-cloned mirror live at the serialize
+/// point: the record set is transiently DOUBLED, so the load-time resident peak
+/// (`VmHWM`) doubles even though steady state (only the packed buffer survives)
+/// is unchanged. The move leg holds one copy, so the peak drops by the cloned
+/// set. This mirrors the same "materialize the owned build, free the
+/// intermediate" discipline the stores already apply — it just stops the
+/// intermediate from being a needless second copy.
+///
+/// # Law
+///
+/// The move leg is the SAME PUT as the borrow leg, differing only in
+/// clone-vs-move: `put_aligned_owned(x.clone())` is byte-identical to
+/// `put_aligned(&x)` (the [`owned_put_agrees_holds`] predicate, run per instance
+/// over its witness corpus). Moving a `String`/`Vec` preserves its value, so the
+/// projected mirror — hence its deterministic `rkyv` serialization — is
+/// unchanged.
+pub trait RkyvMirrorOwned<Owned>: RkyvMirror<Owned> {
+    /// Consume `owned` into its `rkyv` mirror, MOVING heap payloads into it. The
+    /// provided default clones via [`RkyvMirror::from_owned`] (so an
+    /// un-migrated or payload-free instance keeps working); override it to move.
+    fn from_owned_value(owned: Owned) -> Self
+    where
+        Self: Sized,
+    {
+        Self::from_owned(&owned)
+    }
+}
+
 /// The GET leg of a leaf lens: rebuild an owned value from a materialized
 /// `Mirror`. FALLIBLE in general — a mirror can carry a lossy encoding whose
 /// decode has a failure mode (e.g. a grounded-atom hex that must parse back to a
@@ -189,6 +230,33 @@ where
     }
 }
 
+impl<Owned, Mirror> RkyvLens<Owned, Mirror>
+where
+    Mirror: RkyvMirrorOwned<Owned>
+        + for<'a> rkyv::Serialize<
+            rkyv::api::high::HighSerializer<
+                rkyv::util::AlignedVec,
+                rkyv::ser::allocator::ArenaHandle<'a>,
+                rkyv::rancor::Error,
+            >,
+        >,
+{
+    /// The OWNED-CONSUMING lens PUT: [`put_aligned`](Self::put_aligned) that
+    /// MOVES `owned` into its mirror (via [`RkyvMirrorOwned::from_owned_value`])
+    /// rather than cloning it, then `rkyv`-serializes to the same 16-aligned
+    /// buffer. Byte-identical to `put_aligned(&owned)` (the
+    /// [`owned_put_agrees_holds`] law), so it is a drop-in for a caller that
+    /// already OWNS the value and would drop it right after — it avoids holding
+    /// the owned build AND its clone live at the serialize point, halving that
+    /// transient's peak. Requires only [`RkyvMirrorOwned`] + `Serialize` (not the
+    /// GET/ACCESS bounds), so an instance can offer the move without a decode leg.
+    pub fn put_aligned_owned(owned: Owned) -> rkyv::util::AlignedVec<16> {
+        let mirror = Mirror::from_owned_value(owned);
+        rkyv::to_bytes::<rkyv::rancor::Error>(&mirror)
+            .expect("rkyv serialization of the owned mirror is infallible")
+    }
+}
+
 // =============================================================================
 // Generic lens-law predicates — proven ONCE, run per-instance over a witness
 // corpus (the generalization of `ArchiveLens`'s `witness_archives`). Pure
@@ -275,6 +343,39 @@ where
 {
     for owned in witnesses {
         if RkyvLens::<Owned, Mirror>::put(owned) != RkyvLens::<Owned, Mirror>::put(owned) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Owned-PUT agreement: `put_aligned_owned(x.clone())` is byte-identical to
+/// `put_aligned(&x)` — the owned-consuming (move) PUT leg and the borrowing
+/// (clone) PUT leg are the SAME function of the value, so switching a store's
+/// build from the borrow leg to the move leg cannot change a single cache byte
+/// (only the transient it holds while serializing). This is what licenses the
+/// move as a pure load-time-peak optimization with ZERO effect on the archived
+/// form. Foster et al. (2007) §2.2 (PUT is a function of its argument alone,
+/// independent of how the argument is materialized).
+pub fn owned_put_agrees_holds<Owned, Mirror>(witnesses: &[Owned]) -> bool
+where
+    Owned: Clone + RkyvOwned<Mirror>,
+    Mirror: RkyvMirrorOwned<Owned>
+        + for<'a> rkyv::Serialize<
+            rkyv::api::high::HighSerializer<
+                rkyv::util::AlignedVec,
+                rkyv::ser::allocator::ArenaHandle<'a>,
+                rkyv::rancor::Error,
+            >,
+        >,
+    rkyv::Archived<Mirror>: rkyv::Portable
+        + for<'a> rkyv::bytecheck::CheckBytes<rkyv::api::high::HighValidator<'a, rkyv::rancor::Error>>
+        + rkyv::Deserialize<Mirror, rkyv::api::high::HighDeserializer<rkyv::rancor::Error>>,
+{
+    for owned in witnesses {
+        let moved = RkyvLens::<Owned, Mirror>::put_aligned_owned(owned.clone());
+        let borrowed = RkyvLens::<Owned, Mirror>::put_aligned(owned);
+        if moved.as_slice() != borrowed.as_slice() {
             return false;
         }
     }

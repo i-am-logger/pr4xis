@@ -95,7 +95,7 @@ mod archived {
 
     use rkyv::util::AlignedVec;
 
-    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvOwned};
+    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvMirrorOwned, RkyvOwned};
 
     use super::*;
     use crate::cognitive::linguistics::symbols::character::{
@@ -231,6 +231,79 @@ mod archived {
         }
     }
 
+    // ── owned → record (build side, MOVE) ─────────────────────────────────────
+    //
+    // By-value twins of the borrowing `From<&T>` conversions above: they MOVE
+    // each `name` / `characters` / `digits` / `punctuation` heap payload into the
+    // record instead of cloning it, for the owned PUT leg that consumes the
+    // writing-system tree at build. Each is byte-identical in result to its
+    // borrowing sibling (moving preserves the value).
+
+    impl From<Character> for CharacterRecord {
+        fn from(c: Character) -> Self {
+            Self {
+                codepoint: c.codepoint,
+                name: c.name,
+                category: c.category,
+            }
+        }
+    }
+    impl From<Script> for ScriptRecord {
+        fn from(s: Script) -> Self {
+            Self {
+                name: s.name,
+                characters: s
+                    .characters
+                    .into_iter()
+                    .map(CharacterRecord::from)
+                    .collect(),
+                direction: s.direction,
+            }
+        }
+    }
+    impl From<Digit> for DigitRecord {
+        fn from(d: Digit) -> Self {
+            Self {
+                character: d.character,
+                value: d.value,
+            }
+        }
+    }
+    impl From<NumeralSystem> for NumeralSystemRecord {
+        fn from(n: NumeralSystem) -> Self {
+            Self {
+                name: n.name,
+                base: n.base,
+                digits: n.digits.into_iter().map(DigitRecord::from).collect(),
+            }
+        }
+    }
+    impl From<PunctuationMark> for PunctuationMarkRecord {
+        fn from(p: PunctuationMark) -> Self {
+            Self {
+                character: p.character,
+                name: p.name,
+                function: p.function,
+                position: p.position,
+            }
+        }
+    }
+    impl From<WritingSystem> for WritingSystemRecord {
+        fn from(w: WritingSystem) -> Self {
+            Self {
+                name: w.name,
+                script: ScriptRecord::from(w.script),
+                numerals: NumeralSystemRecord::from(w.numerals),
+                punctuation: w
+                    .punctuation
+                    .into_iter()
+                    .map(PunctuationMarkRecord::from)
+                    .collect(),
+                direction: w.direction,
+            }
+        }
+    }
+
     // ── record → owned (read side, after deserialize) ─────────────────────────
 
     impl From<CharacterRecord> for Character {
@@ -304,6 +377,16 @@ mod archived {
         }
     }
 
+    /// Owned PUT leg: CONSUME the writing-system tree, MOVING its `String`/`Vec`
+    /// payloads into the record (via the by-value [`From<WritingSystem>`] leaf
+    /// conversion) instead of cloning them. Byte-identical to
+    /// [`from_owned`](RkyvMirror::from_owned).
+    impl RkyvMirrorOwned<WritingSystem> for WritingSystemRecord {
+        fn from_owned_value(writing: WritingSystem) -> Self {
+            WritingSystemRecord::from(writing)
+        }
+    }
+
     /// GET leg: rebuild the owned writing system (via the
     /// [`From<WritingSystemRecord>`](WritingSystem) leaf conversion). Total — the
     /// record → value decode cannot fail.
@@ -327,11 +410,14 @@ mod archived {
         /// through the shared [`RkyvLens`]), validated once here so the read path
         /// is sound.
         pub fn build(writing: WritingSystem) -> Self {
-            let buf = WritingSystemLens::put_aligned(&writing);
+            // CONSUME `writing` through the OWNED PUT leg, moving its String/Vec
+            // payloads into the mirror rather than cloning them (byte-identical to
+            // the borrowing `put_aligned(&writing)` by `RkyvLensOwnedPutAgrees`).
+            let buf = WritingSystemLens::put_aligned_owned(writing);
             WritingSystemLens::access(buf.as_slice())
                 .expect("freshly-serialized writing-system record must bytecheck-validate");
             Self { buf }
-            // the transient mirror (and `writing`) drop here — only `buf` survives.
+            // the transient mirror drops here — only `buf` survives.
         }
 
         /// The writing system, materialized from the archive via the OWNING GET
