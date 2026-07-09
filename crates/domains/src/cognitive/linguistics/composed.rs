@@ -828,23 +828,28 @@ impl LexicalReasoner for ComposedReasoner {
             // English: delegate to English's materialized hypernym closure.
             Some(GroundedConcept::English(cid)) => self.english.ancestors(cid),
             // Loaded: the reflexive Subsumption image over the owning ontology's
-            // MATERIALIZED closure, nearest-first by is-a distance, re-keyed back
-            // to the `ConceptId` surface. A lookup over the materialized set,
-            // never a BFS.
+            // MATERIALIZED closure, re-keyed back to the `ConceptId` surface. A
+            // lookup over the materialized set, never a BFS.
+            //
+            // BEHAVIOR CHANGE (named, slice (c) of the reachability-kernel
+            // unification): the image is sorted by the kernel's canonical
+            // `(is-a distance, ConceptRef::Ord)` order BEFORE re-keying to
+            // composed ids. It was formerly re-sorted AFTER re-keying by the
+            // loaded `ConceptId.value()` — i.e. archive-POSITION order — which
+            // made this surface disagree with `ancestor_chain` (which preserves
+            // the closure's `(dist, ontology, name)` order) on one and the same
+            // reasoner. Both now agree on the ONE kernel ordering.
             Some(GroundedConcept::Loaded(cref)) => {
                 let Some(onto) = self.ontology_of(&cref) else {
                     return alloc::vec![id];
                 };
-                let mut image: Vec<(ConceptId, u32)> = alloc::vec![(id, 0)];
-                for (anc_ref, dist) in onto.closure().subsumption_image(&cref) {
-                    if let Some(&anc_id) = self.loaded_ids.get(&anc_ref) {
-                        image.push((anc_id, dist));
-                    }
-                }
-                image.sort_unstable_by(|(a, da), (b, db)| {
-                    da.cmp(db).then_with(|| a.value().cmp(&b.value()))
-                });
-                image.into_iter().map(|(v, _)| v).collect()
+                let mut image: Vec<(ConceptRef, u32)> = alloc::vec![(cref.clone(), 0)];
+                image.extend(onto.closure().subsumption_image(&cref));
+                image.sort_unstable_by(pr4xis::category::reach::graded_cmp);
+                image
+                    .into_iter()
+                    .filter_map(|(anc_ref, _)| self.loaded_ids.get(&anc_ref).copied())
+                    .collect()
             }
             None => Vec::new(),
         }
@@ -1304,6 +1309,84 @@ mod tests {
         assert!(
             composed.reaches(sub, sub, &subsumption_kind()),
             "Subsumption is reflexive — X is-a X"
+        );
+    }
+
+    /// PIN — the loaded-side `ancestors` DAG-tie order after the reachability-
+    /// kernel unification (slice (c)): equal-distance ancestors order by the
+    /// kernel's `(is-a distance, ConceptRef::Ord)` contract, NOT by archive-
+    /// position (`ConceptId.value()`) order — and `ancestors` now agrees with
+    /// `ancestor_chain` on ONE ordering (they disagreed before: `ancestors`
+    /// re-sorted by loaded id, `ancestor_chain` kept the closure's
+    /// `(dist, ontology, name)` order).
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
+    #[test]
+    fn loaded_ancestors_ties_order_by_concept_ref_not_archive_position() {
+        // The diamond: kid → {zebra, apple} → root, with `zebra` DECLARED
+        // BEFORE `apple` — so archive-position (ConceptId) order says
+        // zebra-then-apple while ConceptRef name order says apple-then-zebra.
+        // The distance-1 tie discriminates the two orderings.
+        let concept = |name: &str, parents: &[&str], gloss: &str| Definition {
+            kind: "Concept".to_string(),
+            name: name.to_string(),
+            edges: parents
+                .iter()
+                .map(|p| ("Subsumption".to_string(), EdgeTarget::Local(p.to_string())))
+                .collect(),
+            axioms: alloc::vec![],
+            lexical: Some(gloss.to_string()),
+        };
+        let archive = Archive {
+            nodes: alloc::vec![
+                concept("kid", &["zebra", "apple"], "the diamond's bottom"),
+                concept("zebra", &["root"], "the Ord-LARGER equal-distance ancestor"),
+                concept(
+                    "apple",
+                    &["root"],
+                    "the Ord-SMALLER equal-distance ancestor"
+                ),
+                concept("root", &[], "the diamond's top"),
+            ],
+            connections: alloc::vec![],
+        };
+        let onto = materialize(archive, OntologyName::new_static("diamond"))
+            .expect("the diamond archive materializes");
+        let composed = ComposedReasoner::new(English::sample_static(), alloc::vec![Rc::new(onto)]);
+
+        // Select the LOADED concept per surface (English also knows these words).
+        let loaded_id = |surface: &str| {
+            composed
+                .lookup(surface)
+                .iter()
+                .copied()
+                .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+                .unwrap_or_else(|| panic!("no loaded concept resolves for {surface:?}"))
+        };
+        let kid = loaded_id("kid");
+        let zebra = loaded_id("zebra");
+        let apple = loaded_id("apple");
+        let root = loaded_id("root");
+        // The declaration order really does invert the name order at the ids —
+        // otherwise this test could not discriminate the two orderings.
+        assert!(
+            zebra.value() < apple.value(),
+            "fixture invariant: zebra is archive-earlier (smaller id) than apple"
+        );
+
+        // The pinned order: (is-a distance, ConceptRef::Ord) — apple before
+        // zebra at the tie. Archive-position order would say zebra first.
+        let want = alloc::vec![kid, apple, zebra, root];
+        assert_eq!(
+            composed.ancestors(kid),
+            want,
+            "loaded ancestors must order ties by ConceptRef::Ord, not archive position"
+        );
+        // …and `ancestors` and `ancestor_chain` agree on the ONE ordering (the
+        // pre-fix inconsistency: this very pair diverged at the tie).
+        assert_eq!(
+            composed.ancestor_chain(kid, root),
+            Some(want),
+            "ancestors and ancestor_chain must agree on the kernel ordering"
         );
     }
 }

@@ -43,9 +43,11 @@
 //! reachable set, same shortest-path distances (BFS min-hops over the same
 //! generators equals the Floyd–Warshall fixpoint over the same generators) — so
 //! every query answer is SET-and-distance-identical to the eagerly-saturated
-//! form. (The image-returning methods now enumerate in deterministic BFS order,
-//! not the eager `HashMap`'s arbitrary order — a strictly-more-canonical order
-//! on which no caller relies: `chain` sorts, `meet` argmins, `reachable_from`
+//! form. (The image-returning methods enumerate in the shared kernel's
+//! CANONICAL `(hops, ConceptRef::Ord)` order — see
+//! [`pr4xis::category::reach`], the one graded-reach kernel this engine
+//! delegates its walks to — not the eager `HashMap`'s arbitrary order:
+//! `chain` sorts by the same contract, `meet` argmins by it, `reachable_from`
 //! collects into a `BTreeSet`.)
 //! A `.prx`'s edges may themselves already be a closure; the walk does not
 //! depend on that (the closure of a closure is the same closure), so it is
@@ -75,10 +77,11 @@
 //! - Reiter (1978) *On Closed World Data Bases* — the open/closed-world split the
 //!   Concept / FinitelyGenerated relaxation realizes.
 
-use alloc::collections::{BTreeMap, BTreeSet, VecDeque};
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::cell::RefCell;
 
 use pr4xis::category::Concept;
+use pr4xis::category::reach::{graded_cmp, graded_image, graded_meet_of};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
@@ -284,34 +287,20 @@ impl LazyKindReach {
         }
     }
 
-    /// The cycle-safe BFS walk that computes `source`'s STRICT reachable image
-    /// from the generators — the pure kernel behind both [`strict_image`] (which
+    /// `source`'s STRICT reachable image over the generators — the ONE shared
+    /// graded-reach kernel ([`pr4xis::category::reach::graded_image`]: a
+    /// cycle-safe, hop-graded BFS, Moore 1959) applied to this engine's
+    /// adjacency; the pure computation behind both [`strict_image`] (which
     /// memoizes + clones it out) and [`reaches`] (which scans it without
-    /// cloning). The first time a vertex is enqueued is along a shortest
-    /// (fewest-hop) path, so its recorded hop count is minimal (Moore 1959); the
-    /// `seen` set makes the walk terminating even on cyclic generators (each
-    /// vertex is enqueued at most once) — bounded by the reachable-set size,
-    /// never divergent.
+    /// cloning). The output is in the kernel's canonical `(hops,
+    /// ConceptRef::Ord)` order — the memo stores exactly the kernel's output.
     ///
     /// [`strict_image`]: Self::strict_image
     /// [`reaches`]: Self::reaches
     fn compute_image(&self, source: &ConceptRef) -> Vec<(ConceptRef, u32)> {
-        let mut image: Vec<(ConceptRef, u32)> = Vec::new();
-        let mut seen: BTreeSet<ConceptRef> = BTreeSet::new();
-        seen.insert(source.clone());
-        let mut queue: VecDeque<(ConceptRef, u32)> = VecDeque::new();
-        queue.push_back((source.clone(), 0));
-        while let Some((vertex, hops)) = queue.pop_front() {
-            if let Some(targets) = self.adjacency.get(&vertex) {
-                for target in targets {
-                    if seen.insert(target.clone()) {
-                        image.push((target.clone(), hops + 1));
-                        queue.push_back((target.clone(), hops + 1));
-                    }
-                }
-            }
-        }
-        image
+        graded_image(source, |vertex: &ConceptRef| {
+            self.adjacency.get(vertex).into_iter().flatten().cloned()
+        })
     }
 
     /// The STRICT reachable image of `source` — its descendants under the
@@ -364,24 +353,16 @@ impl LazyKindReach {
 
     /// The lattice meet of `a` and `b` — the nearest vertex in
     /// `strict_image(b) ∩ reflexive_image(a)`, ranked by hops from `b` (nearest
-    /// first), ties broken by `tie_key`. Verbatim the semantics of the eager
-    /// `ReachabilityClosure::meet_by`, over the lazily-computed images.
-    fn meet_by<K: Ord>(
-        &self,
-        a: &ConceptRef,
-        b: &ConceptRef,
-        tie_key: impl Fn(&ConceptRef) -> K,
-    ) -> Option<ConceptRef> {
-        let anc_a: BTreeSet<ConceptRef> = self
-            .reflexive_image(a)
-            .into_iter()
-            .map(|(v, _)| v)
-            .collect();
-        self.strict_image(b)
-            .into_iter()
-            .filter(|(v, _)| anc_a.contains(v))
-            .min_by(|(v1, d1), (v2, d2)| d1.cmp(d2).then_with(|| tie_key(v1).cmp(&tie_key(v2))))
-            .map(|(v, _)| v)
+    /// first), ties broken by `ConceptRef`'s derived `(ontology, name)` order.
+    /// The argmin FORMULA is the shared kernel's
+    /// ([`pr4xis::category::reach::graded_meet_of`], the same meet English's
+    /// taxonomy answers with), applied over this engine's MEMOIZED images so
+    /// the meet keeps hitting (and warming) the memo. The former ad-hoc
+    /// `(ontology.as_str(), name.clone())` tie key was byte-identical to the
+    /// derived `Ord` (`OntologyName`'s derived `Ord` is lexicographic over its
+    /// `Cow<str>`), so no answer changes.
+    fn meet(&self, a: &ConceptRef, b: &ConceptRef) -> Option<ConceptRef> {
+        graded_meet_of(&self.reflexive_image(a), &self.strict_image(b))
     }
 }
 
@@ -500,12 +481,12 @@ impl MaterializedClosure {
 
     /// The lattice MEET of `a` and `b` over the relation `kind` — the nearest
     /// node both reach (`strict_image(b) ∩ reflexive_image(a)`, nearest-first),
-    /// ties broken by `(ontology, name)`. RELATION-PARAMETRIC: the nearest
-    /// common hypernym for Subsumption, the nearest common whole for Parthood.
+    /// ties broken by `ConceptRef`'s derived `(ontology, name)` order — the
+    /// shared kernel's `(hops, V::Ord)` contract. RELATION-PARAMETRIC: the
+    /// nearest common hypernym for Subsumption, the nearest common whole for
+    /// Parthood.
     pub fn meet(&self, a: &ConceptRef, b: &ConceptRef, kind: &ConceptRef) -> Option<ConceptRef> {
-        self.per_kind.get(kind).and_then(|reach| {
-            reach.meet_by(a, b, |c| (c.ontology.as_str().to_string(), c.name.clone()))
-        })
+        self.per_kind.get(kind).and_then(|reach| reach.meet(a, b))
     }
 
     /// The lattice meet over the Subsumption closure — `meet(a, b, Subsumption)`,
@@ -536,11 +517,10 @@ impl MaterializedClosure {
             .into_iter()
             .filter(|(x, _)| x == ancestor || reach.reaches(x, ancestor))
             .collect();
-        chain.sort_unstable_by(|(a, da), (b, db)| {
-            da.cmp(db)
-                .then_with(|| a.ontology.as_str().cmp(b.ontology.as_str()))
-                .then_with(|| a.name.cmp(&b.name))
-        });
+        // The kernel's canonical `(hops, ConceptRef::Ord)` order — the former
+        // ad-hoc `(dist, ontology.as_str(), name)` comparator was byte-identical
+        // to it (derived `Ord` is `ontology` then `name`, lexicographic).
+        chain.sort_unstable_by(graded_cmp);
         Some(chain.into_iter().map(|(v, _)| v).collect())
     }
 
@@ -1550,6 +1530,92 @@ mod tests {
                 .find(|(v, _)| v == &a)
                 .map(|(_, hops)| hops),
             Some(2)
+        );
+    }
+
+    /// The FIRST pin of the runtime tie-break (formerly doc-stated with ZERO
+    /// tests): over a DAG diamond with two equal-distance ancestors, `meet` and
+    /// `chain` break the distance tie by `ConceptRef`'s derived `(ontology,
+    /// name)` order — the kernel's `(hops, V::Ord)` contract — NOT by edge
+    /// (BFS discovery) order. The edges deliberately declare `Zed` before
+    /// `Alpha`, so a discovery-order tie-break would answer `Zed`.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
+    #[test]
+    fn meet_and_chain_break_equal_distance_dag_ties_by_concept_ref_order() {
+        let kind = subsumption_kind();
+        let mut transitive = BTreeSet::new();
+        transitive.insert(kind.clone());
+
+        let (x, y, zed, alpha, root) = (
+            tref("X"),
+            tref("Y"),
+            tref("Zed"),
+            tref("Alpha"),
+            tref("Root"),
+        );
+        // X and Y are both children of Zed AND Alpha (the tie pair, Zed-edges
+        // first); both mids reach Root.
+        let edges = [
+            sub_edge(&x, &zed),
+            sub_edge(&x, &alpha),
+            sub_edge(&y, &zed),
+            sub_edge(&y, &alpha),
+            sub_edge(&zed, &root),
+            sub_edge(&alpha, &root),
+        ];
+        let closure = MaterializedClosure::fold(&edges, &transitive);
+
+        // meet(X, Y): Zed and Alpha are both common ancestors at distance 1
+        // from Y — the tie. ConceptRef::Ord ranks "Alpha" < "Zed".
+        assert_eq!(
+            closure.meet(&x, &y, &kind),
+            Some(alpha.clone()),
+            "the equal-distance meet tie must go to the ConceptRef::Ord-minimal ancestor"
+        );
+
+        // chain(X, Root): the tied mids order as [Alpha, Zed] within their hop
+        // level — (dist, ConceptRef::Ord), never declaration order.
+        assert_eq!(
+            closure.chain(&x, &root, &kind),
+            Some(alloc::vec![
+                x.clone(),
+                alpha.clone(),
+                zed.clone(),
+                root.clone()
+            ]),
+            "the chain's equal-distance members must order by ConceptRef::Ord"
+        );
+    }
+
+    /// The tie-break's FIELD ORDER pin: `ConceptRef`'s derived `Ord` compares
+    /// `ontology` BEFORE `name`, so an equal-distance tie between ancestors in
+    /// two ontologies goes to the smaller ONTOLOGY even when its concept NAME
+    /// is larger. (Byte-identical to the former ad-hoc
+    /// `(ontology.as_str(), name.clone())` key this replaces.)
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
+    #[test]
+    fn meet_tie_orders_by_ontology_before_name() {
+        let kind = subsumption_kind();
+        let mut transitive = BTreeSet::new();
+        transitive.insert(kind.clone());
+
+        let x = tref("X");
+        let y = tref("Y");
+        // Ontology "A" carries the LARGER name, ontology "B" the smaller —
+        // ontology-first ordering picks A:zz; name-first would pick B:aa.
+        let a_zz = ConceptRef::new(OntologyName::new_static("A"), "zz");
+        let b_aa = ConceptRef::new(OntologyName::new_static("B"), "aa");
+        let edges = [
+            sub_edge(&x, &b_aa),
+            sub_edge(&x, &a_zz),
+            sub_edge(&y, &b_aa),
+            sub_edge(&y, &a_zz),
+        ];
+        let closure = MaterializedClosure::fold(&edges, &transitive);
+        assert_eq!(
+            closure.meet(&x, &y, &kind),
+            Some(a_zz),
+            "ConceptRef::Ord is ontology-then-name; the ontology component decides first"
         );
     }
 }

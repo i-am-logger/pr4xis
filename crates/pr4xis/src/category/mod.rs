@@ -27,6 +27,7 @@ pub mod op;
 pub mod optics;
 pub mod optics_theory;
 pub mod quiver;
+pub mod reach;
 pub mod reader;
 pub mod semigroup;
 pub mod state;

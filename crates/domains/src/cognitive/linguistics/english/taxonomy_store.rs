@@ -12,9 +12,14 @@
 //! parent edges reproduces the eager reflexive-transitive closure's answer
 //! *exactly* — unit-weight BFS grades every node at its minimal hop count
 //! (Moore 1959 / Floyd 1962) — at a per-query cost indistinguishable from the
-//! O(1) closure lookup, while dropping the ~697k-pair closure entirely. A
-//! per-query BFS over immutable edges needs **no interior mutability**, so
-//! `TaxonomyStore` stays `Sync` inside `English`'s `OnceLock`.
+//! O(1) closure lookup, while dropping the ~697k-pair closure entirely. The
+//! ascent itself is the ONE shared graded-reach kernel
+//! ([`pr4xis::category::reach`]) applied to the parent column with
+//! `V = ConceptId` (whose derived `Ord` is its `value()` order, so the pinned
+//! `(distance, ConceptId.value())` tie-break is the kernel's own
+//! `(hops, V::Ord)` contract). The kernel is stateless and the edges
+//! immutable — **no interior mutability**, so `TaxonomyStore` stays `Sync`
+//! inside `English`'s `OnceLock`.
 //!
 //! # The representation
 //!
@@ -30,10 +35,11 @@
 //! [`parents`](TaxonomyStore::parents) / [`children`](TaxonomyStore::children)
 //! are the two labelled columns, and the four reachability queries read them.
 
-use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
+
+use pr4xis::category::reach::{graded_chain, graded_image, graded_meet, graded_reaches};
 
 use super::ontology::ConceptId;
 use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
@@ -65,8 +71,9 @@ impl LabelKind for Direction {
 
 /// Both taxonomy directions as one dense-indexed, zero-copy CSR family, plus the
 /// four reflexive-transitive is-a reachability queries computed per query over
-/// them. All representation is the shared [`PackedCsrFamily`]; the reachability
-/// BFS is the store's own domain logic.
+/// them. All representation is the shared [`PackedCsrFamily`]; all reachability
+/// is the shared graded-reach kernel ([`pr4xis::category::reach`]) over the
+/// parent column.
 pub struct TaxonomyStore(PackedCsrFamily<Direction, PodRun<ConceptId>>);
 
 impl TaxonomyStore {
@@ -108,110 +115,60 @@ impl TaxonomyStore {
         self.0.row_count(Direction::Parent)
     }
 
-    // ── reachability surface (the store's own domain logic) ──────────────────
+    // ── reachability surface (delegated to the ONE graded-reach kernel) ───────
     //
-    // The bounded breadth-first ascent reproduces the eager `ReachabilityClosure`'s
-    // answers exactly: unit-weight BFS grades each node at its minimal hop count,
-    // and the `(distance, ConceptId.value())` orderings are applied verbatim —
-    // including the `common_ancestor` "distance from `b`" asymmetry and the DAG
-    // tie-break over multi-parent nodes.
+    // All four queries call the shared hop-graded BFS kernel
+    // (`pr4xis::category::reach`, Moore 1959) over the parent column — the same
+    // kernel the runtime's `LazyKindReach` delegates to, so the algorithm lives
+    // ONCE. The kernel's determinism contract is `(hops, V::Ord)`; `ConceptId`'s
+    // derived `Ord` IS its `value()` order, so the pinned
+    // `(distance, ConceptId.value())` orderings — including the
+    // `common_ancestor` "distance from `b`" asymmetry and the DAG tie-break over
+    // multi-parent nodes — are UNCHANGED (the full-corpus
+    // `english_taxonomy_bfs` oracle gate holds byte-identically). The kernel is
+    // stateless (no memo), so `TaxonomyStore` stays `Sync`.
 
-    /// Does `child` is-a `ancestor` (reflexive-transitively)? — a bounded
-    /// breadth-first ascent over the parent edges. Reflexive and cycle-safe.
+    /// Does `child` is-a `ancestor` (reflexive-transitively)? — the kernel's
+    /// strict membership probe under the reflexive short-circuit. Cycle-safe.
     /// Verbatim the eager `ReachabilityClosure::reaches` semantics.
     pub fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool {
-        if child.value() == ancestor.value() {
-            return true;
-        }
-        let mut seen: HashSet<u64> = HashSet::new();
-        seen.insert(child.value());
-        let mut queue: VecDeque<ConceptId> = VecDeque::new();
-        queue.push_back(child);
-        while let Some(vertex) = queue.pop_front() {
-            for &parent in self.parents(vertex) {
-                if parent.value() == ancestor.value() {
-                    return true;
-                }
-                if seen.insert(parent.value()) {
-                    queue.push_back(parent);
-                }
-            }
-        }
-        false
+        child == ancestor
+            || graded_reaches(&child, &ancestor, |v: &ConceptId| {
+                self.parents(*v).iter().copied()
+            })
     }
 
     /// The reflexive-transitive hypernym image of `id` — `id` itself (distance 0)
     /// plus every ancestor reachable up the taxonomy, ordered nearest-first by
-    /// `(minimal is-a distance, ConceptId.value())`.
+    /// the kernel's canonical `(minimal is-a distance, ConceptId::Ord)` order
+    /// (`ConceptId`'s derived `Ord` is its `value()` order).
     pub fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
-        let mut image = self.reflexive_ancestors(id);
-        image.sort_unstable_by(|(a, da), (b, db)| {
-            da.cmp(db).then_with(|| a.value().cmp(&b.value()))
-        });
-        image.into_iter().map(|(v, _)| v).collect()
-    }
-
-    /// The lowest common ancestor of `a` and `b` — the lattice meet over the
-    /// hypernym relation: the nearest vertex in
-    /// `strict_ancestors(b) ∩ reflexive_ancestors(a)`, ranked by distance **from
-    /// `b`** (nearest first), ties broken by the smaller `ConceptId.value()`.
-    /// Verbatim the eager `ReachabilityClosure::meet_by(a, b, |id| id.value())`.
-    pub fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
-        let anc_a: HashSet<u64> = self
-            .reflexive_ancestors(a)
-            .into_iter()
-            .map(|(v, _)| v.value())
-            .collect();
-        self.strict_ancestors(b)
-            .into_iter()
-            .filter(|(v, _)| anc_a.contains(&v.value()))
-            .min_by(|(v1, d1), (v2, d2)| d1.cmp(d2).then_with(|| v1.value().cmp(&v2.value())))
-            .map(|(v, _)| v)
-    }
-
-    /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first) when
-    /// `child` is-a `ancestor`, else `None`. Verbatim the eager `ancestor_chain`.
-    pub fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
-        if !self.is_a(child, ancestor) {
-            return None;
-        }
-        let mut chain: Vec<(ConceptId, u32)> = self
-            .reflexive_ancestors(child)
-            .into_iter()
-            .filter(|(x, _)| self.is_a(*x, ancestor))
-            .collect();
-        chain.sort_unstable_by(|(a, da), (b, db)| {
-            da.cmp(db).then_with(|| a.value().cmp(&b.value()))
-        });
-        Some(chain.into_iter().map(|(v, _)| v).collect())
-    }
-
-    /// The STRICT reachable ancestor image of `source` — every strict ancestor
-    /// (excluding `source`), each paired with its minimal hop count. A cycle-safe
-    /// breadth-first ascent, verbatim the eager `strict_image`, minus the memo.
-    fn strict_ancestors(&self, source: ConceptId) -> Vec<(ConceptId, u32)> {
-        let mut image: Vec<(ConceptId, u32)> = Vec::new();
-        let mut seen: HashSet<u64> = HashSet::new();
-        seen.insert(source.value());
-        let mut queue: VecDeque<(ConceptId, u32)> = VecDeque::new();
-        queue.push_back((source, 0));
-        while let Some((vertex, hops)) = queue.pop_front() {
-            for &parent in self.parents(vertex) {
-                if seen.insert(parent.value()) {
-                    image.push((parent, hops + 1));
-                    queue.push_back((parent, hops + 1));
-                }
-            }
-        }
-        image
-    }
-
-    /// The REFLEXIVE reachable ancestor image of `source` — `source` at hop 0 plus
-    /// its [`strict_ancestors`](Self::strict_ancestors).
-    fn reflexive_ancestors(&self, source: ConceptId) -> Vec<(ConceptId, u32)> {
-        let mut out = alloc::vec![(source, 0u32)];
-        out.extend(self.strict_ancestors(source));
+        let mut out = alloc::vec![id];
+        out.extend(
+            graded_image(&id, |v: &ConceptId| self.parents(*v).iter().copied())
+                .into_iter()
+                .map(|(v, _)| v),
+        );
         out
+    }
+
+    /// The lowest common ancestor of `a` and `b` — the kernel's lattice meet
+    /// over the hypernym relation: the nearest vertex in
+    /// `strict_ancestors(b) ∩ reflexive_ancestors(a)`, ranked by distance **from
+    /// `b`** (nearest first), ties broken by the smaller `ConceptId` (its
+    /// `value()` order). Verbatim the eager
+    /// `ReachabilityClosure::meet_by(a, b, |id| id.value())`.
+    pub fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
+        graded_meet(&a, &b, |v: &ConceptId| self.parents(*v).iter().copied())
+    }
+
+    /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first, the
+    /// kernel's `(distance, ConceptId::Ord)` order) when `child` is-a
+    /// `ancestor`, else `None`. Verbatim the eager `ancestor_chain`.
+    pub fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
+        graded_chain(&child, &ancestor, |v: &ConceptId| {
+            self.parents(*v).iter().copied()
+        })
     }
 }
 
