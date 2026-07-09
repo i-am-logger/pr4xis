@@ -29,7 +29,7 @@ use pr4xis_domains::applied::data_provisioning::registry::{
     lock_compact_archive_signature,
 };
 use pr4xis_domains::cognitive::linguistics::english::bridge::{
-    concept_refs_for_word, english_runtime_ontology,
+    CONCEPT_KIND, SUBSUMPTION_REL, english_functor, project_archive,
 };
 use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, english_loaded};
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
@@ -754,65 +754,99 @@ fn wordnet_archive_anchors_match_lock() {
     require_provisioned(emitted.len(), "wordnet");
 }
 
-/// THE B1 GROUNDING GATE — "is a dog an animal" answered over the REAL loaded
-/// English `.prx`, through the GENERIC engine.
+/// THE FUNCTOR-AS-DATA GATE — the committed `english_functor.prx` projects the
+/// WHOLE loaded English corpus, ARCHIVE-LEVEL: `project_archive(english)` →
+/// `apply(english_functor)`, then the relabel and the edge set are compared
+/// against the `TaxonomyStore` CSR (the zero-copy parent column `english`
+/// itself reasons over).
 ///
-/// This is the acceptance for the engine bridge (#87): the whole pipeline
-/// (`bridge::project_archive` → `apply`(the WordNet→praxis functor as data) →
-/// `materialize`) over the ~100k+-synset corpus that `english_loaded()` loads,
-/// producing a source-agnostic [`RuntimeOntology`]. The is-a question is then
-/// decided over THAT ontology's materialized Subsumption closure (via typed
-/// `ConceptRef`s the English lexicon resolves) — not English's bespoke
-/// `hypernym_closure`. The SUBSTRATE SPLIT is gone: a loaded `.prx` is now an
-/// addressable, traversable graph a generic engine reasons over. HARD-FAIL via `require`
-/// when the 89 MB corpus is not provisioned.
+/// This is the DATA-level theorem of the former B1 bridge — English's schema
+/// projects via the functor carried as data (#203) — kept with a live
+/// full-corpus consumer, WITHOUT the bridge's cost: everything here is a
+/// transient `Vec<Definition>` comparison; NO `materialize`, NO closure, no
+/// resident `RuntimeOntology` (the deleted bridge was a +216 MiB transient).
+/// The ENGINE-level theorem ("the generic engine reasons is-a over English")
+/// is now true by construction — the runtime's `MaterializedClosure` and
+/// English's `TaxonomyStore` instantiate the ONE graded-reach engine
+/// (`pr4xis::category::reach`), proven equivalent against the eager oracle by
+/// the full-corpus `english_taxonomy_bfs` gate. HARD-FAIL via `require` when
+/// the 89 MB corpus is not provisioned.
 #[test]
-fn b1_gate_is_a_dog_an_animal_over_the_real_loaded_english_prx() {
+fn english_functor_projects_the_csr_edge_set() {
     let _en = require(WORDNET.english(), "english_wordnet");
 
     // The real loaded English — the same one the chat grounds over.
     let english = english_loaded();
 
-    // The whole B1 bridge over the full corpus.
-    let onto = english_runtime_ontology(english).expect("the real English corpus materializes");
+    // Archive-level: project the raw WordNet schema, apply the committed
+    // functor (loaded fail-closed against its baked root inside
+    // `english_functor()`). Both archives are transient Vecs.
+    let source = project_archive(english);
+    let target = pr4xis_runtime::apply::apply(&english_functor().action, &source)
+        .expect("a Functor action applies");
+
+    // THE RELABEL: same cardinality (the functor relabels, never drops), every
+    // synset node relabeled to the praxis Concept kind, every edge to
+    // Subsumption — over ALL ~100k+ nodes, not a sample.
     assert!(
-        onto.archive().nodes.len() > 100_000,
-        "the runtime ontology must carry the whole loaded corpus; got {} nodes",
-        onto.archive().nodes.len()
+        target.nodes.len() > 100_000,
+        "the projected archive must carry the whole loaded corpus; got {} nodes",
+        target.nodes.len()
     );
-
-    let dogs = concept_refs_for_word(&onto, english, "dog");
-    let animals = concept_refs_for_word(&onto, english, "animal");
-    assert!(
-        !dogs.is_empty() && !animals.is_empty(),
-        "English's lexicon must resolve both 'dog' and 'animal'"
+    assert_eq!(
+        target.nodes.len(),
+        source.nodes.len(),
+        "the functor relabels, never drops"
     );
-
-    // THE GATE: some sense of dog is-a some sense of animal, over the generic
-    // engine's closure. The claim IS the Verdict (pattern-matched, with proof).
-    let witness = dogs
-        .iter()
-        .flat_map(|d| animals.iter().map(move |a| (d, a)))
-        .find_map(|(d, a)| {
-            onto.is_a(d, a)
-                .ok()
-                .map(|proof| (d.clone(), a.clone(), proof))
-        });
-
-    match witness {
-        Some((dog_ref, animal_ref, proof)) => {
-            let claim = proof.meta().name;
-            assert!(
-                claim.as_str().contains(&dog_ref.name) && claim.as_str().contains(&animal_ref.name),
-                "the proof must name the witnessed dog ⊑ animal claim; got {claim}"
-            );
-            eprintln!(
-                "B1 GATE PASS: {} ⊑ {} witnessed over the loaded English .prx ({} nodes)",
-                dog_ref.name,
-                animal_ref.name,
-                onto.archive().nodes.len()
-            );
-        }
-        None => panic!("'a dog is an animal' must hold over the real loaded English ontology"),
+    assert_eq!(
+        target.nodes.len(),
+        english.concept_count(),
+        "one projected node per loaded synset"
+    );
+    for node in &target.nodes {
+        assert_eq!(node.kind, CONCEPT_KIND, "Synset ↦ Concept at {}", node.name);
     }
+
+    // THE EDGE SET: the applied archive's Subsumption edges, as
+    // (child original_id, parent original_id) pairs…
+    let projected: std::collections::BTreeSet<(&str, &str)> = target
+        .nodes
+        .iter()
+        .flat_map(|node| {
+            node.edges.iter().map(|(kind, edge_target)| {
+                assert_eq!(kind, SUBSUMPTION_REL, "hypernym ↦ Subsumption");
+                let parent = edge_target
+                    .local_name()
+                    .expect("the projection emits only local hypernym edges");
+                (node.name.as_str(), parent)
+            })
+        })
+        .collect();
+
+    // …must equal the TaxonomyStore CSR's parent column, read straight off the
+    // loaded `English` (the zero-copy edges `english.parents` reasons over).
+    let csr: std::collections::BTreeSet<(&str, &str)> = english
+        .concepts()
+        .flat_map(|concept| {
+            english
+                .parents(concept.id())
+                .iter()
+                .filter_map(move |&parent| {
+                    english
+                        .concept(parent)
+                        .map(|p| (concept.original_id(), p.original_id()))
+                })
+        })
+        .collect();
+
+    assert!(!csr.is_empty(), "the loaded corpus carries hypernym edges");
+    assert_eq!(
+        projected, csr,
+        "the functor's image must carry EXACTLY the TaxonomyStore CSR edge set"
+    );
+    eprintln!(
+        "FUNCTOR GATE PASS: {} nodes, {} Subsumption edges == the CSR edge set (archive-level, no materialize)",
+        target.nodes.len(),
+        projected.len()
+    );
 }

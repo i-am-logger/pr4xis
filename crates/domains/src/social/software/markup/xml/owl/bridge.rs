@@ -21,8 +21,10 @@
 //! relation-kind table is data that re-emits to update — never a hardcoded
 //! `match rel_type`, and no longer even a Rust literal: it is `.prx` on disk.
 //! [`owl_runtime_ontology`] is the whole pipeline
-//! (`project → apply(functor) → materialize`), the verbatim shape of
-//! [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology).
+//! (`project → apply(functor) → materialize`) — the pattern the English bridge
+//! pioneered (its `project_archive` + committed `english_functor.prx`; English
+//! itself no longer materializes a `RuntimeOntology`, so OWL is this
+//! pipeline's canonical instance).
 //!
 //! # The merged is-a relation (subClassOf ∪ subPropertyOf)
 //!
@@ -221,8 +223,9 @@ fn owl_functor() -> Connection {
 /// Bridge a loaded OWL vocabulary into a generic [`RuntimeOntology`] — the whole
 /// pipeline in one call: [`owl_project_archive`] → [`apply`](pr4xis_runtime::apply::apply)`(owl_functor)` →
 /// [`materialize`](pr4xis_runtime::ontology::materialize), where `owl_functor` is the committed `owl_functor.prx` loaded
-/// fail-closed. The verbatim shape of
-/// [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology).
+/// fail-closed. (The shape the English bridge pioneered and has since shed —
+/// English proves its functor archive-level, without materializing; OWL still
+/// needs the materialized ontology, so the pipeline lives on here.)
 ///
 /// `apply` cannot fail here: the loaded `owl_functor` is always a `Functor`
 /// action (the only action `apply` interprets), so its sole error is unreachable.
