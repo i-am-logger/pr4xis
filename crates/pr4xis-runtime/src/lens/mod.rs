@@ -17,3 +17,4 @@
 //! they focus on different views and therefore hold different round-trip laws.
 
 pub mod archive_lens;
+pub mod rkyv_lens;

@@ -70,6 +70,12 @@ use super::ontology::{Concept, ConceptId};
 #[cfg(all(feature = "prx", target_endian = "little"))]
 pub use archived::ConceptStore;
 
+/// The concept-store leaf-lens mirror root — exposed so the shared lens-law
+/// axioms (`formal::meta::lens::rkyv_lens_laws`) can name it as the `Mirror` of
+/// the `RkyvLens<Vec<Concept>, ConceptRecords>` instance.
+#[cfg(all(feature = "prx", target_endian = "little"))]
+pub use archived::ConceptRecords;
+
 /// The owned fallback concept store (no `prx`, or a big-endian target).
 #[cfg(not(all(feature = "prx", target_endian = "little")))]
 pub use owned::ConceptStore;
@@ -283,9 +289,14 @@ mod owned {
 mod archived {
     use rkyv::util::AlignedVec;
 
+    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvOwned};
+
     use crate::social::software::markup::xml::lmf::ontology::ArchivedLmfPos;
 
     use super::*;
+
+    /// The concrete lens for the concept store instance.
+    type ConceptLens = RkyvLens<Vec<Concept>, ConceptRecords>;
 
     /// The `rkyv` mirror of one [`Concept`] — its serializable shadow, minus the
     /// `id` (a record's id IS its index, so storing it would be redundant). Only
@@ -313,8 +324,63 @@ mod archived {
     // name directly; no alias is declared (the `rkyv::Archive` derive already
     // defines the name).
 
-    /// The archived form of the whole record vector — the buffer's root type.
-    type ArchivedRecords = rkyv::Archived<Vec<ConceptRecord>>;
+    /// The archive root: the concept records. A local newtype (not a bare
+    /// `Vec<ConceptRecord>`) so the [`RkyvMirror`] / [`RkyvOwned`] leaf-lens
+    /// conversions land on a domains-local type (the orphan rule forbids
+    /// impl'ing the foreign `RkyvMirror`/`RkyvOwned` traits for a bare foreign
+    /// `Vec<_>`).
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+    pub struct ConceptRecords {
+        /// The concept records, in id (index) order.
+        pub records: Vec<ConceptRecord>,
+    }
+
+    /// The archived form of the record root — the buffer's root type.
+    type ArchivedRecords = rkyv::Archived<ConceptRecords>;
+
+    // ── leaf lens: Vec<Concept> ⇄ ConceptRecords ──────────────────────────────
+
+    /// PUT leg: project the owned concepts into their record mirror. The `id`
+    /// field is dropped (a record's id IS its index — see the [module docs](super));
+    /// only the payload the read surface exposes is carried.
+    impl RkyvMirror<Vec<Concept>> for ConceptRecords {
+        fn from_owned(concepts: &Vec<Concept>) -> Self {
+            ConceptRecords {
+                records: concepts
+                    .iter()
+                    .map(|c| ConceptRecord {
+                        original_id: c.original_id.clone(),
+                        pos: c.pos,
+                        lemmas: c.lemmas.clone(),
+                        definitions: c.definitions.clone(),
+                        examples: c.examples.clone(),
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+    /// GET leg: rebuild the owned concepts, re-deriving each record's
+    /// [`ConceptId`] from its position (the mirror stores no id). Total — the
+    /// index → id reconstruction cannot fail.
+    impl RkyvOwned<ConceptRecords> for Vec<Concept> {
+        type Error = core::convert::Infallible;
+        fn from_mirror(mirror: ConceptRecords) -> Result<Self, core::convert::Infallible> {
+            Ok(mirror
+                .records
+                .into_iter()
+                .enumerate()
+                .map(|(i, r)| Concept {
+                    id: ConceptId::new(i as u64),
+                    original_id: r.original_id,
+                    pos: r.pos,
+                    lemmas: r.lemmas,
+                    definitions: r.definitions,
+                    examples: r.examples,
+                })
+                .collect())
+        }
+    }
 
     /// Decode an archived [`LmfPos`] back to the owned (Copy) enum. `LmfPos` is a
     /// unit-only enum, so this is a total, allocation-free discriminant mapping;
@@ -369,43 +435,30 @@ mod archived {
         /// returns identical data to the owned fallback.
         pub fn build(concepts: Vec<Concept>) -> Self {
             let len = concepts.len();
-            let records: Vec<ConceptRecord> = concepts
-                .into_iter()
-                .map(|c| ConceptRecord {
-                    original_id: c.original_id,
-                    pos: c.pos,
-                    lemmas: c.lemmas,
-                    definitions: c.definitions,
-                    examples: c.examples,
-                })
-                .collect();
 
-            // One `rkyv` serialize over data already in hand — infallible for
-            // these owned `String`/`Vec` mirror types (rkyv's default serializer
-            // has no fallible leg here), exactly as the runtime archive lens
-            // asserts. The owned `records` (and the `concepts` it moved from) drop
-            // at the end of this function; only `buf` survives.
-            let buf = rkyv::to_bytes::<rkyv::rancor::Error>(&records)
-                .expect("rkyv serialization of the owned concept records is infallible");
-
-            // Validate ONCE here, at materialize, so every hot query can read the
-            // immutable buffer through the un-checked accessor (the SAME
-            // validate-once / access_unchecked-many discipline the runtime uses).
-            rkyv::access::<ArchivedRecords, rkyv::rancor::Error>(buf.as_slice())
+            // PUT the owned concepts through the shared `RkyvLens` (project the
+            // `ConceptRecords` mirror, `rkyv`-serialize to a 16-aligned buffer),
+            // then validate ONCE here at materialize so every hot query can read
+            // the immutable buffer through `access_unchecked` (the validate-once /
+            // access_unchecked-many discipline). The owned `concepts` (and the
+            // transient mirror) drop at the end of this function; only `buf`
+            // survives.
+            let buf = ConceptLens::put_aligned(&concepts);
+            ConceptLens::access(buf.as_slice())
                 .expect("freshly-serialized concept records must bytecheck-validate");
 
             Self { buf, len }
         }
 
-        /// The archived record vector, borrowed zero-copy from the buffer.
+        /// The archived record root, borrowed zero-copy from the buffer.
         #[inline]
-        fn records(&self) -> &ArchivedRecords {
-            // SAFETY: `buf` was produced by `rkyv::to_bytes` in `build` (so it is
-            // 16-aligned and structurally sound), `bytecheck`-validated ONCE there
-            // via `access`, and is never mutated after (no interior mutability;
-            // the store is immutable). This is the deliberate `access_unchecked`
-            // the runtime uses to pay bytecheck exactly once.
-            unsafe { rkyv::access_unchecked::<ArchivedRecords>(self.buf.as_slice()) }
+        fn root(&self) -> &ArchivedRecords {
+            // SAFETY: `buf` was produced by `RkyvLens::put_aligned` in `build` (so
+            // it is 16-aligned and structurally sound), `bytecheck`-validated ONCE
+            // there via `access`, and is never mutated after (no interior
+            // mutability; the store is immutable). This is the deliberate
+            // `access_unchecked` the runtime uses to pay bytecheck exactly once.
+            unsafe { ConceptLens::access_unchecked(self.buf.as_slice()) }
         }
 
         /// The record at `id` (its index), or `None` if out of range.
@@ -416,7 +469,7 @@ mod archived {
             }
             Some(ConceptView::Archived {
                 id,
-                rec: &self.records()[idx],
+                rec: &self.root().records[idx],
             })
         }
 
@@ -432,7 +485,8 @@ mod archived {
 
         /// Every record, as a [`ConceptView`], in id order.
         pub fn iter(&self) -> impl Iterator<Item = ConceptView<'_>> {
-            self.records()
+            self.root()
+                .records
                 .iter()
                 .enumerate()
                 .map(|(i, rec)| ConceptView::Archived {

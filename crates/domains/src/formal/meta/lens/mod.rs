@@ -30,3 +30,16 @@
 
 pub mod axioms;
 pub mod ontology;
+
+/// Runnable lens-law axioms for the shared `PackedCsrDict` / `PackedCsrFamily`
+/// zero-copy CSR representation (the five English M1 stores). Gated where the
+/// zero-copy form exists.
+#[cfg(all(feature = "prx", target_endian = "little"))]
+pub mod packed_csr_laws;
+
+/// Runnable lens-law axioms for the four rich English M2 stores that are
+/// instances of the shared `RkyvLens` (concept / function-word / morphology /
+/// writing-system). Gated where the archived stores (and their mirror roots)
+/// exist.
+#[cfg(all(feature = "prx", target_endian = "little"))]
+pub mod rkyv_lens_laws;

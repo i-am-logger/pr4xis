@@ -13,7 +13,7 @@ use super::symbols::punctuation::PunctuationMark;
 ///
 /// Binds a script (characters), numeral system, punctuation rules,
 /// and writing direction into a complete orthographic system.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WritingSystem {
     pub name: String,
     pub script: Script,

@@ -1,9 +1,13 @@
 pub mod concept_store;
+pub mod function_word_store;
+pub mod morphology_store;
 pub mod ontology;
 pub mod relation_store;
 pub mod synset_index;
 pub mod taxonomy_store;
+pub mod verb_transitivity_index;
 pub mod word_index;
+pub mod writing_system_store;
 
 /// The WordNet → `.prx` runtime bridge — projects the loaded [`English`] struct
 /// into a content-addressed [`Archive`](pr4xis_runtime::archive::Archive) and
