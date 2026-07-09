@@ -224,10 +224,11 @@ pub struct GroundedEdge {
 /// source)` by the [`Cached`] policy: the first query for a vertex pays the
 /// walk, every later one hits the memo with no re-traversal (a `reaches`
 /// membership test scans the cached image allocation-free; an image query
-/// copies it out). Keyed by `ConceptRef` so an N-ontology composite can
-/// [`union`](Self::union) these maps. Every query answer is identical to the
-/// eagerly-folded form — a representation change (footprint), not a semantics
-/// change.
+/// copies it out). The vertices are typed `ConceptRef`s (resident once, in
+/// the sorted vertex table) so an N-ontology composite can
+/// [`union`](Self::union) closures across ontologies. Every query answer is
+/// identical to the eagerly-folded form — a representation change
+/// (footprint), not a semantics change.
 ///
 /// The memo's `RefCell` makes `MaterializedClosure` — and `RuntimeOntology` —
 /// `!Sync`; that is a DELIBERATE INVARIANT of the runtime (chat / wasm are
@@ -237,27 +238,80 @@ pub struct GroundedEdge {
 /// `Sync` [`Uncached`](pr4xis::category::reach::Uncached) policy), never
 /// weaken the invariant silently. The memo is a *derived* view of the
 /// adjacency — never part of identity — so equality ignores it and
-/// [`union`](Self::union) invalidates it.
+/// [`union`](Self::union) rebuilds it empty.
+///
+/// # The representation — one vertex table + per-kind CSR over `u32` ids
+///
+/// Every distinct [`ConceptRef`] endpoint of the generating edges is stored
+/// ONCE, in a table sorted by `ConceptRef::Ord`; a vertex's `u32` id is its
+/// table position, so **`u32::Ord` on ids is order-isomorphic to
+/// `ConceptRef::Ord` on the vertices they name**. The kernel's determinism
+/// contract (`(hops, V::Ord)` — see [`pr4xis::category::reach`]) therefore
+/// yields byte-identical answers whether the engine runs over `ConceptRef`
+/// vertices or over their ids: mapping the id-graded output back through the
+/// table IS the `ConceptRef`-graded output. Each kind's adjacency is a
+/// compressed-sparse-row pair (`offsets` + `targets`, both `u32`) over those
+/// ids — the [`TaxonomyStore`-style CSR](pr4xis::category::reach) shape,
+/// owned and built at [`fold`](Self::fold) — so a vertex name is resident
+/// once (the table), not once per edge endpoint as in the former
+/// `BTreeMap<ConceptRef, BTreeMap<ConceptRef, Vec<ConceptRef>>>` adjacency.
+/// Queries arrive as `ConceptRef`s and are resolved to ids at the public
+/// boundary by binary search on the table; a concept absent from the table
+/// has no generating edges, and each method answers exactly what the engine
+/// answers for an edge-less vertex (empty image / `false` / `None` /
+/// singleton reflexive chain).
 #[derive(Debug, Clone, Default)]
 pub struct MaterializedClosure {
-    /// `kind → source → direct targets` — the per-kind generating adjacency.
-    /// An entry exists for EVERY declared transitive kind (even one with no
-    /// edges), so [`populated_kinds`](Self::populated_kinds) filters the truly
-    /// non-empty. Per-kind, targets are deduped and self-loops dropped (a
-    /// `source == target` generator carries nothing beyond the implicit
+    /// The vertex TABLE: every distinct `ConceptRef` endpoint of the
+    /// generating edges, sorted by `ConceptRef::Ord`, resident ONCE. A
+    /// vertex's `u32` id is its position here — the id order IS the
+    /// `ConceptRef` order (the isomorphism the tie-break pins rely on).
+    vertices: Vec<ConceptRef>,
+    /// `kind → CSR adjacency over vertex ids`. An entry exists for EVERY
+    /// declared transitive kind (an edge-less kind holds the empty CSR), so
+    /// [`populated_kinds`](Self::populated_kinds) filters the truly non-empty.
+    /// Per `(kind, source)` row, targets are deduped and self-loops dropped
+    /// (a `source == target` generator carries nothing beyond the implicit
     /// reflexive arrow), matching the former eager fold's handling.
-    adjacency: BTreeMap<ConceptRef, BTreeMap<ConceptRef, Vec<ConceptRef>>>,
-    /// The engine's memo — nested per kind (`kind → source → image`, so a
-    /// memoized source never re-clones its kind `ConceptRef`), storing exactly
-    /// the kernel's canonical `(hops, ConceptRef::Ord)`-ordered output.
-    memo: Cached<ConceptRef, ConceptRef>,
+    adjacency: BTreeMap<ConceptRef, KindCsr>,
+    /// The engine's memo — nested per kind (`kind → source id → image`),
+    /// storing exactly the kernel's canonical `(hops, u32::Ord)`-ordered
+    /// output over vertex ids (≡ `(hops, ConceptRef::Ord)` via the table).
+    memo: Cached<ConceptRef, u32>,
+}
+
+/// One relation kind's generating adjacency in compressed-sparse-row form over
+/// the closure's `u32` vertex ids: vertex `v`'s direct targets are
+/// `targets[offsets[v] .. offsets[v + 1]]`, sorted ascending and deduped. An
+/// edge-less kind is the empty CSR (both vectors empty); [`Self::targets_of`]
+/// answers the empty slice for any row the offsets do not cover.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct KindCsr {
+    /// Row offsets into `targets` — `vertex count + 1` entries for a populated
+    /// kind, empty for an edge-less kind.
+    offsets: Vec<u32>,
+    /// Target vertex ids, grouped per source row, each row sorted ascending.
+    targets: Vec<u32>,
+}
+
+impl KindCsr {
+    /// The direct targets of vertex `v` — the CSR row, or the empty slice for
+    /// a row outside the offsets (an edge-less kind or an unknown id).
+    fn targets_of(&self, v: u32) -> &[u32] {
+        let row = v as usize;
+        match (self.offsets.get(row), self.offsets.get(row + 1)) {
+            (Some(&lo), Some(&hi)) => &self.targets[lo as usize..hi as usize],
+            _ => &[],
+        }
+    }
 }
 
 impl PartialEq for MaterializedClosure {
-    /// Identity is the per-kind generators; the memoized images are a derived
-    /// cache and are ignored.
+    /// Identity is the per-kind generator SET (the table + CSR are canonical:
+    /// sorted, deduped); the memoized images are a derived cache and are
+    /// ignored.
     fn eq(&self, other: &Self) -> bool {
-        self.adjacency == other.adjacency
+        self.vertices == other.vertices && self.adjacency == other.adjacency
     }
 }
 
@@ -265,23 +319,21 @@ impl Eq for MaterializedClosure {}
 
 impl ReachSubstrate for MaterializedClosure {
     type Kind = ConceptRef;
-    type Vertex = ConceptRef;
+    type Vertex = u32;
 
-    /// The direct generating targets of `vertex` along `kind` — the adjacency
-    /// read the generic engine walks; empty for an undeclared kind or an
-    /// edge-less vertex.
+    /// The direct generating targets of `vertex` along `kind` — one CSR row
+    /// read; empty for an undeclared kind or an edge-less vertex.
     fn neighbors<'s>(
         &'s self,
         kind: &ConceptRef,
-        vertex: &ConceptRef,
-    ) -> impl Iterator<Item = ConceptRef> + use<'s> {
+        vertex: &u32,
+    ) -> impl Iterator<Item = u32> + use<'s> {
         self.adjacency
             .get(kind)
-            .and_then(|per_kind| per_kind.get(vertex))
-            .map(|targets| targets.as_slice())
+            .map(|csr| csr.targets_of(*vertex))
             .unwrap_or(&[])
             .iter()
-            .cloned()
+            .copied()
     }
 }
 
@@ -290,29 +342,110 @@ impl MaterializedClosure {
     /// bound to `kind` — three shared references, free to construct. Minted
     /// PER CALL, never stored: a `ReachView` field would borrow this struct's
     /// own `adjacency` and `memo` (a self-borrow).
-    fn view<'s>(
-        &'s self,
-        kind: &'s ConceptRef,
-    ) -> ReachView<'s, Self, Cached<ConceptRef, ConceptRef>> {
+    fn view<'s>(&'s self, kind: &'s ConceptRef) -> ReachView<'s, Self, Cached<ConceptRef, u32>> {
         ReachView::new(self, &self.memo, kind)
     }
 
-    /// Add a generating edge `source → target` to one kind's adjacency.
-    /// Self-loops are dropped and duplicate targets deduped, so the adjacency
-    /// stays the minimal generator set the former eager fold would have
-    /// consumed.
-    fn insert_edge(
-        per_kind: &mut BTreeMap<ConceptRef, Vec<ConceptRef>>,
-        source: ConceptRef,
-        target: ConceptRef,
-    ) {
-        if source == target {
-            return;
+    /// Resolve a query-boundary `ConceptRef` to its table id — binary search
+    /// on the sorted vertex table. `None` means the concept is not an endpoint
+    /// of any generating edge (so its image is empty by construction).
+    fn id_of(&self, c: &ConceptRef) -> Option<u32> {
+        self.vertices.binary_search(c).ok().map(|i| i as u32)
+    }
+
+    /// The `ConceptRef` a table id names — the inverse boundary map.
+    fn concept_of(&self, id: u32) -> &ConceptRef {
+        &self.vertices[id as usize]
+    }
+
+    /// Build the vertex table and the per-kind CSR adjacency from an edge
+    /// multiset — the shared kernel of [`fold`](Self::fold) and
+    /// [`union`](Self::union). `kinds` is the full key set (an edge-less kind
+    /// gets the empty CSR); `edges` are `(kind, source, target)` triples whose
+    /// kind is in `kinds`. Self-loops are dropped and duplicates deduped here,
+    /// once, for both callers.
+    fn build(
+        kinds: BTreeSet<ConceptRef>,
+        edges: &[(&ConceptRef, &ConceptRef, &ConceptRef)],
+    ) -> Self {
+        // The vertex table: every distinct endpoint of a non-self-loop edge,
+        // in ConceptRef::Ord order — so table position (the u32 id) is
+        // order-isomorphic to ConceptRef::Ord.
+        let mut vertex_set: BTreeSet<&ConceptRef> = BTreeSet::new();
+        for &(_, source, target) in edges {
+            if source != target {
+                vertex_set.insert(source);
+                vertex_set.insert(target);
+            }
         }
-        let targets = per_kind.entry(source).or_default();
-        if !targets.contains(&target) {
-            targets.push(target);
+        let vertices: Vec<ConceptRef> = vertex_set.into_iter().cloned().collect();
+        // The id space is u32 (the CSR cell width); a loaded corpus is
+        // 5-6 orders of magnitude below this bound.
+        u32::try_from(vertices.len()).expect("vertex table exceeds the u32 id space");
+
+        // Group the edge id-pairs per kind, then sort + dedup: sorted-by-
+        // (source, target) pairs ARE the CSR rows in order, targets sorted
+        // within each row.
+        let id_of = |c: &ConceptRef| -> u32 {
+            vertices
+                .binary_search(c)
+                .expect("every edge endpoint was just inserted into the table") as u32
+        };
+        let mut per_kind: BTreeMap<&ConceptRef, Vec<(u32, u32)>> = BTreeMap::new();
+        for &(kind, source, target) in edges {
+            if source != target {
+                per_kind
+                    .entry(kind)
+                    .or_default()
+                    .push((id_of(source), id_of(target)));
+            }
         }
+
+        let mut adjacency: BTreeMap<ConceptRef, KindCsr> = kinds
+            .into_iter()
+            .map(|kind| (kind, KindCsr::default()))
+            .collect();
+        for (kind, mut pairs) in per_kind {
+            pairs.sort_unstable();
+            pairs.dedup();
+            // Prefix-sum offsets over the sorted pairs; the pair order is the
+            // row-grouped target order.
+            let mut offsets = alloc::vec![0u32; vertices.len() + 1];
+            for &(source, _) in &pairs {
+                offsets[source as usize + 1] += 1;
+            }
+            for i in 1..offsets.len() {
+                offsets[i] += offsets[i - 1];
+            }
+            let targets: Vec<u32> = pairs.into_iter().map(|(_, target)| target).collect();
+            *adjacency
+                .get_mut(kind)
+                .expect("every edge kind is in the closure's declared kind set") =
+                KindCsr { offsets, targets };
+        }
+
+        Self {
+            vertices,
+            adjacency,
+            memo: Cached::default(),
+        }
+    }
+
+    /// Every generating edge as `(kind, source, target)` references — the
+    /// CSR read back through the vertex table, for [`union`](Self::union)'s
+    /// rebuild.
+    fn edge_refs(&self) -> impl Iterator<Item = (&ConceptRef, &ConceptRef, &ConceptRef)> {
+        self.adjacency.iter().flat_map(move |(kind, csr)| {
+            (0..self.vertices.len() as u32).flat_map(move |row| {
+                csr.targets_of(row).iter().map(move |&target| {
+                    (
+                        kind,
+                        &self.vertices[row as usize],
+                        &self.vertices[target as usize],
+                    )
+                })
+            })
+        })
     }
 
     /// Build the per-kind generating adjacency from `edges` — the free-functor
@@ -323,23 +456,20 @@ impl MaterializedClosure {
     /// pre-stored closure: a `.prx` whose edges are already a closure just
     /// supplies redundant generators the BFS ignores (the closure of a closure
     /// is the same closure).
+    ///
+    /// `transitive` is the LOADED transitive-kind vocabulary (the kinds OWL-RL
+    /// marks `Transitive`); one adjacency per kind in it — never a hardcoded
+    /// array. An entry exists for every kind (even edge-less), matching the
+    /// eager form so `populated_kinds` reports identically; an edge whose kind
+    /// is not in the set contributes nothing (a non-transitive kind has no
+    /// closure).
     pub fn fold(edges: &[RuntimeEdge], transitive: &BTreeSet<ConceptRef>) -> Self {
-        let mut adjacency: BTreeMap<ConceptRef, BTreeMap<ConceptRef, Vec<ConceptRef>>> =
-            BTreeMap::new();
-        // `transitive` is the LOADED transitive-kind vocabulary (the kinds OWL-RL
-        // marks `Transitive`); one adjacency per kind in it — never a hardcoded
-        // array. An entry is inserted for every kind (even edge-less), matching
-        // the eager form so `populated_kinds` reports identically.
-        for kind in transitive {
-            let per_kind = adjacency.entry(kind.clone()).or_default();
-            for edge in edges.iter().filter(|e| &e.kind == kind) {
-                Self::insert_edge(per_kind, edge.source.clone(), edge.target.clone());
-            }
-        }
-        Self {
-            adjacency,
-            memo: Cached::default(),
-        }
+        let triples: Vec<(&ConceptRef, &ConceptRef, &ConceptRef)> = edges
+            .iter()
+            .filter(|e| transitive.contains(&e.kind))
+            .map(|e| (&e.kind, &e.source, &e.target))
+            .collect();
+        Self::build(transitive.clone(), &triples)
     }
 
     /// The reachable set from `source` along `kind` — the STRICT reachable set
@@ -351,10 +481,13 @@ impl MaterializedClosure {
         if !self.adjacency.contains_key(&kind) {
             return BTreeSet::new();
         }
+        let Some(source_id) = self.id_of(source) else {
+            return BTreeSet::new();
+        };
         self.view(&kind)
-            .strict_image(source)
+            .strict_image(&source_id)
             .into_iter()
-            .map(|(v, _)| v)
+            .map(|(v, _)| self.concept_of(v).clone())
             .collect()
     }
 
@@ -362,10 +495,16 @@ impl MaterializedClosure {
     /// (memoized) strict image. (Strict reachability: a vertex does not reach
     /// itself here, matching [`reachable_from`](Self::reachable_from); the
     /// reflexive `is-a` case is the caller's `child == ancestor` short-circuit.)
+    /// An endpoint absent from the vertex table has no generating edges, so
+    /// the answer is `false` without a walk — exactly what the walk would say.
     pub fn reaches(&self, source: &ConceptRef, target: &ConceptRef, kind: ConceptRef) -> bool {
-        self.adjacency.contains_key(&kind)
-            && source != target
-            && self.view(&kind).reaches(source, target)
+        if !self.adjacency.contains_key(&kind) || source == target {
+            return false;
+        }
+        let (Some(source_id), Some(target_id)) = (self.id_of(source), self.id_of(target)) else {
+            return false;
+        };
+        self.view(&kind).reaches(&source_id, &target_id)
     }
 
     /// The relation kinds this ontology actually POPULATES — the keys with at
@@ -378,7 +517,7 @@ impl MaterializedClosure {
     pub fn populated_kinds(&self) -> Vec<ConceptRef> {
         self.adjacency
             .iter()
-            .filter(|(_, per_kind)| per_kind.values().any(|targets| !targets.is_empty()))
+            .filter(|(_, csr)| !csr.targets.is_empty())
             .map(|(kind, _)| kind.clone())
             .collect()
     }
@@ -392,7 +531,16 @@ impl MaterializedClosure {
         if !self.adjacency.contains_key(kind) {
             return Vec::new();
         }
-        self.view(kind).strict_image(c)
+        let Some(c_id) = self.id_of(c) else {
+            return Vec::new();
+        };
+        // The kernel's canonical (hops, u32::Ord) order maps back through the
+        // table to (hops, ConceptRef::Ord) — the id order IS the vertex order.
+        self.view(kind)
+            .strict_image(&c_id)
+            .into_iter()
+            .map(|(v, hops)| (self.concept_of(v).clone(), hops))
+            .collect()
     }
 
     /// The Subsumption (hypernym) image of `c` — `image(c, Subsumption)`.
@@ -412,7 +560,15 @@ impl MaterializedClosure {
         if !self.adjacency.contains_key(kind) {
             return None;
         }
-        self.view(kind).meet(a, b)
+        // An endpoint absent from the table has no edges: `b`'s strict image
+        // is empty, and an edge-less `a` can never appear in a strict image —
+        // the meet is None either way, exactly as the walk would answer.
+        let (Some(a_id), Some(b_id)) = (self.id_of(a), self.id_of(b)) else {
+            return None;
+        };
+        self.view(kind)
+            .meet(&a_id, &b_id)
+            .map(|v| self.concept_of(v).clone())
     }
 
     /// The lattice meet over the Subsumption closure — `meet(a, b, Subsumption)`,
@@ -438,7 +594,22 @@ impl MaterializedClosure {
         // The engine's chain: reflexive ancestors of `child` that still reach
         // `ancestor` lie on a child⇝ancestor path, in the kernel's canonical
         // `(hops, ConceptRef::Ord)` order, evaluated through the memo.
-        self.view(kind).chain(child, ancestor)
+        match (self.id_of(child), self.id_of(ancestor)) {
+            (Some(child_id), Some(ancestor_id)) => {
+                self.view(kind).chain(&child_id, &ancestor_id).map(|ids| {
+                    ids.into_iter()
+                        .map(|v| self.concept_of(v).clone())
+                        .collect()
+                })
+            }
+            // An edge-less vertex reflexively reaches itself and nothing else:
+            // the kernel's chain(c, c) over the empty adjacency is the
+            // singleton — preserved at the boundary.
+            _ if child == ancestor => Some(alloc::vec![child.clone()]),
+            // Otherwise one endpoint has no edges, so child never reaches
+            // ancestor — the kernel's honest None.
+            _ => None,
+        }
     }
 
     /// The ordered hypernym chain over the Subsumption closure — `chain(child,
@@ -452,26 +623,26 @@ impl MaterializedClosure {
     }
 
     /// Union another closure into this one — the structural hook for an
-    /// N-ontology composite. We merge the GENERATING adjacency per kind (the
-    /// union of two generator sets generates the union reachability), and
-    /// invalidate the affected memo so later queries recompute over the enlarged
-    /// graph. Simpler and stricter than the former eager re-fold: no closure is
-    /// materialized, and BFS over the merged generators is exactly the union
-    /// reachability. (Single-ontology callers never need it; it exists so the
-    /// closure is N-ready by construction.)
+    /// N-ontology composite. The edge MULTISETS are merged and the vertex
+    /// table + per-kind CSR REBUILT over the union (the union of two generator
+    /// sets generates the union reachability); the kind key set is the union
+    /// of both (an edge-less declared kind stays declared). Union is an
+    /// install-time operation, so the rebuild cost is paid once, off the query
+    /// path. The rebuilt memo starts empty — the memo is a DERIVED view of the
+    /// adjacency and a stale image would answer the pre-union graph.
+    /// (Single-ontology callers never need it; it exists so the closure is
+    /// N-ready by construction.)
     pub fn union(&mut self, other: &MaterializedClosure) {
-        for (kind, other_adjacency) in &other.adjacency {
-            let into = self.adjacency.entry(kind.clone()).or_default();
-            for (source, targets) in other_adjacency {
-                for target in targets {
-                    Self::insert_edge(into, source.clone(), target.clone());
-                }
-            }
-        }
-        // The adjacency grew — any cached images are now stale; the memo is a
-        // DERIVED view of the adjacency and MUST be invalidated, so the next
-        // query re-walks the merged generators (see `Cached::clear`).
-        self.memo.clear();
+        let kinds: BTreeSet<ConceptRef> = self
+            .adjacency
+            .keys()
+            .chain(other.adjacency.keys())
+            .cloned()
+            .collect();
+        let triples: Vec<(&ConceptRef, &ConceptRef, &ConceptRef)> =
+            self.edge_refs().chain(other.edge_refs()).collect();
+        let rebuilt = Self::build(kinds, &triples);
+        *self = rebuilt;
     }
 }
 
@@ -519,11 +690,15 @@ impl core::fmt::Display for MaterializeError {
 
 impl std::error::Error for MaterializeError {}
 
-/// Node name → the archive-node indices carrying that name — the by-name lookup
-/// index built once at materialize (see [`RuntimeOntology::node_index`]). A `Vec`
-/// of indices, not one, so the lookup reproduces the all-matches behaviour of the
-/// former full scan even when the archive admits duplicate-named nodes.
-type NodeIndex = BTreeMap<String, Vec<usize>>;
+/// The archive-node indices SORTED BY NODE NAME (ties by archive order) — the
+/// by-name lookup index built once at materialize (see
+/// [`RuntimeOntology::node_index`]). A lookup is a binary search whose name
+/// comparisons read the ARCHIVED node names zero-copy out of the retained
+/// buffer, so no node name is duplicated into an owned key (the former
+/// `BTreeMap<String, Vec<usize>>` re-owned every name); duplicate-named nodes
+/// occupy adjacent positions in archive order, reproducing the all-matches
+/// behaviour of the full scan this index replaced.
+type NodeIndex = Vec<u32>;
 
 /// One loaded `.prx` as a single typed, queryable ontology.
 ///
@@ -553,16 +728,16 @@ pub struct RuntimeOntology {
     /// [`archive`](Self::archive).
     buf: AlignedVec<16>,
     closure: MaterializedClosure,
-    /// Node name → the indices of the archive nodes carrying that name, built
-    /// ONCE at materialize so a by-name node lookup is an O(log N) map hit rather
-    /// than the former O(N) scan of every node (17,713 for a loaded USC title).
-    /// It maps a name to a *list* of indices — not a single index — to preserve
-    /// the exact all-matches semantics of the scan it replaces: the archive layer
-    /// admits duplicate-named nodes (they collapse only in the Merkle root), so a
-    /// name may address several nodes, visited here in archive order. Indices are
-    /// into [`archive`](Self::archive)`().nodes`, whose order `rkyv` preserves
-    /// verbatim from the owned [`Archive`]. Derived, not identity: like `buf` it
-    /// is re-derivable from the archive and takes no part in `PartialEq`.
+    /// The archive-node indices sorted by node name, built ONCE at materialize
+    /// so a by-name node lookup is an O(log N) binary search — over the
+    /// ARCHIVED names in `buf`, zero-copy, no owned key per name — rather than
+    /// the former O(N) scan of every node. Duplicate-named nodes (admitted by
+    /// the archive layer; they collapse only in the Merkle root) sort adjacent
+    /// with archive order as the tie-break, preserving the exact all-matches
+    /// semantics of the scan this replaces. Indices are into
+    /// [`archive`](Self::archive)`().nodes`, whose order `rkyv` preserves
+    /// verbatim from the owned [`Archive`]. Derived, not identity: like `buf`
+    /// it is re-derivable from the archive and takes no part in `PartialEq`.
     node_index: NodeIndex,
 }
 
@@ -638,12 +813,19 @@ impl RuntimeOntology {
         &'s self,
         name: &str,
     ) -> impl Iterator<Item = &'s ArchivedDefinitionView> + 's {
-        let view = self.archive();
-        self.node_index
-            .get(name)
-            .into_iter()
-            .flatten()
-            .map(move |&i| &view.nodes[i])
+        let nodes = &self.archive().nodes;
+        // Binary-search the name-sorted index; the comparisons read the
+        // archived names zero-copy. Duplicates sit adjacent (archive order),
+        // so the matching run is `[start, end)`.
+        let start = self
+            .node_index
+            .partition_point(|&i| nodes[i as usize].name.as_str() < name);
+        let end = start
+            + self.node_index[start..]
+                .partition_point(|&i| nodes[i as usize].name.as_str() == name);
+        self.node_index[start..end]
+            .iter()
+            .map(move |&i| &nodes[i as usize])
     }
 
     /// Every outgoing GENERATING edge from `c` — the morphisms departing this
@@ -864,8 +1046,9 @@ pub fn materialize_bytes(
 ///    by the ContainsAtom step), not validated here.
 /// 4. Capture the generating adjacency (the free-functor image kept as its
 ///    generators; reachability is evaluated lazily at query time).
-/// 5. Capture the name→node index (name → the archive-node indices carrying it),
-///    so a by-name query is an O(log N) map hit, not an O(N) scan.
+/// 5. Capture the name→node index (the archive-node indices sorted by node
+///    name), so a by-name query is an O(log N) binary search over the archived
+///    names, not an O(N) scan.
 fn analyze(
     archive: &Archive,
     id: &OntologyName,
@@ -876,16 +1059,10 @@ fn analyze(
     // The declared node names — the referential universe.
     let declared: BTreeSet<&str> = archive.nodes.iter().map(|n| n.name.as_str()).collect();
 
-    // 2 + 3 + 5. Build the generating edges over ConceptRef (validating that every
-    // endpoint is a declared node — referential closure — as we go) AND, in the
-    // same pass, the name→node index every by-name query surface reads. The index
-    // maps to a `Vec` of indices, not one, so it reproduces the all-matches
-    // behaviour of the scan it replaces byte-for-byte (a duplicate-named node is
-    // admitted by the archive layer and must still be visited).
+    // 2 + 3. Build the generating edges over ConceptRef, validating that every
+    // endpoint is a declared node — referential closure — as we go.
     let mut edges: Vec<RuntimeEdge> = Vec::new();
-    let mut node_index = NodeIndex::new();
-    for (i, node) in archive.nodes.iter().enumerate() {
-        node_index.entry(node.name.clone()).or_default().push(i);
+    for node in archive.nodes.iter() {
         for (kind_name, target) in &node.edges {
             let local = match target {
                 // A LOCAL target must name a declared node — referential closure.
@@ -926,6 +1103,21 @@ fn analyze(
     // reachability range over identical kinds. Reachability is then evaluated
     // lazily per queried vertex (see [`MaterializedClosure`]).
     let closure = MaterializedClosure::fold(&edges, &declared_transitive_kinds());
+
+    // 5. The name→node index: archive-node indices sorted by node name (ties by
+    // archive order, so duplicate-named nodes are visited exactly as the full
+    // scan visited them). Lookups binary-search this against the ARCHIVED names
+    // — the owned names here and the archived names in the retained buffer are
+    // byte-identical (`rkyv` preserves them verbatim), so the sort order agrees.
+    let mut node_index: NodeIndex = (0..archive.nodes.len())
+        .map(|i| u32::try_from(i).expect("archive node count exceeds the u32 index space"))
+        .collect();
+    node_index.sort_unstable_by(|&a, &b| {
+        archive.nodes[a as usize]
+            .name
+            .cmp(&archive.nodes[b as usize].name)
+            .then(a.cmp(&b))
+    });
 
     Ok((root, closure, node_index))
 }

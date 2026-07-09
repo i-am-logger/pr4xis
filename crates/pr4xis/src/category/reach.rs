@@ -50,10 +50,10 @@
 //!
 //! NOTE: the eager `ReachabilityClosure` in [`quiver`](super::quiver) is
 //! deliberately NOT delegated to this kernel — it is the independent test
-//! oracle the full-corpus `english_taxonomy_bfs` gate compares the
-//! `TaxonomyStore` engine against (the runtime's `MaterializedClosure` is
-//! oracle-checked at unit scale — no full-corpus materialize+closure run
-//! exists since the B1-bridge deletion), and an oracle must not share its
+//! oracle the full-corpus gates compare the engines against
+//! (`english_taxonomy_bfs` for the `TaxonomyStore` engine,
+//! `usc_closure_oracle` for the runtime's `MaterializedClosure` over a full
+//! loaded USC title, both directions), and an oracle must not share its
 //! subject's implementation.
 
 use alloc::collections::{BTreeMap, BTreeSet, VecDeque};
