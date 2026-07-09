@@ -44,24 +44,25 @@ self.onmessage = async (e) => {
       case 'embedded_demo_prx':
         reply(id, pr4xis.embedded_demo_prx());
         break;
-      case 'load_embedded_demo_prx':
-        // Load the new-format `.prx` embedded in the wasm — no network. The
-        // wasm gate re-derives the archive's Merkle root and refuses on
-        // mismatch (fail-closed); the chat then answers from the loaded gloss.
-        reply(id, pr4xis.load_embedded_demo_prx());
+      case 'load': {
+        // THE one load path (doc §3) — one message shape into the single typed
+        // `Pr4xis::load(name, encoding, version, rootHex, payload)`. The worker
+        // no longer branches per format: it streams the bytes if there is a URL
+        // (a USLM title, an OWL `.owl` source, or an OWL `.prx.gz` all travel as
+        // ONE Uint8Array — the Rust decoder the `encoding` names does the
+        // format-specific parse) and passes `null` for an embedded load (the
+        // demo bytes ship in the wasm; Rust resolves them by name). `version`
+        // pins the OWL `.prx.gz` lock lookup; `rootHex` the content-addressed
+        // `.prx` gate; both are `null` when the encoding does not use them.
+        const { name, encoding, url, version, rootHex } = args;
+        const payload = url ? await streamBinary(id, url) : null;
+        const n = payload ? payload.length : 0;
+        // The materialize/verify phase (parse, gunzip + bytecheck, or the
+        // Merkle-root re-derivation) is the visible work after any download.
+        self.postMessage({ id, status: 'progress', phase: 'parse', received: n, total: n });
+        reply(id, pr4xis.load(name, encoding, version ?? null, rootHex ?? null, payload));
         break;
-      case 'load':
-        await loadSource(id, args.name, args.url, args.totalHint);
-        reply(id, null);
-        break;
-      case 'load_prx':
-        await loadPrx(id, args.name, args.version, args.url);
-        reply(id, null);
-        break;
-      case 'load_owl_source':
-        await loadOwlSource(id, args.name, args.url);
-        reply(id, null);
-        break;
+      }
       default:
         fail(id, `unknown message type: ${type}`);
     }
@@ -77,64 +78,11 @@ function fail(id, payload) {
   self.postMessage({ id, status: 'err', payload });
 }
 
-// Download (streaming, with progress) + parse into a live UsCode. Both run
-// in the worker, so the main thread stays responsive throughout — even for
-// a large title.
-async function loadSource(id, name, url, totalHint) {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`);
-  const total = parseInt(resp.headers.get('content-length') || totalHint || '0', 10);
-
-  const reader = resp.body.getReader();
-  const chunks = [];
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.length;
-    self.postMessage({ id, status: 'progress', phase: 'download', received, total });
-  }
-
-  const buf = new Uint8Array(received);
-  let off = 0;
-  for (const c of chunks) {
-    buf.set(c, off);
-    off += c.length;
-  }
-  const xml = new TextDecoder('utf-8').decode(buf);
-
-  // Parse phase runs here, in the worker — no main-thread freeze.
-  self.postMessage({ id, status: 'progress', phase: 'parse', received, total });
-  pr4xis.load_source(name, xml); // → live UsCode (throws on malformed XML)
-}
-
-// Stream the `.prx.gz` distribution envelope (binary), then hand the raw
-// bytes to `load_prx`. The wasm gate gunzips, bytecheck-validates the rkyv
-// envelope, and asserts the embedded source-hash matches the praxis.lock
-// pin baked into the build — fail-closed (throws JsValue on any mismatch).
-async function loadPrx(id, name, version, url) {
-  const buf = await streamBinary(id, url);
-  // Switch to the materialisation phase BEFORE the gate runs (gunzip +
-  // bytecheck + rkyv access are the visible work).
-  self.postMessage({ id, status: 'progress', phase: 'parse', received: buf.length, total: buf.length });
-  pr4xis.load_prx(name, version, buf); // throws JsValue on validate fail
-}
-
-// Stream the authoritative `.owl` source (text) and parse via the pure-Rust
-// OWL reader. No embedded hash on this leg — trust rests on the host having
-// fetched from the pinned source URL.
-async function loadOwlSource(id, name, url) {
-  const buf = await streamBinary(id, url);
-  self.postMessage({ id, status: 'progress', phase: 'parse', received: buf.length, total: buf.length });
-  const xml = new TextDecoder('utf-8').decode(buf);
-  pr4xis.load_owl_source(name, xml); // throws JsValue on malformed OWL
-}
-
-// Shared streaming download — reports `download` progress every chunk and
-// returns the concatenated bytes. Identical to the body of `loadSource`'s
-// download leg, factored out so the two ontology loaders post the same
-// progress messages the meta page already knows how to render.
+// The SINGLE streaming download — reports `download` progress every chunk and
+// returns the concatenated bytes for the one `load` path. USLM XML, OWL `.owl`
+// source, and the OWL `.prx.gz` envelope all travel through here as one
+// Uint8Array; the text-vs-binary split is gone because the Rust decoder the
+// `encoding` names does the UTF-8 decode where a text format needs it.
 async function streamBinary(id, url) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`);
