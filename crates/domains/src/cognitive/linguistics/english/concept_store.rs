@@ -33,9 +33,10 @@
 //! # Reads: [`ConceptView`]
 //!
 //! [`ConceptStore::get`] hands back a [`ConceptView`] — a borrowed accessor over
-//! EITHER an owned [`Concept`] (the fallback, and every LOADED-corpus concept a
-//! [`ComposedReasoner`](crate::cognitive::linguistics::composed) synthesizes) or
-//! an archived record. Its `original_id` / `pos` / `lemmas` / `definitions` /
+//! an owned [`Concept`] (the fallback), an archived record, or a LOADED-corpus
+//! node a [`ComposedReasoner`](crate::cognitive::linguistics::composed) views
+//! against its `.prx` archive buffer (the [`ConceptView::Loaded`] arm). Its
+//! `original_id` / `pos` / `lemmas` / `definitions` /
 //! `examples` accessors read `&str` / [`LmfPos`] straight out of whichever
 //! representation backs it, so a consumer reads glosses and lemmas identically
 //! against both. The archived arm reads through `rkyv`'s own
@@ -87,13 +88,15 @@ pub use owned::ConceptStore;
 /// record so every consumer reads `original_id` / `pos` / `lemmas` /
 /// `definitions` / `examples` identically regardless of backing representation.
 ///
-/// The `Owned` arm always exists: it backs both the non-`prx` fallback AND every
-/// LOADED-corpus concept a [`ComposedReasoner`](crate::cognitive::linguistics::composed)
-/// synthesizes (those are owned `Concept`s, never archived). The `Archived` arm
-/// exists only where the archive does — under `prx` on a little-endian target.
+/// The `Owned` arm backs the non-`prx` fallback store; the `Loaded` arm backs
+/// every LOADED-corpus concept a
+/// [`ComposedReasoner`](crate::cognitive::linguistics::composed) views against
+/// its owning `.prx` archive buffer (borrowed, never re-owned). The `Archived`
+/// arm exists only where the English archive does — under `prx` on a
+/// little-endian target.
 #[derive(Clone, Copy)]
 pub enum ConceptView<'a> {
-    /// An owned concept record (the fallback store, or a loaded-corpus concept).
+    /// An owned concept record (the fallback store).
     Owned(&'a Concept),
     /// An archived concept record, read zero-copy out of the store's buffer.
     /// `id` is carried alongside because the archived record does not store it
@@ -105,6 +108,24 @@ pub enum ConceptView<'a> {
         /// The archived record, borrowed from the store's buffer.
         rec: &'a archived::ArchivedConceptRecord,
     },
+    /// A LOADED-corpus concept viewed straight against its owning ontology's
+    /// archived `.prx` node — the name, canonical lemma, and gloss are BORROWED
+    /// from the `RuntimeOntology`'s archive buffer, synthesized per query by the
+    /// [`ComposedReasoner`](crate::cognitive::linguistics::composed) instead of
+    /// eagerly re-owned at construction (the former `Vec<Concept>` re-copy).
+    /// POS is nominal by construction: a loaded `.prx` node is an entity
+    /// concept, the same `LmfPos::Noun` the owned synthesis always carried.
+    Loaded {
+        /// The concept's disjoint composed [`ConceptId`].
+        id: ConceptId,
+        /// The node's own name (the URN/identifier — never printed as a lemma).
+        original_id: &'a str,
+        /// The PRINTED lemma: the node's `canonicalForm` Form surface, or the
+        /// node name when it mints none.
+        lemma: &'a str,
+        /// The loaded gloss (the node's `lexical`), when it carries one.
+        gloss: Option<&'a str>,
+    },
 }
 
 impl<'a> ConceptView<'a> {
@@ -114,6 +135,7 @@ impl<'a> ConceptView<'a> {
             ConceptView::Owned(c) => c.id,
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptView::Archived { id, .. } => *id,
+            ConceptView::Loaded { id, .. } => *id,
         }
     }
 
@@ -123,6 +145,7 @@ impl<'a> ConceptView<'a> {
             ConceptView::Owned(c) => c.original_id.as_str(),
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptView::Archived { rec, .. } => rec.original_id.as_str(),
+            ConceptView::Loaded { original_id, .. } => original_id,
         }
     }
 
@@ -132,6 +155,9 @@ impl<'a> ConceptView<'a> {
             ConceptView::Owned(c) => c.pos,
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptView::Archived { rec, .. } => archived::decode_pos(&rec.pos),
+            // A loaded `.prx` node is an entity concept — nominal by
+            // construction, the same value the owned synthesis carried.
+            ConceptView::Loaded { .. } => LmfPos::Noun,
         }
     }
 
@@ -141,6 +167,7 @@ impl<'a> ConceptView<'a> {
             ConceptView::Owned(c) => ConceptStrs::owned(&c.lemmas),
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptView::Archived { rec, .. } => ConceptStrs::archived(&rec.lemmas),
+            ConceptView::Loaded { lemma, .. } => ConceptStrs::inline(Some(lemma)),
         }
     }
 
@@ -150,6 +177,7 @@ impl<'a> ConceptView<'a> {
             ConceptView::Owned(c) => ConceptStrs::owned(&c.definitions),
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptView::Archived { rec, .. } => ConceptStrs::archived(&rec.definitions),
+            ConceptView::Loaded { gloss, .. } => ConceptStrs::inline(*gloss),
         }
     }
 
@@ -159,6 +187,8 @@ impl<'a> ConceptView<'a> {
             ConceptView::Owned(c) => ConceptStrs::owned(&c.examples),
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptView::Archived { rec, .. } => ConceptStrs::archived(&rec.examples),
+            // A loaded node carries no usage examples (it never did).
+            ConceptView::Loaded { .. } => ConceptStrs::inline(None),
         }
     }
 }
@@ -188,6 +218,9 @@ pub enum ConceptStrs<'a> {
     /// Iterating an archived `ArchivedVec<ArchivedString>`.
     #[cfg(all(feature = "prx", target_endian = "little"))]
     Archived(core::slice::Iter<'a, rkyv::string::ArchivedString>),
+    /// Iterating a loaded-node view's inline field (0 or 1 borrowed strs — a
+    /// [`ConceptView::Loaded`]'s single lemma / optional gloss / no examples).
+    Inline(core::option::IntoIter<&'a str>),
 }
 
 impl<'a> ConceptStrs<'a> {
@@ -199,6 +232,10 @@ impl<'a> ConceptStrs<'a> {
     fn archived(v: &'a rkyv::vec::ArchivedVec<rkyv::string::ArchivedString>) -> Self {
         ConceptStrs::Archived(v.iter())
     }
+
+    fn inline(v: Option<&'a str>) -> Self {
+        ConceptStrs::Inline(v.into_iter())
+    }
 }
 
 impl<'a> Iterator for ConceptStrs<'a> {
@@ -209,6 +246,7 @@ impl<'a> Iterator for ConceptStrs<'a> {
             ConceptStrs::Owned(it) => it.next().map(String::as_str),
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptStrs::Archived(it) => it.next().map(rkyv::string::ArchivedString::as_str),
+            ConceptStrs::Inline(it) => it.next(),
         }
     }
 
@@ -217,6 +255,7 @@ impl<'a> Iterator for ConceptStrs<'a> {
             ConceptStrs::Owned(it) => it.size_hint(),
             #[cfg(all(feature = "prx", target_endian = "little"))]
             ConceptStrs::Archived(it) => it.size_hint(),
+            ConceptStrs::Inline(it) => it.size_hint(),
         }
     }
 }

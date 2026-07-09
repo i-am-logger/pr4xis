@@ -9,7 +9,9 @@ fn main() {
     // ---------- English / WordNet (the compact `.prx.gz`, baked in) ------
     // Emit the COMPLETE WordNet ontology as the size-reduced `.prx.gz` and bake
     // it into the wasm via `include_bytes!`; the runtime gunzips and loads it
-    // (`load_prx_gz` → `English::from_wordnet`) into the full typed graph.
+    // through the fail-closed compact content gate
+    // (`load_compact_english_prx_gz_gated`, verified against the embedded
+    // praxis.lock `[compact_archive_signatures]` pin) into the full typed graph.
     use pr4xis_domains::social::software::markup::xml::lmf::{compact_succinct, reader};
     let wordnet_path = "../../crates/domains/data/wordnet/english-wordnet-2025.xml";
     let english_prx = out_dir.join("english.prx.gz");

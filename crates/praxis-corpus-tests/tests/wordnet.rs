@@ -38,7 +38,7 @@ use pr4xis_domains::formal::meta::well_behaved_lens::{
 };
 use pr4xis_domains::social::software::markup::xml::lmf::compact::{decode, encode};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::{
-    emit_prx_gz, from_succinct, load_prx_gz, to_succinct,
+    emit_prx_gz, from_succinct, to_succinct,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::prx::{
     build_wordnet_envelope, compact_english_archive_address, emit_all_wordnet_prx_gz,
@@ -135,9 +135,13 @@ fn succinct_codec_roundtrip_and_smaller() {
     );
 }
 
-/// End-to-end: `emit_prx_gz` → `load_prx_gz` materializes an `English` equal
-/// to `from_wordnet` over the source (same concept count and word→concept
-/// index) — the full embed/download → gunzip → decode → reason pipeline.
+/// End-to-end: `emit_prx_gz` → the GATED compact load materializes an `English`
+/// equal to `from_wordnet` over the source (same concept count and word→concept
+/// index) — the full embed/download → gunzip → pin-verify → decode → reason
+/// pipeline. The load leg is `load_compact_english_prx_gz_gated` (the ungated
+/// `load_prx_gz` was deleted): the pin here is the emitted bytes' own content
+/// address, so the round trip exercises the SAME fail-closed gate the native
+/// fast path and the wasm embedded load take.
 #[test]
 fn prx_gz_round_trips_to_english() {
     require_provisioned(WORDNET.sources.len(), "wordnet");
@@ -148,8 +152,12 @@ fn prx_gz_round_trips_to_english() {
         let wn = &s.wn;
 
         let prx_gz = emit_prx_gz(wn);
+        let pin = LockDigest::address(
+            compact_english_archive_address(&prx_gz).expect("emitted .prx.gz gunzips"),
+        );
         let t = std::time::Instant::now();
-        let loaded = load_prx_gz(&prx_gz);
+        let loaded = load_compact_english_prx_gz_gated(&prx_gz, &pin, name)
+            .expect("the emitted .prx.gz loads through the content gate");
         let load_ms = t.elapsed().as_secs_f64() * 1e3;
         let reference = English::from_wordnet(wn);
 

@@ -43,22 +43,21 @@ use crate::formal::meta::identifier_format::Identifier;
 /// subparagraph / clause / subclause / item / subitem) produces one
 /// node — recursing through children.
 ///
-/// All slices are `&'static` because the codegen emits this data as
-/// frozen tables in the generated module; downstream consumers borrow
-/// these slices directly without allocation.
-///
-/// Not `Copy` because [`Identifier`] holds a `Cow<'static, str>` —
-/// the Copy bound is rejected by the compiler for that variant.
-/// Cloning a UscSubdivision still copies all slice handles (which
-/// are 'static) and the inner Cow::Borrowed (which is itself
-/// trivially-cloneable).
+/// OWNED, not `&'static`: the runtime corpus constructors
+/// (`from_uslm_titles_owned`, the compact/rkyv archive loads) build these
+/// trees from parsed source, and a TRANSIENT corpus — the wasm load path
+/// projects a title into its `RuntimeOntology` and then drops the owned
+/// `UsCode` — must actually return its memory. The former `&'static`
+/// fields forced every runtime constructor through `Box::leak`, pinning
+/// ~24 MiB per loaded title forever (the audit-5 post-install retention
+/// finding); the build-time codegen that once justified frozen static
+/// tables is retired (M4.δ.7.a).
 #[derive(Debug, Clone)]
 pub struct UscSubdivision {
     /// Typed USLM URN within the section's URN space — e.g.
-    /// `/us/usc/t18/s1514A/a/1/A`. Grammar-validated at codegen time
-    /// (the URN comes verbatim from the LRC `identifier` attribute);
-    /// const-constructed here via
-    /// [`Identifier::from_codegen_static`].
+    /// `/us/usc/t18/s1514A/a/1/A`. The URN comes verbatim from the LRC
+    /// `identifier` attribute and is grammar-validated on construction
+    /// via [`Identifier::uslm_urn`].
     pub urn: Identifier,
     /// Subdivision kind — `Subsection` / `Paragraph` / `Subparagraph`
     /// / `Clause` / `Subclause` / `Item` / `Subitem`. Per cee1f68
@@ -69,26 +68,26 @@ pub struct UscSubdivision {
     /// XSD ontology.
     pub kind: SubdivisionKind,
     /// `<num>` value verbatim — e.g. `"a"`, `"1"`, `"A"`.
-    pub num: &'static str,
+    pub num: String,
     /// `<heading>` plain text, when present. `None` for subdivisions
     /// that carry no heading (most paragraphs / subparagraphs).
-    pub heading: Option<&'static str>,
+    pub heading: Option<String>,
     /// `<chapeau>` text — the introductory phrase a subdivision uses
     /// to introduce its enumerated children. `None` if the
     /// subdivision is a leaf.
-    pub chapeau: Option<&'static str>,
+    pub chapeau: Option<String>,
     /// `<content>` text — the body of a leaf subdivision. `None` if
     /// the subdivision only contains children (its content lives in
     /// `chapeau` plus the children's content).
-    pub content: Option<&'static str>,
+    pub content: Option<String>,
     /// Nested subdivisions, in USLM document order.
-    pub children: &'static [UscSubdivision],
+    pub children: Vec<UscSubdivision>,
 }
 
 impl UscSubdivision {
     /// Iterate over self plus every descendant in pre-order. Useful
     /// for axiom tests that count subdivision nodes per section.
-    pub fn descendants_including_self(&'static self) -> SubdivisionWalk {
+    pub fn descendants_including_self(&self) -> SubdivisionWalk<'_> {
         SubdivisionWalk {
             stack: alloc::vec![self],
         }
@@ -105,14 +104,14 @@ impl UscSubdivision {
 /// the PARENT (the whole). This matches the praxis mereology
 /// convention where the relation reads "child Composes-into
 /// parent".
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct UscComposesEdge {
     /// Child URN — the subdivision that is a component of the
     /// parent. For example `/us/usc/t18/s1514A/a/1/A`.
-    pub from_urn: &'static str,
+    pub from_urn: String,
     /// Parent URN — the section or larger subdivision that contains
     /// the child. For example `/us/usc/t18/s1514A/a/1`.
-    pub to_urn: &'static str,
+    pub to_urn: String,
 }
 
 /// The aux record for one section — kept as a parallel array next to
@@ -120,29 +119,29 @@ pub struct UscComposesEdge {
 /// can attach subdivision data after materialising the flat section
 /// list. One entry per section, indexed by URN-lookup against the
 /// CodegenData entity ids.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct UscSectionAux {
     /// USLM URN of the section this aux record describes — used to
     /// join against the CodegenData entity ids at runtime.
-    pub urn: &'static str,
+    pub urn: String,
     /// Subdivision tree rooted at the section. Empty for sections
     /// with no enumerated subdivisions (placeholder reservations, or
     /// short prose-only sections).
-    pub subdivisions: &'static [UscSubdivision],
+    pub subdivisions: Vec<UscSubdivision>,
     /// Composes edges across the whole tree — every parent↔child
     /// containment within the section flattened into a single edge
     /// list. The section root is implicit (its URN equals
     /// [`Self::urn`]).
-    pub relations: &'static [UscComposesEdge],
+    pub relations: Vec<UscComposesEdge>,
 }
 
-/// Pre-order walker over a static subdivision subtree.
-pub struct SubdivisionWalk {
-    stack: alloc::vec::Vec<&'static UscSubdivision>,
+/// Pre-order walker over a borrowed subdivision subtree.
+pub struct SubdivisionWalk<'a> {
+    stack: alloc::vec::Vec<&'a UscSubdivision>,
 }
 
-impl Iterator for SubdivisionWalk {
-    type Item = &'static UscSubdivision;
+impl<'a> Iterator for SubdivisionWalk<'a> {
+    type Item = &'a UscSubdivision;
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.stack.pop()?;

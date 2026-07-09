@@ -86,7 +86,6 @@
 //! - Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Dolstra (2006)
 //!   content-addressing.
 
-use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -200,87 +199,67 @@ pub struct OwnedUscSectionAux {
 }
 
 impl OwnedUscSubdivision {
-    /// Promote one owned subdivision node into the `&'static`
-    /// [`UscSubdivision`] the corpus API requires, recursing into children.
-    ///
-    /// [`Box::leak`] gives the process-lifetime `&'static` lifetimes (the
-    /// same trade `subdivisions_to_static` and the `OnceLock`-cached corpus
-    /// singleton make). The `kind` string is re-typed through the total,
+    /// Rebuild one owned subdivision node into the OWNED corpus
+    /// [`UscSubdivision`], recursing into children. No `Box::leak`
+    /// (audit-5): the tree is owned by its section, so a dropped corpus
+    /// reclaims it. The `kind` string is re-typed through the total,
     /// XSD-free [`SubdivisionKind::parse`]; an unknown tag is a corrupt
     /// archive, but the load gate re-derives and verifies the `MerkleRoot`
     /// over these very bytes BEFORE materialization, so a non-canonical tag
     /// cannot reach this path under a trusted pin.
-    fn to_static(&self) -> UscSubdivision {
-        let urn_str: &'static str = Box::leak(self.urn.clone().into_boxed_str());
+    fn to_corpus(&self) -> UscSubdivision {
         let kind = SubdivisionKind::parse(&self.kind).expect(
             "subdivision kind must be a canonical USLM tag — the load gate \
              content-verifies these bytes before materialization",
         );
-        let num: &'static str = Box::leak(self.num.clone().into_boxed_str());
-        let heading: Option<&'static str> = self
-            .heading
-            .as_ref()
-            .map(|h| -> &'static str { Box::leak(h.clone().into_boxed_str()) });
-        let chapeau: Option<&'static str> = self
-            .chapeau
-            .as_ref()
-            .map(|c| -> &'static str { Box::leak(c.clone().into_boxed_str()) });
-        let content: Option<&'static str> = self
-            .content
-            .as_ref()
-            .map(|c| -> &'static str { Box::leak(c.clone().into_boxed_str()) });
-        let children_vec: Vec<UscSubdivision> = self.children.iter().map(Self::to_static).collect();
-        let children: &'static [UscSubdivision] = Box::leak(children_vec.into_boxed_slice());
-        let urn = Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, urn_str);
+        // The archived URN is the LRC `identifier` carried VERBATIM (the load
+        // gate content-verifies these bytes before materialization) — re-tag
+        // it as-is, exactly as the former `from_codegen_static` promotion did.
+        let urn =
+            Identifier::from_source_verbatim(IdentifierFormatConcept::UslmUrn, self.urn.clone());
         UscSubdivision {
             urn,
             kind,
-            num,
-            heading,
-            chapeau,
-            content,
-            children,
+            num: self.num.clone(),
+            heading: self.heading.clone(),
+            chapeau: self.chapeau.clone(),
+            content: self.content.clone(),
+            children: self.children.iter().map(Self::to_corpus).collect(),
         }
     }
 }
 
-/// Promote a slice of owned section-aux records into the `&'static`
-/// [`UscSectionAux`] slice [`UsCode::from_codegen_with_aux`] consumes.
+/// Rebuild a slice of owned section-aux records into the OWNED
+/// [`UscSectionAux`] list [`UsCode::from_codegen_with_aux`] consumes.
 ///
-/// Each section's subdivision tree is leaked via [`OwnedUscSubdivision::to_static`]
-/// and its stored `(child, parent)` relations are leaked into
-/// [`UscComposesEdge`]s — re-tagging URNs as `UslmUrn` so the section's
-/// `section_by_urn` typed-format guard holds. Mirrors `subdivisions_to_static`'s
-/// leak set so an archive-materialized corpus is identity-identical to the
-/// parse-materialized one.
+/// Each section's subdivision tree is rebuilt via
+/// [`OwnedUscSubdivision::to_corpus`] and its stored `(child, parent)`
+/// relations become owned [`UscComposesEdge`]s. Mirrors `subdivisions_owned`'s
+/// construction so an archive-materialized corpus is identity-identical to the
+/// parse-materialized one — and, like it, owns every string (no `Box::leak`;
+/// audit-5), so the transient aux drops with this vector after
+/// materialization.
 ///
 /// [`UsCode::from_codegen_with_aux`]: super::UsCode::from_codegen_with_aux
-fn to_aux_leaked(aux: &[OwnedUscSectionAux]) -> &'static [UscSectionAux] {
-    let mut out: Vec<UscSectionAux> = Vec::with_capacity(aux.len());
-    for entry in aux {
-        let urn: &'static str = Box::leak(entry.urn.clone().into_boxed_str());
-        let subs_vec: Vec<UscSubdivision> = entry
-            .subdivisions
-            .iter()
-            .map(OwnedUscSubdivision::to_static)
-            .collect();
-        let subdivisions: &'static [UscSubdivision] = Box::leak(subs_vec.into_boxed_slice());
-        let rels_vec: Vec<UscComposesEdge> = entry
-            .relations
-            .iter()
-            .map(|(from, to)| UscComposesEdge {
-                from_urn: Box::leak(from.clone().into_boxed_str()),
-                to_urn: Box::leak(to.clone().into_boxed_str()),
-            })
-            .collect();
-        let relations: &'static [UscComposesEdge] = Box::leak(rels_vec.into_boxed_slice());
-        out.push(UscSectionAux {
-            urn,
-            subdivisions,
-            relations,
-        });
-    }
-    Box::leak(out.into_boxed_slice())
+fn to_aux_owned(aux: &[OwnedUscSectionAux]) -> Vec<UscSectionAux> {
+    aux.iter()
+        .map(|entry| UscSectionAux {
+            urn: entry.urn.clone(),
+            subdivisions: entry
+                .subdivisions
+                .iter()
+                .map(OwnedUscSubdivision::to_corpus)
+                .collect(),
+            relations: entry
+                .relations
+                .iter()
+                .map(|(from, to)| UscComposesEdge {
+                    from_urn: from.clone(),
+                    to_urn: to.clone(),
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 // =============================================================================
@@ -628,9 +607,10 @@ fn usc_verify_source_leg(
 ///    subdivision under a genuine source label is rejected (Merkle 1987;
 ///    Benet 2014; W3C SRI 2016).
 /// 2. **Source identity** — the carried source re-hashes to `source_pin`.
-/// 3. Only on both `Verified` rebuild the `CodegenData` view + leak the aux
+/// 3. Only on both `Verified` rebuild the `CodegenData` view + the OWNED aux
 ///    and materialize via `from_codegen_with_aux` (NEVER `from_codegen`,
-///    which would drop subdivision depth).
+///    which would drop subdivision depth). The aux is a transient owned
+///    vector (dropped after materialization — audit-5), not a leaked slice.
 fn usc_admit_validated(
     rkyv_bytes: &[u8],
     envelope: UsCodePrxEnvelope,
@@ -641,8 +621,8 @@ fn usc_admit_validated(
     usc_verify_content_address(rkyv_bytes, archive_pin, &key)?;
     usc_verify_source_leg(&envelope, source_pin, &key)?;
     let data: CodegenData<UsCode> = envelope.data.to_codegen_data_leaked();
-    let aux = to_aux_leaked(&envelope.aux);
-    Ok(UsCode::from_codegen_with_aux(&data, aux))
+    let aux = to_aux_owned(&envelope.aux);
+    Ok(UsCode::from_codegen_with_aux(&data, &aux))
 }
 
 /// Load a USC `.prx.gz` blob into a materialized [`UsCode`], gated on two
@@ -1186,13 +1166,14 @@ pub fn emit_compact_usc_prx_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
 }
 
 /// Materialize a [`UsCode`] from the uncompressed compact succinct bytes:
-/// [`compact_usc_from_succinct`] → [`to_aux_leaked`] +
-/// [`UsCode::from_codegen_with_aux`]. No XML re-parse, no rkyv envelope.
+/// [`compact_usc_from_succinct`] → [`to_aux_owned`] +
+/// [`UsCode::from_codegen_with_aux`]. No XML re-parse, no rkyv envelope. The
+/// owned aux is a transient dropped after materialization (audit-5).
 fn materialize_compact(raw_succinct: &[u8]) -> UsCode {
     let (data, aux) = compact_usc_from_succinct(raw_succinct);
-    let leaked = to_aux_leaked(&aux);
+    let owned_aux = to_aux_owned(&aux);
     let codegen: CodegenData<UsCode> = data.to_codegen_data_leaked();
-    UsCode::from_codegen_with_aux(&codegen, leaked)
+    UsCode::from_codegen_with_aux(&codegen, &owned_aux)
 }
 
 /// Load a compact runtime `.prx.gz` (produced by [`emit_compact_usc_prx_gz`])
@@ -1385,6 +1366,7 @@ pub fn emit_all_compact_usc_prx_gz(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
 
     /// The kind lowering is lossless AND XSD-free: every [`SubdivisionKind`]
     /// round-trips `parse(tag(k)) == Some(k)`, so the owned mirror can lower
@@ -1411,9 +1393,9 @@ mod tests {
         }
     }
 
-    /// A 3-deep owned aux fixture (`/a` → `/a/1` → `/a/1/A`) promotes to the
-    /// `&'static` corpus aux losslessly: tree shape, node count, typed URNs,
-    /// re-typed kinds, and the child→parent relations all survive the leak.
+    /// A 3-deep owned aux fixture (`/a` → `/a/1` → `/a/1/A`) rebuilds into the
+    /// OWNED corpus aux losslessly: tree shape, node count, typed URNs,
+    /// re-typed kinds, and the child→parent relations all survive the rebuild.
     fn fixture() -> OwnedUscSectionAux {
         OwnedUscSectionAux {
             urn: "/us/usc/t18/s1514A".into(),
@@ -1457,18 +1439,18 @@ mod tests {
     }
 
     fn count(subs: &[UscSubdivision]) -> usize {
-        subs.iter().map(|s| 1 + count(s.children)).sum()
+        subs.iter().map(|s| 1 + count(&s.children)).sum()
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn owned_aux_leaks_to_static_tree() {
-        let aux = to_aux_leaked(&[fixture()]);
+    fn owned_aux_rebuilds_to_owned_corpus_tree() {
+        let aux = to_aux_owned(&[fixture()]);
         assert_eq!(aux.len(), 1);
         let s = &aux[0];
         assert_eq!(s.urn, "/us/usc/t18/s1514A");
         assert_eq!(s.subdivisions.len(), 1, "one top-level subsection");
-        assert_eq!(count(s.subdivisions), 3, "a, a/1, a/1/A");
+        assert_eq!(count(&s.subdivisions), 3, "a, a/1, a/1/A");
         assert_eq!(s.relations.len(), 3, "three child→parent edges");
 
         let a = &s.subdivisions[0];
@@ -1476,13 +1458,13 @@ mod tests {
         assert_eq!(a.num, "a");
         assert_eq!(a.urn.value(), "/us/usc/t18/s1514A/a");
         assert_eq!(a.urn.format, IdentifierFormatConcept::UslmUrn);
-        assert_eq!(a.chapeau, Some("In general—"));
+        assert_eq!(a.chapeau.as_deref(), Some("In general—"));
 
         let a1 = &a.children[0];
         assert_eq!(a1.kind, SubdivisionKind::Paragraph);
         let a1a = &a1.children[0];
         assert_eq!(a1a.kind, SubdivisionKind::Subparagraph);
-        assert_eq!(a1a.content, Some("by reason of lawful acts"));
+        assert_eq!(a1a.content.as_deref(), Some("by reason of lawful acts"));
 
         // Relations are child → parent, document-order DFS.
         assert_eq!(s.relations[0].from_urn, "/us/usc/t18/s1514A/a");

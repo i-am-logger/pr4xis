@@ -287,12 +287,8 @@ pub(crate) fn gzip(data: &[u8]) -> Vec<u8> {
     e.finish().expect("gz finish")
 }
 
-#[cfg(feature = "std")]
-pub(crate) fn gunzip(data: &[u8]) -> Vec<u8> {
-    use std::io::Read as _;
-    let mut out = Vec::new();
-    flate2::read::GzDecoder::new(data)
-        .read_to_end(&mut out)
-        .expect("gunzip");
-    out
-}
+// NOTE: the panicking `gunzip` twin that lived here was deleted with the
+// ungated `compact_succinct::load_prx_gz` — every load now takes the
+// FALLIBLE `owl::prx::gunzip` inside the pinned content gate
+// (`lmf::prx::load_compact_english_prx_gz_gated`), so a malformed stream is
+// a typed refusal, never a panic.

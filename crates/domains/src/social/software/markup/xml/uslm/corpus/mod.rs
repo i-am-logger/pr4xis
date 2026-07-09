@@ -267,14 +267,16 @@ pub struct UscSection {
     /// clauses, subclauses, items, subitems. Each carries its own
     /// URN per LRC USLM XML User Guide §V (USC hierarchy) and may
     /// have nested children. Empty for placeholder sections (e.g.
-    /// `[Reserved]`).
-    pub subdivisions: &'static [UscSubdivision],
+    /// `[Reserved]`). OWNED (audit-5): a transient corpus — the wasm
+    /// load projects and then drops it — reclaims this memory; the
+    /// former `&'static` slice forced a `Box::leak` per title.
+    pub subdivisions: Vec<UscSubdivision>,
     /// Composes-relation edges between this section and its
     /// subdivisions, plus between sibling subdivisions where USLM
     /// declares them (per W3C XSD 1.1 Part 1 §3.3.6 substitution-group
     /// containment + LRC USLM XML User Guide §V hierarchy). Empty for
     /// sections with no enumerated subdivisions.
-    pub relations: &'static [UscComposesEdge],
+    pub relations: Vec<UscComposesEdge>,
 }
 
 impl UscSection {
@@ -342,7 +344,7 @@ impl UscSection {
         // want the section-level heading/text. The `from_structural`
         // path validates each term id as a CURIE; bare-name entries
         // fail that check, so we emit only `prefix:local` rows.
-        for sub in self.subdivisions {
+        for sub in &self.subdivisions {
             emit_subdivision_term(sub, &section_urn, statute_name, &mut terms);
         }
 
@@ -350,8 +352,8 @@ impl UscSection {
             .relations
             .iter()
             .filter_map(|edge| {
-                let from = urn_to_curie(edge.from_urn, &section_urn, statute_name)?;
-                let to = urn_to_curie(edge.to_urn, &section_urn, statute_name)?;
+                let from = urn_to_curie(&edge.from_urn, &section_urn, statute_name)?;
+                let to = urn_to_curie(&edge.to_urn, &section_urn, statute_name)?;
                 // Drop edges whose endpoint is the section root (its
                 // CURIE is bare and gets filtered out of `terms`
                 // above; the StatuteConstructError::DanglingRelation
@@ -411,7 +413,7 @@ fn emit_subdivision_term(
     if let Some(curie) = urn_to_curie(urn_value, section_urn, statute_name)
         && curie.contains(':')
     {
-        let name = match sub.heading {
+        let name = match &sub.heading {
             Some(h) if !h.trim().is_empty() => h.to_string(),
             _ => alloc::format!("({})", sub.num),
         };
@@ -420,7 +422,7 @@ fn emit_subdivision_term(
         // `from_structural` constructor doesn't reject empty
         // definitions but downstream consumers expect at least the
         // structural marker text).
-        let definition = match (sub.chapeau, sub.content) {
+        let definition = match (&sub.chapeau, &sub.content) {
             (Some(c), _) if !c.trim().is_empty() => c.to_string(),
             (_, Some(c)) if !c.trim().is_empty() => c.to_string(),
             _ => name.clone(),
@@ -432,7 +434,7 @@ fn emit_subdivision_term(
             lemmas: Vec::new(),
         });
     }
-    for child in sub.children {
+    for child in &sub.children {
         emit_subdivision_term(child, section_urn, statute_name, terms);
     }
 }
@@ -472,15 +474,11 @@ impl UsCode {
     /// This is the constructor the build-time-generated
     /// `usc_corpus_codegen.rs` static drives, via the parallel
     /// `USC_SECTION_AUX` table emitted alongside `CODEGEN_DATA`.
-    pub fn from_codegen_with_aux(
-        data: &CodegenData<UsCode>,
-        aux: &'static [UscSectionAux],
-    ) -> Self {
+    pub fn from_codegen_with_aux(data: &CodegenData<UsCode>, aux: &[UscSectionAux]) -> Self {
         // Index aux by URN for O(1) lookup during section build.
-        let mut aux_by_urn: HashMap<&'static str, &'static UscSectionAux> =
-            HashMap::with_capacity(aux.len());
+        let mut aux_by_urn: HashMap<&str, &UscSectionAux> = HashMap::with_capacity(aux.len());
         for entry in aux {
-            aux_by_urn.insert(entry.urn, entry);
+            aux_by_urn.insert(entry.urn.as_str(), entry);
         }
 
         let mut sections = Vec::with_capacity(data.entity_count);
@@ -493,8 +491,8 @@ impl UsCode {
             let text = data.entity_defs[i].to_string();
             by_urn.insert(urn_str.to_string(), i);
             let (subdivisions, relations) = match aux_by_urn.get(urn_str) {
-                Some(a) => (a.subdivisions, a.relations),
-                None => (&[][..], &[][..]),
+                Some(a) => (a.subdivisions.clone(), a.relations.clone()),
+                None => (Vec::new(), Vec::new()),
             };
             sections.push(UscSection {
                 urn,
@@ -551,11 +549,14 @@ impl UsCode {
     /// Replaces the build-time codegen aggregate static that hit
     /// rustc's compile-time memory ceiling at ~85 MB of input XML.
     ///
-    /// [`Box::leak`] converts owned strings + slices into the
-    /// `&'static` lifetimes the existing [`UscSection`] /
-    /// [`UscSubdivision`] API requires. The leaks persist for
-    /// process lifetime, same as the [`OnceLock`]-cached singleton
-    /// — equivalent to build-time-emitted statics.
+    /// OWNED BY CONSTRUCTION (audit-5): every string and subdivision
+    /// tree is owned by the returned corpus, so a transient `UsCode`
+    /// — the wasm load path projects a title into its
+    /// [`RuntimeOntology`](pr4xis_runtime::ontology::RuntimeOntology)
+    /// and drops the corpus — actually returns its memory. (The former
+    /// `Box::leak` promotion pinned ~24 MiB per loaded title for
+    /// process lifetime; the native [`loaded()`] cache is unaffected —
+    /// its `OnceLock` owns the corpus for the process anyway.)
     ///
     /// Section text accumulates chapeau + content at every depth
     /// (matching `pr4xis::codegen::usc_corpus`'s
@@ -563,17 +564,21 @@ impl UsCode {
     /// invariant) so that downstream Layer-3 lemma resolution sees
     /// the same body text it saw under the codegen path.
     ///
-    /// [`OnceLock`]: std::sync::OnceLock
     /// [`read_uslm_title`]: super::lens::leaf_readers::read_uslm_title
     pub fn from_uslm_titles_owned(titles: alloc::vec::Vec<UsCodeTitle>) -> Self {
         let mut sections: Vec<UscSection> = Vec::new();
         let mut by_urn: HashMap<String, usize> = HashMap::new();
         for title in titles {
             for section in title.sections {
-                let urn_str: &'static str =
-                    alloc::boxed::Box::leak(section.identifier.clone().into_boxed_str());
-                let urn =
-                    Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, urn_str);
+                // The URN comes VERBATIM from the LRC `identifier` attribute
+                // — the source is the authority (real titles carry multi-URN
+                // identifiers for consolidated sections, which the single-URN
+                // grammar does not admit), so it is carried as-is, exactly as
+                // the former `from_codegen_static` promotion did.
+                let urn = Identifier::from_source_verbatim(
+                    IdentifierFormatConcept::UslmUrn,
+                    section.identifier.clone(),
+                );
                 // The section's PROSE heading — the title text minus the
                 // editorial footnote annotation the LRC nests inside the
                 // `<heading>` (a typed `<note type="footnote">` plus its
@@ -587,11 +592,8 @@ impl UsCode {
                 // byte-exact writer path depends on it).
                 let heading = section.heading_mixed.prose_text();
                 let text = section_body_text(&section);
-                let (sub_vec, rel_vec) = subdivisions_to_static(&section.children, urn_str);
-                let subdivisions: &'static [UscSubdivision] =
-                    alloc::boxed::Box::leak(sub_vec.into_boxed_slice());
-                let relations: &'static [UscComposesEdge] =
-                    alloc::boxed::Box::leak(rel_vec.into_boxed_slice());
+                let (subdivisions, relations) =
+                    subdivisions_owned(&section.children, &section.identifier);
                 by_urn.insert(section.identifier.clone(), sections.len());
                 sections.push(UscSection {
                     urn,
@@ -701,55 +703,44 @@ fn push_with_space(out: &mut String, s: &str) {
     out.push_str(s);
 }
 
-/// Convert a `Vec<UsCodeSubdivision>` tree (owned, runtime) into
-/// the static-lifetime [`UscSubdivision`] tree the corpus API
-/// requires, plus the parallel [`UscComposesEdge`] list. Uses
-/// [`Box::leak`] to convert owned strings + slices to `&'static`;
-/// the leaks live for process lifetime (same as the OnceLock-cached
-/// singleton).
+/// Convert a `Vec<UsCodeSubdivision>` tree (owned, runtime) into the OWNED
+/// [`UscSubdivision`] tree the corpus API carries, plus the parallel
+/// [`UscComposesEdge`] list. No `Box::leak` (audit-5): the returned tree is
+/// owned by its `UscSection`, so dropping the corpus reclaims it — the leaked
+/// promotion this replaced pinned every subdivision string for process
+/// lifetime even after the wasm load path dropped the corpus.
 ///
 /// `parent_urn` is the URN of the immediate parent (the section or
 /// containing subdivision); each child emits one
 /// `UscComposesEdge { from_urn: child, to_urn: parent }` edge.
-fn subdivisions_to_static(
+fn subdivisions_owned(
     subs: &[UsCodeSubdivision],
-    parent_urn: &'static str,
+    parent_urn: &str,
 ) -> (Vec<UscSubdivision>, Vec<UscComposesEdge>) {
     let mut result_subs = Vec::with_capacity(subs.len());
     let mut all_edges = Vec::new();
     for sub in subs {
-        let sub_urn: &'static str =
-            alloc::boxed::Box::leak(sub.identifier.clone().into_boxed_str());
         all_edges.push(UscComposesEdge {
-            from_urn: sub_urn,
-            to_urn: parent_urn,
+            from_urn: sub.identifier.clone(),
+            to_urn: parent_urn.to_string(),
         });
-        let (child_subs, child_edges) = subdivisions_to_static(&sub.children, sub_urn);
+        let (children, child_edges) = subdivisions_owned(&sub.children, &sub.identifier);
         all_edges.extend(child_edges);
-        let num_leaked: &'static str = alloc::boxed::Box::leak(sub.num.clone().into_boxed_str());
-        let heading_leaked: Option<&'static str> = sub
-            .heading
-            .as_ref()
-            .map(|h| -> &'static str { alloc::boxed::Box::leak(h.clone().into_boxed_str()) });
-        let chapeau_leaked: Option<&'static str> = sub
-            .chapeau
-            .as_ref()
-            .map(|c| -> &'static str { alloc::boxed::Box::leak(c.clone().into_boxed_str()) });
-        let content_leaked: Option<&'static str> = sub
-            .content
-            .as_ref()
-            .map(|c| -> &'static str { alloc::boxed::Box::leak(c.clone().into_boxed_str()) });
-        let children_leaked: &'static [UscSubdivision] =
-            alloc::boxed::Box::leak(child_subs.into_boxed_slice());
-        let urn = Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, sub_urn);
+        // The subdivision URN comes VERBATIM from the LRC `identifier`
+        // attribute — carried as-is (the source is the authority), exactly as
+        // the former `from_codegen_static` promotion did.
+        let urn = Identifier::from_source_verbatim(
+            IdentifierFormatConcept::UslmUrn,
+            sub.identifier.clone(),
+        );
         result_subs.push(UscSubdivision {
             urn,
             kind: sub.kind,
-            num: num_leaked,
-            heading: heading_leaked,
-            chapeau: chapeau_leaked,
-            content: content_leaked,
-            children: children_leaked,
+            num: sub.num.clone(),
+            heading: sub.heading.clone(),
+            chapeau: sub.chapeau.clone(),
+            content: sub.content.clone(),
+            children,
         });
     }
     (result_subs, all_edges)

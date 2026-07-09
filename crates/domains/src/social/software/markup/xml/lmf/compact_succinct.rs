@@ -1,7 +1,9 @@
 //! Succinct codec for [`CompactWordNet`]:
 //! [`to_succinct`] / [`from_succinct`] serialize the compact ontology to the
 //! `.prx` bytes (embedded as `include_bytes!` of the `.gz`, or downloaded, then
-//! gunzipped and decoded at load).
+//! gunzipped and decoded at load — ALWAYS through the fail-closed
+//! `[compact_archive_signatures]` pin gate,
+//! [`super::prx::load_compact_english_prx_gz_gated`]).
 //!
 //! Each columnar value uses `bits(max)` bits, LSB-first, in CSR (offset +
 //! flat-value) layout. CSR offsets are stored as their per-node-length gaps;
@@ -20,9 +22,8 @@ use alloc::{string::String, vec::Vec};
 
 use hashbrown::HashMap;
 
-use super::compact::{CompactWordNet, IForm, ILexiconMetadata, IPron, ISynBehav, decode, encode};
+use super::compact::{CompactWordNet, IForm, ILexiconMetadata, IPron, ISynBehav, encode};
 use super::ontology::{LmfPos, SenseRelationType, SynsetRelationType, WordNet};
-use crate::cognitive::linguistics::english::English;
 use crate::social::software::markup::xml::succinct::{
     get_blob, get_csr, get_cv, get_delta, get_dict, get_dict_fc, get_ef, get_opt, get_varint,
     put_blob, put_csr, put_cv, put_delta, put_dict, put_dict_fc, put_ef, put_opt, put_varint,
@@ -358,18 +359,22 @@ pub fn from_succinct(buf: &[u8]) -> CompactWordNet {
     }
 }
 
-// ── `.prx.gz` emit / load — the shipped artifact and its runtime decode ─────
+// ── `.prx.gz` emit — the shipped artifact ───────────────────────────────────
 
-use crate::social::software::markup::xml::succinct::{gunzip, gzip};
+use crate::social::software::markup::xml::succinct::gzip;
 
 /// Serialize a parsed [`WordNet`] to the `.prx.gz` bytes — the artifact that is
 /// embedded (`include_bytes!`) or downloaded.
+///
+/// LOADING these bytes back is fail-closed and lives beside the other archive
+/// gates:
+/// [`prx::load_compact_english_prx_gz_gated`](super::prx::load_compact_english_prx_gz_gated)
+/// — gunzip → verify the succinct bytes hash to the `praxis.lock`
+/// `[compact_archive_signatures]` pin → succinct-decode →
+/// `English::from_wordnet`. The former ungated `load_prx_gz` (decode with NO
+/// pin verification) was deleted: every consumer — the native
+/// `english_load_owned()` fast path AND the wasm embedded-English load — now
+/// takes the ONE pinned gate.
 pub fn emit_prx_gz(wn: &WordNet) -> Vec<u8> {
     gzip(&to_succinct(&encode(wn)))
-}
-
-/// Load `.prx.gz` bytes into a materialized [`English`]: gunzip → succinct
-/// decode → [`decode`] → `English::from_wordnet`.
-pub fn load_prx_gz(prx_gz: &[u8]) -> English {
-    English::from_wordnet(&decode(&from_succinct(&gunzip(prx_gz))))
 }
