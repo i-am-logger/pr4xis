@@ -95,6 +95,51 @@ proptest! {
         let _ = raw_source_prx::decode_raw_source(&bytes);
     }
 
+    // COMPRESSED-envelope totality: arbitrary corruption of a REAL DEFLATE
+    // raw-source envelope (a mutated byte anywhere — frame, declared length,
+    // or the RFC 1951 stream itself) must decode to Ok/Err, never panic and
+    // never a runaway allocation (the declared-length bomb guard bounds the
+    // inflater). The payload is a LOW-ENTROPY repeated pattern: uniform-random
+    // bytes are incompressible, so the encoder's store-if-smaller would
+    // downgrade them to Identity and the Deflate arm would never actually run
+    // (the plain ∀-bytes property above almost never reaches a valid DEFLATE
+    // payload by chance either). The size assertion pins that the envelope
+    // genuinely carries a compressed payload — an Identity envelope can never
+    // be smaller than the blob it wraps.
+    #[test]
+    fn prop_raw_source_prx_decode_is_total_over_corrupted_deflate(
+        pattern in proptest::collection::vec(any::<u8>(), 1..16),
+        reps in 32usize..128,
+        byte_idx in any::<prop::sample::Index>(),
+        xor in any::<u8>(),
+    ) {
+        let blob: Vec<u8> = pattern
+            .iter()
+            .cycle()
+            .take(pattern.len() * reps)
+            .copied()
+            .collect();
+        let prx = raw_source_prx::encode_raw_source(
+            "widget",
+            "1",
+            &blob,
+            raw_source_prx::PayloadEncoding::Deflate,
+        );
+        // The Deflate arm must actually be live for this property to test it:
+        // a repeated pattern compresses far below its own length, while an
+        // Identity envelope is always ≥ payload + header.
+        prop_assert!(
+            prx.len() < blob.len(),
+            "envelope not compressed ({} >= {}): the Deflate arm was downgraded",
+            prx.len(),
+            blob.len()
+        );
+        let mut bytes = prx;
+        let i = byte_idx.index(bytes.len());
+        bytes[i] ^= xor; // xor may be 0: the uncorrupted envelope must be Ok
+        let _ = raw_source_prx::decode_raw_source(&bytes);
+    }
+
     #[test]
     fn prop_registry_prx_decode_is_total(bytes in any::<Vec<u8>>()) {
         let _ = registry_prx::decode_registry(&bytes);
@@ -113,4 +158,8 @@ pr4xis::register_praxis_value!(prop_is_dtd_is_total, Honest);
 pr4xis::register_praxis_value!(prop_adobe_glyph_parse_is_total, Honest);
 pr4xis::register_praxis_value!(prop_plaintext_tsv_parse_is_total, Honest);
 pr4xis::register_praxis_value!(prop_raw_source_prx_decode_is_total, Honest);
+pr4xis::register_praxis_value!(
+    prop_raw_source_prx_decode_is_total_over_corrupted_deflate,
+    Honest
+);
 pr4xis::register_praxis_value!(prop_registry_prx_decode_is_total, Honest);

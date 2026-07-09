@@ -52,8 +52,12 @@ const GLYPH_LIST_PRX: &[u8] = include_bytes!("../../../../../data/adobe/glyphlis
 #[must_use]
 pub fn glyph_list_bytes() -> &'static str {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
-    static BYTES: OnceLock<&'static str> = OnceLock::new();
-    BYTES.get_or_init(|| raw_source_text_embedded("adobe_glyph_list", "2019", GLYPH_LIST_PRX))
+    // The accessor returns a `Cow` (owned when the payload rides DEFLATE); the
+    // `OnceLock` caches the one materialization for the process.
+    static BYTES: OnceLock<alloc::borrow::Cow<'static, str>> = OnceLock::new();
+    BYTES
+        .get_or_init(|| raw_source_text_embedded("adobe_glyph_list", "2019", GLYPH_LIST_PRX))
+        .as_ref()
 }
 
 /// Parse the AGL once on first call and cache the name → Unicode

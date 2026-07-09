@@ -140,6 +140,19 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-rustcrypto = { version = "0.0.2-alpha", optional = true }
 flate2 = { version = "1", optional = true }
 
+# RFC 1951 DEFLATE (Deutsch 1996) for the raw-source `.prx` payload transport
+# (`applied::data_provisioning::raw_source_prx::PayloadEncoding::Deflate`).
+# Deliberately the DIRECT dependency rather than `flate2`: the raw-source gate
+# must decode in the DEFAULT `std`-only build (and the schema/grammar loaders
+# even on `no_std`/wasm32), where the `prx` feature — and with it `flate2`,
+# which requires `std` — is absent. `miniz_oxide` is flate2's default pure-Rust
+# backend and therefore ALREADY in the dependency graph; promoting it adds ZERO
+# new crates. `default-features = false` + `with-alloc` keeps it `no_std`
+# (alloc-only), building on every target including wasm32.
+# Cite: Frommherz et al., *miniz_oxide*, MIT/Apache-2.0/Zlib,
+# <https://github.com/Frommi/miniz_oxide>.
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+
 # Zero-copy binary archival of the codegen interchange shape. rkyv
 # serializes the owned mirror of `CodegenData<P>` to a content-addressed
 # blob the runtime materializes without re-parsing the source format.
@@ -198,6 +211,10 @@ toml = "1"
 # (`decode_committed_prx_gated`) and the registry-manifest baked-root gate
 # (`decode_registry_prx`). Same pure-Rust config as the main dependency.
 blake3 = { version = "1", default-features = false, features = ["pure"] }
+# RFC 1951 DEFLATE inflation for build.rs's committed-`.prx` decode — the
+# build-side mirror of the runtime `raw_source_prx` DEFLATE payload transport.
+# Same config as the main dependency (see its rationale above).
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 
 # Lints are inlined here (not inherited from `[workspace.lints]`) so the
 # crate parses cleanly when unpacked standalone — e.g. crate2nix vendors

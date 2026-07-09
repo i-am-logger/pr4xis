@@ -37,7 +37,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "SuccinctCodec",
-    source: "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §3.3 (gap/delta coding of monotone integer sequences), §4.2 (front coding) — lossless compression + the total-inverse-pair round-trip; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
+    source: "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §3.3 (gap/delta coding of monotone integer sequences), §4.2 (front coding) — lossless compression + the total-inverse-pair round-trip; Deutsch (1996) RFC 1951 DEFLATE Compressed Data Format Specification 1.3 — the raw-source envelope's payload transport; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
 
     concepts: [
         SuccinctEncoding,
@@ -45,6 +45,8 @@ pr4xis::ontology! {
         MonotoneGapColumn,
         FrontCodedDictionary,
         SuccinctRoundTrip,
+        RawSourceEnvelope,
+        DeflatePayload,
     ],
 
     labels: {
@@ -58,6 +60,10 @@ pr4xis::ontology! {
             "Witten, Moffat & Bell (1999) §4.2: a string dictionary storing each entry as (shared-prefix-length, suffix) against the previous entry, so a prefix shared with the previous entry (heavy for sorted IRIs under a common namespace) is written once, not per entry. Lossless for any input order; sorting maximizes the elided prefix."),
         SuccinctRoundTrip: ("en", "Succinct round-trip",
             "Witten, Moffat & Bell (1999) lossless coding, here the total inverse law of the compression codec: from_succinct(to_succinct(d)) == d (a serialization inverse pair, NOT a lens law), so the compact wire form loses nothing across the encode/decode boundary the runtime and the wasm/web demo load the corpus and registry through."),
+        RawSourceEnvelope: ("en", "Raw-source envelope",
+            "The versioned raw-source .prx wire form (raw_source_prx, format version 2): varint(format_version) blob(name) blob(version) varint(encoding) varint(decoded_len) blob(payload) — the Bancilhon & Spyratos (1981) raw-bytes complement floor carried under an ENUMERATED, self-described payload encoding, fail-closed on an unknown version or encoding tag and total over arbitrary bytes."),
+        DeflatePayload: ("en", "DEFLATE payload",
+            "Deutsch (1996) RFC 1951: the raw-source envelope's compressed payload transport — a raw DEFLATE stream (deliberately NOT the RFC 1952 gzip wrapper, whose MTIME/OS header fields would make the emitted bytes nondeterministic), STORE-IF-SMALLER (a stream that does not strictly shrink the source bytes is downgraded to the identity transport), inflated fail-closed to EXACTLY the declared decoded length and bomb-guarded by DEFLATE's ~1032:1 maximum expansion (Gailly & Adler, zlib Technical Details)."),
     },
 
     // Kinded morphisms (OBO-RO; Smith et al. 2005). Mereology: the succinct
@@ -73,6 +79,9 @@ pr4xis::ontology! {
         (SuccinctEncoding, FrontCodedDictionary, Parthood),
         (MonotoneGapColumn, BitPackedColumn, Dependency),
         (SuccinctRoundTrip, SuccinctEncoding, Dependency),
+        // The raw-source envelope HAS-PART its DEFLATE payload transport
+        // (`part of`, RO:0000050) — the store-if-smaller arm of format v2.
+        (RawSourceEnvelope, DeflatePayload, Parthood),
     ],
 }
 
@@ -103,6 +112,12 @@ impl Quality for ConceptDescription {
             C::SuccinctRoundTrip => {
                 "from_succinct(to_succinct(d)) == d — a total inverse pair; the compact codec loses nothing (Witten-Moffat-Bell 1999)"
             }
+            C::RawSourceEnvelope => {
+                "the versioned raw-source .prx wire form: name/version key + enumerated payload encoding + declared decoded length (Bancilhon-Spyratos 1981 floor, fail-closed framing)"
+            }
+            C::DeflatePayload => {
+                "raw RFC 1951 DEFLATE payload transport, store-if-smaller, length-declared and bomb-guarded (Deutsch 1996)"
+            }
         })
     }
 }
@@ -118,11 +133,13 @@ impl Ontology for SuccinctCodecOntology {
         // machinery whenever the codec exists.
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         use super::axioms::{
-            FrontCodingSharesPrefixes, MonotoneOffsetsCompact, SuccinctCodecRoundTrip,
+            FrontCodingSharesPrefixes, MonotoneOffsetsCompact, RawSourceDeflateTransport,
+            SuccinctCodecRoundTrip,
         };
         axioms.push(alloc::boxed::Box::new(SuccinctCodecRoundTrip));
         axioms.push(alloc::boxed::Box::new(MonotoneOffsetsCompact));
         axioms.push(alloc::boxed::Box::new(FrontCodingSharesPrefixes));
+        axioms.push(alloc::boxed::Box::new(RawSourceDeflateTransport));
         axioms
     }
 }
@@ -151,8 +168,8 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn five_concepts() {
-        assert_eq!(SuccinctCodecConcept::variants().len(), 5);
+    fn seven_concepts() {
+        assert_eq!(SuccinctCodecConcept::variants().len(), 7);
     }
 
     /// The machinery is reasoned about through the SAME registry as any statute:
@@ -173,6 +190,7 @@ mod tests {
             "SuccinctCodecRoundTrip",
             "MonotoneOffsetsCompact",
             "FrontCodingSharesPrefixes",
+            "RawSourceDeflateTransport",
         ] {
             assert!(
                 axiom_by_name(axiom).is_some(),

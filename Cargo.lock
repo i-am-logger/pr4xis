@@ -1531,6 +1531,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "hex",
  "linkme",
+ "miniz_oxide",
  "pr4xis",
  "pr4xis-runtime",
  "proptest",

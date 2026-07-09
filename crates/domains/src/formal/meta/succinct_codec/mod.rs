@@ -14,19 +14,24 @@
 //! machine-checkable facts about it as `verify()` predicates that run against
 //! the real codec.
 //!
-//! - [`ontology`] — the concepts (`SuccinctEncoding`, `BitPackedColumn`,
-//!   `MonotoneGapColumn`, `FrontCodedDictionary`, `SuccinctRoundTrip`) and their
-//!   kinded mereology/dependency morphisms.
-//! - [`axioms`] — the three runnable predicates: `SuccinctCodecRoundTrip`
+//! - `ontology` — the concepts (`SuccinctEncoding`, `BitPackedColumn`,
+//!   `MonotoneGapColumn`, `FrontCodedDictionary`, `SuccinctRoundTrip`, plus the
+//!   raw-source wire form `RawSourceEnvelope` and its RFC 1951
+//!   `DeflatePayload` transport) and their kinded mereology/dependency
+//!   morphisms.
+//! - `axioms` — the four runnable predicates: `SuccinctCodecRoundTrip`
 //!   (`from_succinct ∘ to_succinct = id`), `MonotoneOffsetsCompact` (gap coding
-//!   is lossless AND strictly smaller than absolute packing), and
-//!   `FrontCodingSharesPrefixes` (front coding is order-independent AND strictly
-//!   smaller than the plain dictionary on shared prefixes).
+//!   is lossless AND strictly smaller than absolute packing),
+//!   `FrontCodingSharesPrefixes` (front coding is order-independent AND
+//!   strictly smaller than the plain dictionary on shared prefixes), and
+//!   `RawSourceDeflateTransport` (the raw-source envelope's DEFLATE payload is
+//!   lossless, strictly compacting, and store-if-smaller — over the REAL
+//!   `raw_source_prx` codec).
 //!
 //! Gated on `feature = "prx"`: the codec this ontology describes only exists
 //! under `prx` (both `markup::xml::succinct` and `owl::prx` are `#[cfg(feature =
 //! "prx")]`), so the ontology that self-describes it is gated with it — unlike
-//! [`super::canonical_codec`], whose DAG-CBOR codec is unconditionally compiled.
+//! `super::canonical_codec`, whose DAG-CBOR codec is unconditionally compiled.
 
 pub mod axioms;
 pub mod ontology;

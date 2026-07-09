@@ -45,10 +45,13 @@ const XML_1_0_FIFTH_EDITION_PRX: &[u8] = include_bytes!(concat!(
 pub fn loaded_xml_1_0_fifth_edition() -> &'static str {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
     use std::sync::OnceLock;
-    static SPEC: OnceLock<&'static str> = OnceLock::new();
+    // The accessor returns a `Cow` (owned when the payload rides DEFLATE); the
+    // `OnceLock` caches the one materialization for the process.
+    static SPEC: OnceLock<alloc::borrow::Cow<'static, str>> = OnceLock::new();
     SPEC.get_or_init(|| {
         raw_source_text_embedded("xml_1_0_fifth_edition", "2008", XML_1_0_FIFTH_EDITION_PRX)
     })
+    .as_ref()
 }
 
 #[cfg(test)]

@@ -59,8 +59,11 @@ const XHTML_1_0_STRICT_XSD_PRX: &[u8] = include_bytes!(concat!(
 #[must_use]
 pub fn loaded_xhtml_1_0_strict() -> &'static str {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
-    static XSD: OnceLock<&'static str> = OnceLock::new();
+    // The accessor returns a `Cow` (owned when the payload rides DEFLATE); the
+    // `OnceLock` caches the one materialization for the process.
+    static XSD: OnceLock<alloc::borrow::Cow<'static, str>> = OnceLock::new();
     XSD.get_or_init(|| raw_source_text_embedded("xhtml_1_0_xsd", "1.0", XHTML_1_0_STRICT_XSD_PRX))
+        .as_ref()
 }
 
 /// Lazily-loaded set of element local-names (lowercased) declared by

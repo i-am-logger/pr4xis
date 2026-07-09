@@ -74,7 +74,7 @@ const WM_STATE_PRX: &[u8] = include_bytes!(concat!(
 /// authority the [`StateBit`] enum is proven complete-and-sound against
 /// ([`VocabularyComplete`]); the enum is the typed working representation, the
 /// loaded data is what it must conform to.
-fn wm_state_tsv() -> &'static str {
+fn wm_state_tsv() -> alloc::borrow::Cow<'static, str> {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
     raw_source_text_embedded("ewmh_wm_state", "1.5", WM_STATE_PRX)
 }
@@ -92,7 +92,7 @@ pub fn wm_state_vocabulary() -> Vec<StateBitDef> {
     }
     #[cfg(not(feature = "std"))]
     {
-        parse_wm_state_tsv(wm_state_tsv())
+        parse_wm_state_tsv(&wm_state_tsv())
     }
 }
 
@@ -100,7 +100,7 @@ pub fn wm_state_vocabulary() -> Vec<StateBitDef> {
 fn wm_state_cached() -> &'static [StateBitDef] {
     use std::sync::OnceLock;
     static CACHE: OnceLock<Vec<StateBitDef>> = OnceLock::new();
-    CACHE.get_or_init(|| parse_wm_state_tsv(wm_state_tsv()))
+    CACHE.get_or_init(|| parse_wm_state_tsv(&wm_state_tsv()))
 }
 
 fn parse_wm_state_tsv(tsv: &str) -> Vec<StateBitDef> {

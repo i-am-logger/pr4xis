@@ -86,31 +86,51 @@ struct RawLockFile {
 // This is ONE build-side decoder shared by all three writers (not three), the
 // build-script mirror of `raw_source_prx::load_raw_source_prx_gated`: the
 // envelope framing is the same dependency-free LEB128 layout
-// (`put_blob(name) put_blob(version) put_blob(bytes)`), and the content address
-// is `blake3` hex (matching `pr4xis_runtime::address::ContentAddress::of`), which
-// the build-dep `blake3` re-derives here.
+// (`varint(format_version = 2) put_blob(name) put_blob(version)
+// varint(encoding) varint(decoded_len) put_blob(payload)`, where `encoding` is
+// the `PayloadEncoding` wire tag — 0 Identity, 1 raw RFC 1951 DEFLATE), and the
+// content address is `blake3` hex (matching
+// `pr4xis_runtime::address::ContentAddress::of`), which the build-dep `blake3`
+// re-derives here. DEFLATE payloads are inflated by the build-dep
+// `miniz_oxide`, mirroring the runtime `materialize_payload`.
 
-/// Read one LEB128 length-prefixed blob from `buf` at `*pos`, advancing `*pos`.
-/// Fully bounds-checked — a truncated envelope is an `Err`, never a panic
-/// (mirrors `raw_source_prx::get_blob`).
-fn prx_get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], String> {
-    let mut len: u64 = 0;
+/// The raw-source envelope format version this build script reads — MUST equal
+/// `raw_source_prx::RAW_SOURCE_ENVELOPE_FORMAT_VERSION` (the runtime codec).
+const RAW_SOURCE_ENVELOPE_FORMAT_VERSION: u64 = 2;
+
+/// DEFLATE's maximum expansion factor (Gailly & Adler, *zlib Technical
+/// Details*, <https://zlib.net/zlib_tech.html>: ≤ 258 bytes out per ~2 bits in
+/// ⇒ ~1032:1) — mirrors `raw_source_prx::DEFLATE_MAX_EXPANSION`, the
+/// decompression-bomb guard on the declared decoded length.
+const DEFLATE_MAX_EXPANSION: u64 = 1032;
+
+/// Read one LEB128 varint from `buf` at `*pos`, advancing `*pos`. Fully
+/// bounds-checked — a truncated envelope is an `Err`, never a panic
+/// (mirrors `raw_source_prx::get_varint`).
+fn prx_get_varint(buf: &[u8], pos: &mut usize) -> Result<u64, String> {
+    let mut n: u64 = 0;
     let mut shift = 0u32;
     loop {
         let b = *buf
             .get(*pos)
             .ok_or_else(|| "committed .prx varint runs past end of buffer".to_string())?;
         *pos += 1;
-        len |= u64::from(b & 0x7f) << shift;
+        n |= u64::from(b & 0x7f) << shift;
         if b & 0x80 == 0 {
-            break;
+            return Ok(n);
         }
         shift += 7;
         if shift >= 64 {
             return Err("committed .prx varint length overflow".to_string());
         }
     }
-    let len = len as usize;
+}
+
+/// Read one LEB128 length-prefixed blob from `buf` at `*pos`, advancing `*pos`.
+/// Fully bounds-checked — a truncated envelope is an `Err`, never a panic
+/// (mirrors `raw_source_prx::get_blob`).
+fn prx_get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], String> {
+    let len = prx_get_varint(buf, pos)? as usize;
     let end = pos
         .checked_add(len)
         .filter(|&e| e <= buf.len())
@@ -153,10 +173,64 @@ fn decode_committed_prx_gated(
         ));
     }
     let mut pos = 0usize;
+    let format_version = prx_get_varint(&prx, &mut pos)?;
+    if format_version != RAW_SOURCE_ENVELOPE_FORMAT_VERSION {
+        return Err(format!(
+            "committed .prx for `{key}` carries unsupported envelope format version \
+             {format_version} (this build reads {RAW_SOURCE_ENVELOPE_FORMAT_VERSION})"
+        ));
+    }
     let _name = prx_get_blob(&prx, &mut pos)?;
     let _version = prx_get_blob(&prx, &mut pos)?;
-    let blob = prx_get_blob(&prx, &mut pos)?;
-    let text = String::from_utf8(blob.to_vec())
+    let encoding_tag = prx_get_varint(&prx, &mut pos)?;
+    let decoded_len = prx_get_varint(&prx, &mut pos)?;
+    let payload = prx_get_blob(&prx, &mut pos)?;
+    if pos != prx.len() {
+        return Err(format!(
+            "committed .prx for `{key}` carries trailing bytes after the payload blob"
+        ));
+    }
+    // Mirror of `raw_source_prx::materialize_payload`: 0 = Identity (payload IS
+    // the source bytes), 1 = raw RFC 1951 DEFLATE of the source bytes.
+    let blob: Vec<u8> = match encoding_tag {
+        0 => {
+            if decoded_len != payload.len() as u64 {
+                return Err(format!(
+                    "committed .prx for `{key}`: identity payload length {} ≠ declared \
+                     decoded length {decoded_len}",
+                    payload.len()
+                ));
+            }
+            payload.to_vec()
+        }
+        1 => {
+            if decoded_len > (payload.len() as u64).saturating_mul(DEFLATE_MAX_EXPANSION) {
+                return Err(format!(
+                    "committed .prx for `{key}`: declared decoded length {decoded_len} \
+                     exceeds the RFC 1951 maximum expansion of the payload"
+                ));
+            }
+            let out =
+                miniz_oxide::inflate::decompress_to_vec_with_limit(payload, decoded_len as usize)
+                    .map_err(|e| {
+                    format!("committed .prx for `{key}`: DEFLATE payload does not inflate: {e}")
+                })?;
+            if out.len() as u64 != decoded_len {
+                return Err(format!(
+                    "committed .prx for `{key}`: DEFLATE payload inflated to {} byte(s), \
+                     declared decoded length is {decoded_len}",
+                    out.len()
+                ));
+            }
+            out
+        }
+        other => {
+            return Err(format!(
+                "committed .prx for `{key}` carries unknown payload-encoding wire tag {other}"
+            ));
+        }
+    };
+    let text = String::from_utf8(blob)
         .map_err(|e| format!("committed .prx for `{key}` payload is not UTF-8: {e}"))?;
     Ok(Some(text))
 }
@@ -184,7 +258,7 @@ fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
 // build reads the root from `praxis.lock`, so this constant is only exercised by
 // the isolated `cargo publish --verify`, which is why the drift reached CI.)
 const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "74ef53c9205fca5deaf7cb260408761ffaed3152bfbe4a7c8caa7d442a5a16e6";
+    "98f7975b25cd55112dfc79d39c904c8113ca03e8a368492bb38c6ce9466b5609";
 
 /// Decode the committed registry MANIFEST `.prx`
 /// (`crates/domains/data/registry/praxis-registry.prx`) into its

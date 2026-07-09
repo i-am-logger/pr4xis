@@ -45,8 +45,11 @@ const WN_LMF_1_3_DTD_PRX: &[u8] = include_bytes!(concat!(
 pub fn loaded_wn_lmf_dtd() -> &'static str {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
     use std::sync::OnceLock;
-    static DTD: OnceLock<&'static str> = OnceLock::new();
+    // The accessor returns a `Cow` (owned when the payload rides DEFLATE); the
+    // `OnceLock` caches the one materialization for the process.
+    static DTD: OnceLock<alloc::borrow::Cow<'static, str>> = OnceLock::new();
     DTD.get_or_init(|| raw_source_text_embedded("wn_lmf_dtd", "1.3", WN_LMF_1_3_DTD_PRX))
+        .as_ref()
 }
 
 /// True iff `name` is the local-name of an element type declared

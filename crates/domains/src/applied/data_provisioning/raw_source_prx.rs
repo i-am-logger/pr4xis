@@ -2,12 +2,12 @@
 //! mechanism every non-graph source (XSD, DTD, XHTML, the XML-1.0 spec, the
 //! OOXML ZIP, the TSV vocabularies, the Adobe glyph list) materializes its
 //! committed bytes through, the byte-stream sibling of the OWL-vocabulary
-//! [`load_owl_vocabulary`] path.
+//! `load_owl_vocabulary` path.
 //!
 //! ## Why a byte-stream codec, and why it is ONE mechanism
 //!
 //! Phase 1 generalized the OWL vocabularies onto a single
-//! [`load_owl_vocabulary`] path: a source's load is
+//! `load_owl_vocabulary` path: a source's load is
 //! `registry.by_name(X) → resolve X.prx → gated load`. That path materializes a
 //! *parsed graph* (`OwnedCodegenData` → `LoadedOwlVocabulary`) — it only fits
 //! sources whose runtime value is that graph (OWL, WordNet-LMF, USLM).
@@ -41,26 +41,48 @@
 //! ```
 //!
 //! The envelope is the [`RawBytesComplementFloor`] tier (Bancilhon & Spyratos
-//! 1981 constant-complement): the source bytes ARE the payload, carried as a
-//! length-prefixed blob alongside the `name`/`version` key, succinct-encoded
+//! 1981 constant-complement): the source bytes ARE the payload (recovered
+//! byte-exactly on every load), carried in a VERSIONED envelope alongside the
+//! `name`/`version` key and a declared [`PayloadEncoding`], succinct-encoded
 //! (dependency-free LEB128 framing — portable across toolchains and targets,
 //! wasm32 included). The content address is taken over those succinct bytes, so
 //! it pins into the SAME `praxis.lock` `[compact_archive_signatures]` space the
 //! OWL / WordNet / USC compact archives use.
 //!
-//! ## No-gzip, feature-light by design
+//! ## DEFLATE payload transport, feature-light by design
 //!
-//! Unlike the OWL/WordNet compact archives, the committed raw-source `.prx` is
-//! **NOT gzip-wrapped**: these text/TSV/glyph sources are small, and gzip would
-//! pull `flate2` (the `prx` feature) into the gate — but these sources load in
-//! the default `std`-only build (and the schema/grammar loaders even on
-//! `no_std`). The gate needs only the content-address hash
+//! The payload blob is carried under a declared, enumerated
+//! [`PayloadEncoding`]:
+//!
+//! - [`PayloadEncoding::Identity`] — the stored blob IS the source bytes;
+//! - [`PayloadEncoding::Deflate`] — the stored blob is a raw RFC 1951 DEFLATE
+//!   stream (Deutsch 1996) of the source bytes, inflated back byte-exactly at
+//!   decode. Raw DEFLATE, deliberately NOT the RFC 1952 gzip wrapper: gzip's
+//!   member header carries `MTIME`/`OS` fields, which would make the emitted
+//!   bytes (and so the content address) nondeterministic — the exact hazard the
+//!   OWL `.prx.gz` path dodges by hashing the DECOMPRESSED bytes. A raw DEFLATE
+//!   stream is a pure function of (input bytes, compressor), so the envelope
+//!   stays deterministic and the pin is over the envelope itself.
+//!
+//! The emitter is STORE-IF-SMALLER: a requested `Deflate` that does not
+//! strictly shrink the payload is downgraded to `Identity` (already-compressed
+//! upstream bytes — the `.tar.gz` conformance suites, the OOXML ZIP — never pay
+//! a second, useless pass; see [`preferred_payload_encoding`]).
+//!
+//! Inflation uses `miniz_oxide` directly (pure Rust, `no_std` + `alloc`, and
+//! ALREADY in the dependency graph as flate2's backend for the `prx` `.prx.gz`
+//! path) — so the loader stays feature-light: it works in the default
+//! `std`-only build, on `no_std`, and on wasm32, with NO new crate and no
+//! `flate2`/`prx` requirement. The gate needs only the content-address hash
 //! ([`pr4xis_runtime::address`]) and the `raw_hash` verifier, both
 //! feature-independent, so the load path is gated on `std` alone (for
 //! `std::fs`), never on `prx`. A committed `.prx` whose succinct bytes do not
 //! hash to the pin — or that has no pin — is rejected fail-closed before any
-//! bytes are returned (Dolstra 2006 content-addressing; W3C SRI 2016). The raw
-//! source is fetch-only (`pr4xis update`); it ships in no published crate.
+//! bytes are returned (Dolstra 2006 content-addressing; W3C SRI 2016); a
+//! DEFLATE payload that does not inflate cleanly to its declared length is
+//! rejected the same way, and the decoder is TOTAL (arbitrary bytes → `Err`,
+//! never a panic). The raw source is fetch-only (`pr4xis update`); it ships in
+//! no published crate.
 //!
 //! ## Citations
 //!
@@ -72,14 +94,22 @@
 //!   well-behaved-lens GetPut law `emit`/`load` witness.
 //! - **Dolstra, E. (2006)** *The Purely Functional Software Deployment Model* —
 //!   content-addressing by cryptographic hash.
+//! - **Deutsch, P. (1996)** *RFC 1951: DEFLATE Compressed Data Format
+//!   Specification version 1.3* — the payload compression; **RFC 1952** (gzip)
+//!   cited only as the wrapper deliberately NOT used (its `MTIME`/`OS` header
+//!   fields are nondeterministic).
+//! - **Gailly, J.-l. & Adler, M.**, *zlib Technical Details*
+//!   (<https://zlib.net/zlib_tech.html>) — DEFLATE's maximum expansion factor
+//!   (one length/distance pair emits ≤ 258 bytes from ~2 bits ⇒ ~1032:1),
+//!   the bound behind [`DEFLATE_MAX_EXPANSION`]'s decompression-bomb guard.
 //!
-//! [`load_owl_vocabulary`]: crate::social::software::markup::xml::owl::loaded_vocabularies::load_owl_vocabulary
 //! [`DtdSchema`]: crate::formal::meta::dtd::DtdSchema
 //! [`RawBytesComplementFloor`]: crate::formal::meta::well_behaved_lens::RoundTripFidelity::RawBytesComplementFloor
 //! [`ContentType`]: super::ontology::ContentType
 
 #[allow(unused_imports)]
 use alloc::{
+    borrow::Cow,
     format,
     string::{String, ToString},
     vec::Vec,
@@ -220,9 +250,117 @@ pub fn raw_prx_path(entry: &RegistryEntry) -> String {
 // The raw-source envelope codec — a self-describing, content-addressed blob.
 // =============================================================================
 
-/// Append `bytes` length-prefixed (LEB128 varint length + raw bytes).
-fn put_blob(out: &mut Vec<u8>, bytes: &[u8]) {
-    let mut n = bytes.len() as u64;
+/// The raw-source envelope FORMAT VERSION this build reads and writes — the
+/// leading varint of every envelope, making the layout EXPLICIT in the bytes
+/// (a self-describing format, not an implicit convention). Version 2 is the
+/// encoded-payload layout:
+///
+/// ```text
+/// varint(format_version = 2)
+/// blob(name) blob(version)               (the registry key)
+/// varint(encoding)                       (a PayloadEncoding wire tag)
+/// varint(decoded_len)                    (the SOURCE byte length)
+/// blob(payload)                          (the encoded source bytes)
+/// ```
+///
+/// (Version 1 — the unversioned `blob(name) blob(version) blob(payload)`
+/// layout — is no longer emitted or read; every committed `.prx` was
+/// regenerated. A v1 envelope fails the leading-varint check fail-closed.)
+/// Any other leading varint is an unknown format: rejected, never guessed at.
+pub const RAW_SOURCE_ENVELOPE_FORMAT_VERSION: u64 = 2;
+
+/// DEFLATE's maximum expansion factor — the decompression-bomb guard bound.
+///
+/// Gailly & Adler, *zlib Technical Details* (<https://zlib.net/zlib_tech.html>):
+/// one length/distance pair can represent at most 258 output bytes and costs at
+/// least two bits of input, so the maximum decompression expansion is
+/// ~1032:1. A declared `decoded_len` exceeding `payload.len() × 1032` is
+/// therefore unsatisfiable by ANY valid DEFLATE stream and is rejected before a
+/// single byte is inflated — a forged length can never drive the allocation.
+pub const DEFLATE_MAX_EXPANSION: u64 = 1032;
+
+/// How a raw-source envelope's payload blob encodes the source bytes — the
+/// enumerated, self-described transport written into every envelope (a cited
+/// codec concept, never a bare magic number in the stream).
+///
+/// - `Identity`: the payload IS the source bytes — the plain
+///   [`RawBytesComplementFloor`](crate::formal::meta::well_behaved_lens::RoundTripFidelity::RawBytesComplementFloor)
+///   carrier (Bancilhon & Spyratos 1981).
+/// - `Deflate`: the payload is a raw RFC 1951 DEFLATE stream (Deutsch 1996) of
+///   the source bytes. Raw DEFLATE, NOT the RFC 1952 gzip wrapper, whose
+///   `MTIME`/`OS` member-header fields would make the emitted bytes — and so
+///   the `[compact_archive_signatures]` content address — nondeterministic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PayloadEncoding {
+    /// Payload = source bytes, verbatim.
+    Identity,
+    /// Payload = raw RFC 1951 DEFLATE stream of the source bytes.
+    Deflate,
+}
+
+impl PayloadEncoding {
+    /// The varint wire tag written into the envelope for this encoding.
+    #[must_use]
+    pub const fn wire_tag(self) -> u64 {
+        match self {
+            PayloadEncoding::Identity => 0,
+            PayloadEncoding::Deflate => 1,
+        }
+    }
+
+    /// The encoding a wire tag names — `None` for an unknown tag (fail-closed:
+    /// the decoder refuses an envelope it cannot name, never guesses).
+    #[must_use]
+    pub const fn from_wire_tag(tag: u64) -> Option<Self> {
+        match tag {
+            0 => Some(PayloadEncoding::Identity),
+            1 => Some(PayloadEncoding::Deflate),
+            _ => None,
+        }
+    }
+}
+
+/// The payload encoding the EMITTER requests for a registered source, decided
+/// by its [`ContentType`] — content-type-driven, mirroring how
+/// [`is_raw_source_content_type`] decides membership. EXHAUSTIVE — no wildcard
+/// arm: a new `ContentType` variant is a COMPILE ERROR here until its transport
+/// is decided.
+///
+/// Already-compressed upstream formats request `Identity`: a `.tar.gz` member
+/// is an RFC 1952 gzip wrapper around an RFC 1951 DEFLATE stream, and ZIP
+/// entries are DEFLATE-compressed per APPNOTE §4.4.5 (method 8) — a second
+/// DEFLATE pass over either gains nothing (and the emitter's store-if-smaller
+/// guard would downgrade it anyway; this just never pays for the attempt). The
+/// same reasoning covers the opaque media types (PDF/video/audio carry their
+/// own internal compression). Every text-shaped source requests `Deflate`.
+#[must_use]
+pub fn preferred_payload_encoding(content_type: ContentType) -> PayloadEncoding {
+    use ContentType as CT;
+    match content_type {
+        // Text-shaped sources: XML/XSD/DTD/XHTML/TSV/JSON/glyph-list bytes
+        // deflate 3-6x; the envelope carries them as RFC 1951 streams.
+        CT::XmlXsd
+        | CT::XmlDtd
+        | CT::Xhtml
+        | CT::Plaintext
+        | CT::AdobeGlyphList
+        | CT::Json
+        | CT::MathOperatorLmf
+        | CT::ThemeCollection
+        | CT::XmlLmfLexicon
+        | CT::Owl
+        | CT::XmlLmf
+        | CT::UslmXml => PayloadEncoding::Deflate,
+        // Already-compressed upstream bytes (gzip member / ZIP deflate entries)
+        // and opaque media with internal compression: store verbatim.
+        CT::ZipArchive | CT::TarGzArchive | CT::Pdf | CT::Video | CT::Audio | CT::Binary => {
+            PayloadEncoding::Identity
+        }
+    }
+}
+
+/// Append a LEB128 varint.
+fn put_varint(out: &mut Vec<u8>, mut n: u64) {
     loop {
         let b = (n & 0x7f) as u8;
         n >>= 7;
@@ -232,22 +370,27 @@ fn put_blob(out: &mut Vec<u8>, bytes: &[u8]) {
         }
         out.push(b | 0x80);
     }
+}
+
+/// Append `bytes` length-prefixed (LEB128 varint length + raw bytes).
+fn put_blob(out: &mut Vec<u8>, bytes: &[u8]) {
+    put_varint(out, bytes.len() as u64);
     out.extend_from_slice(bytes);
 }
 
-/// Read one length-prefixed blob with full bounds checking — the panic-proof
-/// reader the gate relies on (a truncated archive is Err, never a panic).
-fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], RawSourcePrxError> {
-    let mut len: u64 = 0;
+/// Read one LEB128 varint with full bounds checking — the panic-proof reader
+/// the gate relies on (a truncated buffer is Err, never a panic).
+fn get_varint(buf: &[u8], pos: &mut usize) -> Result<u64, RawSourcePrxError> {
+    let mut n: u64 = 0;
     let mut shift = 0u32;
     loop {
         let b = *buf
             .get(*pos)
             .ok_or_else(|| RawSourcePrxError::Malformed("varint runs past end of buffer".into()))?;
         *pos += 1;
-        len |= ((b & 0x7f) as u64) << shift;
+        n |= ((b & 0x7f) as u64) << shift;
         if b & 0x80 == 0 {
-            break;
+            return Ok(n);
         }
         shift += 7;
         if shift >= 64 {
@@ -256,7 +399,12 @@ fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], RawSourcePrx
             ));
         }
     }
-    let len = len as usize;
+}
+
+/// Read one length-prefixed blob with full bounds checking — the panic-proof
+/// reader the gate relies on (a truncated archive is Err, never a panic).
+fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], RawSourcePrxError> {
+    let len = get_varint(buf, pos)? as usize;
     let end = pos
         .checked_add(len)
         .filter(|&e| e <= buf.len())
@@ -266,44 +414,184 @@ fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], RawSourcePrx
     Ok(b)
 }
 
-/// Encode the raw source `bytes` into the portable succinct envelope:
-/// `put_blob(name) put_blob(version) put_blob(bytes)`. Dependency-free LEB128
-/// framing — no rkyv, no gzip — so the layout is stable across toolchains and
-/// targets and the content address taken over it is portable.
+/// A parsed (but not yet payload-materialized) raw-source envelope — the
+/// structural view [`decode_raw_source`] and the zero-copy gated loader share,
+/// borrowing every field from the envelope buffer.
+struct ParsedEnvelope<'a> {
+    name: &'a [u8],
+    version: &'a [u8],
+    encoding: PayloadEncoding,
+    /// The declared SOURCE byte length (what the payload materializes to).
+    decoded_len: u64,
+    payload: &'a [u8],
+}
+
+/// Parse a version-2 envelope's frame, fail-closed and TOTAL: an unknown
+/// format version, an unknown encoding tag, a truncated/overrunning blob,
+/// trailing garbage, or a structurally unsatisfiable declared length is `Err`,
+/// never a panic and never a guess.
+fn parse_envelope(buf: &[u8]) -> Result<ParsedEnvelope<'_>, RawSourcePrxError> {
+    let mut pos = 0usize;
+    let format_version = get_varint(buf, &mut pos)?;
+    if format_version != RAW_SOURCE_ENVELOPE_FORMAT_VERSION {
+        return Err(RawSourcePrxError::Malformed(format!(
+            "unsupported raw-source envelope format version {format_version} (this build reads \
+             version {RAW_SOURCE_ENVELOPE_FORMAT_VERSION}) — refusing to guess at the layout"
+        )));
+    }
+    let name = get_blob(buf, &mut pos)?;
+    let version = get_blob(buf, &mut pos)?;
+    let tag = get_varint(buf, &mut pos)?;
+    let encoding = PayloadEncoding::from_wire_tag(tag).ok_or_else(|| {
+        RawSourcePrxError::Malformed(format!("unknown payload-encoding wire tag {tag}"))
+    })?;
+    let decoded_len = get_varint(buf, &mut pos)?;
+    let payload = get_blob(buf, &mut pos)?;
+    if pos != buf.len() {
+        return Err(RawSourcePrxError::Malformed(format!(
+            "{} trailing byte(s) after the payload blob",
+            buf.len() - pos
+        )));
+    }
+    match encoding {
+        // Identity: the declared length IS the payload length, by definition.
+        PayloadEncoding::Identity => {
+            if decoded_len != payload.len() as u64 {
+                return Err(RawSourcePrxError::Malformed(format!(
+                    "identity payload length {} ≠ declared decoded length {decoded_len}",
+                    payload.len()
+                )));
+            }
+        }
+        // Deflate: the decompression-bomb guard. No valid RFC 1951 stream
+        // expands beyond ~1032:1 (Gailly & Adler, zlib Technical Details), so a
+        // declared length above payload × DEFLATE_MAX_EXPANSION is a forgery —
+        // rejected before any allocation is sized from it.
+        PayloadEncoding::Deflate => {
+            if decoded_len > (payload.len() as u64).saturating_mul(DEFLATE_MAX_EXPANSION) {
+                return Err(RawSourcePrxError::Malformed(format!(
+                    "declared decoded length {decoded_len} exceeds the RFC 1951 maximum \
+                     expansion ({DEFLATE_MAX_EXPANSION}:1) of a {}-byte payload",
+                    payload.len()
+                )));
+            }
+        }
+    }
+    Ok(ParsedEnvelope {
+        name,
+        version,
+        encoding,
+        decoded_len,
+        payload,
+    })
+}
+
+/// Materialize a parsed envelope's payload back into the SOURCE bytes:
+/// zero-copy (`Cow::Borrowed`) for `Identity`, inflated (`Cow::Owned`) for
+/// `Deflate`. Fail-closed and total: a DEFLATE stream that does not inflate
+/// cleanly to EXACTLY the declared length is `Err`, never a panic — the
+/// inflater is bounded by the declared length, so it can neither run away nor
+/// silently truncate.
+fn materialize_payload<'a>(env: &ParsedEnvelope<'a>) -> Result<Cow<'a, [u8]>, RawSourcePrxError> {
+    match env.encoding {
+        PayloadEncoding::Identity => Ok(Cow::Borrowed(env.payload)),
+        PayloadEncoding::Deflate => {
+            let out = miniz_oxide::inflate::decompress_to_vec_with_limit(
+                env.payload,
+                env.decoded_len as usize,
+            )
+            .map_err(|e| {
+                RawSourcePrxError::Malformed(format!("DEFLATE payload does not inflate: {e}"))
+            })?;
+            if out.len() as u64 != env.decoded_len {
+                return Err(RawSourcePrxError::Malformed(format!(
+                    "DEFLATE payload inflated to {} byte(s), declared decoded length is {}",
+                    out.len(),
+                    env.decoded_len
+                )));
+            }
+            Ok(Cow::Owned(out))
+        }
+    }
+}
+
+/// Encode the raw source `bytes` into the portable succinct envelope
+/// (see [`RAW_SOURCE_ENVELOPE_FORMAT_VERSION`] for the exact layout).
+/// Dependency-light LEB128 framing + optional raw RFC 1951 payload — no rkyv,
+/// no gzip wrapper — so the layout is stable across toolchains and targets and
+/// the content address taken over it is portable and DETERMINISTIC.
+///
+/// `requested` is the transport the caller asks for; the emitter is
+/// STORE-IF-SMALLER: a `Deflate` whose stream is not strictly smaller than the
+/// source bytes is downgraded to `Identity` (so already-compressed payloads
+/// never grow, and `encode` stays a pure deterministic function of its inputs).
 #[must_use]
-pub fn encode_raw_source(name: &str, version: &str, bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len() + name.len() + version.len() + 16);
+pub fn encode_raw_source(
+    name: &str,
+    version: &str,
+    bytes: &[u8],
+    requested: PayloadEncoding,
+) -> Vec<u8> {
+    let (encoding, payload): (PayloadEncoding, Cow<'_, [u8]>) = match requested {
+        PayloadEncoding::Identity => (PayloadEncoding::Identity, Cow::Borrowed(bytes)),
+        PayloadEncoding::Deflate => {
+            // `BestCompression` is miniz_oxide's named zlib level-9 setting —
+            // these envelopes are compressed ONCE at emit and decoded on every
+            // load, so the slowest-emit/smallest-artifact point is correct.
+            let deflated = miniz_oxide::deflate::compress_to_vec(
+                bytes,
+                miniz_oxide::deflate::CompressionLevel::BestCompression as u8,
+            );
+            if deflated.len() < bytes.len() {
+                (PayloadEncoding::Deflate, Cow::Owned(deflated))
+            } else {
+                // STORE-IF-SMALLER: deflate gained nothing — store verbatim.
+                (PayloadEncoding::Identity, Cow::Borrowed(bytes))
+            }
+        }
+    };
+    let mut out = Vec::with_capacity(payload.len() + name.len() + version.len() + 24);
+    put_varint(&mut out, RAW_SOURCE_ENVELOPE_FORMAT_VERSION);
     put_blob(&mut out, name.as_bytes());
     put_blob(&mut out, version.as_bytes());
-    put_blob(&mut out, bytes);
+    put_varint(&mut out, encoding.wire_tag());
+    put_varint(&mut out, bytes.len() as u64);
+    put_blob(&mut out, &payload);
     out
 }
 
 /// Decode a raw-source succinct envelope back into `(name, version, bytes)` —
-/// the exact inverse of [`encode_raw_source`]. Fail-closed on a truncated /
-/// malformed blob.
+/// the exact inverse of [`encode_raw_source`] (the returned bytes are the
+/// SOURCE bytes, inflated if the payload rides `Deflate`). Fail-closed and
+/// TOTAL on a truncated / malformed / unknown-version / unknown-encoding /
+/// forged-length envelope.
 pub fn decode_raw_source(buf: &[u8]) -> Result<(String, String, Vec<u8>), RawSourcePrxError> {
-    let mut pos = 0usize;
-    let name = get_blob(buf, &mut pos)?;
-    let version = get_blob(buf, &mut pos)?;
-    let blob = get_blob(buf, &mut pos)?;
-    let name = core::str::from_utf8(name)
+    let env = parse_envelope(buf)?;
+    let name = core::str::from_utf8(env.name)
         .map_err(|e| RawSourcePrxError::NotUtf8(format!("name: {e}")))?
         .to_string();
-    let version = core::str::from_utf8(version)
+    let version = core::str::from_utf8(env.version)
         .map_err(|e| RawSourcePrxError::NotUtf8(format!("version: {e}")))?
         .to_string();
-    Ok((name, version, blob.to_vec()))
+    let bytes = materialize_payload(&env)?.into_owned();
+    Ok((name, version, bytes))
 }
 
 /// Emit the committed raw-source `.prx` succinct bytes — [`encode_raw_source`].
 /// The small, portable, content-addressed artifact committed under `data/` and
 /// loaded by [`load_raw_source`]. The byte-stream sibling of
-/// `emit_compact_english_prx_gz` (minus the gzip wrap, which these small text
-/// sources don't need and which would pull `flate2` into the default build).
+/// `emit_compact_english_prx_gz` (with a raw RFC 1951 payload instead of the
+/// gzip wrap — deterministic bytes, and decodable without `flate2`/`prx` in the
+/// default build). `requested` normally comes from
+/// [`preferred_payload_encoding`]`(entry.content_type())`.
 #[must_use]
-pub fn emit_raw_source_prx(name: &str, version: &str, bytes: &[u8]) -> Vec<u8> {
-    encode_raw_source(name, version, bytes)
+pub fn emit_raw_source_prx(
+    name: &str,
+    version: &str,
+    bytes: &[u8],
+    requested: PayloadEncoding,
+) -> Vec<u8> {
+    encode_raw_source(name, version, bytes, requested)
 }
 
 /// The content address of a raw-source `.prx` — the digest of its succinct
@@ -359,29 +647,26 @@ pub fn load_raw_source_prx_gated(
     archive_pin: &LockDigest,
     key: &str,
 ) -> Result<Vec<u8>, RawSourcePrxError> {
-    verify_content_address(prx, archive_pin, key)?;
-    let (_name, _version, blob) = decode_raw_source(prx)?;
-    Ok(blob)
+    Ok(load_raw_source_prx_gated_borrowed(prx, archive_pin, key)?.into_owned())
 }
 
-/// Zero-copy twin of [`load_raw_source_prx_gated`]: verify the succinct bytes
-/// against `archive_pin`, then return the payload `blob` AS A BORROWED SLICE of
-/// `prx` rather than an owned `Vec`. The envelope is uncompressed LEB128 framing
-/// (no rkyv, no gzip), so the payload is a contiguous sub-slice — which lets the
-/// embedded-`.prx` text accessor hand back a `&str` that borrows the `'static`
-/// `include_bytes!` array, instead of leaking a fresh allocation on every call
-/// (the `no_std`/wasm re-parse path calls the accessor per use). Same fail-closed
-/// gate; nothing is borrowed until the content address verifies.
+/// Allocation-light twin of [`load_raw_source_prx_gated`]: verify the succinct
+/// bytes against `archive_pin`, then return the SOURCE bytes as a
+/// [`Cow`] over `prx` — `Cow::Borrowed` (zero-copy) for an `Identity` payload
+/// (a contiguous sub-slice of the envelope), `Cow::Owned` for a `Deflate`
+/// payload (inflating is inherently an allocation). The `Identity` fast path is
+/// what lets the embedded-`.prx` text accessor hand back a `&str` that borrows
+/// the `'static` `include_bytes!` array with zero per-call allocation; `Deflate`
+/// callers cache the owned inflation behind their `OnceLock`. Same fail-closed
+/// gate; nothing is materialized until the content address verifies.
 pub fn load_raw_source_prx_gated_borrowed<'a>(
     prx: &'a [u8],
     archive_pin: &LockDigest,
     key: &str,
-) -> Result<&'a [u8], RawSourcePrxError> {
+) -> Result<Cow<'a, [u8]>, RawSourcePrxError> {
     verify_content_address(prx, archive_pin, key)?;
-    let mut pos = 0usize;
-    let _name = get_blob(prx, &mut pos)?;
-    let _version = get_blob(prx, &mut pos)?;
-    get_blob(prx, &mut pos)
+    let env = parse_envelope(prx)?;
+    materialize_payload(&env)
 }
 
 /// Load ONE registered raw-source entry's bytes from its committed `.prx`
@@ -490,16 +775,22 @@ pub fn raw_source_bytes_embedded(name: &str, version: &str, embedded_prx: &[u8])
 }
 
 /// Text form of [`raw_source_bytes_embedded`] — returns the decoded UTF-8 as a
-/// `&str` that BORROWS `embedded_prx` (zero-copy), so a per-call `no_std`/wasm
-/// accessor (`wm_state_vocabulary` / `english_irregulars` re-parse on every call)
-/// allocates and leaks NOTHING. Because `embedded_prx` is the `'static`
-/// `include_bytes!` array at every call site, the borrow is `'static` in practice
-/// — the same `include_str!` semantics it replaces, now without the per-call
-/// `Box::leak`. The accessor every text raw-source (`XSD`/`DTD`/`XHTML`/spec/
+/// [`Cow`] over `embedded_prx`: `Cow::Borrowed` (zero-copy) for an `Identity`
+/// payload, `Cow::Owned` for a `Deflate` payload (inflating is inherently an
+/// allocation — callers on a hot path cache it behind a `OnceLock`, and the
+/// per-call `no_std`/wasm accessors (`wm_state_vocabulary` /
+/// `english_irregulars`) re-inflate per call exactly as they already re-parse
+/// per call, leaking NOTHING). Because `embedded_prx` is the `'static`
+/// `include_bytes!` array at every call site, a borrowed result is `'static` in
+/// practice. The accessor every text raw-source (`XSD`/`DTD`/`XHTML`/spec/
 /// `TSV`/glyph list) repoints to. Fail-closed: panics on an unpinned source, a
 /// gate mismatch, or non-UTF-8 committed bytes.
 #[must_use]
-pub fn raw_source_text_embedded<'a>(name: &str, version: &str, embedded_prx: &'a [u8]) -> &'a str {
+pub fn raw_source_text_embedded<'a>(
+    name: &str,
+    version: &str,
+    embedded_prx: &'a [u8],
+) -> Cow<'a, str> {
     let key = format!("{name}@{version}");
     let Some(pin) = lock_compact_archive_signature(name, version) else {
         panic!(
@@ -510,8 +801,18 @@ pub fn raw_source_text_embedded<'a>(name: &str, version: &str, embedded_prx: &'a
     let blob = load_raw_source_prx_gated_borrowed(embedded_prx, pin, &key).unwrap_or_else(|e| {
         panic!("raw-source `{key}`: embedded committed .prx failed the content gate: {e}")
     });
-    core::str::from_utf8(blob)
-        .unwrap_or_else(|e| panic!("raw-source `{name}` committed bytes are not UTF-8: {e}"))
+    match blob {
+        Cow::Borrowed(b) => {
+            Cow::Borrowed(core::str::from_utf8(b).unwrap_or_else(|e| {
+                panic!("raw-source `{name}` committed bytes are not UTF-8: {e}")
+            }))
+        }
+        Cow::Owned(v) => {
+            Cow::Owned(String::from_utf8(v).unwrap_or_else(|e| {
+                panic!("raw-source `{name}` committed bytes are not UTF-8: {e}")
+            }))
+        }
+    }
 }
 
 /// Every registered raw-source entry — the set [`is_raw_source_content_type`]
@@ -560,7 +861,12 @@ pub fn emit_all_compact_raw_source_prx() -> Result<Vec<EmittedRawSource>, RawSou
         let Ok(source) = std::fs::read(&src_path) else {
             continue; // FETCHED raw not on disk — skip gracefully.
         };
-        let prx = emit_raw_source_prx(&entry.name, &entry.version, &source);
+        let prx = emit_raw_source_prx(
+            &entry.name,
+            &entry.version,
+            &source,
+            preferred_payload_encoding(entry.content_type()),
+        );
         let archive_address = raw_source_archive_address(&prx);
         let path = root.join(raw_prx_path(entry));
         if let Some(parent) = path.parent() {
@@ -614,17 +920,22 @@ mod tests {
     #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn encode_decode_round_trips_exact_bytes() {
-        for blob in [
-            b"".as_slice(),
-            b"hello",
-            b"<?xml version=\"1.0\"?><root/>",
-            &(0u8..=255).collect::<Vec<u8>>(),
-        ] {
-            let enc = encode_raw_source("src", "1.0", blob);
-            let (n, v, out) = decode_raw_source(&enc).expect("decode");
-            assert_eq!(n, "src");
-            assert_eq!(v, "1.0");
-            assert_eq!(out, blob, "raw-source codec must round-trip bytes exactly");
+        for encoding in [PayloadEncoding::Identity, PayloadEncoding::Deflate] {
+            for blob in [
+                b"".as_slice(),
+                b"hello",
+                b"<?xml version=\"1.0\"?><root/>",
+                &(0u8..=255).collect::<Vec<u8>>(),
+            ] {
+                let enc = encode_raw_source("src", "1.0", blob, encoding);
+                let (n, v, out) = decode_raw_source(&enc).expect("decode");
+                assert_eq!(n, "src");
+                assert_eq!(v, "1.0");
+                assert_eq!(
+                    out, blob,
+                    "raw-source codec must round-trip bytes exactly ({encoding:?})"
+                );
+            }
         }
     }
 
@@ -632,38 +943,172 @@ mod tests {
     #[test]
     fn gated_load_round_trips_through_gate() {
         let blob = b"a real XSD or TSV would go here\n";
-        let prx = emit_raw_source_prx("widget", "2", blob);
-        let pin = LockDigest::address(raw_source_archive_address(&prx));
-        let out = load_raw_source_prx_gated(&prx, &pin, "widget@2").expect("gated load");
-        assert_eq!(out, blob);
+        for encoding in [PayloadEncoding::Identity, PayloadEncoding::Deflate] {
+            let prx = emit_raw_source_prx("widget", "2", blob, encoding);
+            let pin = LockDigest::address(raw_source_archive_address(&prx));
+            let out = load_raw_source_prx_gated(&prx, &pin, "widget@2").expect("gated load");
+            assert_eq!(out, blob);
+        }
     }
 
     #[pr4xis::praxis_value(Honest)]
     #[test]
     fn gated_load_rejects_wrong_pin_fail_closed() {
         let blob = b"payload";
-        let prx = emit_raw_source_prx("widget", "2", blob);
-        let wrong = LockDigest::address("0".repeat(64));
-        let err =
-            load_raw_source_prx_gated(&prx, &wrong, "widget@2").expect_err("wrong pin must reject");
-        assert!(
-            matches!(err, RawSourcePrxError::HashMismatch { .. }),
-            "got {err:?}"
-        );
+        for encoding in [PayloadEncoding::Identity, PayloadEncoding::Deflate] {
+            let prx = emit_raw_source_prx("widget", "2", blob, encoding);
+            let wrong = LockDigest::address("0".repeat(64));
+            let err = load_raw_source_prx_gated(&prx, &wrong, "widget@2")
+                .expect_err("wrong pin must reject");
+            assert!(
+                matches!(err, RawSourcePrxError::HashMismatch { .. }),
+                "got {err:?}"
+            );
+        }
     }
 
     #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_rejects_truncated_blob_without_panic() {
-        let mut prx = emit_raw_source_prx("widget", "2", b"some bytes");
-        // Lop off the tail: the final blob span now runs past the end. The
+        // Both encodings: a lopped-off tail makes the final blob span run past
+        // the end (Identity) or truncates the DEFLATE stream (Deflate). The
         // bounds-checked decoder must return Err, never panic through.
-        prx.truncate(prx.len() - 3);
-        let err = decode_raw_source(&prx).expect_err("truncated must be Err");
+        for encoding in [PayloadEncoding::Identity, PayloadEncoding::Deflate] {
+            let mut prx =
+                emit_raw_source_prx("widget", "2", b"some bytes some bytes some bytes", encoding);
+            prx.truncate(prx.len() - 3);
+            let err = decode_raw_source(&prx).expect_err("truncated must be Err");
+            assert!(
+                matches!(err, RawSourcePrxError::Malformed(_)),
+                "got {err:?}"
+            );
+        }
+    }
+
+    /// The envelope is EXPLICITLY versioned: any leading format-version varint
+    /// other than [`RAW_SOURCE_ENVELOPE_FORMAT_VERSION`] — including a v1-style
+    /// unversioned envelope, whose leading varint is a blob length — is refused
+    /// fail-closed, never guessed at.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn decode_rejects_unknown_format_version_fail_closed() {
+        let good = encode_raw_source("widget", "2", b"payload", PayloadEncoding::Identity);
+        // Splice a wrong leading version varint onto the rest of the envelope.
+        let mut bad = alloc::vec![RAW_SOURCE_ENVELOPE_FORMAT_VERSION as u8 + 1];
+        bad.extend_from_slice(&good[1..]);
+        let err = decode_raw_source(&bad).expect_err("unknown format version must be Err");
+        assert!(
+            matches!(&err, RawSourcePrxError::Malformed(m) if m.contains("format version")),
+            "got {err:?}"
+        );
+    }
+
+    /// An encoding wire tag the decoder cannot name is refused fail-closed —
+    /// the payload is never handed to a guessed-at codec.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn decode_rejects_unknown_encoding_tag_fail_closed() {
+        // Hand-build an envelope with an unknown encoding tag (2).
+        let mut bad = Vec::new();
+        put_varint(&mut bad, RAW_SOURCE_ENVELOPE_FORMAT_VERSION);
+        put_blob(&mut bad, b"widget");
+        put_blob(&mut bad, b"2");
+        put_varint(&mut bad, 2); // no PayloadEncoding carries this tag
+        put_varint(&mut bad, 7);
+        put_blob(&mut bad, b"payload");
+        let err = decode_raw_source(&bad).expect_err("unknown encoding tag must be Err");
+        assert!(
+            matches!(&err, RawSourcePrxError::Malformed(m) if m.contains("wire tag")),
+            "got {err:?}"
+        );
+    }
+
+    /// The decompression-bomb guard: a declared decoded length beyond RFC
+    /// 1951's maximum expansion of the payload is unsatisfiable by any valid
+    /// DEFLATE stream and is refused BEFORE any allocation is sized from it.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn decode_rejects_forged_decoded_length_fail_closed() {
+        let payload = miniz_oxide::deflate::compress_to_vec(
+            b"honest bytes",
+            miniz_oxide::deflate::CompressionLevel::BestCompression as u8,
+        );
+        let mut bad = Vec::new();
+        put_varint(&mut bad, RAW_SOURCE_ENVELOPE_FORMAT_VERSION);
+        put_blob(&mut bad, b"widget");
+        put_blob(&mut bad, b"2");
+        put_varint(&mut bad, PayloadEncoding::Deflate.wire_tag());
+        // Forge a length no DEFLATE stream of this payload can produce.
+        put_varint(&mut bad, (payload.len() as u64) * DEFLATE_MAX_EXPANSION + 1);
+        put_blob(&mut bad, &payload);
+        let err = decode_raw_source(&bad).expect_err("forged decoded length must be Err");
+        assert!(
+            matches!(&err, RawSourcePrxError::Malformed(m) if m.contains("maximum")),
+            "got {err:?}"
+        );
+
+        // And an UNDER-declared length (a stream inflating past its declared
+        // size) is a mismatch, also refused.
+        let mut under = Vec::new();
+        put_varint(&mut under, RAW_SOURCE_ENVELOPE_FORMAT_VERSION);
+        put_blob(&mut under, b"widget");
+        put_blob(&mut under, b"2");
+        put_varint(&mut under, PayloadEncoding::Deflate.wire_tag());
+        put_varint(&mut under, 3); // the true decoded length is 12
+        put_blob(&mut under, &payload);
+        let err = decode_raw_source(&under).expect_err("under-declared length must be Err");
         assert!(
             matches!(err, RawSourcePrxError::Malformed(_)),
             "got {err:?}"
         );
+    }
+
+    /// STORE-IF-SMALLER: a requested `Deflate` over bytes DEFLATE cannot shrink
+    /// (a pseudo-random high-entropy blob) is downgraded — the emitted envelope
+    /// is byte-identical to the `Identity` envelope, so an already-compressed
+    /// upstream payload never grows. And on genuinely compressible bytes the
+    /// `Deflate` envelope IS strictly smaller — the compaction has teeth.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn store_if_smaller_downgrades_incompressible_payloads() {
+        // A fixed-seed xorshift64* stream — deterministic, high-entropy, so raw
+        // DEFLATE cannot shrink it (Deutsch 1996: incompressible data costs a
+        // small stored-block overhead instead).
+        let mut x = 0x9E37_79B9_7F4A_7C15u64;
+        let incompressible: Vec<u8> = core::iter::repeat_with(|| {
+            x ^= x >> 12;
+            x ^= x << 25;
+            x ^= x >> 27;
+            (x.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 56) as u8
+        })
+        .take(2048)
+        .collect();
+        let requested_deflate =
+            encode_raw_source("widget", "2", &incompressible, PayloadEncoding::Deflate);
+        let identity = encode_raw_source("widget", "2", &incompressible, PayloadEncoding::Identity);
+        assert_eq!(
+            requested_deflate, identity,
+            "an incompressible payload must be stored verbatim (store-if-smaller)"
+        );
+
+        // Compressible bytes: the Deflate envelope is strictly smaller.
+        let compressible: Vec<u8> = b"<xs:element name=\"statute\"/>\n"
+            .iter()
+            .copied()
+            .cycle()
+            .take(4096)
+            .collect();
+        let deflated = encode_raw_source("widget", "2", &compressible, PayloadEncoding::Deflate);
+        let plain = encode_raw_source("widget", "2", &compressible, PayloadEncoding::Identity);
+        assert!(
+            deflated.len() < plain.len(),
+            "compressible bytes must yield a strictly smaller Deflate envelope \
+             ({} vs {})",
+            deflated.len(),
+            plain.len()
+        );
+        let (_, _, out) = decode_raw_source(&deflated).expect("deflate envelope decodes");
+        assert_eq!(out, compressible);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -959,11 +1404,15 @@ mod tests {
         fn prop_mutated_prx_always_rejected(
             byte_idx in any::<prop::sample::Index>(),
             xor in 1u8..=255,
+            deflate in any::<bool>(),
         ) {
             // A real raw-source envelope (deterministic content, exercised across
-            // payload sizes/bytes by the synthetic blob).
+            // payload sizes/bytes by the synthetic blob), over BOTH encodings —
+            // the (compressible) blob genuinely rides a DEFLATE stream when
+            // `deflate` is set.
+            let encoding = if deflate { PayloadEncoding::Deflate } else { PayloadEncoding::Identity };
             let blob: Vec<u8> = (0u8..=200).cycle().take(777).collect();
-            let prx = emit_raw_source_prx("widget", "1", &blob);
+            let prx = emit_raw_source_prx("widget", "1", &blob, encoding);
             let pin = LockDigest::address(raw_source_archive_address(&prx));
 
             let i = byte_idx.index(prx.len());
@@ -995,8 +1444,10 @@ mod tests {
             name in "[a-z_]{1,16}",
             version in "[0-9.]{1,8}",
             blob in proptest::collection::vec(any::<u8>(), 0..1024),
+            deflate in any::<bool>(),
         ) {
-            let enc = encode_raw_source(&name, &version, &blob);
+            let encoding = if deflate { PayloadEncoding::Deflate } else { PayloadEncoding::Identity };
+            let enc = encode_raw_source(&name, &version, &blob, encoding);
             let (n, v, out) = decode_raw_source(&enc)
                 .map_err(|e| TestCaseError::fail(format!("decode: {e}")))?;
             prop_assert_eq!(&n, &name);
@@ -1004,7 +1455,7 @@ mod tests {
             prop_assert_eq!(&out, &blob);
             // Determinism: re-encoding the same inputs yields the same bytes and
             // the same content address (a pure function of the inputs).
-            let enc2 = encode_raw_source(&name, &version, &blob);
+            let enc2 = encode_raw_source(&name, &version, &blob, encoding);
             prop_assert_eq!(&enc, &enc2);
             prop_assert_eq!(
                 raw_source_archive_address(&enc),
