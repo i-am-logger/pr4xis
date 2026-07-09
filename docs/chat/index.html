@@ -239,7 +239,13 @@
     worker.onmessage = (e) => {
       const m = e.data;
       const p = pending.get(m.id);
-      if (!p) return;
+      if (!p) {
+        // A reply whose id matches no pending call (a foreign/devtools
+        // postMessage, or a worker fail() on a malformed inbound message)
+        // must be SURFACED, never silently dropped.
+        console.error('worker reply with no pending call:', m);
+        return;
+      }
       if (m.status === 'progress') { if (p.onProgress) p.onProgress(m); return; }
       pending.delete(m.id);
       if (m.status === 'ok') p.resolve(m.payload);

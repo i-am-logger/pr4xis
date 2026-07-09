@@ -17,7 +17,7 @@
 //!   1.0 (Fifth Edition)*, W3C Recommendation 26 November 2008 — the
 //!   syntactic substrate of DTDs.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators
-//!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2
+//!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2
 //!   — the well-behaved-lens laws.
 //! - **Bancilhon & Spyratos (1981)** "Update Semantics of Relational
 //!   Views", *ACM TODS* 6(4) Theorem 3 — constant-complement view

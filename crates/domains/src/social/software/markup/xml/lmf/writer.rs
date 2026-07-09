@@ -400,7 +400,7 @@ fn text_element(name: &str, text: &str) -> XmlElement {
 // The reconstruction is `lmf::WordNet ontology + captured complement → exact
 // source bytes` — the WordNet realisation of the serialized reverse lens'
 // graph-faithful `put` (Foster, Greenwald, Moore, Pierce & Schmitt 2007, ACM
-// TOPLAS 29(3) §2.2). The parser-level residue machinery is generic XML-family
+// TOPLAS 29(3) §3, Definition 3.2). The parser-level residue machinery is generic XML-family
 // (no WordNet vocabulary); only this glue is WordNet-specific.
 
 /// The concrete-syntax COMPLEMENT for one WN-LMF source: everything the typed

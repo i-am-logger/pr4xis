@@ -1,7 +1,7 @@
 //! `OwlLens` — the well-behaved lens binding OWL/RDF bytes ⇆
 //! [`OwlOntology`].
 //!
-//! Per Foster, Greenwald, Moore, Pierce & Schmitt 2007 §2.2 a
+//! Per Foster, Greenwald, Moore, Pierce & Schmitt 2007 §3, Definition 3.2 a
 //! well-behaved lens is a `(get, put)` pair satisfying GetPut and
 //! PutGet. For the OWL leg:
 //!
@@ -73,7 +73,7 @@
 //!
 //! - **Foster, J. N.; Greenwald, M. B.; Moore, J. T.; Pierce, B. C.;
 //!   Schmitt, A. (2007)** — "Combinators for Bidirectional Tree
-//!   Transformations", *ACM TOPLAS* 29(3) Article 17, §2.2.
+//!   Transformations", *ACM TOPLAS* 29(3) Article 17, §3, Definition 3.2.
 //! - **Longley, D.; Kellogg, G.; Yamamoto, D. (eds.) (2024)** — *RDF
 //!   Dataset Canonicalization* (RDFC-1.0), W3C Recommendation
 //!   REC-rdf-canon-20240521, §1.1 / §4.4.3.
@@ -171,7 +171,7 @@ impl WellBehavedLens for OwlLens {
         Ok(nquads.into_bytes())
     }
 
-    /// The lens round-trip for the PutGet law (Foster et al. 2007 §2.2).
+    /// The lens round-trip for the PutGet law (Foster et al. 2007 §3, Definition 3.2).
     ///
     /// `OwlLens` is a [`RoundTripFidelity::RawBytesComplementFloor`]
     /// source (`write_owl` is **not** graph-faithful, so the typed-view
@@ -349,7 +349,7 @@ mod tests {
     //
     // The published lens laws are (Foster, Greenwald, Moore, Pierce &
     // Schmitt 2007 "Combinators for Bidirectional Tree Transformations"
-    // *ACM TOPLAS* 29(3) Article 17, §2.2):
+    // *ACM TOPLAS* 29(3) Article 17, §3, Definition 3.2):
     //
     //   PutGet: `get ∘ put = id_T`   — `put(t)` then `get` recovers `t`.
     //   GetPut: `put ∘ get = id_S`   — `put(get(s))` is `s`, up to the
@@ -367,7 +367,7 @@ mod tests {
     use crate::social::software::markup::xml::owl::reader::owl_equivalent;
 
     proptest! {
-        /// PutGet (Foster et al. 2007 §2.2): `get ∘ put = id_T`.
+        /// PutGet (Foster et al. 2007 §3, Definition 3.2): `get ∘ put = id_T`.
         ///
         /// For the OWL lens, `id_T` means `owl_equivalent` (the
         /// graph-equality the OWL 2 RDF Mapping promises — set-theoretic
@@ -384,7 +384,7 @@ mod tests {
             );
         }
 
-        /// GetPut (Foster et al. 2007 §2.2): `put ∘ get = id_S`,
+        /// GetPut (Foster et al. 2007 §3, Definition 3.2): `put ∘ get = id_S`,
         /// witnessed at the **graph-identity canonical** boundary —
         /// `canonical(write_owl(read_owl(b))) == canonical(b)` where
         /// `b = write_owl(arbitrary_ont)` (canonical OWL bytes the

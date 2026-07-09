@@ -5,7 +5,7 @@
 //! form. Two byte streams of the same kind are taken to represent
 //! the same source iff their canonical forms are byte-identical.
 //! The canonical form is what makes the PutGet law (Foster et al.
-//! 2007 §2.2) checkable: `canonical(put(get(s))) == canonical(s)`.
+//! 2007 §3, Definition 3.2) checkable: `canonical(put(get(s))) == canonical(s)`.
 //!
 //! ## Spec coverage
 //!

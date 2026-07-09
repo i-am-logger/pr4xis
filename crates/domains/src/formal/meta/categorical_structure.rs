@@ -41,7 +41,7 @@
 //! single lens formed by composing the per-step lenses. Round-trip
 //! preserved (Foster et al. §3 — lens composition combinators).
 //!
-//! The PutGet law (Foster §2.2) is the empirical signature:
+//! The PutGet law (Foster §3, Definition 3.2) is the empirical signature:
 //! canonical(put(get(bytes))) == canonical(bytes).
 //!
 //! # Vertical axis: adjunctions

@@ -286,6 +286,7 @@ impl TrustAnchor {
 /// resolves the decoder + projection functor for the encoding, verifies the
 /// anchor, decodes → projects → installs — the single path every source now
 /// takes into [`Pr4xis::install_runtime_ontology`].
+#[derive(Debug)]
 struct LoadRequest {
     /// The runtime ontology name the projected [`RuntimeOntology`] installs under.
     name: String,
@@ -1765,5 +1766,142 @@ mod browser_acceptance {
             "the answer must name the queried concept {surface:?}; got: {with_resp:?}"
         );
         assert_ne!(without_resp, with_resp);
+    }
+}
+
+// ─── The wire boundary, pinned ───────────────────────────────────────────────
+//
+// `LoadRequest::from_wire` / `Encoding::from_wire` are the SINGLE tagged
+// decode at the JS↔wasm boundary — the one blessed string lowering. These
+// native tests pin (a) the inverse pair `from_wire(wire_tag(e)) == e` over
+// EVERY variant (exhaustive match: adding an `Encoding` variant without
+// extending the list is a compile error, so the pin cannot silently go
+// partial), and (b) each fail-closed refusal arm per typed `LoadError`
+// variant. Pure functions — no browser required; the browser suite exercises
+// the downstream decode/gate arms.
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod wire_boundary {
+    use super::*;
+
+    /// Every `Encoding` variant. The exhaustive match in
+    /// [`encoding_wire_tag_round_trips_for_every_variant`] forces this list to
+    /// grow with the enum.
+    const ALL_ENCODINGS: [Encoding; 4] = [
+        Encoding::UslmTitle,
+        Encoding::OwlSource,
+        Encoding::OwlPrxGz,
+        Encoding::ContentAddressedArchive,
+    ];
+
+    /// The blessed lowering is an inverse pair: `from_wire(wire_tag(e)) == e`
+    /// for every variant — the drift a second hand-assembled lowering (or a
+    /// swapped match arm) would introduce fails here.
+    #[test]
+    fn encoding_wire_tag_round_trips_for_every_variant() {
+        for e in ALL_ENCODINGS {
+            // Exhaustive: a new Encoding variant fails to compile here until
+            // it is added to ALL_ENCODINGS and this match.
+            match e {
+                Encoding::UslmTitle
+                | Encoding::OwlSource
+                | Encoding::OwlPrxGz
+                | Encoding::ContentAddressedArchive => {}
+            }
+            let tag = e.wire_tag();
+            let back = Encoding::from_wire(tag).expect("known tag must decode");
+            assert_eq!(back, e, "from_wire(wire_tag({tag:?})) must be identity");
+        }
+    }
+
+    /// An unknown wire tag is a typed `UnknownEncoding` refusal carrying the
+    /// offending tag — never a fallback to some default encoding.
+    #[test]
+    fn unknown_wire_tag_is_a_typed_refusal() {
+        for bad in ["prx-gz", "", "USLM-TITLE", "uslm_title"] {
+            let err = LoadRequest::from_wire("x".into(), bad, None, None, Some(vec![1]))
+                .expect_err("unknown wire tag must refuse");
+            assert!(
+                matches!(err, LoadError::UnknownEncoding(ref t) if t == bad),
+                "got {err:?} for tag {bad:?}"
+            );
+        }
+    }
+
+    /// `owl-prx-gz` without a `version` cannot key the three-pin lock lookup —
+    /// typed `MissingVersion`, never an unpinned load.
+    #[test]
+    fn owl_prx_gz_without_version_is_missing_version() {
+        let err = LoadRequest::from_wire("x".into(), "owl-prx-gz", None, None, Some(vec![1]))
+            .expect_err("owl-prx-gz without version must refuse");
+        assert!(matches!(err, LoadError::MissingVersion), "got {err:?}");
+    }
+
+    /// The cross-wiring seam: a SUPPLIED payload under an embedded name with
+    /// no `root_hex` must be `MissingRoot` — foreign bytes must NEVER inherit
+    /// the manifest's baked root (the embedded manifest is consulted only when
+    /// the payload is absent).
+    #[test]
+    fn supplied_payload_under_embedded_name_never_inherits_the_baked_root() {
+        let demo = embedded_demo();
+        let err = LoadRequest::from_wire(
+            demo.name.to_string(),
+            "content-addressed-archive",
+            None,
+            None,
+            Some(vec![0xAA; 4]),
+        )
+        .expect_err("a supplied payload with no trusted root must refuse");
+        assert!(matches!(err, LoadError::MissingRoot), "got {err:?}");
+    }
+
+    /// An absent payload naming no build-baked ontology is a typed
+    /// `NoEmbedded` refusal carrying the name — never an empty load.
+    #[test]
+    fn absent_payload_with_unknown_name_is_no_embedded() {
+        let err = LoadRequest::from_wire("no-such-embedded".into(), "uslm-title", None, None, None)
+            .expect_err("unknown embedded name must refuse");
+        assert!(
+            matches!(err, LoadError::NoEmbedded(ref n) if n == "no-such-embedded"),
+            "got {err:?}"
+        );
+    }
+
+    /// A supplied Merkle root that is not 64-char lowercase hex is a typed
+    /// `BadRootHex` refusal carrying the offending string.
+    #[test]
+    fn malformed_root_hex_is_bad_root_hex() {
+        let err = LoadRequest::from_wire(
+            "x".into(),
+            "content-addressed-archive",
+            None,
+            Some("zz".into()),
+            Some(vec![1]),
+        )
+        .expect_err("malformed root hex must refuse");
+        assert!(
+            matches!(err, LoadError::BadRootHex(ref h) if h == "zz"),
+            "got {err:?}"
+        );
+    }
+
+    /// The embedded happy path stays intact: an absent payload under the
+    /// embedded demo's name resolves BOTH the baked bytes and the baked root.
+    #[test]
+    fn absent_payload_with_embedded_name_resolves_baked_bytes_and_root() {
+        let demo = embedded_demo();
+        let req = LoadRequest::from_wire(
+            demo.name.to_string(),
+            "content-addressed-archive",
+            None,
+            None,
+            None,
+        )
+        .expect("the embedded demo must resolve");
+        assert_eq!(req.payload, demo.bytes, "payload must be the baked bytes");
+        let baked = ContentAddress::from_hex(demo.root_hex).expect("baked root parses");
+        assert!(
+            matches!(req.trust, TrustAnchor::MerkleRoot(r) if r == baked),
+            "trust anchor must be the manifest's baked root"
+        );
     }
 }

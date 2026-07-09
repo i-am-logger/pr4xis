@@ -28,7 +28,7 @@
 //! target falls back to the owned `WritingSystem`, exactly as a non-`prx` build
 //! does.
 //!
-//! Reference: Hill, D. *rkyv: zero-copy deserialization framework for Rust* (v0.8)
+//! Reference: Koloski, D. *rkyv: zero-copy deserialization framework for Rust* (v0.8)
 //! — `AlignedVec` + `access` / `from_bytes` are rkyv's own little-endian
 //! primitives. See <https://github.com/rkyv/rkyv>.
 

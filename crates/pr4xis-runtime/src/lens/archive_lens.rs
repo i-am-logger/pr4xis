@@ -70,7 +70,7 @@
 //!
 //! `put`/`get` form a well-behaved lens (Foster, Greenwald, Moore, Pierce &
 //! Schmitt 2007, "Combinators for Bidirectional Tree Transformations", *ACM
-//! TOPLAS* 29(3) §2.2) between the runtime [`Archive`] and its `rkyv` bytes —
+//! TOPLAS* 29(3) §3, Definition 3.2) between the runtime [`Archive`] and its `rkyv` bytes —
 //! the same law family the OWL `.prx.gz` `emit`/`load` pair realizes. The two
 //! runnable axioms [`ArchiveLensGetPut`] and [`ArchiveLensPutGet`] witness the
 //! GetPut and PutGet legs (behind the `emit` feature, which supplies the
@@ -79,9 +79,9 @@
 //! ## Citations
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 — the lens
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 — the lens
 //!   laws (GetPut / PutGet).
-//! - **Hill, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
+//! - **Koloski, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
 //!   <https://github.com/rkyv/rkyv>.
 //!
 //! [`OwnedCodegenData`]: https://docs.rs/pr4xis-domains
@@ -681,7 +681,7 @@ mod axioms {
     /// canonically produced by [`ArchiveLens::put`], `put(get(b)) == b` — the
     /// serialized form re-emitted from what it decodes to is byte-identical, so
     /// the cache blob is stable under a decode/re-encode round-trip. Foster,
-    /// Greenwald, Moore, Pierce & Schmitt (2007) §2.2.
+    /// Greenwald, Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
     pub struct ArchiveLensGetPut;
 
     impl Axiom for ArchiveLensGetPut {
@@ -696,20 +696,20 @@ mod axioms {
         pr4xis::axiom_meta!(
             "ArchiveLensGetPut",
             "put(get(b)) == b for canonically-produced rkyv archive-lens bytes",
-            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
         );
     }
 
     pr4xis::register_axiom!(
         ArchiveLensGetPut,
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 
     /// PutGet leg of the `ArchiveLens` well-behaved lens: `get(put(a))` recovers
     /// `a` — an archive round-trips through the `rkyv` cache form with its full
     /// query image (nodes, edges incl. grounded atoms, axioms, lexicals,
     /// connections) intact. Foster, Greenwald, Moore, Pierce & Schmitt (2007)
-    /// §2.2.
+    /// §3, Definition 3.2.
     pub struct ArchiveLensPutGet;
 
     impl Axiom for ArchiveLensPutGet {
@@ -724,20 +724,20 @@ mod axioms {
         pr4xis::axiom_meta!(
             "ArchiveLensPutGet",
             "get(put(a)) == a: an Archive round-trips through the rkyv cache form with its full query image intact",
-            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
         );
     }
 
     pr4xis::register_axiom!(
         ArchiveLensPutGet,
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 
     /// Determinism leg of the `ArchiveLens` well-behaved lens: `put(a) == put(a)`
     /// — the `rkyv` cache bytes are a deterministic function of the [`Archive`]
     /// alone (no build-order or address nondeterminism), the property that
     /// underwrites [`ArchiveLensGetPut`]. Foster, Greenwald, Moore, Pierce &
-    /// Schmitt (2007) §2.2.
+    /// Schmitt (2007) §3, Definition 3.2.
     pub struct ArchiveLensDeterminism;
 
     impl Axiom for ArchiveLensDeterminism {
@@ -752,13 +752,13 @@ mod axioms {
         pr4xis::axiom_meta!(
             "ArchiveLensDeterminism",
             "put(a) == put(a): the rkyv cache bytes are a deterministic function of the Archive alone",
-            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
         );
     }
 
     pr4xis::register_axiom!(
         ArchiveLensDeterminism,
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 

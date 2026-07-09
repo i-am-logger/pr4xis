@@ -9,7 +9,7 @@
 //!
 //! - [`SectionByIndexLens`] : `UsCodeTitle ⇄ UsCodeSection` — focuses
 //!   one section of a title (the list-element lens, Foster et al. 2007
-//!   §2.2).
+//!   §3, Definition 3.2).
 //! - [`UslmStatuteLens`] : `UsCodeSection ⇄ Statute` — the **domain
 //!   lens** projecting a USLM section to its typed [`Statute`] via
 //!   [`from_uslm_section`], with a *constant-complement* put-back
@@ -26,7 +26,7 @@
 //!
 //! - **Foster, J. N., Greenwald, M. B., Moore, J. T., Pierce, B. C. &
 //!   Schmitt, A.** "Combinators for Bidirectional Tree
-//!   Transformations", *ACM TOPLAS* 29(3), 2007. §2.2, §3.
+//!   Transformations", *ACM TOPLAS* 29(3), 2007. §3 (Definition 3.2).
 //! - **Bancilhon, F. & Spyratos, N.** "Update Semantics of Relational
 //!   Views", *ACM TODS* 6(4), 1981 (constant complement).
 
@@ -49,7 +49,7 @@ use crate::social::software::markup::xml::uslm::{
 // =============================================================================
 
 /// Focuses the `index`-th section of a [`UsCodeTitle`] — the
-/// list-element lens (Foster et al. 2007 §2.2). `get` reads the
+/// list-element lens (Foster et al. 2007 §3, Definition 3.2). `get` reads the
 /// section; `put` writes an updated section back at the same index.
 #[derive(Debug, Clone, Copy)]
 pub struct SectionByIndexLens {
@@ -211,7 +211,7 @@ pub fn title_to_statute_lens(
 // =============================================================================
 
 /// Focuses the first section of a [`UsCodeTitle`] whose `num` matches
-/// `self.num` — the *find-by-key* lens (Foster et al. 2007 §2.2,
+/// `self.num` — the *find-by-key* lens (Foster et al. 2007 §3, Definition 3.2,
 /// total-on-the-domain-of-definition).
 ///
 /// `get` returns the matching section; `put` writes an updated section
@@ -398,7 +398,7 @@ fn put_get_on_image_holds(lens: &UslmStatuteLens, section: &UsCodeSection) -> bo
 /// Axiom: `UslmStatuteLens` is a well-behaved domain lens on the sample
 /// USLM section — GetPut holds (constant-complement put-back restores
 /// the source) and PutGet holds on the get-image (Foster et al. 2007
-/// §2.2; Bancilhon & Spyratos 1981).
+/// §3, Definition 3.2; Bancilhon & Spyratos 1981).
 pub struct UslmStatuteLensWellBehaved;
 
 impl Axiom for UslmStatuteLensWellBehaved {
@@ -423,13 +423,13 @@ impl Axiom for UslmStatuteLensWellBehaved {
     pr4xis::axiom_meta!(
         "UslmStatuteLensWellBehaved",
         "the USLM→Statute domain lens satisfies GetPut (constant-complement put-back restores the source) and PutGet on its get-image, and projects a section to a statute carrying the lens's name/version",
-        "Foster et al. (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2; Bancilhon & Spyratos (1981) ACM TODS 6(4)"
+        "Foster et al. (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2; Bancilhon & Spyratos (1981) ACM TODS 6(4)"
     );
 }
 
 pr4xis::register_axiom!(
     UslmStatuteLensWellBehaved,
-    "Foster et al. (2007) ACM TOPLAS 29(3) §2.2; Bancilhon & Spyratos (1981) ACM TODS 6(4)"
+    "Foster et al. (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Bancilhon & Spyratos (1981) ACM TODS 6(4)"
 );
 
 /// Axiom: the composed typed chain `UsCodeTitle ⇄ Statute`
@@ -553,13 +553,13 @@ impl Axiom for BytesToStatuteOnRealTitle18 {
     pr4xis::axiom_meta!(
         "BytesToStatuteOnRealTitle18",
         "the full bytes ⇄ Statute composed lens reads the actual USC Title 18 (P.L. 119-90) USLM bytes, focuses §1514A, projects to a Statute with the lens's identity, and GetPut holds at the byte boundary",
-        "Foster et al. (2007) ACM TOPLAS 29(3) §2.2 + §3; Bancilhon & Spyratos (1981) ACM TODS 6(4) Theorem 3"
+        "Foster et al. (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Bancilhon & Spyratos (1981) ACM TODS 6(4) Theorem 3"
     );
 }
 
 pr4xis::register_axiom!(
     BytesToStatuteOnRealTitle18,
-    "Foster et al. (2007) ACM TOPLAS 29(3) §2.2/§3; Bancilhon & Spyratos (1981) ACM TODS 6(4) Theorem 3"
+    "Foster et al. (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Bancilhon & Spyratos (1981) ACM TODS 6(4) Theorem 3"
 );
 
 #[cfg(test)]

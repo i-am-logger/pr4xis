@@ -33,7 +33,7 @@
 //!
 //! `put`/`get` form a well-behaved lens (Foster, Greenwald, Moore, Pierce &
 //! Schmitt 2007, "Combinators for Bidirectional Tree Transformations", *ACM
-//! TOPLAS* 29(3) §2.2) between an owned value and its `rkyv` bytes. The three
+//! TOPLAS* 29(3) §3, Definition 3.2) between an owned value and its `rkyv` bytes. The three
 //! runnable predicates [`getput_holds`], [`putget_holds`] and
 //! [`determinism_holds`] verify the GetPut leg, the PutGet leg, and the
 //! determinism of PUT (a later law underwriting GetPut) over a per-instance
@@ -46,9 +46,9 @@
 //! ## Citations
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 — the lens
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 — the lens
 //!   laws (GetPut / PutGet).
-//! - **Hill, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
+//! - **Koloski, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
 //!   <https://github.com/rkyv/rkyv>.
 
 /// The PUT leg of a leaf lens: build a serializable `Mirror` from a borrowed
@@ -144,7 +144,6 @@ impl<E: core::fmt::Debug + core::fmt::Display> std::error::Error for RkyvLensErr
 /// functions — never instantiated; used only as `RkyvLens::<O, M>::put(..)`. See
 /// the [module docs](self) for why this is NOT the content-address form.
 pub struct RkyvLens<Owned, Mirror> {
-    #[allow(dead_code)]
     _marker: core::marker::PhantomData<(Owned, Mirror)>,
 }
 
@@ -266,7 +265,7 @@ where
 
 /// GetPut leg: for bytes `b` canonically produced by [`RkyvLens::put`],
 /// `put(get(b)) == b` — the serialized cache blob is stable under a
-/// decode/re-encode round-trip. Foster et al. (2007) §2.2.
+/// decode/re-encode round-trip. Foster et al. (2007) §3, Definition 3.2.
 pub fn getput_holds<Owned, Mirror>(witnesses: &[Owned]) -> bool
 where
     Mirror: RkyvMirror<Owned>
@@ -296,7 +295,7 @@ where
 
 /// PutGet leg: `get(put(o)) == o` — an owned value round-trips through the
 /// `rkyv` cache form with its full query image intact. Foster et al. (2007)
-/// §2.2.
+/// §3, Definition 3.2.
 pub fn putget_holds<Owned, Mirror>(witnesses: &[Owned]) -> bool
 where
     Mirror: RkyvMirror<Owned>
@@ -324,7 +323,7 @@ where
 /// Determinism of PUT: `put(o) == put(o)` — the serialized bytes are a
 /// deterministic function of the owned value alone (no build-order or address
 /// nondeterminism). This underwrites GetPut: a stable decode/re-encode requires
-/// PUT be a function. Foster et al. (2007) §2.2 (the well-behaved-lens PUT is a
+/// PUT be a function. Foster et al. (2007) §3, Definition 3.2 (the well-behaved-lens PUT is a
 /// function of its arguments).
 pub fn determinism_holds<Owned, Mirror>(witnesses: &[Owned]) -> bool
 where
@@ -355,7 +354,7 @@ where
 /// build from the borrow leg to the move leg cannot change a single cache byte
 /// (only the transient it holds while serializing). This is what licenses the
 /// move as a pure load-time-peak optimization with ZERO effect on the archived
-/// form. Foster et al. (2007) §2.2 (PUT is a function of its argument alone,
+/// form. Foster et al. (2007) §3, Definition 3.2 (PUT is a function of its argument alone,
 /// independent of how the argument is materialized).
 pub fn owned_put_agrees_holds<Owned, Mirror>(witnesses: &[Owned]) -> bool
 where

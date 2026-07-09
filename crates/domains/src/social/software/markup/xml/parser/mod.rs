@@ -7,7 +7,7 @@
 //! [`XmlLens`](lens::XmlLens) implementing [`WellBehavedLens`](
 //! crate::formal::meta::well_behaved_lens::WellBehavedLens) per
 //! Foster, Greenwald, Moore, Pierce & Schmitt (2007, ACM TOPLAS
-//! 29(3) §2.2): the parser is `get`, the serializer is `put`, and
+//! 29(3) §3, Definition 3.2): the parser is `get`, the serializer is `put`, and
 //! W3C XML Canonicalization 1.1 (Boyer & Marcy 2008) is the
 //! canonical-form witness for the PutGet law.
 //!
@@ -35,7 +35,7 @@
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)**
 //!   "Combinators for bidirectional tree transformations: A
 //!   linguistic approach to the view-update problem", ACM TOPLAS
-//!   29(3) §2.2 — the well-behaved lens laws (GetPut, PutGet,
+//!   29(3) §3, Definition 3.2 — the well-behaved lens laws (GetPut, PutGet,
 //!   PutPut) that bind the parser to the serializer.
 //! - **Aho, Sethi & Ullman (1986)** *Compilers: Principles,
 //!   Techniques, and Tools* (Dragon Book), Chapter 4 §4.4 —

@@ -381,7 +381,7 @@ pr4xis::register_axiom!(
 /// content address), and two DIFFERENT envelopes serialize to different
 /// bytes (so the serialization distinguishes content). A serializer that
 /// leaked allocation order/addresses, or collapsed distinct values, is
-/// falsified here. Hill rkyv v0.8.
+/// falsified here. Koloski rkyv v0.8.
 pub struct RkyvDeterminism;
 
 impl Axiom for RkyvDeterminism {
@@ -413,18 +413,18 @@ impl Axiom for RkyvDeterminism {
     pr4xis::axiom_meta!(
         "RkyvDeterminism",
         "equal envelopes serialize to equal bytes and distinct envelopes to distinct bytes",
-        "Hill, D. — rkyv: zero-copy deserialization framework for Rust, v0.8"
+        "Koloski, D. — rkyv: zero-copy deserialization framework for Rust, v0.8"
     );
 }
 
 pr4xis::register_axiom!(
     RkyvDeterminism,
-    "Hill, D. — rkyv: zero-copy deserialization framework for Rust, v0.8"
+    "Koloski, D. — rkyv: zero-copy deserialization framework for Rust, v0.8"
 );
 
 /// Emit/load is a well-behaved lens: deserializing a serialized envelope
 /// reproduces it exactly (the GetPut leg, through the rkyv + gzip layers).
-/// Foster, Greenwald, Moore, Pierce & Schmitt (2007) §2.2.
+/// Foster, Greenwald, Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
 pub struct EmitLoadWellBehaved;
 
 impl Axiom for EmitLoadWellBehaved {
@@ -523,13 +523,13 @@ impl Axiom for EmitLoadWellBehaved {
     pr4xis::axiom_meta!(
         "EmitLoadWellBehaved",
         "deserialize(serialize(envelope)) == envelope through the rkyv + gzip layers",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
 pr4xis::register_axiom!(
     EmitLoadWellBehaved,
-    "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+    "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
 );
 
 /// The source pin is faithful: reconstructing a `BytesPlusView`

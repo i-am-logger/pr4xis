@@ -15,7 +15,8 @@
 //!   - `get : &[u8] → T`        (parse the source into the target representation)
 //!   - `put : &T   → Vec<u8>`   (re-emit the target back to source bytes)
 //!
-//! Foster et al. 2007 §2.2 define three well-behaved-lens laws:
+//! Foster et al. 2007 §3 (Definition 3.2 [Well-behaved lenses], plus the optional
+//! PutPut law) define three lens laws:
 //!
 //!   - **GetPut:** `get(put(t)) = t` — what's put round-trips through get.
 //!   - **PutGet:** `canonical(put(get(s))) = canonical(s)` — round-trip
@@ -56,7 +57,7 @@
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt 2007** —
 //!   "Combinators for Bidirectional Tree Transformations: A
 //!   Linguistic Approach to the View Update Problem", *ACM TOPLAS*
-//!   29(3) Article 17, §2.2 (well-behaved lens laws).
+//!   29(3) Article 17, §3, Definition 3.2 (well-behaved lens laws).
 //! - **W3C XML Canonicalization 1.1** — Boyer & Marcy 2008, W3C
 //!   Recommendation, <https://www.w3.org/TR/xml-c14n11/>.
 //! - **RFC 8785 JSON Canonicalization Scheme** — Rundgren, Jordan &

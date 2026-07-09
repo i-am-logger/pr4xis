@@ -2,7 +2,7 @@
 //! (Foster, Greenwald, Moore, Pierce & Schmitt 2007).
 //!
 //! [`Lens`] is the `Source ⇆ View` pair `(get, put)` satisfying the
-//! GetPut / PutGet / PutPut laws (§2.2); [`Compose`] is the sequential
+//! GetPut / PutGet / PutPut laws (§3); [`Compose`] is the sequential
 //! composite `l ; k` (§3); [`IdentityLens`] is its unit. Together the
 //! lenses form a category, the substrate for the
 //! `file ⇄ xml ⇄ xsd ⇄ statute` pipeline — each hop a lens, the whole
@@ -18,7 +18,7 @@
 //!
 //! - **Foster, J. N., Greenwald, M. B., Moore, J. T., Pierce, B. C. &
 //!   Schmitt, A.** "Combinators for Bidirectional Tree
-//!   Transformations", *ACM TOPLAS* 29(3), 2007. §2.2, §3.
+//!   Transformations", *ACM TOPLAS* 29(3), 2007. §3 (Definition 3.2).
 
 pub mod lens;
 

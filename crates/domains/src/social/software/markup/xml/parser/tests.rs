@@ -715,7 +715,7 @@ fn notation_declaration_in_subset_skipped() {
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn doctype_round_trips_through_lens() {
-    // Foster et al. 2007 §2.2 GetPut on a document with DOCTYPE.
+    // Foster et al. 2007 §3, Definition 3.2 GetPut on a document with DOCTYPE.
     let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY x "y">]><foo>&x;</foo>"#;
     let parsed = XmlLens::get(xml).unwrap();
     let serialized = XmlLens::put(&parsed).unwrap();
@@ -823,7 +823,7 @@ fn accepts_same_local_name_with_different_prefix() {
 }
 
 // =============================================================================
-// Round-trip / lens-law tests (Foster et al. 2007 §2.2).
+// Round-trip / lens-law tests (Foster et al. 2007 §3, Definition 3.2).
 // =============================================================================
 
 #[pr4xis::praxis_value(Deterministic)]
@@ -911,7 +911,7 @@ fn lens_serializes_synthesised_typed_value() {
 // per `feedback_high_test_coverage`.
 // =============================================================================
 //
-// Each property names a Foster et al. 2007 §2.2 lens law and a W3C XML 1.0
+// Each property names a Foster et al. 2007 §3, Definition 3.2 lens law and a W3C XML 1.0
 // §-reference. proptest cases generate synthetic XmlDocument values built
 // from the grammar's productions and check the law holds.
 
@@ -1015,7 +1015,7 @@ mod property {
     }
 
     proptest! {
-        /// Foster et al. 2007 §2.2 GetPut law:
+        /// Foster et al. 2007 §3, Definition 3.2 GetPut law:
         /// for any well-formed typed value `t`, `get(put(t)) = t`.
         ///
         /// We generate `XmlDocument` values via [`arb_simple_document`],

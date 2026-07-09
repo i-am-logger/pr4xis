@@ -11,7 +11,7 @@
 //! ancestor set 33 nodes), so a bounded breadth-first ascent over the direct
 //! parent edges reproduces the eager reflexive-transitive closure's answer
 //! *exactly* — unit-weight BFS grades every node at its minimal hop count
-//! (Moore 1959 / Floyd 1962) — at a per-query cost indistinguishable from the
+//! (Moore 1959) — at a per-query cost indistinguishable from the
 //! O(1) closure lookup, while dropping the ~697k-pair closure entirely. The
 //! ascent itself is the ONE shared graded-reach engine
 //! ([`pr4xis::category::reach`]): `TaxonomyStore` implements
@@ -50,8 +50,8 @@ use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 /// (`Ord` because a substrate kind is a map key / total order there).
 ///
 /// Literature: SKOS `broader` / `narrower` (Miles & Bechhofer, *SKOS Reference*,
-/// W3C REC-skos-reference-20090818, §8.6.1–8.6.2) — the hierarchical link and its
-/// inverse. `Parent` (a concept's hypernyms) is the SKOS-`broader` direction;
+/// W3C REC-skos-reference-20090818, §8.1, §8.3 — the hierarchical link, with its
+/// inverse pair stated by axiom S25 `skos:narrower owl:inverseOf skos:broader`). `Parent` (a concept's hypernyms) is the SKOS-`broader` direction;
 /// `Child` (its hyponyms) is SKOS-`narrower`. Equivalently OBO Relation Ontology
 /// `is_a` and its inverse (Smith et al. 2005).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

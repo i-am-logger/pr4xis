@@ -8,7 +8,7 @@
 //! mixed-content child sequence (text-run ↔ inline-element interleaving) — so
 //! that, paired with the generic SourceSyntax complement, it closes a
 //! byte-exact graph-faithful `put` (Foster, Greenwald, Moore, Pierce & Schmitt
-//! 2007 ACM TOPLAS 29(3) §2.2).
+//! 2007 ACM TOPLAS 29(3) §3, Definition 3.2).
 //!
 //! # Layering (L1 of the serialized reverse lens)
 //!
@@ -77,7 +77,7 @@
 //! # Citations
 //!
 //! - **Foster, J. N.; Greenwald, M. B.; Moore, J. T.; Pierce, B. C.; Schmitt,
-//!   A. (2007)** — ACM TOPLAS 29(3) Article 17 §2.2 (well-behaved lens `put`).
+//!   A. (2007)** — ACM TOPLAS 29(3) Article 17 §3, Definition 3.2 (well-behaved lens `put`).
 //! - **Cowan, J.; Tobin, R. (2004)** — XML Information Set (the items the
 //!   typed model carries; attribute order / white-space are not among them).
 //! - **Bray et al. (2008)** — XML 1.0 Fifth Edition §3.2.2 (Mixed Content).
@@ -681,7 +681,7 @@ fn attr(name: &str, value: &str) -> XmlAttribute {
 // The reconstruction is `uslm::UsCodeTitle ontology + captured complement →
 // exact source bytes` — the USC realisation of the serialized reverse lens'
 // graph-faithful `put` (Foster, Greenwald, Moore, Pierce & Schmitt 2007, ACM
-// TOPLAS 29(3) §2.2). The parser-level residue machinery is generic XML-family
+// TOPLAS 29(3) §3, Definition 3.2). The parser-level residue machinery is generic XML-family
 // (no USLM vocabulary); only this glue is USLM-specific.
 //
 // This is still the WRITER-FIRST, NO-ENVELOPE slice: the complement is the
@@ -891,7 +891,7 @@ pub fn reconstruct_uslm_source(
 // the source regenerates from the typed [`UsCodeTitle`] ontology PLUS a content-
 // addressed concrete-syntax complement ([`UslmSyntaxComplement`]), held to the
 // strict byte-exact PutGet law (Foster, Greenwald, Moore, Pierce & Schmitt 2007
-// ACM TOPLAS 29(3) §2.2; Mac Lane 1998 §IV.4 equivalence-of-categories counit at
+// ACM TOPLAS 29(3) §3, Definition 3.2; Mac Lane 1998 §IV.4 equivalence-of-categories counit at
 // byte identity), with NO stored raw blob.
 //
 // - `get : &[u8] → (UsCodeTitle, UslmSyntaxComplement)` — [`capture_uslm_complement`]:

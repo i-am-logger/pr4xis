@@ -216,7 +216,7 @@ pr4xis::register_axiom!(MonotoneOffsetsCompact, constructor);
 /// plain length-prefixed dictionary (`put_dict`), because the shared prefix is
 /// written once, not per entry. Non-tautological on BOTH legs: an implementation
 /// that stored full strings would pass leg 1 (lossless) but fail leg 2
-/// (compaction). Witten, Moffat & Bell (1999) §4.2 (front coding).
+/// (compaction). Witten, Moffat & Bell (1999) §4.1 (Accessing the lexicon — front coding).
 pub struct FrontCodingSharesPrefixes;
 
 impl Axiom for FrontCodingSharesPrefixes {
@@ -266,7 +266,7 @@ impl Axiom for FrontCodingSharesPrefixes {
     pr4xis::axiom_meta!(
         "FrontCodingSharesPrefixes",
         "the front-coded dictionary (put_dict_fc) is lossless for any input order AND strictly smaller than the plain dictionary (put_dict) on a sorted shared-prefix dictionary",
-        "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §4.2 (front coding)"
+        "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §4.1 (Accessing the lexicon — front coding)"
     );
 }
 

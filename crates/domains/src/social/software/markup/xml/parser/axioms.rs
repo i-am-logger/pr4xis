@@ -20,7 +20,7 @@ use crate::formal::meta::well_behaved_lens::WellBehavedLens;
 
 /// **Axiom GetPut.** For every hand-built well-formed
 /// [`XmlDocument`], `XmlLens::get(XmlLens::put(t)) = t` (Foster,
-/// Greenwald, Moore, Pierce & Schmitt 2007 ACM TOPLAS 29(3) §2.2).
+/// Greenwald, Moore, Pierce & Schmitt 2007 ACM TOPLAS 29(3) §3, Definition 3.2).
 ///
 /// Verified by serializing a representative fixture and asserting
 /// that the re-parsed value equals the original. Property-based
@@ -63,18 +63,18 @@ impl Axiom for XmlLensGetPutLaw {
     pr4xis::axiom_meta!(
         "XmlLensGetPutLaw",
         "XmlLens::get(XmlLens::put(t)) = t for well-formed typed values",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
 pr4xis::register_axiom!(
     XmlLensGetPutLaw,
-    "Foster et al. (2007) ACM TOPLAS 29(3) §2.2"
+    "Foster et al. (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
 );
 
 /// **Axiom PutGet.** For every byte stream of a well-formed XML
 /// document, `canonical(put(get(s))) = canonical(s)` (Foster et
-/// al. 2007 §2.2). The W3C XML Canonicalization 1.1 normalisation
+/// al. 2007 §3, Definition 3.2). The W3C XML Canonicalization 1.1 normalisation
 /// (Boyer & Marcy 2008) is the equivalence we measure against.
 pub struct XmlLensPutGetLaw;
 
@@ -107,13 +107,13 @@ impl Axiom for XmlLensPutGetLaw {
     pr4xis::axiom_meta!(
         "XmlLensPutGetLaw",
         "canonical(put(get(s))) == canonical(s) under W3C C14N 1.1",
-        "Foster et al. (2007) §2.2; Boyer & Marcy (2008) W3C XML Canonicalization 1.1"
+        "Foster et al. (2007) §3, Definition 3.2; Boyer & Marcy (2008) W3C XML Canonicalization 1.1"
     );
 }
 
 pr4xis::register_axiom!(
     XmlLensPutGetLaw,
-    "Foster et al. (2007) §2.2; Boyer & Marcy (2008) W3C C14N 1.1"
+    "Foster et al. (2007) §3, Definition 3.2; Boyer & Marcy (2008) W3C C14N 1.1"
 );
 
 /// **Axiom PredefinedEntities.** Per W3C XML 1.0 Fifth Edition

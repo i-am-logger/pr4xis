@@ -29,9 +29,9 @@
 //! # Literature
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2/§3 — the
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 — the
 //!   well-behaved-lens laws (GetPut / PutGet).
-//! - **Hill, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
+//! - **Koloski, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
 //!   <https://github.com/rkyv/rkyv> — the `AlignedVec` the buffer reuses.
 
 use alloc::boxed::Box;
@@ -205,7 +205,7 @@ where
 /// GetPut leg of the `PackedCsr` well-behaved lens: for buffer bytes `b`
 /// canonically produced by `pack`, `pack(unpack(b)) == b` — the packed cache blob
 /// is stable under a decode/re-encode round-trip, over run / scalar / checked-enum
-/// dictionaries. Foster, Greenwald, Moore, Pierce & Schmitt (2007) §2.2.
+/// dictionaries. Foster, Greenwald, Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
 pub struct PackedCsrGetPut;
 
 impl Axiom for PackedCsrGetPut {
@@ -223,7 +223,7 @@ impl Axiom for PackedCsrGetPut {
     pr4xis::axiom_meta!(
         "PackedCsrGetPut",
         "pack(unpack(b)) == b for canonically-produced packed CSR bytes, over run/scalar/checked-enum dictionaries",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -232,7 +232,7 @@ pr4xis::register_axiom!(PackedCsrGetPut, constructor);
 /// PutGet leg of the `PackedCsr` well-behaved lens: `unpack(pack(m)) == m` — an
 /// owned map round-trips through the packed form with its full query image (every
 /// key, every run in order) intact, over run / scalar / checked-enum dictionaries.
-/// Foster, Greenwald, Moore, Pierce & Schmitt (2007) §2.2.
+/// Foster, Greenwald, Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
 pub struct PackedCsrPutGet;
 
 impl Axiom for PackedCsrPutGet {
@@ -250,7 +250,7 @@ impl Axiom for PackedCsrPutGet {
     pr4xis::axiom_meta!(
         "PackedCsrPutGet",
         "unpack(pack(m)) == m: an owned map round-trips through the packed CSR form with its full query image intact",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -260,7 +260,7 @@ pr4xis::register_axiom!(PackedCsrPutGet, constructor);
 /// key (dict, all three value columns) and every `(label, id)` (family) — the
 /// property each store's now-deleted `*_is_identical_to_the_owned_fallback` unit
 /// test asserted, proven once. The zero-copy `&[…]` cast returns exactly what the
-/// owned map would. Foster et al. (2007) §2.2 (the PutGet counit at zero-copy read
+/// owned map would. Foster et al. (2007) §3, Definition 3.2 (the PutGet counit at zero-copy read
 /// identity).
 pub struct PackedCsrZeroCopyFaithful;
 
@@ -293,7 +293,7 @@ impl Axiom for PackedCsrZeroCopyFaithful {
     pr4xis::axiom_meta!(
         "PackedCsrZeroCopyFaithful",
         "the archived zero-copy read equals the owned HashMap read for every dict key and every family (label, id)",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -303,7 +303,7 @@ pr4xis::register_axiom!(PackedCsrZeroCopyFaithful, constructor);
 /// `label k → [100 + k]` at id `k` per label, `column(tag_k, k) == [100 + k]` and
 /// every other label at id `k` is empty. The generalization of `relation_store`'s
 /// `every_kind_returns_its_own_distinct_edge` — a mislabelled column would read a
-/// different label's map and fail. Foster et al. (2007) §2.2.
+/// different label's map and fail. Foster et al. (2007) §3, Definition 3.2.
 pub struct PackedCsrFamilyLabelFaithful;
 
 impl Axiom for PackedCsrFamilyLabelFaithful {
@@ -331,7 +331,7 @@ impl Axiom for PackedCsrFamilyLabelFaithful {
     pr4xis::axiom_meta!(
         "PackedCsrFamilyLabelFaithful",
         "every packed CSR family label reads its own column and no other's (distinct per-label edges are never crossed)",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 

@@ -57,13 +57,13 @@
 //! # Lens laws
 //!
 //! [`PackedCsrDict`] is a well-behaved lens (Foster, Greenwald, Moore, Pierce &
-//! Schmitt 2007 §2.2/§3) between the owned `HashMap` build and its packed bytes:
+//! Schmitt 2007 §3, Definition 3.2) between the owned `HashMap` build and its packed bytes:
 //! `pack` (build the buffer) is the PUT, `unpack` (reconstruct the map) is the
 //! GET, and the GetPut/PutGet legs plus the archived-reads-equal-owned-reads
 //! faithfulness and the per-label family faithfulness are registered, cited
 //! axioms in `crate::formal::meta::lens::packed_csr_laws`.
 //!
-//! Reference: Hill, D. *rkyv: zero-copy deserialization framework for Rust*
+//! Reference: Koloski, D. *rkyv: zero-copy deserialization framework for Rust*
 //! (v0.8) — `AlignedVec` is rkyv's own little-endian aligned buffer, whose
 //! aligned-buffer discipline this module reuses. See <https://github.com/rkyv/rkyv>.
 

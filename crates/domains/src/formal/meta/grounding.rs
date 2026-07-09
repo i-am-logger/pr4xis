@@ -174,7 +174,9 @@ pub fn ground_loaded_set(
     // `LegalSources`. The peer is the LEAN pre-materialize atom layer
     // ([`project_archive_with_forms`] — a transient `Vec<Definition>` dropped when
     // this pass returns): CATEGORICALLY NOT the fat `english_runtime_ontology`
-    // bridge (the measured +183 MiB `apply_then_materialize`, since DELETED —
+    // bridge (the +216.3 MiB `apply_then_materialize` — historical measurement
+    // recorded in commit 58ffa2ce; the bridge is since DELETED, so the figure is
+    // not re-derivable —
     // English's functor is now proven archive-level in `praxis-corpus-tests`).
     // English is NEVER installed as a
     // loaded `RuntimeOntology`; it enters grounding only as this transient target

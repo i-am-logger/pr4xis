@@ -5,7 +5,7 @@
 //! canonical-form witness.
 //!
 //! Per Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS
-//! 29(3) §2.2, the lens laws are:
+//! 29(3) §3, Definition 3.2, the lens laws are:
 //!
 //! - **GetPut** — `get(put(t)) = t`. The parser/serializer pair is
 //!   designed so that an [`XmlDocument`] re-serialized and re-parsed

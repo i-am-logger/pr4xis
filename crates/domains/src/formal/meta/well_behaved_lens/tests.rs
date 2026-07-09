@@ -14,7 +14,7 @@
 //!      implementor whose `get` and `put` walk through a
 //!      String / Value / Vec representation. The lens-law assertion
 //!      then checks `sig(x) == sig(put(get(x)))` (Foster et al. 2007
-//!      §2.2 PutGet).
+//!      §3, Definition 3.2 PutGet).
 //!
 //! This file does *not* exercise real loaded sources (USLM, WordNet,
 //! XSD, praxis.lock) — those land in the M4.θ.2 lens-law test

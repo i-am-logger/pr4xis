@@ -34,9 +34,9 @@
 //! # Literature
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 — the
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 — the
 //!   well-behaved-lens laws (GetPut / PutGet).
-//! - **Hill, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
+//! - **Koloski, D.** *rkyv: zero-copy deserialization framework for Rust*, v0.8,
 //!   <https://github.com/rkyv/rkyv> — the archived form the lens serializes to.
 
 use alloc::boxed::Box;
@@ -162,7 +162,7 @@ fn writing_system_witnesses() -> Vec<WritingSystem> {
 /// bytes `b` canonically produced by `put`, `put(get(b)) == b` — the `rkyv`
 /// cache blob is stable under a decode/re-encode round-trip, over the concept,
 /// function-word, morphology and writing-system instances. Foster, Greenwald,
-/// Moore, Pierce & Schmitt (2007) §2.2.
+/// Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
 pub struct RkyvLensGetPut;
 
 impl Axiom for RkyvLensGetPut {
@@ -185,7 +185,7 @@ impl Axiom for RkyvLensGetPut {
     pr4xis::axiom_meta!(
         "RkyvLensGetPut",
         "put(get(b)) == b for the rkyv cache bytes of the four rich English stores (concept/function-word/morphology/writing-system)",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -194,7 +194,7 @@ pr4xis::register_axiom!(RkyvLensGetPut, constructor);
 /// PutGet leg of the shared `RkyvLens` over the four rich English M2 stores:
 /// `get(put(o)) == o` — an owned value round-trips through the `rkyv` cache form
 /// with its full query image intact, over all four instances. Foster, Greenwald,
-/// Moore, Pierce & Schmitt (2007) §2.2.
+/// Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
 pub struct RkyvLensPutGet;
 
 impl Axiom for RkyvLensPutGet {
@@ -217,7 +217,7 @@ impl Axiom for RkyvLensPutGet {
     pr4xis::axiom_meta!(
         "RkyvLensPutGet",
         "get(put(o)) == o: each rich English store's owned value round-trips through the rkyv cache form with its full query image intact",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -227,7 +227,7 @@ pr4xis::register_axiom!(RkyvLensPutGet, constructor);
 /// stores: `put(o) == put(o)` — the `rkyv` cache bytes are a deterministic
 /// function of the owned value alone (no build-order or address
 /// nondeterminism), the property that underwrites [`RkyvLensGetPut`]. Foster,
-/// Greenwald, Moore, Pierce & Schmitt (2007) §2.2.
+/// Greenwald, Moore, Pierce & Schmitt (2007) §3, Definition 3.2.
 pub struct RkyvLensDeterminism;
 
 impl Axiom for RkyvLensDeterminism {
@@ -250,7 +250,7 @@ impl Axiom for RkyvLensDeterminism {
     pr4xis::axiom_meta!(
         "RkyvLensDeterminism",
         "put(o) == put(o): each rich English store's rkyv cache bytes are a deterministic function of the owned value alone",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -264,7 +264,7 @@ pr4xis::register_axiom!(RkyvLensDeterminism, constructor);
 /// owned build to MOVE its heap payloads into the archive (halving the load-time
 /// transient peak — the concept store's ~10⁵ records are never duplicated) as a
 /// pure optimization: it cannot change a single archived byte. Foster, Greenwald,
-/// Moore, Pierce & Schmitt (2007) §2.2 (PUT is a function of its argument alone).
+/// Moore, Pierce & Schmitt (2007) §3, Definition 3.2 (PUT is a function of its argument alone).
 pub struct RkyvLensOwnedPutAgrees;
 
 impl Axiom for RkyvLensOwnedPutAgrees {
@@ -289,7 +289,7 @@ impl Axiom for RkyvLensOwnedPutAgrees {
     pr4xis::axiom_meta!(
         "RkyvLensOwnedPutAgrees",
         "put_aligned_owned(x.clone()) == put_aligned(&x): each rich English store's owned-consuming (move) PUT leg is byte-identical to its borrowing (clone) PUT leg",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 

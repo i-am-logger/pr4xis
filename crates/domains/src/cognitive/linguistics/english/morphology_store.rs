@@ -36,7 +36,7 @@
 //! is compiled only under `cfg(target_endian = "little")` (a big-endian target
 //! falls back to the owned `Vec`).
 //!
-//! Reference: Hill, D. *rkyv: zero-copy deserialization framework for Rust* (v0.8)
+//! Reference: Koloski, D. *rkyv: zero-copy deserialization framework for Rust* (v0.8)
 //! — see <https://github.com/rkyv/rkyv>.
 
 use alloc::vec::Vec;

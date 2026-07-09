@@ -55,7 +55,7 @@
 //!   <https://uscode.house.gov/uslm/>.
 //! - **Foster, J. N.; Greenwald, M. B.; Moore, J. T.; Pierce, B. C.;
 //!   Schmitt, A. (2007)** "Combinators for Bidirectional Tree
-//!   Transformations", *ACM TOPLAS* 29(3) Article 17, §2.2 — the
+//!   Transformations", *ACM TOPLAS* 29(3) Article 17, §3, Definition 3.2 — the
 //!   well-behaved-lens laws the gap report frames.
 //! - **Bancilhon, F.; Spyratos, N. (1981)** "Update Semantics of
 //!   Relational Views", *ACM TODS* 6(4) — the constant-complement

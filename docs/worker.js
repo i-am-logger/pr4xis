@@ -20,6 +20,12 @@ async function ensureReady() {
 
 self.onmessage = async (e) => {
   const { id, type, args } = e.data;
+  if (id === undefined) {
+    // A malformed inbound message (no RPC id) can never be answered — log
+    // loudly instead of posting an orphan reply no pending call can match.
+    console.error('worker received message with no id:', e.data);
+    return;
+  }
   try {
     await ensureReady();
     switch (type) {

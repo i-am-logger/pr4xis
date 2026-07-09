@@ -546,7 +546,7 @@ impl core::fmt::Display for LockDigest {
 ///   equals the raw `[hashes]` pin — membership in this section is the
 ///   auditable signal that a source is held to the strict byte-exact
 ///   PutGet law rather than only canonical-form equality (Foster et
-///   al. 2007 §2.2 PutGet at the byte-identity counit, Mac Lane §IV.4).
+///   al. 2007 §3, Definition 3.2 PutGet at the byte-identity counit, Mac Lane §IV.4).
 ///
 /// - `archive_signatures`: content address of the rkyv bytes of the
 ///   compiled `.prx` envelope (`BinaryEnvelope`) for the source — the

@@ -103,7 +103,7 @@
 //! - **Hartmann, Palma & Sure (2005)** OMV; **Lebo, Sahoo & McGuinness
 //!   (2013)** PROV-O — the metadata grounding reused from the OWL leaf.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** ACM TOPLAS 29(3)
-//!   §2.2; **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** BLAKE3; **Dolstra (2006)**
+//!   §3, Definition 3.2; **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** BLAKE3; **Dolstra (2006)**
 //!   content-addressing — the shared lens / hash grounding.
 //!
 //! [`read_wordnet`]: super::reader::read_wordnet
@@ -583,7 +583,7 @@ pub fn function_words_wordnet_from_prx(prx_gz: &[u8]) -> Result<WordNet, PrxErro
 ///   `hypernym` / `instance_hypernym` → `taxonomy(this, target)`;
 ///   `holo_*` → `mereology(target, this)`; `mero_*` → `mereology(this, target)`;
 ///   `causes` → `causation(this, target)`; synset-level `also` (+ sense-level
-///   `also`, resolved synset↦synset) → `references` (SKOS `seeAlso`, Miles &
+///   `also`, resolved synset↦synset) → `references` (`skos:related`, Miles &
 ///   Bechhofer 2009).
 fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
     use hashbrown::HashMap;
@@ -672,7 +672,7 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
                 SynsetRelationType::Causes => {
                     causation.push((this, target));
                 }
-                // SKOS seeAlso (Miles & Bechhofer 2009 §8).
+                // skos:related (Miles & Bechhofer 2009 §8).
                 SynsetRelationType::Also => {
                     references.push((this, target));
                 }
@@ -681,7 +681,7 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
         }
     }
 
-    // Sense-level `also` (SKOS seeAlso) resolved synset↦synset. Mirrors
+    // Sense-level `also` (skos:related) resolved synset↦synset. Mirrors
     // `parse_wordnet_xml`'s deferred sense-`also` pass: a SenseRelation
     // targets a SENSE id, so resolve both endpoints through their entry's
     // sense→synset binding, then add the synset-level reference.

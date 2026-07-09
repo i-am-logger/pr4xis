@@ -14,7 +14,7 @@
 //!    [`super::WellBehavedLens::assert_put_get_law`];
 //!    `ByteExactGraphFaithful` runs the strict
 //!    [`super::WellBehavedLens::assert_byte_exact_law`] (Foster,
-//!    Greenwald, Moore, Pierce & Schmitt 2007 *ACM TOPLAS* 29(3) §2.2
+//!    Greenwald, Moore, Pierce & Schmitt 2007 *ACM TOPLAS* 29(3) §3, Definition 3.2
 //!    well-behaved lens laws).
 //! 4. Computes the content digest — canonical-form for the FLOOR path,
 //!    raw bytes for the byte-exact path — under the algorithm the
@@ -66,7 +66,7 @@
 //!
 //! - Foster, Greenwald, Moore, Pierce & Schmitt (2007). "Combinators
 //!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3)
-//!   Article 17 §2.2.
+//!   Article 17 §3, Definition 3.2.
 //! - Dolstra (2006). "The Purely Functional Software Deployment
 //!   Model", PhD thesis Utrecht §3 — content-addressed storage as
 //!   drift-detection vehicle.
@@ -572,13 +572,13 @@ impl Axiom for RoundTripHarnessAllVerified {
     pr4xis::axiom_meta!(
         "RoundTripHarnessAllVerified",
         "every registered WellBehavedLens passes the PutGet law and (if signed) matches its pinned canonical_signature in praxis.lock",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Dolstra (2006) Purely Functional Software Deployment §3"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Dolstra (2006) Purely Functional Software Deployment §3"
     );
 }
 
 pr4xis::register_axiom!(
     RoundTripHarnessAllVerified,
-    "Foster et al. (2007) ACM TOPLAS 29(3) §2.2; Dolstra (2006) Purely Functional Software Deployment §3"
+    "Foster et al. (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Dolstra (2006) Purely Functional Software Deployment §3"
 );
 
 #[cfg(test)]

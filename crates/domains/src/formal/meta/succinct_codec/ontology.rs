@@ -24,7 +24,7 @@
 //!
 //! - **Witten, Moffat & Bell (1999)** *Managing Gigabytes: Compressing and
 //!   Indexing Documents and Images*, 2nd ed., §3.3 (gap/delta coding of
-//!   monotone integer sequences) and §4.2 (front coding) — the offset and
+//!   monotone integer sequences) and §4.1 (Accessing the lexicon — front coding) — the offset and
 //!   string-dictionary compressions, and the lossless round-trip
 //!   (`from_succinct ∘ to_succinct = id`, a total inverse pair). The `put_ef`
 //!   column is plain gap coding; its name is historical and does NOT denote an
@@ -37,7 +37,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "SuccinctCodec",
-    source: "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §3.3 (gap/delta coding of monotone integer sequences), §4.2 (front coding) — lossless compression + the total-inverse-pair round-trip; Deutsch (1996) RFC 1951 DEFLATE Compressed Data Format Specification 1.3 — the raw-source envelope's payload transport; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
+    source: "Witten, Moffat & Bell (1999) Managing Gigabytes: Compressing and Indexing Documents and Images, 2nd ed., §3.3 (gap/delta coding of monotone integer sequences), §4.1 (Accessing the lexicon — front coding) — lossless compression + the total-inverse-pair round-trip; Deutsch (1996) RFC 1951 DEFLATE Compressed Data Format Specification 1.3 — the raw-source envelope's payload transport; Smith et al. (2005) Relations in biomedical ontologies (OBO Relation Ontology), Genome Biology 6:R46",
 
     concepts: [
         SuccinctEncoding,
@@ -57,7 +57,7 @@ pr4xis::ontology! {
         MonotoneGapColumn: ("en", "Monotone gap column",
             "Witten, Moffat & Bell (1999) §3.3: a monotone non-decreasing offset sequence (a CSR offset array) stored as its consecutive gaps, then bit-packed. Because per-node gaps are small even when the cumulative offsets span a large range, the gap column is far narrower than the absolute one — gap/delta coding of monotone integer sequences (the `put_ef` name is historical, not an Elias-Fano structure)."),
         FrontCodedDictionary: ("en", "Front-coded dictionary",
-            "Witten, Moffat & Bell (1999) §4.2: a string dictionary storing each entry as (shared-prefix-length, suffix) against the previous entry, so a prefix shared with the previous entry (heavy for sorted IRIs under a common namespace) is written once, not per entry. Lossless for any input order; sorting maximizes the elided prefix."),
+            "Witten, Moffat & Bell (1999) §4.1: a string dictionary storing each entry as (shared-prefix-length, suffix) against the previous entry, so a prefix shared with the previous entry (heavy for sorted IRIs under a common namespace) is written once, not per entry. Lossless for any input order; sorting maximizes the elided prefix."),
         SuccinctRoundTrip: ("en", "Succinct round-trip",
             "Witten, Moffat & Bell (1999) lossless coding, here the total inverse law of the compression codec: from_succinct(to_succinct(d)) == d (a serialization inverse pair, NOT a lens law), so the compact wire form loses nothing across the encode/decode boundary the runtime and the wasm/web demo load the corpus and registry through."),
         RawSourceEnvelope: ("en", "Raw-source envelope",
@@ -166,10 +166,29 @@ mod tests {
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    /// Every declared concept carries a non-empty, DISTINCT description — a
+    /// structural bijection derived from the declaration itself, replacing the
+    /// former hand-maintained `assert_eq!(variants().len(), N)` count that had
+    /// to be re-edited on every concept addition (the exhaustive `match` in
+    /// the `ConceptDescription` Quality already compile-enforces coverage;
+    /// this pins non-emptiness and injectivity).
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn seven_concepts() {
-        assert_eq!(SuccinctCodecConcept::variants().len(), 7);
+    fn every_concept_carries_a_distinct_description() {
+        let q = ConceptDescription;
+        let mut seen = alloc::collections::BTreeSet::new();
+        for c in SuccinctCodecConcept::variants() {
+            let d = q.get(&c).expect("every declared concept is described");
+            assert!(!d.is_empty(), "{c:?} has an empty description");
+            assert!(
+                seen.insert(d),
+                "{c:?} repeats another concept's description"
+            );
+        }
+        assert!(
+            !seen.is_empty(),
+            "the ontology declares at least one concept"
+        );
     }
 
     /// The machinery is reasoned about through the SAME registry as any statute:

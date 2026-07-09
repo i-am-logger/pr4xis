@@ -11,7 +11,7 @@
 //! Why a lens and not a one-way function: the audit gate reads the
 //! assessment (`get`) to compute a verdict, while the migration writes a
 //! human/machine assessment into an entry (`put`) without disturbing its
-//! bibliography. The well-behaved-lens laws (Foster et al. 2007 §2.2)
+//! bibliography. The well-behaved-lens laws (Foster et al. 2007 §3, Definition 3.2)
 //! guarantee those two directions stay consistent — reading back a
 //! just-written assessment yields it (PutGet), and writing back an
 //! unchanged assessment is a no-op (GetPut). The gate then *composes*
@@ -27,7 +27,7 @@
 //!
 //! - Foster, J. N., Greenwald, M. B., Moore, J. T., Pierce, B. C. &
 //!   Schmitt, A. (2007) "Combinators for Bidirectional Tree
-//!   Transformations", *ACM TOPLAS* 29(3) Art. 17, §2.2 (lens laws).
+//!   Transformations", *ACM TOPLAS* 29(3) Art. 17, §3, Definition 3.2 (lens laws).
 //! - Bancilhon, F. & Spyratos, N. (1981) "Update Semantics of
 //!   Relational Views", *ACM TODS* 6(4) (constant complement).
 
@@ -90,7 +90,7 @@ pub struct CitationRecord {
 
 /// The lens focusing a [`CitationRecord`]'s assessment. `get` reads the
 /// assessment; `put` replaces it, keeping the slug + bibliography
-/// complement (Foster et al. 2007 §2.2; Bancilhon & Spyratos 1981).
+/// complement (Foster et al. 2007 §3, Definition 3.2; Bancilhon & Spyratos 1981).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CitationAssessmentLens;
 
@@ -209,7 +209,7 @@ mod tests {
         );
     }
 
-    // ── Property-based laws (Foster et al. 2007 §2.2) ──────────────
+    // ── Property-based laws (Foster et al. 2007 §3, Definition 3.2) ──────────────
     use proptest::prelude::*;
 
     fn arb_status() -> impl Strategy<Value = DimensionStatus> {
