@@ -56,6 +56,17 @@ const SAMPLE_TITLE: &str = r##"<?xml version="1.0" encoding="UTF-8"?>
 </uscDoc>
 "##;
 
+/// The concepts a loaded `SAMPLE_TITLE` materializes atop the base. The USC
+/// projection (`uslm::corpus::bridge`) emits one concept-node per section /
+/// subdivision PLUS the single corpus-level United States Code ROOT node
+/// (`CODE_ROOT_URN`, 1 U.S.C. § 204) it anchors the Code-type grounding on
+/// (the "statutes compose" bridge — commit `c2058084`). `SAMPLE_TITLE` carries
+/// exactly one `<section>` and no subdivisions, so it contributes one section
+/// concept + the one Code root = two. Verified by the domains-level bridge test
+/// `usc::corpus::bridge::tests::projects_every_section_and_subdivision_as_a_node`
+/// (sections + subdivisions + 1). Was `+ 1` before the Code root existed.
+const SAMPLE_TITLE_CONCEPTS: usize = 2;
+
 #[wasm_bindgen_test]
 fn constructs_with_embedded_english() {
     let p = Pr4xis::new();
@@ -107,11 +118,12 @@ fn load_source_materializes_a_live_usc() {
     .expect("a well-formed USLM title parses");
 
     // The proof of "loaded into memory like English": a live UsCode with
-    // real, queryable sections — not inert bytes.
+    // real, queryable sections — not inert bytes. One section concept + the
+    // corpus-level Code root the projection anchors (see SAMPLE_TITLE_CONCEPTS).
     assert_eq!(
         p.loaded_section_count(),
-        base_concepts() + 1,
-        "one section materialized atop the base"
+        base_concepts() + SAMPLE_TITLE_CONCEPTS,
+        "one section + the corpus-level Code root materialized atop the base"
     );
     let json = p.self_describe();
     assert!(
@@ -141,7 +153,7 @@ fn load_source_is_idempotent() {
     .unwrap();
     assert_eq!(
         p.loaded_section_count(),
-        base_concepts() + 1,
+        base_concepts() + SAMPLE_TITLE_CONCEPTS,
         "reloading the same source replaces, not duplicates"
     );
 }
