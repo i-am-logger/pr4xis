@@ -89,6 +89,22 @@ impl Identifier {
             value: Cow::Borrowed(value),
         }
     }
+
+    /// Owned constructor for identifiers taken VERBATIM from an authoritative
+    /// source document — the OWNED twin of [`Self::from_codegen_static`]
+    /// (same trust model: the source, not the grammar, is the authority; no
+    /// runtime re-validation). Exists because real LRC USLM titles carry
+    /// multi-URN `identifier` attributes for consolidated sections (e.g.
+    /// `/us/usc/t18/s221 /us/usc/t18/s222` for "§§ 221, 222"), which the
+    /// single-URN [`Identifier::uslm_urn`] grammar deliberately does not
+    /// admit. Never call this with hand-written literals — use the
+    /// grammar-checked constructors for runtime values.
+    pub fn from_source_verbatim(format: IdentifierFormatConcept, value: impl Into<String>) -> Self {
+        Self {
+            format,
+            value: Cow::Owned(value.into()),
+        }
+    }
 }
 
 /// Errors when constructing a typed `Identifier` from a string.

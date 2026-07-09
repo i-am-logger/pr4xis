@@ -58,12 +58,8 @@ use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 use crate::cognitive::linguistics::english::bridge::{
     ENGLISH_ONTOLOGY, FORM_KIND, english_synset_atoms,
 };
-use crate::cognitive::linguistics::english::{
-    Concept, ConceptId, ConceptView, English, LexicalReasoner,
-};
+use crate::cognitive::linguistics::english::{ConceptId, ConceptView, English, LexicalReasoner};
 use crate::cognitive::linguistics::interner::{Interner, Symbol};
-use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
-use crate::social::software::markup::xml::lmf::ontology::LmfPos;
 
 /// The typed join key bridging the two identity universes the composed reasoner
 /// spans: English's WordNet [`ConceptId`] and a loaded `.prx`'s open-world
@@ -76,6 +72,21 @@ pub enum GroundedConcept {
     /// A concept materialized from a loaded `.prx` ontology — the typed
     /// `(ontology, name)` vertex.
     Loaded(ConceptRef),
+}
+
+/// Index-only handle to the archived `.prx` node backing one loaded concept —
+/// the positions [`ComposedReasoner::concept`] resolves against the owning
+/// ontology's archive buffer to synthesize a borrowed
+/// [`ConceptView::Loaded`] per query (no owned string re-copy is retained).
+#[derive(Debug, Clone, Copy)]
+struct LoadedNodeRef {
+    /// Position of the owning ontology in `ComposedReasoner::loaded`.
+    onto: u32,
+    /// Position of the concept's node in that ontology's `archive().nodes`.
+    node: u32,
+    /// Position of the node's `canonicalForm` Form atom when it mints one —
+    /// the PRINTED lemma; `None` falls back to the node's own name.
+    lemma: Option<u32>,
 }
 
 /// The embedded English model composed with the loaded `.prx` ontologies,
@@ -103,10 +114,14 @@ pub struct ComposedReasoner {
     loaded: Vec<Rc<RuntimeOntology>>,
 
     // --- grounded surface (built once at construction) ---
-    /// The Lemon lexicon grounding every loaded node's surface form to its
-    /// typed `ConceptRef` (`F: OntologyConcepts → Lexicon`). Held so the
-    /// grounding is inspectable and so `lookup` is a pure union over it.
-    lexicon: Lexicon,
+    //
+    // The Lemon functor `F: OntologyConcepts → Lexicon` is APPLIED here, not
+    // STORED: its image lives as `surface_index` (surface → disjoint ids) plus
+    // `loaded_refs`/`loaded_ids` (id ↔ typed `ConceptRef`), which together carry
+    // every `(surface, ontology, name)` triple a Lemon `LexicalEntry` would.
+    // A resident owned `Lexicon` duplicate (5–9 MiB at corpus scale) had ZERO
+    // production readers and was deleted by the audit-5 wave; the typed
+    // reference is still fully inspectable through `decode`.
     /// The interner holding every surface's bytes ONCE, keyed by [`Symbol`]. It
     /// is the shared arena for English's surfaces AND every loaded ontology's —
     /// so `surface_index` keys on 4-byte handles instead of re-owning a `String`
@@ -122,10 +137,14 @@ pub struct ComposedReasoner {
     /// The loaded concepts, indexed by `ConceptId::value() - base`. `base` is
     /// `english.concept_count()`; this keeps loaded ids disjoint from English.
     loaded_refs: Vec<ConceptRef>,
-    /// Synthesized [`Concept`]s for the loaded vertices, so `concept(id)` can
-    /// hand back a `&Concept` whose single definition IS the loaded gloss.
-    /// Parallel to `loaded_refs`.
-    loaded_concepts: Vec<Concept>,
+    /// INDEX-ONLY handles to the archived node backing each loaded concept,
+    /// parallel to `loaded_refs`. `concept(id)` synthesizes its
+    /// [`ConceptView::Loaded`] on demand by borrowing the name / canonical
+    /// lemma / gloss straight out of the owning [`RuntimeOntology`]'s archive
+    /// buffer (alive for the reasoner's lifetime via the `loaded` `Rc`s) —
+    /// replacing the former eager `Vec<Concept>`, an owned re-copy of every
+    /// loaded node's strings (~5 MiB at USC-title scale), with 12 bytes/node.
+    loaded_nodes: Vec<LoadedNodeRef>,
     /// Pre-folded direct Subsumption parents per loaded `ConceptId` (read from
     /// each ontology's generating edges), so `parents`/`children` return a
     /// reference without per-call allocation.
@@ -203,10 +222,9 @@ impl ComposedReasoner {
     pub fn new(english: &'static English, loaded: Vec<Rc<RuntimeOntology>>) -> Self {
         let base = english.concept_count() as u64;
 
-        let mut lexicon = Lexicon::new("en");
         let mut loaded_refs: Vec<ConceptRef> = Vec::new();
         let mut loaded_ids: BTreeMap<ConceptRef, ConceptId> = BTreeMap::new();
-        let mut loaded_concepts: Vec<Concept> = Vec::new();
+        let mut loaded_nodes: Vec<LoadedNodeRef> = Vec::new();
         // The shared surface arena — English's surfaces and every loaded
         // ontology's are interned into ONE interner, so `surface_index` keys on
         // a 4-byte `Symbol` handle rather than a fresh owned `String` per surface.
@@ -224,28 +242,30 @@ impl ComposedReasoner {
             }
         }
 
-        // 2. Ground each loaded ontology's nodes into the lexicon and the
-        //    union index. Each node becomes:
-        //      - a Lemon LexicalEntry (surface → typed ConceptRef), and
-        //      - a synthesized English-shaped Concept carrying its gloss,
-        //        addressable by a disjoint ConceptId.
-        for onto in &loaded {
-            let ontology_name = onto.id().as_str().to_string();
+        // 2. Ground each loaded ontology's nodes into the union index (the
+        //    applied Lemon functor: surface → typed ConceptRef, carried as the
+        //    interned surface's disjoint id + the id's `ConceptRef` decode row).
+        //    Each node also gets an index-only [`LoadedNodeRef`] so `concept(id)`
+        //    can view its gloss against the archive buffer on demand.
+        for (onto_idx, onto) in loaded.iter().enumerate() {
             // The `ontolex:Form` atoms in this archive — their `writtenRep` NAMES
             // are natural-language SURFACES (a heading / label / citation), the
             // Frege *Sinn* distinct from a node's URN/IRI *Bedeutung*. A concept's
             // queryable surfaces are the Form atoms it points at (the §9
             // lexicalization channel), detected by FORM-target-ness — a data
             // property of the loaded archive, NEVER a hardcoded role allow-list.
-            let form_names: BTreeSet<&str> = onto
+            // Mapped to each Form's ARCHIVE POSITION so the canonical lemma is
+            // stored as an index, not a re-owned String.
+            let form_nodes: BTreeMap<&str, u32> = onto
                 .archive()
                 .nodes
                 .iter()
-                .filter(|n| n.kind == FORM_KIND)
-                .map(|n| n.name.as_str())
+                .enumerate()
+                .filter(|(_, n)| n.kind == FORM_KIND)
+                .map(|(i, n)| (n.name.as_str(), i as u32))
                 .collect();
 
-            for node in onto.archive().nodes.iter() {
+            for (node_idx, node) in onto.archive().nodes.iter().enumerate() {
                 // A Form atom is a SURFACE, not a concept — it gets no synthesized
                 // Concept and no id; it is indexed (below) as a surface of the
                 // concept that denotes it.
@@ -259,15 +279,9 @@ impl ComposedReasoner {
                 // name is kept as a surface ADDITIVELY (a compiled ontology's node
                 // name IS a natural word; the URN/IRI case is covered by its Form
                 // atoms below, so this stays until every producer mints Forms).
-                let surface = node.name.to_lowercase();
-                lexicon.add_entry(
-                    surface.clone(),
-                    ontology_name.clone(),
-                    node.name.to_string(),
-                );
-
                 // Union into the lookup surface (disjoint id appended), keyed by
                 // the surface's interned handle rather than a copied String.
+                let surface = node.name.to_lowercase();
                 let symbol = interner.intern(&surface);
                 surface_index.entry(symbol).or_default().push(id);
 
@@ -276,14 +290,9 @@ impl ComposedReasoner {
                 for edge in node.edges.iter() {
                     // Archived edges are `ArchivedTuple2(role, target)`.
                     if let Some(form) = archived_local_name(&edge.1)
-                        && form_names.contains(form)
+                        && form_nodes.contains_key(form)
                     {
                         let form_surface = form.to_lowercase();
-                        lexicon.add_entry(
-                            form_surface.clone(),
-                            ontology_name.clone(),
-                            node.name.to_string(),
-                        );
                         let form_symbol = interner.intern(&form_surface);
                         surface_index.entry(form_symbol).or_default().push(id);
                     }
@@ -291,38 +300,32 @@ impl ComposedReasoner {
 
                 // The PRINTED lemma is the concept's `canonicalForm` Form surface —
                 // its ontolex:Form *writtenRep*, the natural label ("legal document",
-                // "dormant fault") — NOT its Rust identifier (`node.name`, kept below
-                // as the never-printed `original_id`). Frege: identity addresses
+                // "dormant fault") — NOT its Rust identifier (`node.name`, kept as
+                // the never-printed `original_id`). Frege: identity addresses
                 // (`node.name`), canonicalForm generates (the lemma). Fall back to the
                 // node name when the concept mints no canonicalForm (its label already
                 // equals its identifier case-insensitively, e.g. "Statute" — emit skips
                 // the redundant Form there, and the node name IS the natural word).
                 // GENERATION-only: every Form is still indexed above for LOOKUP, so
-                // this changes what prints, never what resolves.
-                let canonical_lemma = node
+                // this changes what prints, never what resolves. Stored as the Form
+                // atom's ARCHIVE POSITION — `concept(id)` borrows the surface from
+                // the archive buffer on demand; no owned Concept is synthesized.
+                let lemma = node
                     .edges
                     .iter()
                     .find(|edge| {
                         // Archived edges are `ArchivedTuple2(role, target)`.
                         edge.0 == CANONICAL_FORM_REL
-                            && archived_local_name(&edge.1).is_some_and(|f| form_names.contains(f))
+                            && archived_local_name(&edge.1)
+                                .is_some_and(|f| form_nodes.contains_key(f))
                     })
                     .and_then(|edge| archived_local_name(&edge.1))
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| node.name.to_string());
+                    .and_then(|f| form_nodes.get(f).copied());
 
-                // The synthesized Concept carries the loaded gloss as its
-                // definition, read straight from the materialized ontology
-                // (`RuntimeOntology::lexical`) — this is what `define_word`
-                // reads back as the answer.
-                let gloss = onto.lexical(&cref).map(|g| g.to_string());
-                loaded_concepts.push(Concept {
-                    id,
-                    original_id: node.name.to_string(),
-                    pos: LmfPos::Noun,
-                    lemmas: alloc::vec![canonical_lemma],
-                    definitions: gloss.into_iter().collect(),
-                    examples: Vec::new(),
+                loaded_nodes.push(LoadedNodeRef {
+                    onto: onto_idx as u32,
+                    node: node_idx as u32,
+                    lemma,
                 });
 
                 loaded_ids.insert(cref.clone(), id);
@@ -450,11 +453,10 @@ impl ComposedReasoner {
         Self {
             english,
             loaded,
-            lexicon,
             interner,
             surface_index,
             loaded_refs,
-            loaded_concepts,
+            loaded_nodes,
             loaded_parents,
             loaded_children,
             loaded_ids,
@@ -474,12 +476,6 @@ impl ComposedReasoner {
     /// single shared instance the reasoner borrows.
     pub fn english(&self) -> &'static English {
         self.english
-    }
-
-    /// The Lemon lexicon grounding the loaded ontologies (inspectable for tests
-    /// and for the self-model catalog).
-    pub fn lexicon(&self) -> &Lexicon {
-        &self.lexicon
     }
 
     /// The loaded ontologies, in load order (the shared `Rc` handles).
@@ -655,11 +651,25 @@ impl LexicalReasoner for ComposedReasoner {
         match self.decode(id)? {
             GroundedConcept::English(cid) => self.english.concept(cid),
             GroundedConcept::Loaded(_) => {
-                // The synthesized Concept lives at the disjoint index; it is an
-                // OWNED `Concept`, viewed through the owned arm.
-                self.loaded_concepts
-                    .get((id.value() - self.base) as usize)
-                    .map(ConceptView::Owned)
+                // Synthesized ON DEMAND against the owning ontology's archive
+                // buffer (borrowed via the `loaded` `Rc`, alive for the
+                // reasoner's lifetime) — the [`ConceptView::Loaded`] arm. The
+                // gloss the view carries IS the node's own `lexical`, the same
+                // definition `define_word` read from the former owned copy.
+                let rec = self.loaded_nodes.get((id.value() - self.base) as usize)?;
+                let nodes = &self.loaded.get(rec.onto as usize)?.archive().nodes;
+                let node = nodes.get(rec.node as usize)?;
+                let lemma = rec
+                    .lemma
+                    .and_then(|i| nodes.get(i as usize))
+                    .map(|n| n.name.as_str())
+                    .unwrap_or_else(|| node.name.as_str());
+                Some(ConceptView::Loaded {
+                    id,
+                    original_id: node.name.as_str(),
+                    lemma,
+                    gloss: node.lexical.as_ref().map(|g| g.as_str()),
+                })
             }
         }
     }
@@ -929,7 +939,7 @@ impl LexicalReasoner for ComposedReasoner {
     }
 
     fn concept_count(&self) -> usize {
-        self.english.concept_count() + self.loaded_concepts.len()
+        self.english.concept_count() + self.loaded_nodes.len()
     }
 }
 

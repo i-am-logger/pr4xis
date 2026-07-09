@@ -1591,12 +1591,23 @@ mod loaded_corpus_demo {
             "define_word must surface the loaded gloss; got: {defined:?}"
         );
 
-        // And the Lemon lexicon carries the typed reference (ontology + name).
-        let label = composed.lexicon().label_for("Statute", "Title");
+        // And the grounding carries the TYPED reference (ontology + name): the
+        // surface's id decodes to the loaded `ConceptRef {Statute, Title}` — the
+        // Lemon `LexicalEntry.sense.reference`, read through the reasoner's own
+        // decode surface (the resident owned Lexicon copy was deleted; the
+        // applied functor's image IS the surface index + decode table).
+        use pr4xis_domains::cognitive::linguistics::composed::GroundedConcept;
+        let cref = ids
+            .iter()
+            .find_map(|&id| match composed.decode(id) {
+                Some(GroundedConcept::Loaded(cref)) => Some(cref),
+                _ => None,
+            })
+            .expect("the grounded surface 'title' decodes to a loaded ConceptRef");
         assert_eq!(
-            label,
-            Some("title"),
-            "the grounded entry's surface form is the lowercased node name"
+            (cref.ontology.as_str(), cref.name.as_str()),
+            ("Statute", "Title"),
+            "the grounded entry carries the typed (ontology, concept) reference"
         );
     }
 

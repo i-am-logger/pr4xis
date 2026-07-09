@@ -133,11 +133,7 @@ pub fn project_archive(usc: &UsCode) -> Archive {
     // `relations` list is a redundant projection of the same structure and may be
     // empty). The raw `Composes` edge becomes Parthood under the functor — by
     // content-addressed name agreement within this archive.
-    fn project_subdivision(
-        sub: &'static UscSubdivision,
-        parent_urn: &str,
-        nodes: &mut Vec<Definition>,
-    ) {
+    fn project_subdivision(sub: &UscSubdivision, parent_urn: &str, nodes: &mut Vec<Definition>) {
         nodes.push(Definition {
             kind: sub.kind.tag().to_string(),
             name: sub.urn.value().to_string(),
@@ -148,11 +144,12 @@ pub fn project_archive(usc: &UsCode) -> Archive {
             axioms: Vec::new(),
             lexical: sub
                 .heading
-                .or(sub.chapeau)
-                .or(sub.content)
+                .as_deref()
+                .or(sub.chapeau.as_deref())
+                .or(sub.content.as_deref())
                 .map(ToString::to_string),
         });
-        for child in sub.children {
+        for child in &sub.children {
             project_subdivision(child, sub.urn.value(), nodes);
         }
     }
@@ -191,7 +188,7 @@ pub fn project_archive(usc: &UsCode) -> Archive {
         });
         // Top-level subdivisions compose into the section; nested ones into their
         // parent subdivision (tracked through the walk).
-        for top in section.subdivisions {
+        for top in &section.subdivisions {
             project_subdivision(top, section_urn, &mut nodes);
         }
     }
