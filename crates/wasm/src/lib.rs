@@ -73,7 +73,7 @@ mod ontologies_manifest {
 /// Dependability demo (`default_loaded: false`) are ordinary manifest entries;
 /// the browser loads any of them fail-closed against its root without a network,
 /// and a fetched/uploaded `.prx` flows through the exact same
-/// [`Pr4xis::load_ontology_prx`] path.
+/// [`Pr4xis::load`] path.
 mod embedded_prx {
     include!(concat!(env!("OUT_DIR"), "/embedded_prx.rs"));
 }
@@ -170,40 +170,372 @@ pub struct Pr4xis {
     history: Vec<LoadEvent>,
 }
 
-/// Why loading a new-format `.prx` failed — the typed core error, rendered to a
-/// `JsValue` only at the wasm boundary. Carries the underlying runtime verdict
-/// so the failure is precise (a wrong hex pin, a refused root, a dangling edge),
-/// never a stringly-typed blob.
+/// WHAT is being loaded — the ONE typed selector that resolves the (decoder,
+/// projection functor) pair by TYPED dispatch (doc §3), never a byte-sniff or a
+/// string match on format. Grounds on the cited `ContentType` /
+/// `SourceTaxonomyConcept` provisioning ontology
+/// (`applied::data_provisioning::ontology`): [`Encoding::UslmTitle`] is that
+/// ontology's `UslmXml` (1 U.S.C. §204), [`Encoding::OwlSource`] its `Owl`
+/// (W3C OWL 2 RDF/XML). The two praxis-native envelope forms —
+/// [`Encoding::OwlPrxGz`] (the OWL `.prx.gz` distribution envelope) and
+/// [`Encoding::ContentAddressedArchive`] (the content-addressed `.prx` Archive) —
+/// belong to praxis's own serialization ontology. The `(decoder, functor)` per
+/// variant is [`decode_and_project`]'s single typed match; the JS↔wasm boundary
+/// carries only the wire tag, decoded ONCE by [`Encoding::from_wire`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Encoding {
+    /// USLM XML title (1 U.S.C. §204). Decoder `read_uslm_title`; functor
+    /// `usc_runtime_ontology`. Cited `ContentType::UslmXml`.
+    UslmTitle,
+    /// OWL 2 RDF/XML source (W3C OWL 2). Decoder `read_owl`; functor
+    /// `owl_runtime_ontology`. Cited `ContentType::Owl`.
+    OwlSource,
+    /// The OWL `.prx.gz` distribution envelope. Decoder `owl::prx::load_prx_gz`
+    /// (gunzip + bytecheck + three-pin verify); functor `owl_runtime_ontology`.
+    OwlPrxGz,
+    /// The content-addressed `.prx` Archive. Decoder `load::load` (re-derive +
+    /// refuse on Merkle-root mismatch); projection is identity (`materialize`).
+    ContentAddressedArchive,
+}
+
+impl Encoding {
+    /// The SINGLE fail-closed wire-tag decode at the JS↔wasm boundary (doc §3
+    /// point 3). wasm-bindgen has no rich sum-type marshalling, so the encoding
+    /// crosses the FFI as one tag; this is a closed match on it (error on
+    /// unknown), NOT a content sniff.
+    fn from_wire(tag: &str) -> Result<Self, LoadError> {
+        match tag {
+            "uslm-title" => Ok(Encoding::UslmTitle),
+            "owl-source" => Ok(Encoding::OwlSource),
+            "owl-prx-gz" => Ok(Encoding::OwlPrxGz),
+            "content-addressed-archive" => Ok(Encoding::ContentAddressedArchive),
+            other => Err(LoadError::UnknownEncoding(other.to_string())),
+        }
+    }
+
+    /// The wire tag for this encoding — the inverse of [`Encoding::from_wire`],
+    /// used in the [`Loaded`] receipt so the UI can name what it loaded.
+    fn wire_tag(self) -> &'static str {
+        match self {
+            Encoding::UslmTitle => "uslm-title",
+            Encoding::OwlSource => "owl-source",
+            Encoding::OwlPrxGz => "owl-prx-gz",
+            Encoding::ContentAddressedArchive => "content-addressed-archive",
+        }
+    }
+}
+
+/// HOW a load is made fail-closed — the three trust models unify into ONE typed
+/// anchor verified at one place (doc §3). This is legitimate variation, not
+/// fragmentation: a Merkle-root re-derivation, a triple praxis.lock-pin lookup,
+/// and transport-only trust are genuinely different checks, but they dispatch
+/// off one enum instead of living in five methods.
+#[derive(Debug, Clone)]
+enum TrustAnchor {
+    /// Source bytes carry no embedded hash; integrity rests on the host having
+    /// fetched from the registry-pinned URL. ([`Encoding::UslmTitle`],
+    /// [`Encoding::OwlSource`].)
+    Transport,
+    /// OWL `.prx.gz`: three praxis.lock pins looked up by `(name, version)` —
+    /// archive signature, source hash, RDFC-1.0 canonical graph id.
+    /// ([`Encoding::OwlPrxGz`].)
+    LockPinned { version: String },
+    /// Content-addressed `.prx`: the trusted Merkle root from OUTSIDE the bytes;
+    /// [`load::load`](pr4xis_runtime::load::load) re-derives it and refuses on
+    /// mismatch. ([`Encoding::ContentAddressedArchive`].)
+    MerkleRoot(ContentAddress),
+}
+
+impl TrustAnchor {
+    /// The `Transport` anchor (bytes carry no embedded hash), or a typed mismatch.
+    fn expect_transport(&self, enc: Encoding) -> Result<(), LoadError> {
+        match self {
+            TrustAnchor::Transport => Ok(()),
+            _ => Err(LoadError::TrustMismatch {
+                encoding: enc.wire_tag(),
+            }),
+        }
+    }
+
+    /// The lock-pinned `version` (for the three-pin OWL `.prx.gz` lookup), or a
+    /// typed mismatch.
+    fn expect_lock_version(&self, enc: Encoding) -> Result<&str, LoadError> {
+        match self {
+            TrustAnchor::LockPinned { version } => Ok(version),
+            _ => Err(LoadError::TrustMismatch {
+                encoding: enc.wire_tag(),
+            }),
+        }
+    }
+
+    /// The trusted Merkle root (for the content-addressed `.prx` gate), or a
+    /// typed mismatch.
+    fn expect_merkle_root(&self, enc: Encoding) -> Result<ContentAddress, LoadError> {
+        match self {
+            TrustAnchor::MerkleRoot(root) => Ok(*root),
+            _ => Err(LoadError::TrustMismatch {
+                encoding: enc.wire_tag(),
+            }),
+        }
+    }
+}
+
+/// The ONE typed entry for loading knowledge (doc §3). Names WHAT is loaded (a
+/// typed [`Encoding`], never a byte-sniff), carries the resolved PAYLOAD bytes,
+/// and the TRUST anchor that makes the load fail-closed. [`Pr4xis::load_core`]
+/// resolves the decoder + projection functor for the encoding, verifies the
+/// anchor, decodes → projects → installs — the single path every source now
+/// takes into [`Pr4xis::install_runtime_ontology`].
+struct LoadRequest {
+    /// The runtime ontology name the projected [`RuntimeOntology`] installs under.
+    name: String,
+    /// WHAT this is — selects `(decoder, functor)` by typed dispatch.
+    encoding: Encoding,
+    /// The raw bytes (text payloads are their UTF-8 bytes, so ONE representation
+    /// crosses the boundary regardless of format). An absent boundary payload is
+    /// resolved from the build-baked embedded corpus by `name` in
+    /// [`LoadRequest::from_wire`].
+    payload: Vec<u8>,
+    /// HOW the load is made fail-closed — one typed anchor, verified in one place.
+    trust: TrustAnchor,
+}
+
+impl LoadRequest {
+    /// Build the typed request from the JS↔wasm wire fields — the SINGLE tagged
+    /// decode at the boundary (doc §3 point 3). Resolves the payload (an absent
+    /// boundary payload ⇒ the build-baked embedded bytes for `name`) and the
+    /// trust anchor per the typed [`Encoding`] (version pins `OwlPrxGz`; a
+    /// Merkle root — supplied or resolved from the embedded manifest — pins
+    /// `ContentAddressedArchive`). Fail-closed: an unknown encoding, a missing
+    /// version, a missing/ill-formed root, or no embedded bytes is a typed error.
+    fn from_wire(
+        name: String,
+        encoding: &str,
+        version: Option<String>,
+        root_hex: Option<String>,
+        payload: Option<Vec<u8>>,
+    ) -> Result<Self, LoadError> {
+        let encoding = Encoding::from_wire(encoding)?;
+        // Resolve the payload: an absent boundary payload means "load the
+        // build-baked bytes for this name" (the demo/base case).
+        let embedded = if payload.is_none() {
+            embedded_entry(&name)
+        } else {
+            None
+        };
+        let payload = match payload {
+            Some(bytes) => bytes,
+            None => embedded
+                .ok_or_else(|| LoadError::NoEmbedded(name.clone()))?
+                .bytes
+                .to_vec(),
+        };
+        let trust = match encoding {
+            // Source bytes carry no embedded hash — transport trust.
+            Encoding::UslmTitle | Encoding::OwlSource => TrustAnchor::Transport,
+            // The OWL `.prx.gz` three-pin lock lookup is keyed by version.
+            Encoding::OwlPrxGz => TrustAnchor::LockPinned {
+                version: version.ok_or(LoadError::MissingVersion)?,
+            },
+            // The content-addressed `.prx` root is the trusted anchor: supplied
+            // by the caller, or (for an embedded load) the manifest's baked root.
+            Encoding::ContentAddressedArchive => {
+                let hex = match root_hex {
+                    Some(hex) => hex,
+                    None => embedded.ok_or(LoadError::MissingRoot)?.root_hex.to_string(),
+                };
+                TrustAnchor::MerkleRoot(
+                    ContentAddress::from_hex(&hex).ok_or(LoadError::BadRootHex(hex))?,
+                )
+            }
+        };
+        Ok(LoadRequest {
+            name,
+            encoding,
+            payload,
+            trust,
+        })
+    }
+}
+
+/// The receipt a successful [`Pr4xis::load`] returns — a small structured record
+/// so the UI can name WHAT it loaded (subsumes the old `load_embedded_demo_prx`
+/// String return). Projected to JSON at the wasm boundary.
+struct Loaded {
+    name: String,
+    encoding: Encoding,
+    bytes: usize,
+    root: String,
+}
+
+impl Loaded {
+    fn to_json(&self) -> String {
+        let mut p = Presentation::new();
+        p.set("name", SchemaValue::Text(self.name.clone()));
+        p.set(
+            "encoding",
+            SchemaValue::Text(self.encoding.wire_tag().to_string()),
+        );
+        p.set("bytes", SchemaValue::Unsigned(self.bytes as u64));
+        p.set("root", SchemaValue::Text(self.root.clone()));
+        p.to_json()
+    }
+}
+
+/// Why a [`Pr4xis::load`] failed — the ONE typed core error the whole load path
+/// shares, rendered to a `JsValue` only at the wasm boundary. Unifies the old
+/// `LoadPrxError` (the content-addressed gate's precise verdicts) with the
+/// USLM/OWL decode/materialize failures that were previously stringly-typed, so
+/// every failure is a precise typed value, never a `format!` blob.
 #[derive(Debug)]
-enum LoadPrxError {
-    /// `expected_root_hex` was not a 64-char lowercase-hex digest.
+enum LoadError {
+    /// The wire tag was not a known [`Encoding`].
+    UnknownEncoding(String),
+    /// [`Encoding::OwlPrxGz`] needs a `version` for its three-pin lock lookup.
+    MissingVersion,
+    /// [`Encoding::ContentAddressedArchive`] needs a trusted Merkle root.
+    MissingRoot,
+    /// The supplied trust anchor does not match the encoding's required kind.
+    TrustMismatch { encoding: &'static str },
+    /// An absent boundary payload named no build-baked embedded ontology.
+    NoEmbedded(String),
+    /// A Merkle root hex was not a 64-char lowercase-hex digest.
     BadRootHex(String),
-    /// The fail-closed gate refused the bytes — decode failure or a re-derived
-    /// root that does not match the trusted root (tampered / stale / wrong).
+    /// The three praxis.lock pins for `name@version` were absent — the `.prx.gz`
+    /// cannot be validated.
+    MissingLockPin(String),
+    /// USLM parse / UTF-8 decode failure.
+    UslmParse(String),
+    /// USC projection into the runtime ontology failed.
+    UscMaterialize(String),
+    /// OWL parse / UTF-8 decode failure.
+    OwlParse(String),
+    /// OWL projection into the runtime ontology failed.
+    OwlMaterialize(String),
+    /// The OWL `.prx.gz` gate rejected the envelope (gunzip / bytecheck / a pin
+    /// mismatch).
+    PrxGz(String),
+    /// The content-addressed gate refused the bytes — decode failure or a
+    /// re-derived root that does not match the trusted root (tampered / stale /
+    /// wrong).
     Refused(pr4xis_runtime::load::LoadError),
     /// The admitted archive could not be materialized (e.g. a dangling edge —
     /// referential closure violated).
     Materialize(pr4xis_runtime::ontology::MaterializeError),
-    /// Installing the archive surfaced a LOUD grounding fault from the single
+    /// Installing surfaced a LOUD grounding fault from the single
     /// [`ground_loaded_set`] pass — a declared target concept NAME absent from a
     /// present peer, an unsupported multi-level chain, or a skew. Fail-closed:
-    /// nothing installs. (A merely not-yet-loaded target ontology DEFERS, it does
-    /// not error.)
+    /// nothing installs. (A merely not-yet-loaded target ontology DEFERS.)
     Grounding(pr4xis_runtime::grounding::LinkError),
 }
 
-impl core::fmt::Display for LoadPrxError {
+impl core::fmt::Display for LoadError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            LoadPrxError::BadRootHex(got) => {
+            LoadError::UnknownEncoding(tag) => write!(f, "unknown load encoding {tag:?}"),
+            LoadError::MissingVersion => {
+                write!(
+                    f,
+                    "the owl-prx-gz encoding requires a version for the lock lookup"
+                )
+            }
+            LoadError::MissingRoot => write!(
+                f,
+                "the content-addressed-archive encoding requires a trusted Merkle root"
+            ),
+            LoadError::TrustMismatch { encoding } => {
+                write!(
+                    f,
+                    "the supplied trust anchor does not match the {encoding} encoding"
+                )
+            }
+            LoadError::NoEmbedded(name) => {
+                write!(f, "no build-baked embedded ontology named {name:?}")
+            }
+            LoadError::BadRootHex(got) => {
                 write!(
                     f,
                     "expected_root must be 64-char lowercase hex; got {got:?}"
                 )
             }
-            LoadPrxError::Refused(e) => write!(f, ".prx load refused: {e}"),
-            LoadPrxError::Materialize(e) => write!(f, ".prx materialize failed: {e}"),
-            LoadPrxError::Grounding(e) => write!(f, ".prx grounding failed: {e}"),
+            LoadError::MissingLockPin(key) => {
+                write!(
+                    f,
+                    "no embedded praxis.lock pin for {key}; cannot validate .prx.gz"
+                )
+            }
+            LoadError::UslmParse(e) => write!(f, "USLM parse failed: {e}"),
+            LoadError::UscMaterialize(e) => write!(f, "USC materialize failed: {e}"),
+            LoadError::OwlParse(e) => write!(f, "OWL parse failed: {e}"),
+            LoadError::OwlMaterialize(e) => write!(f, "OWL materialize failed: {e}"),
+            LoadError::PrxGz(e) => write!(f, ".prx.gz load/validate failed: {e}"),
+            LoadError::Refused(e) => write!(f, ".prx load refused: {e}"),
+            LoadError::Materialize(e) => write!(f, ".prx materialize failed: {e}"),
+            LoadError::Grounding(e) => write!(f, "grounding failed: {e}"),
+        }
+    }
+}
+
+/// The build-baked embedded ontology named `name`, if any — the resolver an
+/// absent boundary payload uses to recover the bytes (and, for a content-
+/// addressed archive, the trusted root) that ship inside the wasm.
+fn embedded_entry(name: &str) -> Option<&'static embedded_prx::EmbeddedOntology> {
+    embedded_prx::EMBEDDED_PRX.iter().find(|e| e.name == name)
+}
+
+/// The ONE typed decode-and-project step (doc §3). Resolves the `(decoder,
+/// projection functor)` for `encoding` by a single typed match — the functor-
+/// as-typed-selector — verifying the [`TrustAnchor`] in the same arm (trust and
+/// decode are fused for the two binary envelope formats, which re-derive the
+/// content address from the very bytes they decode). Every arm converges on one
+/// [`RuntimeOntology`] codomain, which is why [`Pr4xis::load_core`] has a single
+/// structural shape.
+fn decode_and_project(
+    name: &str,
+    encoding: Encoding,
+    trust: &TrustAnchor,
+    bytes: &[u8],
+) -> Result<RuntimeOntology, LoadError> {
+    match encoding {
+        Encoding::UslmTitle => {
+            trust.expect_transport(encoding)?;
+            let xml = core::str::from_utf8(bytes)
+                .map_err(|e| LoadError::UslmParse(format!("not UTF-8: {e}")))?;
+            let title = read_uslm_title(xml).map_err(|e| LoadError::UslmParse(format!("{e:?}")))?;
+            let usc = UsCode::from_uslm_titles_owned(vec![title]);
+            usc_runtime_ontology(&usc, OntologyName::new(name.to_string()))
+                .map_err(|e| LoadError::UscMaterialize(format!("{e:?}")))
+        }
+        Encoding::OwlSource => {
+            trust.expect_transport(encoding)?;
+            let xml = core::str::from_utf8(bytes)
+                .map_err(|e| LoadError::OwlParse(format!("not UTF-8: {e}")))?;
+            let ont = read_owl(xml).map_err(|e| LoadError::OwlParse(format!("{e}")))?;
+            let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
+            owl_runtime_ontology(&vocab, OntologyName::new(name.to_string()))
+                .map_err(|e| LoadError::OwlMaterialize(format!("{e:?}")))
+        }
+        Encoding::OwlPrxGz => {
+            let version = trust.expect_lock_version(encoding)?;
+            let key = format!("{name}@{version}");
+            let archive_pin = lock_archive_signature(name, version)
+                .ok_or_else(|| LoadError::MissingLockPin(format!("[archive_signatures] {key}")))?;
+            let source_pin = lock_hashes()
+                .get(&key)
+                .ok_or_else(|| LoadError::MissingLockPin(key.clone()))?;
+            let canonical_pin = lock_canonical_signature(name, version).ok_or_else(|| {
+                LoadError::MissingLockPin(format!("[canonical_signatures] {key}"))
+            })?;
+            let vocab = load_prx_gz(bytes, archive_pin, source_pin, canonical_pin)
+                .map_err(|e| LoadError::PrxGz(format!("{key}: {e}")))?;
+            owl_runtime_ontology(&vocab, OntologyName::new(name.to_string()))
+                .map_err(|e| LoadError::OwlMaterialize(format!("{key}: {e:?}")))
+        }
+        Encoding::ContentAddressedArchive => {
+            let root = trust.expect_merkle_root(encoding)?;
+            let archive = pr4xis_runtime::load::load(bytes, root).map_err(LoadError::Refused)?;
+            materialize(archive, OntologyName::new(name.to_string()))
+                .map_err(LoadError::Materialize)
         }
     }
 }
@@ -326,159 +658,39 @@ impl Pr4xis {
             .sum()
     }
 
-    /// Load a registered USLM source from its authoritative XML (downloaded
-    /// by the host from the source's served document). Parses in-browser into a
-    /// transient [`UsCode`], then PROJECTS it through the `uslm::corpus::bridge`
-    /// functor into one queryable [`RuntimeOntology`] held in the chat-reasoning
-    /// set — the SAME `project → materialize → install` path the `.prx` and OWL
-    /// loads use (the `UsCode` itself is not retained; there is no `self.loaded`
-    /// corpus held aside from the reasoner). This IS the Nelson-Narens *control*
-    /// operation: Available → Loaded. A malformed document fails closed via the
-    /// USLM reader. Idempotent by name: loading a name already present replaces it.
-    pub fn load_source(&mut self, name: String, xml: &str) -> Result<(), JsValue> {
-        self.load_source_core(name, xml)
-            .map_err(|e| JsValue::from_str(&e))
-    }
-
-    /// The plain-Rust core of [`Self::load_source`]: parse USLM → [`UsCode`] →
-    /// **project into the generic runtime [`Archive`](pr4xis_runtime::archive::Archive)** (the
-    /// `uslm::corpus::bridge` functor) → [`materialize`] into one queryable
-    /// [`RuntimeOntology`] → install into the chat-reasoning set via
-    /// [`Self::install_runtime_ontology`]. This is the SAME
-    /// `project → materialize → install` path the `.prx` load uses, so a loaded
-    /// statute title is reasoned over by [`Self::chat`] exactly like any other
-    /// loaded ontology — no longer held aside as a `self.loaded` corpus the
-    /// reasoner never sees. Native-testable (typed `String` error, no `JsValue`).
-    fn load_source_core(&mut self, name: String, xml: &str) -> Result<(), String> {
-        let title = read_uslm_title(xml).map_err(|e| format!("USLM parse failed: {e:?}"))?;
-        let usc = UsCode::from_uslm_titles_owned(vec![title]);
-        let onto = usc_runtime_ontology(&usc, OntologyName::new(name))
-            .map_err(|e| format!("USC materialize failed: {e:?}"))?;
-        self.install_runtime_ontology(onto)
-            .map_err(|e| format!("USC grounding failed: {e}"))?;
-        Ok(())
-    }
-
-    /// Load a registered OWL vocabulary from its `.prx.gz` distribution
-    /// envelope (downloaded by the host from the vocabulary's served
-    /// `prx_url`). **Content-addressed, fail-closed, identity-bound**: all
-    /// three pins are looked up by the caller's `(name, version)` from the
-    /// embedded `praxis.lock`, then the gate gunzips, bytecheck-validates the
-    /// rkyv envelope, and verifies three content-hash integrity claims — the
-    /// archive's `MerkleRoot` (re-derived from the envelope's own bytes), the
-    /// source pin, and the RDFC-1.0 graph-identity pin (the canonical N-Quads
-    /// of the loaded source graph). Because the pins are the *caller-named*
-    /// vocabulary's, a genuine archive for a DIFFERENT vocabulary fails (its
-    /// `MerkleRoot` won't match the named pin), so the install key cannot
-    /// disagree with the loaded content. On any mismatch nothing is installed.
-    /// Idempotent.
+    /// THE load path — the ONE typed entry every source now takes (doc §3). One
+    /// message shape, one dispatch: [`LoadRequest::from_wire`] decodes the
+    /// boundary fields into a typed [`LoadRequest`] (the single tagged decode at
+    /// the FFI), then [`Self::load_core`] resolves the `(decoder, projection
+    /// functor)` for the [`Encoding`] by typed match, verifies the
+    /// [`TrustAnchor`] fail-closed, decodes → projects to a [`RuntimeOntology`] →
+    /// installs it through the shared grounding + reasoner-rebuild tail
+    /// ([`Self::install_runtime_ontology`]). Returns a small [`Loaded`] receipt
+    /// (`{ name, encoding, bytes, root }`) so the UI can name what it loaded —
+    /// subsuming the old per-format `load_source` / `load_prx` / `load_owl_source`
+    /// / `load_ontology_prx` / `load_embedded_demo_prx` methods.
     ///
-    /// This differs from [`Self::load_owl_source`] in *where* trust is
-    /// anchored: `load_prx` re-derives the content address from the bytes it
-    /// is about to install and checks it against the lock, so a tampered or
-    /// stale `.prx.gz` is rejected even if the transport was honest.
-    pub fn load_prx(
+    /// - `encoding` is the wire tag for the typed [`Encoding`]: `"uslm-title"`,
+    ///   `"owl-source"`, `"owl-prx-gz"`, or `"content-addressed-archive"`.
+    /// - `version` pins the three-lock lookup for `"owl-prx-gz"` (ignored else).
+    /// - `root_hex` supplies the trusted Merkle root for
+    ///   `"content-addressed-archive"` (ignored else).
+    /// - `payload` is the fetched bytes (text formats travel as UTF-8 bytes);
+    ///   `None` resolves the build-baked embedded bytes for `name` (the demo/base).
+    pub fn load(
         &mut self,
         name: String,
-        version: String,
-        prx_gz: &[u8],
-    ) -> Result<(), JsValue> {
-        let key = format!("{name}@{version}");
-        let archive_pin = lock_archive_signature(&name, &version).ok_or_else(|| {
-            JsValue::from_str(&format!(
-                "no embedded praxis.lock [archive_signatures] pin for {key}; cannot validate .prx.gz"
-            ))
-        })?;
-        let source_pin = lock_hashes().get(&key).ok_or_else(|| {
-            JsValue::from_str(&format!(
-                "no embedded praxis.lock pin for {key}; cannot validate .prx.gz"
-            ))
-        })?;
-        let canonical_pin = lock_canonical_signature(&name, &version).ok_or_else(|| {
-            JsValue::from_str(&format!(
-                "no embedded praxis.lock [canonical_signatures] pin for {key}; cannot validate .prx.gz"
-            ))
-        })?;
-        let vocab = load_prx_gz(prx_gz, archive_pin, source_pin, canonical_pin).map_err(|e| {
-            JsValue::from_str(&format!(".prx.gz load/validate failed for {key}: {e}"))
-        })?;
-        // Project the OWL vocabulary into the generic runtime ontology (the
-        // functor-as-data `owl::bridge`) and install it into the ONE
-        // chat-reasoning set — no longer held aside in a corpus the reasoner
-        // never sees.
-        let onto = owl_runtime_ontology(&vocab, OntologyName::new(name))
-            .map_err(|e| JsValue::from_str(&format!("OWL materialize failed for {key}: {e:?}")))?;
-        self.install_runtime_ontology(onto)
-            .map_err(|e| JsValue::from_str(&format!("OWL grounding failed for {key}: {e}")))?;
-        Ok(())
-    }
-
-    /// Load a registered OWL vocabulary from its authoritative `.owl`
-    /// source (downloaded by the host from the vocabulary's served
-    /// `source_url`). Parses in-browser via the pure-Rust OWL reader and
-    /// materialises into the same [`LoadedOwlVocabulary`] corpus the
-    /// `.prx.gz` path produces (`read_owl` →
-    /// [`LoadedOwlVocabulary::from_owl_ontology`]). Idempotent.
-    ///
-    /// **Trust model — note the contrast with [`Self::load_prx`].** This
-    /// path trusts the fetched bytes: integrity rests on the host having
-    /// fetched from the pinned `source_url`. It does not re-hash here,
-    /// because the source bytes carry no embedded hash — the `.prx.gz`
-    /// envelope does, which is why `load_prx` re-validates against the lock
-    /// pin and this path does not. A malformed document fails closed via
-    /// the OWL reader.
-    pub fn load_owl_source(&mut self, name: String, owl_xml: &str) -> Result<(), JsValue> {
-        let ont =
-            read_owl(owl_xml).map_err(|e| JsValue::from_str(&format!("OWL parse failed: {e}")))?;
-        let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
-        let onto = owl_runtime_ontology(&vocab, OntologyName::new(name))
-            .map_err(|e| JsValue::from_str(&format!("OWL materialize failed: {e:?}")))?;
-        self.install_runtime_ontology(onto)
-            .map_err(|e| JsValue::from_str(&format!("OWL grounding failed: {e}")))?;
-        Ok(())
-    }
-
-    /// Load a NEW-FORMAT `.prx` ontology — the content-addressed
-    /// [`Archive`](pr4xis_runtime::archive::Archive)
-    /// (not the legacy `.prx.gz` envelope) — fail-closed, and ground it into the
-    /// chat so the loaded gloss can answer "what is X".
-    ///
-    /// **Fail-closed.** `expected_root_hex` is the trusted Merkle root from
-    /// OUTSIDE the bytes (here the build-baked root of the embedded demo; for a
-    /// fetched/uploaded `.prx` it would be the peer's / lock's pin). The kernel
-    /// [`load::load`](pr4xis_runtime::load::load) DECODES the bytes, RE-DERIVES
-    /// the archive's root from the content it is about to admit, and admits the
-    /// archive only if it equals the trusted root — a tampered, stale, or wrong
-    /// `.prx` is REFUSED, never loaded. The admitted archive is then
-    /// [`materialize`]d into a live [`RuntimeOntology`] (its Subsumption closure
-    /// folded once), and the [`ComposedReasoner`] is rebuilt so `chat` reasons
-    /// over it. Idempotent by content address: re-loading the same archive (same
-    /// root) replaces the prior copy.
-    ///
-    /// Browser-only: no server, no filesystem — the trusted root is supplied by
-    /// the caller, which is what makes the check meaningful.
-    pub fn load_ontology_prx(
-        &mut self,
-        bytes: &[u8],
-        name: String,
-        expected_root_hex: &str,
-    ) -> Result<(), JsValue> {
-        // The wasm boundary is a THIN wrapper over the plain-Rust core (so the
-        // load logic — and the demo — is testable natively, with no JsValue):
-        // the typed `LoadPrxError` is rendered to a `JsValue` only here.
-        self.load_ontology_prx_core(bytes, name, expected_root_hex)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-
-    /// Load the BUILT-IN demo `.prx` — the Avizienis et al. (2004) Dependability
-    /// taxonomy embedded at build time — through the exact same fail-closed path
-    /// [`Self::load_ontology_prx`] takes. The bytes and the trusted root are the
-    /// ones `build.rs` baked in (the root re-derived from the same archive whose
-    /// bytes are embedded), so the demo needs no network. Returns the loaded
-    /// ontology's name so the UI can name it.
-    pub fn load_embedded_demo_prx(&mut self) -> Result<String, JsValue> {
-        self.load_embedded_demo_prx_core()
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        encoding: &str,
+        version: Option<String>,
+        root_hex: Option<String>,
+        payload: Option<Vec<u8>>,
+    ) -> Result<JsValue, JsValue> {
+        let request = LoadRequest::from_wire(name, encoding, version, root_hex, payload)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let loaded = self
+            .load_core(request)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(JsValue::from_str(&loaded.to_json()))
     }
 
     /// The embedded demo `.prx` descriptor the UI offers as a one-click load:
@@ -510,9 +722,9 @@ impl Pr4xis {
 
     /// The authoritative source documents available to download:
     /// `{ sources: [{ name, version, url, bytes }] }`. The host streams
-    /// `url` (showing download progress), then calls [`Self::load_source`]
-    /// with the text. The meta page offers a Load action only for catalog
-    /// sources that appear here.
+    /// `url` (showing download progress), then calls [`Self::load`] with the
+    /// `"uslm-title"` encoding and the fetched text as its payload. The meta
+    /// page offers a Load action only for catalog sources that appear here.
     pub fn available_sources(&self) -> String {
         let list: Vec<SchemaValue> = sources_manifest::AVAILABLE_SOURCES
             .iter()
@@ -532,11 +744,12 @@ impl Pr4xis {
 
     /// The registered OWL vocabularies available to load, each by either
     /// route: `{ ontologies: [{ name, version, prx_url, source_url }] }`.
-    /// The host streams `prx_url` and calls [`Self::load_prx`] (validated
-    /// against the embedded lock pin) OR streams `source_url` and calls
-    /// [`Self::load_owl_source`]. The embedded lock pin is not exposed here
-    /// — it is a build-time validation secret consumed by `load_prx`, not a
-    /// URL the host fetches.
+    /// The host streams `prx_url` and calls [`Self::load`] with the
+    /// `"owl-prx-gz"` encoding (validated against the embedded lock pin) OR
+    /// streams `source_url` and calls [`Self::load`] with the `"owl-source"`
+    /// encoding. The embedded lock pin is not exposed here — it is a
+    /// build-time validation secret consumed by the `"owl-prx-gz"` path of
+    /// `load`, not a URL the host fetches.
     pub fn available_ontologies(&self) -> String {
         let list: Vec<SchemaValue> = ontologies_manifest::AVAILABLE_ONTOLOGIES
             .iter()
@@ -729,47 +942,88 @@ impl Pr4xis {
         }
     }
 
-    /// The plain-Rust core of [`Self::load_ontology_prx`] — fail-closed load +
-    /// materialize + install (the install runs the single grounding pass) —
-    /// returning a TYPED [`LoadPrxError`] (no `JsValue`), so it is exercisable in
-    /// native tests. The wasm method is a thin wrapper that renders the error to a
-    /// `JsValue`. This IS the browser load path; it just carries the typed verdict
-    /// instead of a string.
+    /// THE single load core (doc §3) — the plain-Rust path behind the public
+    /// [`Self::load`] and every native-test load helper. One structural arm:
+    /// resolve `(decoder, functor)` for the request's [`Encoding`] and verify its
+    /// [`TrustAnchor`] ([`decode_and_project`]), then install through the shared
+    /// grounding + reasoner-rebuild tail ([`Self::install_runtime_ontology`]).
+    /// Per-encoding knowledge is the typed [`Encoding`] variant; per-trust
+    /// knowledge is the [`TrustAnchor`] variant — neither is a method. Returns the
+    /// [`Loaded`] receipt. Fail-closed and transactional: a decode/verify refusal
+    /// or a LOUD grounding fault installs nothing.
+    fn load_core(&mut self, request: LoadRequest) -> Result<Loaded, LoadError> {
+        let onto = decode_and_project(
+            &request.name,
+            request.encoding,
+            &request.trust,
+            &request.payload,
+        )?;
+        let root = onto.root().to_hex();
+        let bytes = request.payload.len();
+        self.install_runtime_ontology(onto)
+            .map_err(LoadError::Grounding)?;
+        Ok(Loaded {
+            name: request.name,
+            encoding: request.encoding,
+            bytes,
+            root,
+        })
+    }
+
+    /// Native-test helper: load a USLM title from its XML through the ONE typed
+    /// [`Self::load_core`] path (a [`LoadRequest`] carrying [`Encoding::UslmTitle`]
+    /// and transport trust). Same typed verdict as the public [`Self::load`], no
+    /// `JsValue` — so the load path is exercisable under `cargo test`. Gated to
+    /// the native test build (the browser suite drives the public `load` instead).
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    fn load_source_core(&mut self, name: String, xml: &str) -> Result<(), LoadError> {
+        self.load_core(LoadRequest {
+            name,
+            encoding: Encoding::UslmTitle,
+            payload: xml.as_bytes().to_vec(),
+            trust: TrustAnchor::Transport,
+        })
+        .map(|_| ())
+    }
+
+    /// Native-test helper: load a content-addressed `.prx` from its bytes +
+    /// trusted root through the ONE typed [`Self::load_core`] path (a
+    /// [`LoadRequest`] carrying [`Encoding::ContentAddressedArchive`] +
+    /// [`TrustAnchor::MerkleRoot`]). This IS the browser load path; it just
+    /// carries the typed verdict instead of a `JsValue`.
     fn load_ontology_prx_core(
         &mut self,
         bytes: &[u8],
         name: String,
         expected_root_hex: &str,
-    ) -> Result<(), LoadPrxError> {
-        let trusted_root = ContentAddress::from_hex(expected_root_hex)
-            .ok_or_else(|| LoadPrxError::BadRootHex(expected_root_hex.to_string()))?;
-        // Fail-closed: decode + re-derive the root + refuse on mismatch. (root +
-        // decode are the early, peer-INDEPENDENT fail-closed gate; a malformed
-        // archive is refused here before install.)
-        let archive =
-            pr4xis_runtime::load::load(bytes, trusted_root).map_err(LoadPrxError::Refused)?;
-        // Materialize the admitted OPEN (un-grounded) form into one live ontology.
-        // Grounding is NOT pre-checked against a hand-built peer set here — that
-        // seeded only `runtime_ontologies` and never English, so a valid
-        // into-English `.prx` was wrongly REFUSED before install ran. Instead the
-        // install below runs `ground_loaded_set`, the SINGLE order-independent
-        // grounding authority (it seeds English + every loaded base, defers on a
-        // missing peer, and is LOUD on a declared-but-unrealizable target).
-        let onto =
-            materialize(archive, OntologyName::new(name)).map_err(LoadPrxError::Materialize)?;
-        self.install_runtime_ontology(onto)
-            .map_err(LoadPrxError::Grounding)?;
-        Ok(())
+    ) -> Result<(), LoadError> {
+        let root = ContentAddress::from_hex(expected_root_hex)
+            .ok_or_else(|| LoadError::BadRootHex(expected_root_hex.to_string()))?;
+        self.load_core(LoadRequest {
+            name,
+            encoding: Encoding::ContentAddressedArchive,
+            payload: bytes.to_vec(),
+            trust: TrustAnchor::MerkleRoot(root),
+        })
+        .map(|_| ())
     }
 
-    /// The plain-Rust core of [`Self::load_embedded_demo_prx`] — load the
-    /// build-baked Dependability `.prx` through the same fail-closed core and
-    /// return its name.
-    fn load_embedded_demo_prx_core(&mut self) -> Result<String, LoadPrxError> {
+    /// Native-test helper: load the build-baked Dependability demo `.prx` through
+    /// the same fail-closed [`Self::load_core`] path and return its name — the
+    /// native mirror of the public embedded load (`load(name, "content-addressed-
+    /// archive", None, None, None)`). Gated to the native test build.
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    fn load_embedded_demo_prx_core(&mut self) -> Result<String, LoadError> {
         let demo = embedded_demo();
-        let name = demo.name.to_string();
-        self.load_ontology_prx_core(demo.bytes, name.clone(), demo.root_hex)?;
-        Ok(name)
+        let root = ContentAddress::from_hex(demo.root_hex)
+            .ok_or_else(|| LoadError::BadRootHex(demo.root_hex.to_string()))?;
+        self.load_core(LoadRequest {
+            name: demo.name.to_string(),
+            encoding: Encoding::ContentAddressedArchive,
+            payload: demo.bytes.to_vec(),
+            trust: TrustAnchor::MerkleRoot(root),
+        })
+        .map(|loaded| loaded.name)
     }
 }
 
@@ -885,8 +1139,9 @@ mod acceptance {
         // --- WITH the corpus: load the EMBEDDED `.prx` through the fail-closed
         //     path the browser uses, then ask the SAME question through the SAME
         //     chat. The answer is the loaded gloss. (The native test drives the
-        //     typed core; the wasm method `load_embedded_demo_prx` is a thin
-        //     wrapper over exactly this call.) ---
+        //     typed core; the wasm `load` method with the
+        //     `"content-addressed-archive"` encoding is a thin wrapper over
+        //     exactly this call.) ---
         let mut with = Pr4xis::new();
         let loaded_name = with
             .load_embedded_demo_prx_core()
@@ -1074,7 +1329,7 @@ mod acceptance {
         // ontology. This is the structural half of "load Title 15 → ask about it".
         let mut p = Pr4xis::new();
         assert_eq!(p.loaded_ontology_count(), BASE_LOADED);
-        p.load_source("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
+        p.load_source_core("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
             .expect("a well-formed USLM title loads");
         assert_eq!(
             p.loaded_ontology_count(),
@@ -1095,7 +1350,7 @@ mod acceptance {
     #[test]
     fn loading_a_usc_title_makes_it_queryable() {
         let mut p = Pr4xis::new();
-        p.load_source("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
+        p.load_source_core("Title 18 (test)".to_string(), SAMPLE_USLM_TITLE)
             .expect("a well-formed USLM title loads");
         let resp = response_of(&p.chat("what is section 1")).to_lowercase();
         assert!(
@@ -1120,7 +1375,7 @@ mod acceptance {
         assert!(
             matches!(
                 err,
-                LoadPrxError::Refused(pr4xis_runtime::load::LoadError::RootMismatch { .. })
+                LoadError::Refused(pr4xis_runtime::load::LoadError::RootMismatch { .. })
             ),
             "the refusal must be a typed root mismatch; got: {err:?}"
         );
@@ -1154,7 +1409,7 @@ mod acceptance {
             .load_ontology_prx_core(&bytes, "Dependability".into(), embedded_demo().root_hex)
             .expect_err("tampered .prx bytes must be refused (fail-closed)");
         assert!(
-            matches!(err, LoadPrxError::Refused(_)),
+            matches!(err, LoadError::Refused(_)),
             "tampered bytes must be refused by the gate; got: {err:?}"
         );
         assert_eq!(
@@ -1302,7 +1557,7 @@ mod acceptance {
         assert!(
             matches!(
                 err,
-                LoadPrxError::Grounding(
+                LoadError::Grounding(
                     pr4xis_runtime::grounding::LinkError::GroundTargetAbsent { .. }
                 )
             ),
@@ -1398,11 +1653,11 @@ mod acceptance {
 //
 // `wasm-pack test --headless --firefox` (the `dev-test-wasm` script) runs this
 // against the actual wasm artifact in a browser: construct `Pr4xis`, load the
-// EMBEDDED new-format `.prx` through the WASM `load_embedded_demo_prx` method
-// (the exact entry the worker calls), and assert the chat answers from the
-// loaded gloss — and abstains before the load. This exercises the real
-// wasm-bindgen boundary (JsValue marshalling included), not just the native
-// core.
+// EMBEDDED new-format `.prx` through the ONE public WASM `load` method with the
+// `"content-addressed-archive"` encoding (the exact entry the worker calls),
+// and assert the chat answers from the loaded gloss — and abstains before the
+// load. This exercises the real wasm-bindgen boundary (JsValue marshalling
+// included), not just the native core.
 #[cfg(all(test, target_arch = "wasm32"))]
 mod browser_acceptance {
     use super::*;
@@ -1481,13 +1736,22 @@ mod browser_acceptance {
             "english-only must abstain on the unloaded concept {surface:?}; got: {without_resp:?}"
         );
 
-        // WITH the corpus: load the embedded `.prx` through the WASM method (the
-        // fail-closed gate runs in the browser), then chat the same question. The
-        // asserted gloss is the one DISCOVERED from the loaded ontology, so the
-        // evidence chain is real — a hardcoded gloss could not satisfy it.
+        // WITH the corpus: load the embedded `.prx` through the ONE public WASM
+        // `load` method — the exact typed entry the worker calls — with an absent
+        // payload (the bytes ship in the wasm; `None` resolves them by name) and
+        // the content-addressed encoding. The fail-closed gate runs in the
+        // browser. The asserted gloss is the one DISCOVERED from the loaded
+        // ontology, so the evidence chain is real — a hardcoded gloss could not
+        // satisfy it. This exercises the real wasm-bindgen boundary end to end.
         let mut with = Pr4xis::new();
-        with.load_embedded_demo_prx()
-            .expect("the embedded demo .prx loads in the browser (fail-closed)");
+        with.load(
+            embedded_demo().name.to_string(),
+            "content-addressed-archive",
+            None,
+            None,
+            None,
+        )
+        .expect("the embedded demo .prx loads in the browser (fail-closed)");
         // The LegalSources base (1) plus the just-loaded Dependability demo (1).
         assert_eq!(with.loaded_ontology_count(), 2);
         let with_resp = response_of(&with.chat(&question));

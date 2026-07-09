@@ -5,9 +5,10 @@
 //! the workspace + needs the wasm target). Run:
 //!   wasm-pack test --headless --firefox
 //!
-//! `Pr4xis::load_source` takes the USLM XML as a *string*, so the core
-//! load path — authoritative USLM XML → live `UsCode` → self-model
-//! catalog — is exercisable here without `fetch`/DOM. The full
+//! The one typed `Pr4xis::load(name, encoding, version, root_hex, payload)`
+//! takes the USLM XML as UTF-8 `payload` bytes under the `"uslm-title"`
+//! encoding, so the core load path — authoritative USLM XML → live `UsCode` →
+//! self-model catalog — is exercisable here without `fetch`/DOM. The full
 //! download + Web-Worker + progress-UI click-through would be a
 //! Rust-native browser-automation test (fantoccini/thirtyfour over
 //! webdriver) — never a JS tool.
@@ -96,8 +97,14 @@ fn load_source_materializes_a_live_usc() {
         "only the always-loaded base is present"
     );
 
-    p.load_source("usc_title_18".to_string(), SAMPLE_TITLE)
-        .expect("a well-formed USLM title parses");
+    p.load(
+        "usc_title_18".to_string(),
+        "uslm-title",
+        None,
+        None,
+        Some(SAMPLE_TITLE.as_bytes().to_vec()),
+    )
+    .expect("a well-formed USLM title parses");
 
     // The proof of "loaded into memory like English": a live UsCode with
     // real, queryable sections — not inert bytes.
@@ -116,10 +123,22 @@ fn load_source_materializes_a_live_usc() {
 #[wasm_bindgen_test]
 fn load_source_is_idempotent() {
     let mut p = Pr4xis::new();
-    p.load_source("usc_title_18".to_string(), SAMPLE_TITLE)
-        .unwrap();
-    p.load_source("usc_title_18".to_string(), SAMPLE_TITLE)
-        .unwrap();
+    p.load(
+        "usc_title_18".to_string(),
+        "uslm-title",
+        None,
+        None,
+        Some(SAMPLE_TITLE.as_bytes().to_vec()),
+    )
+    .unwrap();
+    p.load(
+        "usc_title_18".to_string(),
+        "uslm-title",
+        None,
+        None,
+        Some(SAMPLE_TITLE.as_bytes().to_vec()),
+    )
+    .unwrap();
     assert_eq!(
         p.loaded_section_count(),
         base_concepts() + 1,
@@ -131,8 +150,14 @@ fn load_source_is_idempotent() {
 fn load_source_rejects_malformed_xml() {
     let mut p = Pr4xis::new();
     assert!(
-        p.load_source("usc_title_18".to_string(), "<not-a-uslm-doc/>")
-            .is_err(),
+        p.load(
+            "usc_title_18".to_string(),
+            "uslm-title",
+            None,
+            None,
+            Some(b"<not-a-uslm-doc/>".to_vec()),
+        )
+        .is_err(),
         "a document with no USLM root must fail closed"
     );
     assert_eq!(
@@ -216,8 +241,14 @@ fn load_owl_source_materializes_a_live_vocabulary() {
         "only the always-loaded base is present"
     );
 
-    p.load_owl_source("cito".to_string(), SAMPLE_OWL)
-        .expect("a well-formed OWL vocabulary parses");
+    p.load(
+        "cito".to_string(),
+        "owl-source",
+        None,
+        None,
+        Some(SAMPLE_OWL.as_bytes().to_vec()),
+    )
+    .expect("a well-formed OWL vocabulary parses");
 
     // 1 class + 2 object properties = 3 queryable entities — live, not
     // inert bytes.
@@ -233,8 +264,22 @@ fn load_owl_source_materializes_a_live_vocabulary() {
 #[wasm_bindgen_test]
 fn load_owl_source_is_idempotent() {
     let mut p = Pr4xis::new();
-    p.load_owl_source("cito".to_string(), SAMPLE_OWL).unwrap();
-    p.load_owl_source("cito".to_string(), SAMPLE_OWL).unwrap();
+    p.load(
+        "cito".to_string(),
+        "owl-source",
+        None,
+        None,
+        Some(SAMPLE_OWL.as_bytes().to_vec()),
+    )
+    .unwrap();
+    p.load(
+        "cito".to_string(),
+        "owl-source",
+        None,
+        None,
+        Some(SAMPLE_OWL.as_bytes().to_vec()),
+    )
+    .unwrap();
     assert_eq!(
         p.loaded_section_count(),
         base_concepts() + 3,
@@ -246,7 +291,14 @@ fn load_owl_source_is_idempotent() {
 fn load_owl_source_rejects_malformed_xml() {
     let mut p = Pr4xis::new();
     assert!(
-        p.load_owl_source("cito".to_string(), "<<<not xml").is_err(),
+        p.load(
+            "cito".to_string(),
+            "owl-source",
+            None,
+            None,
+            Some(b"<<<not xml".to_vec()),
+        )
+        .is_err(),
         "malformed OWL must fail closed"
     );
     assert_eq!(
@@ -262,13 +314,15 @@ fn load_prx_rejects_unregistered_vocabulary() {
     // No embedded [archive_signatures]/[hashes] pin for an unknown name →
     // the gate has nothing to validate against and refuses.
     assert!(
-        p.load_prx(
+        p.load(
             "not_a_registered_vocab".to_string(),
-            "9.9.9".to_string(),
-            b"irrelevant bytes"
+            "owl-prx-gz",
+            Some("9.9.9".to_string()),
+            None,
+            Some(b"irrelevant bytes".to_vec()),
         )
         .is_err(),
-        "an unpinned vocabulary cannot be validated, so load_prx refuses"
+        "an unpinned vocabulary cannot be validated, so the load refuses"
     );
     assert_eq!(
         p.loaded_section_count(),
@@ -283,10 +337,12 @@ fn load_prx_rejects_corrupt_blob_for_registered_vocabulary() {
     // cito is registered (has a lock pin), but these bytes are not a valid
     // gzip/rkyv `.prx.gz` — the fail-closed gate rejects before installing.
     assert!(
-        p.load_prx(
+        p.load(
             "cito".to_string(),
-            "2.8.1".to_string(),
-            b"definitely not a valid prx.gz envelope"
+            "owl-prx-gz",
+            Some("2.8.1".to_string()),
+            None,
+            Some(b"definitely not a valid prx.gz envelope".to_vec()),
         )
         .is_err(),
         "a corrupt .prx.gz for a registered vocabulary must fail closed"

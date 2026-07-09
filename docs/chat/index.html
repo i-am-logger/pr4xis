@@ -449,7 +449,7 @@
         // The worker downloads + parses; we just render the progress it
         // posts. The parse runs off the main thread, so the bar keeps
         // animating and the page stays responsive even for a big title.
-        await call('load', { name, url, totalHint }, (m) => {
+        await call('load', { name, encoding: 'uslm-title', url, totalHint }, (m) => {
           if (m.phase === 'download') {
             const total = m.total || totalHint || 0;
             if (total) {
@@ -477,7 +477,7 @@
         phase.textContent = 'Failed';
         detail.classList.add('progress-err');
         detail.textContent = String(e).slice(0, 90);
-        console.error('load_source failed:', e);
+        console.error('load (uslm-title) failed:', e);
         const retry = document.createElement('button');
         retry.className = 'load-btn';
         retry.textContent = 'Retry';
@@ -488,11 +488,11 @@
 
     // Load a registered OWL vocabulary via one of its two routes — the
     // hash-validated `.prx.gz` distribution envelope or the authoritative
-    // `.owl` source. The two paths share UI; only the worker RPC differs.
-    // `kind` is 'prx' or 'source' — drives the RPC and the response decoder
-    // (binary ArrayBuffer for .prx.gz; text for .owl).
+    // `.owl` source. The two paths share UI AND the one `load` message; only
+    // the typed `encoding` differs — a typed variant, not a hand-branched RPC
+    // name. `kind` is 'prx' or 'source'.
     async function loadOntology(kind, meta, card, topRow) {
-      const rpc = kind === 'prx' ? 'load_prx' : 'load_owl_source';
+      const encoding = kind === 'prx' ? 'owl-prx-gz' : 'owl-source';
       const url = kind === 'prx' ? meta.prx_url : meta.source_url;
       const phaseLabel = kind === 'prx' ? 'Loading .prx' : 'Loading source';
       // Take both ontology buttons offline for the duration of the load —
@@ -512,7 +512,7 @@
       const fill = prog.querySelector('.progress-fill');
 
       try {
-        await call(rpc, { name: meta.name, version: meta.version, url }, (m) => {
+        await call('load', { name: meta.name, encoding, version: meta.version, url }, (m) => {
           if (m.phase === 'download') {
             const total = m.total || 0;
             if (total) {
@@ -537,13 +537,14 @@
         await renderDashboard();
       } catch (e) {
         // Surface the wasm error verbatim (fail-closed: a tampered .prx.gz
-        // is rejected by `load_prx`'s embedded source-hash gate; this is
-        // where the gate's verdict reaches the operator).
+        // is rejected by the `owl-prx-gz` path of `load` at its embedded
+        // source-hash gate; this is where the gate's verdict reaches the
+        // operator).
         prog.classList.add('progress-err');
         phase.textContent = 'Failed';
         detail.classList.add('progress-err');
         detail.textContent = String(e).slice(0, 140);
-        console.error(`${rpc} failed:`, e);
+        console.error(`load (${encoding}) failed:`, e);
         const retry = document.createElement('button');
         retry.className = 'load-btn';
         retry.textContent = 'Retry';
@@ -556,7 +557,7 @@
     // re-derives the archive's Merkle root and refuses on mismatch; on success
     // the chat reasons over the loaded ontology. One visible phase
     // (Materializing) — the bytes already ship in the wasm, nothing downloads.
-    async function loadEmbeddedPrx(card, topRow, btn) {
+    async function loadEmbeddedPrx(card, topRow, btn, demo) {
       btn.remove();
       const prog = document.createElement('div');
       prog.className = 'progress';
@@ -568,7 +569,16 @@
       const phase = prog.querySelector('.progress-phase');
       const detail = prog.querySelector('.progress-detail');
       try {
-        const loadedName = await call('load_embedded_demo_prx');
+        // The SAME one `load` message — no separate embedded RPC. No URL means
+        // no download: the demo bytes ship in the wasm, and an absent payload
+        // resolves them by name. The content-addressed encoding + baked root
+        // drive the fail-closed Merkle-root re-derivation.
+        const loaded = JSON.parse(await call('load', {
+          name: demo.name,
+          encoding: 'content-addressed-archive',
+          rootHex: demo.root,
+        }));
+        const loadedName = loaded.name;
         prog.classList.add('done');
         phase.textContent = 'Loaded';
         detail.textContent = `${loadedName} — ask the chat "what is a correctservice"`;
@@ -580,7 +590,7 @@
         phase.textContent = 'Refused';
         detail.classList.add('progress-err');
         detail.textContent = String(e).slice(0, 140);
-        console.error('load_embedded_demo_prx failed:', e);
+        console.error('load (embedded content-addressed-archive) failed:', e);
         topRow.appendChild(btn);
       }
     }
@@ -762,7 +772,7 @@
           btn.dataset.loadEmbeddedPrx = demo.name;
           btn.textContent = 'Load .prx';
           btn.title = `content-addressed Archive · root ${demo.root.slice(0, 12)}… · ${demo.bytes} bytes (embedded, no network)`;
-          btn.addEventListener('click', () => loadEmbeddedPrx(card, top, btn));
+          btn.addEventListener('click', () => loadEmbeddedPrx(card, top, btn, demo));
           top.appendChild(btn);
         }
         card.appendChild(top);
