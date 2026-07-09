@@ -8,19 +8,19 @@
 //! [`RkyvOwned`](pr4xis_runtime::lens::rkyv_lens::RkyvOwned) conversions); the
 //! generic PUT / GET / ACCESS lives once in `pr4xis-runtime`. This module lifts
 //! the three generic lens-law predicates — proven ONCE over the shared lens —
-//! into registered, discoverable [`Axiom`]s that run each predicate over ALL
+//! into registered, discoverable `Axiom`s that run each predicate over ALL
 //! FOUR store instances' witness corpora, mirroring `packed_csr_laws` (the M1
 //! stores) and `pr4xis_runtime`'s `ArchiveLensGetPut` (the runtime `Archive`
 //! instance):
 //!
-//! - [`RkyvLensGetPut`] — `put(get(b)) == b`: the `rkyv` cache blob is stable
+//! - `RkyvLensGetPut` — `put(get(b)) == b`: the `rkyv` cache blob is stable
 //!   under a decode/re-encode round-trip.
-//! - [`RkyvLensPutGet`] — `get(put(o)) == o`: an owned value round-trips through
+//! - `RkyvLensPutGet` — `get(put(o)) == o`: an owned value round-trips through
 //!   the cache form with its full query image intact.
-//! - [`RkyvLensDeterminism`] — `put(o) == put(o)`: the cache bytes are a
+//! - `RkyvLensDeterminism` — `put(o) == put(o)`: the cache bytes are a
 //!   deterministic function of the owned value alone (the law underwriting
 //!   GetPut).
-//! - [`RkyvLensOwnedPutAgrees`] — `put_aligned_owned(x.clone()) == put_aligned(&x)`:
+//! - `RkyvLensOwnedPutAgrees` — `put_aligned_owned(x.clone()) == put_aligned(&x)`:
 //!   the owned-consuming (MOVE) PUT leg the store builds through is byte-identical
 //!   to the borrowing (clone) PUT leg, so consuming the owned build to halve the
 //!   load-time transient peak changes not one archived byte.

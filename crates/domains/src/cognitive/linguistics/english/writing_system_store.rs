@@ -10,11 +10,11 @@
 //!
 //! # The representation
 //!
-//! An authored [`WritingSystemRecord`] mirror tree (kept OFF the live
+//! An authored `WritingSystemRecord` mirror tree (kept OFF the live
 //! [`WritingSystem`] domain types per the [`concept_store`](super::concept_store) /
 //! OWL `prx` precedent, so the domain stays free of `rkyv`'s layout coupling) is
-//! `rkyv`-serialized into a single [`AlignedVec<16>`] and `bytecheck`-validated
-//! ONCE at build. The one public reader — the [`Language::writing_system`] trait
+//! `rkyv`-serialized into a single `AlignedVec<16>` and `bytecheck`-validated
+//! ONCE at build. The one public reader — the `Language::writing_system` trait
 //! method — is TEST-ONLY (grep-confirmed: no tokenizer/runtime caller), so it
 //! deserializes the one small value on call and returns it by value; the archive
 //! yields a structurally distinct `Archived*` type, so a `&WritingSystem` borrow is

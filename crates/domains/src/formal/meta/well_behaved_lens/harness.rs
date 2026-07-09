@@ -165,7 +165,7 @@ pub fn lens_registrations() -> &'static [LensRegistration] {
 /// Resolve a registered lens by its `"name@version"` [`LensRegistration::key`]
 /// — the lens analogue of [`pr4xis::ontology::axiom_by_name`].
 ///
-/// Used by the whole-graph [`snapshot`](crate::formal::meta::praxis_knowledge_graph::snapshot)
+/// Used by the whole-graph `snapshot`
 /// loader to re-bind a rehydrated `LensNode`'s wire-name to its registration
 /// HANDLE in the running binary (an asymmetric re-bind: a `LensNode` resolves
 /// to its `&'static LensRegistration`, not to a runnable lens value, because

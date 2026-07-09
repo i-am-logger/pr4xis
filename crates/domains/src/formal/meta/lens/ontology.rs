@@ -12,7 +12,7 @@
 //! `file ⇄ xml ⇄ xsd ⇄ statute` pipeline, and `ArchiveLens`
 //! (`pr4xis_runtime`) is the `rkyv` runtime-cache lens. Their laws are proven
 //! as registered axioms — `RoundTripHarnessAllVerified` (every registered
-//! [`WellBehavedLens`] passes PutGet against `praxis.lock`), `EmitLoadWellBehaved`
+//! `WellBehavedLens` passes PutGet against `praxis.lock`), `EmitLoadWellBehaved`
 //! (the archive-storage GetPut leg), and `ArchiveLensGetPut` / `ArchiveLensPutGet`
 //! (the runtime cache lens) — but the LENS itself was named in no `ontology!`:
 //! `Lens`, `WellBehavedLens`, `GetPut`, `PutGet`, `PutPut`,
@@ -22,7 +22,7 @@
 //! lens as unit; Foster et al. 2007 §3) — was proven only in `#[test]`
 //! helpers, registered as no axiom.
 //!
-//! This module closes both gaps, exactly as [`super::canonical_codec`] did for
+//! This module closes both gaps, exactly as [`super::super::canonical_codec`] did for
 //! the codec:
 //!
 //! - [`ontology`](self) — the concepts and their kinded morphisms (a
@@ -42,7 +42,7 @@
 //!
 //! The byte-anchored and archive lens laws are NOT re-run here (they are owned
 //! by, and verified against the real realisation in,
-//! [`super::well_behaved_lens::harness`] and [`super::ontology_archive`], and
+//! [`super::super::well_behaved_lens::harness`] and [`super::super::ontology_archive`], and
 //! `RoundTripHarnessAllVerified` reads the on-disk corpus). They are registered
 //! through the same `register_axiom!` / `axiom_by_name` machinery and cite the
 //! same Foster et al. 2007 §3 laws, so the whole lens-law family — general

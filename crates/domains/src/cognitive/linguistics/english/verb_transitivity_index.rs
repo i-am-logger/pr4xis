@@ -8,9 +8,9 @@
 //! load, into a packed sorted-key dictionary and the HashMap is dropped.
 //!
 //! This is one instance of the shared
-//! [`PackedCsrDict`](crate::formal::meta::packed_csr::PackedCsrDict): a
+//! [`PackedCsrDict`]: a
 //! [`SortedKeys`] dictionary whose value column is a
-//! [`CheckedEnumRun`](crate::formal::meta::packed_csr::CheckedEnumRun) of
+//! [`CheckedEnumRun`] of
 //! [`Transitivity`]. Unlike the `ConceptId` runs, the payload here is a run of
 //! one-byte `#[repr(u8)]` discriminants; the [`EnumBound`] impl below tells the
 //! generic the valid discriminant range so every packed byte is VALIDATED at

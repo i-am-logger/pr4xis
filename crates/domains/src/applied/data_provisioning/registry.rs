@@ -178,7 +178,7 @@ pub fn lock_byte_exact_signature(name: &str, version: &str) -> Option<&'static L
 /// bytes of the compiled `.prx` envelope (its `BinaryEnvelope` content
 /// address / Merkle root). This is the integrity claim the `.prx` load gate
 /// checks against the bytes it installs — see
-/// [`load_prx_gz`](crate::social::software::markup::xml::owl::prx::load_prx_gz).
+/// `load_prx_gz`.
 pub fn lock_archive_signatures() -> &'static HashMap<String, LockDigest> {
     &lock_data().archive_signatures
 }

@@ -1031,7 +1031,7 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
 /// view alone, with neither the source bytes nor the graph-faithful complement
 /// the integrity-bearing [`PrxEnvelope`] carries. The OWL sibling of WordNet's
 /// `emit_prx_gz`; the byte-exact reconstruction + `praxis.lock` content-address
-/// gate stay on the distribution path ([`emit_all_prx_gz`], [`load_prx_gz`]).
+/// gate stay on the distribution path (`emit_all_prx_gz`, [`load_prx_gz`]).
 pub fn emit_compact_prx_gz(data: &OwnedCodegenData) -> Result<Vec<u8>, PrxError> {
     gzip(&data.to_succinct())
 }

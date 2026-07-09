@@ -23,7 +23,7 @@
 //! This is the *whole-graph* generalisation of
 //! [`OntologyArchiveStorage`](super::super::ontology_archive): the archive
 //! is its content-addressed storage substratum, mapped in by the
-//! fully-faithful [`ArchiveIntoGraph`](super::functor::ArchiveIntoGraph)
+//! fully-faithful `ArchiveIntoGraph`
 //! functor — created *alongside*, never a rewrite
 //! (`feedback_evolution_via_functor`).
 //!

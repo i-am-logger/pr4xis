@@ -8,9 +8,9 @@
 //! packed sorted-key dictionary and the HashMap is dropped.
 //!
 //! This is one instance of the shared
-//! [`PackedCsrDict`](crate::formal::meta::packed_csr::PackedCsrDict): a
+//! [`PackedCsrDict`]: a
 //! [`SortedKeys`] dictionary whose value column is a
-//! [`PodScalar`](crate::formal::meta::packed_csr::PodScalar) of [`ConceptId`]
+//! [`PodScalar`] of [`ConceptId`]
 //! (each synset id names exactly ONE concept), so `lookup` returns
 //! `Option<ConceptId>` — no run/offset indirection, the id read back by value.
 

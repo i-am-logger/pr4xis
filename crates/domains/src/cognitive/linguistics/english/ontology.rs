@@ -918,7 +918,7 @@ impl English {
 /// process behind a `OnceLock`.
 ///
 /// Reads the content-addressed compact `.prx` archive
-/// ([`english_compact_prx_cache_dir`][cd]) when one is present — gunzip +
+/// (`english_compact_prx_cache_dir`) when one is present — gunzip +
 /// fail-closed content gate + succinct decode + `from_wordnet` materialization,
 /// far cheaper than the 89 MB WN-LMF XML parse it does otherwise. The English
 /// analogue of [`uslm::corpus::loaded`][usc]: the shared fast path for every
@@ -926,7 +926,6 @@ impl English {
 /// fixtures), so each `OnceLock` re-init under nextest's process-per-test model
 /// loads the compact archive instead of re-parsing the giant.
 ///
-/// [cd]: crate::social::software::markup::xml::lmf::prx::english_compact_prx_cache_dir
 /// [usc]: crate::social::software::markup::xml::uslm::corpus::loaded
 pub fn english_load_owned() -> English {
     let english = english_load_owned_inner();

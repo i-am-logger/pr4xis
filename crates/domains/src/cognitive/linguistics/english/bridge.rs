@@ -202,8 +202,8 @@ const ENGLISH_FUNCTOR_ROOT_HEX: &str =
     "55c3a8cabc2f52cb42e0e10d6a232c881f50e91a24ec35e06dadda6550c3cc1f";
 
 /// Load the WordNet→praxis functor from its committed `.prx`
-/// ([`ENGLISH_FUNCTOR_PRX`]) — FAIL-CLOSED: the embedded bytes are admitted only
-/// if they re-derive to [`ENGLISH_FUNCTOR_ROOT_HEX`], so a tampered or stale
+/// (`ENGLISH_FUNCTOR_PRX`) — FAIL-CLOSED: the embedded bytes are admitted only
+/// if they re-derive to `ENGLISH_FUNCTOR_ROOT_HEX`, so a tampered or stale
 /// projection is refused, never silently mis-applied. Reuses the kernel
 /// [`load`](pr4xis_runtime::load::load); no new runtime API. The functor is a
 /// finite action on generators (the finite-presentation theorem; Fong & Spivak

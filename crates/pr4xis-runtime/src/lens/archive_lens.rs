@@ -478,7 +478,7 @@ pub fn archived_local_name(target: &ArchivedEdgeTargetView) -> Option<&str> {
 /// side reads it here, then resolves the atom against a connected ontology via the
 /// generic [`AtomResolver`](crate::grounding::AtomResolver). A grounded target
 /// whose `atom_hex` is not a valid content address is `None` (the same fail-closed
-/// stance the owning [`into_live`](ArchivedEdgeTarget::into_live) decode takes).
+/// stance the owning `into_live` decode takes).
 pub fn archived_grounded(target: &ArchivedEdgeTargetView) -> Option<(&str, ContentAddress)> {
     match target {
         ArchivedArchivedEdgeTarget::Local(_) => None,
@@ -490,7 +490,7 @@ pub fn archived_grounded(target: &ArchivedEdgeTargetView) -> Option<(&str, Conte
 
 /// The `rkyv` local-cache/query lens between a runtime [`Archive`] and its
 /// zero-copy bytes — the runtime instance of the generic
-/// [`RkyvLens`](crate::lens::rkyv_lens::RkyvLens)`<`[`Archive`]`, `[`ArchivedArchive`]`>`.
+/// [`RkyvLens`]`<`[`Archive`]`, `[`ArchivedArchive`]`>`.
 /// Its methods are thin, type-fixing forwarders to that lens (the serialize /
 /// validate-once / zero-copy / owning-decode boilerplate lives there, once). See
 /// the [module docs](self) for why this is NOT the content-address form.
@@ -521,7 +521,7 @@ impl ArchiveLens {
 
     /// The ZERO-COPY GET: `bytecheck`-validate `bytes` and return a borrowed
     /// [`ArchivedArchiveView`] over them — NO owned rebuild (contrast
-    /// [`get`](Self::get)). `bytes` must be 16-aligned (an [`AlignedVec<16>`] as
+    /// [`get`](Self::get)). `bytes` must be 16-aligned (an `AlignedVec<16>` as
     /// [`put_aligned`](Self::put_aligned) produces). Fail-closed on a corrupted /
     /// truncated / misaligned blob.
     ///

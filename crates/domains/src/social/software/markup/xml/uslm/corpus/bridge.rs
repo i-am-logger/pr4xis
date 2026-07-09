@@ -126,7 +126,7 @@ fn section_citation(urn: &str) -> Option<String> {
 /// [(`[`COMPOSES_REL`]`, parent_urn)]}`. Every Composes target is a declared
 /// section/subdivision node, so the archive is referentially closed and (after
 /// the functor relabels Composes→Parthood)
-/// [`materialize`](pr4xis_runtime::ontology::materialize)s into a real mereology.
+/// [`materialize`]s into a real mereology.
 pub fn project_archive(usc: &UsCode) -> Archive {
     // Project one subdivision (and its descendants) — each composes INTO its
     // parent, so the Composes hierarchy is read straight off the tree (the
@@ -304,7 +304,7 @@ fn usc_legal_sources_functor() -> Connection {
 /// Project a loaded [`UsCode`] into the generic runtime [`Archive`], CARRYING its
 /// USC→LegalSources grounding functor as DATA — the schema-relabeled provisions
 /// PLUS the committed `usc_legal_sources_functor` appended as a
-/// [`Connection`](pr4xis_runtime::connection::Connection).
+/// [`Connection`].
 ///
 /// [`project_archive`] → [`apply`]`(usc_functor)` (relabel raw USLM kinds to
 /// praxis kinds) → append the grounding [`Connection`]. The archive now DECLARES
@@ -328,7 +328,7 @@ pub fn usc_archive(usc: &UsCode) -> Archive {
 
 /// Bridge a loaded [`UsCode`] into a generic [`RuntimeOntology`] — [`usc_archive`]
 /// (project → apply → append the grounding functor as data) →
-/// [`materialize`](pr4xis_runtime::ontology::materialize).
+/// [`materialize`].
 ///
 /// The materialized ontology CARRIES its grounding `Connection`, but its cross-
 /// ontology type edges are NOT minted here — that is the loader's general

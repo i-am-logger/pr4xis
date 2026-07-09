@@ -5,7 +5,7 @@
 //! This is the *first-class praxis ontology* the `.prx` machinery
 //! realises: rather than describe the archive store in doc-comments,
 //! praxis declares its concepts here and proves its guarantees as
-//! runnable axioms (see [`super::axioms`], whose `verify()` predicates
+//! runnable axioms (see `super::axioms`, whose `verify()` predicates
 //! exercise the real `xml::owl::prx` realisation). The `.prx.gz`
 //! envelope is *one* realisation; USC (#271) and other consumers become
 //! thin realisations of the same ontology.
@@ -27,7 +27,7 @@
 //! - **Hill** *rkyv* v0.8 — the deterministic zero-copy archive.
 //! - **Samuel et al. (2010)** TUF, CCS '10; **Torres-Arias et al.
 //!   (2019)** in-toto, USENIX Security '19; **OpenSSF** SLSA — the
-//!   supply-chain attestation chain (future, [`super::axioms`] deferred).
+//!   supply-chain attestation chain (future, `super::axioms` deferred).
 //! - **W3C (2016)** *Subresource Integrity* — the integrity claim.
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};

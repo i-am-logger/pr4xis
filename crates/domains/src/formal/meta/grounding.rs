@@ -139,7 +139,7 @@ pub fn ground_declared(
 /// grounding edges) changes its node content-addresses, which the already-frozen
 /// peer set would not reflect, so a source grounded against its pre-grounding
 /// addresses would dangle SILENTLY. This is no longer left to prose: it is enforced
-/// by [`guard_one_level_grounding`], a FAIL-CLOSED runtime guard that refuses the
+/// by `guard_one_level_grounding`, a FAIL-CLOSED runtime guard that refuses the
 /// whole pass with [`LinkError::GroundingTargetIsSource`] when any loaded ontology
 /// is BOTH a grounding target and a grounding source. Grounding-target-that-grounds
 /// is future work (it needs the peer set re-derived in dependency order, a
