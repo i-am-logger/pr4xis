@@ -104,7 +104,7 @@ use alloc::{
 
 /// The one Relations vocabulary every edge kind-name resolves into. A relation
 /// kind is NOT a closed Rust enum and NOT a bare string — it is a [`ConceptRef`]
-/// in the loaded "Relations" ontology (`docs/praxis-self-aware-architecture` §11).
+/// in the loaded "Relations" ontology (self-aware-architecture design note §11).
 /// One shared vocabulary means an `Org` `Subsumption` edge and an English
 /// `Subsumption` edge name the SAME kind, so closures compose across ontologies.
 const RELATIONS_VOCAB: OntologyName = OntologyName::new_static("Relations");

@@ -1,7 +1,5 @@
 # Summary
 
-- [Investment Brief](praxis_investment_brief.md)
-
 # Learn
 
 - [Get Started](learn/get-started.md)

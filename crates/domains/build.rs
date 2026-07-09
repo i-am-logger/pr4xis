@@ -683,7 +683,7 @@ fn write_usc_corpus_codegen(
     let out_path = out_dir.join("usc_corpus_codegen.rs");
     let stub = "// Empty stub — M4.δ.7.a retired build-time USC corpus codegen \
                 in favor of runtime XML loading via `UsCode::loaded()`. \
-                See docs/m4-delta-7-a-design.md.\n\
+                See the M4.δ.7.a design note.\n\
                 pub static CODEGEN_DATA: pr4xis::codegen_data::CodegenData<\
                 crate::social::software::markup::xml::uslm::corpus::UsCode> = \
                 pr4xis::codegen_data::CodegenData { \

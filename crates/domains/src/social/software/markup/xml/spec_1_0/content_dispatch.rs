@@ -3,7 +3,7 @@
 //!
 //! ## The audit item this closes
 //!
-//! `docs/mω-praxis-way-audit-2026-05-27.md` Tier-3 items #18 and
+//! The mω praxis-way audit (2026-05-27) Tier-3 items #18 and
 //! #19: the parser's content-loop and `parse_misc_star` dispatched
 //! the next-content-item with a chain of hand-coded
 //! `c.starts_with("<!--")` / `<![CDATA[` / `<?` / `<` checks. The
