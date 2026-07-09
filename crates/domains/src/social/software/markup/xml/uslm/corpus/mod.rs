@@ -543,7 +543,7 @@ impl UsCode {
 
     /// Runtime constructor: assemble a [`UsCode`] from parsed
     /// [`UsCodeTitle`] instances obtained via [`read_uslm_title`].
-    /// Per M4.δ.7.a (`docs/m4-delta-7-a-design.md`), this is the
+    /// Per the M4.δ.7.a design note, this is the
     /// canonical path [`loaded()`] uses to materialize the corpus
     /// from on-disk USLM XML — the WordNet pattern, mirroring
     /// [`crate::cognitive::linguistics::english::English::from_wordnet`].

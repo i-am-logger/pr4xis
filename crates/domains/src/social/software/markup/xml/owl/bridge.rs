@@ -48,7 +48,7 @@
 //! `label ↦ canonicalForm` lexicalization edge (`owl_project_archive` below). The
 //! composed reasoner indexes that Form, so "what is &lt;label&gt;" answers from the
 //! entity's gloss instead of only its opaque IRI
-//! (`docs/praxis-self-aware-architecture` §9, landed — no longer the deferral USC
+//! (self-aware-architecture design note §9, landed — no longer the deferral USC
 //! once had).
 
 use alloc::collections::BTreeSet;
