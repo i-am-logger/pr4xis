@@ -30,7 +30,9 @@
 //!
 //! The fat foil is deliberately absent — and since DELETED from the codebase:
 //! `english_runtime_ontology` (English AS an owned generic `RuntimeOntology`
-//! for the whole 107,519-concept corpus, ~+216 MiB resident: a second,
+//! for the whole 107,519-concept corpus, +216.3 MiB resident — a historical
+//! measurement recorded in commit 58ffa2ce, not re-derivable now that the
+//! bridge is deleted: a second,
 //! praxis-schema serialization of every synset's `original_id`, hypernym edge
 //! and gloss) is NOT built here and no longer exists to build, because holding
 //! that owned re-materialization resident is precisely what the production

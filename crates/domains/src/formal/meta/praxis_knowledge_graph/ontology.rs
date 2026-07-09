@@ -32,20 +32,20 @@
 //! - **Merkle (1987)**; **Benet (2014)** IPFS/IPLD; Git content-addressed
 //!   DAG — the content-addressed node store.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** ACM TOPLAS
-//!   29(3) §2.2 (lenses); **Mac Lane (1971)** CWM Ch. I §3 (functor laws),
+//!   29(3) §3, Definition 3.2 (lenses); **Mac Lane (1971)** CWM Ch. I §3 (functor laws),
 //!   Ch. IV §1 (adjunction triangles) — the behavioural nodes' laws.
 //! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** BLAKE3 (the
 //!   content-address hash); **W3C (2016)** Subresource
 //!   Integrity; **Samuel et al. (2010)** TUF; **Torres-Arias et al.
 //!   (2019)** in-toto; **OpenSSF** SLSA — integrity + supply-chain
 //!   attestation (the latter declared as concepts, deferred as axioms).
-//! - **Hill** rkyv v0.8; **Deutsch (1996)** RFC 1952 — the binary wire form.
+//! - **Koloski** rkyv v0.8; **Deutsch (1996)** RFC 1952 — the binary wire form.
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "PraxisKnowledgeGraph",
-    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Mac Lane (1971) Categories for the Working Mathematician Ch. I §3 + Ch. IV §1; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity; Hill rkyv v0.8",
+    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Mac Lane (1971) Categories for the Working Mathematician Ch. I §3 + Ch. IV §1; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity; Koloski rkyv v0.8",
 
     concepts: [
         // === Structural-knowledge nodes (the kinds of node a graph holds) ===
@@ -109,7 +109,7 @@ pr4xis::ontology! {
         MerkleEdge: ("en", "Merkle edge", "Benet (2014) IPLD: a link to a node by its content address; the edge set makes the store a DAG."),
         MerkleDag: ("en", "Merkle DAG", "Merkle (1987); Benet (2014); Git object graph: the content-addressed DAG with cross-node dedup."),
         MerkleRoot: ("en", "Merkle root", "Merkle (1987): the top content address that transitively fixes every reachable node."),
-        BinaryEnvelope: ("en", "Binary envelope", "Hill rkyv v0.8: the deterministic zero-copy binary container for archived data plus metadata; itself a content-addressable node."),
+        BinaryEnvelope: ("en", "Binary envelope", "Koloski rkyv v0.8: the deterministic zero-copy binary container for archived data plus metadata; itself a content-addressable node."),
         CompressedForm: ("en", "Compressed form", "Deutsch (1996) RFC 1952: the gzip-wrapped serialization; gunzip(gzip(x)) == x."),
         SourcePin: ("en", "Source pin", "Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Dolstra (2006): the recorded content address of the authoritative source bytes."),
         LoadGate: ("en", "Load gate", "Dolstra (2006); W3C (2016) SRI; Samuel et al. (2010) TUF: the fail-closed admission check that re-derives a node's content address from its own bytes and admits only on a match to the trusted pin."),

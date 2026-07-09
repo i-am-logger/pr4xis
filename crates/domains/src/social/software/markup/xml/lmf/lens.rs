@@ -8,7 +8,7 @@
 //! ([`RoundTripFidelity::RawBytesComplementFloor`]) — byte-exact via a stored
 //! constant complement. WN-LMF is praxis's FIRST source held to the strict
 //! **byte-exact** PutGet law ([`RoundTripFidelity::ByteExactGraphFaithful`],
-//! Foster, Greenwald, Moore, Pierce & Schmitt 2007 ACM TOPLAS 29(3) §2.2; the
+//! Foster, Greenwald, Moore, Pierce & Schmitt 2007 ACM TOPLAS 29(3) §3, Definition 3.2; the
 //! equivalence-of-categories counit at byte identity, Mac Lane §IV.4): the
 //! source regenerates from the typed [`WordNet`] ontology PLUS a content-
 //! addressed concrete-syntax complement ([`WnSyntaxComplement`]), with NO stored
@@ -48,7 +48,7 @@
 //! # Citations
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** — "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 (the strict
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 (the strict
 //!   byte-exact PutGet law).
 //! - **Bray et al. (2008)** XML 1.0 Fifth Edition §2.8 / §3.1 / §4.6 — the
 //!   concrete-syntax decisions the complement carries.

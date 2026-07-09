@@ -28,7 +28,7 @@
 //!   Format — Part 2: PDF 2.0* — the byte-format substrate this lens
 //!   reads.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators
-//!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2
+//!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2
 //!   — the well-behaved-lens laws.
 //! - **Bancilhon & Spyratos (1981)** "Update Semantics of Relational
 //!   Views", *ACM TODS* 6(4) Theorem 3 — constant-complement view

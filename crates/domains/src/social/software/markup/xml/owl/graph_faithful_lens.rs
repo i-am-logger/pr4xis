@@ -6,7 +6,7 @@
 //!
 //! ALL SIX bundled OWL vocabularies are held to the strict byte-exact PutGet law
 //! ([`RoundTripFidelity::ByteExactGraphFaithful`], Foster, Greenwald, Moore,
-//! Pierce & Schmitt 2007 §2.2): each source regenerates from the typed
+//! Pierce & Schmitt 2007 §3, Definition 3.2): each source regenerates from the typed
 //! [`OwlOntology`] graph PLUS a content-addressed concrete-syntax complement
 //! ([`OwlSyntaxComplement`] — the structured RDF/XML striping + the generic
 //! DOCTYPE/namespace/white-space/attribute/entity/EOL residue), with NO stored
@@ -65,7 +65,7 @@
 //! # Citations
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** *ACM TOPLAS* 29(3)
-//!   §2.2 — the strict byte-exact PutGet law.
+//!   §3, Definition 3.2 — the strict byte-exact PutGet law.
 //! - **Gandon & Schreiber (2014)** *RDF 1.1 XML Syntax* — the RDF/XML
 //!   serialization the structured striping projects.
 //!

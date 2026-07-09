@@ -23,8 +23,8 @@
 //!   address.
 //! - **Deutsch (1996)** *GZIP file format* RFC 1952 — the compressed form.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** ACM TOPLAS
-//!   29(3) §2.2 — the emit/load well-behaved lens.
-//! - **Hill** *rkyv* v0.8 — the deterministic zero-copy archive.
+//!   29(3) §3, Definition 3.2 — the emit/load well-behaved lens.
+//! - **Koloski** *rkyv* v0.8 — the deterministic zero-copy archive.
 //! - **Samuel et al. (2010)** TUF, CCS '10; **Torres-Arias et al.
 //!   (2019)** in-toto, USENIX Security '19; **OpenSSF** SLSA — the
 //!   supply-chain attestation chain (future, `super::axioms` deferred).
@@ -34,7 +34,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "OntologyArchiveStorage",
-    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity",
+    source: "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; Benet (2014) IPFS: Content-Addressed, Versioned, P2P File System; Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Deutsch (1996) GZIP file format, RFC 1952; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2; Samuel et al. (2010) TUF, CCS '10; Torres-Arias et al. (2019) in-toto, USENIX Security '19; W3C (2016) Subresource Integrity",
 
     concepts: [
         ContentAddressableNode,
@@ -61,7 +61,7 @@ pr4xis::ontology! {
         MerkleRoot: ("en", "Merkle root",
             "Merkle (1987): the top content address that transitively fixes every reachable node — verifying the root verifies the whole sub-DAG."),
         BinaryEnvelope: ("en", "Binary envelope",
-            "Hill rkyv v0.8: the deterministic zero-copy binary container for an ontology's archived data plus its self-describing metadata; itself a content-addressable node."),
+            "Koloski rkyv v0.8: the deterministic zero-copy binary container for an ontology's archived data plus its self-describing metadata; itself a content-addressable node."),
         CompressedForm: ("en", "Compressed form",
             "Deutsch (1996) RFC 1952: the gzip-wrapped serialization of a binary envelope; gunzip(gzip(x)) == x (lossless)."),
         SourcePin: ("en", "Source pin",

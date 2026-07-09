@@ -4,14 +4,14 @@
 //!
 //! - **Layer 1 — unit tests:** `get` parses synthetic USLM, `put`
 //!   round-trips bytes, structural fields propagate.
-//! - **Layer 2 — lens-law axioms:** the three Foster et al. 2007 §2.2
+//! - **Layer 2 — lens-law axioms:** the three Foster et al. 2007 §3, Definition 3.2
 //!   laws (GetPut, PutGet, PutPut) exercised against synthetic and
 //!   real-corpus inputs. Each test names the specific cited section.
 //! - **Layer 3 — proptest properties:** PutGet and GetPut across
 //!   randomized USLM-shape variants.
 //!
 //! Citation: Foster, Greenwald, Moore, Pierce & Schmitt 2007, *ACM
-//! TOPLAS* 29(3) Article 17, §2.2 (well-behaved-lens laws), §5 (tree-
+//! TOPLAS* 29(3) Article 17, §3, Definition 3.2 (well-behaved-lens laws), §5 (tree-
 //! shaped lenses).
 
 use super::*;
@@ -108,12 +108,12 @@ fn get_rejects_non_usc_root() {
 }
 
 // =========================================================
-// Layer 2 — lens-law axioms (Foster et al. 2007 §2.2)
+// Layer 2 — lens-law axioms (Foster et al. 2007 §3, Definition 3.2)
 // =========================================================
 
 /// Axiom — PutGet on a synthetic section slice.
 ///
-/// Foster, Greenwald, Moore, Pierce & Schmitt 2007 §2.2:
+/// Foster, Greenwald, Moore, Pierce & Schmitt 2007 §3, Definition 3.2:
 /// `canonical(put(get(s))) = canonical(s)` for every source byte
 /// stream `s`. With the explicit complement design (Bancilhon &
 /// Spyratos 1981 Theorem 3), `put(get(s)) = s` byte-verbatim — the
@@ -133,7 +133,7 @@ fn axiom_put_get_law_synthetic_title() {
 }
 
 /// Axiom — GetPut. `get(put(get(s)))` must yield a view structurally
-/// equal to `get(s)`. Foster et al. 2007 §2.2.
+/// equal to `get(s)`. Foster et al. 2007 §3, Definition 3.2.
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_get_put_law_synthetic_section() {
@@ -145,7 +145,7 @@ fn axiom_get_put_law_synthetic_section() {
 }
 
 /// Axiom — PutPut. Successive puts of the same target yield the same
-/// bytes. Foster et al. 2007 §2.2.
+/// bytes. Foster et al. 2007 §3, Definition 3.2.
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_put_put_law_synthetic_section() {
@@ -167,7 +167,7 @@ fn axiom_canonical_is_idempotent() {
 
 /// Axiom — canonical form is preserved across round-trip. For every
 /// `s`, `canonical(put(get(s))) == canonical(s)` exactly (not just
-/// modulo whitespace). Foster et al. 2007 §2.2 PutGet law.
+/// modulo whitespace). Foster et al. 2007 §3, Definition 3.2 PutGet law.
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn axiom_canonical_round_trip_equals_input() {
@@ -186,7 +186,7 @@ fn axiom_canonical_round_trip_equals_input() {
 /// Real-corpus PutGet — SOX § 1514A USLM slice sourced from the fetched
 /// `usc_title_18` corpus (18 U.S.C. § 1514A), not a deleted standalone
 /// fixture. The verbatim `<section>` byte span for § 1514A is sliced out
-/// of Title 18 and the lens's PutGet law (Foster et al. 2007 §2.2) is run
+/// of Title 18 and the lens's PutGet law (Foster et al. 2007 §3, Definition 3.2) is run
 /// over those genuine published bytes. FAILS LOUD when the corpus is
 /// absent — CI fetches it via `pr4xis update usc_title_18`; no skip.
 #[pr4xis::praxis_value(Deterministic)]

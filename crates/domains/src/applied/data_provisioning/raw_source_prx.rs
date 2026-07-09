@@ -90,7 +90,7 @@
 //!   Views", *ACM TODS* 6(4) — the constant-complement view-update tier this
 //!   envelope realises ([`RawBytesComplementFloor`]).
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 — the
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 — the
 //!   well-behaved-lens GetPut law `emit`/`load` witness.
 //! - **Dolstra, E. (2006)** *The Purely Functional Software Deployment Model* —
 //!   content-addressing by cryptographic hash.
@@ -492,21 +492,43 @@ fn parse_envelope(buf: &[u8]) -> Result<ParsedEnvelope<'_>, RawSourcePrxError> {
 /// cleanly to EXACTLY the declared length is `Err`, never a panic — the
 /// inflater is bounded by the declared length, so it can neither run away nor
 /// silently truncate.
+///
+/// Canonicality guard: the inflater must consume the WHOLE payload blob. A
+/// valid RFC 1951 stream self-terminates at its final block (Deutsch 1996
+/// §3.2.3, BFINAL), so a convenience inflater would silently ignore any bytes
+/// appended after it INSIDE the blob — admitting infinitely many distinct
+/// envelopes that decode to the same source bytes. The stateful core inflate
+/// reports consumed input, and a blob with unconsumed tail bytes is `Err`.
 fn materialize_payload<'a>(env: &ParsedEnvelope<'a>) -> Result<Cow<'a, [u8]>, RawSourcePrxError> {
     match env.encoding {
         PayloadEncoding::Identity => Ok(Cow::Borrowed(env.payload)),
         PayloadEncoding::Deflate => {
-            let out = miniz_oxide::inflate::decompress_to_vec_with_limit(
+            let mut out = alloc::vec![0u8; env.decoded_len as usize];
+            let mut state = miniz_oxide::inflate::core::DecompressorOxide::new();
+            // No `TINFL_FLAG_HAS_MORE_INPUT`: the blob is the entire stream.
+            // Non-wrapping output: `out` is sized to the full declared length.
+            let (status, consumed, produced) = miniz_oxide::inflate::core::decompress(
+                &mut state,
                 env.payload,
-                env.decoded_len as usize,
-            )
-            .map_err(|e| {
-                RawSourcePrxError::Malformed(format!("DEFLATE payload does not inflate: {e}"))
-            })?;
-            if out.len() as u64 != env.decoded_len {
+                &mut out,
+                0,
+                miniz_oxide::inflate::core::inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
+            );
+            if status != miniz_oxide::inflate::TINFLStatus::Done {
                 return Err(RawSourcePrxError::Malformed(format!(
-                    "DEFLATE payload inflated to {} byte(s), declared decoded length is {}",
-                    out.len(),
+                    "DEFLATE payload does not inflate: {status:?}"
+                )));
+            }
+            if consumed != env.payload.len() {
+                return Err(RawSourcePrxError::Malformed(format!(
+                    "DEFLATE stream ended with {} unconsumed byte(s) inside the payload blob \
+                     — non-canonical envelope refused",
+                    env.payload.len() - consumed
+                )));
+            }
+            if produced as u64 != env.decoded_len {
+                return Err(RawSourcePrxError::Malformed(format!(
+                    "DEFLATE payload inflated to {produced} byte(s), declared decoded length is {}",
                     env.decoded_len
                 )));
             }
@@ -561,10 +583,16 @@ pub fn encode_raw_source(
 }
 
 /// Decode a raw-source succinct envelope back into `(name, version, bytes)` —
-/// the exact inverse of [`encode_raw_source`] (the returned bytes are the
-/// SOURCE bytes, inflated if the payload rides `Deflate`). Fail-closed and
-/// TOTAL on a truncated / malformed / unknown-version / unknown-encoding /
-/// forged-length envelope.
+/// a LEFT inverse of [`encode_raw_source`] (`decode ∘ encode = id`; the
+/// returned bytes are the SOURCE bytes, inflated if the payload rides
+/// `Deflate`). It is not injective over all inputs it accepts — RFC 1951
+/// permits many valid streams for the same source bytes — but the accepted
+/// set is canonical per stream: `materialize_payload` refuses a blob the
+/// inflater does not consume in full, and envelope UNIQUENESS on the gated
+/// path is enforced by the `[compact_archive_signatures]` content-address
+/// pin over the envelope bytes. Fail-closed and TOTAL on a truncated /
+/// malformed / unknown-version / unknown-encoding / forged-length /
+/// garbage-tail envelope.
 pub fn decode_raw_source(buf: &[u8]) -> Result<(String, String, Vec<u8>), RawSourcePrxError> {
     let env = parse_envelope(buf)?;
     let name = core::str::from_utf8(env.name)
@@ -654,10 +682,13 @@ pub fn load_raw_source_prx_gated(
 /// bytes against `archive_pin`, then return the SOURCE bytes as a
 /// [`Cow`] over `prx` — `Cow::Borrowed` (zero-copy) for an `Identity` payload
 /// (a contiguous sub-slice of the envelope), `Cow::Owned` for a `Deflate`
-/// payload (inflating is inherently an allocation). The `Identity` fast path is
-/// what lets the embedded-`.prx` text accessor hand back a `&str` that borrows
-/// the `'static` `include_bytes!` array with zero per-call allocation; `Deflate`
-/// callers cache the owned inflation behind their `OnceLock`. Same fail-closed
+/// payload (inflating is inherently an allocation). Since the DEFLATE
+/// migration every committed TEXT source rides `Deflate`, so the borrowed arm
+/// has no live text consumer — it remains because the store-if-smaller
+/// emitter can still produce an `Identity` text envelope (incompressible
+/// input), and because the borrowed twin keeps this API total over both
+/// encodings without a second copy on the `Deflate` path. `Deflate` callers
+/// cache the owned inflation behind their `OnceLock`. Same fail-closed
 /// gate; nothing is materialized until the content address verifies.
 pub fn load_raw_source_prx_gated_borrowed<'a>(
     prx: &'a [u8],
@@ -1021,6 +1052,57 @@ mod tests {
             matches!(&err, RawSourcePrxError::Malformed(m) if m.contains("wire tag")),
             "got {err:?}"
         );
+    }
+
+    /// Envelope canonicality (Deutsch 1996 §3.2.3): an RFC 1951 stream ends at
+    /// its BFINAL block, so garbage appended INSIDE the payload blob (blob
+    /// length bumped, declared decoded length unchanged) still inflates to
+    /// exactly the declared bytes under a convenience inflater. The decoder
+    /// must refuse the unconsumed tail — otherwise infinitely many distinct
+    /// envelopes decode to the same source bytes — and the content-address
+    /// pin gate must independently refuse the forged envelope (different
+    /// bytes ⇒ different address), so BOTH layers are fail-closed.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn decode_rejects_deflate_garbage_tail_inside_payload_blob() {
+        // Compressible source so STORE-IF-SMALLER keeps the Deflate arm.
+        let src = alloc::vec![b'a'; 1800];
+        let good = encode_raw_source("widget", "2", &src, PayloadEncoding::Deflate);
+        // Re-frame the envelope: same fields, payload blob = stream ++ garbage.
+        let mut pos = 0usize;
+        let fmt = get_varint(&good, &mut pos).unwrap();
+        let name = get_blob(&good, &mut pos).unwrap().to_vec();
+        let version = get_blob(&good, &mut pos).unwrap().to_vec();
+        let tag = get_varint(&good, &mut pos).unwrap();
+        assert_eq!(tag, PayloadEncoding::Deflate.wire_tag(), "precondition");
+        let decoded_len = get_varint(&good, &mut pos).unwrap();
+        let mut payload = get_blob(&good, &mut pos).unwrap().to_vec();
+        payload.extend_from_slice(&[0x55; 8]);
+        let mut forged = Vec::new();
+        put_varint(&mut forged, fmt);
+        put_blob(&mut forged, &name);
+        put_blob(&mut forged, &version);
+        put_varint(&mut forged, tag);
+        put_varint(&mut forged, decoded_len);
+        put_blob(&mut forged, &payload);
+        // Layer 1 — the decoder itself refuses the unconsumed tail.
+        let err = decode_raw_source(&forged).expect_err("garbage-tail deflate must be Err");
+        assert!(
+            matches!(&err, RawSourcePrxError::Malformed(m) if m.contains("unconsumed")),
+            "got {err:?}"
+        );
+        // Layer 2 — the gated path refuses it at the pin, before decoding:
+        // the pin addresses the CANONICAL envelope bytes.
+        let pin = LockDigest::address(raw_source_archive_address(&good));
+        let err = load_raw_source_prx_gated(&forged, &pin, "widget@2")
+            .expect_err("forged envelope must fail the content-address gate");
+        assert!(
+            matches!(err, RawSourcePrxError::HashMismatch { .. }),
+            "got {err:?}"
+        );
+        // The canonical envelope still decodes to the exact source bytes.
+        let (_, _, out) = decode_raw_source(&good).expect("canonical decode");
+        assert_eq!(out, src);
     }
 
     /// The decompression-bomb guard: a declared decoded length beyond RFC

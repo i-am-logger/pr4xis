@@ -149,8 +149,8 @@ flate2 = { version = "1", optional = true }
 # backend and therefore ALREADY in the dependency graph; promoting it adds ZERO
 # new crates. `default-features = false` + `with-alloc` keeps it `no_std`
 # (alloc-only), building on every target including wasm32.
-# Cite: Frommherz et al., *miniz_oxide*, MIT/Apache-2.0/Zlib,
-# <https://github.com/Frommi/miniz_oxide>.
+# Cite: Frommi (D. Liferenko), oyvindln & Geldreich, R. (original miniz C
+# library), *miniz_oxide*, MIT/Apache-2.0/Zlib, <https://github.com/Frommi/miniz_oxide>.
 miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 
 # Zero-copy binary archival of the codegen interchange shape. rkyv
@@ -163,7 +163,7 @@ miniz_oxide = { version = "0.8", default-features = false, features = ["with-all
 # envelope (`social::software::markup::xml::owl::prx`); optional and
 # pulled in by the `fetch` feature alongside flate2 (the gzip layer),
 # so it stays out of the WASM default-feature graph.
-# Cite: Hill, D. *rkyv: zero-copy deserialization framework for Rust*,
+# Cite: Koloski, D. *rkyv: zero-copy deserialization framework for Rust*,
 # v0.8, MIT, <https://github.com/rkyv/rkyv>.
 rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"], optional = true }
 

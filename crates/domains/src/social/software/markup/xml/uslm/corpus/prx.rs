@@ -81,7 +81,7 @@
 //!
 //! - LRC, *USLM XML User Guide* §V (USC URN hierarchy / subdivision depth).
 //! - Foster, Greenwald, Moore, Pierce & Schmitt (2007) "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 (the strict
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 (the strict
 //!   byte-exact PutGet law the graph-faithful tier satisfies).
 //! - Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020) BLAKE3; Dolstra (2006)
 //!   content-addressing.

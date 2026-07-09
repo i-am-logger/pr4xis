@@ -1,7 +1,7 @@
 //! Lens: XML InfoSet ↔ USLM typed tree.
 //!
 //! A *well-behaved lens* in the sense of Foster, Greenwald, Moore,
-//! Pierce & Schmitt 2007 (§2.2) between byte streams of USLM XML
+//! Pierce & Schmitt 2007 (§3, Definition 3.2) between byte streams of USLM XML
 //! (the XML 1.0 Information Set per Cowan & Tobin 2004 W3C
 //! Recommendation 2nd Ed., as instantiated by the LRC's USLM-1.0.18
 //! schema) and the typed tree value [`UsCodeTitle`].
@@ -31,7 +31,7 @@
 //!
 //! ## Lens laws
 //!
-//! Foster et al. 2007 §2.2 well-behaved lens laws restated for this
+//! Foster et al. 2007 §3, Definition 3.2 well-behaved lens laws restated for this
 //! pair:
 //!
 //! - **GetPut:** `get(put(t)) = t` — modifying the typed view and
@@ -114,7 +114,7 @@
 //!   Schmitt, A. (2007)** — "Combinators for Bidirectional Tree
 //!   Transformations: A Linguistic Approach to the View Update
 //!   Problem", *ACM Transactions on Programming Languages and
-//!   Systems* 29(3) Article 17, §2.2 (well-behaved-lens laws), §5
+//!   Systems* 29(3) Article 17, §3, Definition 3.2 (well-behaved-lens laws), §5
 //!   (tree-shaped lenses).
 //! - **Bancilhon, F.; Spyratos, N. (1981)** — "Update Semantics of
 //!   Relational Views", *ACM Transactions on Database Systems* 6(4),
@@ -175,7 +175,7 @@ pub use writer::{UslmWriteError, write_uslm};
 /// source byte sequence — whitespace, comments, processing
 /// instructions, attribute ordering, XML declaration. Without it,
 /// PutGet would fail; with it, the lens is well-behaved per Foster
-/// et al. 2007 §2.2.
+/// et al. 2007 §3, Definition 3.2.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UslmTypedTree {
     /// The parsed typed view — the [`UsCodeTitle`] value the lens
@@ -693,7 +693,7 @@ impl WellBehavedLens for UslmXmlLens {
 
 /// Focuses the `view` field of a [`UslmTypedTree`] — the constant-
 /// complement structure lens (Bancilhon & Spyratos 1981; Foster et al.
-/// 2007 §2.2 record-field lens). `get` returns the typed
+/// 2007 §3, Definition 3.2 record-field lens). `get` returns the typed
 /// [`UsCodeTitle`]; `put` replaces the view, holding the complement
 /// (the original source bytes) fixed.
 ///

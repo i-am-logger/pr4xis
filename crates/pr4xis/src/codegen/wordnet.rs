@@ -205,7 +205,7 @@ pub fn parse_wordnet_xml(path: &Path) -> Result<OntologyBuilder, ParseError> {
         buf.clear();
     }
 
-    // Resolve sense-level `also` (SKOS seeAlso) to synset-level
+    // Resolve sense-level `also` (skos:related) to synset-level
     // references. Both endpoints must have their synset mapping
     // recorded; pairs with an unknown sense-id are dropped (the
     // referenced sense may live in another lexicon or have failed
@@ -332,7 +332,7 @@ fn finalize_entry(
                 // Similar senses → equivalence candidates
             }
             "also" => {
-                // SKOS seeAlso (sense-level). The XML parser doesn't
+                // skos:related (sense-level; SKOS defines no seeAlso term). The XML parser doesn't
                 // bind each SenseRelation to a specific Sense (relations
                 // accumulate on the entry), so the source sense is
                 // approximated as the most recently parsed sense — fine

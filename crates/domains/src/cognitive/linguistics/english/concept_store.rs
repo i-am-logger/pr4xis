@@ -54,7 +54,7 @@
 //! (hypothetical) big-endian target falls back to the owned `Vec<Concept>`,
 //! exactly as a non-`prx` build does.
 //!
-//! Reference: Hill, D. *rkyv: zero-copy deserialization framework for Rust* (v0.8)
+//! Reference: Koloski, D. *rkyv: zero-copy deserialization framework for Rust* (v0.8)
 //! — `AlignedVec` + `access` / `access_unchecked` are rkyv's own little-endian
 //! zero-copy primitives; this module reuses them for the concept records. See
 //! <https://github.com/rkyv/rkyv>.

@@ -37,7 +37,7 @@ pub struct CodegenData<P: 'static> {
     pub opposition: &'static [(EntityRef<P>, EntityRef<P>)],
     pub equivalence: &'static [(EntityRef<P>, EntityRef<P>)],
     pub causation: &'static [(EntityRef<P>, EntityRef<P>)],
-    /// Cross-references (SKOS `seeAlso` / `related`). Populated from
+    /// Cross-references (`rdfs:seeAlso` / `skos:related`). Populated from
     /// WordNet's `also_synset` / `also_sense` relations on the English
     /// side; statute and USC paths populate it from explicit
     /// cross-reference edges where present.

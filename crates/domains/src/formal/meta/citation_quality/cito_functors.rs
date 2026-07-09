@@ -51,7 +51,7 @@
 //!   witness type.
 //! - [`CitoTypeQualityLens`] — `CitoCitationType ⇄ CitationQualityConcept`
 //!   (its [`CitoToCitationQuality`] projection), a well-behaved lens
-//!   (Foster et al. 2007 §2.2).
+//!   (Foster et al. 2007 §3, Definition 3.2).
 //!
 //! # Literature
 //!
@@ -74,7 +74,7 @@
 //!   Springer GTM 5, 2nd ed., §I.3 (functors), §IV.1 (adjunctions),
 //!   §IV.4 (reflections).
 //! - **Foster, J. N. et al. (2007)** "Combinators for Bidirectional Tree
-//!   Transformations", *ACM TOPLAS* 29(3) Art. 17, §2.2 (lens laws).
+//!   Transformations", *ACM TOPLAS* 29(3) Art. 17, §3, Definition 3.2 (lens laws).
 //! - **Smith, B. et al. (2005)** "Relations in biomedical ontologies",
 //!   *Genome Biology* 6:R46 — OBO-RO relation-kind tagging.
 
@@ -1089,7 +1089,7 @@ impl pr4xis::category::Adjunction for CitoQualityAdjunctionKind {
 
 /// A well-behaved lens `CitoWitnessType ⇄ CitationQualityConcept` — the
 /// [`ForgetCitoType`] projection on the witness retract (Foster et al.
-/// 2007 §2.2). `get` reads the witness's dimension; `put` selects the
+/// 2007 §3, Definition 3.2). `get` reads the witness's dimension; `put` selects the
 /// witness for the written dimension, falling back to the source witness
 /// for an out-of-image dimension (keeping the round-trip total). On the
 /// image the projection is a bijection, so GetPut / PutGet / PutPut all
@@ -1116,7 +1116,7 @@ impl Lens for CitoTypeQualityLens {
         // dimension yields the same witness. PutPut: `put` ignores the
         // source except as the out-of-image fallback, and an image view
         // fully determines the witness — so put(v2, put(v1, s)) =
-        // put(v2, s) (Foster et al. 2007 §2.2).
+        // put(v2, s) (Foster et al. 2007 §3, Definition 3.2).
         Ok(CitoWitnessType::for_dimension(*view).unwrap_or(*source))
     }
 }
@@ -1413,7 +1413,7 @@ mod tests {
         assert_functor_laws::<ForgetCitoType>();
     }
 
-    // ── Lens laws (Foster et al. 2007 §2.2) ──────────────────────────
+    // ── Lens laws (Foster et al. 2007 §3, Definition 3.2) ──────────────────────────
 
     use crate::formal::meta::lens_composition::lens::{
         get_put_holds, put_get_holds, put_put_holds,

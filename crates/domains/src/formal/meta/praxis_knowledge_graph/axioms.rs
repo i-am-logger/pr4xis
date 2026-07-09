@@ -157,7 +157,7 @@ pr4xis::register_axiom!(UnboundReferenceFailsClosed, constructor);
 /// Every persisted `LensNode`'s get/put round-trip law holds on
 /// rehydration — delegated to the lens harness, which dispatches each
 /// registered lens on its `RoundTripFidelity` and checks its signature
-/// against `praxis.lock`. Foster et al. (2007) §2.2.
+/// against `praxis.lock`. Foster et al. (2007) §3, Definition 3.2.
 pub struct LensLawPreservation;
 
 impl Axiom for LensLawPreservation {
@@ -171,7 +171,7 @@ impl Axiom for LensLawPreservation {
     pr4xis::axiom_meta!(
         "LensLawPreservation",
         "every persisted LensNode's get/put round-trip law holds on rehydration (the lens harness verifies all registered lenses)",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 
@@ -222,7 +222,7 @@ pr4xis::register_axiom!(SelectionClosedUnderEdgeKinds, constructor);
 
 /// The pair-ontology `(structural data, binding)` round-trips together for
 /// the archive subset: the structural data survives the emit/load lens
-/// ([`archive::EmitLoadWellBehaved`], Foster 2007 §2.2) and a behavioural
+/// ([`archive::EmitLoadWellBehaved`], Foster 2007 §3, Definition 3.2) and a behavioural
 /// node's binding re-binds by name on the receiving side ([`axiom_by_name`])
 /// — the composition a future wire transfer's slice → emit → receive → re-bind
 /// would reduce to (the whole-graph leg awaits the #271 snapshot machinery; the
@@ -302,7 +302,7 @@ impl Axiom for PairOntologyRoundTrip {
     pr4xis::axiom_meta!(
         "PairOntologyRoundTrip",
         "the (structural data, binding) pair round-trips together — the archive subset AND a whole-graph snapshot: structural concepts survive emit/load and the AxiomNode + LensNode bindings re-bind by name",
-        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2; graph-rebind invariant"
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2; graph-rebind invariant"
     );
 }
 
@@ -538,7 +538,7 @@ impl Axiom for LensBindingComplete {
     pr4xis::axiom_meta!(
         "LensBindingComplete",
         "every registered LensNode re-binds by its independently re-derived name@version key, and the resolver refuses an unregistered key",
-        "graph-rebind invariant; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+        "graph-rebind invariant; Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §3, Definition 3.2"
     );
 }
 

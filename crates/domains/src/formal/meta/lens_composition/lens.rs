@@ -8,7 +8,7 @@
 //! - `put : V × S → S` — write an updated view back into a source,
 //!
 //! satisfying the three *well-behaved-lens laws* (Foster et al. 2007
-//! §2.2):
+//! §3 — Definition 3.2 [Well-behaved lenses] plus the optional PutPut law):
 //!
 //! - **GetPut** `put(get(s), s) = s` — putting back an unchanged view
 //!   leaves the source untouched.
@@ -34,7 +34,7 @@
 //! - **Foster, J. N., Greenwald, M. B., Moore, J. T., Pierce, B. C. &
 //!   Schmitt, A.** "Combinators for Bidirectional Tree
 //!   Transformations: A Linguistic Approach to the View-Update
-//!   Problem", *ACM TOPLAS* 29(3), 2007. §2.2 (lens laws), §3
+//!   Problem", *ACM TOPLAS* 29(3), 2007. §3, Definition 3.2 (lens laws)
 //!   (composition).
 //! - **Bancilhon, F. & Spyratos, N.** "Update Semantics of Relational
 //!   Views", *ACM TODS* 6(4), 1981 (constant complement).
@@ -47,7 +47,7 @@ use core::marker::PhantomData;
 use crate::formal::meta::well_behaved_lens::WellBehavedLens;
 
 /// An asymmetric well-behaved lens `Source ⇆ View` (Foster et al.
-/// 2007 §2.2). Implementors should satisfy GetPut, PutGet, and PutPut
+/// 2007 §3). Implementors should satisfy GetPut, PutGet, and PutPut
 /// (verifiable with [`get_put_holds`] / [`put_get_holds`] /
 /// [`put_put_holds`]).
 pub trait Lens {
@@ -66,7 +66,7 @@ pub trait Lens {
 }
 
 // =============================================================================
-// Law checkers (Foster et al. 2007 §2.2).
+// Law checkers (Foster et al. 2007 §3, Definition 3.2).
 // =============================================================================
 
 /// GetPut: `put(get(s), s) == s`. Returns `false` if either operation
@@ -148,7 +148,7 @@ impl<S: Clone> Lens for IdentityLens<S> {
 // =============================================================================
 
 /// Adapt a [`WellBehavedLens`] `L : bytes ⇄ Target` (Foster et al. 2007
-/// §2.2, byte-anchored) into the general [`Lens`] `Vec<u8> ⇄ L::Target`,
+/// §3, Definition 3.2, byte-anchored) into the general [`Lens`] `Vec<u8> ⇄ L::Target`,
 /// so it composes with the typed-layer lenses above the byte boundary.
 ///
 /// The well-behaved-lens contract guarantees that

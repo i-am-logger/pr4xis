@@ -97,7 +97,7 @@ pub struct OntologyBuilder {
     pub opposition: Vec<(String, String)>,
     pub mereology: Vec<(String, String)>,
     pub causation: Vec<(String, String)>,
-    /// Cross-references (SKOS `seeAlso` / `related`). Populated from
+    /// Cross-references (`rdfs:seeAlso` / `skos:related`). Populated from
     /// WordNet's `also_synset` / `also_sense` on the English side.
     ///
     /// Literature: Miles & Bechhofer (2009) "SKOS Simple Knowledge
@@ -142,7 +142,7 @@ impl OntologyBuilder {
         self
     }
 
-    /// Add a SKOS-style cross-reference (`seeAlso` / `related`).
+    /// Add a cross-reference (`rdfs:seeAlso` / `skos:related`).
     pub fn add_reference(&mut self, from: &str, to: &str) -> &mut Self {
         self.references.push((from.into(), to.into()));
         self

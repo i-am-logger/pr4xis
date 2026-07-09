@@ -93,6 +93,20 @@ struct RawLockFile {
 // `pr4xis_runtime::address::ContentAddress::of`), which the build-dep `blake3`
 // re-derives here. DEFLATE payloads are inflated by the build-dep
 // `miniz_oxide`, mirroring the runtime `materialize_payload`.
+//
+// MIRROR-MUST-MATCH INVARIANT: this decoder and the runtime
+// `raw_source_prx::{parse_envelope, materialize_payload}` are TWO
+// implementations of ONE envelope grammar. Every refusal the runtime makes
+// (unsupported format version, unknown encoding tag, trailing bytes,
+// identity-length mismatch, bomb-guard, non-inflating / short / unconsumed
+// DEFLATE stream) must be made here too, in the SAME guard order, so a
+// malformed envelope produces the same verdict and the same error identity
+// at build time and at load time. Any change to the runtime decoder MUST be
+// mirrored here in the same commit. Known deliberate asymmetry: a pin that
+// is MISSING is a graceful `Ok(None)` skip at runtime (`load_raw_source` —
+// absence is legal on a fresh checkout; the accessor panics later by name)
+// but a hard `Err` here, because at build time the `.prx` is already on
+// disk, so an unpinned committed artifact is a configuration defect.
 
 /// The raw-source envelope format version this build script reads — MUST equal
 /// `raw_source_prx::RAW_SOURCE_ENVELOPE_FORMAT_VERSION` (the runtime codec).
@@ -164,7 +178,21 @@ fn decode_committed_prx_gated(
         .compact_archive_signatures
         .get(&key)
         .ok_or_else(|| format!("no praxis.lock [compact_archive_signatures] pin for `{key}`"))?;
-    let expected_hex = pin.strip_prefix("blake3:").unwrap_or(pin);
+    // Pin-algorithm handling — build-side mirror of `registry::LockDigest::parse`:
+    // the algorithm comes from the pin's TAG, never from the artifact. The
+    // runtime gate (`raw_hash::verify`) also accepts `sha256:` / `sha512:` and
+    // treats an untagged pin as SHA-256; this build script carries only the
+    // `blake3` hash build-dep, so any other (or absent) tag is refused BY NAME
+    // here — fail-closed with an actionable message, never a silent
+    // always-mismatch of a non-blake3 pin against a blake3 recomputation.
+    let expected_hex = pin.strip_prefix("blake3:").ok_or_else(|| {
+        format!(
+            "committed .prx pin for `{key}` is not a `blake3:`-tagged digest (`{pin}`): \
+             the build-side mirror verifies only blake3 pins — extend \
+             decode_committed_prx_gated (and its hash build-deps) before pinning a \
+             raw source with another algorithm"
+        )
+    })?;
     let found_hex = blake3::hash(&prx).to_hex().to_string();
     if found_hex != expected_hex {
         return Err(format!(
@@ -183,6 +211,16 @@ fn decode_committed_prx_gated(
     let _name = prx_get_blob(&prx, &mut pos)?;
     let _version = prx_get_blob(&prx, &mut pos)?;
     let encoding_tag = prx_get_varint(&prx, &mut pos)?;
+    // Mirror of `parse_envelope`'s guard ORDER: an unknown encoding tag is
+    // refused immediately after it is read — before the declared length, the
+    // payload blob, or the trailing-bytes check are looked at — so a
+    // doubly-malformed envelope yields the same error identity in both
+    // decoders.
+    if !matches!(encoding_tag, 0 | 1) {
+        return Err(format!(
+            "committed .prx for `{key}` carries unknown payload-encoding wire tag {encoding_tag}"
+        ));
+    }
     let decoded_len = prx_get_varint(&prx, &mut pos)?;
     let payload = prx_get_blob(&prx, &mut pos)?;
     if pos != prx.len() {
@@ -210,21 +248,42 @@ fn decode_committed_prx_gated(
                      exceeds the RFC 1951 maximum expansion of the payload"
                 ));
             }
-            let out =
-                miniz_oxide::inflate::decompress_to_vec_with_limit(payload, decoded_len as usize)
-                    .map_err(|e| {
-                    format!("committed .prx for `{key}`: DEFLATE payload does not inflate: {e}")
-                })?;
-            if out.len() as u64 != decoded_len {
+            // Mirror of the runtime `materialize_payload` canonicality guard:
+            // the stateful core inflate reports consumed input, and a blob the
+            // inflater does not consume in full (a garbage tail hidden after
+            // the RFC 1951 final block) is refused, exactly as at load time.
+            let mut out = vec![0u8; decoded_len as usize];
+            let mut state = miniz_oxide::inflate::core::DecompressorOxide::new();
+            let (status, consumed, produced) = miniz_oxide::inflate::core::decompress(
+                &mut state,
+                payload,
+                &mut out,
+                0,
+                miniz_oxide::inflate::core::inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
+            );
+            if status != miniz_oxide::inflate::TINFLStatus::Done {
                 return Err(format!(
-                    "committed .prx for `{key}`: DEFLATE payload inflated to {} byte(s), \
-                     declared decoded length is {decoded_len}",
-                    out.len()
+                    "committed .prx for `{key}`: DEFLATE payload does not inflate: {status:?}"
+                ));
+            }
+            if consumed != payload.len() {
+                return Err(format!(
+                    "committed .prx for `{key}`: DEFLATE stream ended with {} unconsumed \
+                     byte(s) inside the payload blob — non-canonical envelope refused",
+                    payload.len() - consumed
+                ));
+            }
+            if produced as u64 != decoded_len {
+                return Err(format!(
+                    "committed .prx for `{key}`: DEFLATE payload inflated to {produced} \
+                     byte(s), declared decoded length is {decoded_len}"
                 ));
             }
             out
         }
         other => {
+            // Logically unreachable — the tag was refused above — kept for
+            // match totality over `u64` (clippy::unreachable is denied).
             return Err(format!(
                 "committed .prx for `{key}` carries unknown payload-encoding wire tag {other}"
             ));

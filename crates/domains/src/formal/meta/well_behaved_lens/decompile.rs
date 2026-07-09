@@ -47,7 +47,7 @@
 //! # Citations
 //!
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** — "Combinators for
-//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2 (the lens
+//!   Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2 (the lens
 //!   *put* leg this op realises).
 //! - **Bancilhon & Spyratos (1981)** — "Update semantics of relational views",
 //!   *ACM TODS* 6(4) (the constant-complement the FLOOR stores).

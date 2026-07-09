@@ -768,9 +768,12 @@ fn wordnet_archive_anchors_match_lock() {
 /// The ENGINE-level theorem ("the generic engine reasons is-a over English")
 /// is now true by construction — the runtime's `MaterializedClosure` and
 /// English's `TaxonomyStore` instantiate the ONE graded-reach engine
-/// (`pr4xis::category::reach`), proven equivalent against the eager oracle by
-/// the full-corpus `english_taxonomy_bfs` gate. HARD-FAIL via `require` when
-/// the 89 MB corpus is not provisioned.
+/// (`pr4xis::category::reach`). The full-corpus `english_taxonomy_bfs` gate
+/// proves the `TaxonomyStore` instantiation equivalent to the eager oracle;
+/// `MaterializedClosure`'s substrate layer is oracle-checked at unit scale
+/// (`pr4xis-runtime`'s diamond+cycle test — no full-corpus
+/// materialize+closure run exists since the B1-bridge deletion). HARD-FAIL
+/// via `require` when the 89 MB corpus is not provisioned.
 #[test]
 fn english_functor_projects_the_csr_edge_set() {
     let _en = require(WORDNET.english(), "english_wordnet");

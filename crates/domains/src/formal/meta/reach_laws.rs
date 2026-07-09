@@ -15,8 +15,9 @@
 //! lifts that claim into a registered, discoverable `Axiom`,
 //! `GradedReachDeterminism`, verifying over witness graphs with teeth
 //! (an anti-`Ord` enumeration that a discovery-order tie-break would answer
-//! differently, a cycle, and both memo policies of the generic engine),
-//! mirroring the `packed_csr_laws` shape.
+//! differently, a cycle, both memo policies of the generic engine, and an
+//! INDEPENDENT relaxation oracle that discharges the minimal-hop clause
+//! rather than assuming it), mirroring the `packed_csr_laws` shape.
 //!
 //! # Literature
 //!
@@ -122,6 +123,52 @@ fn kernel_deterministic_on(adj: &Adj) -> bool {
     true
 }
 
+// ── the minimality leg: the Moore 1959 clause, against an independent oracle ─
+
+/// An INDEPENDENT minimal-hop oracle: iterate edge relaxation to fixpoint
+/// (Bellman–Ford shape — deliberately NOT a BFS, so a hop-grading bug in the
+/// kernel cannot certify itself), yielding every strictly reachable vertex's
+/// minimal hop count from `source`. The same oracle shape as the kernel's own
+/// full-range proptest (`pr4xis::category::reach`, `relaxation_distances`),
+/// restated here so the AXIOM discharges the "minimal-hop graded (Moore
+/// 1959)" clause of its registered description instead of over-claiming it.
+fn relaxation_distances(adj: &Adj, source: u8) -> BTreeMap<u8, u32> {
+    let mut dist: BTreeMap<u8, u32> = BTreeMap::new();
+    dist.insert(source, 0);
+    loop {
+        let mut grew = false;
+        for (&s, targets) in adj.iter() {
+            let Some(&ds) = dist.get(&s) else { continue };
+            for &t in targets {
+                let candidate = ds + 1;
+                if dist.get(&t).is_none_or(|&dt| candidate < dt) {
+                    dist.insert(t, candidate);
+                    grew = true;
+                }
+            }
+        }
+        if !grew {
+            break;
+        }
+    }
+    dist.remove(&source);
+    dist
+}
+
+/// One witness graph, checked exhaustively over all sources: every graded
+/// image carries EXACTLY the oracle's reachable set at EXACTLY the oracle's
+/// minimal hop counts. A deterministic-but-non-minimal grading (e.g. every
+/// hop count uniformly shifted) passes every determinism leg and fails here.
+fn kernel_minimal_on(adj: &Adj) -> bool {
+    for v in 0u8..12 {
+        let got: BTreeMap<u8, u32> = graded_image(&v, fwd(adj)).into_iter().collect();
+        if got != relaxation_distances(adj, v) {
+            return false;
+        }
+    }
+    true
+}
+
 // ── the engine leg: both memo policies answer as the kernel does ─────────────
 
 /// A witness [`ReachSubstrate`]: one relation kind (`0`) over a witness
@@ -192,13 +239,27 @@ fn engine_agrees_with_kernel(adj: &Adj) -> bool {
 /// tie pair AGAINST `u8::Ord`, so an engine that broke ties by BFS discovery
 /// order (the pre-kernel behavior this law forbids returning to) fails the
 /// forward/reversed equality; the tie itself is additionally PINNED to the
-/// `Ord`-minimal vertex.
+/// `Ord`-minimal vertex; and the minimal-hop clause is discharged against an
+/// independent relaxation oracle over every witness (a kernel grading
+/// `hops + 2`, deterministic and canonically sorted, fails THIS axiom, not
+/// just the kernel's own proptest).
 pub struct GradedReachDeterminism;
 
 impl Axiom for GradedReachDeterminism {
     fn verify(&self) -> Verdict {
         let kernel_ok = witness_graphs().iter().all(kernel_deterministic_on);
         let engine_ok = witness_graphs().iter().all(engine_agrees_with_kernel);
+
+        // The minimality leg — the "minimal-hop graded (Moore 1959)" clause of
+        // the registered description, checked, not assumed: every witness
+        // image equals the independent relaxation oracle, and the documented
+        // shortcut witness grades `9` at hop 1 (the direct edge `0 → 9`), not
+        // the long way's 3.
+        let shortcut = adjacency(&[(0, 4), (0, 9), (4, 6), (6, 9), (9, 11)]);
+        let minimal_ok = witness_graphs().iter().all(kernel_minimal_on)
+            && graded_image(&0, fwd(&shortcut))
+                .into_iter()
+                .any(|(v, d)| v == 9 && d == 1);
 
         // The pinned tie: both diamond mids sit at hop 1; the meet MUST be the
         // Ord-minimal `3` (enumeration declares 7 first — discovery order
@@ -207,7 +268,7 @@ impl Axiom for GradedReachDeterminism {
         let tie_ok = graded_meet(&0, &0, fwd(&diamond)) == Some(3)
             && graded_meet(&0, &0, rev(&diamond)) == Some(3);
 
-        if kernel_ok && engine_ok && tie_ok {
+        if kernel_ok && engine_ok && minimal_ok && tie_ok {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -232,7 +293,8 @@ mod tests {
     use pr4xis::ontology::registry::axiom_by_name;
 
     /// The engine law holds over its witnesses — kernel invariance, engine
-    /// agreement under both memo policies, and the pinned anti-`Ord` tie.
+    /// agreement under both memo policies, the independent-oracle minimality
+    /// leg, and the pinned anti-`Ord` tie.
     #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn graded_reach_determinism_holds() {

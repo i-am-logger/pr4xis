@@ -647,7 +647,7 @@ pub fn from_codegen(
         mereology_parts.entry(w).or_default().push(p);
     }
 
-    // Phase 4b: WordNet relation web. Codegen carries only the SKOS seeAlso
+    // Phase 4b: WordNet relation web. Codegen carries only the skos:related
     // (WordNet `also`) edges — wired into the `also_synset` slot of
     // `WordnetRelations`, which `English::new` folds into its labelled
     // `RelationStore` at construction (replacing the removed post-construction

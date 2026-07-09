@@ -50,8 +50,11 @@
 //!
 //! NOTE: the eager `ReachabilityClosure` in [`quiver`](super::quiver) is
 //! deliberately NOT delegated to this kernel — it is the independent test
-//! oracle the full-corpus equivalence gates compare the kernel-backed engines
-//! against, and an oracle must not share its subject's implementation.
+//! oracle the full-corpus `english_taxonomy_bfs` gate compares the
+//! `TaxonomyStore` engine against (the runtime's `MaterializedClosure` is
+//! oracle-checked at unit scale — no full-corpus materialize+closure run
+//! exists since the B1-bridge deletion), and an oracle must not share its
+//! subject's implementation.
 
 use alloc::collections::{BTreeMap, BTreeSet, VecDeque};
 use alloc::vec::Vec;

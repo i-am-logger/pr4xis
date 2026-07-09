@@ -60,7 +60,7 @@
 //! `emit`/`load` form a well-behaved lens between bytes and the loaded
 //! vocabulary (Foster, Greenwald, Moore, Pierce & Schmitt 2007,
 //! "Combinators for Bidirectional Tree Transformations", *ACM TOPLAS*
-//! 29(3) §2.2). The rkyv put is deterministic — equal envelopes
+//! 29(3) §3, Definition 3.2). The rkyv put is deterministic — equal envelopes
 //! serialize to equal bytes — so the blob's BLAKE3 hash is a stable content
 //! address; gzip (RFC 1952) round-trips losslessly, so
 //! `gunzip(gzip(x)) == x`; together the GetPut round-trip holds up to the
@@ -124,14 +124,14 @@
 //!   Ontology*, W3C Recommendation 2013-04-30. PROV namespace
 //!   `http://www.w3.org/ns/prov#`. <https://www.w3.org/TR/prov-o/>.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** "Combinators
-//!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §2.2.
+//!   for Bidirectional Tree Transformations", *ACM TOPLAS* 29(3) §3, Definition 3.2.
 //! - **Deutsch, P. (1996)** *GZIP file format specification version
 //!   4.3*, RFC 1952. <https://www.rfc-editor.org/rfc/rfc1952>.
 //! - **Aumasson, O'Connor, Neves & Wilcox-O'Hearn (2020)** *BLAKE3: one
 //!   function, fast everywhere*. The integrity hash space.
 //! - **Dolstra, E. (2006)** *The Purely Functional Software Deployment
 //!   Model*, PhD thesis — content-addressing by cryptographic hash.
-//! - **Hill, D.** *rkyv: zero-copy deserialization framework for Rust*,
+//! - **Koloski, D.** *rkyv: zero-copy deserialization framework for Rust*,
 //!   v0.8, <https://github.com/rkyv/rkyv>.
 //!
 //! [`read_owl`]: super::reader::read_owl
@@ -1491,7 +1491,7 @@ mod emit {
             // the source's praxis.lock pin. Success proves the published
             // artifact is loadable, content-anchored, and source-faithful
             // (the GetPut leg of the bytes ⇄ vocabulary lens, Foster et al.
-            // 2007 §2.2). The emitter is the *producer* of the archive
+            // 2007 §3, Definition 3.2). The emitter is the *producer* of the archive
             // address, so it verifies against the address it computed (the
             // operator pins `archive_address` into `[archive_signatures]`);
             // the source pin must already exist. An emit-but-fail-to-load

@@ -31,6 +31,23 @@ use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 /// Literature: the relation identities are the Global WordNet Association LMF
 /// relation set (Fellbaum 1998; Fellbaum-Osherson-Clark 2009 for `derivation`;
 /// Bentivogli & Pianta 2004 for the domain pointers) — see [`WordnetRelations`].
+///
+/// # Why this projection is Rust, not `.prx` functor data
+///
+/// The relType→kind mapping this enum realizes is NOT the `english_functor`
+/// case (a cross-ontology object-to-object projection carried as
+/// content-addressed `.prx` data and applied by one interpreter): it maps the
+/// loaded GWA-LMF relation vocabulary onto THIS store's internal dense-CSR
+/// column layout — `kind as usize` IS the column index — so it is a storage
+/// layout of one store, with no functor codomain ontology to address. Until
+/// the functor-as-data machinery can carry store-layout projections, the
+/// coupling is guarded in code: the const discriminant↔`ALL` pin below, the
+/// exhaustive `WordnetRelations` destructure in `normalize` (a new field is a
+/// compile error), the per-kind `every_kind_returns_its_own_distinct_edge`
+/// fixture, and the loaded-DTD conformance test
+/// (`every_relation_kind_grounds_in_the_loaded_wn_lmf_reltype_enumeration`),
+/// which walks this enum against the registered `wn_lmf_dtd` relType
+/// enumeration so the vocabulary itself stays LOADED, not encoded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RelationKind {
     /// Antonym opposition (sense-keyed): the `big ↔ small` pair.
@@ -404,6 +421,66 @@ mod fixture_tests {
                 &[cid(100 + k as u64)],
                 "kind {kind:?} (ALL-index {k}) returned a mislabelled edge"
             );
+        }
+    }
+
+    /// DIRECT [`RelationKind`] ↔ loaded-DTD conformance: every kind names the
+    /// GWA-LMF `relType` value(s) it is populated from, and each value must be
+    /// declared by the REGISTERED `wn_lmf_dtd` source's enumeration (queried
+    /// through `wn_lmf_attlist_enum_values`, per
+    /// `feedback_bottom_up_loaded_not_encoded`) — so a GWA rename/removal
+    /// fails here, and the exhaustive match forces every NEW kind to state its
+    /// loaded grounding. Known documented exception: OEWN emits `participle`
+    /// at SYNSET level, which WN-LMF DTD 1.3 declares only on `SenseRelation`,
+    /// so [`RelationKind::ParticipleSynset`]'s name is checked against the
+    /// sense-level enumeration.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn every_relation_kind_grounds_in_the_loaded_wn_lmf_reltype_enumeration() {
+        use crate::social::software::markup::xml::lmf::dtd::wn_lmf_attlist_enum_values;
+        let synset = wn_lmf_attlist_enum_values("SynsetRelation", "relType")
+            .expect("the loaded WN-LMF DTD declares SynsetRelation relType");
+        let sense = wn_lmf_attlist_enum_values("SenseRelation", "relType")
+            .expect("the loaded WN-LMF DTD declares SenseRelation relType");
+        for kind in RelationKind::ALL {
+            let (level, enumeration, values): (&str, &[String], &[&str]) = match kind {
+                RelationKind::Opposition => ("sense", &sense, &["antonym"]),
+                RelationKind::MereologyParts => ("synset", &synset, &["holo_part", "mero_part"]),
+                RelationKind::Derivation => ("sense", &sense, &["derivation"]),
+                RelationKind::Pertainym => ("sense", &sense, &["pertainym"]),
+                RelationKind::SimilarSense => ("sense", &sense, &["similar"]),
+                RelationKind::AlsoSense => ("sense", &sense, &["also"]),
+                RelationKind::ExemplifiesSense => ("sense", &sense, &["exemplifies"]),
+                RelationKind::IsExemplifiedBySense => ("sense", &sense, &["is_exemplified_by"]),
+                RelationKind::ParticipleSense => ("sense", &sense, &["participle"]),
+                RelationKind::SimilarSynset => ("synset", &synset, &["similar"]),
+                RelationKind::AlsoSynset => ("synset", &synset, &["also"]),
+                RelationKind::Causes => ("synset", &synset, &["causes"]),
+                RelationKind::IsCausedBy => ("synset", &synset, &["is_caused_by"]),
+                RelationKind::Entails => ("synset", &synset, &["entails"]),
+                RelationKind::IsEntailedBy => ("synset", &synset, &["is_entailed_by"]),
+                RelationKind::Attribute => ("synset", &synset, &["attribute"]),
+                RelationKind::Exemplifies => ("synset", &synset, &["exemplifies"]),
+                RelationKind::IsExemplifiedBy => ("synset", &synset, &["is_exemplified_by"]),
+                RelationKind::HasDomainTopic => ("synset", &synset, &["has_domain_topic"]),
+                RelationKind::DomainTopic => ("synset", &synset, &["domain_topic"]),
+                RelationKind::HasDomainRegion => ("synset", &synset, &["has_domain_region"]),
+                RelationKind::DomainRegion => ("synset", &synset, &["domain_region"]),
+                // The documented OEWN extension: synset-level participle is
+                // absent from the 1.3 DTD's SynsetRelation enumeration.
+                RelationKind::ParticipleSynset => ("sense", &sense, &["participle"]),
+                RelationKind::HoloMember => ("synset", &synset, &["holo_member"]),
+                RelationKind::HoloSubstance => ("synset", &synset, &["holo_substance"]),
+                RelationKind::MeroMember => ("synset", &synset, &["mero_member"]),
+                RelationKind::MeroSubstance => ("synset", &synset, &["mero_substance"]),
+            };
+            for v in values {
+                assert!(
+                    enumeration.iter().any(|e| e == v),
+                    "RelationKind::{kind:?}: relType {v:?} is not in the loaded WN-LMF \
+                     DTD's {level}-level enumeration"
+                );
+            }
         }
     }
 }

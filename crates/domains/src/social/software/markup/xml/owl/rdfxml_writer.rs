@@ -80,7 +80,7 @@
 //! - **Cowan & Tobin (2004)** *XML Information Set* §2.3 — attribute order is
 //!   not an Infoset item, hence concrete-syntax residue.
 //! - **Foster, Greenwald, Moore, Pierce & Schmitt (2007)** *ACM TOPLAS* 29(3)
-//!   §2.2 — the well-behaved lens whose graph-faithful `put` this realises.
+//!   §3, Definition 3.2 — the well-behaved lens whose graph-faithful `put` this realises.
 //!
 //! [`WordNet`]: crate::social::software::markup::xml::lmf::ontology::WordNet
 //! [`OwlOntology`]: super::ontology::OwlOntology

@@ -4,7 +4,7 @@
 //!
 //! ## Lens laws
 //!
-//! Foster, Greenwald, Moore, Pierce & Schmitt 2007 §2.2 define a
+//! Foster, Greenwald, Moore, Pierce & Schmitt 2007 §3, Definition 3.2 define a
 //! *well-behaved lens* as a pair of total functions
 //!
 //!   `get : S → T`
@@ -71,7 +71,7 @@
 //!   Schmitt, A. (2007)** — "Combinators for Bidirectional Tree
 //!   Transformations: A Linguistic Approach to the View Update
 //!   Problem", *ACM Transactions on Programming Languages and
-//!   Systems* 29(3) Article 17, §2.2 (well-behaved-lens laws).
+//!   Systems* 29(3) Article 17, §3, Definition 3.2 (well-behaved-lens laws).
 //! - **Mac Lane (1998)** — *Categories for the Working
 //!   Mathematician*, Springer GTM 5, 2nd ed., §IV.1 + §IV.4.
 
@@ -137,11 +137,11 @@ pub trait WellBehavedLens {
     const FIDELITY: RoundTripFidelity = RoundTripFidelity::RawBytesComplementFloor;
 
     /// Parse a byte stream into the ontology instance (Foster et al.
-    /// 2007 §2.2, `get : S → T`).
+    /// 2007 §3, Definition 3.2, `get : S → T`).
     fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error>;
 
     /// Re-emit the ontology instance as bytes (Foster et al. 2007
-    /// §2.2, `put : T → S`).
+    /// §3, Definition 3.2, `put : T → S`).
     fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error>;
 
     /// Canonicalize the input bytes per the source kind's published
@@ -174,7 +174,7 @@ pub trait WellBehavedLens {
         Ok(hash_hex(algorithm, &c))
     }
 
-    /// Run the PutGet law (Foster et al. 2007 §2.2):
+    /// Run the PutGet law (Foster et al. 2007 §3, Definition 3.2):
     /// `canonical(put(get(s))) == canonical(s)`.
     ///
     /// Used by the M4.θ.2 round-trip test harness to verify each
