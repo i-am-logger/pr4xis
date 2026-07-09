@@ -119,6 +119,16 @@ jobs:
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo nextest archive --workspace --profile ci --release --archive-file target/nextest-archive.tar.zst
+      # Constitution COMPLETENESS gate: every real test declares a guarantee
+      # (untagged=0) and every registered tag maps to a real test (phantom=0).
+      # This is inherently a TWO-PROCESS diff — libtest's inventory is only
+      # enumerable from outside the binary (`--list`; rust-lang#50297 keeps the
+      # in-process inventory unstable) — so the shell gate IS the minimal
+      # machine-checkable form, not a workaround. The in-process
+      # constitution_coverage meta-test asserts only PARTITION coverage; without
+      # this step, untagged tests pass CI silently.
+      - name: Constitution completeness gate
+        run: bash scripts/constitution-gate.sh pr4xis-domains --enforce
       - uses: actions/upload-artifact@v7
         with:
           name: pr4xis-cli

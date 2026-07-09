@@ -117,6 +117,8 @@ in
     mdbook test docs/ || { echo "FAILED: mdbook test"; exit 1; }
     echo "=== test (nextest --release, strict [profile.ci]) ==="
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
+    echo "=== constitution completeness gate (untagged=0 phantom=0) ==="
+    bash scripts/constitution-gate.sh pr4xis-domains --enforce || { echo "FAILED: constitution gate"; exit 1; }
     echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
     RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release || { echo "FAILED: corpus tests"; exit 1; }
     echo "=== clippy (wasm, release) ==="
