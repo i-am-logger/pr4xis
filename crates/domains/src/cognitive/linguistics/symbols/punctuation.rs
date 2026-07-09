@@ -18,6 +18,10 @@ pub struct PunctuationMark {
 
 /// What a punctuation mark DOES semantically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum PunctuationFunction {
     /// Terminates a declarative statement. Creates a complete thought.
     /// Commits the speaker to truth of the preceding statement.
@@ -79,6 +83,10 @@ impl FinitelyGenerated for PunctuationFunction {
 
 /// Where the punctuation mark appears relative to content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum Position {
     /// After content: period, question mark, exclamation.
     After,

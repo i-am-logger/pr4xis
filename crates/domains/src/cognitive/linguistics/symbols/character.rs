@@ -50,6 +50,10 @@ impl Character {
 
 /// Unicode general category (simplified for our needs).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum UnicodeCategory {
     UppercaseLetter,
     LowercaseLetter,
@@ -85,6 +89,10 @@ pub struct Script {
 
 /// Writing direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum Direction {
     LeftToRight,
     RightToLeft,

@@ -29,10 +29,23 @@ pub trait Language {
     fn code(&self) -> &str;
 
     /// The writing system this language uses.
-    fn writing_system(&self) -> &WritingSystem;
+    ///
+    /// Returned BY VALUE, not by borrow: an implementor may hold its writing system
+    /// as a zero-copy `rkyv` archive (English does — see
+    /// [`writing_system_store`](super::english::writing_system_store)), whose
+    /// archived form is a structurally distinct type, so a `&WritingSystem` cannot
+    /// borrow into it without materializing an owned copy anyway. This is a COLD
+    /// reader (no tokenizer/runtime caller), so deserialize-on-call is free.
+    fn writing_system(&self) -> WritingSystem;
 
     /// Morphological rules for word formation.
-    fn morphological_rules(&self) -> &[MorphologicalRule];
+    ///
+    /// Returned BY VALUE, not by borrow, for the same reason as
+    /// [`writing_system`](Self::writing_system): an implementor may hold the rules
+    /// as a zero-copy `rkyv` archive (English does — see
+    /// [`morphology_store`](super::english::morphology_store)). The warm stemming
+    /// path reads the archive directly; this cold reader materializes the rules.
+    fn morphological_rules(&self) -> Vec<MorphologicalRule>;
 
     /// Look up a word in the language's lexicon.
     /// Returns the lexical entry with full POS and features.
@@ -651,7 +664,6 @@ pub fn from_codegen(
 
     // Language-specific data (function words, writing system, morphology)
     let function_words = build_english_function_words();
-    let function_word_list: Vec<String> = function_words.keys().cloned().collect();
     let writing = super::orthography::english_writing_system();
     let morphology = super::morphology::english::english_rules();
 
@@ -666,7 +678,6 @@ pub fn from_codegen(
         0, // sense_count: codegen assigns no senses (all sense-level relations empty)
         synset_to_concept,
         function_words,
-        function_word_list,
         HashMap::new(), // verb_transitivity (chart parser resolves in context)
         writing,
         morphology,

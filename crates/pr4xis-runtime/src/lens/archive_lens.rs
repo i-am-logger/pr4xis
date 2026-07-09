@@ -95,6 +95,7 @@ use crate::address::ContentAddress;
 use crate::archive::Archive;
 use crate::connection::{Connection, GeneratorAction};
 use crate::definition::{Definition, EdgeTarget};
+use crate::lens::rkyv_lens::{RkyvLens, RkyvLensError, RkyvMirror, RkyvOwned};
 
 // =============================================================================
 // Hand-authored rkyv mirror types — the serializable shadow of the live graph.
@@ -413,7 +414,30 @@ impl ArchivedArchive {
 }
 
 // =============================================================================
-// ArchiveLens — the bidirectional rkyv lens (put ⊣ get).
+// The leaf lens — Archive ⇄ ArchivedArchive as an `RkyvLens` instance.
+// =============================================================================
+
+/// PUT leg of the runtime-`Archive` leaf lens: project the live graph into its
+/// `rkyv` mirror (the forgetful direction — the address-bearing wire
+/// representation is dropped, grounded atoms become hex).
+impl RkyvMirror<Archive> for ArchivedArchive {
+    fn from_owned(archive: &Archive) -> Self {
+        ArchivedArchive::from_live(archive)
+    }
+}
+
+/// GET leg of the runtime-`Archive` leaf lens: rebuild the live graph from the
+/// mirror. Fallible — a malformed grounded-atom hex fails closed
+/// ([`ArchiveLensError::BadAtomAddress`]).
+impl RkyvOwned<ArchivedArchive> for Archive {
+    type Error = ArchiveLensError;
+    fn from_mirror(mirror: ArchivedArchive) -> Result<Self, ArchiveLensError> {
+        mirror.into_live()
+    }
+}
+
+// =============================================================================
+// ArchiveLens — the runtime `Archive` instance of the generic `RkyvLens`.
 // =============================================================================
 
 /// The zero-copy archived VIEW of the runtime graph — `rkyv`'s in-buffer form of
@@ -465,85 +489,81 @@ pub fn archived_grounded(target: &ArchivedEdgeTargetView) -> Option<(&str, Conte
 }
 
 /// The `rkyv` local-cache/query lens between a runtime [`Archive`] and its
-/// zero-copy bytes. See the [module docs](self) for why this is NOT the
-/// content-address form.
+/// zero-copy bytes — the runtime instance of the generic
+/// [`RkyvLens`](crate::lens::rkyv_lens::RkyvLens)`<`[`Archive`]`, `[`ArchivedArchive`]`>`.
+/// Its methods are thin, type-fixing forwarders to that lens (the serialize /
+/// validate-once / zero-copy / owning-decode boilerplate lives there, once). See
+/// the [module docs](self) for why this is NOT the content-address form.
+///
+/// `get` flattens the generic [`RkyvLensError`]`<`[`ArchiveLensError`]`>` back
+/// into a plain [`ArchiveLensError`] so the public GET surface the
+/// [`RuntimeOntology`](crate::ontology::RuntimeOntology) reads is unchanged.
 pub struct ArchiveLens;
 
+/// The concrete lens for the runtime `Archive` instance.
+type ArchiveRkyvLens = RkyvLens<Archive, ArchivedArchive>;
+
 impl ArchiveLens {
-    /// The lens PUT, keeping `rkyv`'s own 16-aligned buffer: `rkyv`-serialize the
-    /// archive's mirror to the local cache/query bytes as an [`AlignedVec<16>`]
-    /// — the alignment [`access`](Self::access) / [`access_unchecked`](Self::access_unchecked)
-    /// require, and the form [`RuntimeOntology`](crate::ontology::RuntimeOntology)
-    /// stores. **Not** the DAG-CBOR content-address form (the layout is
-    /// `rkyv`-version- and target-bound, never an address).
-    ///
-    /// Infallible for these owned mirror types: `rkyv`'s default serializer over
-    /// `String`/`Vec`/`Option`/tuple/enum data has no fallible leg, so a
-    /// serialization error here would be a `rkyv` bug, not a data condition.
+    /// The lens PUT, keeping `rkyv`'s own 16-aligned buffer — the form
+    /// [`RuntimeOntology`](crate::ontology::RuntimeOntology) stores and the
+    /// alignment [`access`](Self::access) / [`access_unchecked`](Self::access_unchecked)
+    /// require. **Not** the DAG-CBOR content-address form.
     pub fn put_aligned(archive: &Archive) -> rkyv::util::AlignedVec<16> {
-        let mirror = ArchivedArchive::from_live(archive);
-        rkyv::to_bytes::<rkyv::rancor::Error>(&mirror)
-            .expect("rkyv serialization of the owned Archive mirror is infallible")
+        ArchiveRkyvLens::put_aligned(archive)
     }
 
     /// The lens PUT as a plain `Vec<u8>` — [`put_aligned`](Self::put_aligned)
     /// with the alignment guarantee dropped, for callers that only round-trip the
-    /// bytes through [`get`](Self::get) (which re-aligns) or compare them (the
-    /// lens-law axioms). The zero-copy query path uses `put_aligned` instead.
+    /// bytes through [`get`](Self::get) or compare them (the lens-law axioms).
     pub fn put(archive: &Archive) -> Vec<u8> {
-        Self::put_aligned(archive).to_vec()
+        ArchiveRkyvLens::put(archive)
     }
 
     /// The ZERO-COPY GET: `bytecheck`-validate `bytes` and return a borrowed
     /// [`ArchivedArchiveView`] over them — NO owned rebuild (contrast
-    /// [`get`](Self::get), which materializes an owned [`Archive`]). `bytes` must
-    /// be 16-aligned (an [`AlignedVec<16>`] as [`put_aligned`](Self::put_aligned)
-    /// produces); a fetched/mmapped `&[u8]` must be re-aligned first. Fail-closed
-    /// on a corrupted / truncated / misaligned blob, so the returned view never
-    /// borrows unsound bytes.
+    /// [`get`](Self::get)). `bytes` must be 16-aligned (an [`AlignedVec<16>`] as
+    /// [`put_aligned`](Self::put_aligned) produces). Fail-closed on a corrupted /
+    /// truncated / misaligned blob.
     ///
     /// This is Step 1c: the runtime validates ONCE here at materialize, then
-    /// serves every hot query through [`access_unchecked`](Self::access_unchecked)
-    /// over the same immutable buffer.
+    /// serves every hot query through [`access_unchecked`](Self::access_unchecked).
     pub fn access(bytes: &[u8]) -> Result<&ArchivedArchiveView, ArchiveLensError> {
-        rkyv::access::<ArchivedArchiveView, rkyv::rancor::Error>(bytes)
-            .map_err(|e| ArchiveLensError::Rkyv(e.to_string()))
+        ArchiveRkyvLens::access(bytes).map_err(flatten_err)
     }
 
-    /// The ZERO-COPY GET without re-validation — the hot query path. Returns a
-    /// borrowed [`ArchivedArchiveView`] over `bytes` with no `bytecheck` pass.
+    /// The ZERO-COPY GET without re-validation — the hot query path.
     ///
     /// # Safety
     ///
     /// `bytes` must be a 16-aligned buffer previously accepted by
-    /// [`access`](Self::access) (bytecheck-validated) and kept immutable since.
-    /// This is the deliberate `access_unchecked` the runtime uses to pay
-    /// bytecheck exactly once: [`RuntimeOntology`](crate::ontology::RuntimeOntology)
-    /// validates its buffer at materialize and never mutates it, so every
-    /// query-path call is sound.
+    /// [`access`](Self::access) (bytecheck-validated) and kept immutable since —
+    /// the deliberate `access_unchecked` the runtime uses to pay bytecheck
+    /// exactly once.
     pub unsafe fn access_unchecked(bytes: &[u8]) -> &ArchivedArchiveView {
         // SAFETY: forwarded to the caller's contract above — validated once,
         // immutable since.
-        unsafe { rkyv::access_unchecked::<ArchivedArchiveView>(bytes) }
+        unsafe { ArchiveRkyvLens::access_unchecked(bytes) }
     }
 
     /// The lens GET: `bytecheck`-validate the bytes and materialize an owned
-    /// [`Archive`]. Copies into a 16-aligned buffer first (a fetched/mmapped
-    /// `&[u8]` carries no alignment guarantee), then `rkyv::from_bytes`
-    /// validates before materializing, so a corrupted/truncated blob fails
-    /// closed rather than producing unsound references.
-    ///
-    /// This is the OWNING GET — kept for callers that genuinely need an owned
-    /// [`Archive`] (the content root is derived over [`Definition`] addressing,
-    /// which the archived view does not carry). The zero-copy query path uses
-    /// [`access`](Self::access) / [`access_unchecked`](Self::access_unchecked)
-    /// instead of rebuilding.
+    /// [`Archive`], failing closed on a corrupted blob OR a malformed
+    /// grounded-atom hex. The OWNING GET — kept for callers that genuinely need
+    /// an owned [`Archive`] (the content root is derived over [`Definition`]
+    /// addressing, absent from the archived view).
     pub fn get(bytes: &[u8]) -> Result<Archive, ArchiveLensError> {
-        let mut aligned = rkyv::util::AlignedVec::<16>::new();
-        aligned.extend_from_slice(bytes);
-        let mirror = rkyv::from_bytes::<ArchivedArchive, rkyv::rancor::Error>(&aligned)
-            .map_err(|e| ArchiveLensError::Rkyv(e.to_string()))?;
-        mirror.into_live()
+        ArchiveRkyvLens::get(bytes).map_err(flatten_err)
+    }
+}
+
+/// Flatten the generic [`RkyvLensError`]`<`[`ArchiveLensError`]`>` into a plain
+/// [`ArchiveLensError`]: the lens `Rkyv` leg becomes [`ArchiveLensError::Rkyv`],
+/// the leaf `Conversion` leg is already an [`ArchiveLensError`]
+/// ([`ArchiveLensError::BadAtomAddress`]). Keeps the public GET surface byte-
+/// identical to the pre-generalization one.
+fn flatten_err(e: RkyvLensError<ArchiveLensError>) -> ArchiveLensError {
+    match e {
+        RkyvLensError::Rkyv(m) => ArchiveLensError::Rkyv(m),
+        RkyvLensError::Conversion(inner) => inner,
     }
 }
 
@@ -552,11 +572,12 @@ impl ArchiveLens {
 // =============================================================================
 
 #[cfg(feature = "emit")]
-pub use axioms::{ArchiveLensGetPut, ArchiveLensPutGet};
+pub use axioms::{ArchiveLensDeterminism, ArchiveLensGetPut, ArchiveLensPutGet};
 
 #[cfg(feature = "emit")]
 mod axioms {
     use super::*;
+    use crate::lens::rkyv_lens::{determinism_holds, getput_holds, putget_holds};
 
     use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
     use pr4xis::ontology::Axiom;
@@ -665,16 +686,11 @@ mod axioms {
 
     impl Axiom for ArchiveLensGetPut {
         fn verify(&self) -> Verdict {
-            for archive in witness_archives() {
-                let b = ArchiveLens::put(&archive);
-                let Ok(decoded) = ArchiveLens::get(&b) else {
-                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
-                };
-                if ArchiveLens::put(&decoded) != b {
-                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
-                }
+            if getput_holds::<Archive, ArchivedArchive>(&witness_archives()) {
+                Ok(Box::new(SimpleProof::new(self.meta())))
+            } else {
+                Err(Box::new(SimpleCounterexample::new(self.meta())))
             }
-            Ok(Box::new(SimpleProof::new(self.meta())))
         }
 
         pr4xis::axiom_meta!(
@@ -698,14 +714,11 @@ mod axioms {
 
     impl Axiom for ArchiveLensPutGet {
         fn verify(&self) -> Verdict {
-            for archive in witness_archives() {
-                let b = ArchiveLens::put(&archive);
-                match ArchiveLens::get(&b) {
-                    Ok(decoded) if decoded == archive => {}
-                    _ => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
-                }
+            if putget_holds::<Archive, ArchivedArchive>(&witness_archives()) {
+                Ok(Box::new(SimpleProof::new(self.meta())))
+            } else {
+                Err(Box::new(SimpleCounterexample::new(self.meta())))
             }
-            Ok(Box::new(SimpleProof::new(self.meta())))
         }
 
         pr4xis::axiom_meta!(
@@ -719,6 +732,34 @@ mod axioms {
         ArchiveLensPutGet,
         "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
     );
+
+    /// Determinism leg of the `ArchiveLens` well-behaved lens: `put(a) == put(a)`
+    /// — the `rkyv` cache bytes are a deterministic function of the [`Archive`]
+    /// alone (no build-order or address nondeterminism), the property that
+    /// underwrites [`ArchiveLensGetPut`]. Foster, Greenwald, Moore, Pierce &
+    /// Schmitt (2007) §2.2.
+    pub struct ArchiveLensDeterminism;
+
+    impl Axiom for ArchiveLensDeterminism {
+        fn verify(&self) -> Verdict {
+            if determinism_holds::<Archive, ArchivedArchive>(&witness_archives()) {
+                Ok(Box::new(SimpleProof::new(self.meta())))
+            } else {
+                Err(Box::new(SimpleCounterexample::new(self.meta())))
+            }
+        }
+
+        pr4xis::axiom_meta!(
+            "ArchiveLensDeterminism",
+            "put(a) == put(a): the rkyv cache bytes are a deterministic function of the Archive alone",
+            "Foster, Greenwald, Moore, Pierce & Schmitt (2007) Combinators for Bidirectional Tree Transformations, ACM TOPLAS 29(3) §2.2"
+        );
+    }
+
+    pr4xis::register_axiom!(
+        ArchiveLensDeterminism,
+        "Foster, Greenwald, Moore, Pierce & Schmitt (2007) ACM TOPLAS 29(3) §2.2"
+    );
 }
 
 // =============================================================================
@@ -727,7 +768,9 @@ mod axioms {
 
 #[cfg(all(test, feature = "emit"))]
 mod tests {
-    use super::axioms::{ArchiveLensGetPut, ArchiveLensPutGet, witness_archives};
+    use super::axioms::{
+        ArchiveLensDeterminism, ArchiveLensGetPut, ArchiveLensPutGet, witness_archives,
+    };
     use super::*;
 
     use pr4xis::ontology::Axiom;
@@ -822,6 +865,10 @@ mod tests {
         assert!(
             ArchiveLensPutGet.verify().is_ok(),
             "get(put(a)) == a must hold over the witness archives"
+        );
+        assert!(
+            ArchiveLensDeterminism.verify().is_ok(),
+            "put(a) == put(a) must hold over the witness archives"
         );
     }
 

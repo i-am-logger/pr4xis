@@ -5,6 +5,10 @@ use pr4xis::category::Concept;
 
 /// Grammatical number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum Number {
     Singular,
     Plural,
@@ -12,6 +16,10 @@ pub enum Number {
 
 /// Grammatical person.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum Person {
     First,
     Second,
@@ -20,6 +28,10 @@ pub enum Person {
 
 /// Verb tense.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum Tense {
     Present,
     Past,
@@ -28,6 +40,10 @@ pub enum Tense {
 
 /// Noun countability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum Countability {
     Countable,
     Uncountable,
@@ -35,13 +51,30 @@ pub enum Countability {
 
 /// Noun type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum NounKind {
     Common,
     Proper,
 }
 
 /// Verb transitivity.
+///
+/// `#[repr(u8)]` pins each variant to a 1-byte discriminant (`Transitive` = 0,
+/// `Intransitive` = 1, `Ditransitive` = 2) so a packed byte-run of discriminants
+/// casts zero-copy to `&[Transitivity]` — the layout the
+/// [`VerbTransitivityIndex`](crate::cognitive::linguistics::english::verb_transitivity_index)
+/// archive relies on (the `word_index` id-run pattern with 1-byte elements). The
+/// `rkyv` derives let `Transitivity` also ride the `FunctionWordStore`
+/// `LexicalEntry` mirror (as a `Verb` field) under `prx`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[repr(u8)]
 pub enum Transitivity {
     Transitive,
     Intransitive,
@@ -64,6 +97,10 @@ pub enum Transitivity {
 /// `Definiteness` → `DeterminerKind` to name what it is. `Indefinite` is the
 /// unmarked default (Lyons 1999 §1; H&P ch.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum DeterminerKind {
     /// The definite article `the` (Lyons 1999 — the definiteness contrast).
     Definite,
@@ -147,6 +184,10 @@ pub struct Conjunction {
 /// Pronoun kind — from OLiA classification.
 /// OLiA: PersonalPronoun, InterrogativePronoun, DemonstrativePronoun, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum PronounKind {
     /// "he", "she", "it", "they" — refers to previously mentioned entities.
     Personal,
@@ -210,6 +251,10 @@ pub struct Auxiliary {
 /// prior gap — conative items like `sh!`/`psst` used to silently default to
 /// Expressive).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum InterjectionKind {
     /// "hello", "hi", "hey" — greeting (Ameka PHATIC).
     Greeting,
@@ -373,6 +418,10 @@ impl LexicalEntry {
 /// Categories are aligned with OLiA (Ontologies of Linguistic Annotation).
 /// Reference: Chiarcos & Sukhareva, OLiA (Semantic Web journal, 2015)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum PosTag {
     Noun,
     Verb,

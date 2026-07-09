@@ -36,6 +36,10 @@ pub struct Suffix {
 
 /// What an affix DOES to meaning — connects to reasoning ontology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum SemanticEffect {
     /// Negates meaning: un-happy → NOT happy (connects to OppositionDef).
     Negation,

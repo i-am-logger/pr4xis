@@ -7,10 +7,14 @@ use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
 use crate::cognitive::linguistics::english::concept_store::{ConceptStore, ConceptView};
+use crate::cognitive::linguistics::english::function_word_store::FunctionWordStore;
+use crate::cognitive::linguistics::english::morphology_store::MorphologyStore;
 use crate::cognitive::linguistics::english::relation_store::{RelationKind, RelationStore};
 use crate::cognitive::linguistics::english::synset_index::SynsetIndex;
 use crate::cognitive::linguistics::english::taxonomy_store::TaxonomyStore;
+use crate::cognitive::linguistics::english::verb_transitivity_index::VerbTransitivityIndex;
 use crate::cognitive::linguistics::english::word_index::WordIndex;
+use crate::cognitive::linguistics::english::writing_system_store::WritingSystemStore;
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
 use crate::cognitive::linguistics::morphology::MorphologicalRule;
@@ -93,16 +97,29 @@ pub struct English {
     synset_index: SynsetIndex,
 
     // === Language trait data ===
-    /// Function words (closed class, OLiA-classified).
-    function_words: HashMap<String, Vec<LexicalEntry>>,
-    /// All function word texts (for spelling correction).
-    function_word_list: Vec<String>,
-    /// Verb transitivity from WordNet subcategorization frames.
-    verb_transitivity: HashMap<String, Vec<Transitivity>>,
-    /// Writing system.
-    writing: WritingSystem,
-    /// Morphological rules.
-    morphology: Vec<MorphologicalRule>,
+    /// Function words (closed class, OLiA-classified) — held as a compact,
+    /// zero-copy [`FunctionWordStore`] under `prx` (a single sorted-key `rkyv`
+    /// archive that ALSO subsumes the old `function_word_list`: the sorted key set
+    /// IS the word list), an owned `HashMap` otherwise. Read through
+    /// [`first`](FunctionWordStore::first) / [`all`](FunctionWordStore::all) /
+    /// [`words`](FunctionWordStore::words). See
+    /// [`function_word_store`](super::function_word_store).
+    function_words: FunctionWordStore,
+    /// Verb transitivity from WordNet subcategorization frames — held as a compact,
+    /// zero-copy [`VerbTransitivityIndex`] (a sorted-key dictionary with a one-byte
+    /// discriminant run cast zero-copy to `&[Transitivity]`) under `prx`, an owned
+    /// `HashMap` otherwise. See
+    /// [`verb_transitivity_index`](super::verb_transitivity_index).
+    verb_transitivity: VerbTransitivityIndex,
+    /// Writing system — held as a compact, zero-copy [`WritingSystemStore`] `rkyv`
+    /// archive under `prx`, an owned [`WritingSystem`] otherwise. See
+    /// [`writing_system_store`](super::writing_system_store).
+    writing: WritingSystemStore,
+    /// Morphological rules — held as a compact, zero-copy [`MorphologyStore`] `rkyv`
+    /// archive under `prx`, an owned `Vec` otherwise. The warm stemming loop reads
+    /// the suffix texts zero-copy; the cold trait reader deserializes. See
+    /// [`morphology_store`](super::morphology_store).
+    morphology: MorphologyStore,
 }
 
 /// All non-taxonomy / non-opposition / non-mereology WordNet
@@ -183,7 +200,7 @@ pub struct WordnetRelations {
 
 /// A concept — a meaning in the English language.
 /// Multiple words can express the same concept (synonyms share a concept).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Concept {
     pub id: ConceptId,
     pub original_id: String,
@@ -395,7 +412,6 @@ impl English {
         sense_count: usize,
         synset_to_concept: HashMap<String, ConceptId>,
         function_words: HashMap<String, Vec<LexicalEntry>>,
-        function_word_list: Vec<String>,
         verb_transitivity: HashMap<String, Vec<Transitivity>>,
         writing: WritingSystem,
         morphology: Vec<MorphologicalRule>,
@@ -424,11 +440,14 @@ impl English {
             // Transcode the synset-id dictionary into the compact index ONCE; the
             // source map is consumed and freed (§`synset_index`).
             synset_index: SynsetIndex::build(synset_to_concept),
-            function_words,
-            function_word_list,
-            verb_transitivity,
-            writing,
-            morphology,
+            // Transcode the Language-trait data into its compact stores ONCE; each
+            // source collection is consumed and freed, only the packed form
+            // survives. `function_word_list` is GONE — the sorted key set of
+            // `function_words` IS the word list.
+            function_words: FunctionWordStore::build(function_words),
+            verb_transitivity: VerbTransitivityIndex::build(verb_transitivity),
+            writing: WritingSystemStore::build(writing),
+            morphology: MorphologyStore::build(morphology),
         }
     }
 
@@ -725,7 +744,6 @@ impl English {
         // Build Language data: function words, verb transitivity, writing, morphology
         let function_words =
             crate::cognitive::linguistics::language::build_english_function_words();
-        let function_word_list: Vec<String> = function_words.keys().cloned().collect();
         let verb_transitivity =
             crate::cognitive::linguistics::language::build_verb_transitivity(wn);
         let writing = crate::cognitive::linguistics::orthography::english_writing_system();
@@ -772,11 +790,15 @@ impl English {
             // compact index ONCE; the source map is consumed and freed
             // (§`synset_index`).
             synset_index: SynsetIndex::build(synset_to_concept),
-            function_words,
-            function_word_list,
-            verb_transitivity,
-            writing,
-            morphology,
+            // Transcode the Language-trait data into its compact stores ONCE; each
+            // source collection is consumed and freed. `function_word_list` is GONE
+            // — the sorted key set of `function_words` IS the word list
+            // (§`function_word_store`, §`verb_transitivity_index`,
+            // §`writing_system_store`, §`morphology_store`).
+            function_words: FunctionWordStore::build(function_words),
+            verb_transitivity: VerbTransitivityIndex::build(verb_transitivity),
+            writing: WritingSystemStore::build(writing),
+            morphology: MorphologyStore::build(morphology),
         }
     }
 
@@ -885,12 +907,10 @@ impl English {
         self.relations.edge_count(RelationKind::Opposition)
     }
 
-    /// Get verb transitivity options from pre-computed frames.
+    /// Get verb transitivity options from pre-computed frames — a zero-copy slice
+    /// borrowed from the compact [`VerbTransitivityIndex`].
     fn verb_transitivities(&self, word: &str) -> &[Transitivity] {
-        self.verb_transitivity
-            .get(word)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.verb_transitivity.lookup(word)
     }
 }
 
@@ -1033,17 +1053,17 @@ impl crate::cognitive::linguistics::language::Language for English {
         "en"
     }
 
-    fn writing_system(&self) -> &WritingSystem {
-        &self.writing
+    fn writing_system(&self) -> WritingSystem {
+        self.writing.writing_system()
     }
 
-    fn morphological_rules(&self) -> &[MorphologicalRule] {
-        &self.morphology
+    fn morphological_rules(&self) -> Vec<MorphologicalRule> {
+        self.morphology.rules()
     }
 
     fn lexical_lookup(&self, word: &str) -> Option<LexicalEntry> {
-        if let Some(entries) = self.function_words.get(word) {
-            return entries.first().cloned();
+        if let Some(entry) = self.function_words.first(word) {
+            return Some(entry);
         }
         let concept_ids = self.lookup(word);
         if let Some(&cid) = concept_ids.first()
@@ -1063,9 +1083,7 @@ impl crate::cognitive::linguistics::language::Language for English {
 
     fn lexical_lookup_all(&self, word: &str) -> Vec<LexicalEntry> {
         let mut results = Vec::new();
-        if let Some(entries) = self.function_words.get(word) {
-            results.extend(entries.iter().cloned());
-        }
+        results.extend(self.function_words.all(word));
         let mut seen_pos = hashbrown::HashSet::new();
         for &cid in self.lookup(word) {
             if let Some(concept) = self.concept(cid)
@@ -1085,9 +1103,10 @@ impl crate::cognitive::linguistics::language::Language for English {
         // Morphological stemming: if the word has a known suffix, try the stem.
         // "runs" → strip "s" → "run" → lookup "run" → get verb entries.
         // This IS the morphology functor: InflectedForm → Stem → LexicalEntry.
-        for rule in &self.morphology {
-            if let crate::cognitive::linguistics::morphology::Affix::Suffix(suffix) = &rule.affix
-                && let Some(stem) = word.strip_suffix(suffix.text.as_str())
+        // The suffix texts are read ZERO-COPY out of the compact
+        // [`MorphologyStore`] (no allocation on the tokenizer's per-token path).
+        for suffix_text in self.morphology.suffix_texts() {
+            if let Some(stem) = word.strip_suffix(suffix_text)
                 && !stem.is_empty()
             {
                 for &cid in self.lookup(stem) {
@@ -1118,7 +1137,7 @@ impl crate::cognitive::linguistics::language::Language for English {
     }
 
     fn known_words(&self) -> Vec<&str> {
-        let mut words: Vec<&str> = self.function_word_list.iter().map(|s| s.as_str()).collect();
+        let mut words: Vec<&str> = self.function_words.words().collect();
         words.extend(self.word_index.words());
         words
     }
@@ -1128,7 +1147,7 @@ impl crate::cognitive::linguistics::language::Language for English {
     }
 
     fn word_count(&self) -> usize {
-        self.word_index.len() + self.function_word_list.len()
+        self.word_index.len() + self.function_words.len()
     }
 }
 
