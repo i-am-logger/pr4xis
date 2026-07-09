@@ -136,7 +136,7 @@ mod archived {
 
     use rkyv::util::AlignedVec;
 
-    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvOwned};
+    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvMirrorOwned, RkyvOwned};
 
     use super::*;
     use crate::cognitive::linguistics::lexicon::pos::{
@@ -337,6 +337,83 @@ mod archived {
         }
     }
 
+    // ── owned entry → record (build side, MOVE) ───────────────────────────────
+
+    /// By-value twin of the borrowing [`From<&LexicalEntry>`] above: MOVE each
+    /// reading's `text` / `lemma` / `olia_class` heap payload into the record
+    /// rather than cloning it, for the owned PUT leg that consumes the lexicon at
+    /// build. Byte-identical in result to its borrowing sibling.
+    impl From<LexicalEntry> for LexicalEntryRecord {
+        fn from(e: LexicalEntry) -> Self {
+            match e {
+                LexicalEntry::Noun(n) => LexicalEntryRecord::Noun(NounRecord {
+                    text: n.text,
+                    number: n.number,
+                    person: n.person,
+                    countability: n.countability,
+                    kind: n.kind,
+                }),
+                LexicalEntry::Verb(v) => LexicalEntryRecord::Verb(VerbRecord {
+                    text: v.text,
+                    lemma: v.lemma,
+                    number: v.number,
+                    person: v.person,
+                    tense: v.tense,
+                    transitivity: v.transitivity,
+                }),
+                LexicalEntry::Determiner(d) => LexicalEntryRecord::Determiner(DeterminerRecord {
+                    text: d.text,
+                    kind: d.kind,
+                    number: d.number,
+                    olia_class: d.olia_class,
+                }),
+                LexicalEntry::Adjective(a) => {
+                    LexicalEntryRecord::Adjective(AdjectiveRecord { text: a.text })
+                }
+                LexicalEntry::Adverb(a) => LexicalEntryRecord::Adverb(AdverbRecord {
+                    text: a.text,
+                    olia_class: a.olia_class,
+                }),
+                LexicalEntry::Preposition(p) => {
+                    LexicalEntryRecord::Preposition(PrepositionRecord { text: p.text })
+                }
+                LexicalEntry::Conjunction(c) => {
+                    LexicalEntryRecord::Conjunction(ConjunctionRecord { text: c.text })
+                }
+                LexicalEntry::Pronoun(p) => LexicalEntryRecord::Pronoun(PronounRecord {
+                    text: p.text,
+                    number: p.number,
+                    person: p.person,
+                    kind: p.kind,
+                    olia_class: p.olia_class,
+                }),
+                LexicalEntry::Copula(c) => LexicalEntryRecord::Copula(CopulaRecord {
+                    text: c.text,
+                    number: c.number,
+                    person: c.person,
+                    tense: c.tense,
+                }),
+                LexicalEntry::Auxiliary(a) => LexicalEntryRecord::Auxiliary(AuxiliaryRecord {
+                    text: a.text,
+                    number: a.number,
+                    tense: a.tense,
+                }),
+                LexicalEntry::Interjection(i) => {
+                    LexicalEntryRecord::Interjection(InterjectionRecord {
+                        text: i.text,
+                        kind: i.kind,
+                    })
+                }
+                LexicalEntry::Particle(p) => {
+                    LexicalEntryRecord::Particle(ParticleRecord { text: p.text })
+                }
+                LexicalEntry::Numeral(n) => {
+                    LexicalEntryRecord::Numeral(NumeralRecord { text: n.text })
+                }
+            }
+        }
+    }
+
     // ── record → owned (read side, after deserialize) ─────────────────────────
 
     impl From<LexicalEntryRecord> for LexicalEntry {
@@ -442,6 +519,26 @@ mod archived {
         }
     }
 
+    /// Owned PUT leg: CONSUME the owned map, sort its pairs by raw UTF-8 key bytes
+    /// (the same order [`from_owned`](RkyvMirror::from_owned) produces — keys are
+    /// unique, so the sort is total and the order is identical), then MOVE each
+    /// key and each reading (per-element via the by-value
+    /// [`From<LexicalEntry>`](LexicalEntryRecord) leaf) into the mirror rather
+    /// than cloning them. Byte-identical to the borrowing leg.
+    impl RkyvMirrorOwned<HashMap<String, Vec<LexicalEntry>>> for FunctionWordRecords {
+        fn from_owned_value(map: HashMap<String, Vec<LexicalEntry>>) -> Self {
+            let mut pairs: Vec<(String, Vec<LexicalEntry>)> = map.into_iter().collect();
+            pairs.sort_unstable_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+            let mut keys: Vec<String> = Vec::with_capacity(pairs.len());
+            let mut entries: Vec<Vec<LexicalEntryRecord>> = Vec::with_capacity(pairs.len());
+            for (k, v) in pairs {
+                keys.push(k);
+                entries.push(v.into_iter().map(LexicalEntryRecord::from).collect());
+            }
+            FunctionWordRecords { keys, entries }
+        }
+    }
+
     /// GET leg: rebuild the owned map from the parallel mirror. Total — the
     /// record → entry decode cannot fail (key order is immaterial to the map).
     impl RkyvOwned<FunctionWordRecords> for HashMap<String, Vec<LexicalEntry>> {
@@ -477,9 +574,11 @@ mod archived {
 
             // PUT the owned map through the shared `RkyvLens` (sort keys, project
             // the parallel mirror, `rkyv`-serialize to a 16-aligned buffer), then
-            // validate ONCE here at materialize. The owned map (and the transient
-            // mirror) drop at the end of this function; only `buf` survives.
-            let buf = FunctionWordLens::put_aligned(&map);
+            // validate ONCE here at materialize. CONSUME `map` through the OWNED
+            // PUT leg, MOVING each key + reading into the mirror rather than
+            // cloning them (byte-identical to `put_aligned(&map)` by
+            // `RkyvLensOwnedPutAgrees`); only `buf` survives.
+            let buf = FunctionWordLens::put_aligned_owned(map);
             FunctionWordLens::access(buf.as_slice())
                 .expect("freshly-serialized function-word records must bytecheck-validate");
 

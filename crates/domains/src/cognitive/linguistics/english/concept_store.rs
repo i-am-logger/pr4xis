@@ -289,7 +289,7 @@ mod owned {
 mod archived {
     use rkyv::util::AlignedVec;
 
-    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvOwned};
+    use pr4xis_runtime::lens::rkyv_lens::{RkyvLens, RkyvMirror, RkyvMirrorOwned, RkyvOwned};
 
     use crate::social::software::markup::xml::lmf::ontology::ArchivedLmfPos;
 
@@ -354,6 +354,30 @@ mod archived {
                         lemmas: c.lemmas.clone(),
                         definitions: c.definitions.clone(),
                         examples: c.examples.clone(),
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+    /// Owned PUT leg: MOVE each concept's heap fields (`original_id`, `lemmas`,
+    /// `definitions`, `examples`) into the record mirror instead of cloning them.
+    /// The owned `Vec<Concept>` is consumed here (`ConceptStore::build` drops it
+    /// right after), so nothing needs the originals — the move halves the
+    /// load-time transient peak of the ~10⁵-record set the borrow leg would
+    /// duplicate. Byte-identical to [`from_owned`](RkyvMirror::from_owned)
+    /// (moving preserves each value); `id` is dropped, exactly as there.
+    impl RkyvMirrorOwned<Vec<Concept>> for ConceptRecords {
+        fn from_owned_value(concepts: Vec<Concept>) -> Self {
+            ConceptRecords {
+                records: concepts
+                    .into_iter()
+                    .map(|c| ConceptRecord {
+                        original_id: c.original_id,
+                        pos: c.pos,
+                        lemmas: c.lemmas,
+                        definitions: c.definitions,
+                        examples: c.examples,
                     })
                     .collect(),
             }
@@ -440,10 +464,13 @@ mod archived {
             // `ConceptRecords` mirror, `rkyv`-serialize to a 16-aligned buffer),
             // then validate ONCE here at materialize so every hot query can read
             // the immutable buffer through `access_unchecked` (the validate-once /
-            // access_unchecked-many discipline). The owned `concepts` (and the
-            // transient mirror) drop at the end of this function; only `buf`
-            // survives.
-            let buf = ConceptLens::put_aligned(&concepts);
+            // access_unchecked-many discipline). CONSUME `concepts` through the
+            // OWNED PUT leg (`put_aligned_owned`), MOVING each record's heap
+            // fields into the mirror rather than cloning them — so the record set
+            // is never transiently doubled (only `buf` survives, and the
+            // load-time `VmHWM` peak drops by the would-be clone). Byte-identical
+            // to the borrowing `put_aligned(&concepts)` by `RkyvLensOwnedPutAgrees`.
+            let buf = ConceptLens::put_aligned_owned(concepts);
             ConceptLens::access(buf.as_slice())
                 .expect("freshly-serialized concept records must bytecheck-validate");
 
