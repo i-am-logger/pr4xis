@@ -173,8 +173,10 @@ pub fn ground_loaded_set(
     // typed nodes onto WordNet synsets, exactly as a domain source grounds into
     // `LegalSources`. The peer is the LEAN pre-materialize atom layer
     // ([`project_archive_with_forms`] — a transient `Vec<Definition>` dropped when
-    // this pass returns): CATEGORICALLY NOT [`english_runtime_ontology`], the
-    // measured +183 MiB `apply_then_materialize`. English is NEVER installed as a
+    // this pass returns): CATEGORICALLY NOT the fat `english_runtime_ontology`
+    // bridge (the measured +183 MiB `apply_then_materialize`, since DELETED —
+    // English's functor is now proven archive-level in `praxis-corpus-tests`).
+    // English is NEVER installed as a
     // loaded `RuntimeOntology`; it enters grounding only as this transient target
     // archive, so `loaded` never gains an `english_wordnet` slot. A loaded set with
     // no into-English functor simply never resolves against this peer (it costs the

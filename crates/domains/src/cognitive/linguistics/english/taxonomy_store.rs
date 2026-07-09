@@ -13,13 +13,14 @@
 //! *exactly* — unit-weight BFS grades every node at its minimal hop count
 //! (Moore 1959 / Floyd 1962) — at a per-query cost indistinguishable from the
 //! O(1) closure lookup, while dropping the ~697k-pair closure entirely. The
-//! ascent itself is the ONE shared graded-reach kernel
-//! ([`pr4xis::category::reach`]) applied to the parent column with
-//! `V = ConceptId` (whose derived `Ord` is its `value()` order, so the pinned
+//! ascent itself is the ONE shared graded-reach engine
+//! ([`pr4xis::category::reach`]): `TaxonomyStore` implements
+//! [`ReachSubstrate`] (kind = [`Direction`], vertex = [`ConceptId`], whose
+//! derived `Ord` is its `value()` order, so the pinned
 //! `(distance, ConceptId.value())` tie-break is the kernel's own
-//! `(hops, V::Ord)` contract). The kernel is stateless and the edges
-//! immutable — **no interior mutability**, so `TaxonomyStore` stays `Sync`
-//! inside `English`'s `OnceLock`.
+//! `(hops, V::Ord)` contract) and every query mints a per-call [`ReachView`]
+//! over the [`Uncached`] memo policy — stateless, **no interior mutability**,
+//! so `TaxonomyStore` stays `Sync` inside `English`'s `OnceLock`.
 //!
 //! # The representation
 //!
@@ -39,19 +40,21 @@ use alloc::vec::Vec;
 
 use hashbrown::HashMap;
 
-use pr4xis::category::reach::{graded_chain, graded_image, graded_meet, graded_reaches};
+use pr4xis::category::reach::{ReachSubstrate, ReachView, Uncached};
 
 use super::ontology::ConceptId;
 use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 
-/// The two directions of the hypernym (Subsumption) relation — the family label.
+/// The two directions of the hypernym (Subsumption) relation — the family label,
+/// and the [`ReachSubstrate::Kind`] axis of the shared graded-reach engine
+/// (`Ord` because a substrate kind is a map key / total order there).
 ///
 /// Literature: SKOS `broader` / `narrower` (Miles & Bechhofer, *SKOS Reference*,
 /// W3C REC-skos-reference-20090818, §8.6.1–8.6.2) — the hierarchical link and its
 /// inverse. `Parent` (a concept's hypernyms) is the SKOS-`broader` direction;
 /// `Child` (its hyponyms) is SKOS-`narrower`. Equivalently OBO Relation Ontology
 /// `is_a` and its inverse (Smith et al. 2005).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Direction {
     /// Hypernyms — a concept's direct parents (SKOS `broader` / OBO-RO `is_a`).
     Parent,
@@ -115,27 +118,33 @@ impl TaxonomyStore {
         self.0.row_count(Direction::Parent)
     }
 
-    // ── reachability surface (delegated to the ONE graded-reach kernel) ───────
+    // ── reachability surface (the ONE generic graded-reach engine) ────────────
     //
-    // All four queries call the shared hop-graded BFS kernel
-    // (`pr4xis::category::reach`, Moore 1959) over the parent column — the same
-    // kernel the runtime's `LazyKindReach` delegates to, so the algorithm lives
-    // ONCE. The kernel's determinism contract is `(hops, V::Ord)`; `ConceptId`'s
-    // derived `Ord` IS its `value()` order, so the pinned
-    // `(distance, ConceptId.value())` orderings — including the
-    // `common_ancestor` "distance from `b`" asymmetry and the DAG tie-break over
-    // multi-parent nodes — are UNCHANGED (the full-corpus
-    // `english_taxonomy_bfs` oracle gate holds byte-identically). The kernel is
-    // stateless (no memo), so `TaxonomyStore` stays `Sync`.
+    // All four queries mint the shared engine's per-call `ReachView` over the
+    // parent column (`pr4xis::category::reach`, Moore 1959) — the same engine
+    // the runtime's `MaterializedClosure` instantiates, so the algorithm lives
+    // ONCE. The memo POLICY is `Uncached`: nothing is stored, every query
+    // re-walks the shallow DAG, and `TaxonomyStore` stays `Sync` (no interior
+    // mutability — the runtime picks `Cached` instead). The kernel's
+    // determinism contract is `(hops, V::Ord)`; `ConceptId`'s derived `Ord` IS
+    // its `value()` order, so the pinned `(distance, ConceptId.value())`
+    // orderings — including the `common_ancestor` "distance from `b`"
+    // asymmetry and the DAG tie-break over multi-parent nodes — are UNCHANGED
+    // (the full-corpus `english_taxonomy_bfs` oracle gate holds
+    // byte-identically).
 
-    /// Does `child` is-a `ancestor` (reflexive-transitively)? — the kernel's
+    /// The engine's view over the hypernym ascent — this substrate, the
+    /// [`Uncached`] policy, the [`Direction::Parent`] column. MINTED PER CALL
+    /// (a stored view would self-borrow); three references, free to build.
+    fn ascent(&self) -> ReachView<'_, Self, Uncached> {
+        ReachView::new(self, &Uncached, &Direction::Parent)
+    }
+
+    /// Does `child` is-a `ancestor` (reflexive-transitively)? — the engine's
     /// strict membership probe under the reflexive short-circuit. Cycle-safe.
     /// Verbatim the eager `ReachabilityClosure::reaches` semantics.
     pub fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool {
-        child == ancestor
-            || graded_reaches(&child, &ancestor, |v: &ConceptId| {
-                self.parents(*v).iter().copied()
-            })
+        child == ancestor || self.ascent().reaches(&child, &ancestor)
     }
 
     /// The reflexive-transitive hypernym image of `id` — `id` itself (distance 0)
@@ -143,32 +152,43 @@ impl TaxonomyStore {
     /// the kernel's canonical `(minimal is-a distance, ConceptId::Ord)` order
     /// (`ConceptId`'s derived `Ord` is its `value()` order).
     pub fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
-        let mut out = alloc::vec![id];
-        out.extend(
-            graded_image(&id, |v: &ConceptId| self.parents(*v).iter().copied())
-                .into_iter()
-                .map(|(v, _)| v),
-        );
-        out
+        self.ascent()
+            .reflexive_image(&id)
+            .into_iter()
+            .map(|(v, _)| v)
+            .collect()
     }
 
-    /// The lowest common ancestor of `a` and `b` — the kernel's lattice meet
+    /// The lowest common ancestor of `a` and `b` — the engine's lattice meet
     /// over the hypernym relation: the nearest vertex in
     /// `strict_ancestors(b) ∩ reflexive_ancestors(a)`, ranked by distance **from
     /// `b`** (nearest first), ties broken by the smaller `ConceptId` (its
     /// `value()` order). Verbatim the eager
     /// `ReachabilityClosure::meet_by(a, b, |id| id.value())`.
     pub fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
-        graded_meet(&a, &b, |v: &ConceptId| self.parents(*v).iter().copied())
+        self.ascent().meet(&a, &b)
     }
 
     /// The ordered hypernym chain `[child, …, ancestor]` (nearest-first, the
     /// kernel's `(distance, ConceptId::Ord)` order) when `child` is-a
     /// `ancestor`, else `None`. Verbatim the eager `ancestor_chain`.
     pub fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
-        graded_chain(&child, &ancestor, |v: &ConceptId| {
-            self.parents(*v).iter().copied()
-        })
+        self.ascent().chain(&child, &ancestor)
+    }
+}
+
+impl ReachSubstrate for TaxonomyStore {
+    type Kind = Direction;
+    type Vertex = ConceptId;
+
+    /// One labelled CSR column read, zero-copy: the [`Direction`] kind selects
+    /// the column, the vertex indexes its run — empty for an out-of-range id.
+    fn neighbors<'s>(
+        &'s self,
+        kind: &Direction,
+        vertex: &ConceptId,
+    ) -> impl Iterator<Item = ConceptId> + use<'s> {
+        self.0.column(*kind, *vertex).iter().copied()
     }
 }
 

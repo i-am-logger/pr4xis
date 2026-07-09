@@ -6,10 +6,12 @@
 //! reachable set, each member with its minimal hop count), a membership probe,
 //! the lattice meet of two vertices, and the ordered evidence chain between
 //! two vertices. Before this module those answers were hand-copied per engine
-//! (the runtime's `LazyKindReach`, English's `TaxonomyStore`) and
+//! (the runtime's `MaterializedClosure`, English's `TaxonomyStore`) and
 //! hand-synchronized — same algorithm token-for-token, divergent tie-breaks.
 //! This module is the single home: one cycle-safe breadth-first walk, one
-//! grading, ONE deterministic output order.
+//! grading, ONE deterministic output order — plus the ONE generic engine over
+//! it ([`ReachSubstrate`] + [`ImageMemo`] + [`ReachView`]) both those types
+//! now instantiate instead of each holding a hand-rolled shell.
 //!
 //! # The algorithm
 //!
@@ -51,8 +53,9 @@
 //! oracle the full-corpus equivalence gates compare the kernel-backed engines
 //! against, and an oracle must not share its subject's implementation.
 
-use alloc::collections::{BTreeSet, VecDeque};
+use alloc::collections::{BTreeMap, BTreeSet, VecDeque};
 use alloc::vec::Vec;
+use core::cell::RefCell;
 use core::cmp::Ordering;
 
 /// THE canonical order on graded vertices — `(hops, V::Ord)`, nearest first,
@@ -183,6 +186,282 @@ where
     // its construction.
     chain.sort_unstable_by(graded_cmp);
     Some(chain.into_iter().map(|(v, _)| v).collect())
+}
+
+// ── the generic engine: substrate + memo policy + per-call view ──────────────
+//
+// The kernel above is the ALGORITHM; the three items below are the ONE generic
+// ENGINE every reachability surface in the workspace instantiates. A substrate
+// exposes its per-kind generating adjacency ([`ReachSubstrate`]); a memo policy
+// decides whether computed images are cached ([`ImageMemo`]: [`Cached`] for the
+// runtime's interior-mutable memo, [`Uncached`] for English, which must stay
+// `Sync`); and a [`ReachView`] — MINTED PER CALL, never stored (a stored view
+// would borrow its own engine) — binds one `(substrate, memo, kind)` triple and
+// answers the graded queries by delegating to the kernel.
+
+/// The minimal READ interface the graded-reach engine needs from an engine's
+/// representation: the per-kind generating adjacency, enumerated one vertex at
+/// a time. Everything else (representation, mutation, persistence) stays the
+/// implementor's business — the runtime's `BTreeMap` adjacency and English's
+/// zero-copy packed CSR column both answer this and nothing more.
+///
+/// The neighbor iterator deliberately captures ONLY the substrate borrow
+/// (`use<'s, Self>`), never the `kind` / `vertex` argument lifetimes: the
+/// kernel's injected `neighbors` closure must have one return type independent
+/// of the per-call query vertex.
+pub trait ReachSubstrate {
+    /// The relation-kind axis the adjacency is partitioned by (the runtime's
+    /// `ConceptRef` into the Relations vocabulary; English's `Direction`).
+    type Kind: Ord + Clone;
+    /// The vertex. Its total order IS the kernel's determinism tie-break
+    /// (`(hops, V::Ord)` — see the module docs).
+    type Vertex: Ord + Clone;
+    /// The direct successors of `vertex` along `kind` — the generating edges,
+    /// not any closure. An unknown kind or vertex yields the empty iterator.
+    fn neighbors<'s>(
+        &'s self,
+        kind: &Self::Kind,
+        vertex: &Self::Vertex,
+    ) -> impl Iterator<Item = Self::Vertex> + use<'s, Self>;
+}
+
+/// The typed MEMO POLICY of the graded-reach engine — whether a computed
+/// strict image is cached for later queries. Two implementations, one per
+/// concurrency stance:
+///
+/// - [`Cached`] — interior-mutable (`RefCell`), `!Sync`; the runtime's policy
+///   (chat / wasm are single-threaded and a queried vertex repeats).
+/// - [`Uncached`] — stateless ZST, `Sync`; English's policy (`English` lives
+///   in a shared `OnceLock`, and its shallow DAG makes a per-query walk as
+///   cheap as a lookup).
+///
+/// A policy is semantically TRANSPARENT: for the same adjacency both answer
+/// every query identically (the memo stores exactly the kernel's canonical
+/// output); the choice is a footprint/`Sync` trade, never a semantics one.
+pub trait ImageMemo<K: Ord + Clone, V: Ord + Clone> {
+    /// The strict graded image of `(kind, source)` — a memo hit, or
+    /// `compute()` (the kernel walk), stored per policy.
+    fn image(&self, kind: &K, source: &V, compute: impl FnOnce() -> Vec<(V, u32)>)
+    -> Vec<(V, u32)>;
+
+    /// Does `source` strictly reach `target`? — [`Cached`] scans its stored
+    /// image without cloning it out (computing + storing on a miss, so the
+    /// probe warms the memo); [`Uncached`] delegates to `probe` (the kernel's
+    /// early-exit walk, [`graded_reaches`] — no image is materialized).
+    fn reaches(
+        &self,
+        kind: &K,
+        source: &V,
+        target: &V,
+        compute: impl FnOnce() -> Vec<(V, u32)>,
+        probe: impl FnOnce() -> bool,
+    ) -> bool;
+}
+
+/// The CACHING memo policy — computed strict images are stored and every later
+/// query for the same `(kind, source)` hits the memo with no re-walk.
+///
+/// The memo is NESTED PER KIND (`kind → source → image`), NOT keyed by a flat
+/// `(kind, source)` pair: the kind key is cloned once when its per-kind map is
+/// first created, never once per memoized source — the runtime's kind is a
+/// `ConceptRef` (two owned strings), and a per-source clone of it would tax
+/// every first query.
+///
+/// `RefCell` interior mutability keeps the query surface `&self` and makes any
+/// holder `!Sync` — the runtime's DELIBERATE single-threaded invariant (see
+/// `MaterializedClosure`); an engine that must stay `Sync` uses [`Uncached`].
+/// The cache is a DERIVED view of the substrate's adjacency: a holder that
+/// mutates its adjacency (the runtime's `union`) MUST [`clear`](Self::clear)
+/// it, and it never takes part in the holder's identity/equality.
+#[derive(Debug, Clone)]
+pub struct Cached<K: Ord + Clone, V: Ord + Clone> {
+    /// `kind → source → [(descendant, min hops)]` — exactly the kernel's
+    /// canonical [`graded_image`] output, per queried source.
+    images: RefCell<MemoImages<K, V>>,
+}
+
+/// The nested per-kind memo shape — `kind → source → [(descendant, min hops)]`,
+/// each image being exactly the kernel's canonical [`graded_image`] output.
+type MemoImages<K, V> = BTreeMap<K, BTreeMap<V, Vec<(V, u32)>>>;
+
+/// Manual (a derive would demand `K: Default + V: Default`, which map KEYS
+/// never need): the default is simply the empty memo.
+impl<K: Ord + Clone, V: Ord + Clone> Default for Cached<K, V> {
+    fn default() -> Self {
+        Self {
+            images: RefCell::new(BTreeMap::new()),
+        }
+    }
+}
+
+impl<K: Ord + Clone, V: Ord + Clone> Cached<K, V> {
+    /// Drop every memoized image — REQUIRED after any adjacency mutation
+    /// (the memo is derived from the adjacency; stale entries would answer
+    /// the pre-mutation graph).
+    pub fn clear(&self) {
+        self.images.borrow_mut().clear();
+    }
+
+    /// Store `image` under `(kind, source)`, cloning the kind key only when
+    /// its per-kind map does not exist yet.
+    fn store(&self, kind: &K, source: &V, image: Vec<(V, u32)>) {
+        let mut memo = self.images.borrow_mut();
+        if !memo.contains_key(kind) {
+            memo.insert(kind.clone(), BTreeMap::new());
+        }
+        memo.get_mut(kind)
+            .expect("per-kind memo map was just ensured present")
+            .insert(source.clone(), image);
+    }
+}
+
+impl<K: Ord + Clone, V: Ord + Clone> ImageMemo<K, V> for Cached<K, V> {
+    fn image(
+        &self,
+        kind: &K,
+        source: &V,
+        compute: impl FnOnce() -> Vec<(V, u32)>,
+    ) -> Vec<(V, u32)> {
+        if let Some(hit) = self.images.borrow().get(kind).and_then(|m| m.get(source)) {
+            return hit.clone();
+        }
+        let image = compute();
+        self.store(kind, source, image.clone());
+        image
+    }
+
+    fn reaches(
+        &self,
+        kind: &K,
+        source: &V,
+        target: &V,
+        compute: impl FnOnce() -> Vec<(V, u32)>,
+        _probe: impl FnOnce() -> bool,
+    ) -> bool {
+        // Membership only: borrow the cached image and scan WITHOUT cloning —
+        // a full-image clone on the hot is-a path would be waste.
+        if let Some(hit) = self.images.borrow().get(kind).and_then(|m| m.get(source)) {
+            return hit.iter().any(|(v, _)| v == target);
+        }
+        let image = compute();
+        let found = image.iter().any(|(v, _)| v == target);
+        self.store(kind, source, image);
+        found
+    }
+}
+
+/// The STATELESS memo policy — nothing is stored, every query re-walks the
+/// generators. A ZST, trivially `Sync`: the policy for an engine held in a
+/// shared `OnceLock` (English), where interior mutability is not an option and
+/// the graph is shallow enough that a walk costs what a lookup would.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Uncached;
+
+impl<K: Ord + Clone, V: Ord + Clone> ImageMemo<K, V> for Uncached {
+    fn image(
+        &self,
+        _kind: &K,
+        _source: &V,
+        compute: impl FnOnce() -> Vec<(V, u32)>,
+    ) -> Vec<(V, u32)> {
+        compute()
+    }
+
+    fn reaches(
+        &self,
+        _kind: &K,
+        _source: &V,
+        _target: &V,
+        _compute: impl FnOnce() -> Vec<(V, u32)>,
+        probe: impl FnOnce() -> bool,
+    ) -> bool {
+        probe()
+    }
+}
+
+/// One `(substrate, memo, kind)` binding of the generic engine — the object
+/// that answers the graded queries. MINTED PER CALL by its engine (a struct
+/// field would borrow the engine's own adjacency and memo — a self-borrow);
+/// it is three shared references, free to construct.
+pub struct ReachView<'a, S: ReachSubstrate, M: ImageMemo<S::Kind, S::Vertex>> {
+    substrate: &'a S,
+    memo: &'a M,
+    kind: &'a S::Kind,
+}
+
+impl<'a, S: ReachSubstrate, M: ImageMemo<S::Kind, S::Vertex>> ReachView<'a, S, M> {
+    /// Bind a substrate, a memo policy and one relation kind for the duration
+    /// of a query.
+    pub fn new(substrate: &'a S, memo: &'a M, kind: &'a S::Kind) -> Self {
+        Self {
+            substrate,
+            memo,
+            kind,
+        }
+    }
+
+    /// The kernel walk over the substrate's adjacency — the pure computation
+    /// the memo policy stores or passes through.
+    fn compute_image(&self, source: &S::Vertex) -> Vec<(S::Vertex, u32)> {
+        graded_image(source, |v: &S::Vertex| {
+            self.substrate.neighbors(self.kind, v)
+        })
+    }
+
+    /// The STRICT graded image of `source` along the bound kind
+    /// ([`graded_image`], via the memo policy).
+    pub fn strict_image(&self, source: &S::Vertex) -> Vec<(S::Vertex, u32)> {
+        self.memo
+            .image(self.kind, source, || self.compute_image(source))
+    }
+
+    /// The reflexive image — `source` at hop 0 plus its strict image.
+    pub fn reflexive_image(&self, source: &S::Vertex) -> Vec<(S::Vertex, u32)> {
+        let mut out = alloc::vec![(source.clone(), 0u32)];
+        out.extend(self.strict_image(source));
+        out
+    }
+
+    /// Does `source` STRICTLY reach `target`? The reflexive `source == target`
+    /// case is the CALLER's per-relation decision, exactly as in the kernel.
+    pub fn reaches(&self, source: &S::Vertex, target: &S::Vertex) -> bool {
+        self.memo.reaches(
+            self.kind,
+            source,
+            target,
+            || self.compute_image(source),
+            || {
+                graded_reaches(source, target, |v: &S::Vertex| {
+                    self.substrate.neighbors(self.kind, v)
+                })
+            },
+        )
+    }
+
+    /// The lattice meet of `a` and `b` — the kernel's argmin formula
+    /// ([`graded_meet_of`]) over this view's (possibly memoized) images.
+    pub fn meet(&self, a: &S::Vertex, b: &S::Vertex) -> Option<S::Vertex> {
+        graded_meet_of(&self.reflexive_image(a), &self.strict_image(b))
+    }
+
+    /// The ordered evidence chain `[child, …, ancestor]` when `child`
+    /// (reflexively) reaches `ancestor`, else `None` — [`graded_chain`]'s
+    /// contract, evaluated through the memo policy so a caching engine's chain
+    /// keeps hitting (and warming) its memo.
+    pub fn chain(&self, child: &S::Vertex, ancestor: &S::Vertex) -> Option<Vec<S::Vertex>> {
+        if child != ancestor && !self.reaches(child, ancestor) {
+            return None;
+        }
+        // Reflexive ancestors of `child` that themselves (reflexively) reach
+        // `ancestor` lie on a child ⇝ ancestor path; canonical order.
+        let mut chain: Vec<(S::Vertex, u32)> = self
+            .reflexive_image(child)
+            .into_iter()
+            .filter(|(x, _)| x == ancestor || self.reaches(x, ancestor))
+            .collect();
+        chain.sort_unstable_by(graded_cmp);
+        Some(chain.into_iter().map(|(v, _)| v).collect())
+    }
 }
 
 #[cfg(test)]
@@ -360,5 +639,120 @@ mod tests {
         // Unreachable: honest None, not an empty chain.
         assert_eq!(graded_chain(&5, &0, fwd(&adj)), None);
         assert_eq!(graded_meet(&5, &0, fwd(&adj)), None);
+    }
+
+    // ── the generic engine (substrate + memo policy + view) ──────────────────
+
+    /// A witness substrate: `kind → vertex → neighbors`, insertion-ordered
+    /// neighbor lists (so a witness can enumerate against `V::Ord`).
+    struct MapSubstrate {
+        adj: BTreeMap<u8, Adj>,
+    }
+
+    impl ReachSubstrate for MapSubstrate {
+        type Kind = u8;
+        type Vertex = u8;
+        fn neighbors<'s>(&'s self, kind: &u8, vertex: &u8) -> impl Iterator<Item = u8> + use<'s> {
+            self.adj
+                .get(kind)
+                .and_then(|per_kind| per_kind.get(vertex))
+                .map(|targets| targets.as_slice())
+                .unwrap_or(&[])
+                .iter()
+                .copied()
+        }
+    }
+
+    /// The MEMO-TRANSPARENCY pin: over the same substrate, a [`Cached`] view
+    /// and an [`Uncached`] view answer every graded query identically, and
+    /// identically to the kernel free functions — the policy is a
+    /// footprint/`Sync` trade, never a semantics one. Includes a repeat query
+    /// (the memoized second answer must equal the first) and the DAG tie case.
+    #[crate::praxis_value(Deterministic, Verifiable)]
+    #[test]
+    fn memo_policy_is_semantically_transparent() {
+        // The diamond with anti-Ord enumeration plus a second, disjoint kind —
+        // so the per-kind partitioning is exercised too.
+        let mut adj = BTreeMap::new();
+        adj.insert(0u8, adjacency(&[(0, 7), (0, 3), (7, 9), (3, 9)]));
+        adj.insert(1u8, adjacency(&[(0, 5)]));
+        let substrate = MapSubstrate { adj };
+
+        let cached: Cached<u8, u8> = Cached::default();
+        for kind in [0u8, 1u8] {
+            let warm = ReachView::new(&substrate, &cached, &kind);
+            let cold = ReachView::new(&substrate, &Uncached, &kind);
+            let kernel_neighbors = |v: &u8| substrate.neighbors(&kind, v);
+            for v in 0u8..10 {
+                // Image: cached == uncached == kernel, and the memoized repeat
+                // answer is identical to the first.
+                let want = graded_image(&v, kernel_neighbors);
+                assert_eq!(warm.strict_image(&v), want, "cached image, kind {kind}");
+                assert_eq!(warm.strict_image(&v), want, "memoized repeat, kind {kind}");
+                assert_eq!(cold.strict_image(&v), want, "uncached image, kind {kind}");
+                for w in 0u8..10 {
+                    assert_eq!(
+                        warm.reaches(&v, &w),
+                        graded_reaches(&v, &w, kernel_neighbors),
+                        "cached probe ({v} ⇝ {w}), kind {kind}"
+                    );
+                    assert_eq!(warm.reaches(&v, &w), cold.reaches(&v, &w));
+                    assert_eq!(warm.meet(&v, &w), graded_meet(&v, &w, kernel_neighbors));
+                    assert_eq!(warm.meet(&v, &w), cold.meet(&v, &w));
+                    assert_eq!(
+                        warm.chain(&v, &w),
+                        graded_chain(&v, &w, kernel_neighbors),
+                        "cached chain ({v} ⇝ {w}), kind {kind}"
+                    );
+                    assert_eq!(warm.chain(&v, &w), cold.chain(&v, &w));
+                }
+            }
+        }
+    }
+
+    /// The DERIVED-CACHE pin: after the substrate's adjacency grows, a
+    /// [`Cached`] memo still answers the OLD graph until [`Cached::clear`] —
+    /// which is exactly why an engine that mutates its adjacency (the
+    /// runtime's `MaterializedClosure::union`) MUST invalidate. Asserts both
+    /// halves: the staleness (honest — the memo does not watch the substrate)
+    /// and the recovery after `clear()`.
+    #[crate::praxis_value(Honest, Verifiable)]
+    #[test]
+    fn cached_clear_drops_stale_images_after_adjacency_growth() {
+        let kind = 0u8;
+        let mut adj = BTreeMap::new();
+        adj.insert(kind, adjacency(&[(0, 1)]));
+        let mut substrate = MapSubstrate { adj };
+        let memo: Cached<u8, u8> = Cached::default();
+
+        // Warm the memo on the small graph: 0 reaches only 1.
+        assert_eq!(
+            ReachView::new(&substrate, &memo, &kind).strict_image(&0),
+            vec![(1, 1)]
+        );
+
+        // The adjacency grows: 1 → 2.
+        substrate
+            .adj
+            .get_mut(&kind)
+            .expect("kind 0 present")
+            .entry(1)
+            .or_default()
+            .push(2);
+
+        // WITHOUT clear(): the memo honestly answers the pre-growth graph.
+        assert_eq!(
+            ReachView::new(&substrate, &memo, &kind).strict_image(&0),
+            vec![(1, 1)],
+            "a derived cache does not watch its substrate — this is the staleness clear() exists for"
+        );
+
+        // WITH clear(): the next query re-walks the enlarged generators.
+        memo.clear();
+        assert_eq!(
+            ReachView::new(&substrate, &memo, &kind).strict_image(&0),
+            vec![(1, 1), (2, 2)],
+            "clear() must drop the stale image so the union'd graph is seen"
+        );
     }
 }

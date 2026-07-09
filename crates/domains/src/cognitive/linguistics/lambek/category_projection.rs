@@ -3,8 +3,8 @@
 //! praxis way (projection-as-data), NOT a Rust `match`.
 //!
 //! This is the WordNet→praxis functor pattern (the committed
-//! `english_functor.prx`, loaded by
-//! [`english_runtime_ontology`](crate::cognitive::linguistics::english::bridge::english_runtime_ontology))
+//! `english_functor.prx`, loaded fail-closed by
+//! [`english_functor`](crate::cognitive::linguistics::english::bridge::english_functor))
 //! applied to grammar: the map `OLiA-class ↦ CCG-category` is a
 //! [`GeneratorAction::Functor`] whose rows load from a cited CCGbank artifact
 //! (`data/grammar/olia-ccg-categories.tsv`), content-addressed and re-emittable,

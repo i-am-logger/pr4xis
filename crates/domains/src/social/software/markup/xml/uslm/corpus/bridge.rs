@@ -23,7 +23,9 @@
 //! and interpreted by the one runtime primitive [`apply`](pr4xis_runtime::apply::apply).
 //! [`usc_runtime_ontology`](crate::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology)
 //! is the whole pipeline (`project → apply → materialize`),
-//! the verbatim shape of `english_runtime_ontology`. Parthood is a canonically
+//! the verbatim shape of `owl_runtime_ontology` (the pattern the English
+//! bridge pioneered; English itself now proves its functor archive-level,
+//! without materializing). Parthood is a canonically
 //! transitive kind [`materialize`](pr4xis_runtime::ontology) folds, so the
 //! mereology is a real closure post-apply.
 //!

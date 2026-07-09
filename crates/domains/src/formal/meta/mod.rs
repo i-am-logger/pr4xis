@@ -23,6 +23,9 @@ pub mod ontology_archive;
 pub mod ontology_diagnostics;
 pub mod packed_csr;
 pub mod praxis_knowledge_graph;
+/// Runnable engine-law axiom for the shared graded-reach kernel + generic
+/// engine (`pr4xis::category::reach`) — determinism by the vertex total order.
+pub mod reach_laws;
 pub mod source_syntax;
 pub mod source_taxonomy;
 pub mod staging;

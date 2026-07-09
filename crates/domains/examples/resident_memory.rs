@@ -28,17 +28,19 @@
 //!    grounded target), and the path never materializes English as a generic
 //!    `RuntimeOntology`.
 //!
-//! The fat foil is deliberately absent: `english_runtime_ontology` — English AS
-//! an owned generic `RuntimeOntology` for the whole 107,519-concept corpus
-//! (~+216 MiB resident: a second, praxis-schema serialization of every synset's
-//! `original_id` + hypernym edge + gloss) — is NOT built here, because holding
+//! The fat foil is deliberately absent — and since DELETED from the codebase:
+//! `english_runtime_ontology` (English AS an owned generic `RuntimeOntology`
+//! for the whole 107,519-concept corpus, ~+216 MiB resident: a second,
+//! praxis-schema serialization of every synset's `original_id`, hypernym edge
+//! and gloss) is NOT built here and no longer exists to build, because holding
 //! that owned re-materialization resident is precisely what the production
-//! into-English grounding path (stage 6) avoids; instantiating it only to hold it
-//! through TOTAL would charge this gate a cost production never pays. The bridge
-//! itself stays machine-checked: its de-privileging theorem ("the generic engine
-//! reasons is-a over English") is proven at ~0 MiB by the `english::bridge` sample
-//! tests, and over the full corpus (transiently, in a process-isolated test) by
-//! `b1_gate_is_a_dog_an_animal_over_the_real_loaded_english_prx`.
+//! into-English grounding path (stage 6) avoids. The theorems stay
+//! machine-checked: the ENGINE-level one ("the generic engine reasons is-a
+//! over English") is true by construction — `MaterializedClosure` and
+//! `TaxonomyStore` instantiate the ONE graded-reach engine
+//! (`pr4xis::category::reach`) — and the DATA-level one (English's schema
+//! projects via the committed functor) is proven archive-level, transiently, by
+//! `english_functor_projects_the_csr_edge_set` (praxis-corpus-tests).
 //!
 //! `/proc/self/status` is Linux-only; on a non-Linux host the reader reports the
 //! stage as unavailable rather than failing.
@@ -241,9 +243,10 @@ fn main() {
     //    English-composed reasoner cancel: BOTH reasoners build the full English
     //    surface index (~150k words) AND pay `ground_loaded_set`'s transient English
     //    target projection (`project_archive_with_forms`, dropped after the pass —
-    //    CATEGORICALLY NOT the fat generic-materialization path, `english_runtime_ontology`'s
-    //    owned `apply_then_materialize` (~216 MiB, deliberately not built by this
-    //    profile). The ONLY difference is the declared functor: the WITH reasoner
+    //    CATEGORICALLY NOT the fat generic-materialization path, the former
+    //    `english_runtime_ontology`'s owned `apply_then_materialize` (~216 MiB,
+    //    deleted from the codebase; nothing materializes English as a
+    //    `RuntimeOntology` anymore). The ONLY difference is the declared functor: the WITH reasoner
     //    mints one grounded edge and retains a ONE-ENTRY into-English atom index, so
     //    Δ(6b − 6a) is the into-English mechanism's RESIDENT fat — expected ~0.
     //
@@ -298,8 +301,8 @@ fn main() {
     // near-equality is the resident proof the into-English mechanism adds ~0: the
     // ONLY retained difference is the bounded atom index (1 entry below), and
     // `ground_loaded_set`'s transient `project_archive_with_forms` English target is
-    // dropped after the pass (categorically NOT the fat `english_runtime_ontology`
-    // owned re-materialization, ~216 MiB). RSS deltas here are allocator-noisy
+    // dropped after the pass (categorically NOT the fat, since-deleted
+    // `english_runtime_ontology` owned re-materialization, ~216 MiB). RSS deltas here are allocator-noisy
     // (freed pages are retained in-arena); the GATE is the two direct readouts on
     // the next line, not the delta.
     let into_english = compose(true);
