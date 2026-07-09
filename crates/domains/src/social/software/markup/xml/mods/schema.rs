@@ -43,8 +43,11 @@ const MODS_3_8_PRX: &[u8] = include_bytes!(concat!(
 pub fn loaded_mods_3_8() -> &'static str {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
     use std::sync::OnceLock;
-    static XSD: OnceLock<&'static str> = OnceLock::new();
+    // The accessor returns a `Cow` (owned when the payload rides DEFLATE); the
+    // `OnceLock` caches the one materialization for the process.
+    static XSD: OnceLock<alloc::borrow::Cow<'static, str>> = OnceLock::new();
     XSD.get_or_init(|| raw_source_text_embedded("mods_3_8", "2018", MODS_3_8_PRX))
+        .as_ref()
 }
 
 #[cfg(test)]

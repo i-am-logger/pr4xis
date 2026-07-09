@@ -205,7 +205,7 @@ pub fn load() -> OperatorVocabulary {
         "2019",
         MATH_OPERATORS_PRX,
     );
-    let wn = read_wordnet(xml).expect(
+    let wn = read_wordnet(&xml).expect(
         "math_operators committed .prx bytes failed to parse — build-time invariant violated",
     );
 

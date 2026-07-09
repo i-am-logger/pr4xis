@@ -209,7 +209,7 @@ fn english_stopwords() -> &'static alloc::collections::BTreeSet<String> {
             "2026",
             PRX,
         );
-        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).expect(
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml).expect(
             "english_function_words committed .prx bytes failed to parse — \
                  build-time invariant violated",
         );

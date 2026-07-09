@@ -122,7 +122,7 @@ mod tests {
         use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
         const GLYPH_LIST_PRX: &[u8] = include_bytes!("../../../../data/adobe/glyphlist.prx");
         let bytes = raw_source_text_embedded("adobe_glyph_list", "2019", GLYPH_LIST_PRX);
-        let map = parse(bytes);
+        let map = parse(&bytes);
         assert!(
             map.len() > 4000,
             "expected >4000 AGL entries, got {}",

@@ -411,7 +411,8 @@ mod tests {
             )
         ) {
             use crate::applied::data_provisioning::raw_source_prx::{
-                emit_raw_source_prx, load_raw_source_prx_gated, raw_source_archive_address,
+                PayloadEncoding, emit_raw_source_prx, load_raw_source_prx_gated,
+                raw_source_archive_address,
             };
             use crate::applied::data_provisioning::registry::LockDigest;
 
@@ -440,7 +441,10 @@ mod tests {
 
             // Archive → wrap in the raw-source `.prx` → gated load → decode.
             let archive = theme_collection::encode_collection(&files);
-            let prx = emit_raw_source_prx("tinted_schemes", "2025", &archive);
+            // `Deflate` — the transport `preferred_payload_encoding` picks for
+            // the registered `ThemeCollection` source.
+            let prx =
+                emit_raw_source_prx("tinted_schemes", "2025", &archive, PayloadEncoding::Deflate);
             let pin = LockDigest::address(raw_source_archive_address(&prx));
             let loaded_bytes = load_raw_source_prx_gated(&prx, &pin, "tinted_schemes@2025")
                 .map_err(|e| TestCaseError::fail(format!("gated load: {e}")))?;

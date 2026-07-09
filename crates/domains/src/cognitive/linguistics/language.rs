@@ -355,7 +355,7 @@ pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
         "2026",
         PRX,
     );
-    let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).expect(
+    let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml).expect(
         "english_function_words committed .prx bytes failed to parse — build-time invariant violated",
     );
     function_words_from_lmf(&wn)

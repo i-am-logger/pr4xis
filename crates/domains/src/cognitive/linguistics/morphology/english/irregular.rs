@@ -30,8 +30,11 @@ const IRREGULARS_PRX: &[u8] = include_bytes!(concat!(
 /// The committed irregular-forms slice text, materialized from the committed
 /// `.prx` through the fail-closed `[compact_archive_signatures]` content gate
 /// (feature-independent: works on default, `no_std` and wasm). One
-/// `surface<TAB>lemma<TAB>kind` row per irregular form.
-fn irregulars_tsv() -> &'static str {
+/// `surface<TAB>lemma<TAB>kind` row per irregular form. A `Cow` because the
+/// payload rides DEFLATE (owned inflation); the `std` path caches the parse
+/// behind its `OnceLock`, the `no_std` path re-materializes per call exactly
+/// as it already re-parses per call.
+fn irregulars_tsv() -> alloc::borrow::Cow<'static, str> {
     use crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded;
     raw_source_text_embedded("english_irregulars", "2016.01.19", IRREGULARS_PRX)
 }
@@ -50,7 +53,7 @@ pub fn english_irregulars() -> Vec<IrregularForm> {
     }
     #[cfg(not(feature = "std"))]
     {
-        parse_irregulars_tsv(irregulars_tsv())
+        parse_irregulars_tsv(&irregulars_tsv())
     }
 }
 
@@ -60,7 +63,7 @@ pub fn english_irregulars() -> Vec<IrregularForm> {
 fn irregulars_cached() -> &'static [IrregularForm] {
     use std::sync::OnceLock;
     static CACHE: OnceLock<Vec<IrregularForm>> = OnceLock::new();
-    CACHE.get_or_init(|| parse_irregulars_tsv(irregulars_tsv()))
+    CACHE.get_or_init(|| parse_irregulars_tsv(&irregulars_tsv()))
 }
 
 fn parse_irregulars_tsv(tsv: &str) -> Vec<IrregularForm> {

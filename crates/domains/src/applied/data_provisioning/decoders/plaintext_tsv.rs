@@ -222,7 +222,8 @@ mod tests {
             )
         ) {
             use crate::applied::data_provisioning::raw_source_prx::{
-                emit_raw_source_prx, load_raw_source_prx_gated, raw_source_archive_address,
+                PayloadEncoding, emit_raw_source_prx, load_raw_source_prx_gated,
+                raw_source_archive_address,
             };
             use crate::applied::data_provisioning::registry::LockDigest;
 
@@ -233,7 +234,14 @@ mod tests {
                 wire.push('\n');
             }
             // Wrap → pin → gated load → decode, the registered-source load path.
-            let prx = emit_raw_source_prx("plaintext_tsv_prop", "1", wire.as_bytes());
+            // `Deflate` — the transport `preferred_payload_encoding` picks for
+            // the registered `Plaintext` TSV sources.
+            let prx = emit_raw_source_prx(
+                "plaintext_tsv_prop",
+                "1",
+                wire.as_bytes(),
+                PayloadEncoding::Deflate,
+            );
             let pin = LockDigest::address(raw_source_archive_address(&prx));
             let bytes = load_raw_source_prx_gated(&prx, &pin, "plaintext_tsv_prop@1")
                 .map_err(|e| TestCaseError::fail(format!("gated load: {e}")))?;

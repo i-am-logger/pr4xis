@@ -77,7 +77,7 @@ pub(crate) fn legal_lexicon() -> &'static alloc::collections::BTreeSet<String> {
             "2026",
             US_LEGAL_LEXICON_PRX,
         );
-        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).expect(
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml).expect(
             "us_legal_lexicon committed .prx bytes failed to parse — build-time invariant violated",
         );
         wn.entries

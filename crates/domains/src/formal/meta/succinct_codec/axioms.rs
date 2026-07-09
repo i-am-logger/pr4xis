@@ -24,8 +24,8 @@
 //! `#[cfg(feature = "prx")]`): the machinery this ontology describes only exists
 //! under `prx`, so the ontology that self-describes it is gated with it.
 //!
-//! Each of the three axioms is a GENUINELY UNCOVERED, non-tautological,
-//! machine-checkable fact:
+//! Each axiom is a GENUINELY UNCOVERED, non-tautological, machine-checkable
+//! fact:
 //!
 //! - `SuccinctCodecRoundTrip` — `from_succinct(to_succinct(d)) == d` over a
 //!   WordNet+registry-shaped [`OwnedCodegenData`]. Exercises the WHOLE
@@ -43,6 +43,10 @@
 //!   prefixes it is STRICTLY smaller than the plain length-prefixed dictionary
 //!   (`put_dict`). The compaction leg is the teeth: an implementation that did
 //!   not elide the shared prefix would round-trip but not compact.
+//! - `RawSourceDeflateTransport` — the raw-source envelope's RFC 1951 payload
+//!   transport (`raw_source_prx`, format v2) round-trips byte-exactly, strictly
+//!   compacts a compressible witness, and downgrades store-if-smaller to the
+//!   identity envelope on incompressible bytes.
 
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -111,7 +115,7 @@ fn witness() -> OwnedCodegenData {
 
 /// The succinct codec is a total inverse pair over an [`OwnedCodegenData`]:
 /// `from_succinct(to_succinct(d)) == d`. Checked over the WordNet+registry
-/// [`witness`], whose every column is non-degenerate, so a codec that dropped,
+/// `witness`, whose every column is non-degenerate, so a codec that dropped,
 /// reordered, widened, or truncated any column — the shared front-coded
 /// dictionary, the four bit-packed text columns, the `word_index` CSR, or any of
 /// the six edge tables — is falsified. Distinct from
@@ -268,6 +272,80 @@ impl Axiom for FrontCodingSharesPrefixes {
 
 pr4xis::register_axiom!(FrontCodingSharesPrefixes, constructor);
 
+/// The raw-source envelope's DEFLATE transport is lossless, compacting, and
+/// store-if-smaller — three legs over the REAL
+/// [`raw_source_prx`](crate::applied::data_provisioning::raw_source_prx) codec
+/// (the format-v2 envelope every committed byte-stream `.prx` ships in):
+///
+/// 1. **Lossless** (Deutsch 1996 RFC 1951; Witten, Moffat & Bell 1999 lossless
+///    coding): `decode(encode(name, ver, bytes, Deflate)) == bytes` over a
+///    compressible XML-shaped witness.
+/// 2. **Compacting**: the `Deflate` envelope of that witness is STRICTLY
+///    smaller than its `Identity` envelope — an encoder that tagged `Deflate`
+///    but stored the bytes verbatim would round-trip and fail here.
+/// 3. **Store-if-smaller**: over a fixed-seed high-entropy (incompressible)
+///    witness, a REQUESTED `Deflate` emits an envelope byte-identical to the
+///    `Identity` envelope — already-compressed upstream payloads (the `.tar.gz`
+///    suites, the OOXML ZIP) can never grow. An encoder that compressed
+///    unconditionally would fail here (DEFLATE expands incompressible input).
+///
+/// Non-tautological on every leg, and none is covered by the bit-packed-corpus
+/// axioms above (a different codec over a different wire form).
+pub struct RawSourceDeflateTransport;
+
+impl Axiom for RawSourceDeflateTransport {
+    fn verify(&self) -> Verdict {
+        use crate::applied::data_provisioning::raw_source_prx::{
+            PayloadEncoding, decode_raw_source, encode_raw_source,
+        };
+
+        // Leg 1 + 2 — a compressible XML-shaped witness (the shape of the real
+        // XSD/DTD/LMF sources this envelope carries).
+        let compressible: Vec<u8> = b"<xs:element name=\"statute\" type=\"uslm:StatuteType\"/>\n"
+            .iter()
+            .copied()
+            .cycle()
+            .take(4096)
+            .collect();
+        let deflated = encode_raw_source("witness", "1", &compressible, PayloadEncoding::Deflate);
+        let identity = encode_raw_source("witness", "1", &compressible, PayloadEncoding::Identity);
+        let lossless = matches!(
+            decode_raw_source(&deflated),
+            Ok((n, v, out)) if n == "witness" && v == "1" && out == compressible
+        );
+        let compacts = deflated.len() < identity.len();
+
+        // Leg 3 — a fixed-seed xorshift64* high-entropy witness: requested
+        // Deflate must downgrade to the Identity envelope, byte-identically.
+        let mut x = 0x9E37_79B9_7F4A_7C15u64;
+        let incompressible: Vec<u8> = core::iter::repeat_with(|| {
+            x ^= x >> 12;
+            x ^= x << 25;
+            x ^= x >> 27;
+            (x.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 56) as u8
+        })
+        .take(2048)
+        .collect();
+        let downgraded =
+            encode_raw_source("witness", "1", &incompressible, PayloadEncoding::Deflate)
+                == encode_raw_source("witness", "1", &incompressible, PayloadEncoding::Identity);
+
+        if lossless && compacts && downgraded {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "RawSourceDeflateTransport",
+        "the raw-source envelope's DEFLATE transport round-trips byte-exactly, strictly compacts a compressible witness, and downgrades store-if-smaller to the identity envelope on incompressible bytes",
+        "Deutsch, P. (1996) RFC 1951: DEFLATE Compressed Data Format Specification version 1.3; Witten, Moffat & Bell (1999) Managing Gigabytes, 2nd ed. — lossless coding"
+    );
+}
+
+pr4xis::register_axiom!(RawSourceDeflateTransport, constructor);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,6 +356,7 @@ mod tests {
         assert!(SuccinctCodecRoundTrip.verify().is_ok());
         assert!(MonotoneOffsetsCompact.verify().is_ok());
         assert!(FrontCodingSharesPrefixes.verify().is_ok());
+        assert!(RawSourceDeflateTransport.verify().is_ok());
     }
 
     /// The compaction legs have teeth: front coding is not a CONSTANT win, it is
