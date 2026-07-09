@@ -22,14 +22,23 @@
 //! 5. embedded English (WordNet) — the production reasoner substrate; skipped
 //!    with a notice if the corpus is not on disk (a fresh checkout has no
 //!    WordNet — run `pr4xis update`).
-//! 6. english_runtime_ontology — English AS a `RuntimeOntology` (the closure path
-//!    for the 107,519-concept corpus) — the +183 MiB fat path the W2.2 into-English
-//!    grounding DELIBERATELY avoids.
-//! 7. ComposedReasoner — English composed as one `LexicalReasoner`.
-//! 8. into-English grounding (W2.2) — a menagerie `.prx` grounds a declared type
+//! 6. into-English grounding (W2.2) — a menagerie `.prx` grounds a declared type
 //!    INTO `english_wordnet` (control-vs-with delta): English is never a loaded
 //!    ontology, the resident into-English atom index is bounded (one entry per
-//!    grounded target), and the path never runs the stage-6 projection.
+//!    grounded target), and the path never materializes English as a generic
+//!    `RuntimeOntology`.
+//!
+//! The fat foil is deliberately absent: `english_runtime_ontology` — English AS
+//! an owned generic `RuntimeOntology` for the whole 107,519-concept corpus
+//! (~+216 MiB resident: a second, praxis-schema serialization of every synset's
+//! `original_id` + hypernym edge + gloss) — is NOT built here, because holding
+//! that owned re-materialization resident is precisely what the production
+//! into-English grounding path (stage 6) avoids; instantiating it only to hold it
+//! through TOTAL would charge this gate a cost production never pays. The bridge
+//! itself stays machine-checked: its de-privileging theorem ("the generic engine
+//! reasons is-a over English") is proven at ~0 MiB by the `english::bridge` sample
+//! tests, and over the full corpus (transiently, in a process-isolated test) by
+//! `b1_gate_is_a_dog_an_animal_over_the_real_loaded_english_prx`.
 //!
 //! `/proc/self/status` is Linux-only; on a non-Linux host the reader reports the
 //! stage as unavailable rather than failing.
@@ -40,7 +49,6 @@ use std::rc::Rc;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::English;
-use pr4xis_domains::cognitive::linguistics::english::bridge::english_runtime_ontology;
 use pr4xis_domains::cognitive::linguistics::english::english_load_owned;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
@@ -227,31 +235,17 @@ fn main() {
         before_english,
     );
 
-    // 6. English AS a RuntimeOntology — the closure path for the full corpus.
-    let english_onto =
-        english_runtime_ontology(english).expect("English materializes into a RuntimeOntology");
-    let after_english_onto = read_memory();
-    report(
-        "6. english_runtime_ontology",
-        after_english_onto,
-        after_english,
-    );
-
-    // 7. ComposedReasoner — English composed as one LexicalReasoner.
-    let _reasoner = ComposedReasoner::new(english, vec![Rc::new(english_onto)]);
-    let after_reasoner = read_memory();
-    report("7. ComposedReasoner", after_reasoner, after_english_onto);
-
-    // 8. INTO-ENGLISH grounding (W2.2). A tiny menagerie `.prx` DECLARES a typing
+    // 6. INTO-ENGLISH grounding (W2.2). A tiny menagerie `.prx` DECLARES a typing
     //    functor into `english_wordnet` (`Canine ↦ <synset>`). The into-English path
     //    is ISOLATED as a CONTROL-vs-WITH delta so the costs SHARED with any
     //    English-composed reasoner cancel: BOTH reasoners build the full English
     //    surface index (~150k words) AND pay `ground_loaded_set`'s transient English
     //    target projection (`project_archive_with_forms`, dropped after the pass —
-    //    CATEGORICALLY NOT `english_runtime_ontology`'s +191 MiB `apply_then_materialize`
-    //    at stage 6). The ONLY difference is the declared functor: the WITH reasoner
+    //    CATEGORICALLY NOT the fat generic-materialization path, `english_runtime_ontology`'s
+    //    owned `apply_then_materialize` (~216 MiB, deliberately not built by this
+    //    profile). The ONLY difference is the declared functor: the WITH reasoner
     //    mints one grounded edge and retains a ONE-ENTRY into-English atom index, so
-    //    Δ(8b − 8a) is the into-English mechanism's RESIDENT fat — expected ~0.
+    //    Δ(6b − 6a) is the into-English mechanism's RESIDENT fat — expected ~0.
     //
     //    A REAL synset `original_id` from the loaded corpus, so `Canine ↦ <synset>`
     //    resolves an atom (the sample's `s-dog` is absent from full WordNet).
@@ -287,30 +281,31 @@ fn main() {
         ComposedReasoner::new(english, set)
     };
 
-    // CONTROL (8a): the same menagerie with NO into-English functor. Measured in
-    // ISOLATION — its count captured and the reasoner DROPPED before 8b — so 8a and
-    // 8b are each a single full reasoner, not two held concurrently. (The earlier
-    // form kept `control` alive for its final print, so 8b built a SECOND ~42 MiB
+    // CONTROL (6a): the same menagerie with NO into-English functor. Measured in
+    // ISOLATION — its count captured and the reasoner DROPPED before 6b — so 6a and
+    // 6b are each a single full reasoner, not two held concurrently. (The earlier
+    // form kept `control` alive for its final print, so 6b built a SECOND ~42 MiB
     // English surface index and the subtraction measured that, not the mechanism.)
     let before_control = read_memory();
     let control = compose(false);
     let after_control = read_memory();
-    report("8a. control reasoner", after_control, before_control);
+    report("6a. control reasoner", after_control, before_control);
     let control_index_entries = control.english_atom_count();
     drop(control);
 
-    // WITH (8b): the menagerie carrying the declared into-English functor, built
-    // after `control` is freed — so 8b is a single reasoner comparable to 8a. Their
+    // WITH (6b): the menagerie carrying the declared into-English functor, built
+    // after `control` is freed — so 6b is a single reasoner comparable to 6a. Their
     // near-equality is the resident proof the into-English mechanism adds ~0: the
     // ONLY retained difference is the bounded atom index (1 entry below), and
     // `ground_loaded_set`'s transient `project_archive_with_forms` English target is
-    // dropped after the pass (categorically NOT stage 6's +183 MiB projection). RSS
-    // deltas here are allocator-noisy (freed pages are retained in-arena); the GATE
-    // is the two direct readouts on the next line, not the delta.
+    // dropped after the pass (categorically NOT the fat `english_runtime_ontology`
+    // owned re-materialization, ~216 MiB). RSS deltas here are allocator-noisy
+    // (freed pages are retained in-arena); the GATE is the two direct readouts on
+    // the next line, not the delta.
     let into_english = compose(true);
     let after_into_english = read_memory();
     report(
-        "8b. into-English reasoner",
+        "6b. into-English reasoner",
         after_into_english,
         after_control,
     );
