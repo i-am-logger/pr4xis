@@ -585,6 +585,25 @@ mod archived {
             Self { buf, len }
         }
 
+        /// The archived buffer bytes — the store's complete serialized form,
+        /// framed verbatim into the English store bundle.
+        pub fn as_bytes(&self) -> &[u8] {
+            self.buf.as_slice()
+        }
+
+        /// Recover a function-word store from an already-serialized `rkyv`
+        /// buffer this process did NOT produce (a store-bundle frame): run the
+        /// ONE `bytecheck` validation pass ([`RkyvLens::access`]) the trusted
+        /// `build` path runs, cache `len` from the validated root, and only
+        /// then admit the buffer for `access_unchecked` reads. Fail-closed.
+        pub fn from_validated_buf(buf: AlignedVec<16>) -> Result<Self, alloc::string::String> {
+            let len = FunctionWordLens::access(buf.as_slice())
+                .map_err(|e| alloc::format!("function-word store frame failed bytecheck: {e}"))?
+                .keys
+                .len();
+            Ok(Self { buf, len })
+        }
+
         /// The archived root, borrowed zero-copy from the buffer.
         #[inline]
         fn root(&self) -> &ArchivedRoot {

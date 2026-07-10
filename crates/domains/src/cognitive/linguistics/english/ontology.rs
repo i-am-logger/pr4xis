@@ -914,17 +914,101 @@ impl English {
     }
 }
 
+/// The store-bundle surface — the per-store access the bundle codec
+/// ([`store_bundle`](super::store_bundle)) frames and the direct-from-stores
+/// constructor its decode leg assembles. Archived (`prx` + little-endian) only:
+/// the bundle serializes the packed/archived store representations verbatim.
+#[cfg(all(feature = "prx", target_endian = "little"))]
+impl English {
+    /// Assemble an `English` DIRECTLY from its nine already-validated stores —
+    /// the decode leg of the store bundle. No WordNet decode, no
+    /// [`from_wordnet`](Self::from_wordnet), no owned intermediate maps: each
+    /// store was validated by its own fail-closed entry
+    /// (`from_untrusted_buf` for the five packed CSR stores, the `bytecheck`
+    /// `from_validated_buf` pass for the four rich `rkyv` stores) before it
+    /// reaches here.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn from_stores(
+        concepts: ConceptStore,
+        word_index: WordIndex,
+        taxonomy: TaxonomyStore,
+        relations: RelationStore,
+        synset_index: SynsetIndex,
+        function_words: FunctionWordStore,
+        verb_transitivity: VerbTransitivityIndex,
+        writing: WritingSystemStore,
+        morphology: MorphologyStore,
+    ) -> Self {
+        Self {
+            concepts,
+            word_index,
+            taxonomy,
+            relations,
+            synset_index,
+            function_words,
+            verb_transitivity,
+            writing,
+            morphology,
+        }
+    }
+
+    /// The concept store — bundle-emit access.
+    pub(super) fn concepts_store(&self) -> &ConceptStore {
+        &self.concepts
+    }
+
+    /// The taxonomy store — bundle-emit access.
+    pub(super) fn taxonomy_store(&self) -> &TaxonomyStore {
+        &self.taxonomy
+    }
+
+    /// The relation store — bundle-emit access.
+    pub(super) fn relations_store(&self) -> &RelationStore {
+        &self.relations
+    }
+
+    /// The synset-id index — bundle-emit access.
+    pub(super) fn synset_index_store(&self) -> &SynsetIndex {
+        &self.synset_index
+    }
+
+    /// The function-word store — bundle-emit access.
+    pub(super) fn function_words_store(&self) -> &FunctionWordStore {
+        &self.function_words
+    }
+
+    /// The verb-transitivity index — bundle-emit access.
+    pub(super) fn verb_transitivity_store(&self) -> &VerbTransitivityIndex {
+        &self.verb_transitivity
+    }
+
+    /// The writing-system store — bundle-emit access.
+    pub(super) fn writing_store(&self) -> &WritingSystemStore {
+        &self.writing
+    }
+
+    /// The morphology store — bundle-emit access.
+    pub(super) fn morphology_store(&self) -> &MorphologyStore {
+        &self.morphology
+    }
+}
+
 /// The canonical full English (Open English WordNet) ontology, loaded ONCE per
 /// process behind a `OnceLock`.
 ///
-/// Reads the content-addressed compact `.prx` archive
-/// (`english_compact_prx_cache_dir`) when one is present — gunzip +
-/// fail-closed content gate + succinct decode + `from_wordnet` materialization,
-/// far cheaper than the 89 MB WN-LMF XML parse it does otherwise. The English
-/// analogue of [`uslm::corpus::loaded`][usc]: the shared fast path for every
-/// full-English consumer (the `pr4xis chat` CLI, the lambek/adjunction test
-/// fixtures), so each `OnceLock` re-init under nextest's process-per-test model
-/// loads the compact archive instead of re-parsing the giant.
+/// Three tiers, fastest first: (1) the content-addressed STORE BUNDLE
+/// (`english_store_bundle_cache_dir`) — the nine BUILT store buffers behind
+/// the fail-closed `[store_bundle_signatures]` gate, assembled with NO WordNet
+/// decode and NO `from_wordnet` (the load transient collapses to ~the resident
+/// cost); (2) the content-addressed compact `.prx` archive
+/// (`english_compact_prx_cache_dir`) — gunzip + fail-closed content gate +
+/// succinct decode + `from_wordnet` materialization; (3) the 89 MB WN-LMF XML
+/// parse. The `from_wordnet` tiers MUST remain: they are the path that emits
+/// tier (1) in the first place (`pr4xis compile`). The English analogue of
+/// [`uslm::corpus::loaded`][usc]: the shared fast path for every full-English
+/// consumer (the `pr4xis chat` CLI, the lambek/adjunction test fixtures), so
+/// each `OnceLock` re-init under nextest's process-per-test model loads a
+/// compiled archive instead of re-parsing the giant.
 ///
 /// [usc]: crate::social::software::markup::xml::uslm::corpus::loaded
 pub fn english_load_owned() -> English {
@@ -984,10 +1068,43 @@ fn english_load_owned_inner() -> English {
         .find(|e| e.kind == SourceTaxonomyConcept::Language)
         .expect("english_load_owned(): no Language-kind source registered");
 
-    // Fastest path: the content-addressed COMPACT archive, admitted through
+    // FASTEST tier: the STORE BUNDLE — the nine BUILT store buffers, admitted
+    // through the fail-closed `[store_bundle_signatures]` gate (gunzip +
+    // hash-check + per-store validation), assembled with NO WordNet decode
+    // and NO `from_wordnet` (the load transient collapses to ~the resident
+    // cost). Same-toolchain by construction: the bundle in `.prx-cache` was
+    // emitted by this workspace's own `pr4xis compile`. An absent or unpinned
+    // bundle falls through to the compact succinct tier below.
+    #[cfg(all(feature = "prx", target_endian = "little"))]
+    {
+        use crate::applied::data_provisioning::registry::lock_store_bundle_signature;
+        use crate::social::software::markup::xml::lmf::prx;
+        let bundle_path = prx::english_store_bundle_cache_dir(&workspace_root)
+            .join(format!("{}-{}.stores.gz", entry.name, entry.version));
+        if let Ok(bundle_gz) = std::fs::read(&bundle_path)
+            && let Some(pin) = lock_store_bundle_signature(&entry.name, &entry.version)
+        {
+            let key = format!("{}@{}", entry.name, entry.version);
+            match prx::load_english_store_bundle_gz_gated(&bundle_gz, pin, &key) {
+                Ok(en) => return en,
+                // Pinned but the bundle failed the content gate — the committed
+                // pin and emitted bytes disagree (a toolchain bump without a
+                // re-pin, or tampering). Fail LOUD, exactly as the compact tier
+                // does: a pinned fast path must never silently degrade.
+                Err(e) => panic!(
+                    "english_load_owned(): store bundle {} is pinned but failed the \
+                     content gate: {e} — re-run `pr4xis compile --lock` after a \
+                     deliberate toolchain/codec change",
+                    bundle_path.display()
+                ),
+            }
+        }
+    }
+
+    // Fast path: the content-addressed COMPACT archive, admitted through
     // the fail-closed `[compact_archive_signatures]` gate — gunzip +
-    // hash-check + succinct decode, with NO XML re-parse. Tried first; an
-    // absent or unpinned compact archive falls through to the XML parse.
+    // hash-check + succinct decode, with NO XML re-parse. An absent or
+    // unpinned compact archive falls through to the XML parse.
     #[cfg(feature = "prx")]
     {
         use crate::applied::data_provisioning::registry::lock_compact_archive_signature;

@@ -1059,6 +1059,153 @@ pub fn emit_all_compact_english_prx_gz(
     Ok(emitted)
 }
 
+// =============================================================================
+// English STORE BUNDLE `.stores.gz` — the BUILT nine store buffers, framed +
+// gzipped, pinned in `[store_bundle_signatures]`. The load leg assembles the
+// full `English` by per-store validation alone — NO WordNet decode, NO
+// `from_wordnet`, NO owned intermediate maps (the wasm permanent-footprint
+// fix: the former load transient was +348 MiB over the ~43 MiB resident).
+//
+// PORTABILITY CLASS — same-toolchain ONLY, never the published wire: four of
+// the nine buffers are rkyv envelopes, so the bundle inherits the
+// `[archive_signatures]` trust class (the praxis.lock STEP-0 doctrine). It is
+// safe embedded in the wasm binary and in the native `.prx-cache` (emitter and
+// consumer compile from one lockstep); the succinct `.cprx.gz` above stays the
+// portable wire.
+// =============================================================================
+
+/// Emit the English STORE BUNDLE `.stores.gz` from a parsed [`WordNet`]:
+/// succinct round-trip → [`English::from_wordnet`] → frame the nine BUILT
+/// store buffers → gzip.
+///
+/// The emit input is deliberately the SUCCINCT DECODE of the lexicon, not the
+/// parse itself: the succinct codec mints synthetic `s{i}` synset ids, and the
+/// bundle must carry EXACTLY the store bytes the compact fast path
+/// ([`load_compact_english_prx_gz_gated`]) used to build at load time — so the
+/// keystone byte-identity leg (`from_buffers(emitted) == from_wordnet(decoded)`
+/// per store) holds against the shipped behavior, id-for-id.
+#[cfg(target_endian = "little")]
+pub fn emit_english_store_bundle_gz_from_wordnet(wn: &WordNet) -> Result<Vec<u8>, PrxError> {
+    use crate::cognitive::linguistics::english::store_bundle::encode_store_bundle;
+    let compact = super::compact::encode(wn);
+    let succ = super::compact_succinct::to_succinct(&compact);
+    let wn2 = super::compact::decode(&super::compact_succinct::from_succinct(&succ));
+    let english = English::from_wordnet(&wn2);
+    gzip(&encode_store_bundle(&english))
+}
+
+/// Emit the English STORE BUNDLE `.stores.gz` from WN-LMF source bytes —
+/// parse, then [`emit_english_store_bundle_gz_from_wordnet`].
+#[cfg(target_endian = "little")]
+pub fn emit_english_store_bundle_gz(source: &[u8]) -> Result<Vec<u8>, PrxError> {
+    let text = core::str::from_utf8(source)
+        .map_err(|e| PrxError::Read(format!("WN-LMF source is not UTF-8: {e}")))?;
+    let wn = read_wordnet(text).map_err(|e| PrxError::Read(format!("{e}")))?;
+    emit_english_store_bundle_gz_from_wordnet(&wn)
+}
+
+/// The content address of an English store bundle `.stores.gz` — the digest of
+/// its uncompressed FRAMED bytes (gzip-level-independent, the
+/// [`compact_english_archive_address`] convention), as 64-char lowercase hex.
+/// The value pinned in `praxis.lock` `[store_bundle_signatures]` and the one
+/// [`load_english_store_bundle_gz_gated`] re-derives and verifies. NOT
+/// portable across toolchains (see the module-section doctrine above): it pins
+/// a same-lockstep build output, exactly like `[archive_signatures]`.
+pub fn english_store_bundle_address(bundle_gz: &[u8]) -> Result<String, PrxError> {
+    Ok(ContentAddress::of(&gunzip(bundle_gz)?).to_hex())
+}
+
+/// Load an English store bundle `.stores.gz` into a materialized [`English`]
+/// through the fail-closed content-address gate: gunzip → verify the framed
+/// bytes hash to `archive_pin` (the `[store_bundle_signatures]` pin) → split
+/// frames → per-store validate → assemble
+/// ([`store_bundle::decode_store_bundle`][dsb]). A bundle whose bytes do not
+/// match the pin is rejected before any store is admitted (Dolstra 2006
+/// content-addressing; W3C SRI 2016), and — defense in depth — every store
+/// still runs its own fail-closed validator behind the gate.
+///
+/// NO WordNet decode and NO [`English::from_wordnet`] run here: the peak load
+/// transient is the bundle bytes plus the per-store buffer copies (≈ the
+/// resident cost), not the former +348 MiB owned-map build — the wasm
+/// permanent-linear-memory fix.
+///
+/// [dsb]: crate::cognitive::linguistics::english::store_bundle::decode_store_bundle
+#[cfg(target_endian = "little")]
+pub fn load_english_store_bundle_gz_gated(
+    bundle_gz: &[u8],
+    archive_pin: &LockDigest,
+    key: &str,
+) -> Result<English, PrxError> {
+    use crate::cognitive::linguistics::english::store_bundle::decode_store_bundle;
+    let framed = gunzip(bundle_gz)?;
+    wn_verify_content_address(&framed, archive_pin, key)?;
+    decode_store_bundle(&framed).map_err(|e| PrxError::Read(format!("{e}")))
+}
+
+/// The compiled English STORE-BUNDLE cache directory:
+/// `<workspace_root>/.prx-cache/wordnet-stores`. `pr4xis compile` writes one
+/// `{name}-{version}.stores.gz` here per registered `Language` source, and
+/// [`english_load_owned`](crate::cognitive::linguistics::english::english_load_owned)
+/// reads it as its FASTEST content-address-gated tier (falling back to the
+/// compact succinct archive, then the WN-LMF XML). Gitignored build output —
+/// never committed (the bundle is same-toolchain only).
+pub fn english_store_bundle_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root.join(".prx-cache").join("wordnet-stores")
+}
+
+/// Emit an English store bundle `.stores.gz` for EVERY registered
+/// [`Language`][lang]-kind source on disk into `out_dir`, round-trip-validating
+/// each (the emitted bytes load back through the content gate) before
+/// returning it. Registry-driven; a source not on disk is skipped gracefully —
+/// the same discipline [`emit_all_compact_english_prx_gz`] follows.
+///
+/// [lang]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::Language
+#[cfg(target_endian = "little")]
+pub fn emit_all_english_store_bundles_gz(
+    out_dir: &std::path::Path,
+) -> Result<Vec<EmittedArtifact>, PrxError> {
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| PrxError::Gzip(format!("create out_dir {}: {e}", out_dir.display())))?;
+    let root = workspace_root();
+    let mut emitted = Vec::new();
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::Language {
+            continue;
+        }
+        let src_path = root.join(entry.local_path());
+        let Ok(source) = std::fs::read(&src_path) else {
+            continue;
+        };
+        let bundle_gz = emit_english_store_bundle_gz(&source)?;
+        let archive_address = english_store_bundle_address(&bundle_gz)?;
+        let path = out_dir.join(format!("{}-{}.stores.gz", entry.name, entry.version));
+        std::fs::write(&path, &bundle_gz)
+            .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
+
+        // Round-trip-validate against the address this emit just produced.
+        let key = format!("{}@{}", entry.name, entry.version);
+        let read_back = std::fs::read(&path)
+            .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
+        load_english_store_bundle_gz_gated(
+            &read_back,
+            &LockDigest::address(archive_address.clone()),
+            &key,
+        )?;
+
+        emitted.push(EmittedArtifact {
+            name: entry.name.clone(),
+            version: entry.version.clone(),
+            path,
+            byte_len: bundle_gz.len() as u64,
+            archive_address,
+        });
+    }
+    Ok(emitted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

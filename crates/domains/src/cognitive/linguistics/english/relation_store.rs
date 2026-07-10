@@ -301,6 +301,36 @@ impl RelationStore {
     }
 }
 
+/// The store-bundle serialization surface — the packed family bytes, the
+/// per-column layout table the buffer does not carry, and the VALIDATING
+/// re-entry for bytes this process did not pack. Archived (`prx` +
+/// little-endian) only: the bundle serializes the packed representation.
+#[cfg(all(feature = "prx", target_endian = "little"))]
+impl RelationStore {
+    /// The packed family bytes (see
+    /// [`PackedCsrFamily::as_bytes`](crate::formal::meta::packed_csr::ArchivedCsrFamily::as_bytes)).
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
+    /// The per-column `(row_count, edge_count)` table, in [`RelationKind`]
+    /// layout order — carried in the bundle frame beside the bytes.
+    pub fn col_layout(&self) -> Vec<(usize, usize)> {
+        self.0.col_layout()
+    }
+
+    /// Recover a relation store from UNTRUSTED packed bytes + the declared
+    /// column table, through the fail-closed
+    /// [`ArchivedCsrFamily::from_untrusted_buf`](crate::formal::meta::packed_csr::ArchivedCsrFamily::from_untrusted_buf)
+    /// validation.
+    pub fn from_untrusted_buf(
+        buf: rkyv::util::AlignedVec<16>,
+        cols: &[(usize, usize)],
+    ) -> Result<Self, crate::formal::meta::packed_csr::PackedCsrError> {
+        Ok(Self(PackedCsrFamily::from_untrusted_buf(buf, cols)?))
+    }
+}
+
 impl core::fmt::Debug for RelationStore {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RelationStore")

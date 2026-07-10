@@ -458,6 +458,35 @@ pub type ArchivedDefinitionView = rkyv::Archived<ArchivedDefinition>;
 /// [`archived_local_name`].
 pub type ArchivedEdgeTargetView = rkyv::Archived<ArchivedEdgeTarget>;
 
+/// The zero-copy archived form of one [`ArchivedConnection`] — the element type
+/// of [`ArchivedArchiveView`]'s `connections`, so a loader step (the grounding
+/// pass) can read an archive's declared functors straight off the validated
+/// buffer, without an owning decode of the whole archive.
+pub type ArchivedConnectionView = rkyv::Archived<ArchivedConnection>;
+
+/// The zero-copy archived form of an [`ArchivedGeneratorAction`] — the `action`
+/// half of an [`ArchivedConnectionView`]. Rust resolves enum variants through
+/// type aliases, so a reader matches `ArchivedGeneratorActionView::Functor {…}`
+/// directly against the buffer.
+pub type ArchivedGeneratorActionView = rkyv::Archived<ArchivedGeneratorAction>;
+
+/// Rebuild ONE owned [`Definition`] from its archived view — the per-node
+/// owned decode the grounding resolver uses to derive a single node's content
+/// address (the archived view does not carry addresses; a `Definition` does).
+/// Deliberately per-node: resolving a functor's handful of declared target
+/// names must not force `to_owned_archive` over a whole (possibly ~100k-node)
+/// peer. Fail-closed: a malformed grounded-atom hex refuses
+/// ([`ArchiveLensError::BadAtomAddress`]) exactly as the whole-archive GET
+/// does; a deserialize fault on a bytecheck-validated buffer is a defensive
+/// `Rkyv` error, never a panic.
+pub fn archived_definition_to_owned(
+    view: &ArchivedDefinitionView,
+) -> Result<Definition, ArchiveLensError> {
+    let mirror = rkyv::deserialize::<ArchivedDefinition, rkyv::rancor::Error>(view)
+        .map_err(|e| ArchiveLensError::Rkyv(e.to_string()))?;
+    mirror.into_live()
+}
+
 /// The local target name of an archived edge target, or `None` for a grounded
 /// (cross-ontology) target — the zero-copy analogue of
 /// [`EdgeTarget::local_name`](crate::definition::EdgeTarget::local_name), for

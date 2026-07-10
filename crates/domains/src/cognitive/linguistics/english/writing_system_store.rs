@@ -420,6 +420,22 @@ mod archived {
             // the transient mirror drops here — only `buf` survives.
         }
 
+        /// The archived buffer bytes — the store's complete serialized form,
+        /// framed verbatim into the English store bundle.
+        pub fn as_bytes(&self) -> &[u8] {
+            self.buf.as_slice()
+        }
+
+        /// Recover a writing-system store from an already-serialized `rkyv`
+        /// buffer this process did NOT produce (a store-bundle frame): run the
+        /// ONE `bytecheck` validation pass ([`RkyvLens::access`]) the trusted
+        /// `build` path runs before admitting the buffer. Fail-closed.
+        pub fn from_validated_buf(buf: AlignedVec<16>) -> Result<Self, alloc::string::String> {
+            WritingSystemLens::access(buf.as_slice())
+                .map_err(|e| alloc::format!("writing-system store frame failed bytecheck: {e}"))?;
+            Ok(Self { buf })
+        }
+
         /// The writing system, materialized from the archive via the OWNING GET
         /// ([`RkyvLens::get`]) — the cold, test-only reader (see the
         /// [module docs](super)). Returns an owned value reconstructed

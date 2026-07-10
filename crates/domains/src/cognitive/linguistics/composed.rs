@@ -56,7 +56,7 @@ use pr4xis_runtime::lens::archive_lens::{archived_grounded, archived_local_name}
 use pr4xis_runtime::ontology::{ConceptRef, RuntimeOntology, subsumption_kind};
 
 use crate::cognitive::linguistics::english::bridge::{
-    ENGLISH_ONTOLOGY, FORM_KIND, english_synset_atoms,
+    ENGLISH_ONTOLOGY, FORM_KIND, synset_definition,
 };
 use crate::cognitive::linguistics::english::{ConceptId, ConceptView, English, LexicalReasoner};
 use crate::cognitive::linguistics::interner::{Interner, Symbol};
@@ -214,13 +214,14 @@ pub struct ComposedReasoner {
     ///
     /// GATED on some loaded edge actually grounding into `english_wordnet`
     /// (`ENGLISH_ONTOLOGY` ∈ the grounded-target set) — empty otherwise, so a load
-    /// with no into-English functor pays nothing. DERIVED from
-    /// [`english_synset_atoms`] (the `project_archive` addressing), retaining ONLY
-    /// the edge-targeted atoms, so the resident index is BOUNDED by grounded-target
-    /// count — single-MiB, never the ~107k-synset table. English is NEVER a loaded
-    /// ontology: this index is the ONLY English-side state a cross-universe query
-    /// consults, and it points into the borrowed `english`'s archived taxonomy (W1),
-    /// adding zero new materialization.
+    /// with no into-English functor pays nothing. DERIVED streaming from the
+    /// per-synset [`synset_definition`] (the `project_archive` addressing, one
+    /// node built and dropped per step — never a whole-projection transient),
+    /// retaining ONLY the edge-targeted atoms, so the resident index is BOUNDED
+    /// by grounded-target count — single-MiB, never the ~107k-synset table.
+    /// English is NEVER a loaded ontology: this index is the ONLY English-side
+    /// state a cross-universe query consults, and it points into the borrowed
+    /// `english`'s archived taxonomy (W1), adding zero new materialization.
     english_atoms: BTreeMap<ContentAddress, String>,
 }
 
@@ -432,18 +433,27 @@ impl ComposedReasoner {
         }
 
         // The INTO-ENGLISH atom index — GATED on some loaded edge grounding into
-        // english_wordnet, DERIVED from the coupling-free `english_synset_atoms`
-        // (project_archive addressing), retaining ONLY the edge-targeted synset
-        // atoms. The full synset→address map is a transient dropped here; the
-        // resident index holds one entry per grounded target (single-MiB), never the
-        // ~107k-synset table. English is never a loaded ontology, so this is the only
-        // English-side state a cross-universe query reads.
+        // english_wordnet, derived STREAMING from the coupling-free per-synset
+        // [`synset_definition`] (the `project_archive` node shape, hence the
+        // same addressing), retaining ONLY the edge-targeted synset atoms. One
+        // synset's Definition is built, addressed, and dropped per step — never
+        // the former whole-projection `Vec<Definition>` + full synset→address
+        // map (a ~75 MiB per-install transient at corpus scale). The resident
+        // index holds one entry per grounded target (single-MiB), never the
+        // ~107k-synset table. English is never a loaded ontology, so this is
+        // the only English-side state a cross-universe query reads.
         let english_atoms: BTreeMap<ContentAddress, String> = if english_targeted.is_empty() {
             BTreeMap::new()
         } else {
-            english_synset_atoms(english)
-                .into_iter()
-                .filter(|(addr, _)| english_targeted.contains(addr))
+            english
+                .concepts()
+                .filter_map(|concept| {
+                    let node = synset_definition(english, &concept);
+                    let addr = node.address().ok()?;
+                    english_targeted
+                        .contains(&addr)
+                        .then_some((addr, node.name))
+                })
                 .collect()
         };
 

@@ -36,20 +36,23 @@
 //! of the source.
 
 use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use pr4xis::category::category_theory::is_grounding_functor_kind;
+use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::archive::Archive;
+use pr4xis_runtime::codec::CodecError;
 use pr4xis_runtime::connection::GeneratorAction;
+use pr4xis_runtime::definition::EdgeTarget;
 use pr4xis_runtime::grounding::{LinkError, ground, type_lens};
+use pr4xis_runtime::lens::archive_lens::{ArchivedGeneratorActionView, archived_grounded};
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize, subsumption_kind};
 
 use crate::cognitive::linguistics::english::English;
-use crate::cognitive::linguistics::english::bridge::{
-    ENGLISH_ONTOLOGY, project_archive_with_forms,
-};
+use crate::cognitive::linguistics::english::bridge::{ENGLISH_ONTOLOGY, english_atom_address};
 
 /// Mint the cross-ontology TYPE edges an [`Archive`] declares — the general
 /// grounding step.
@@ -111,39 +114,54 @@ pub fn ground_declared(
 /// every install so grounding is a pure function of the loaded set, INDEPENDENT
 /// of load order.
 ///
-/// For each loaded ontology, its declared grounding functors are minted against
-/// the current peer set (every loaded ontology's owned archive, by name) via
-/// [`ground_declared`]; an ontology whose content genuinely changes (edges newly
-/// minted) is RE-MATERIALIZED in place under its own name. This is the
-/// re-ground-on-peer-arrival mechanism: when a grounding TARGET (a base such as
-/// `LegalSources`) arrives — even AFTER a source that grounds into it — the pass
-/// grounds that source on the base's arrival, so `reaches(section, law)` is green
-/// whether the base loads before or after the source.
+/// For each loaded ontology, its declared grounding functors are read straight
+/// off its ARCHIVED view (connections, `map_object`, `map_morphism`), each
+/// declared target atom is resolved PER NAME against the peers' archived views
+/// (`node_by_name` single-node decodes; English through
+/// [`english_atom_address`]), and the desired edges' PRESENCE is checked
+/// against the archived nodes via
+/// [`archived_grounded`] — so the COMMON re-install case (every edge already
+/// minted) costs ZERO owned decodes and NO transient peer projections. Only a
+/// slot that genuinely needs new edges (a fresh install) pays ONE
+/// `to_owned_archive` of ITSELF, is extended, and is RE-MATERIALIZED in place
+/// under its own name. Edge-for-edge equivalent to running [`ground_declared`]
+/// over an owned peer set (the reference implementation, kept for direct
+/// callers) — same connection order, same node order, same fail-closed
+/// verdicts — without the former per-install transient (the whole-English
+/// `project_archive_with_forms` projection + a `to_owned_archive` of EVERY
+/// peer: +82.79 MiB per install, now ~0 steady-state).
 ///
-/// Idempotent: an ontology already carrying its grounding edges re-grounds to the
-/// SAME archive (exact-duplicate-free), so its root is unchanged and it is NOT
-/// re-materialized. A grounding functor whose target is not yet loaded DEFERS
-/// (that ontology is left unchanged this pass) — the typed
+/// This is the re-ground-on-peer-arrival mechanism: when a grounding TARGET (a
+/// base such as `LegalSources`) arrives — even AFTER a source that grounds into
+/// it — the pass grounds that source on the base's arrival, so
+/// `reaches(section, law)` is green whether the base loads before or after the
+/// source.
+///
+/// Idempotent: an ontology already carrying its grounding edges passes the
+/// archived presence check (exact-duplicate-free), so its root is unchanged and
+/// it is NOT re-materialized. A grounding functor whose target is not yet
+/// loaded DEFERS (that ontology is left unchanged this pass) — the typed
 /// [`MissingPeerArchive`](LinkError::MissingPeerArchive) is the direct-call
 /// verdict; here a later pass (when the peer arrives) completes it, never a silent
 /// wrong bind.
 ///
 /// # Contract: grounding targets are pure bases (one-level grounding), guarded
 ///
-/// The peer set is frozen from the loaded archives *before* any slot is grounded,
-/// so a functor's target atoms are the target's *pre-grounding* node addresses. A
-/// grounding TARGET must therefore be a pure base — an ontology that declares no
-/// grounding functor of its own (every current target: `LegalSources`, English, a
-/// domain taxonomy). A multi-level chain — a target that *itself* grounds into a
-/// further base — is NOT supported: re-materializing that target (to add ITS
-/// grounding edges) changes its node content-addresses, which the already-frozen
-/// peer set would not reflect, so a source grounded against its pre-grounding
-/// addresses would dangle SILENTLY. This is no longer left to prose: it is enforced
-/// by `guard_one_level_grounding`, a FAIL-CLOSED runtime guard that refuses the
-/// whole pass with [`LinkError::GroundingTargetIsSource`] when any loaded ontology
-/// is BOTH a grounding target and a grounding source. Grounding-target-that-grounds
-/// is future work (it needs the peer set re-derived in dependency order, a
-/// topological pass); until then the guard makes the unsupported case LOUD.
+/// A functor's target atoms are resolved against the target's CURRENT node
+/// addresses. A grounding TARGET must therefore be a pure base — an ontology
+/// that declares no grounding functor of its own (every current target:
+/// `LegalSources`, English, a domain taxonomy). A multi-level chain — a target
+/// that *itself* grounds into a further base — is NOT supported:
+/// re-materializing that target (to add ITS grounding edges) changes its node
+/// content-addresses mid-pass, so a source grounded against the earlier
+/// addresses would dangle SILENTLY. This is no longer left to prose: it is
+/// enforced by `guard_one_level_grounding`, a FAIL-CLOSED runtime guard that
+/// refuses the whole pass with [`LinkError::GroundingTargetIsSource`] when any
+/// loaded ontology is BOTH a grounding target and a grounding source (which is
+/// also what makes the live per-name peer reads equivalent to the old frozen
+/// pre-grounding peer set). Grounding-target-that-grounds is future work (it
+/// needs the peer set re-derived in dependency order, a topological pass);
+/// until then the guard makes the unsupported case LOUD.
 ///
 /// # Fail-closed vs deferred
 ///
@@ -159,113 +177,265 @@ pub fn ground_loaded_set(
     loaded: &mut [Rc<RuntimeOntology>],
     english: &English,
 ) -> Result<(), LinkError> {
-    // The peer set, built ONCE: every loaded ontology's owned archive, addressed by
-    // name — a grounding functor's target atoms are its peer archive's node
-    // addresses. Base ontologies (the grounding targets) are small; a large corpus
-    // is present too but is a grounding SOURCE, never looked up as a target. This is
-    // the SINGLE owning decode per ontology for the whole pass: it is reused by the
-    // one-level guard, by the per-slot peer lookups, AND as each slot's own
-    // pre-grounding archive (`raw`) — no O(N) re-decode per slot, no third decode in
-    // the guard.
-    let mut peers: BTreeMap<String, Archive> = BTreeMap::new();
-    // Seed English as a grounding TARGET peer — so a `.prx` that DECLARES an
-    // into-English InstanceFunctor (its `kind ↦ synset` map_object) grounds its
-    // typed nodes onto WordNet synsets, exactly as a domain source grounds into
-    // `LegalSources`. The peer is the LEAN pre-materialize atom layer
-    // ([`project_archive_with_forms`] — a transient `Vec<Definition>` dropped when
-    // this pass returns): CATEGORICALLY NOT the fat `english_runtime_ontology`
-    // bridge (the +216.3 MiB `apply_then_materialize` — historical measurement
-    // recorded in commit 58ffa2ce; the bridge is since DELETED, so the figure is
-    // not re-derivable —
-    // English's functor is now proven archive-level in `praxis-corpus-tests`).
-    // English is NEVER installed as a
-    // loaded `RuntimeOntology`; it enters grounding only as this transient target
-    // archive, so `loaded` never gains an `english_wordnet` slot. A loaded set with
-    // no into-English functor simply never resolves against this peer (it costs the
-    // one transient projection and nothing else).
-    peers.insert(
-        ENGLISH_ONTOLOGY.to_string(),
-        project_archive_with_forms(english),
-    );
-    for o in loaded.iter() {
-        // INVARIANT (not a swallow): `to_owned_archive` is `ArchiveLens::get` over a
-        // buffer that `materialize` `bytecheck`-VALIDATED and holds immutable, so a
-        // MATERIALIZED `RuntimeOntology` never fails to decode. The `if let Ok` is a
-        // defensive guard the invariant makes unreachable in practice
-        // (`materialized_ontology_to_owned_archive_never_fails` proves it); on the
-        // impossible failure the ontology is simply absent from the peer set and its
-        // slot skipped below — never a silently mis-grounded install.
-        if let Ok(archive) = o.to_owned_archive() {
-            peers.insert(o.id().as_str().to_string(), archive);
-        }
-    }
     // FAIL-CLOSED one-level guard (the documented contract, enforced): refuse the
     // whole pass if any loaded ontology is both a grounding target and a grounding
     // source — the unsupported multi-level chain that would dangle silently. Reads
-    // each ontology's connections from the frozen peer set (no re-decode).
-    guard_one_level_grounding(loaded, &peers)?;
-    for slot in loaded.iter_mut() {
+    // each ontology's connections straight off the ARCHIVED views (zero decode).
+    guard_one_level_grounding(loaded)?;
+
+    // The loaded peer NAMES — the membership test the MissingPeerArchive deferral
+    // reads. The pass holds NO owned peer archives at all: a functor's handful of
+    // declared target atoms are resolved PER NAME against the peers' archived
+    // views ([`resolve_target_atom`]) — English through the per-name
+    // [`english_atom_address`] (never the whole `project_archive_with_forms`
+    // projection, the measured +82.79 MiB per-install transient this pass used to
+    // pay), a loaded peer through its `node_by_name` single-node decode (never
+    // `to_owned_archive` over a whole peer). The one-level guard above is what
+    // makes reading peers live equivalent to the old frozen pre-grounding peer
+    // set: a grounding TARGET is never itself re-materialized by this pass.
+    let loaded_names: BTreeSet<String> =
+        loaded.iter().map(|o| o.id().as_str().to_string()).collect();
+
+    // (target ontology, concept name) → resolved atom address. Bounded by the
+    // number of DECLARED functor targets (a handful), shared across slots, and
+    // dropped when the pass returns.
+    let mut atom_cache: BTreeMap<(String, String), ContentAddress> = BTreeMap::new();
+
+    for i in 0..loaded.len() {
+        let slot = Rc::clone(&loaded[i]);
         let name = slot.id().clone();
-        // The slot's own pre-grounding archive IS its frozen peer entry — reuse it
-        // rather than decode a third time. Absent only if its `to_owned_archive`
-        // failed above (the documented-unreachable defensive skip).
-        let Some(raw) = peers.get(name.as_str()) else {
-            continue;
-        };
-        // Per connection: a missing peer ARCHIVE DEFERS this ontology (a later pass
-        // completes it once the target loads — base-first makes that the common
-        // no-defer case). EVERY other fault — a declared target NAME absent from a
-        // present peer, a root skew, a codec fault — is LOUD: it aborts the pass so
-        // the caller refuses rather than installing a silently-mis-grounded set.
-        let grounded = match ground_declared(raw, &peers) {
-            Ok(grounded) => grounded,
-            Err(LinkError::MissingPeerArchive { .. }) => continue,
-            Err(loud) => return Err(loud),
-        };
-        if &grounded == raw {
-            // Already grounded (or nothing to ground) — no content change, so no
-            // re-materialize (roots stay stable, the invariant "loading X adds only
-            // X's data" holds for every other ontology).
+
+        // One planned grounding connection: the relation kind its edges assert,
+        // its target ontology, and the functor's `map_object` rows.
+        struct Plan {
+            relation: String,
+            target: String,
+            map: Vec<(String, String)>,
+        }
+
+        // ── Phase 1+2 (ZERO owned decodes): walk the slot's grounding
+        // connections IN CONNECTION ORDER (the old sequential `ground_declared`
+        // semantics — a loud fault on an earlier connection fires before a later
+        // connection's deferral), resolve each declared target atom per NODE (in
+        // node order, exactly the old lens's error order), and check the desired
+        // edge's PRESENCE against the archived nodes via [`archived_grounded`].
+        // A missing peer ARCHIVE DEFERS this ontology (a later pass completes it
+        // once the target loads — base-first makes that the common no-defer
+        // case). EVERY other fault — a declared target NAME absent from a
+        // present peer ([`LinkError::GroundTargetAbsent`]), a codec fault — is
+        // LOUD: it aborts the pass so the caller refuses rather than installing
+        // a silently-mis-grounded set.
+        let mut plans: Vec<Plan> = Vec::new();
+        let mut deferred = false;
+        let mut all_present = true;
+        let archive_view = slot.archive();
+        for conn in archive_view.connections.iter() {
+            if !is_grounding_functor_kind(conn.kind.as_str()) {
+                continue;
+            }
+            // A grounding functor is a Functor action; a non-Functor kind that
+            // still reaches InstanceFunctor is malformed — skip rather than
+            // guess (verbatim the `ground_declared` stance).
+            let ArchivedGeneratorActionView::Functor {
+                map_object,
+                map_morphism,
+            } = &conn.action
+            else {
+                continue;
+            };
+            let target = conn.target.as_str();
+            if target != ENGLISH_ONTOLOGY && !loaded_names.contains(target) {
+                // The old per-slot `Err(MissingPeerArchive)` deferral — including
+                // its discard of any EARLIER connection's would-be edges.
+                deferred = true;
+                break;
+            }
+            // Fail-closed to the copula's default kind when the functor's
+            // `map_morphism` table is empty — derived from the one typed
+            // Relations vocabulary (`subsumption_kind()`), never a bare string
+            // literal (verbatim `ground_declared`).
+            let relation = map_morphism
+                .iter()
+                .next()
+                .map(|pair| pair.1.as_str().to_string())
+                .unwrap_or_else(|| subsumption_kind().name);
+            let plan = Plan {
+                relation,
+                target: target.to_string(),
+                map: map_object
+                    .iter()
+                    .map(|pair| (pair.0.as_str().to_string(), pair.1.as_str().to_string()))
+                    .collect(),
+            };
+            // Resolve + presence-check THIS connection over the archived nodes.
+            for node in archive_view.nodes.iter() {
+                let Some((_, concept)) = plan
+                    .map
+                    .iter()
+                    .find(|(kind, _)| kind.as_str() == node.kind.as_str())
+                else {
+                    continue; // a node whose kind is undeclared is a legitimate no-op
+                };
+                let atom = resolve_target_atom(
+                    &mut atom_cache,
+                    &plan.target,
+                    concept,
+                    node.kind.as_str(),
+                    loaded,
+                    english,
+                )?;
+                let present = node.edges.iter().any(|edge| {
+                    edge.0.as_str() == plan.relation.as_str()
+                        && archived_grounded(&edge.1)
+                            .is_some_and(|(ontology, a)| ontology == plan.target && a == atom)
+                });
+                if !present {
+                    all_present = false;
+                }
+            }
+            plans.push(plan);
+        }
+        if deferred || plans.is_empty() || all_present {
+            // Deferred, nothing declared, or already grounded (the common
+            // re-install case) — ZERO owned decodes, no re-materialize (roots
+            // stay stable, the invariant "loading X adds only X's data" holds
+            // for every other ontology).
             continue;
         }
-        if let Ok(regrounded) = materialize(grounded, name) {
-            *slot = Rc::new(regrounded);
+
+        // ── Phase 3 (the ONE owned decode, only for a slot that genuinely
+        // needs new edges — a fresh install): rebuild THIS slot, extend the
+        // missing edges in the same (connection, node) order `ground_declared`
+        // minted them, exact-duplicate-free, and re-materialize in place under
+        // its own name.
+        //
+        // INVARIANT (not a swallow): `to_owned_archive` is `ArchiveLens::get`
+        // over a buffer that `materialize` `bytecheck`-VALIDATED and holds
+        // immutable, so a MATERIALIZED `RuntimeOntology` never fails to decode
+        // (`materialized_ontology_to_owned_archive_never_fails` proves it); on
+        // the impossible failure the slot is left unchanged — never a silently
+        // mis-grounded install.
+        let Ok(mut archive) = slot.to_owned_archive() else {
+            continue;
+        };
+        for plan in &plans {
+            for node in &mut archive.nodes {
+                let Some((_, concept)) = plan.map.iter().find(|(kind, _)| kind == &node.kind)
+                else {
+                    continue;
+                };
+                let atom = resolve_target_atom(
+                    &mut atom_cache,
+                    &plan.target,
+                    concept,
+                    node.kind.as_str(),
+                    loaded,
+                    english,
+                )?;
+                let edge = (
+                    plan.relation.clone(),
+                    EdgeTarget::Grounded {
+                        ontology: plan.target.clone(),
+                        atom,
+                    },
+                );
+                // Exact-duplicate-free (the `dedup_edges` idempotence contract).
+                if !node.edges.contains(&edge) {
+                    node.edges.push(edge);
+                }
+            }
+        }
+        if let Ok(regrounded) = materialize(archive, name) {
+            loaded[i] = Rc::new(regrounded);
         }
     }
     Ok(())
 }
 
+/// Resolve ONE declared grounding target `(target ontology, concept name)` to
+/// its atom address, against the LIVE loaded set — through the per-name English
+/// resolver ([`english_atom_address`]) for the seeded `english_wordnet` target,
+/// or a single-node archived decode
+/// ([`RuntimeOntology::node_by_name`]) for a loaded peer. Cached per pass (the
+/// declared-target set is a handful), so a ~40k-node USC title grounding into
+/// one `LegalSources` concept resolves ONE atom, once.
+///
+/// Fail-closed, mirroring [`type_lens`]: a declared concept absent from the
+/// present peer is [`LinkError::GroundTargetAbsent`] (never a silently dropped
+/// edge); an address/codec fault is [`LinkError::Codec`]. The caller has
+/// already deferred on a missing peer, so an absent peer here is unreachable —
+/// kept as the typed [`LinkError::MissingPeerArchive`] rather than a panic.
+fn resolve_target_atom(
+    cache: &mut BTreeMap<(String, String), ContentAddress>,
+    target: &str,
+    concept: &str,
+    node_kind: &str,
+    loaded: &[Rc<RuntimeOntology>],
+    english: &English,
+) -> Result<ContentAddress, LinkError> {
+    let key = (target.to_string(), concept.to_string());
+    if let Some(&atom) = cache.get(&key) {
+        return Ok(atom);
+    }
+    let absent = || LinkError::GroundTargetAbsent {
+        kind: node_kind.to_string(),
+        target: concept.to_string(),
+        peer: target.to_string(),
+    };
+    let atom = if target == ENGLISH_ONTOLOGY {
+        english_atom_address(english, concept)
+            .map_err(LinkError::Codec)?
+            .ok_or_else(absent)?
+    } else {
+        let peer = loaded
+            .iter()
+            .find(|o| o.id().as_str() == target)
+            .ok_or_else(|| LinkError::MissingPeerArchive {
+                ontology: target.to_string(),
+            })?;
+        match peer.node_by_name(concept) {
+            None => return Err(absent()),
+            Some(Ok(node)) => node.address().map_err(LinkError::Codec)?,
+            // Defensively unreachable (a validated buffer's single-node decode);
+            // typed, never a panic.
+            Some(Err(e)) => {
+                return Err(LinkError::Codec(CodecError::Decode(format!(
+                    "peer {target:?} node {concept:?}: {e}"
+                ))));
+            }
+        }
+    };
+    cache.insert(key, atom);
+    Ok(atom)
+}
+
 /// FAIL-CLOSED one-level-grounding guard — refuse the whole pass if any LOADED
 /// ontology is BOTH a grounding target and a grounding source.
 ///
-/// [`ground_loaded_set`] freezes the peer set before grounding, so a grounding
-/// target's atoms are its *pre-grounding* addresses. If a loaded ontology used as
-/// a target were itself a source, grounding it would re-materialize it — shifting
-/// the very addresses another source grounded against, leaving that source's edges
-/// dangling SILENTLY. That multi-level chain is unsupported; this guard makes it
-/// LOUD ([`GroundingTargetIsSource`](LinkError::GroundingTargetIsSource)) instead
-/// of dangling. The supported cases are untouched: into-English targets
-/// `english_wordnet` (never a loaded slot, so never in `sources`), and
+/// [`ground_loaded_set`] resolves a functor's target atoms against the loaded
+/// peers' CURRENT archived nodes. If a loaded ontology used as a target were
+/// itself a source, grounding it would re-materialize it — shifting the very
+/// addresses another source grounded (or is about to ground) against, leaving
+/// that source's edges dangling SILENTLY. That multi-level chain is
+/// unsupported; this guard makes it LOUD
+/// ([`GroundingTargetIsSource`](LinkError::GroundingTargetIsSource)) instead of
+/// dangling — and it is ALSO what makes the pass's live per-name peer reads
+/// equivalent to the old frozen pre-grounding peer set: a target is never
+/// re-materialized mid-pass. The supported cases are untouched: into-English
+/// targets `english_wordnet` (never a loaded slot, so never in `sources`), and
 /// USC→`LegalSources` targets a pure base (declares no grounding functor).
-fn guard_one_level_grounding(
-    loaded: &[Rc<RuntimeOntology>],
-    peers: &BTreeMap<String, Archive>,
-) -> Result<(), LinkError> {
+fn guard_one_level_grounding(loaded: &[Rc<RuntimeOntology>]) -> Result<(), LinkError> {
     // A loaded ontology is a SOURCE if it declares any grounding functor; the
     // TARGETS are the ontologies those functors point at. Read each ontology's
-    // connections from the FROZEN peer set the caller already decoded — no re-decode
-    // (English is in `peers` but never in `loaded`, so it is never a source).
+    // connections straight off its ARCHIVED view — zero owned decode.
     let mut sources: BTreeSet<String> = BTreeSet::new();
     let mut targets: BTreeSet<String> = BTreeSet::new();
     for o in loaded {
         let name = o.id().as_str();
-        let Some(archive) = peers.get(name) else {
-            continue;
-        };
-        for conn in &archive.connections {
-            if is_grounding_functor_kind(&conn.kind) {
+        for conn in o.archive().connections.iter() {
+            if is_grounding_functor_kind(conn.kind.as_str()) {
                 sources.insert(name.to_string());
-                targets.insert(conn.target.clone());
+                targets.insert(conn.target.as_str().to_string());
             }
         }
     }
@@ -297,8 +467,9 @@ fn dedup_edges(archive: &mut Archive) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cognitive::linguistics::english::bridge::project_archive_with_forms;
     use pr4xis_runtime::connection::Connection;
-    use pr4xis_runtime::definition::{Definition, EdgeTarget};
+    use pr4xis_runtime::definition::Definition;
 
     /// A tiny two-node target taxonomy: `Dog ⊑ Animal`.
     fn taxonomy() -> Archive {
@@ -816,6 +987,115 @@ mod tests {
         assert!(
             !composed.reaches(animal, rex, &subsumption),
             "reaches into English is directional — animal does not reach the loaded node"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // RESOLVER EQUIVALENCE — the per-name resolvers the archived-view pass
+    // uses must agree, address-for-address, with the owned reference path
+    // (`project_archive_with_forms` + `type_lens`'s first-match scan) they
+    // replaced. These are the keystone legs for the +82.79 MiB transient kill.
+    // -----------------------------------------------------------------------
+
+    /// ADDRESS EQUALITY, exhaustive over the sample corpus: for EVERY node the
+    /// full with-forms projection mints (every synset AND every form atom),
+    /// the per-name resolver [`english_atom_address`] returns exactly the
+    /// address `type_lens`'s first-match scan over that projection would bind
+    /// — and an absent name resolves to `None`, never a fabricated atom.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
+    #[test]
+    fn per_name_english_resolver_agrees_with_the_full_projection() {
+        let english = English::sample_static();
+        let full = project_archive_with_forms(english);
+        let mut seen: BTreeSet<&str> = BTreeSet::new();
+        for node in &full.nodes {
+            if !seen.insert(node.name.as_str()) {
+                continue; // first-match semantics: only the first node binds
+            }
+            let expected = node.address().expect("projected node addresses");
+            let resolved = english_atom_address(english, &node.name)
+                .expect("per-name resolution does not fault")
+                .unwrap_or_else(|| panic!("{:?} must resolve per-name", node.name));
+            assert_eq!(
+                resolved, expected,
+                "per-name atom for {:?} must equal the full projection's",
+                node.name
+            );
+        }
+        assert_eq!(
+            english_atom_address(english, "no-such-synset-or-word").unwrap(),
+            None,
+            "an absent name resolves to None (the caller's fail-closed GroundTargetAbsent)"
+        );
+    }
+
+    /// PASS EQUIVALENCE: `ground_loaded_set` (archived views, per-name atoms)
+    /// produces the SAME grounded archive as the reference `ground_declared`
+    /// over an owned peer set — same root, edge-for-edge — for both a loaded
+    /// peer target (menagerie → taxonomy) and the seeded English target; and a
+    /// SECOND pass over the grounded set changes nothing and re-materializes
+    /// nothing (roots stable — the zero-decode idempotent re-install case).
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
+    #[test]
+    fn ground_loaded_set_matches_the_owned_reference_pass_and_is_idempotent() {
+        use pr4xis::ontology::meta::OntologyName;
+
+        // Loaded-peer leg: menagerie (InstanceFunctor → taxonomy) + taxonomy.
+        let mut set = alloc::vec![
+            Rc::new(
+                materialize(
+                    menagerie("InstanceFunctor"),
+                    OntologyName::new_static("menagerie")
+                )
+                .unwrap()
+            ),
+            Rc::new(materialize(taxonomy(), OntologyName::new_static("taxonomy")).unwrap()),
+        ];
+        ground_loaded_set(&mut set, English::sample_static()).expect("grounds");
+
+        // The reference: ground_declared over the owned peer set.
+        let mut peers = BTreeMap::new();
+        peers.insert("taxonomy".to_string(), taxonomy());
+        let reference = ground_declared(&menagerie("InstanceFunctor"), &peers).unwrap();
+        assert_eq!(
+            set[0].to_owned_archive().unwrap(),
+            reference,
+            "the archived-view pass minted exactly the reference edges"
+        );
+
+        // English leg: the committed into-English menagerie grounds identically
+        // through the per-name resolver and through the owned English peer.
+        let english = English::sample_static();
+        let mut en_set = alloc::vec![Rc::new(
+            materialize(
+                menagerie_into_english_archive(),
+                OntologyName::new_static("menagerie")
+            )
+            .unwrap()
+        )];
+        ground_loaded_set(&mut en_set, english).expect("grounds into English");
+        let mut en_peers = BTreeMap::new();
+        en_peers.insert(
+            ENGLISH_ONTOLOGY.to_string(),
+            project_archive_with_forms(english),
+        );
+        let en_reference = ground_declared(&menagerie_into_english_archive(), &en_peers).unwrap();
+        assert_eq!(
+            en_set[0].to_owned_archive().unwrap(),
+            en_reference,
+            "the per-name English resolver minted exactly the reference edges"
+        );
+
+        // Idempotence: a second pass changes no root (the zero-decode skip).
+        let roots: alloc::vec::Vec<_> = en_set.iter().map(|o| o.root()).collect();
+        ground_loaded_set(&mut en_set, english).expect("re-grounds");
+        assert_eq!(
+            en_set
+                .iter()
+                .map(|o| o.root())
+                .collect::<alloc::vec::Vec<_>>(),
+            roots,
+            "an already-grounded set re-grounds to the same roots (idempotent)"
         );
     }
 }

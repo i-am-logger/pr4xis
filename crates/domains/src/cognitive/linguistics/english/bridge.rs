@@ -44,7 +44,6 @@
 //!   a functor is determined by its finite action on generators, which is why
 //!   the relation→kind table is carried as data and applied by a table lookup.
 
-use alloc::collections::BTreeMap;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
@@ -112,30 +111,74 @@ pub use pr4xis_runtime::definition::{FORM_KIND, form_atom};
 pub fn project_archive(english: &English) -> Archive {
     let nodes = english
         .concepts()
-        .map(|concept| Definition {
-            kind: SYNSET_KIND.to_string(),
-            name: concept.original_id().to_string(),
-            edges: english
-                .parents(concept.id())
-                .iter()
-                .filter_map(|&parent| {
-                    english.concept(parent).map(|p| {
-                        (
-                            HYPERNYM_REL.to_string(),
-                            EdgeTarget::Local(p.original_id().to_string()),
-                        )
-                    })
-                })
-                .collect(),
-            axioms: Vec::new(),
-            lexical: concept.definitions().next().map(|d| d.to_string()),
-        })
+        .map(|concept| synset_definition(english, &concept))
         .collect();
 
     Archive {
         nodes,
         connections: Vec::new(),
     }
+}
+
+/// ONE synset's projected [`Definition`] — the node shape [`project_archive`]
+/// mints, factored out so a PER-NAME resolver ([`english_atom_address`]) builds
+/// exactly the same node (hence exactly the same content address) as the full
+/// projection, BY CONSTRUCTION rather than by a parallel re-implementation.
+/// The shape depends only on the synset itself and its direct parents'
+/// `original_id`s, so a single-synset build is byte-identical to the full
+/// projection's node for that synset.
+pub fn synset_definition(
+    english: &English,
+    concept: &super::concept_store::ConceptView<'_>,
+) -> Definition {
+    Definition {
+        kind: SYNSET_KIND.to_string(),
+        name: concept.original_id().to_string(),
+        edges: english
+            .parents(concept.id())
+            .iter()
+            .filter_map(|&parent| {
+                english.concept(parent).map(|p| {
+                    (
+                        HYPERNYM_REL.to_string(),
+                        EdgeTarget::Local(p.original_id().to_string()),
+                    )
+                })
+            })
+            .collect(),
+        axioms: Vec::new(),
+        lexical: concept.definitions().next().map(|d| d.to_string()),
+    }
+}
+
+/// Resolve ONE English grounding-target name to its content address — the
+/// PER-NAME resolver the grounding pass uses instead of projecting the whole
+/// `english_wordnet` archive per install ([`project_archive_with_forms`], the
+/// measured +82.79 MiB per-install transient this replaces).
+///
+/// Resolution order mirrors the full projection's node order (the order
+/// `type_lens`'s first-match `find` over [`project_archive_with_forms`]
+/// observed): SYNSETS first — a name that is a synset `original_id` resolves
+/// to that synset's [`synset_definition`] address — then FORM atoms — a name
+/// present in the word index resolves to its [`form_atom`] address. `Ok(None)`
+/// when English holds neither (the caller's fail-closed
+/// `GroundTargetAbsent`).
+///
+/// Address agreement with the full projection is BY CONSTRUCTION for synsets
+/// ([`synset_definition`] is the same code path) and documented for forms (a
+/// [`form_atom`] is position-independent; the with-forms projection appends
+/// the identical atom).
+pub fn english_atom_address(
+    english: &English,
+    name: &str,
+) -> Result<Option<ContentAddress>, pr4xis_runtime::codec::CodecError> {
+    if let Some(concept) = english.concept_by_synset(name) {
+        return synset_definition(english, &concept).address().map(Some);
+    }
+    if !english.lookup(name).is_empty() {
+        return form_atom(name).address().map(Some);
+    }
+    Ok(None)
 }
 
 /// The `english_wordnet` archive a statute grounds INTO: the synset nodes (the
@@ -154,29 +197,6 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
         .nodes
         .extend(english.word_index.words().map(form_atom));
     archive
-}
-
-/// The reverse index a cross-ontology `reaches` needs to resolve an into-English
-/// grounded edge: each synset node's content address → its `original_id` (the
-/// synset name, e.g. `s-dog`) — the inverse of the addressing
-/// [`project_archive`] mints.
-///
-/// DERIVED from [`project_archive`] (the same synset nodes an into-English
-/// grounding functor targets by content address via
-/// [`type_lens`](pr4xis_runtime::grounding::type_lens); the Form atoms
-/// [`project_archive_with_forms`] appends do not change a synset node's address,
-/// so the synset-only projection and the with-forms grounding target agree on
-/// every synset address). COUPLING-FREE: it knows only `&English`, never the
-/// loaded set or which atoms are grounded into — the CALLER
-/// ([`ComposedReasoner`](crate::cognitive::linguistics::composed::ComposedReasoner))
-/// retains only the edge-targeted subset, so the resident index is bounded by
-/// grounded-target count, not synset count.
-pub fn english_synset_atoms(english: &English) -> BTreeMap<ContentAddress, alloc::string::String> {
-    project_archive(english)
-        .nodes
-        .iter()
-        .filter_map(|n| n.address().ok().map(|addr| (addr, n.name.clone())))
-        .collect()
 }
 
 /// The committed WordNet→praxis projection functor — the CANONICAL home of the

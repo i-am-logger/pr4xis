@@ -640,6 +640,237 @@ mod tests {
     pr4xis::register_praxis_value!(prop_untrusted_accepts_canonical_pack, Verifiable);
     pr4xis::register_praxis_value!(prop_family_multi_kind_faithful, Verifiable);
 
+    /// A generated `Quad` family bundle (each label's per-id runs, independent).
+    fn family_bundle_strategy()
+    -> impl Strategy<Value = Vec<(usize, HashMap<DenseKey, Vec<Ref<4>>>)>> {
+        prop::collection::vec(
+            prop::collection::vec(prop::collection::vec((0u64..1000).prop_map(r), 0..3), 0..6),
+            Quad::COUNT..=Quad::COUNT,
+        )
+        .prop_map(|cols| {
+            let rows = cols.iter().map(Vec::len).max().unwrap_or(0);
+            cols.iter()
+                .map(|runs| {
+                    let mut m: HashMap<DenseKey, Vec<Ref<4>>> = HashMap::new();
+                    for (i, run) in runs.iter().enumerate() {
+                        if !run.is_empty() {
+                            m.insert(r(i as u64), run.clone());
+                        }
+                    }
+                    (rows, m)
+                })
+                .collect()
+        })
+    }
+
+    proptest! {
+        /// ∀ single-byte mutation of a real packed FAMILY buffer (byte payload
+        /// AND declared column table), `ArchivedCsrFamily::from_untrusted_buf`
+        /// is TOTAL — `Err`, or an `Ok` family whose every read (all labels,
+        /// all rows + an over-range probe, edge counts) completes without
+        /// panicking and without an out-of-bounds read. The frame's
+        /// `(row_count, edge_count)` header is the genuinely new attack
+        /// surface the store bundle introduces; this is its hostile-bytes
+        /// property (the wave-4 dict discipline, applied to the family).
+        #[test]
+        fn prop_mutated_untrusted_family_is_total(
+            bundle in family_bundle_strategy(),
+            byte_idx in 0usize..4096,
+            xor in 1u8..=255,
+            col_tamper in 0usize..3,
+            col_delta in 1usize..4,
+        ) {
+            let fam = ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::build(bundle);
+            let bytes = fam.as_bytes().to_vec();
+            let mut cols = fam.col_layout();
+            let rows = cols.iter().map(|&(rc, _)| rc).max().unwrap_or(0);
+            // Tamper leg 0: flip a payload byte. Leg 1: inflate a column's
+            // edge_count. Leg 2: inflate a column's row_count.
+            let mut bad = bytes.clone();
+            match col_tamper {
+                0 if !bad.is_empty() => {
+                    let i = byte_idx % bad.len();
+                    bad[i] ^= xor;
+                }
+                1 => cols[byte_idx % Quad::COUNT].1 += col_delta,
+                _ => cols[byte_idx % Quad::COUNT].0 += col_delta,
+            }
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                || -> Result<(), TestCaseError> {
+                    match ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::from_untrusted_buf(
+                        aligned(&bad),
+                        &cols,
+                    ) {
+                        Err(_) => Ok(()), // fail-closed refusal: correct
+                        Ok(f) => {
+                            for &tag in Quad::all() {
+                                let _ = f.edge_count(tag);
+                                for i in 0..(rows as u64 + 2) {
+                                    let _ = f.column(tag, r(i));
+                                }
+                            }
+                            Ok(())
+                        }
+                    }
+                },
+            ));
+            match outcome {
+                Ok(res) => res?,
+                Err(_) => return Err(TestCaseError::fail(
+                    "family from_untrusted_buf PANICKED on tampered input".to_string(),
+                )),
+            }
+        }
+
+        /// POSITIVE CONTROL: every canonically built family round-trips through
+        /// `as_bytes` + `col_layout` + `from_untrusted_buf`, and the accepted
+        /// family reads label-identically to the owned baseline.
+        #[test]
+        fn prop_untrusted_family_accepts_canonical_build(
+            bundle in family_bundle_strategy(),
+            probe in 0u64..8,
+        ) {
+            let built = ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::build(bundle.clone());
+            let accepted = ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::from_untrusted_buf(
+                aligned(built.as_bytes()),
+                &built.col_layout(),
+            ).map_err(|e| TestCaseError::fail(format!("canonical family refused: {e}")))?;
+            let owned = OwnedCsrFamily::<Quad, PodRun<Ref<4>>>::build(bundle);
+            let rows = built.col_layout().iter().map(|&(rc, _)| rc).max().unwrap_or(0);
+            for &tag in Quad::all() {
+                prop_assert_eq!(accepted.edge_count(tag), owned.edge_count(tag));
+                prop_assert_eq!(accepted.row_count(tag), owned.row_count(tag));
+                for i in 0..(rows as u64 + probe + 1) {
+                    prop_assert_eq!(accepted.column(tag, r(i)), owned.column(tag, r(i)));
+                }
+            }
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_mutated_untrusted_family_is_total, Honest);
+    pr4xis::register_praxis_value!(prop_untrusted_family_accepts_canonical_build, Verifiable);
+
+    /// Every NAMED forgery of a real packed FAMILY buffer / column table is
+    /// refused with its typed verdict — the per-invariant teeth behind the
+    /// family ∀-mutation property.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn untrusted_family_refuses_each_named_forgery() {
+        // A Quad family: W gets 2 rows ([7], [3, 9]), the rest empty over 2 rows.
+        let bundle: Vec<(usize, HashMap<DenseKey, Vec<Ref<4>>>)> = Quad::all()
+            .iter()
+            .map(|&tag| {
+                let mut m: HashMap<DenseKey, Vec<Ref<4>>> = HashMap::new();
+                if tag == Quad::W {
+                    m.insert(r(0), alloc::vec![r(7)]);
+                    m.insert(r(1), alloc::vec![r(3), r(9)]);
+                }
+                (2usize, m)
+            })
+            .collect();
+        let fam = ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::build(bundle);
+        let bytes = fam.as_bytes().to_vec();
+        let cols = fam.col_layout();
+        let refuse = |bad: &[u8], cols: &[(usize, usize)]| match ArchivedCsrFamily::<
+            Quad,
+            PodRun<Ref<4>>,
+        >::from_untrusted_buf(
+            aligned(bad), cols
+        ) {
+            Err(e) => e,
+            Ok(_) => panic!("forged family must be refused"),
+        };
+
+        // Wrong column count (one entry short / one extra).
+        assert!(matches!(
+            refuse(&bytes, &cols[..Quad::COUNT - 1]),
+            PackedCsrError::WrongColumnCount { .. }
+        ));
+        let mut extra = cols.clone();
+        extra.push((0, 0));
+        assert!(matches!(
+            refuse(&bytes, &extra),
+            PackedCsrError::WrongColumnCount { .. }
+        ));
+        // Inflated edge_count / row_count: the declared layout no longer equals
+        // the buffer length exactly.
+        let mut bad_cols = cols.clone();
+        bad_cols[0].1 += 1;
+        assert!(matches!(
+            refuse(&bytes, &bad_cols),
+            PackedCsrError::LengthMismatch { .. }
+        ));
+        let mut bad_cols = cols.clone();
+        bad_cols[0].0 += 1;
+        assert!(matches!(
+            refuse(&bytes, &bad_cols),
+            PackedCsrError::LengthMismatch { .. }
+        ));
+        // A count past u32 addressability is an overflow refusal, never an
+        // allocation or a truncating cast.
+        let mut bad_cols = cols.clone();
+        bad_cols[0].1 = u32::MAX as usize + 1;
+        assert!(matches!(
+            refuse(&bytes, &bad_cols),
+            PackedCsrError::LayoutOverflow
+        ));
+        let mut bad_cols = cols.clone();
+        bad_cols[0].0 = usize::MAX - 1;
+        assert!(matches!(
+            refuse(&bytes, &bad_cols),
+            PackedCsrError::LayoutOverflow
+        ));
+        // Trailing garbage after the exact layout.
+        let mut bad = bytes.clone();
+        bad.push(0);
+        assert!(matches!(
+            refuse(&bad, &cols),
+            PackedCsrError::LengthMismatch { .. }
+        ));
+        // Non-monotone CSR offsets in the W column: W is the first column, its
+        // offsets array starts right after ALL columns' targets (3 edges × 8).
+        let offsets_at = 3 * 8;
+        let mut bad = bytes.clone();
+        bad[offsets_at + 4] = 0xf0; // offset[1] jumps past edge_count
+        assert!(matches!(
+            refuse(&bad, &cols),
+            PackedCsrError::ValueOffsetsNotMonotone { .. }
+        ));
+
+        // CheckedEnumRun family: an out-of-range discriminant in the targets
+        // region is InvalidPayload (the payload sweep guards the zero-copy cast).
+        let ebundle: Vec<(usize, HashMap<DenseKey, Vec<Tri>>)> = Quad::all()
+            .iter()
+            .map(|&tag| {
+                let mut m: HashMap<DenseKey, Vec<Tri>> = HashMap::new();
+                if tag == Quad::W {
+                    m.insert(r(0), alloc::vec![Tri::A, Tri::C]);
+                }
+                (1usize, m)
+            })
+            .collect();
+        let efam = ArchivedCsrFamily::<Quad, CheckedEnumRun<Tri>>::build(ebundle);
+        let mut ebad = efam.as_bytes().to_vec();
+        ebad[0] = Tri::C as u8 + 1; // first targets byte out of range
+        let err = match ArchivedCsrFamily::<Quad, CheckedEnumRun<Tri>>::from_untrusted_buf(
+            aligned(&ebad),
+            &efam.col_layout(),
+        ) {
+            Err(e) => e,
+            Ok(_) => panic!("out-of-range family discriminant must be refused"),
+        };
+        assert!(matches!(err, PackedCsrError::InvalidPayload));
+
+        // Positive control: the untouched canonical bytes + table are accepted
+        // and read identically to the source family.
+        let ok =
+            ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::from_untrusted_buf(aligned(&bytes), &cols)
+                .expect("canonical family must be accepted");
+        assert_eq!(ok.column(Quad::W, r(0)), &[r(7)]);
+        assert_eq!(ok.column(Quad::W, r(1)), &[r(3), r(9)]);
+        assert_eq!(ok.edge_count(Quad::W), 3);
+    }
+
     /// Every NAMED forgery of a real packed buffer is refused with its typed
     /// verdict — the per-invariant teeth behind the ∀-mutation property (which
     /// alone could pass with a validator that accepts everything).

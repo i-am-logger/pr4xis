@@ -317,7 +317,7 @@ fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
 // build reads the root from `praxis.lock`, so this constant is only exercised by
 // the isolated `cargo publish --verify`, which is why the drift reached CI.)
 const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "98f7975b25cd55112dfc79d39c904c8113ca03e8a368492bb38c6ce9466b5609";
+    "873a0b972c8768b6b87d8cf663e1a30716280cce5d30cef36e623f1f0aca886b";
 
 /// Decode the committed registry MANIFEST `.prx`
 /// (`crates/domains/data/registry/praxis-registry.prx`) into its

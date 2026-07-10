@@ -6,34 +6,41 @@ fn main() {
     let manifest_dir =
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set"));
 
-    // ---------- English / WordNet (the compact `.prx.gz`, baked in) ------
-    // Emit the COMPLETE WordNet ontology as the size-reduced `.prx.gz` and bake
-    // it into the wasm via `include_bytes!`; the runtime gunzips and loads it
-    // through the fail-closed compact content gate
-    // (`load_compact_english_prx_gz_gated`, verified against the embedded
-    // praxis.lock `[compact_archive_signatures]` pin) into the full typed graph.
-    use pr4xis_domains::social::software::markup::xml::lmf::{compact_succinct, reader};
+    // ---------- English / WordNet (the STORE BUNDLE `.stores.gz`, baked in) --
+    // Emit the COMPLETE WordNet ontology as the nine BUILT store buffers —
+    // build.rs runs `English::from_wordnet` ONCE, natively, over the succinct
+    // decode (`emit_english_store_bundle_gz`), frames the buffers, gzips — and
+    // bake the bundle into the wasm via `include_bytes!`. The runtime gunzips
+    // and loads it through the fail-closed store-bundle content gate
+    // (`load_english_store_bundle_gz_gated`, verified against the embedded
+    // praxis.lock `[store_bundle_signatures]` pin) by PER-STORE VALIDATION
+    // ALONE: no WordNet decode, no `from_wordnet`, no owned intermediate maps
+    // in the browser — the former +348 MiB load transient (which wasm32's
+    // never-shrinking linear memory paid FOREVER) collapses to ~the resident
+    // cost. Same-toolchain by construction: this build.rs and the wasm runtime
+    // compile from ONE Cargo.lock (same rkyv version/features; rkyv's archived
+    // layout is little-endian and arch-independent, and both host and wasm32
+    // are LE), which is exactly the `[store_bundle_signatures]` trust class.
+    use pr4xis_domains::social::software::markup::xml::lmf::prx::{
+        emit_english_store_bundle_gz, emit_english_store_bundle_gz_from_wordnet,
+    };
     let wordnet_path = "../../crates/domains/data/wordnet/english-wordnet-2025.xml";
-    let english_prx = out_dir.join("english.prx.gz");
+    let english_stores = out_dir.join("english.stores.gz");
     if Path::new(wordnet_path).exists() {
         println!("cargo:rerun-if-changed={}", wordnet_path);
-        let xml = std::fs::read_to_string(wordnet_path).expect("read WordNet XML");
-        let wn = reader::read_wordnet(&xml).expect("parse WordNet XML at build time");
-        let prx_gz = compact_succinct::emit_prx_gz(&wn);
-        eprintln!(
-            "Emitted english.prx.gz: {} bytes, {} synsets, {} entries",
-            prx_gz.len(),
-            wn.synsets.len(),
-            wn.entries.len()
-        );
-        std::fs::write(&english_prx, prx_gz).expect("write english.prx.gz");
+        let source = std::fs::read(wordnet_path).expect("read WordNet XML");
+        let bundle_gz =
+            emit_english_store_bundle_gz(&source).expect("emit English store bundle at build time");
+        eprintln!("Emitted english.stores.gz: {} bytes", bundle_gz.len());
+        std::fs::write(&english_stores, bundle_gz).expect("write english.stores.gz");
     } else {
         println!("cargo:warning=WordNet XML not found at build time. English will be empty.");
         std::fs::write(
-            &english_prx,
-            compact_succinct::emit_prx_gz(&empty_wordnet()),
+            &english_stores,
+            emit_english_store_bundle_gz_from_wordnet(&empty_wordnet())
+                .expect("emit empty English store bundle"),
         )
-        .expect("write empty english.prx.gz");
+        .expect("write empty english.stores.gz");
     }
 
     // ---------- On-demand sources (Async staging — downloaded XML) ------

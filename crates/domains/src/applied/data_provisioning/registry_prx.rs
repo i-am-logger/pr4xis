@@ -83,7 +83,7 @@ pub const PRAXIS_REGISTRY_PRX: &[u8] = include_bytes!(concat!(
 /// never silently mis-loaded. Regenerated (with the `.prx` itself) by
 /// `cargo test -p pr4xis-domains -- --ignored regenerate_praxis_registry_prx`.
 pub const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "98f7975b25cd55112dfc79d39c904c8113ca03e8a368492bb38c6ce9466b5609";
+    "873a0b972c8768b6b87d8cf663e1a30716280cce5d30cef36e623f1f0aca886b";
 
 /// Append `bytes` length-prefixed (LEB128 varint length + raw bytes) — the SAME
 /// framing as [`raw_source_prx::encode_raw_source`](super::raw_source_prx), so

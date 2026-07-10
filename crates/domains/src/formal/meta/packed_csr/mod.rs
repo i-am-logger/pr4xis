@@ -469,6 +469,10 @@ mod archived {
         /// [`CheckedEnumRun`] an out-of-range enum discriminant, which would
         /// make the zero-copy `&[Enum]` cast unsound.
         InvalidPayload,
+        /// A family buffer's declared column table does not carry exactly one
+        /// `(row_count, edge_count)` entry per [`LabelKind`] label — the layout
+        /// is unaddressable without one entry per column.
+        WrongColumnCount { expected: usize, got: usize },
     }
 
     impl core::fmt::Display for PackedCsrError {
@@ -516,6 +520,11 @@ mod archived {
                     f,
                     "packed CSR dict: value payload fails column validation (an out-of-range \
                      enum discriminant)"
+                ),
+                PackedCsrError::WrongColumnCount { expected, got } => write!(
+                    f,
+                    "packed CSR family: {got} declared column(s), but the label set has \
+                     {expected} — one (row_count, edge_count) entry per label is required"
                 ),
             }
         }
@@ -1036,6 +1045,141 @@ mod archived {
         /// The dense row count (key space) of `tag`.
         pub fn row_count(&self, tag: Tag) -> usize {
             self.meta[tag.index()].row_count
+        }
+
+        /// The packed family bytes — ONE buffer holding every column's targets
+        /// array then every column's CSR offsets, in [`LabelKind`] layout order.
+        /// Together with [`col_layout`](Self::col_layout) this is the family's
+        /// complete serialized form (the per-column layout lives in the struct,
+        /// not the buffer — see the type docs).
+        pub fn as_bytes(&self) -> &[u8] {
+            self.buf.as_slice()
+        }
+
+        /// The per-column `(row_count, edge_count)` table, in [`LabelKind`]
+        /// layout order — the metadata a serializer must carry beside
+        /// [`as_bytes`](Self::as_bytes) because the buffer itself stores no
+        /// header ([`from_untrusted_buf`](Self::from_untrusted_buf) rebuilds
+        /// the per-column layout from it).
+        pub fn col_layout(&self) -> Vec<(usize, usize)> {
+            self.meta
+                .iter()
+                .map(|m| (m.row_count, m.edge_count))
+                .collect()
+        }
+
+        /// The VALIDATING construction path for a family buffer this process
+        /// did not pack (a wire payload, a file, an embedded blob) — the family
+        /// sibling of [`ArchivedCsrDict::from_untrusted_buf`], with the same
+        /// fail-closed discipline. `cols` is the declared per-column
+        /// `(row_count, edge_count)` table (from the frame header), in
+        /// [`LabelKind`] layout order.
+        ///
+        /// Checks, in order:
+        /// 1. exactly one `(row_count, edge_count)` entry per label
+        ///    ([`PackedCsrError::WrongColumnCount`]);
+        /// 2. the declared layout — every column's targets region
+        ///    (`edge_count · SIZE` bytes, concatenated in layout order) followed
+        ///    by every column's CSR offsets region (`(row_count + 1) · 4`
+        ///    bytes) — is overflow-free, u32-addressable, and equals
+        ///    `buf.len()` EXACTLY;
+        /// 3. every column's CSR offsets start at 0, are monotone
+        ///    non-decreasing, and end at its `edge_count` (the exact partition
+        ///    `column` casts from);
+        /// 4. the whole targets region passes the value column's validation
+        ///    ([`CheckedEnumRun`] discriminant sweep), keeping the zero-copy
+        ///    cast sound on hostile bytes.
+        ///
+        /// Fail-closed and TOTAL: a forged header or buffer yields a typed
+        /// [`PackedCsrError`] — never a panic, never an out-of-bounds read, and
+        /// never an allocation sized from an unvalidated field. An accepted
+        /// buffer satisfies every precondition `cast_elems` and the readers
+        /// rely on.
+        pub fn from_untrusted_buf(
+            buf: AlignedVec<16>,
+            cols: &[(usize, usize)],
+        ) -> Result<Self, PackedCsrError> {
+            if cols.len() != Tag::COUNT {
+                return Err(PackedCsrError::WrongColumnCount {
+                    expected: Tag::COUNT,
+                    got: cols.len(),
+                });
+            }
+            let s = buf.as_slice();
+            let es = V::Elem::SIZE;
+            // 2. Overflow-checked layout from the declared column table:
+            //    targets regions first (layout order), then offsets regions —
+            //    must equal the buffer length EXACTLY. The CSR offsets are
+            //    little-endian u32s, so a count past u32::MAX is unsatisfiable
+            //    by any real pack.
+            let mut targets_at = Vec::with_capacity(Tag::COUNT);
+            let mut cursor = 0usize;
+            for &(_, ec) in cols {
+                if ec > u32::MAX as usize {
+                    return Err(PackedCsrError::LayoutOverflow);
+                }
+                targets_at.push(cursor);
+                cursor = ec
+                    .checked_mul(es)
+                    .and_then(|b| cursor.checked_add(b))
+                    .ok_or(PackedCsrError::LayoutOverflow)?;
+            }
+            let mut meta = Vec::with_capacity(Tag::COUNT);
+            for (k, &(rc, ec)) in cols.iter().enumerate() {
+                if rc > u32::MAX as usize {
+                    return Err(PackedCsrError::LayoutOverflow);
+                }
+                let offsets_at = cursor;
+                let off_bytes = rc
+                    .checked_add(1)
+                    .and_then(|m| m.checked_mul(4))
+                    .ok_or(PackedCsrError::LayoutOverflow)?;
+                cursor = cursor
+                    .checked_add(off_bytes)
+                    .ok_or(PackedCsrError::LayoutOverflow)?;
+                meta.push(ColMeta {
+                    row_count: rc,
+                    edge_count: ec,
+                    targets_at: targets_at[k],
+                    offsets_at,
+                });
+            }
+            if cursor != s.len() {
+                return Err(PackedCsrError::LengthMismatch {
+                    declared: cursor,
+                    actual: s.len(),
+                });
+            }
+            // 3. Every column's CSR offsets: start at 0, monotone, exact end at
+            //    its edge_count. (All reads are in-bounds: the regions were
+            //    sized above.)
+            for m in &meta {
+                let mut prev = read_u32_le(s, m.offsets_at);
+                if prev != 0 {
+                    return Err(PackedCsrError::ValueOffsetsNotMonotone { index: 0 });
+                }
+                for i in 1..=m.row_count {
+                    let cur = read_u32_le(s, m.offsets_at + i * 4);
+                    if cur < prev {
+                        return Err(PackedCsrError::ValueOffsetsNotMonotone { index: i });
+                    }
+                    prev = cur;
+                }
+                if prev != m.edge_count {
+                    return Err(PackedCsrError::ValueOffsetsNotMonotone { index: m.row_count });
+                }
+            }
+            // 4. Column payload validation over the whole targets region (the
+            //    bytes before the first offsets array).
+            let payload_end = meta.iter().map(|m| m.offsets_at).min().unwrap_or(0);
+            if !V::validate_payload(&s[..payload_end]) {
+                return Err(PackedCsrError::InvalidPayload);
+            }
+            Ok(Self {
+                buf,
+                meta,
+                _pd: PhantomData,
+            })
         }
     }
 

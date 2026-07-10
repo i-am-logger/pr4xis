@@ -17,7 +17,7 @@ use pr4xis_domains::formal::information::knowledge::{
 };
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 use pr4xis_domains::formal::meta::grounding::ground_loaded_set;
-use pr4xis_domains::social::software::markup::xml::lmf::prx::load_compact_english_prx_gz_gated;
+use pr4xis_domains::social::software::markup::xml::lmf::prx::load_english_store_bundle_gz_gated;
 use pr4xis_domains::social::software::markup::xml::owl::bridge::owl_runtime_ontology;
 use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
@@ -28,24 +28,31 @@ use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::ontology::{RuntimeOntology, materialize};
 
-/// The complete WordNet ontology, baked in as the compact `.prx.gz` (emitted by
-/// build.rs). `load_english` gunzips and materializes the full `English` —
-/// fail-closed against the `praxis.lock` `[compact_archive_signatures]` pin.
-const ENGLISH_PRX_GZ: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/english.prx.gz"));
+/// The complete WordNet ontology, baked in as the STORE BUNDLE `.stores.gz`
+/// (the nine BUILT English store buffers, framed + gzipped — emitted by
+/// build.rs). `load_english` gunzips and ASSEMBLES the full `English` by
+/// per-store validation alone — fail-closed against the `praxis.lock`
+/// `[store_bundle_signatures]` pin. NO WordNet decode and NO `from_wordnet`
+/// run in the browser: the former +348 MiB owned-map load transient — which
+/// wasm32's never-shrinking linear memory paid permanently — collapses to
+/// ~the resident cost.
+const ENGLISH_STORES_GZ: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/english.stores.gz"));
 
-/// Materialize the embedded English through the SAME fail-closed compact
-/// content gate the native `english_load_owned()` fast path takes: look the
-/// `[compact_archive_signatures]` pin up in the embedded registry by the ONE
+/// Materialize the embedded English through the SAME fail-closed store-bundle
+/// content gate the native `english_load_owned()` fastest tier takes: look the
+/// `[store_bundle_signatures]` pin up in the embedded registry by the ONE
 /// registered `Language`-kind source (never a name literal), then
-/// gunzip → verify the succinct bytes hash to that pin → decode. The pin ships
-/// inside the wasm (the registry `.prx` is baked in), so the gate needs no
-/// filesystem. Fail-closed and LOUD: an unpinned Language source, or embedded
-/// bytes that do not hash to the committed pin (tampered / stale / an
-/// empty-corpus build), refuse — a build-invariant violation (build.rs emits
-/// the bytes from the same pinned source), never a silent install.
+/// gunzip → verify the framed bytes hash to that pin → split frames →
+/// per-store validate → assemble. The pin ships inside the wasm (the registry
+/// `.prx` is baked in), so the gate needs no filesystem, and the pin's
+/// same-toolchain trust class holds BY CONSTRUCTION: build.rs emitted the
+/// embedded bundle from this build's own Cargo.lock. Fail-closed and LOUD: an
+/// unpinned Language source, or embedded bytes that do not hash to the
+/// committed pin (tampered / stale / an empty-corpus build), refuse — a
+/// build-invariant violation, never a silent install.
 fn load_english() -> English {
     use pr4xis_domains::applied::data_provisioning::registry::{
-        data_sources, lock_compact_archive_signature,
+        data_sources, lock_store_bundle_signature,
     };
     use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
@@ -54,11 +61,13 @@ fn load_english() -> English {
         .find(|e| e.kind == SourceTaxonomyConcept::Language)
         .expect("load_english(): no Language-kind source registered");
     let key = format!("{}@{}", entry.name, entry.version);
-    let pin = lock_compact_archive_signature(&entry.name, &entry.version).unwrap_or_else(|| {
-        panic!("load_english(): no [compact_archive_signatures] pin for {key}; refusing to load")
+    let pin = lock_store_bundle_signature(&entry.name, &entry.version).unwrap_or_else(|| {
+        panic!("load_english(): no [store_bundle_signatures] pin for {key}; refusing to load")
     });
-    load_compact_english_prx_gz_gated(ENGLISH_PRX_GZ, pin, &key).unwrap_or_else(|e| {
-        panic!("load_english(): embedded english.prx.gz failed the compact content gate: {e}")
+    load_english_store_bundle_gz_gated(ENGLISH_STORES_GZ, pin, &key).unwrap_or_else(|e| {
+        panic!(
+            "load_english(): embedded english.stores.gz failed the store-bundle content gate: {e}"
+        )
     })
 }
 
@@ -1130,15 +1139,16 @@ mod acceptance {
         panic!("expected at least one glossed embedded concept unknown to WordNet");
     }
 
-    /// TEETH for the embedded-English content gate: the baked `.prx.gz` loads
-    /// ONLY against the committed `[compact_archive_signatures]` pin. Both
+    /// TEETH for the embedded-English content gate: the baked `.stores.gz`
+    /// loads ONLY against the committed `[store_bundle_signatures]` pin. Both
     /// legs refuse loudly — the TRUE bytes against a WRONG pin (the pin leg),
     /// and TAMPERED bytes against the true pin (the content leg) — mirroring
-    /// the native `english_load_owned()` compact gate's fail-closed contract.
+    /// the native `english_load_owned()` store-bundle gate's fail-closed
+    /// contract.
     #[test]
     fn tampered_embedded_english_refuses_loudly() {
         use pr4xis_domains::applied::data_provisioning::registry::{
-            LockDigest, data_sources, lock_compact_archive_signature,
+            LockDigest, data_sources, lock_store_bundle_signature,
         };
         use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
@@ -1147,31 +1157,31 @@ mod acceptance {
             .find(|e| e.kind == SourceTaxonomyConcept::Language)
             .expect("the one registered Language-kind source");
         let key = format!("{}@{}", entry.name, entry.version);
-        let pin = lock_compact_archive_signature(&entry.name, &entry.version)
-            .expect("english carries a [compact_archive_signatures] pin");
+        let pin = lock_store_bundle_signature(&entry.name, &entry.version)
+            .expect("english carries a [store_bundle_signatures] pin");
 
         // Positive control: the baked bytes verify against the committed pin.
         assert!(
-            load_compact_english_prx_gz_gated(ENGLISH_PRX_GZ, pin, &key).is_ok(),
-            "the embedded english.prx.gz must load through the committed pin"
+            load_english_store_bundle_gz_gated(ENGLISH_STORES_GZ, pin, &key).is_ok(),
+            "the embedded english.stores.gz must load through the committed pin"
         );
 
         // Pin leg: the true bytes against a WRONG pin refuse.
         let wrong = LockDigest::address("0".repeat(64));
         assert!(
-            load_compact_english_prx_gz_gated(ENGLISH_PRX_GZ, &wrong, &key).is_err(),
-            "a wrong pin must refuse the embedded english.prx.gz"
+            load_english_store_bundle_gz_gated(ENGLISH_STORES_GZ, &wrong, &key).is_err(),
+            "a wrong pin must refuse the embedded english.stores.gz"
         );
 
         // Content leg: tampered bytes against the TRUE pin refuse (a corrupted
         // stream fails the gunzip/decode, an intact-but-altered one fails the
         // content-address check — refusal either way, never a silent install).
-        let mut tampered = ENGLISH_PRX_GZ.to_vec();
+        let mut tampered = ENGLISH_STORES_GZ.to_vec();
         let mid = tampered.len() / 2;
         tampered[mid] ^= 0xff;
         assert!(
-            load_compact_english_prx_gz_gated(&tampered, pin, &key).is_err(),
-            "tampered english.prx.gz bytes must refuse loudly"
+            load_english_store_bundle_gz_gated(&tampered, pin, &key).is_err(),
+            "tampered english.stores.gz bytes must refuse loudly"
         );
     }
 
