@@ -15,6 +15,10 @@ pub mod constitution_coverage;
 pub mod dtd;
 pub mod gap_analysis;
 pub mod grounding;
+/// Runnable engine-law axioms for the declared-grounding pass — extension-only,
+/// idempotence, and the fail-closed defer/refuse semantics, registered and
+/// discoverable (the `reach_laws` shape).
+pub mod grounding_laws;
 pub mod identifier_format;
 pub mod lens;
 pub mod lens_composition;
