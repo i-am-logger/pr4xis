@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-runtime-v0.27.0...pr4xis-runtime-v0.28.0) - 2026-07-10
+
+### Chore
+
+- move the remaining internal working docs out of the published docs/ tree
+
+### Docs
+
+- fix 109 feature-gated intra-doc links — the dev-ci docs stage was red
+
+### Feat
+
+- *(english)* [**breaking**] audit-5 wave 5 — ship the 9 store buffers as the load payload; the +348 MiB wasm transient is dead
+- *(hardening)* audit-5 wave 4 — validated PackedCsr entry, load ∀-properties, self-describing load envelope
+- *(domains)* [**breaking**] generalize grounding -- any .prx carries its grounding functor as data (W2.1)
+- *(domains)* statutes compose -- a loaded USC section reaches the statute/law taxonomy (Step 4)
+- *(runtime)* Lever A -- RuntimeOntology reasons over the archived rkyv buffer, zero-copy (Step 1c)
+- *(runtime)* lazy memoized reachability -- drop the pre-folded owned closure (Step 1a)
+- *(runtime)* ArchiveLens -- a law-checked rkyv lens over the runtime Archive (Step 0)
+
+### Fix
+
+- *(audit)* audit-4 — 21 confirmed findings on the post-review commits, all fixed or justified
+- *(review)* third-review polish + hardening -- doc accuracy, test teeth, one primitive-leak
+- *(grounding)* make into-English reachable via the public load path + fail-close two silent drops
+
+### Perf
+
+- *(closure)* [**breaking**] audit-5 wave 3 — u32-CSR MaterializedClosure, strings resident once (−42 MiB on title 42)
+- *(lens)* owned-consuming put leg — the rich stores MOVE into their mirrors at build
+- *(runtime,wasm)* index by-name node lookup + compile-time embedded-demo guard (follow-ups)
+
+### Refactor
+
+- *(reach)* [**breaking**] ReachSubstrate engine — LazyKindReach and the 216 MiB English bridge deleted
+- *(reach)* [**breaking**] one graded-reach kernel for both engines — the de-privilege-English core
+- *(english)* all 9 archived stores → 2 cited WellBehavedLens families; English owns nothing
+
 ## [0.27.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-runtime-v0.26.0...pr4xis-runtime-v0.27.0) - 2026-07-06
 
 ### Feat
