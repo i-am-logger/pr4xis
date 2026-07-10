@@ -363,7 +363,8 @@ fn canonical_form_of(
 
 fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     use pr4xis_domains::social::software::markup::xml::lmf::prx::{
-        emit_all_compact_english_prx_gz, emit_all_wordnet_prx_gz, english_compact_prx_cache_dir,
+        emit_all_compact_english_prx_gz, emit_all_english_store_bundles_gz,
+        emit_all_wordnet_prx_gz, english_compact_prx_cache_dir, english_store_bundle_cache_dir,
     };
     use pr4xis_domains::social::software::markup::xml::owl::prx::{
         emit_all_compact_owl_prx_gz, emit_all_prx_gz as emit_all_owl_prx_gz,
@@ -408,6 +409,10 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     // lock space than the rkyv envelopes' `[archive_signatures]`, so they are
     // collected separately.
     let mut compact_artifacts: Vec<EmittedArtifact> = Vec::new();
+    // English store bundles pin into `[store_bundle_signatures]` — a third
+    // lock space (the per-toolchain build-output class, like the rkyv
+    // envelopes, but with its own load gate), collected separately too.
+    let mut store_bundle_artifacts: Vec<EmittedArtifact> = Vec::new();
 
     // The portable compact U.S. Code cache → `.prx-cache/usc-compact/` — the
     // corpus loader's FAST content-address-gated path. Always emitted (it is the
@@ -425,6 +430,19 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     compact_artifacts.extend(
         emit_all_compact_english_prx_gz(&english_compact_dir)
             .map_err(|e| anyhow::anyhow!("emit English compact: {e}"))?,
+    );
+
+    // The English STORE BUNDLE → `.prx-cache/wordnet-stores/` — the FASTEST
+    // `english_load_owned()` tier and the artifact the wasm build.rs embeds
+    // (nine BUILT store buffers, framed + gzipped; assembled back with NO
+    // WordNet decode / no `from_wordnet`). Always emitted; graceful-skip if
+    // the WordNet source is absent. Pins into `[store_bundle_signatures]`
+    // (the per-toolchain build-output class — same-lockstep only, never the
+    // published wire; the compact archive above stays the wire).
+    let english_stores_dir = english_store_bundle_cache_dir(&workspace_root);
+    store_bundle_artifacts.extend(
+        emit_all_english_store_bundles_gz(&english_stores_dir)
+            .map_err(|e| anyhow::anyhow!("emit English store bundles: {e}"))?,
     );
 
     // The portable compact OWL cache → `.prx-cache/ontologies-compact/` — the
@@ -477,7 +495,11 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
     }
 
     let mut total_bytes: u64 = 0;
-    for a in artifacts.iter().chain(&compact_artifacts) {
+    for a in artifacts
+        .iter()
+        .chain(&compact_artifacts)
+        .chain(&store_bundle_artifacts)
+    {
         total_bytes += a.byte_len;
         println!(
             "  compiled  {}@{}  {} bytes  {}",
@@ -485,24 +507,26 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
         );
     }
     println!(
-        "{} archive(s) ({} compact), {total_bytes} bytes total → {}",
-        artifacts.len() + compact_artifacts.len(),
+        "{} archive(s) ({} compact, {} store bundle(s)), {total_bytes} bytes total → {}",
+        artifacts.len() + compact_artifacts.len() + store_bundle_artifacts.len(),
         compact_artifacts.len(),
+        store_bundle_artifacts.len(),
         workspace_root.join(".prx-cache").display()
     );
 
-    if artifacts.is_empty() && compact_artifacts.is_empty() {
+    if artifacts.is_empty() && compact_artifacts.is_empty() && store_bundle_artifacts.is_empty() {
         eprintln!("  [warn]    no registered source on disk — run `pr4xis update` first");
     }
     if lock {
         // Maintainer WRITE mode: record the pins (local; never CI).
         apply_archive_signature_lock(&artifacts, &workspace_root)?;
         apply_compact_archive_signature_lock(&compact_artifacts, &workspace_root)?;
+        apply_store_bundle_signature_lock(&store_bundle_artifacts, &workspace_root)?;
     } else {
         // Default VERIFY mode (CI-safe): each emitted archive's content address
         // must match its committed pin, else drift fails closed. An unpinned
         // source is reported (it just gets no fast path), never a failure.
-        verify_archives_against_lock(&artifacts, &compact_artifacts)?;
+        verify_archives_against_lock(&artifacts, &compact_artifacts, &store_bundle_artifacts)?;
     }
     Ok(())
 }
@@ -547,9 +571,11 @@ fn missing_compilable_sources(workspace_root: &Path) -> Vec<String> {
 fn verify_archives_against_lock(
     envelopes: &[EmittedArtifact],
     compact: &[EmittedArtifact],
+    store_bundles: &[EmittedArtifact],
 ) -> anyhow::Result<()> {
     use pr4xis_domains::applied::data_provisioning::registry::{
         LockDigest, lock_archive_signature, lock_compact_archive_signature,
+        lock_store_bundle_signature,
     };
     let mut drift: Vec<String> = Vec::new();
     let mut unpinned = 0usize;
@@ -577,6 +603,13 @@ fn verify_archives_against_lock(
             "[compact_archive_signatures]",
         );
     }
+    for a in store_bundles {
+        check(
+            a,
+            lock_store_bundle_signature(&a.name, &a.version),
+            "[store_bundle_signatures]",
+        );
+    }
     if !drift.is_empty() {
         anyhow::bail!(
             "praxis.lock pin drift ({} archive(s)) — re-run `pr4xis compile --lock` after \
@@ -585,11 +618,50 @@ fn verify_archives_against_lock(
             drift.join("\n  "),
         );
     }
-    let total = envelopes.len() + compact.len();
+    let total = envelopes.len() + compact.len() + store_bundles.len();
     println!(
         "verified {} archive(s) against praxis.lock pins ({unpinned} unpinned, no fast path).",
         total - unpinned,
     );
+    Ok(())
+}
+
+/// Write each compiled English STORE BUNDLE's content address into the
+/// `[store_bundle_signatures]` section of `praxis.lock`. The write-side
+/// companion to the store-bundle load gate
+/// (`lmf::prx::load_english_store_bundle_gz_gated`); like
+/// [`apply_archive_signature_lock`] — and unlike the compact space — the
+/// pinned address is a per-toolchain build output (four of the nine framed
+/// buffers are rkyv envelopes), valid only within one lockstep.
+fn apply_store_bundle_signature_lock(
+    artifacts: &[EmittedArtifact],
+    workspace_root: &Path,
+) -> anyhow::Result<()> {
+    if artifacts.is_empty() {
+        return Ok(());
+    }
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let mut text = original.clone();
+    for a in artifacts {
+        let key = format!("{}@{}", a.name, a.version);
+        text = pr4xis_domains::applied::data_provisioning::lockfile::set_store_bundle_signature(
+            &text,
+            &key,
+            &a.archive_address,
+        )
+        .map_err(|e| {
+            anyhow::anyhow!("praxis.lock [store_bundle_signatures] rewrite for {key}: {e}")
+        })?;
+    }
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock [store_bundle_signatures] updated.");
+    } else {
+        println!("praxis.lock [store_bundle_signatures] unchanged.");
+    }
     Ok(())
 }
 

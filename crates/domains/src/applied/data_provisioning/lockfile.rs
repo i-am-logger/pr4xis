@@ -146,6 +146,28 @@ pub fn set_compact_archive_signature(
     set_in_section(lockfile_text, "compact_archive_signatures", key, digest_hex)
 }
 
+/// Set the English STORE-BUNDLE content address for `key` (a `"name@version"`
+/// string) to `digest_hex` in the `[store_bundle_signatures]` section of
+/// `lockfile_text`, returning the rewritten text. Written in the tagged emit
+/// form (`blake3:<digest_hex>`).
+///
+/// The write-side companion to the store-bundle load gate
+/// (`lmf::prx::load_english_store_bundle_gz_gated`): a loaded bundle's
+/// re-hashed framed bytes are checked against this pin. Like
+/// [`set_archive_signature`] — and UNLIKE [`set_compact_archive_signature`] —
+/// the pinned address is a per-toolchain build output (four of the nine framed
+/// buffers are rkyv envelopes), so it is valid only within one lockstep (the
+/// wasm binary's embedded bundle, the native `.prx-cache`), never a published
+/// portable wire. Same comment-/order-preserving rewrite; `digest_hex` must be
+/// 64 lowercase hex chars.
+pub fn set_store_bundle_signature(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "store_bundle_signatures", key, digest_hex)
+}
+
 /// Set the canonical-form signature for `key` (a `"name@version"` string)
 /// to `digest_hex` in the `[canonical_signatures]` section of
 /// `lockfile_text`, returning the rewritten text. Written in the tagged

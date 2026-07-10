@@ -17,6 +17,15 @@ pub mod writing_system_store;
 #[cfg(feature = "std")]
 pub mod bridge;
 
+// The English STORE BUNDLE codec — the nine BUILT store buffers framed into
+// one container, assembled back by per-store validation alone (no WordNet
+// decode, no `from_wordnet`). Archived (`prx` + little-endian) only: it
+// serializes the packed store representations verbatim. (Documented by its
+// own module docs; an outer doc comment here would re-scope the module docs'
+// intra-doc links.)
+#[cfg(all(feature = "prx", target_endian = "little"))]
+pub mod store_bundle;
+
 pub use concept_store::{ConceptStore, ConceptStrs, ConceptView};
 pub use ontology::{
     Concept, ConceptId, English, LexicalReasoner, SenseId, WordnetRelations, english_load_owned,

@@ -302,6 +302,22 @@ mod archived {
             Self { buf }
         }
 
+        /// The archived buffer bytes — the store's complete serialized form,
+        /// framed verbatim into the English store bundle.
+        pub fn as_bytes(&self) -> &[u8] {
+            self.buf.as_slice()
+        }
+
+        /// Recover a morphology store from an already-serialized `rkyv` buffer
+        /// this process did NOT produce (a store-bundle frame): run the ONE
+        /// `bytecheck` validation pass ([`RkyvLens::access`]) the trusted
+        /// `build` path runs before admitting the buffer. Fail-closed.
+        pub fn from_validated_buf(buf: AlignedVec<16>) -> Result<Self, String> {
+            MorphologyLens::access(buf.as_slice())
+                .map_err(|e| alloc::format!("morphology store frame failed bytecheck: {e}"))?;
+            Ok(Self { buf })
+        }
+
         /// The archived record root, borrowed zero-copy from the buffer.
         #[inline]
         fn root(&self) -> &ArchivedRecords {

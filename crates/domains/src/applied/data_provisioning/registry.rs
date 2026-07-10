@@ -214,6 +214,27 @@ pub fn lock_compact_archive_signature(name: &str, version: &str) -> Option<&'sta
     lock_compact_archive_signatures().get(&key)
 }
 
+/// The pinned English STORE-BUNDLE content addresses from `praxis.lock`.
+/// Keys are `"<name>@<version>"`; each value is the [`LockDigest`] of the
+/// bundle's uncompressed FRAMED bytes (the nine BUILT store buffers). The
+/// trust class is `[archive_signatures]` — a per-toolchain build-output pin,
+/// valid only where emitter and consumer compile from one lockstep (the wasm
+/// binary's embedded bundle, the native `.prx-cache`), never a published
+/// portable wire. The integrity claim the store-bundle load gate verifies
+/// before any store is admitted.
+pub fn lock_store_bundle_signatures() -> &'static HashMap<String, LockDigest> {
+    &lock_data().store_bundle_signatures
+}
+
+/// Look up the English STORE-BUNDLE content address for a specific source.
+/// Returns `None` if the source has no pinned bundle — the store-bundle load
+/// gate then has nothing to validate against and the loader falls back (to
+/// the compact succinct archive, then the authoritative source).
+pub fn lock_store_bundle_signature(name: &str, version: &str) -> Option<&'static LockDigest> {
+    let key = format!("{name}@{version}");
+    lock_store_bundle_signatures().get(&key)
+}
+
 /// The pinned whole-graph `GraphSnapshot` content addresses from
 /// `praxis.lock`. Keys are `GraphVersion` labels; each value is the
 /// [`LockDigest`] of the snapshot's rkyv blob (its `MerkleRoot`). The
@@ -563,10 +584,11 @@ impl core::fmt::Display for LockDigest {
 ///   it addresses a different artifact (the compiled rkyv envelope, not
 ///   the raw source).
 ///
-/// Five of the six digest spaces (`hashes`, `canonical_signatures`,
-/// `byte_exact_signatures`, `archive_signatures`, `compact_archive_signatures`)
-/// are keyed by `"<name>@<version>"`. The sixth, `snapshot_signatures`, is keyed
-/// by `GraphVersion` instead (see its field doc).
+/// Six of the seven digest spaces (`hashes`, `canonical_signatures`,
+/// `byte_exact_signatures`, `archive_signatures`, `compact_archive_signatures`,
+/// `store_bundle_signatures`) are keyed by `"<name>@<version>"`. The seventh,
+/// `snapshot_signatures`, is keyed by `GraphVersion` instead (see its field
+/// doc).
 ///
 /// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
 #[derive(Debug, Default)]
@@ -583,6 +605,19 @@ pub struct LockData {
     /// checks; like `[archive_signatures]` it pins a compiled artifact (not the
     /// raw source) and requires a matching `[hashes]` entry.
     pub compact_archive_signatures: HashMap<String, LockDigest>,
+    /// Content address of the English STORE BUNDLE's uncompressed FRAMED bytes
+    /// (`.stores.gz` — the nine BUILT store buffers, framed), keyed by
+    /// `"<name>@<version>"`. The trust class is `[archive_signatures]`, NOT
+    /// `[compact_archive_signatures]`: four of the nine buffers are rkyv
+    /// envelopes, so this is a per-toolchain BUILD-OUTPUT pin — valid only
+    /// where emitter and consumer compile from one lockstep (the wasm binary's
+    /// embedded bundle, the native `.prx-cache`), never a published portable
+    /// wire (the succinct compact archive stays the wire). The integrity claim
+    /// the store-bundle load gate
+    /// (`lmf::prx::load_english_store_bundle_gz_gated`) verifies before any
+    /// store is admitted; like `[archive_signatures]` it pins a compiled
+    /// artifact and requires a matching `[hashes]` entry.
+    pub store_bundle_signatures: HashMap<String, LockDigest>,
     /// `MerkleRoot` of a whole-graph `GraphSnapshot` rkyv blob
     /// (`crate::formal::meta::praxis_knowledge_graph::snapshot`), keyed by
     /// its `GraphVersion`. Unlike `[archive_signatures]`, a snapshot is keyed
@@ -639,6 +674,8 @@ struct RawLockFile {
     #[serde(default)]
     compact_archive_signatures: HashMap<String, String>,
     #[serde(default)]
+    store_bundle_signatures: HashMap<String, String>,
+    #[serde(default)]
     snapshot_signatures: HashMap<String, String>,
 }
 
@@ -669,6 +706,8 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
     let archive_signatures = parse_section("archive_signatures", raw.archive_signatures)?;
     let compact_archive_signatures =
         parse_section("compact_archive_signatures", raw.compact_archive_signatures)?;
+    let store_bundle_signatures =
+        parse_section("store_bundle_signatures", raw.store_bundle_signatures)?;
     let snapshot_signatures = parse_section("snapshot_signatures", raw.snapshot_signatures)?;
 
     // Every canonical_signatures key must also exist in [hashes] —
@@ -735,6 +774,20 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
             ));
         }
     }
+    // A store_bundle_signature pins the content address of the English STORE
+    // BUNDLE (the nine BUILT store buffers, framed) for an already-hashed
+    // source — the same must-name-a-[hashes]-pinned-source contract as
+    // [archive_signatures], whose per-toolchain build-output trust class it
+    // shares (four of the nine buffers are rkyv envelopes).
+    for key in store_bundle_signatures.keys() {
+        if !hashes.contains_key(key) {
+            return Err(format!(
+                "praxis.lock: `[store_bundle_signatures.\"{key}\"]` has no matching \
+                 entry in `[hashes]` — the signature pins the store bundle of an \
+                 already-hashed source"
+            ));
+        }
+    }
     // A snapshot_signature pins the MerkleRoot of a whole-graph GraphSnapshot
     // rkyv blob, keyed by its GraphVersion. DELIBERATE ASYMMETRY vs
     // [archive_signatures]: a snapshot is keyed by the synthetic GraphVersion
@@ -747,6 +800,7 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
         byte_exact_signatures,
         archive_signatures,
         compact_archive_signatures,
+        store_bundle_signatures,
         snapshot_signatures,
     })
 }

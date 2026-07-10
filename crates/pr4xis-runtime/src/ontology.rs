@@ -89,10 +89,11 @@ use crate::apply::apply;
 use crate::archive::Archive;
 use crate::codec::CodecError;
 use crate::connection::GeneratorAction;
+use crate::definition::Definition;
 use crate::definition::EdgeTarget;
 use crate::lens::archive_lens::{
-    ArchiveLens, ArchiveLensError, ArchivedArchiveView, ArchivedDefinitionView, archived_grounded,
-    archived_local_name,
+    ArchiveLens, ArchiveLensError, ArchivedArchiveView, ArchivedDefinitionView,
+    archived_definition_to_owned, archived_grounded, archived_local_name,
 };
 
 use rkyv::util::AlignedVec;
@@ -883,6 +884,20 @@ impl RuntimeOntology {
             .collect()
     }
 
+    /// The FIRST archive node named `name`, rebuilt as ONE owned
+    /// [`Definition`] (`None` when the name is absent) — the per-node owned
+    /// decode a grounding resolver uses to derive a single declared target's
+    /// content address WITHOUT [`to_owned_archive`](Self::to_owned_archive)'s
+    /// whole-graph decode. "First" is archive order, exactly the node the
+    /// former whole-archive scan (`nodes.iter().find(|n| n.name == …)`)
+    /// yielded, served by the O(log N) name index. Fail-closed on the
+    /// (defensively-unreachable) decode fault of a validated buffer.
+    pub fn node_by_name(&self, name: &str) -> Option<Result<Definition, ArchiveLensError>> {
+        self.nodes_named(name)
+            .next()
+            .map(archived_definition_to_owned)
+    }
+
     /// The owned [`Archive`] this ontology was materialized from — the OWNING GET
     /// over the retained `rkyv` buffer ([`ArchiveLens::get`]). The zero-copy query
     /// path reads [`archive`](Self::archive) instead; this is for the rare caller
@@ -919,7 +934,7 @@ impl RuntimeOntology {
     }
 
     /// The node's lexical grounding (its Lemon gloss / canonical English form),
-    /// if the declaring [`Definition`](crate::definition::Definition) carries
+    /// if the declaring [`Definition`] carries
     /// one.
     pub fn lexical(&self, c: &ConceptRef) -> Option<&str> {
         self.nodes_named(c.name.as_str())

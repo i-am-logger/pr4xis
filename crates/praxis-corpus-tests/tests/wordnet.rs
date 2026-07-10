@@ -26,10 +26,13 @@ use praxis_corpus_tests::{
 use pr4xis::codegen::wordnet::parse_wordnet_xml;
 use pr4xis_domains::applied::data_provisioning::registry::{
     LockDigest, data_sources, lock_archive_signature, lock_archive_signatures,
-    lock_compact_archive_signature,
+    lock_compact_archive_signature, lock_store_bundle_signature,
 };
 use pr4xis_domains::cognitive::linguistics::english::bridge::{
     CONCEPT_KIND, SUBSUMPTION_REL, english_functor, project_archive,
+};
+use pr4xis_domains::cognitive::linguistics::english::store_bundle::{
+    STORE_NAMES, encode_store_bundle, store_bundle_frames,
 };
 use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, english_loaded};
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
@@ -41,10 +44,11 @@ use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::{
     emit_prx_gz, from_succinct, to_succinct,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::prx::{
-    build_wordnet_envelope, compact_english_archive_address, emit_all_wordnet_prx_gz,
-    emit_compact_english_prx_gz, emit_wordnet_prx_gz, load_compact_english_prx_gz_gated,
-    load_wordnet_prx_gz, wn_reconstruct_source, wordnet_envelope_from_bytes,
-    wordnet_envelope_to_bytes,
+    build_wordnet_envelope, compact_english_archive_address, emit_all_english_store_bundles_gz,
+    emit_all_wordnet_prx_gz, emit_compact_english_prx_gz, emit_english_store_bundle_gz,
+    emit_wordnet_prx_gz, english_store_bundle_address, load_compact_english_prx_gz_gated,
+    load_english_store_bundle_gz_gated, load_wordnet_prx_gz, wn_reconstruct_source,
+    wordnet_envelope_from_bytes, wordnet_envelope_to_bytes,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::reader::read_wordnet;
 use pr4xis_domains::social::software::markup::xml::lmf::writer::{
@@ -860,4 +864,246 @@ fn english_functor_projects_the_csr_edge_set() {
         target.nodes.len(),
         projected.len()
     );
+}
+
+/// THE STORE-BUNDLE KEYSTONE GATE over the real corpus — the emit + load legs
+/// of the English store bundle (`.stores.gz`, the nine BUILT store buffers),
+/// asserting the five properties that make it shippable:
+///
+/// 1. **Per-store BYTE-IDENTITY** — `from_buffers(emitted)` carries, store for
+///    store, EXACTLY the buffer bytes `from_wordnet` builds from the succinct
+///    decode (the shipped compact-path behavior): re-encoding the loaded
+///    `English` reproduces every frame byte-for-byte, all 9 stores named.
+/// 2. **Behavior spot-checks** — lookup / is-a / opposites / transitivity /
+///    synset index / function words / morphology / writing answer identically
+///    to the `from_wordnet` reference.
+/// 3. **Determinism** — two independent emits are byte-identical (the pin +
+///    re-emit-equality strategy's precondition).
+/// 4. **Fail-closed content gate** — flip one byte in the FRAMED payload
+///    (surviving gzip) and the gated load refuses loudly.
+/// 5. **PIN TEETH** — the committed `[store_bundle_signatures]` pin equals
+///    this emit's address (the same-toolchain regression guard the wasm
+///    build and `english_load_owned()` trust).
+///
+/// HARD-FAILS via `require` when the 89 MB corpus is not provisioned.
+#[test]
+fn store_bundle_keystone_gate_over_real_corpus() {
+    let en = require(WORDNET.english(), "english_wordnet");
+    let source = &en.source;
+    let key = format!("{FX_NAME}@{FX_VERSION}");
+
+    // The REFERENCE: from_wordnet over the SUCCINCT DECODE — exactly the
+    // English the compact fast path materialized at load time (the succinct
+    // codec mints synthetic ids, so the reference must ride the same decode).
+    let reference = English::from_wordnet(&decode(&from_succinct(&to_succinct(&encode(&en.wn)))));
+
+    // ── emit (the pure function `pr4xis compile` and the wasm build.rs run) ──
+    let bundle_gz = emit_english_store_bundle_gz(source).expect("emit the store bundle");
+    let address = english_store_bundle_address(&bundle_gz).expect("bundle address");
+
+    // 3. DETERMINISM: an independent second emit is byte-identical.
+    assert_eq!(
+        emit_english_store_bundle_gz(source).expect("second emit"),
+        bundle_gz,
+        "{FX_NAME}: two emits of the store bundle must be byte-identical"
+    );
+
+    // ── load (what the wasm `load_english` / native fastest tier run) ──
+    let t = std::time::Instant::now();
+    let loaded =
+        load_english_store_bundle_gz_gated(&bundle_gz, &LockDigest::address(address.clone()), &key)
+            .expect("load the store bundle through the content gate");
+    let bundle_ms = t.elapsed().as_secs_f64() * 1e3;
+
+    // 1. PER-STORE BYTE-IDENTITY: re-encode the LOADED English and compare
+    //    frame-for-frame against the reference build's encode — each frame is
+    //    the store's buffer verbatim, so this is byte-identity per store.
+    let loaded_bundle = encode_store_bundle(&loaded);
+    let reference_bundle = encode_store_bundle(&reference);
+    let loaded_frames = store_bundle_frames(&loaded_bundle).expect("loaded frames split");
+    let reference_frames = store_bundle_frames(&reference_bundle).expect("reference frames split");
+    assert_eq!(loaded_frames.len(), STORE_NAMES.len());
+    for (l, r) in loaded_frames.iter().zip(&reference_frames) {
+        assert_eq!(l.name, r.name);
+        assert_eq!(
+            l.cols, r.cols,
+            "{FX_NAME}: store {:?} column table must be identical",
+            l.name
+        );
+        assert!(
+            l.payload == r.payload,
+            "{FX_NAME}: store {:?} bytes differ from the from_wordnet reference \
+             ({} vs {} bytes)",
+            l.name,
+            l.payload.len(),
+            r.payload.len()
+        );
+        eprintln!(
+            "STORE-BUNDLE byte-identity: {:<18} {:>10} bytes OK",
+            l.name,
+            l.payload.len()
+        );
+    }
+
+    // 2. BEHAVIOR SPOT-CHECKS across every store.
+    assert!(loaded.concept_count() > 100_000, "rich corpus");
+    assert_eq!(loaded.concept_count(), reference.concept_count());
+    assert_eq!(loaded.word_count(), reference.word_count());
+    assert_eq!(loaded.taxonomy_count(), reference.taxonomy_count());
+    assert_eq!(loaded.opposition_count(), reference.opposition_count());
+    for word in ["dog", "entity", "run", "good"] {
+        assert_eq!(
+            loaded.lookup(word),
+            reference.lookup(word),
+            "lookup({word:?})"
+        );
+    }
+    let dog = loaded.lookup("dog")[0];
+    let animal = loaded.lookup("animal")[0];
+    assert_eq!(
+        loaded.is_a(dog, animal),
+        reference.is_a(dog, animal),
+        "is-a agrees"
+    );
+    assert_eq!(loaded.ancestors(dog), reference.ancestors(dog));
+    {
+        use pr4xis_domains::cognitive::linguistics::language::Language;
+        assert_eq!(
+            Language::lexical_lookup(&loaded, "the"),
+            Language::lexical_lookup(&reference, "the"),
+            "function words agree"
+        );
+        assert_eq!(
+            Language::lexical_lookup(&loaded, "see"),
+            Language::lexical_lookup(&reference, "see"),
+            "verb transitivity agrees"
+        );
+        assert_eq!(
+            Language::morphological_rules(&loaded),
+            Language::morphological_rules(&reference),
+            "morphology agrees"
+        );
+        assert_eq!(
+            Language::writing_system(&loaded).name,
+            Language::writing_system(&reference).name,
+            "writing system agrees"
+        );
+    }
+
+    // 4. FAIL-CLOSED CONTENT GATE: corrupt the FRAMED payload (not the gzip
+    //    framing) so the load survives gunzip and is rejected by the
+    //    content-address check itself.
+    let mut corrupt = gunzip(&bundle_gz);
+    let mid = corrupt.len() / 2;
+    corrupt[mid] ^= 0x01;
+    assert!(
+        load_english_store_bundle_gz_gated(
+            &gzip(&corrupt),
+            &LockDigest::address(address.clone()),
+            &key
+        )
+        .is_err(),
+        "{FX_NAME}: a tampered store bundle must be rejected by the content gate"
+    );
+    // …and the TRUE bytes against a WRONG pin refuse too.
+    assert!(
+        load_english_store_bundle_gz_gated(&bundle_gz, &LockDigest::address("0".repeat(64)), &key)
+            .is_err(),
+        "{FX_NAME}: a wrong pin must refuse the store bundle"
+    );
+
+    // 5. PIN TEETH (required — the corpus is on disk): the committed
+    //    [store_bundle_signatures] pin MUST equal this emit's address. A rkyv /
+    //    packing change that silently invalidated the shipped pin fails here —
+    //    re-pin deliberately with `pr4xis compile --lock` (or the dump
+    //    reporter below).
+    let pin = lock_store_bundle_signature(FX_NAME, FX_VERSION).unwrap_or_else(|| {
+        panic!(
+            "{key} has no [store_bundle_signatures] pin in praxis.lock, but the corpus \
+             is provisioned — the pin the wasm build and english_load_owned() trust is missing"
+        )
+    });
+    assert_eq!(
+        pin,
+        &LockDigest::address(address.clone()),
+        "praxis.lock [store_bundle_signatures] pin for {key} no longer matches the \
+         emitted bundle — the toolchain/packing changed; re-pin deliberately \
+         (`pr4xis compile --lock`)"
+    );
+
+    eprintln!(
+        "STORE-BUNDLE {FX_NAME}: .stores.gz = {:.2}MB loads {} concepts in {:.0}ms; \
+         address {address}",
+        bundle_gz.len() as f64 / 1e6,
+        loaded.concept_count(),
+        bundle_ms,
+    );
+}
+
+/// The `[store_bundle_signatures]` anchor over the `Language` partition — the
+/// exact `wordnet_archive_anchors_match_lock` workflow applied to the store
+/// bundle: every emitted bundle's content address equals its committed pin,
+/// and the emitted set matches the on-disk Language sources exactly (both
+/// directions, so a stale pin or a missing pin is caught). Re-pin mechanically
+/// via [`dump_wordnet_store_bundle_addresses`] (or `pr4xis compile --lock`).
+#[test]
+fn wordnet_store_bundle_anchors_match_lock() {
+    let dir = std::env::temp_dir().join(format!("prx_wn_stores_anchor_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let arts = emit_all_english_store_bundles_gz(&dir).expect("emit all English store bundles");
+
+    for a in &arts {
+        let pinned = lock_store_bundle_signature(&a.name, &a.version).unwrap_or_else(|| {
+            panic!(
+                "praxis.lock [store_bundle_signatures] must pin {}@{}",
+                a.name, a.version
+            )
+        });
+        assert_eq!(
+            &LockDigest::address(a.archive_address.clone()),
+            pinned,
+            "{}@{} store bundle address must equal the [store_bundle_signatures] pin",
+            a.name,
+            a.version
+        );
+    }
+
+    // Both directions over the Language partition (the graceful-skip set the
+    // emitter walks).
+    let root = workspace_root();
+    let lang_keys: std::collections::BTreeSet<String> = data_sources()
+        .iter()
+        .filter(|e| e.kind == SourceTaxonomyConcept::Language)
+        .filter(|e| root.join(e.local_path()).exists())
+        .map(|e| format!("{}@{}", e.name, e.version))
+        .collect();
+    let emitted: std::collections::BTreeSet<String> = arts
+        .iter()
+        .map(|a| format!("{}@{}", a.name, a.version))
+        .collect();
+    assert_eq!(
+        emitted, lang_keys,
+        "emitted store bundles must match the on-disk Language sources exactly"
+    );
+    require_provisioned(emitted.len(), "wordnet");
+}
+
+/// RE-PIN REPORTER (`--ignored`, read-only): print every Language source's
+/// freshly-emitted store-bundle address in `praxis.lock` `[store_bundle_signatures]`
+/// form — the mechanical re-pin path after a DELIBERATE rkyv/packing change
+/// (the `dump_wordnet_archive_addresses` workflow, applied to the bundle).
+/// `pr4xis compile --lock` writes the same values.
+#[test]
+#[ignore = "re-pin reporter; run explicitly after a deliberate toolchain/packing change"]
+fn dump_wordnet_store_bundle_addresses() {
+    let dir = std::env::temp_dir().join(format!("prx_wn_stores_dump_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let arts = emit_all_english_store_bundles_gz(&dir).expect("emit all English store bundles");
+    println!("[store_bundle_signatures]");
+    for a in &arts {
+        println!(
+            "\"{}@{}\" = \"blake3:{}\"",
+            a.name, a.version, a.archive_address
+        );
+    }
 }

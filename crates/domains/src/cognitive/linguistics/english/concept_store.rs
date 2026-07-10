@@ -527,6 +527,27 @@ mod archived {
             unsafe { ConceptLens::access_unchecked(self.buf.as_slice()) }
         }
 
+        /// The archived buffer bytes — the store's complete serialized form,
+        /// framed verbatim into the English store bundle.
+        pub fn as_bytes(&self) -> &[u8] {
+            self.buf.as_slice()
+        }
+
+        /// Recover a concept store from an already-serialized `rkyv` buffer
+        /// this process did NOT produce (a store-bundle frame): run the ONE
+        /// `bytecheck` validation pass ([`RkyvLens::access`]) the trusted
+        /// `build` path runs, cache `len` from the validated root, and only
+        /// then admit the buffer for `access_unchecked` reads. Fail-closed: a
+        /// corrupted / truncated / misaligned frame is a typed `Err`, never an
+        /// unsound view.
+        pub fn from_validated_buf(buf: AlignedVec<16>) -> Result<Self, alloc::string::String> {
+            let len = ConceptLens::access(buf.as_slice())
+                .map_err(|e| alloc::format!("concept store frame failed bytecheck: {e}"))?
+                .records
+                .len();
+            Ok(Self { buf, len })
+        }
+
         /// The record at `id` (its index), or `None` if out of range.
         pub fn get(&self, id: ConceptId) -> Option<ConceptView<'_>> {
             let idx = id.value() as usize;

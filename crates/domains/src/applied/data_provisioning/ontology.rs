@@ -943,6 +943,16 @@ impl Axiom for LockManifestAgreement {
             }
         }
 
+        // The same straggler invariant over the `[store_bundle_signatures]`
+        // space (the English store bundle's per-toolchain build-output pin):
+        // no bundle pin may exist for a source the manifest does not declare.
+        let bundles = crate::applied::data_provisioning::registry::lock_store_bundle_signatures();
+        for bundle_key in bundles.keys() {
+            if !manifest_keys.contains(bundle_key) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
         Ok(Box::new(SimpleProof::new(self.meta())))
     }
 

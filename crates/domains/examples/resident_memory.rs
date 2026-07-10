@@ -242,15 +242,16 @@ fn main() {
     // 6. INTO-ENGLISH grounding (W2.2). A tiny menagerie `.prx` DECLARES a typing
     //    functor into `english_wordnet` (`Canine ↦ <synset>`). The into-English path
     //    is ISOLATED as a CONTROL-vs-WITH delta so the costs SHARED with any
-    //    English-composed reasoner cancel: BOTH reasoners build the full English
-    //    surface index (~150k words) AND pay `ground_loaded_set`'s transient English
-    //    target projection (`project_archive_with_forms`, dropped after the pass —
-    //    CATEGORICALLY NOT the fat generic-materialization path, the former
-    //    `english_runtime_ontology`'s owned `apply_then_materialize` (~216 MiB,
-    //    deleted from the codebase; nothing materializes English as a
-    //    `RuntimeOntology` anymore). The ONLY difference is the declared functor: the WITH reasoner
-    //    mints one grounded edge and retains a ONE-ENTRY into-English atom index, so
-    //    Δ(6b − 6a) is the into-English mechanism's RESIDENT fat — expected ~0.
+    //    English-composed reasoner cancel. Since audit-5 wave 5, `ground_loaded_set`
+    //    resolves target atoms PER NAME over the archived views (`english_atom_address`
+    //    / `node_by_name`) — no English projection is built at all (the former
+    //    `project_archive_with_forms` transient is gone from the pass, and the fat
+    //    generic-materialization path, `english_runtime_ontology`'s owned
+    //    `apply_then_materialize` (~216 MiB), was deleted earlier; nothing
+    //    materializes English as a `RuntimeOntology` anymore). The ONLY difference
+    //    is the declared functor: the WITH reasoner mints one grounded edge and
+    //    retains a ONE-ENTRY into-English atom index, so Δ(6b − 6a) is the
+    //    into-English mechanism's RESIDENT fat — expected ~0.
     //
     //    A REAL synset `original_id` from the loaded corpus, so `Canine ↦ <synset>`
     //    resolves an atom (the sample's `s-dog` is absent from full WordNet).
