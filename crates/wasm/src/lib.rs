@@ -2,6 +2,8 @@ use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
 
+pub mod load_envelope;
+
 use pr4xis::ontology::Staging;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_domains::applied::data_provisioning::registry::{
@@ -145,7 +147,7 @@ const _: () = assert!(
 /// `on_demand_demo_count() == 1` compile-time assertion above guarantees exactly
 /// one non-`default_loaded` entry exists, so the `.expect` is an unreachable total
 /// witness, never a silent tie-break.
-fn embedded_demo() -> &'static embedded_prx::EmbeddedOntology {
+pub(crate) fn embedded_demo() -> &'static embedded_prx::EmbeddedOntology {
     embedded_prx::EMBEDDED_PRX
         .iter()
         .find(|e| !e.default_loaded)
@@ -209,7 +211,7 @@ pub struct Pr4xis {
 /// variant is [`decode_and_project`]'s single typed match; the JS↔wasm boundary
 /// carries only the wire tag, decoded ONCE by [`Encoding::from_wire`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Encoding {
+pub(crate) enum Encoding {
     /// USLM XML title (1 U.S.C. §204). Decoder `read_uslm_title`; functor
     /// `usc_runtime_ontology`. Cited `ContentType::UslmXml`.
     UslmTitle,
@@ -257,7 +259,7 @@ impl Encoding {
 /// and transport-only trust are genuinely different checks, but they dispatch
 /// off one enum instead of living in five methods.
 #[derive(Debug, Clone)]
-enum TrustAnchor {
+pub(crate) enum TrustAnchor {
     /// Source bytes carry no embedded hash; integrity rests on the host having
     /// fetched from the registry-pinned URL. ([`Encoding::UslmTitle`],
     /// [`Encoding::OwlSource`].)
@@ -415,7 +417,7 @@ impl Loaded {
 /// USLM/OWL decode/materialize failures that were previously stringly-typed, so
 /// every failure is a precise typed value, never a `format!` blob.
 #[derive(Debug)]
-enum LoadError {
+pub(crate) enum LoadError {
     /// The wire tag was not a known [`Encoding`].
     UnknownEncoding(String),
     /// [`Encoding::OwlPrxGz`] needs a `version` for its three-pin lock lookup.
@@ -517,7 +519,7 @@ fn embedded_entry(name: &str) -> Option<&'static embedded_prx::EmbeddedOntology>
 /// content address from the very bytes they decode). Every arm converges on one
 /// [`RuntimeOntology`] codomain, which is why [`Pr4xis::load_core`] has a single
 /// structural shape.
-fn decode_and_project(
+pub(crate) fn decode_and_project(
     name: &str,
     encoding: Encoding,
     trust: &TrustAnchor,
@@ -1389,8 +1391,9 @@ mod acceptance {
     }
 
     /// A minimal USLM Title (Title 18 §1, heading "First section") — the fixture
-    /// for the load-a-statute-then-query-it acceptance tests.
-    const SAMPLE_USLM_TITLE: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">Title 18—</num><heading>CRIMES AND CRIMINAL PROCEDURE</heading><section identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>First section</heading><content>Body text.</content></section></title>"##;
+    /// for the load-a-statute-then-query-it acceptance tests, shared with the
+    /// registered `LoadEnvelopeFailClosed` axiom.
+    use crate::load_envelope::SAMPLE_USLM_TITLE;
 
     #[test]
     fn loading_a_usc_title_routes_it_into_the_reasoner() {
@@ -1489,6 +1492,116 @@ mod acceptance {
             BASE_LOADED,
             "a refused .prx installs nothing beyond the always-loaded base"
         );
+    }
+
+    /// ∀-ARBITRARY-PAYLOAD TOTALITY, per [`Encoding`] arm: `decode_and_project`
+    /// is TOTAL over hostile payload bytes on EVERY arm — a deterministic
+    /// high-entropy corpus (the fixed-seed xorshift64* stream the raw-source
+    /// store-if-smaller test uses), format-shaped prefixes that get past each
+    /// arm's cheap front door (a USLM/OWL XML head, the RFC 1952 gzip magic),
+    /// truncations and single-byte mutations of the REAL embedded demo `.prx`
+    /// — every case is a typed `Err`, never a panic-through and never a silent
+    /// `Ok`. The wasm-side port of `prop_mutated_prx_always_rejected`'s
+    /// totality half (the native arms' unit tests cover the typed verdicts;
+    /// this pins totality over arbitrary bytes).
+    #[test]
+    fn decode_and_project_is_total_over_arbitrary_payload_bytes_on_every_arm() {
+        use pr4xis_domains::applied::data_provisioning::ontology::ContentType;
+        use pr4xis_domains::applied::data_provisioning::registry::data_sources;
+
+        // Deterministic pseudo-random bytes (xorshift64*, fixed seed).
+        fn noise(mut x: u64, len: usize) -> Vec<u8> {
+            core::iter::repeat_with(move || {
+                x ^= x >> 12;
+                x ^= x << 25;
+                x ^= x >> 27;
+                (x.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 56) as u8
+            })
+            .take(len)
+            .collect()
+        }
+
+        let demo = embedded_demo();
+        let mut corpus: Vec<Vec<u8>> = vec![
+            Vec::new(),
+            noise(0x9E37_79B9_7F4A_7C15, 1),
+            noise(0xDEAD_BEEF_CAFE_F00D, 64),
+            noise(0x0123_4567_89AB_CDEF, 1024),
+            // Format-shaped heads with garbage tails — past the front door.
+            b"<title xmlns=\"http://xml.house.gov/schemas/uslm/1.0\">".to_vec(),
+            b"<?xml version=\"1.0\"?><rdf:RDF xmlns:rdf=\"ns\">".to_vec(),
+            alloc_gzip_head(),
+            // Truncations of the real demo archive.
+            demo.bytes[..demo.bytes.len() / 2].to_vec(),
+            demo.bytes[..1].to_vec(),
+        ];
+        // Sampled single-byte mutations of the real demo archive.
+        for i in (0..demo.bytes.len()).step_by(97) {
+            let mut m = demo.bytes.to_vec();
+            m[i] ^= 0x80;
+            corpus.push(m);
+        }
+        fn alloc_gzip_head() -> Vec<u8> {
+            // RFC 1952 magic + deflate method, then garbage.
+            let mut v = vec![0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0, 0xff];
+            v.extend_from_slice(&[0x55; 32]);
+            v
+        }
+
+        // One (encoding, matching-anchor) pair per arm. The OwlPrxGz arm runs
+        // BOTH the unpinned key (refused at the three-pin lookup) and — when
+        // the registry carries a pinned OWL source — the pinned key, so the
+        // gunzip/bytecheck gate itself sees the hostile bytes.
+        let wrong_root = ContentAddress::of(b"totality probe root");
+        let mut arms: Vec<(&str, Encoding, TrustAnchor)> = vec![
+            ("t", Encoding::UslmTitle, TrustAnchor::Transport),
+            ("t", Encoding::OwlSource, TrustAnchor::Transport),
+            (
+                "no-such-vocabulary",
+                Encoding::OwlPrxGz,
+                TrustAnchor::LockPinned {
+                    version: "0.0.0".to_string(),
+                },
+            ),
+            (
+                "t",
+                Encoding::ContentAddressedArchive,
+                TrustAnchor::MerkleRoot(wrong_root),
+            ),
+        ];
+        if let Some(entry) = data_sources().iter().find(|e| {
+            e.content_type() == ContentType::Owl
+                && lock_archive_signature(&e.name, &e.version).is_some()
+                && lock_canonical_signature(&e.name, &e.version).is_some()
+                && lock_hashes().contains_key(&format!("{}@{}", e.name, e.version))
+        }) {
+            arms.push((
+                entry.name.as_str(),
+                Encoding::OwlPrxGz,
+                TrustAnchor::LockPinned {
+                    version: entry.version.clone(),
+                },
+            ));
+        }
+
+        for (ci, bytes) in corpus.iter().enumerate() {
+            for (name, encoding, trust) in &arms {
+                let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    decode_and_project(name, *encoding, trust, bytes)
+                }));
+                match res {
+                    Ok(Err(_)) => {} // correct: typed fail-closed refusal
+                    Ok(Ok(_)) => panic!(
+                        "hostile corpus case {ci} ({} bytes) decoded Ok under {encoding:?}",
+                        bytes.len()
+                    ),
+                    Err(_) => panic!(
+                        "decode_and_project PANICKED on corpus case {ci} ({} bytes) under {encoding:?}",
+                        bytes.len()
+                    ),
+                }
+            }
+        }
     }
 
     /// Build an into-English menagerie `.prx` in memory: one `Canine` node named
