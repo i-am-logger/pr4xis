@@ -638,51 +638,212 @@ mod tests {
 
     use proptest::prelude::*;
 
+    /// The fixed peer set the generated archives ground into: the `Dog ⊑ Animal`
+    /// `taxonomy` plus a second `Quartz ⊑ Rock` `geology` peer, so a generated
+    /// functor can target EITHER peer, an ABSENT peer (`nowhere`), or a concept
+    /// the addressed peer does not hold (`Ghost` everywhere; `Dog` in `geology`;
+    /// `Quartz` in `taxonomy`).
+    fn prop_peers() -> BTreeMap<String, Archive> {
+        let mut peers = BTreeMap::new();
+        peers.insert("taxonomy".to_string(), taxonomy());
+        peers.insert(
+            "geology".to_string(),
+            Archive {
+                nodes: alloc::vec![
+                    Definition {
+                        kind: "Concept".to_string(),
+                        name: "Quartz".to_string(),
+                        edges: alloc::vec![(
+                            "Subsumption".to_string(),
+                            EdgeTarget::Local("Rock".to_string())
+                        )],
+                        axioms: alloc::vec![],
+                        lexical: Some("a hard crystalline mineral".to_string()),
+                    },
+                    Definition {
+                        kind: "Concept".to_string(),
+                        name: "Rock".to_string(),
+                        edges: alloc::vec![],
+                        axioms: alloc::vec![],
+                        lexical: Some("a solid mineral aggregate".to_string()),
+                    },
+                ],
+                connections: alloc::vec![],
+            },
+        );
+        peers
+    }
+
     proptest! {
-        /// ∀-strengthening of [`re_grounding_is_idempotent`]: over a generated
-        /// menagerie (any set of `Pet` nodes grounding into the fixed `Dog ⊑ Animal`
-        /// taxonomy), grounding twice equals grounding once — `ground_declared` is
-        /// idempotent (the re-ground-on-peer-arrival contract) for every generated
-        /// node set, not just the one-node witness.
+        /// ∀-strengthening of the witness laws, over a WIDE generator: 0..8
+        /// nodes of MULTIPLE kinds (mapped, unmapped) with COLLIDING names and
+        /// optional pre-existing edges; 0..3 grounding functors targeting
+        /// either present peer or an ABSENT one, mapping kinds to concepts that
+        /// may be ABSENT from the addressed peer, with either a declared or an
+        /// EMPTY `map_morphism` (the typed copula default); plus an optional
+        /// non-grounding `FullyFaithful` relabel that must mint nothing.
+        ///
+        /// The pass is TOTAL over this space with exactly three verdicts, each
+        /// pinned to its cause:
+        /// - `Ok` ⇒ every declared functor target is a present peer, the result
+        ///   is EXTENSION-ONLY (the registered [`GroundingExtensionOnly`]
+        ///   predicate) and IDEMPOTENT ([`GroundingIdempotent`]);
+        /// - `Err(MissingPeerArchive)` ⇒ some declared functor targets exactly
+        ///   that absent peer (the DEFERRAL verdict);
+        /// - `Err(GroundTargetAbsent)` ⇒ the named peer IS present, genuinely
+        ///   lacks the named concept, and some declared functor maps a present
+        ///   node kind to it (the LOUD verdict) — never any other fault.
         #[test]
-        fn prop_grounding_is_idempotent(
-            names in prop::collection::hash_set("[a-z]{1,6}", 0..6)
+        fn prop_grounding_pass_laws(
+            nodes in prop::collection::vec(
+                (
+                    prop::sample::select(alloc::vec!["Pet", "Stone", "Flower", "Mineral"]),
+                    "[a-z]{1,4}",
+                    proptest::bool::ANY,
+                ),
+                0..8,
+            ),
+            functors in prop::collection::vec(
+                (
+                    prop::sample::select(alloc::vec!["taxonomy", "geology", "nowhere"]),
+                    prop::collection::vec(
+                        (
+                            prop::sample::select(alloc::vec!["Pet", "Stone", "Flower"]),
+                            prop::sample::select(alloc::vec![
+                                "Dog", "Animal", "Quartz", "Rock", "Ghost"
+                            ]),
+                        ),
+                        0..3,
+                    ),
+                    proptest::bool::ANY,
+                ),
+                0..3,
+            ),
+            relabel in proptest::bool::ANY,
         ) {
-            let mut peers = BTreeMap::new();
-            peers.insert("taxonomy".to_string(), taxonomy());
-            let nodes: alloc::vec::Vec<Definition> = names
-                .iter()
-                .map(|n| Definition {
-                    kind: "Pet".to_string(),
-                    name: n.clone(),
-                    edges: alloc::vec![],
+            use crate::formal::meta::grounding_laws::{extension_only_on, idempotent_on};
+            use pr4xis::category::category_theory::is_grounding_functor_kind;
+
+            let peers = prop_peers();
+            let nodes: alloc::vec::Vec<Definition> = nodes
+                .into_iter()
+                .map(|(kind, name, with_edge)| Definition {
+                    kind: kind.to_string(),
+                    name,
+                    edges: if with_edge {
+                        // A pre-existing source edge the pass must keep verbatim.
+                        alloc::vec![(
+                            "companionOf".to_string(),
+                            EdgeTarget::Local("elsewhere".to_string())
+                        )]
+                    } else {
+                        alloc::vec![]
+                    },
                     axioms: alloc::vec![],
-                    lexical: Some("a generated pet".to_string()),
+                    lexical: Some("a generated specimen".to_string()),
                 })
                 .collect();
-            let archive = Archive {
-                nodes,
-                connections: alloc::vec![Connection {
+            let mut connections: alloc::vec::Vec<Connection> = functors
+                .into_iter()
+                .map(|(target, map, with_morphism)| Connection {
                     kind: "InstanceFunctor".to_string(),
-                    source: "menagerie".to_string(),
+                    source: "generated".to_string(),
+                    target: target.to_string(),
+                    action: GeneratorAction::Functor {
+                        map_object: map
+                            .into_iter()
+                            .map(|(k, c)| (k.to_string(), c.to_string()))
+                            .collect(),
+                        map_morphism: if with_morphism {
+                            alloc::vec![(
+                                "instantiates".to_string(),
+                                "Subsumption".to_string()
+                            )]
+                        } else {
+                            alloc::vec![] // the typed copula default leg
+                        },
+                    },
+                    laws: alloc::vec!["PreservesTyping".to_string()],
+                })
+                .collect();
+            if relabel {
+                // A NON-grounding schema relabel — the discriminator must skip it.
+                connections.push(Connection {
+                    kind: "FullyFaithful".to_string(),
+                    source: "generated".to_string(),
                     target: "taxonomy".to_string(),
                     action: GeneratorAction::Functor {
                         map_object: alloc::vec![("Pet".to_string(), "Dog".to_string())],
-                        map_morphism: alloc::vec![(
-                            "instantiates".to_string(),
-                            "Subsumption".to_string()
-                        )],
+                        map_morphism: alloc::vec![],
                     },
-                    laws: alloc::vec!["PreservesTyping".to_string()],
-                }],
-            };
-            let once = ground_declared(&archive, &peers).expect("first grounding");
-            let twice = ground_declared(&once, &peers).expect("second grounding");
-            prop_assert_eq!(once, twice);
+                    laws: alloc::vec![],
+                });
+            }
+            let archive = Archive { nodes, connections };
+
+            match ground_declared(&archive, &peers) {
+                Ok(_) => {
+                    // Ok ⇒ every declared grounding target is a present peer…
+                    prop_assert!(
+                        archive
+                            .connections
+                            .iter()
+                            .filter(|c| is_grounding_functor_kind(&c.kind))
+                            .all(|c| peers.contains_key(&c.target)),
+                        "Ok requires every declared grounding target to be a present peer"
+                    );
+                    // …and the pass satisfies the two registered laws ∀ inputs.
+                    prop_assert!(
+                        extension_only_on(&archive, &peers),
+                        "the pass must only ADD grounded edges"
+                    );
+                    prop_assert!(
+                        idempotent_on(&archive, &peers),
+                        "ground(ground(x)) must equal ground(x)"
+                    );
+                }
+                Err(LinkError::MissingPeerArchive { ontology }) => {
+                    // The DEFERRAL verdict: pinned to a genuinely absent peer
+                    // that some declared functor targets.
+                    prop_assert!(!peers.contains_key(&ontology));
+                    prop_assert!(archive.connections.iter().any(
+                        |c| is_grounding_functor_kind(&c.kind) && c.target == ontology
+                    ));
+                }
+                Err(LinkError::GroundTargetAbsent { kind, target, peer }) => {
+                    // The LOUD verdict: the peer IS present, genuinely lacks the
+                    // concept, and some functor maps a PRESENT node kind to it.
+                    let held = peers.get(&peer);
+                    prop_assert!(held.is_some(), "GroundTargetAbsent names a present peer");
+                    prop_assert!(
+                        held.is_some_and(|p| p.nodes.iter().all(|n| n.name != target)),
+                        "the named concept must be genuinely absent from the peer"
+                    );
+                    prop_assert!(
+                        archive.nodes.iter().any(|n| n.kind == kind),
+                        "some node carries the offending kind"
+                    );
+                    prop_assert!(
+                        archive.connections.iter().any(|c| {
+                            is_grounding_functor_kind(&c.kind)
+                                && c.target == peer
+                                && matches!(
+                                    &c.action,
+                                    GeneratorAction::Functor { map_object, .. }
+                                        if map_object.contains(&(kind.clone(), target.clone()))
+                                )
+                        }),
+                        "some declared functor maps that kind to the absent concept"
+                    );
+                }
+                Err(other) => {
+                    prop_assert!(false, "unexpected grounding fault: {other}");
+                }
+            }
         }
     }
 
-    pr4xis::register_praxis_value!(prop_grounding_is_idempotent, Deterministic);
+    pr4xis::register_praxis_value!(prop_grounding_pass_laws, Deterministic, Honest);
 
     /// A one-node menagerie whose functor declares a target concept NAME the peer
     /// does not hold (`Pet ↦ <target>`) — the authoring-error fixture for FIX 2.

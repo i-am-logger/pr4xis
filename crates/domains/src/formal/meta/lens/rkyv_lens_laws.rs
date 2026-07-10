@@ -333,4 +333,289 @@ mod tests {
             );
         }
     }
+
+    // ── ∀-strengthening: the laws over GENERATED values ──────────────────────
+    //
+    // The registered axioms verify over FIXED witness corpora; these properties
+    // run the same four predicates over ARBITRARY generated values for the two
+    // structurally interesting instances — the `Vec<Concept>` store (arbitrary
+    // strings + the full `LmfPos` enumeration, with the id-IS-index invariant
+    // the mirror's GET leg re-derives) and the
+    // `HashMap<String, Vec<LexicalEntry>>` store (generated entries across ALL
+    // 13 `LexicalEntry` variants, multi-reading surfaces, `None`-carrying
+    // fields) — the archive_lens `prop_archive_lens_round_trips` pattern.
+
+    use proptest::prelude::*;
+
+    use crate::cognitive::linguistics::lexicon::pos::{
+        Adjective, Adverb, Auxiliary, Conjunction, Copula, Countability, Interjection,
+        InterjectionKind, Noun, NounKind, Numeral, Particle, Preposition, Tense, Transitivity,
+        Verb,
+    };
+
+    /// Every `LmfPos` variant — the full WN-LMF/UD part-of-speech enumeration.
+    fn arb_lmf_pos() -> impl Strategy<Value = LmfPos> {
+        prop::sample::select(alloc::vec![
+            LmfPos::Noun,
+            LmfPos::Verb,
+            LmfPos::Adjective,
+            LmfPos::SatelliteAdjective,
+            LmfPos::Adverb,
+            LmfPos::Determiner,
+            LmfPos::Pronoun,
+            LmfPos::Preposition,
+            LmfPos::Conjunction,
+            LmfPos::Particle,
+            LmfPos::Copula,
+            LmfPos::Auxiliary,
+            LmfPos::Interjection,
+            LmfPos::Numeral,
+            LmfPos::Other,
+        ])
+    }
+
+    /// A generated concept store: 0..6 concepts with arbitrary printable
+    /// strings and any `LmfPos`. The record's `id` IS its index (the mirror
+    /// drops `id`; the GET leg re-derives it from position — the store's
+    /// documented invariant), so ids are assigned by slot after generation.
+    fn arb_concepts() -> impl Strategy<Value = Vec<Concept>> {
+        prop::collection::vec(
+            (
+                "[ -~]{0,16}",                                    // original_id
+                arb_lmf_pos(),                                    // pos
+                prop::collection::vec("[a-zA-Z' -]{0,10}", 0..3), // lemmas
+                prop::collection::vec("[ -~]{0,24}", 0..3),       // definitions
+                prop::collection::vec("[ -~]{0,24}", 0..2),       // examples
+            ),
+            0..6,
+        )
+        .prop_map(|rows| {
+            rows.into_iter()
+                .enumerate()
+                .map(
+                    |(i, (original_id, pos, lemmas, definitions, examples))| Concept {
+                        id: ConceptId::new(i as u64),
+                        original_id,
+                        pos,
+                        lemmas,
+                        definitions,
+                        examples,
+                    },
+                )
+                .collect()
+        })
+    }
+
+    fn arb_number() -> impl Strategy<Value = Number> {
+        prop::sample::select(alloc::vec![Number::Singular, Number::Plural])
+    }
+
+    fn arb_person() -> impl Strategy<Value = Person> {
+        prop::sample::select(alloc::vec![Person::First, Person::Second, Person::Third])
+    }
+
+    fn arb_tense() -> impl Strategy<Value = Tense> {
+        prop::sample::select(alloc::vec![Tense::Present, Tense::Past, Tense::Future])
+    }
+
+    /// One generated `LexicalEntry`, drawn across ALL 13 variants, with every
+    /// enum field ranging over its full variant set and every `Option` field
+    /// over both `Some` and `None`.
+    fn arb_lexical_entry() -> impl Strategy<Value = LexicalEntry> {
+        let text = "[a-z' -]{1,10}";
+        let olia = prop::option::of("[A-Za-z]{1,16}".prop_map(String::from));
+        prop_oneof![
+            (
+                text,
+                arb_number(),
+                arb_person(),
+                prop::sample::select(alloc::vec![
+                    Countability::Countable,
+                    Countability::Uncountable
+                ]),
+                prop::sample::select(alloc::vec![NounKind::Common, NounKind::Proper]),
+            )
+                .prop_map(|(text, number, person, countability, kind)| {
+                    LexicalEntry::Noun(Noun {
+                        text,
+                        number,
+                        person,
+                        countability,
+                        kind,
+                    })
+                }),
+            (
+                text,
+                text,
+                arb_number(),
+                arb_person(),
+                arb_tense(),
+                prop::sample::select(alloc::vec![
+                    Transitivity::Transitive,
+                    Transitivity::Intransitive,
+                    Transitivity::Ditransitive,
+                ]),
+            )
+                .prop_map(|(text, lemma, number, person, tense, transitivity)| {
+                    LexicalEntry::Verb(Verb {
+                        text,
+                        lemma,
+                        number,
+                        person,
+                        tense,
+                        transitivity,
+                    })
+                }),
+            (
+                text,
+                prop::sample::select(alloc::vec![
+                    DeterminerKind::Definite,
+                    DeterminerKind::Indefinite,
+                    DeterminerKind::Demonstrative,
+                    DeterminerKind::Quantifier,
+                ]),
+                prop::option::of(arb_number()),
+                olia.clone(),
+            )
+                .prop_map(|(text, kind, number, olia_class)| {
+                    LexicalEntry::Determiner(Determiner {
+                        text,
+                        kind,
+                        number,
+                        olia_class,
+                    })
+                }),
+            text.prop_map(|text| LexicalEntry::Adjective(Adjective { text })),
+            (text, olia.clone()).prop_map(|(text, olia_class)| {
+                LexicalEntry::Adverb(Adverb { text, olia_class })
+            }),
+            text.prop_map(|text| LexicalEntry::Preposition(Preposition { text })),
+            text.prop_map(|text| LexicalEntry::Conjunction(Conjunction { text })),
+            (
+                text,
+                arb_number(),
+                arb_person(),
+                prop::sample::select(alloc::vec![
+                    PronounKind::Personal,
+                    PronounKind::Interrogative,
+                    PronounKind::Demonstrative,
+                    PronounKind::Relative,
+                    PronounKind::Reflexive,
+                    PronounKind::Indefinite,
+                ]),
+                olia,
+            )
+                .prop_map(|(text, number, person, kind, olia_class)| {
+                    LexicalEntry::Pronoun(Pronoun {
+                        text,
+                        number,
+                        person,
+                        kind,
+                        olia_class,
+                    })
+                }),
+            (text, arb_number(), arb_person(), arb_tense()).prop_map(
+                |(text, number, person, tense)| {
+                    LexicalEntry::Copula(Copula {
+                        text,
+                        number,
+                        person,
+                        tense,
+                    })
+                }
+            ),
+            (
+                text,
+                prop::option::of(arb_number()),
+                prop::option::of(arb_tense())
+            )
+                .prop_map(|(text, number, tense)| {
+                    LexicalEntry::Auxiliary(Auxiliary {
+                        text,
+                        number,
+                        tense,
+                    })
+                }),
+            (
+                text,
+                prop::sample::select(alloc::vec![
+                    InterjectionKind::Greeting,
+                    InterjectionKind::Farewell,
+                    InterjectionKind::Expressive,
+                    InterjectionKind::Response,
+                    InterjectionKind::Politeness,
+                    InterjectionKind::Conative,
+                ]),
+            )
+                .prop_map(|(text, kind)| LexicalEntry::Interjection(Interjection { text, kind })),
+            text.prop_map(|text| LexicalEntry::Particle(Particle { text })),
+            text.prop_map(|text| LexicalEntry::Numeral(Numeral { text })),
+        ]
+    }
+
+    /// A generated function-word lexicon: arbitrary surface keys, each with
+    /// 0..3 readings (multi-reading order must survive the round-trip).
+    fn arb_lexicon() -> impl Strategy<Value = HashMap<String, Vec<LexicalEntry>>> {
+        proptest::collection::hash_map(
+            "[a-z' -]{1,8}",
+            prop::collection::vec(arb_lexical_entry(), 0..3),
+            0..4,
+        )
+        .prop_map(|std_map| std_map.into_iter().collect())
+    }
+
+    proptest! {
+        /// ∀ generated concept stores: the four lens laws hold — not just over
+        /// the fixed witness corpus the registered axiom ranges over.
+        #[test]
+        fn prop_concept_store_lens_laws_hold(concepts in arb_concepts()) {
+            let witnesses = [concepts];
+            prop_assert!(
+                getput_holds::<Vec<Concept>, ConceptRecords>(&witnesses),
+                "put(get(b)) == b for a generated concept store"
+            );
+            prop_assert!(
+                putget_holds::<Vec<Concept>, ConceptRecords>(&witnesses),
+                "get(put(o)) == o for a generated concept store"
+            );
+            prop_assert!(
+                determinism_holds::<Vec<Concept>, ConceptRecords>(&witnesses),
+                "put(o) == put(o) for a generated concept store"
+            );
+            prop_assert!(
+                owned_put_agrees_holds::<Vec<Concept>, ConceptRecords>(&witnesses),
+                "put_aligned_owned(x.clone()) == put_aligned(&x) for a generated concept store"
+            );
+        }
+
+        /// ∀ generated function-word lexica (entries across all 13
+        /// `LexicalEntry` variants): the four lens laws hold.
+        #[test]
+        fn prop_function_word_store_lens_laws_hold(lexicon in arb_lexicon()) {
+            let witnesses = [lexicon];
+            prop_assert!(
+                getput_holds::<HashMap<String, Vec<LexicalEntry>>, FunctionWordRecords>(&witnesses),
+                "put(get(b)) == b for a generated lexicon"
+            );
+            prop_assert!(
+                putget_holds::<HashMap<String, Vec<LexicalEntry>>, FunctionWordRecords>(&witnesses),
+                "get(put(o)) == o for a generated lexicon"
+            );
+            prop_assert!(
+                determinism_holds::<HashMap<String, Vec<LexicalEntry>>, FunctionWordRecords>(
+                    &witnesses
+                ),
+                "put(o) == put(o) for a generated lexicon"
+            );
+            prop_assert!(
+                owned_put_agrees_holds::<HashMap<String, Vec<LexicalEntry>>, FunctionWordRecords>(
+                    &witnesses
+                ),
+                "put_aligned_owned(x.clone()) == put_aligned(&x) for a generated lexicon"
+            );
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_concept_store_lens_laws_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_function_word_store_lens_laws_hold, Verifiable);
 }

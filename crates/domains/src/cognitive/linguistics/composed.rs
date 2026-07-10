@@ -4,11 +4,12 @@
 //! This is the runtime convergence point for the demo: a chat that "consults a
 //! loaded corpus, understood through English". The embedded [`English`] model is
 //! the always-present substrate; each [`RuntimeOntology`] loaded from a `.prx`
-//! is GROUNDED into the same lexical surface via the Lemon functor
-//! `F: OntologyConcepts → Lexicon(English)` (`lemon::lexicon`): every loaded
-//! node's surface form becomes a lexical entry whose `reference` is the typed
+//! is INDEXED into the same lexical surface by reading the OntoLex-Lemon
+//! lexicalization channel the archive itself carries AS DATA — every node's own
+//! name plus the `ontolex:Form` atoms its `canonicalForm`/denotes edges mint —
+//! so each loaded surface resolves to the typed
 //! [`ConceptRef`]`{ontology, name}`. A word then resolves through the UNION of
-//! the English lexicon and the grounded loaded entries — so "what is X" answers
+//! the English lexicon and the loaded surfaces — so "what is X" answers
 //! from the loaded gloss when X is loaded, and abstains exactly as the embedded
 //! model already does when it is not.
 //!
@@ -36,8 +37,9 @@
 //! Literature:
 //! - McCrae et al. (2017) *The OntoLex-Lemon Model* — the lexicon-ontology
 //!   interface: a `LexicalEntry`'s `Form` carries the surface, its `Sense`'s
-//!   `reference` points at the ontology concept. The grounding here IS that
-//!   functor applied to a loaded `.prx`.
+//!   `reference` points at the ontology concept. The overlay indexes exactly
+//!   the `(surface, ontology, name)` triples that model describes, read off
+//!   each loaded archive's own Form atoms.
 //! - Reiter (1978) *On Closed World Data Bases* — the loaded vertex is
 //!   open-world (`ConceptRef`, not a closed enum), which is why it cannot share
 //!   English's finite `ConceptId` space without an explicit disjoint offset.
@@ -92,10 +94,11 @@ struct LoadedNodeRef {
 /// The embedded English model composed with the loaded `.prx` ontologies,
 /// presented as one [`LexicalReasoner`].
 ///
-/// Construction GROUNDS every loaded node into the English lexicon (the Lemon
-/// functor) and pre-folds the per-concept handles, so every query is a lookup —
-/// the taxonomy answers are read from each [`RuntimeOntology`]'s materialized
-/// closure.
+/// Construction INDEXES every loaded node's surfaces — the OntoLex-Lemon
+/// lexicalization channel its archive carries as data (node name +
+/// `ontolex:Form` writtenReps) — into the loaded-only overlay and pre-folds the
+/// per-concept handles, so every query is a lookup — the taxonomy answers are
+/// read from each [`RuntimeOntology`]'s materialized closure.
 #[derive(Debug)]
 pub struct ComposedReasoner {
     /// The always-present embedded substrate — BORROWED, not owned. The single
@@ -113,15 +116,29 @@ pub struct ComposedReasoner {
     /// `ConceptRef::ontology`.
     loaded: Vec<Rc<RuntimeOntology>>,
 
-    // --- grounded surface (built once at construction) ---
+    // --- indexed surface (built once at construction) ---
     //
-    // The Lemon functor `F: OntologyConcepts → Lexicon` is APPLIED here, not
-    // STORED: its image lives as `surface_index` (surface → disjoint ids) plus
-    // `loaded_refs`/`loaded_ids` (id ↔ typed `ConceptRef`), which together carry
-    // every `(surface, ontology, name)` triple a Lemon `LexicalEntry` would.
-    // A resident owned `Lexicon` duplicate (5–9 MiB at corpus scale) had ZERO
-    // production readers and was deleted by the audit-5 wave; the typed
-    // reference is still fully inspectable through `decode`.
+    // JUDGED (audit-5 cell 4, the RelationKind shape): this seeding is the
+    // reasoner's own INTERNAL overlay indexing, NOT a cross-ontology functor to
+    // carry as `.prx` data. The functor-as-data precedents do not fit, on
+    // evidence: `english_functor.prx` carries a SCHEMA-level relabel (a finite
+    // generator table, `Synset ↦ Concept`, `hypernym ↦ Subsumption`) and
+    // `menagerie_into_english.prx` carries a KIND-level instance typing
+    // (`Canine ↦ s-dog`) — both are finite `map_object`/`map_morphism` tables a
+    // `Connection` can hold. The lexicalization here has NO such table: which
+    // surface lexicalizes which node is PER-NODE INSTANCE data the loaded
+    // archive ALREADY carries as `.prx` (its `ontolex:Form` atoms and
+    // `canonicalForm` edges — the §9 channel its producer emitted), and the
+    // seeding has no functor codomain — no `Lexicon` value is produced (the
+    // resident owned `Lexicon` duplicate, 5–9 MiB at corpus scale, had ZERO
+    // production readers and was deleted by audit-5 wave 2). What is built is
+    // `surface_index` (surface → disjoint ids) plus `loaded_refs`/`loaded_ids`
+    // (id ↔ typed `ConceptRef`) — the query index over that channel, which
+    // together still carry every `(surface, ontology, name)` triple the
+    // OntoLex-Lemon model describes (McCrae et al. 2017); the typed reference
+    // is fully inspectable through `decode`, and the index's faithfulness to
+    // the union semantics is the registered [`ComposedSurfaceUnionFaithful`]
+    // axiom.
     /// The interner holding each LOADED surface's bytes ONCE, keyed by
     /// [`Symbol`]. It interns ONLY the loaded ontologies' surfaces (node names +
     /// `ontolex:Form` writtenReps, ~17.8k at USC-title scale) — NEVER English's
@@ -227,8 +244,8 @@ pub struct ComposedReasoner {
 
 impl ComposedReasoner {
     /// Compose the embedded `english` model with the `loaded` ontologies,
-    /// grounding every loaded node into the English lexicon via the Lemon
-    /// functor and pre-folding the per-concept handles.
+    /// indexing every loaded node's OntoLex-Lemon surfaces (read off its own
+    /// archive) into the overlay and pre-folding the per-concept handles.
     pub fn new(english: &'static English, loaded: Vec<Rc<RuntimeOntology>>) -> Self {
         let base = english.concept_count() as u64;
 
@@ -259,11 +276,12 @@ impl ComposedReasoner {
                 .push(id);
         };
 
-        // Ground each loaded ontology's nodes into the overlay (the applied
-        // Lemon functor: surface → typed ConceptRef, carried as the interned
-        // surface's disjoint id + the id's `ConceptRef` decode row). Each node
-        // also gets an index-only [`LoadedNodeRef`] so `concept(id)` can view
-        // its gloss against the archive buffer on demand.
+        // Index each loaded ontology's nodes into the overlay (the OntoLex-
+        // Lemon lexicalization read off the archive's own Form channel:
+        // surface → typed ConceptRef, carried as the interned surface's
+        // disjoint id + the id's `ConceptRef` decode row). Each node also gets
+        // an index-only [`LoadedNodeRef`] so `concept(id)` can view its gloss
+        // against the archive buffer on demand.
         for (onto_idx, onto) in loaded.iter().enumerate() {
             // The `ontolex:Form` atoms in this archive — their `writtenRep` NAMES
             // are natural-language SURFACES (a heading / label / citation), the
@@ -292,7 +310,7 @@ impl ComposedReasoner {
                 let cref = ConceptRef::new(onto.id().clone(), node.name.to_string());
                 let id = ConceptId::new(base + loaded_refs.len() as u64);
 
-                // The Lemon functor F: surface form → ConceptRef. The node's OWN
+                // OntoLex-Lemon reading: surface form → ConceptRef. The node's OWN
                 // name is kept as a surface ADDITIVELY (a compiled ontology's node
                 // name IS a natural word; the URN/IRI case is covered by its Form
                 // atoms below, so this stays until every producer mints Forms).
@@ -1579,7 +1597,7 @@ mod tests {
     }
 
     /// The INDEPENDENT overlay oracle for the axiom's witness composition —
-    /// re-derives the Lemon-functor image by walking the witness archive the
+    /// re-derives the overlay's lexicalization image by walking the witness archive the
     /// way the seeding does (non-Form nodes in order; per node the lowercased
     /// name surface, then each Form-atom surface), WITHOUT reading the
     /// reasoner's own index.
