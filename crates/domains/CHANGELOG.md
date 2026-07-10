@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.28.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.5...pr4xis-domains-v0.28.0) - 2026-07-10
+
+### Chore
+
+- move the remaining internal working docs out of the published docs/ tree
+
+### Docs
+
+- fix 109 feature-gated intra-doc links — the dev-ci docs stage was red
+- *(legal_sources)* clarify the strict-subsumption test comment (PR #231 review)
+
+### Feat
+
+- *(english)* [**breaking**] audit-5 wave 5 — ship the 9 store buffers as the load payload; the +348 MiB wasm transient is dead
+- *(hardening)* audit-5 wave 4 — validated PackedCsr entry, load ∀-properties, self-describing load envelope
+- *(data)* [**breaking**] DEFLATE the raw-source .prx tier — envelope v2 with a typed PayloadEncoding
+- *(domains)* the lens machinery self-describes -- Lens ontology (W3.4)
+- *(domains)* the succinct wire codec self-describes -- SuccinctCodec ontology (W3.3)
+- *(domains)* the DAG-CBOR canonical codec self-describes -- CanonicalCodec ontology (W3.1)
+- *(domains)* words (declared types) are pointers into English (W2.2)
+- *(domains)* [**breaking**] generalize grounding -- any .prx carries its grounding functor as data (W2.1)
+- *(domains)* SourceRole ontology -- the sources catalog shows only chat-loadable knowledge (Step 3a)
+- *(domains)* statutes compose -- a loaded USC section reaches the statute/law taxonomy (Step 4)
+- *(runtime)* Lever A -- RuntimeOntology reasons over the archived rkyv buffer, zero-copy (Step 1c)
+- *(domains)* intern lexical surfaces -- Symbol-keyed surface_index (Step 1b)
+- *(runtime)* lazy memoized reachability -- drop the pre-folded owned closure (Step 1a)
+- *(runtime)* [**breaking**] mint lexical surfaces on every emitted ontology by default
+- *(chat)* answer conceptual legal questions from a loaded ontology
+- *(domains)* constitutive protocol — moderation events, modes, and admissions (prx parity)
+- *(domains)* smart_element — the smart driver / smart sensor synthesis
+- *(domains)* applied/swarm family — consensus + distributed fusion
+- *(domains)* applied/operating_system family — microkernel, scheduler, bus, driver
+- *(domains)* concurrency, parallelism, and constitutive-protocol ontologies
+- integrate the new ontologies via literature-grounded functors
+- [**breaking**] type the ontology stack end-to-end (Vector/Matrix, coordinate/level/angle)
+- constitution coverage — every test declares its guarantee, gate-enforced
+
+### Fix
+
+- *(packed-csr)* [**breaking**] declare per-column run arity (RunArity) — fixes the untrusted-buffer GET panic
+- *(audit)* audit-4 — 21 confirmed findings on the post-review commits, all fixed or justified
+- *(example)* stop resident_memory holding the test-only english_runtime_ontology foil
+- *(review)* third-review polish + hardening -- doc accuracy, test teeth, one primitive-leak
+- *(grounding)* make into-English reachable via the public load path + fail-close two silent drops
+- *(audit)* reground misattributed/over-claimed citations + delete a tautological axiom
+- *(domains)* repr(transparent) on Ref -- guarantee the zero-copy cast soundness
+- *(domains)* sync the stale registry-root const in build.rs + add drift-guard
+- *(domains)* correctness deep-review — founder-untouchability + scheduler deadline horizon
+- *(domains)* ontological-purity audit corrections across the smart-edge ontologies
+- *(docs)* repair broken intra-doc links surfaced by the Docs gate
+- *(data)* pin cito/doco to immutable SPAR URLs, not mutable /current/
+- make rubber-stamp axioms falsifiable + add property-based coverage
+- harden 18 latent panic/overflow sites (audit pass-2 latent findings)
+- 9 more reachable panic/DoS sites from a second, deeper audit
+- 3 more reachable panic/DoS sites the audit verifier over-refuted
+- bound 4 more reachable panic/DoS sites found by an exhaustive audit
+
+### Perf
+
+- *(reasoner)* [**breaking**] audit-5 wave 2 — loaded-only surface overlay (−15.5 MiB, + a real dup bug fixed)
+- *(reasoner)* [**breaking**] audit-5 wave 1 — kill 4 owned-re-copy gaps (measured −22 MiB + a leak class)
+- *(lens)* owned-consuming put leg — the rich stores MOVE into their mirrors at build
+- *(english)* archive the remaining owned relational maps — English owns no WordNet HashMap
+- *(wasm,domains)* single substrate instance -- collapse the ~112 MiB double-hold (W2)
+- *(domains)* [**breaking**] English IS a RuntimeOntology -- archived taxonomy edges + Sync per-query BFS, drop the eager closure (W1)
+- *(domains)* drop English's retained sense_to_id index -- reclaim ~13.9 MiB
+- *(domains)* English concept records as a zero-copy archived buffer (S3)
+- *(domains)* English word_index as a zero-copy archived buffer -- reclaim ~240 MiB (S2)
+
+### Refactor
+
+- *(reach)* [**breaking**] ReachSubstrate engine — LazyKindReach and the 216 MiB English bridge deleted
+- *(reach)* [**breaking**] one graded-reach kernel for both engines — the de-privilege-English core
+- *(english)* all 9 archived stores → 2 cited WellBehavedLens families; English owns nothing
+
+### Test
+
+- *(laws)* audit-5 wave 6 — the last census cells: grounding axioms, generated lens properties, one kernel, honest Lemon
+- *(english)* direct cast tests for word_index + concept_store zero-copy stores
+
 ## [0.27.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.5...pr4xis-domains-v0.27.0) - 2026-07-06
 
 ### Docs

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.27.0...pr4xis-v0.28.0) - 2026-07-10
+
+### Feat
+
+- *(domains)* [**breaking**] generalize grounding -- any .prx carries its grounding functor as data (W2.1)
+
+### Fix
+
+- *(audit)* audit-4 — 21 confirmed findings on the post-review commits, all fixed or justified
+
+### Perf
+
+- *(closure)* [**breaking**] audit-5 wave 3 — u32-CSR MaterializedClosure, strings resident once (−42 MiB on title 42)
+
+### Refactor
+
+- *(reach)* [**breaking**] ReachSubstrate engine — LazyKindReach and the 216 MiB English bridge deleted
+- *(reach)* [**breaking**] one graded-reach kernel for both engines — the de-privilege-English core
+
+### Test
+
+- *(laws)* audit-5 wave 6 — the last census cells: grounding axioms, generated lens properties, one kernel, honest Lemon
+
 ## [0.26.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.25.5...pr4xis-v0.26.0) - 2026-07-04
 
 ### Feat
