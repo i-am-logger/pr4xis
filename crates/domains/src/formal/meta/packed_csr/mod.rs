@@ -54,6 +54,21 @@
 //! fallback, exactly as a non-`prx` build does. A `const _` in `archived`
 //! asserts the invariant at compile time.
 //!
+//! # Trust boundary
+//!
+//! Two construction paths exist for already-packed bytes, split by TRUST:
+//!
+//! - the private `from_buf` fast path — reachable only through `build`, whose
+//!   buffer comes from the in-process `pack` (valid by construction);
+//! - [`ArchivedCsrDict::from_untrusted_buf`] — the ONLY public entry for bytes
+//!   this process did not pack (a wire payload, a file, an embedded blob).
+//!   Every header field is bounds-checked with overflow-checked arithmetic,
+//!   both CSR offset arrays are verified as exact monotone partitions, keys
+//!   are verified UTF-8 and strictly sorted, and the value payload is swept
+//!   through its column validation ([`EnumBound`] discriminants) — fail-closed
+//!   `Err`, never a panic, never an over-allocation (the `raw_source_prx`
+//!   discipline).
+//!
 //! # Lens laws
 //!
 //! [`PackedCsrDict`] is a well-behaved lens (Foster, Greenwald, Moore, Pierce &
@@ -420,6 +435,95 @@ mod archived {
 
     use rkyv::util::AlignedVec;
 
+    /// Why an UNTRUSTED packed-dict buffer was refused by
+    /// [`ArchivedCsrDict::from_untrusted_buf`] — fail-closed, every variant
+    /// names the violated structural invariant. Mirrors the
+    /// `raw_source_prx::RawSourcePrxError` discipline: a forged header can
+    /// produce an `Err`, never a panic and never an allocation sized from an
+    /// unvalidated field.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum PackedCsrError {
+        /// The buffer is shorter than the fixed 16-byte header.
+        TruncatedHeader { len: usize },
+        /// The header's pad word is non-zero — not a canonically packed buffer.
+        NonZeroPad { pad: u32 },
+        /// A layout field (`n`, `val_count`, `key_blob_len`) overflows the
+        /// address computation on this target — unsatisfiable by any real pack.
+        LayoutOverflow,
+        /// The layout the header declares does not equal the buffer length
+        /// exactly (the pack writes no slack and no trailing bytes).
+        LengthMismatch { declared: usize, actual: usize },
+        /// A value CSR offset decreases, or the final offset ≠ `val_count` —
+        /// the offsets must partition the value array exactly.
+        ValueOffsetsNotMonotone { index: usize },
+        /// A key CSR offset decreases, or the final offset ≠ `key_blob_len` —
+        /// the offsets must partition the key blob exactly.
+        KeyOffsetsNotMonotone { index: usize },
+        /// A packed key is not UTF-8 (`lookup`/`keys` would panic on it).
+        KeyNotUtf8 { index: usize },
+        /// Keys are not strictly increasing in raw byte order — the binary
+        /// search's precondition, and the canonical (sorted, deduplicated)
+        /// form `pack` emits.
+        KeysNotSorted { index: usize },
+        /// The value payload fails its column validation — for a
+        /// [`CheckedEnumRun`] an out-of-range enum discriminant, which would
+        /// make the zero-copy `&[Enum]` cast unsound.
+        InvalidPayload,
+    }
+
+    impl core::fmt::Display for PackedCsrError {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            match self {
+                PackedCsrError::TruncatedHeader { len } => {
+                    write!(
+                        f,
+                        "packed CSR dict: {len}-byte buffer is shorter than the header"
+                    )
+                }
+                PackedCsrError::NonZeroPad { pad } => {
+                    write!(f, "packed CSR dict: non-zero header pad {pad:#x}")
+                }
+                PackedCsrError::LayoutOverflow => {
+                    write!(
+                        f,
+                        "packed CSR dict: header layout fields overflow the address space"
+                    )
+                }
+                PackedCsrError::LengthMismatch { declared, actual } => write!(
+                    f,
+                    "packed CSR dict: header declares a {declared}-byte layout but the buffer \
+                     is {actual} bytes"
+                ),
+                PackedCsrError::ValueOffsetsNotMonotone { index } => write!(
+                    f,
+                    "packed CSR dict: value CSR offset {index} breaks the exact monotone \
+                     partition of the value array"
+                ),
+                PackedCsrError::KeyOffsetsNotMonotone { index } => write!(
+                    f,
+                    "packed CSR dict: key CSR offset {index} breaks the exact monotone \
+                     partition of the key blob"
+                ),
+                PackedCsrError::KeyNotUtf8 { index } => {
+                    write!(f, "packed CSR dict: key {index} is not UTF-8")
+                }
+                PackedCsrError::KeysNotSorted { index } => write!(
+                    f,
+                    "packed CSR dict: key {index} is not strictly greater than its predecessor \
+                     (keys must be sorted and deduplicated)"
+                ),
+                PackedCsrError::InvalidPayload => write!(
+                    f,
+                    "packed CSR dict: value payload fails column validation (an out-of-range \
+                     enum discriminant)"
+                ),
+            }
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for PackedCsrError {}
+
     /// The soundness precondition of the zero-copy cast and the CSR reader:
     /// native integer byte order must equal the little-endian order the buffer is
     /// written in. Enforced by the `cfg(target_endian = "little")` gate on this
@@ -556,9 +660,20 @@ mod archived {
             buf
         }
 
-        /// Recover a dict from already-packed bytes by reading the header. Used by
-        /// [`build`](Self::build) and (in tests) the GetPut byte round-trip.
-        pub fn from_buf(buf: AlignedVec<16>) -> Self {
+        /// Recover a dict from already-packed bytes by reading the header — the
+        /// TRUSTED fast path.
+        ///
+        /// # Invariant (why this may skip validation)
+        ///
+        /// The buffer must be the output of THIS process's [`pack`](Self::pack)
+        /// — valid by construction (`pack` lays the buffer out and asserts the
+        /// layout and payload before returning). It is private so the only
+        /// caller is [`build`](Self::build), the in-process pack leg. ANY
+        /// buffer that did not come from the in-process pack — a wire payload,
+        /// a file, an embedded blob — must enter through
+        /// [`from_untrusted_buf`](Self::from_untrusted_buf) instead, which
+        /// bounds-checks every header field fail-closed.
+        fn from_buf(buf: AlignedVec<16>) -> Self {
             let s = buf.as_slice();
             let n = read_u32_le(s, 0);
             let val_count = read_u32_le(s, 4);
@@ -574,6 +689,122 @@ mod archived {
                 key_blob_at,
                 _pd: PhantomData,
             }
+        }
+
+        /// The VALIDATING construction path — the ONLY public entry for a
+        /// buffer this process did not pack (a wire payload, a file, an
+        /// embedded blob). Fail-closed and TOTAL: every header field is
+        /// bounds-checked with overflow-checked arithmetic before any region
+        /// is read, so a forged buffer yields a typed [`PackedCsrError`] —
+        /// never a panic, never an out-of-bounds read, and never an
+        /// allocation sized from an unvalidated field (this path allocates
+        /// nothing at all).
+        ///
+        /// Checks, in order:
+        /// 1. the 16-byte header is present and its pad word is zero;
+        /// 2. the declared layout (`HEADER + val_count·SIZE + 2·(n+1)·4 +
+        ///    key_blob_len`) is overflow-free and equals `buf.len()` EXACTLY;
+        /// 3. the value CSR offsets start at 0, are monotone non-decreasing,
+        ///    and end at `val_count` (the exact partition `elems_at` casts
+        ///    from);
+        /// 4. the key CSR offsets start at 0, are monotone non-decreasing,
+        ///    and end at `key_blob_len`;
+        /// 5. every key is UTF-8 and strictly greater than its predecessor in
+        ///    raw byte order (the binary search's precondition and `pack`'s
+        ///    canonical sorted/deduplicated form);
+        /// 6. the value payload passes its column validation —
+        ///    [`CheckedEnumRun`] sweeps every discriminant through
+        ///    [`EnumBound::MAX_DISCRIMINANT`], keeping the zero-copy
+        ///    `&[Enum]` cast provably sound on hostile bytes.
+        ///
+        /// An accepted buffer satisfies every precondition `cast_elems` and
+        /// the readers rely on, so all subsequent reads are sound and total.
+        pub fn from_untrusted_buf(buf: AlignedVec<16>) -> Result<Self, PackedCsrError> {
+            let s = buf.as_slice();
+            // 1. Header presence + canonical zero pad.
+            if s.len() < HEADER {
+                return Err(PackedCsrError::TruncatedHeader { len: s.len() });
+            }
+            let n = read_u32_le(s, 0);
+            let val_count = read_u32_le(s, 4);
+            let key_blob_len = read_u32_le(s, 8);
+            let pad = read_u32_le(s, 12) as u32;
+            if pad != 0 {
+                return Err(PackedCsrError::NonZeroPad { pad });
+            }
+            // 2. Overflow-checked layout; must equal the buffer length EXACTLY.
+            let es = V::Elem::SIZE;
+            let off_bytes = n
+                .checked_add(1)
+                .and_then(|m| m.checked_mul(4))
+                .ok_or(PackedCsrError::LayoutOverflow)?;
+            let val_offsets_at = val_count
+                .checked_mul(es)
+                .and_then(|b| b.checked_add(HEADER))
+                .ok_or(PackedCsrError::LayoutOverflow)?;
+            let key_offsets_at = val_offsets_at
+                .checked_add(off_bytes)
+                .ok_or(PackedCsrError::LayoutOverflow)?;
+            let key_blob_at = key_offsets_at
+                .checked_add(off_bytes)
+                .ok_or(PackedCsrError::LayoutOverflow)?;
+            let total = key_blob_at
+                .checked_add(key_blob_len)
+                .ok_or(PackedCsrError::LayoutOverflow)?;
+            if total != s.len() {
+                return Err(PackedCsrError::LengthMismatch {
+                    declared: total,
+                    actual: s.len(),
+                });
+            }
+            // 3./4. Both CSR offset arrays: start at 0, monotone, exact end.
+            // (All reads below are in-bounds: the regions were sized above.)
+            let check_offsets = |at: usize, end_must_be: usize| -> Result<(), usize> {
+                let mut prev = read_u32_le(s, at);
+                if prev != 0 {
+                    return Err(0);
+                }
+                for i in 1..=n {
+                    let cur = read_u32_le(s, at + i * 4);
+                    if cur < prev {
+                        return Err(i);
+                    }
+                    prev = cur;
+                }
+                if prev != end_must_be { Err(n) } else { Ok(()) }
+            };
+            check_offsets(val_offsets_at, val_count)
+                .map_err(|index| PackedCsrError::ValueOffsetsNotMonotone { index })?;
+            check_offsets(key_offsets_at, key_blob_len)
+                .map_err(|index| PackedCsrError::KeyOffsetsNotMonotone { index })?;
+            // 5. Keys: UTF-8, strictly increasing (sorted + deduplicated).
+            let mut prev_key: Option<&[u8]> = None;
+            for i in 0..n {
+                let ks = key_blob_at + read_u32_le(s, key_offsets_at + i * 4);
+                let ke = key_blob_at + read_u32_le(s, key_offsets_at + (i + 1) * 4);
+                let key = &s[ks..ke];
+                if core::str::from_utf8(key).is_err() {
+                    return Err(PackedCsrError::KeyNotUtf8 { index: i });
+                }
+                if let Some(prev) = prev_key
+                    && prev >= key
+                {
+                    return Err(PackedCsrError::KeysNotSorted { index: i });
+                }
+                prev_key = Some(key);
+            }
+            // 6. Column payload validation (enum discriminants in range).
+            if !V::validate_payload(&s[HEADER..val_offsets_at]) {
+                return Err(PackedCsrError::InvalidPayload);
+            }
+            Ok(Self {
+                buf,
+                n,
+                val_offsets_at,
+                key_offsets_at,
+                key_blob_at,
+                _pd: PhantomData,
+            })
         }
 
         #[inline]
@@ -817,7 +1048,7 @@ mod archived {
 }
 
 #[cfg(all(feature = "prx", target_endian = "little"))]
-pub use archived::{ArchivedCsrDict, ArchivedCsrFamily};
+pub use archived::{ArchivedCsrDict, ArchivedCsrFamily, PackedCsrError};
 
 // ── the public representation aliases ────────────────────────────────────────
 

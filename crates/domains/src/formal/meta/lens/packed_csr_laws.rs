@@ -443,4 +443,293 @@ mod tests {
     pr4xis::register_praxis_value!(prop_lookup_miss_is_empty, Verifiable);
     pr4xis::register_praxis_value!(prop_out_of_range_is_empty, Verifiable);
     pr4xis::register_praxis_value!(prop_order_preserved, Verifiable);
+
+    // ── the UNTRUSTED construction path: adversarial-byte properties ─────────
+
+    use crate::formal::meta::packed_csr::PackedCsrError;
+    use rkyv::util::AlignedVec;
+
+    /// Copy raw bytes into a fresh 16-aligned buffer — the shape an untrusted
+    /// wire payload arrives in.
+    fn aligned(bytes: &[u8]) -> AlignedVec<16> {
+        let mut v = AlignedVec::<16>::with_capacity(bytes.len());
+        v.extend_from_slice(bytes);
+        v
+    }
+
+    /// The ∀-byte-mutation totality+sanity check, generic over the value
+    /// column: pack a real dict, flip ONE byte, and require
+    /// `from_untrusted_buf` to be TOTAL — `Err`, or an `Ok` dict whose every
+    /// read (unpack, all-key lookups, miss probes, key iteration) completes
+    /// without panicking. Unlike the pinned raw-source envelopes, a mutated
+    /// CSR buffer may still be VALID bytes (e.g. a flipped value byte is just
+    /// a different id) — the property is totality + sanity, not rejection.
+    fn mutated_untrusted_is_total<V>(
+        map: HashMap<String, V::Owned>,
+        byte_idx: usize,
+        xor: u8,
+        misses: &[&str],
+    ) -> Result<(), TestCaseError>
+    where
+        V: ValueColumn,
+        V::Owned: PartialEq + core::fmt::Debug,
+    {
+        let packed = ArchivedCsrDict::<SortedKeys, V>::pack(&map);
+        let mut bad = packed.as_slice().to_vec();
+        let i = byte_idx % bad.len(); // pack always emits ≥ the 16-byte header
+        bad[i] ^= xor;
+        let keys: Vec<String> = map.keys().cloned().collect();
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+            || -> Result<(), TestCaseError> {
+                match ArchivedCsrDict::<SortedKeys, V>::from_untrusted_buf(aligned(&bad)) {
+                    Err(_) => Ok(()), // fail-closed refusal: correct
+                    Ok(dict) => {
+                        // Accepted ⇒ every read is total (bounds hold by validation).
+                        let _ = dict.unpack();
+                        for k in keys
+                            .iter()
+                            .map(String::as_str)
+                            .chain(misses.iter().copied())
+                        {
+                            let _ = dict.lookup(k);
+                        }
+                        prop_assert_eq!(dict.keys().count(), dict.len());
+                        Ok(())
+                    }
+                }
+            },
+        ));
+        match outcome {
+            Ok(r) => r,
+            Err(_) => Err(TestCaseError::fail(format!(
+                "from_untrusted_buf PANICKED on byte {i} ^= {xor}"
+            ))),
+        }
+    }
+
+    /// Generated scalar dictionary entries (one id per key).
+    fn scalar_dict_strategy() -> impl Strategy<Value = Vec<(String, Ref<4>)>> {
+        prop::collection::vec(("[a-z]{1,5}", (0u64..1000).prop_map(r)), 0..8)
+    }
+
+    /// Generated checked-enum-run dictionary entries (`Tri` runs — the local
+    /// analogue of `Transitivity`'s `CheckedEnumRun`).
+    fn enum_dict_strategy() -> impl Strategy<Value = Vec<(String, Vec<Tri>)>> {
+        prop::collection::vec(
+            (
+                "[a-z]{1,5}",
+                prop::collection::vec(prop_oneof![Just(Tri::A), Just(Tri::B), Just(Tri::C)], 0..4),
+            ),
+            0..8,
+        )
+    }
+
+    proptest! {
+        /// ∀ single-byte mutation of a real packed `PodRun<Ref<4>>` dict, the
+        /// validated path is total and sane — Err, or an Ok whose reads never
+        /// panic and never read out of bounds.
+        #[test]
+        fn prop_mutated_untrusted_run_dict_is_total(
+            (entries, miss) in dict_strategy(),
+            byte_idx in 0usize..4096,
+            xor in 1u8..=255,
+        ) {
+            let map: HashMap<String, Vec<Ref<4>>> = entries.into_iter().collect();
+            mutated_untrusted_is_total::<PodRun<Ref<4>>>(map, byte_idx, xor, &[&miss])?;
+        }
+
+        /// The same ∀-mutation property over the `PodScalar<Ref<4>>` column
+        /// (`synset_index`'s shape).
+        #[test]
+        fn prop_mutated_untrusted_scalar_dict_is_total(
+            entries in scalar_dict_strategy(),
+            byte_idx in 0usize..4096,
+            xor in 1u8..=255,
+        ) {
+            let map: HashMap<String, Ref<4>> = entries.into_iter().collect();
+            mutated_untrusted_is_total::<PodScalar<Ref<4>>>(map, byte_idx, xor, &["ZZ"])?;
+        }
+
+        /// The same ∀-mutation property over the `CheckedEnumRun` column
+        /// (`verb_transitivity_index`'s shape) — additionally, an accepted
+        /// buffer can never carry an out-of-range discriminant (the payload
+        /// sweep), so the zero-copy `&[Tri]` cast stays sound on hostile bytes.
+        #[test]
+        fn prop_mutated_untrusted_enum_dict_is_total(
+            entries in enum_dict_strategy(),
+            byte_idx in 0usize..4096,
+            xor in 1u8..=255,
+        ) {
+            let map: HashMap<String, Vec<Tri>> = entries.into_iter().collect();
+            mutated_untrusted_is_total::<CheckedEnumRun<Tri>>(map, byte_idx, xor, &["ZZ"])?;
+        }
+
+        /// POSITIVE CONTROL: every canonically packed buffer — all three value
+        /// columns — is ACCEPTED by the validated path, and its reads equal the
+        /// owned baseline (the untrusted path is not "reject everything").
+        #[test]
+        fn prop_untrusted_accepts_canonical_pack(
+            (run_entries, miss) in dict_strategy(),
+            scalar_entries in scalar_dict_strategy(),
+            enum_entries in enum_dict_strategy(),
+        ) {
+            let run_map: HashMap<String, Vec<Ref<4>>> = run_entries.into_iter().collect();
+            let d = ArchivedCsrDict::<SortedKeys, PodRun<Ref<4>>>::from_untrusted_buf(
+                ArchivedCsrDict::<SortedKeys, PodRun<Ref<4>>>::pack(&run_map),
+            ).map_err(|e| TestCaseError::fail(format!("run dict refused: {e}")))?;
+            let owned = OwnedCsrDict::<SortedKeys, PodRun<Ref<4>>>::build(run_map.clone());
+            for k in run_map.keys().map(String::as_str).chain([miss.as_str()]) {
+                prop_assert_eq!(d.lookup(k), owned.lookup(k));
+            }
+
+            let scalar_map: HashMap<String, Ref<4>> = scalar_entries.into_iter().collect();
+            let d = ArchivedCsrDict::<SortedKeys, PodScalar<Ref<4>>>::from_untrusted_buf(
+                ArchivedCsrDict::<SortedKeys, PodScalar<Ref<4>>>::pack(&scalar_map),
+            ).map_err(|e| TestCaseError::fail(format!("scalar dict refused: {e}")))?;
+            prop_assert_eq!(d.unpack(), scalar_map);
+
+            let enum_map: HashMap<String, Vec<Tri>> = enum_entries.into_iter().collect();
+            let d = ArchivedCsrDict::<SortedKeys, CheckedEnumRun<Tri>>::from_untrusted_buf(
+                ArchivedCsrDict::<SortedKeys, CheckedEnumRun<Tri>>::pack(&enum_map),
+            ).map_err(|e| TestCaseError::fail(format!("enum dict refused: {e}")))?;
+            prop_assert_eq!(d.unpack(), enum_map);
+        }
+
+        /// FAMILY MULTI-KIND generator widening: archived reads equal owned
+        /// reads over GENERATED multi-label bundles (every `Quad` label
+        /// populated independently), not just the one-edge-per-label witness.
+        #[test]
+        fn prop_family_multi_kind_faithful(
+            cols in prop::collection::vec(
+                prop::collection::vec(
+                    prop::collection::vec((0u64..1000).prop_map(r), 0..3),
+                    0..6,
+                ),
+                Quad::COUNT..=Quad::COUNT,
+            ),
+            probe in 0u64..8,
+        ) {
+            let rows = cols.iter().map(Vec::len).max().unwrap_or(0);
+            let bundle: Vec<(usize, HashMap<DenseKey, Vec<Ref<4>>>)> = cols
+                .iter()
+                .map(|runs| {
+                    let mut m: HashMap<DenseKey, Vec<Ref<4>>> = HashMap::new();
+                    for (i, run) in runs.iter().enumerate() {
+                        if !run.is_empty() {
+                            m.insert(r(i as u64), run.clone());
+                        }
+                    }
+                    (rows, m)
+                })
+                .collect();
+            let archived = ArchivedCsrFamily::<Quad, PodRun<Ref<4>>>::build(bundle.clone());
+            let owned = OwnedCsrFamily::<Quad, PodRun<Ref<4>>>::build(bundle);
+            for &tag in Quad::all() {
+                prop_assert_eq!(archived.edge_count(tag), owned.edge_count(tag));
+                prop_assert_eq!(archived.row_count(tag), owned.row_count(tag));
+                for i in 0..(rows as u64 + probe + 1) {
+                    prop_assert_eq!(archived.column(tag, r(i)), owned.column(tag, r(i)));
+                }
+            }
+        }
+    }
+
+    pr4xis::register_praxis_value!(prop_mutated_untrusted_run_dict_is_total, Honest);
+    pr4xis::register_praxis_value!(prop_mutated_untrusted_scalar_dict_is_total, Honest);
+    pr4xis::register_praxis_value!(prop_mutated_untrusted_enum_dict_is_total, Honest);
+    pr4xis::register_praxis_value!(prop_untrusted_accepts_canonical_pack, Verifiable);
+    pr4xis::register_praxis_value!(prop_family_multi_kind_faithful, Verifiable);
+
+    /// Every NAMED forgery of a real packed buffer is refused with its typed
+    /// verdict — the per-invariant teeth behind the ∀-mutation property (which
+    /// alone could pass with a validator that accepts everything).
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn untrusted_path_refuses_each_named_forgery() {
+        let mut map: HashMap<String, Vec<Ref<4>>> = HashMap::new();
+        map.insert(String::from("alpha"), alloc::vec![r(7)]);
+        map.insert(String::from("beta"), alloc::vec![r(3), r(9)]);
+        let good = ArchivedCsrDict::<SortedKeys, PodRun<Ref<4>>>::pack(&map);
+        let bytes = good.as_slice().to_vec();
+        let refuse = |bad: &[u8]| {
+            ArchivedCsrDict::<SortedKeys, PodRun<Ref<4>>>::from_untrusted_buf(aligned(bad))
+                .expect_err("forged buffer must be refused")
+        };
+
+        // Truncated header.
+        assert!(matches!(
+            refuse(&bytes[..8]),
+            PackedCsrError::TruncatedHeader { len: 8 }
+        ));
+        // Non-zero pad word.
+        let mut bad = bytes.clone();
+        bad[12] = 1;
+        assert!(matches!(refuse(&bad), PackedCsrError::NonZeroPad { .. }));
+        // Forged n (over-declares the offset arrays past the buffer).
+        let mut bad = bytes.clone();
+        bad[0] = 0xff;
+        assert!(matches!(
+            refuse(&bad),
+            PackedCsrError::LengthMismatch { .. } | PackedCsrError::LayoutOverflow
+        ));
+        // Forged val_count (over-declares the value array).
+        let mut bad = bytes.clone();
+        bad[4] = 0xff;
+        assert!(matches!(
+            refuse(&bad),
+            PackedCsrError::LengthMismatch { .. } | PackedCsrError::LayoutOverflow
+        ));
+        // Trailing garbage after the exact layout.
+        let mut bad = bytes.clone();
+        bad.push(0);
+        assert!(matches!(
+            refuse(&bad),
+            PackedCsrError::LengthMismatch { .. }
+        ));
+        // Non-monotone value offsets: swap the interior offset above the total
+        // (the offsets live right after the value array — locate via the same
+        // layout the validator derives).
+        let n = 2usize;
+        let es = 8usize; // Ref<4>::SIZE
+        let val_count = 3usize;
+        let val_offsets_at = 16 + val_count * es;
+        let mut bad = bytes.clone();
+        bad[val_offsets_at + 4] = 0xf0; // offset[1] jumps past val_count
+        assert!(matches!(
+            refuse(&bad),
+            PackedCsrError::ValueOffsetsNotMonotone { .. }
+        ));
+        // Non-UTF-8 key byte inside the key blob.
+        let key_offsets_at = val_offsets_at + (n + 1) * 4;
+        let key_blob_at = key_offsets_at + (n + 1) * 4;
+        let mut bad = bytes.clone();
+        bad[key_blob_at] = 0xff; // "alpha" → \xfflpha (invalid UTF-8 start)
+        assert!(matches!(
+            refuse(&bad),
+            PackedCsrError::KeyNotUtf8 { index: 0 }
+        ));
+        // Unsorted keys: make key 0 lexically greater than key 1.
+        let mut bad = bytes.clone();
+        bad[key_blob_at] = b'z'; // "alpha" → "zlpha" > "beta"
+        assert!(matches!(
+            refuse(&bad),
+            PackedCsrError::KeysNotSorted { index: 1 }
+        ));
+
+        // CheckedEnumRun: an out-of-range discriminant is InvalidPayload.
+        let mut emap: HashMap<String, Vec<Tri>> = HashMap::new();
+        emap.insert(String::from("walk"), alloc::vec![Tri::A, Tri::C]);
+        let egood = ArchivedCsrDict::<SortedKeys, CheckedEnumRun<Tri>>::pack(&emap);
+        let mut ebad = egood.as_slice().to_vec();
+        ebad[16] = Tri::C as u8 + 1; // first payload byte out of range
+        let err =
+            ArchivedCsrDict::<SortedKeys, CheckedEnumRun<Tri>>::from_untrusted_buf(aligned(&ebad))
+                .expect_err("out-of-range discriminant must be refused");
+        assert!(matches!(err, PackedCsrError::InvalidPayload));
+
+        // Positive control: the untouched canonical bytes are accepted.
+        let ok = ArchivedCsrDict::<SortedKeys, PodRun<Ref<4>>>::from_untrusted_buf(good)
+            .expect("canonical pack must be accepted");
+        assert_eq!(ok.unpack(), map);
+    }
 }
