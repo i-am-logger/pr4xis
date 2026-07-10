@@ -132,6 +132,38 @@ impl<const N: usize> PodElem for Ref<N> {
 /// How a per-key value packs into and reads back from the CSR payload — the
 /// `Value` axis. Marker types [`PodScalar`], [`PodRun`], [`CheckedEnumRun`]
 /// implement it; instances are never constructed.
+/// The per-key value-run CARDINALITY a column's schema declares — the
+/// column-level functional dependency class (Codd 1970, *A Relational Model of
+/// Data for Large Shared Data Banks*, CACM 13(6); Armstrong 1974, *Dependency
+/// Structures of Data Base Relationships*, IFIP): a scalar column IS the
+/// dependency `key → exactly one value`, a run column is `key → any number`.
+///
+/// Declared ONCE on the column type and DERIVED by every consumer — the
+/// untrusted-boundary validator refuses a buffer whose runs violate the
+/// declared arity, and [`ValueColumn::to_owned`]'s `elems[0]` is sound
+/// *because* the schema declares `ExactlyOne` (never because a call site
+/// checked a length). Schema knowledge as data on the type, not an ad-hoc
+/// predicate at a boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunArity {
+    /// Exactly one element per key — the scalar functional dependency.
+    /// An empty (or multi-element) run in an untrusted buffer is a forgery.
+    ExactlyOne,
+    /// Any number of elements per key; an empty run is the "absent" read.
+    Any,
+}
+
+impl RunArity {
+    /// Does a run of `len` elements satisfy this declared cardinality?
+    #[inline]
+    pub fn admits(self, len: usize) -> bool {
+        match self {
+            RunArity::ExactlyOne => len == 1,
+            RunArity::Any => true,
+        }
+    }
+}
+
 pub trait ValueColumn {
     /// The POD element written one-per-slot (scalar) or per-run-element.
     type Elem: PodElem;
@@ -142,6 +174,13 @@ pub trait ValueColumn {
     where
         Self: 'a;
 
+    /// The column's declared per-key run cardinality (see [`RunArity`]) — the
+    /// schema fact the untrusted-boundary validator enforces and the read/GET
+    /// legs rely on. REQUIRED (no permissive default): every column states its
+    /// functional-dependency class explicitly. A scalar column declares
+    /// [`RunArity::ExactlyOne`]; run columns declare [`RunArity::Any`].
+    const ARITY: RunArity;
+
     /// Elements of one owned entry (a scalar is a length-1 slice via
     /// [`core::slice::from_ref`]).
     fn elems(owned: &Self::Owned) -> &[Self::Elem];
@@ -149,15 +188,20 @@ pub trait ValueColumn {
     /// `Option`; run → the slice unchanged). An empty slice is the "absent" read.
     fn read_slice(elems: &[Self::Elem]) -> Self::Read<'_>;
     /// Rebuild an owned value from an element slice — the GET half of the lens.
+    /// Sound under the column's declared [`Self::ARITY`]: the in-process pack
+    /// writes conforming runs by construction, and `from_untrusted_buf` refuses
+    /// any buffer whose runs violate the declaration.
     fn to_owned(elems: &[Self::Elem]) -> Self::Owned;
     /// Is this read "present" (`contains`)? Scalar → `Some`; run → non-empty.
     fn present(read: &Self::Read<'_>) -> bool;
-    /// Validate a packed payload byte region (the whole value array). POD columns
-    /// are valid by construction; [`CheckedEnumRun`] checks every discriminant.
-    #[inline]
-    fn validate_payload(_bytes: &[u8]) -> bool {
-        true
-    }
+    /// Validate a packed payload byte region (the whole value array) for an
+    /// UNTRUSTED buffer. REQUIRED (no permissive default — a column that could
+    /// silently inherit `true` is the fail-closed anti-pattern): every column
+    /// DECLARES its payload validity. A column whose element admits every byte
+    /// pattern states `true` with the justification (e.g. `Ref<N>` is a
+    /// `repr(transparent)` u64 — total by representation); [`CheckedEnumRun`]
+    /// sweeps every discriminant against [`EnumBound::MAX_DISCRIMINANT`].
+    fn validate_payload(bytes: &[u8]) -> bool;
 }
 
 /// A value column of exactly one [`PodElem`] per key — `synset_index`
@@ -172,6 +216,11 @@ impl<E: PodElem> ValueColumn for PodScalar<E> {
     where
         Self: 'a;
 
+    /// The scalar column IS the functional dependency `key → exactly one value`
+    /// — the declared schema fact both the untrusted-boundary validator and the
+    /// GET leg derive from.
+    const ARITY: RunArity = RunArity::ExactlyOne;
+
     #[inline]
     fn elems(owned: &E) -> &[E] {
         core::slice::from_ref(owned)
@@ -182,11 +231,22 @@ impl<E: PodElem> ValueColumn for PodScalar<E> {
     }
     #[inline]
     fn to_owned(elems: &[E]) -> E {
+        // Sound under the declared `ARITY = ExactlyOne`: the in-process pack
+        // writes one element per key by construction, and `from_untrusted_buf`
+        // refuses any buffer whose runs violate the declared cardinality.
         elems[0]
     }
     #[inline]
     fn present(read: &Option<E>) -> bool {
         read.is_some()
+    }
+    /// Total by representation: a [`PodElem`] admits every byte pattern
+    /// (`Ref<N>` is a `repr(transparent)` `u64` — no invalid bit patterns
+    /// exist), so payload validity is vacuously total. DECLARED, not
+    /// defaulted, per the fail-closed discipline.
+    #[inline]
+    fn validate_payload(_bytes: &[u8]) -> bool {
+        true
     }
 }
 
@@ -202,6 +262,10 @@ impl<E: PodElem> ValueColumn for PodRun<E> {
         = &'a [E]
     where
         Self: 'a;
+
+    /// A run column: `key → any number of values` (an empty run is the
+    /// "absent" read).
+    const ARITY: RunArity = RunArity::Any;
 
     #[inline]
     fn elems(owned: &Vec<E>) -> &[E] {
@@ -219,6 +283,13 @@ impl<E: PodElem> ValueColumn for PodRun<E> {
     fn present(read: &&[E]) -> bool {
         !read.is_empty()
     }
+    /// Total by representation: a [`PodElem`] admits every byte pattern
+    /// (`Ref<N>` is a `repr(transparent)` `u64` — no invalid bit patterns
+    /// exist). DECLARED, not defaulted.
+    #[inline]
+    fn validate_payload(_bytes: &[u8]) -> bool {
+        true
+    }
 }
 
 /// A value column of a variable-length run of a `#[repr(u8)]` [`EnumBound`] enum
@@ -234,6 +305,10 @@ impl<E: EnumBound> ValueColumn for CheckedEnumRun<E> {
         = &'a [E]
     where
         Self: 'a;
+
+    /// A run column: `key → any number of values` (an empty run is the
+    /// "absent" read).
+    const ARITY: RunArity = RunArity::Any;
 
     #[inline]
     fn elems(owned: &Vec<E>) -> &[E] {
@@ -469,6 +544,12 @@ mod archived {
         /// [`CheckedEnumRun`] an out-of-range enum discriminant, which would
         /// make the zero-copy `&[Enum]` cast unsound.
         InvalidPayload,
+        /// A key's value-run length violates the column's arity invariant — a
+        /// scalar column requires exactly one element per key (`to_owned`
+        /// indexes `elems[0]` under that invariant), so an empty or
+        /// multi-element scalar run in an untrusted buffer is refused here
+        /// instead of panicking the GET leg.
+        InvalidRunLength { index: usize, len: usize },
         /// A family buffer's declared column table does not carry exactly one
         /// `(row_count, edge_count)` entry per [`LabelKind`] label — the layout
         /// is unaddressable without one entry per column.
@@ -525,6 +606,12 @@ mod archived {
                     f,
                     "packed CSR family: {got} declared column(s), but the label set has \
                      {expected} — one (row_count, edge_count) entry per label is required"
+                ),
+                PackedCsrError::InvalidRunLength { index, len } => write!(
+                    f,
+                    "packed CSR dict: key {index} carries a value run of length {len}, \
+                     violating the column's arity invariant (a scalar column requires \
+                     exactly one element per key)"
                 ),
             }
         }
@@ -786,6 +873,26 @@ mod archived {
                 .map_err(|index| PackedCsrError::ValueOffsetsNotMonotone { index })?;
             check_offsets(key_offsets_at, key_blob_len)
                 .map_err(|index| PackedCsrError::KeyOffsetsNotMonotone { index })?;
+            // 4b. Per-key run cardinality — enforce the column's DECLARED
+            // [`RunArity`] (the schema's functional-dependency class). A run
+            // violating the declaration (e.g. an empty run in an `ExactlyOne`
+            // scalar column) is a forgery refused HERE, so the GET leg's
+            // reliance on the declared arity is sound by the time any read
+            // runs. `Any` columns skip the sweep entirely.
+            if V::ARITY != RunArity::Any {
+                let mut prev = read_u32_le(s, val_offsets_at);
+                for i in 1..=n {
+                    let cur = read_u32_le(s, val_offsets_at + i * 4);
+                    let run_len = cur - prev;
+                    if !V::ARITY.admits(run_len) {
+                        return Err(PackedCsrError::InvalidRunLength {
+                            index: i - 1,
+                            len: run_len,
+                        });
+                    }
+                    prev = cur;
+                }
+            }
             // 5. Keys: UTF-8, strictly increasing (sorted + deduplicated).
             let mut prev_key: Option<&[u8]> = None;
             for i in 0..n {

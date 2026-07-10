@@ -947,6 +947,29 @@ mod tests {
             PackedCsrError::KeysNotSorted { index: 1 }
         ));
 
+        // PodScalar arity: equal adjacent value offsets (an EMPTY run) must be
+        // refused — a scalar column requires exactly one element per key, and
+        // `to_owned`'s `elems[0]` would panic on the empty run (the exact case
+        // the master-CI proptest seed found: monotone-but-empty offsets were
+        // accepted, then the GET leg panicked instead of erroring).
+        let mut smap: HashMap<String, Ref<4>> = HashMap::new();
+        smap.insert(String::from("alpha"), r(7));
+        smap.insert(String::from("beta"), r(3));
+        let sgood = ArchivedCsrDict::<SortedKeys, PodScalar<Ref<4>>>::pack(&smap);
+        let sbytes = sgood.as_slice().to_vec();
+        // scalar layout: n=2, val_count=2 elems × 8B → offsets at 16 + 2*8 = 32,
+        // offsets = [0, 1, 2]; forge offset[1] 1 → 0 (still monotone, run 0 empty).
+        let s_val_offsets_at = 16 + 2 * 8;
+        let mut sbad = sbytes.clone();
+        sbad[s_val_offsets_at + 4] = 0;
+        let err =
+            ArchivedCsrDict::<SortedKeys, PodScalar<Ref<4>>>::from_untrusted_buf(aligned(&sbad))
+                .expect_err("an empty scalar run must be refused, not panic the GET leg");
+        assert!(matches!(
+            err,
+            PackedCsrError::InvalidRunLength { index: 0, len: 0 }
+        ));
+
         // CheckedEnumRun: an out-of-range discriminant is InvalidPayload.
         let mut emap: HashMap<String, Vec<Tri>> = HashMap::new();
         emap.insert(String::from("walk"), alloc::vec![Tri::A, Tri::C]);
