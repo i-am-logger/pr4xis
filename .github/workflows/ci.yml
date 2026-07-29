@@ -68,9 +68,9 @@ permissions:
 # Almost all Rust work here is `--release`, and every host-target job
 # uses the same `Swatinem/rust-cache@v2` shared-key ("release") so the
 # DEPENDENCY graph compiles once across the workflow and every
-# downstream job restores the same slice. Wasm-target jobs (`wasm`,
-# `pages`) share it too rather than using a separate pool: both run
-# host-target Rust before any wasm work.
+# downstream job restores the same slice. The wasm-target jobs
+# (`wasm-browser`, `pages`) share it too rather than using a separate
+# pool: both run host-target Rust before any wasm work.
 #
 # One documented exception to "release only": `scripts/constitution-
 # gate.sh` runs `cargo test --lib` with NO `--release`, so the gate
@@ -103,8 +103,10 @@ permissions:
 # check. Both edits, every time.
 #
 #   build ──┬─► lint-docs ─────┐
-#           ├─► test ──────────┤
-#           ├─► wasm ──────────┤
+#           ├─► test ──────────┤   (also the designated .prx-cache saver)
+#           ├─► corpus ────────┤   host-target heavy-corpus suite
+#           ├─► wasm-native ───┤   host-target acceptance tests
+#           ├─► wasm-browser ──┤   the ONLY wasm32 lane
 #           └─► constitution ──┤
 #   format ────────────────────┤
 #   no-ignored-doctests ───────┤
@@ -138,7 +140,7 @@ permissions:
 # DEPENDENCY slice (see the caching note above — workspace crates are
 # never in it). Of the three, only `test` is genuinely compile-free:
 # it runs the prebuilt nextest archive. `lint-docs` recompiles the
-# workspace under clippy/rustdoc, and `wasm` recompiles the workspace
+# workspace under clippy/rustdoc, and `wasm-browser` recompiles the workspace
 # crates it touches for BOTH targets — the slice holds zero wasm32
 # artefacts, because `build` never installs the wasm32 target, so
 # every `wasm-pack build` starts cold on the wasm32 side.
@@ -203,7 +205,7 @@ jobs:
       #
       # Matching `-D warnings` is essential — without it, the cache
       # slice this job writes has different rustc fingerprints than the
-      # slice `lint-docs` / `test` / `wasm` expect, and they would
+      # slice `lint-docs` / `test` / `wasm-browser` expect, and they would
       # recompile from scratch on restore. Same flags everywhere keeps
       # `shared-key: release` actually shared.
       - name: Build pr4xis-cli (release)
@@ -439,6 +441,14 @@ jobs:
       # all titles incl. the giants — it skips the heavy, toolchain-coupled rkyv
       # envelopes (the `decompile` artifacts, which no test reads). Cached on
       # praxis.lock so a warm run restores the archives and skips the emit entirely.
+      # THIS JOB IS THE DESIGNATED SAVER of this key — the only one using the
+      # read/write `actions/cache`. `corpus` deliberately uses the
+      # restore-only sub-action, because both jobs `needs: [build]` and start
+      # together: on a cold key they would both miss, both compile, and both
+      # race to save, and cache keys are immutable so one save is always
+      # refused. Measured in run 30438018664: the wasm job missed the key and
+      # this job saved it 7 minutes later. If the saver ever moves, move the
+      # read/write action with it.
       - name: Cache compiled .prx archives
         id: prx-cache
         uses: actions/cache@v5
@@ -472,11 +482,11 @@ jobs:
   # `pr4xis-cli` arrives prebuilt, as a downloaded artifact. The wasm32
   # side is cold every run — `build` installs no wasm32 target, so the
   # shared slice contains zero wasm32 artefacts.
-  wasm:
-    name: WASM tests + E2E
+  wasm-browser:
+    name: WASM browser tests + E2E
     runs-on: ubuntu-latest
     needs: [build]
-    timeout-minutes: 60
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
         with:
@@ -510,27 +520,13 @@ jobs:
       - name: Materialise external data (no-op on data-cache hit)
         timeout-minutes: 20
         run: ./target/release/pr4xis update
-      # This job runs the heavy-corpus suite below, whose `usc_loaded()` reads
-      # the content-addressed compact archives (~1.4s for the whole USC corpus)
-      # and otherwise falls back to parsing ~85 MB of USLM XML. Only `.prx-
-      # cache/usc-defines-compact/*.defines.cprx.gz` is committed; the compact
-      # corpus archives are generated.
-      #
-      # NOTE: "whichever of the two runs first populates it for both" is true
-      # only ACROSS runs, never within one. `test` and this job both
-      # `needs: [build]`, so they start together, both miss a cold key, both
-      # do the work, and race to save — and cache keys are immutable, so the
-      # loser's save is refused. Measured in run 30438018664: this job missed
-      # the key and `test` saved it 7 minutes later.
-      - name: Cache compiled .prx archives
-        id: prx-cache
-        uses: actions/cache@v5
-        with:
-          path: .prx-cache
-          key: prx-cache-${{ hashFiles('praxis.lock') }}
-      - name: Compile compact .prx archives (parse-once fast load)
-        if: steps.prx-cache.outputs.cache-hit != 'true'
-        run: ./target/release/pr4xis compile --compact
+      # NOTE: no `.prx-cache` steps here, deliberately. This lane needs only
+      # `.prx-cache/usc-defines-compact/` — 9 files, all git-committed — which
+      # `crates/wasm/build.rs:568` reads via
+      # `load_usc_defines_overlay_from_disk`. It parses the USLM XML itself
+      # and writes its own `.rprx` into `crates/wasm/sources`. The GENERATED
+      # `usc-compact/` archives are read only by the heavy-corpus suite, which
+      # now lives in the `corpus` job — so compiling them here was pure cost.
       # Was `curl … | sh`. GitHub's default shell is `bash -e {0}` — no
       # pipefail — so a failed curl fed an empty script to `sh`, which exits
       # 0: the step went GREEN having installed nothing, and the next step
@@ -556,58 +552,37 @@ jobs:
         run: |
           cd crates/wasm
           wasm-pack test --release --headless --firefox
-      # pr4xis-wasm's NATIVE `mod acceptance` #[test]s (browser-loads-a-prx
-      # with/without the corpus + fail-closed against a wrong/tampered root).
-      # Run explicitly on the host target — mirrors the dev-ci `wasm native
-      # acceptance tests` step exactly (local == CI).
+      # NOTE: `wasm native acceptance tests` and `heavy-corpus tests` used to
+      # run here. Both are pure HOST-target `cargo test` — nothing about them
+      # needs the wasm32 lane — so they were serialising ~855s behind the
+      # wasm-pack build for no reason. They now run as the `wasm-native` and
+      # `corpus` jobs, in parallel with this one.
       #
-      # NOTE: `crates/wasm` IS a workspace member (Cargo.toml:31) — the old
-      # "workspace-excluded" justification here was false. If these tests are
-      # already in the `--workspace` nextest archive they are running twice;
-      # check with
-      #   cargo nextest list --workspace --release -E 'package(pr4xis-wasm)'
-      # and delete this step if they are listed.
-      - name: wasm native acceptance tests (release)
-        timeout-minutes: 15
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo test --manifest-path crates/wasm/Cargo.toml --release
-      # praxis-corpus-tests is workspace-excluded so the default nextest run
-      # never re-parses the multi-hundred-MB USC titles per process-isolated
-      # test. It runs under `cargo test` (one process → a LazyLock fixture parses
-      # each giant once) on the host, with the giants materialised above.
-      #
-      # local == CI is ENFORCED, not asserted: this runs the same script
-      # dev-ci runs. It previously ran the crate unfiltered while claiming to
-      # mirror dev-ci, which pulled in the two deliberately-red suites
-      # (`caregiver_questions_generated`, 4,075 of 4,219 red by design, and
-      # `chat_faithfully_realizes_the_loaded_corpus`) — so this job failed on
-      # every push and `pages`, which needs it, never deployed.
-      # `praxis-corpus-tests` is workspace-EXCLUDED, so `--manifest-path` builds
-      # it into `crates/praxis-corpus-tests/target/` by default — which
-      # `Swatinem/rust-cache` does not cache (it takes `./target`, and its
-      # `workspaces:` input is unset), so this step recompiled the crate's whole
-      # release dependency graph on every run. `devenv.nix` already sets this
-      # variable locally; setting it here is what makes the "local == CI" claim
-      # above true for the build as well as the test list. Sharing a target dir
-      # is not feature unification — that follows workspace membership, which is
-      # unchanged; differing feature sets simply carry differing fingerprints.
-      # THE hang site: this step ran 2h52m in run 30420270297 and stopped only
-      # because a push cancelled the run. Observed 5.6 -> 11.2m across the
-      # sample and TRENDING UP as the corpus grows, so 25 is the one cap here
-      # with a shrinking margin — revisit when it passes ~15m.
-      - name: heavy-corpus tests (release)
-        timeout-minutes: 25
-        env:
-          CARGO_TARGET_DIR: ${{ github.workspace }}/target
-        run: bash scripts/heavy-corpus-tests.sh
+      # `emit_prx` STAYS here: crates/web serves `/ontologies/` from
+      # crates/wasm/ontologies (crates/web/src/main.rs:85-99) and the E2E below
+      # drives two OWL .prx.gz click-to-loads (crates/e2e/src/main.rs:165-171),
+      # so this lane genuinely consumes it.
       - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
         timeout-minutes: 15
+        # -D warnings to match the flags `build` compiled the workspace with.
+        # Cargo's fingerprint includes rustflags, so an unflagged invocation
+        # here rebuilds the whole third-party graph instead of reusing it.
+        # STEP-level, never job- or workflow-level: Swatinem/rust-cache hashes
+        # env vars whose names start with RUST into its cache key at job
+        # setup, so a job-level RUSTFLAGS in a subset of jobs would
+        # permanently fork the 492 MiB shared slice. Step-level is invisible
+        # to it, which is exactly why every job still full-matches.
+        env:
+          RUSTFLAGS: "-D warnings"
         run: |
           mkdir -p crates/wasm/ontologies
           cargo run -p pr4xis-domains --features "fetch codegen" --release --example emit_prx -- crates/wasm/ontologies
       - name: Run Rust WebDriver E2E
         timeout-minutes: 20
+        # Same fingerprint alignment as the emit step above — this compiles
+        # pr4xis-web on the host.
+        env:
+          RUSTFLAGS: "-D warnings"
         run: |
           cargo run -p pr4xis-web --release 3000 &
           WEB=$!
@@ -635,6 +610,157 @@ jobs:
           code=$?
           kill "$WEB" "$GECKO" 2>/dev/null || true
           exit "$code"
+
+  # praxis-corpus-tests is workspace-excluded so the default nextest run never
+  # re-parses the multi-hundred-MB USC titles per process-isolated test. It
+  # runs under `cargo test` (one process → a LazyLock fixture parses each giant
+  # once) on the host.
+  #
+  # local == CI is ENFORCED, not asserted: this runs the same script dev-ci
+  # runs. It previously ran the crate unfiltered while claiming to mirror
+  # dev-ci, which pulled in the two deliberately-red suites
+  # (`caregiver_questions_generated`, 4,075 of 4,219 red by design, and
+  # `chat_faithfully_realizes_the_loaded_corpus`).
+  #
+  # `praxis-corpus-tests` is workspace-EXCLUDED, so `--manifest-path` would
+  # build it into `crates/praxis-corpus-tests/target/` by default — which
+  # Swatinem/rust-cache does not cache (it takes `./target`, and its
+  # `workspaces:` input is unset), so it recompiled the crate's whole release
+  # dependency graph every run. CARGO_TARGET_DIR is what makes the "local ==
+  # CI" claim true for the build as well as the test list. Sharing a target
+  # dir is not feature unification — that follows workspace membership, which
+  # is unchanged; differing feature sets simply carry differing fingerprints.
+  #
+  # Its own job (was a step in `wasm`): pure host-target work that was
+  # serialising ~627s behind an unrelated wasm-pack build.
+  corpus:
+    name: Heavy corpus
+    runs-on: ubuntu-latest
+    needs: [build]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: false
+          submodules: recursive
+      # Host target only — no wasm32, this lane compiles nothing for the web.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+      - name: Cache WordNet XML
+        uses: actions/cache@v5
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v5
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: pr4xis-cli
+          path: target/release
+      - name: Make pr4xis-cli executable
+        run: chmod +x target/release/pr4xis
+      - name: Materialise external data (no-op on data-cache hit)
+        timeout-minutes: 20
+        run: ./target/release/pr4xis update
+      # RESTORE-ONLY, and that is the whole point. `test` is the DESIGNATED
+      # SAVER of this key. Both jobs `needs: [build]`, so they start together:
+      # when the key is cold they would both miss, both do the work, and both
+      # try to save — and cache keys are immutable, so the loser's save is
+      # refused. `actions/cache/restore` has no post step, so it cannot
+      # contend, while still emitting `cache-hit`.
+      #
+      # No `restore-keys` fallback, deliberately: a restore-key hit still sets
+      # `cache-hit == 'false'`, so the compile below would run anyway over a
+      # directory seeded with STALE archives — fail-open, where this design is
+      # fail-closed. The key is already correct: praxis.lock carries
+      # [compact_archive_signatures], so any change to the emitted bytes must
+      # re-pin the lock, which rotates the key.
+      - name: Restore compiled .prx archives
+        id: prx-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .prx-cache
+          key: prx-cache-${{ hashFiles('praxis.lock') }}
+      # Kept even though `test` normally populates the key: on the happy path
+      # this is skipped at 0s, and without it any non-fatal cache-save failure
+      # would drop this job into per-process re-parsing of ~250 MB of USLM XML.
+      - name: Compile compact .prx archives (parse-once fast load)
+        if: steps.prx-cache.outputs.cache-hit != 'true'
+        run: ./target/release/pr4xis compile --compact
+      # NO job-level RUSTFLAGS: scripts/heavy-corpus-tests.sh sets
+      # `RUSTFLAGS="-D warnings"` itself (lines 88, 99), and a job-level value
+      # would be hashed into the rust-cache key, forking the shared slice.
+      #
+      # THE hang site: this ran 2h52m in run 30420270297 and stopped only
+      # because a push cancelled the run. Observed 5.6 -> 11.2m and TRENDING
+      # UP as the corpus grows — the one cap here with a shrinking margin.
+      - name: heavy-corpus tests (release)
+        timeout-minutes: 25
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: bash scripts/heavy-corpus-tests.sh
+
+  # pr4xis-wasm's NATIVE `mod acceptance` #[test]s (browser-loads-a-prx
+  # with/without the corpus + fail-closed against a wrong/tampered root), on
+  # the host target — mirrors the dev-ci `wasm native acceptance tests` step
+  # (local == CI). Split out of `wasm` for the same reason as `corpus`: no part
+  # of it needs the wasm32 lane.
+  #
+  # NOTE: `crates/wasm` IS a workspace member (Cargo.toml:31) — the old
+  # "workspace-excluded" justification for this step was false. If these tests
+  # are already in the `--workspace` nextest archive then `test` is running
+  # them too and this job is redundant; confirm with
+  #   cargo nextest list --workspace --release -E 'package(pr4xis-wasm)'
+  # and delete the job if they are listed. Do not delete on inference.
+  wasm-native:
+    name: WASM native acceptance
+    runs-on: ubuntu-latest
+    needs: [build]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+      - name: Cache WordNet XML
+        uses: actions/cache@v5
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v5
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: pr4xis-cli
+          path: target/release
+      - name: Make pr4xis-cli executable
+        run: chmod +x target/release/pr4xis
+      - name: Materialise external data (no-op on data-cache hit)
+        timeout-minutes: 20
+        run: ./target/release/pr4xis update
+      - name: wasm native acceptance tests (release)
+        timeout-minutes: 15
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --manifest-path crates/wasm/Cargo.toml --release
 
   # Constitution COMPLETENESS gate: every real test declares a guarantee
   # (untagged=0) and every registered tag maps to a real test (phantom=0).
@@ -891,7 +1017,9 @@ jobs:
       [
         lint-docs,
         test,
-        wasm,
+        wasm-browser,
+        wasm-native,
+        corpus,
         format,
         no-ignored-doctests,
         constitution,
@@ -910,7 +1038,9 @@ jobs:
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
-      needs.wasm.result == 'success' &&
+      needs.wasm-browser.result == 'success' &&
+      needs.wasm-native.result == 'success' &&
+      needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
       needs.constitution.result == 'success' &&
@@ -957,7 +1087,7 @@ jobs:
           key: wordnet-english-2025-v1
       # `pr4xis update` materialises EVERY registered source, not just WordNet,
       # so without this the USC titles are re-downloaded on every deploy. Same
-      # key the `build`/`lint-docs`/`wasm` jobs use, so this restores what they
+      # key the `build`/`lint-docs`/`corpus` jobs use, so this restores what they
       # already fetched and the update step below becomes a no-op.
       - name: Cache fetched external data
         uses: actions/cache@v5
@@ -1166,7 +1296,9 @@ jobs:
       [
         lint-docs,
         test,
-        wasm,
+        wasm-browser,
+        wasm-native,
+        corpus,
         format,
         no-ignored-doctests,
         constitution,
@@ -1182,7 +1314,9 @@ jobs:
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
-      needs.wasm.result == 'success' &&
+      needs.wasm-browser.result == 'success' &&
+      needs.wasm-native.result == 'success' &&
+      needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
       needs.constitution.result == 'success' &&
@@ -1226,7 +1360,9 @@ jobs:
       [
         lint-docs,
         test,
-        wasm,
+        wasm-browser,
+        wasm-native,
+        corpus,
         format,
         no-ignored-doctests,
         constitution,
@@ -1241,7 +1377,9 @@ jobs:
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
-      needs.wasm.result == 'success' &&
+      needs.wasm-browser.result == 'success' &&
+      needs.wasm-native.result == 'success' &&
+      needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
       needs.constitution.result == 'success' &&
