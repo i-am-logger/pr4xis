@@ -106,7 +106,6 @@ permissions:
 #           │                      completeness gate over it; also the
 #           │                      designated .prx-cache saver
 #           ├─► corpus ────────┤   host-target heavy-corpus suite
-#           ├─► wasm-native ───┤   host-target acceptance tests
 #           ├─► wasm-browser ──┤   the ONLY wasm32 lane; ALSO the sole
 #           │      ▲               producer of the site tree — it builds,
 #           │      │               browser-tests, emits .prx.gz, runs the E2E,
@@ -594,8 +593,15 @@ jobs:
       # NOTE: `wasm native acceptance tests` and `heavy-corpus tests` used to
       # run here. Both are pure HOST-target `cargo test` — nothing about them
       # needs the wasm32 lane — so they were serialising ~855s behind the
-      # wasm-pack build for no reason. They now run as the `wasm-native` and
-      # `corpus` jobs, in parallel with this one.
+      # wasm-pack build for no reason. heavy-corpus is now the `corpus` job,
+      # in parallel with this one.
+      #
+      # The native acceptance tests are gone entirely rather than relocated:
+      # `crates/wasm` IS a workspace member (Cargo.toml:31, contradicting the
+      # old "workspace-excluded" justification), so all 33 of them are already
+      # in the `--workspace` nextest archive and already run in `test`. Verified
+      # set-equal, not inferred — `cargo test --manifest-path crates/wasm` and
+      # the archive list the same 33 names, so this step was running them twice.
       #
       # `emit_prx` STAYS here: crates/web serves `/ontologies/` from
       # crates/wasm/ontologies (crates/web/src/main.rs:85-99) and the E2E below
@@ -906,60 +912,6 @@ jobs:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: bash scripts/heavy-corpus-tests.sh
 
-  # pr4xis-wasm's NATIVE `mod acceptance` #[test]s (browser-loads-a-prx
-  # with/without the corpus + fail-closed against a wrong/tampered root), on
-  # the host target — mirrors the dev-ci `wasm native acceptance tests` step
-  # (local == CI). Split out of `wasm` for the same reason as `corpus`: no part
-  # of it needs the wasm32 lane.
-  #
-  # NOTE: `crates/wasm` IS a workspace member (Cargo.toml:31) — the old
-  # "workspace-excluded" justification for this step was false. If these tests
-  # are already in the `--workspace` nextest archive then `test` is running
-  # them too and this job is redundant; confirm with
-  #   cargo nextest list --workspace --release -E 'package(pr4xis-wasm)'
-  # and delete the job if they are listed. Do not delete on inference.
-  wasm-native:
-    name: WASM native acceptance
-    runs-on: ubuntu-latest
-    needs: [build]
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: release
-      - name: Cache WordNet XML
-        uses: actions/cache@v5
-        with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      - name: Cache fetched external data
-        uses: actions/cache@v5
-        with:
-          path: |
-            crates/domains/data/legal/uscode
-            crates/domains/data/markup-schemas/xsts
-            crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - uses: actions/download-artifact@v8
-        with:
-          name: pr4xis-cli
-          path: target/release
-      - name: Make pr4xis-cli executable
-        run: chmod +x target/release/pr4xis
-      - name: Materialise external data (no-op on data-cache hit)
-        timeout-minutes: 20
-        run: ./target/release/pr4xis update
-      - name: wasm native acceptance tests (release)
-        timeout-minutes: 15
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo test --manifest-path crates/wasm/Cargo.toml --release
-
   # The caregiver demonstrator is the artifact a judge actually opens, and no
   # Rust test can see an HTML id or a hash route. These gates are the
   # mechanical form of two failures that really happened: a blank page from a
@@ -1156,7 +1108,6 @@ jobs:
         lint-docs,
         test,
         wasm-browser,
-        wasm-native,
         corpus,
         format,
         no-ignored-doctests,
@@ -1176,7 +1127,6 @@ jobs:
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
       needs.wasm-browser.result == 'success' &&
-      needs.wasm-native.result == 'success' &&
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
@@ -1223,7 +1173,6 @@ jobs:
         lint-docs,
         test,
         wasm-browser,
-        wasm-native,
         corpus,
         format,
         no-ignored-doctests,
@@ -1240,7 +1189,6 @@ jobs:
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
       needs.wasm-browser.result == 'success' &&
-      needs.wasm-native.result == 'success' &&
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
@@ -1285,7 +1233,6 @@ jobs:
         lint-docs,
         test,
         wasm-browser,
-        wasm-native,
         corpus,
         format,
         no-ignored-doctests,
@@ -1301,7 +1248,6 @@ jobs:
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
       needs.wasm-browser.result == 'success' &&
-      needs.wasm-native.result == 'success' &&
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
