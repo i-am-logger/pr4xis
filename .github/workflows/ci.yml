@@ -5,6 +5,22 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  # The escape hatch for the release gate on `pages` (see that job): a
+  # docs/site change that is not a release can still publish, but only
+  # because a human explicitly said so.
+  #
+  # `type: choice` with QUOTED "yes"/"no", deliberately. An unquoted yes/no is
+  # a YAML 1.1 boolean, and a `type: boolean` input is a real Boolean in the
+  # `inputs` context but a string in `github.event.inputs` — exactly the
+  # string-vs-Boolean confusion the `== 'true'` note on `pages` exists to
+  # avoid.
+  workflow_dispatch:
+    inputs:
+      deploy_pages:
+        description: "Deploy the docs site from this run (no release required)"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -80,12 +96,28 @@ permissions:
 # `actions/checkout` stamps every file newer than any restored
 # artifact, so workspace units are dirty on arrival regardless.
 #
-# Job graph:
-#   build ──► lint-docs ──┐
-#         ├─► test ───────┤
-#         └─► wasm ───────┼─► release-plz-release ──► pages
-#                         └─► release-plz-pr        (opens Release PR)
-#   format, no-ignored-doctests       (independent, no compile)
+# Job graph. Arrows are effective ordering; every gate is ALSO named
+# explicitly in each downstream `if:`, which is not redundant — a job listed
+# in `needs:` but absent from the `if:` conjuncts is NOT gated, because each
+# `if:` opens with a status function that defeats the implicit success()
+# check. Both edits, every time.
+#
+#   build ──┬─► lint-docs ──┐
+#           ├─► test ───────┤
+#           └─► wasm ───────┤
+#   format ─────────────────┤
+#   no-ignored-doctests ────┴─► release-plz-release ──┬─► release-plz-pr
+#                                                     └─► pages
+#   caregiver-pdf ──────────────────────────────────────► pages
+#
+#   publish-invariant   (standalone tripwire; no `needs:`, gates nothing)
+#
+# format / no-ignored-doctests / caregiver-pdf / publish-invariant declare no
+# `needs:` — none of them compiles anything — so all four start at t=0.
+#
+# `pages` deploys ONLY on a real release (releases_created == 'true') or an
+# explicit workflow_dispatch. `release-plz-pr` MUST run after
+# release-plz-release; see the anti-loop comment on that job.
 #
 # Coverage runs in its own workflow (.github/workflows/coverage.yml)
 # — on `release: published` (filtered to the canonical `pr4xis-v*`
@@ -111,8 +143,11 @@ permissions:
 # Release pipeline (replaces the old release-please + katyo pair):
 #   release-plz-pr      — opens / updates a Release PR with version
 #                          bumps + per-crate CHANGELOG entries derived
-#                          from conventional commits. Runs every push
-#                          to master.
+#                          from conventional commits. Runs on every push
+#                          to master, but ONLY AFTER release-plz-release
+#                          has succeeded — running the two in parallel
+#                          is what produced a self-feeding release loop
+#                          (v0.25.2 -> .3 -> …). See that job's comment.
 #   release-plz-release — on master, detects merged Release PRs (or
 #                          any commit whose Cargo.toml version is ahead
 #                          of crates.io) and publishes + tags + makes
@@ -754,31 +789,68 @@ jobs:
 
 
   # Deploy the docs site (chatbot / decks / the `.prx.gz` ontologies under
-  # /ontologies/) on EVERY green master push — NOT gated on a release. It used to
-  # be `needs: [release-plz-release]` + `if: releases_created == 'true'`, so the
-  # public site only refreshed when a version was cut and went stale between
-  # releases (and skipped entirely on a no-release push, e.g. when the workspace
-  # is already up to date). Decoupled: it deploys whenever the build/test/wasm/
-  # lint gates pass on master, the same success gate the release jobs use.
+  # /ontologies/) ONLY when release-plz actually cut a version — or on an
+  # explicit `workflow_dispatch` with `deploy_pages: yes`.
+  #
+  # This restores the release gate that was removed when `pages` was decoupled
+  # to deploy on every green master push. The cost that decoupling was trying
+  # to avoid is real and is re-accepted here deliberately: a master push that
+  # cuts no release no longer refreshes pr4xis.dev, so edits to
+  # docs/chat/index.html, dashboard.js, the deck and the mdbook reach the site
+  # at the next version — or immediately via the dispatch hatch above.
+  #
+  # `release_always = false` in release-plz.toml means the `release` command
+  # publishes only on the merge commit of a release PR, so
+  # `releases_created == 'true'` fires exactly on "a new version genuinely
+  # shipped" and never on "master moved".
+  #
+  # `== 'true'` (string), NOT `== true`: $GITHUB_OUTPUT values are always
+  # strings, and GitHub's `==` casts across types to Number — Boolean true is
+  # 1, the string 'true' is NaN, and NaN matches nothing, so `== true` would
+  # be permanently false and the site would never deploy again.
+  #
+  # The five quality gates are listed explicitly rather than inherited through
+  # release-plz-release. They are NOT redundant: on a workflow_dispatch run
+  # release-plz-release skips (its own `if` requires a push), so relying on it
+  # transitively would let the manual path deploy over a red lint-docs.
+  # Fail-closed: a skipped/failed release job leaves the output as '', and
+  # '' == 'true' is false.
   pages:
     name: Deploy Pages
     runs-on: ubuntu-latest
-    needs: [lint-docs, test, wasm, format, no-ignored-doctests, caregiver-pdf]
+    needs:
+      [
+        lint-docs,
+        test,
+        wasm,
+        format,
+        no-ignored-doctests,
+        caregiver-pdf,
+        release-plz-release,
+      ]
     timeout-minutes: 30
-    # `!cancelled()`, not `always()`: every conjunct below is already an
-    # explicit `needs.*.result == 'success'` check, so `always()` bought
-    # nothing except the one behaviour that is a hazard — deploying from a
-    # run that was cancelled mid-flight, i.e. publishing a superseded tree.
+    # `!cancelled()`, not `always()` and not an implicit `success()`. With no
+    # status function GitHub applies implicit `success()`, which would skip
+    # this job whenever release-plz-release SKIPS — killing the dispatch path.
+    # `always()` would instead deploy from a run cancelled mid-flight, i.e.
+    # publish a superseded tree.
     if: |
       !cancelled() &&
-      github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
       needs.test.result == 'success' &&
       needs.wasm.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
-      needs.caregiver-pdf.result == 'success'
+      needs.caregiver-pdf.result == 'success' &&
+      (
+        (github.event_name == 'push' &&
+         needs.release-plz-release.result == 'success' &&
+         needs.release-plz-release.outputs.releases_created == 'true')
+        ||
+        (github.event_name == 'workflow_dispatch' &&
+         inputs.deploy_pages == 'yes')
+      )
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
