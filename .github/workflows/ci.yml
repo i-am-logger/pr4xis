@@ -1294,8 +1294,21 @@ jobs:
           PR_JSON: ${{ steps.release-plz.outputs.pr }}
         run: |
           set -euo pipefail
-          branch=$(jq -r '.head_branch' <<<"$PR_JSON")
-          version=$(jq -r '.releases[0].version' <<<"$PR_JSON")
+          # release-plz emits `{}` — NOT an empty string — when it opened no
+          # Release PR, so the `if:` above does not catch that case ('{}' != ''
+          # is true) and this step used to run with a null branch:
+          #     fatal: couldn't find remote ref null
+          # That is a legitimate, expected outcome, not an error. It happens
+          # whenever a master push leaves nothing to propose — a push that
+          # touches only CI, scripts, docs or a `publish = false` crate, or one
+          # where every Cargo.toml version is already ahead of crates.io.
+          # The real guard has to be here, where the payload can be inspected.
+          branch=$(jq -r '.head_branch // empty' <<<"$PR_JSON")
+          version=$(jq -r '.releases[0].version // empty' <<<"$PR_JSON")
+          if [ -z "$branch" ] || [ -z "$version" ]; then
+            echo "release-plz opened no Release PR this run — nothing to sync."
+            exit 0
+          fi
           gh auth setup-git
           git fetch origin "$branch"
           git checkout "$branch"
