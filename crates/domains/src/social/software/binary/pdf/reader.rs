@@ -29,6 +29,8 @@
 use alloc::{format, string::String, string::ToString, vec::Vec};
 
 use super::ontology::PdfConcept;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// A successfully-parsed PDF document — the typed surface a praxis
 /// caller works with.
@@ -97,9 +99,11 @@ impl PdfDocument {
         found
     }
 
-    /// Number of indirect objects in the body (§7.5.3).
-    pub fn indirect_object_count(&self) -> usize {
-        self.inner.objects.len()
+    /// Number of indirect objects in the body (§7.5.3), as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) -- a count, not a
+    /// physical quantity.
+    pub fn indirect_object_count(&self) -> Quantity {
+        Quantity::from_unit(self.inner.objects.len() as f64, &unit::UNITLESS)
     }
 
     /// Borrow the underlying lopdf document. Internal use only —
@@ -369,7 +373,7 @@ mod tests {
         // 4 declared (Catalog, PageTree, Page, ContentStream) — lopdf
         // may also expose the xref-implicit free-object slot;
         // assert a lower-bound.
-        assert!(doc.indirect_object_count() >= 4);
+        assert!(doc.indirect_object_count().value >= 4.0);
     }
 
     #[pr4xis::praxis_value(Deterministic)]
@@ -528,7 +532,7 @@ mod tests {
                     // truncation that severs the page tree should
                     // not still report page_count == 1 if all the
                     // body objects were lost.
-                    if doc.indirect_object_count() == 0 {
+                    if doc.indirect_object_count().value == 0.0 {
                         prop_assert_eq!(doc.page_count, 0);
                     }
                 }

@@ -160,7 +160,7 @@ pub fn validate_palette(palette: &Palette) -> ValidationDetail {
         palette.get(&ColorSlot::Base00),
         palette.get(&ColorSlot::Base05),
     ) {
-        (Some(bg), Some(fg)) => Some(srgb::contrast_ratio(fg, bg)),
+        (Some(bg), Some(fg)) => Some(srgb::contrast_ratio(fg, bg).value),
         _ => None,
     };
 
@@ -180,7 +180,7 @@ pub fn validate_palette(palette: &Palette) -> ValidationDetail {
         .filter_map(|s| {
             palette
                 .get(s)
-                .map(|rgb| (s.key().to_string(), srgb::relative_luminance(rgb)))
+                .map(|rgb| (s.key().to_string(), srgb::relative_luminance(rgb).value))
         })
         .collect();
 

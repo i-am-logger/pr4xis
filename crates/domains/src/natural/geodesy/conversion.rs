@@ -1,4 +1,6 @@
 use crate::formal::math::linear_algebra::matrix::Matrix;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::natural::geodesy::coordinate::{Ecef, Geodetic, Ned};
 use crate::natural::geodesy::ellipsoid::Ellipsoid;
 
@@ -12,12 +14,13 @@ pub fn geodetic_to_ecef(geo: &Geodetic, ellipsoid: &Ellipsoid) -> Ecef {
     let sin_lon = geo.lon.sin();
     let cos_lon = geo.lon.cos();
 
-    let n = ellipsoid.prime_vertical_radius(geo.lat);
+    let n = ellipsoid.prime_vertical_radius(geo.lat).value;
+    let e2 = ellipsoid.e_squared().value;
 
     Ecef {
         x: (n + geo.alt) * cos_lat * cos_lon,
         y: (n + geo.alt) * cos_lat * sin_lon,
-        z: (n * (1.0 - ellipsoid.e_squared()) + geo.alt) * sin_lat,
+        z: (n * (1.0 - e2) + geo.alt) * sin_lat,
     }
 }
 
@@ -29,8 +32,8 @@ pub fn geodetic_to_ecef(geo: &Geodetic, ellipsoid: &Ellipsoid) -> Ecef {
 ///         Survey Review, 23(181):323-327.
 pub fn ecef_to_geodetic(ecef: &Ecef, ellipsoid: &Ellipsoid) -> Geodetic {
     let a = ellipsoid.a;
-    let b = ellipsoid.b();
-    let e2 = ellipsoid.e_squared();
+    let b = ellipsoid.b().value;
+    let e2 = ellipsoid.e_squared().value;
 
     let p = (ecef.x * ecef.x + ecef.y * ecef.y).sqrt();
     let lon = ecef.y.atan2(ecef.x);
@@ -46,7 +49,7 @@ pub fn ecef_to_geodetic(ecef: &Ecef, ellipsoid: &Ellipsoid) -> Geodetic {
         .atan2(p - e2 * a * cos_theta * cos_theta * cos_theta);
 
     let sin_lat = lat.sin();
-    let n = ellipsoid.prime_vertical_radius(lat);
+    let n = ellipsoid.prime_vertical_radius(lat).value;
 
     let cos_lat = lat.cos();
     let alt = if cos_lat.abs() > 1e-10 {
@@ -104,24 +107,26 @@ pub fn ecef_to_ned(ecef: &Ecef, ref_point: &Geodetic) -> Ned {
 
 /// Great circle distance between two geodetic points (Haversine formula).
 ///
-/// Returns distance in meters on WGS84 ellipsoid (spherical approximation).
+/// A real physical distance on the WGS84 ellipsoid (spherical
+/// approximation), carried as `Quantity` with unit `METER`.
 ///
 /// Source: Sinnott, R.W. (1984). "Virtues of the Haversine." Sky and Telescope.
-pub fn great_circle_distance(a: &Geodetic, b: &Geodetic, ellipsoid: &Ellipsoid) -> f64 {
+pub fn great_circle_distance(a: &Geodetic, b: &Geodetic, ellipsoid: &Ellipsoid) -> Quantity {
     let dlat = b.lat - a.lat;
     let dlon = b.lon - a.lon;
     let slat = (dlat / 2.0).sin();
     let slon = (dlon / 2.0).sin();
     let h = slat * slat + a.lat.cos() * b.lat.cos() * slon * slon;
-    2.0 * ellipsoid.a * h.sqrt().asin()
+    Quantity::from_unit(2.0 * ellipsoid.a * h.sqrt().asin(), &unit::METER)
 }
 
 /// Initial bearing from point a to point b (forward azimuth).
 ///
-/// Returns bearing in radians from north (0 = north, π/2 = east).
-pub fn initial_bearing(a: &Geodetic, b: &Geodetic) -> f64 {
+/// A real bearing angle from north (0 = north, π/2 = east), carried as
+/// `Quantity` with unit `RADIAN` (the formula's native `atan2` output).
+pub fn initial_bearing(a: &Geodetic, b: &Geodetic) -> Quantity {
     let dlon = b.lon - a.lon;
     let y = dlon.sin() * b.lat.cos();
     let x = a.lat.cos() * b.lat.sin() - a.lat.sin() * b.lat.cos() * dlon.cos();
-    y.atan2(x)
+    Quantity::from_unit(y.atan2(x), &unit::RADIAN)
 }

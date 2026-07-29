@@ -45,6 +45,8 @@ use hashbrown::HashMap;
 
 use pr4xis::codegen_data::CodegenData;
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::meta::identifier_format::Identifier;
 use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
 
@@ -140,6 +142,48 @@ pub fn loaded() -> &'static UsCode {
                 .and_then(|p| p.parent())
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+        // CORPUS-PARSE STALENESS GATE (once per process, not once per
+        // title): the `.prx.gz`/`.cprx.gz` archives tried below verify
+        // their OWN content-address pin, but that says nothing about
+        // whether `leaf_readers.rs`/`runtime_types.rs` (the code that
+        // PRODUCED those cached bytes from raw XML) has since changed.
+        // Confirmed a REAL bug this closes, not a hypothetical one: a
+        // footnote-exclusion revert to `NonProseSubtreeKind` had ZERO
+        // effect on three consecutive full-corpus `defines_pointers`
+        // ratchet runs, each silently re-serving an hours-stale
+        // `.prx-cache/usc/*.prx.gz` snapshot with nothing catching the
+        // mismatch — see `corpus_parse_signature`'s own doc for the full
+        // account. Panics loud, the SAME fail-closed stance
+        // `load_usc_defines_overlay_from_disk`'s identical grammar-staleness
+        // gate already takes for the separate `.defines.cprx.gz` cache.
+        #[cfg(feature = "prx")]
+        {
+            use crate::applied::data_provisioning::corpus_parse_signature::{
+                CORPUS_PARSE_CLOSURE_NAME, corpus_parse_closure_bytes,
+            };
+            use crate::applied::data_provisioning::registry::lock_grammar_signature;
+            if let Some(pin) = lock_grammar_signature(CORPUS_PARSE_CLOSURE_NAME) {
+                let fresh = corpus_parse_closure_bytes(&workspace_root).unwrap_or_else(|e| {
+                    panic!(
+                        "loaded(): could not read the corpus-parse CODE closure to check \
+                         it against the pinned fingerprint: {e}"
+                    )
+                });
+                if !pin.verifies(&fresh) {
+                    panic!(
+                        "loaded(): parsing source (leaf_readers.rs/runtime_types.rs/the XML \
+                         reader) has changed since the cached .prx.gz/.cprx.gz archives were \
+                         built — they are STALE relative to the current code, even though \
+                         their own content-address gate passes (same stale run produced both \
+                         the cache and its pin). Delete .prx-cache/usc/ and \
+                         .prx-cache/usc-compact/ (or regenerate them) and re-pin \
+                         [grammar_signatures].\"corpus_parse\" in praxis.lock."
+                    );
+                }
+            }
+        }
+
         let mut parts: alloc::vec::Vec<UsCode> = alloc::vec::Vec::new();
         for entry in data_sources() {
             if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
@@ -277,6 +321,33 @@ pub struct UscSection {
     /// containment + LRC USLM XML User Guide §V hierarchy). Empty for
     /// sections with no enumerated subdivisions.
     pub relations: Vec<UscComposesEdge>,
+    /// `<ref href="…">` cross-references collected from the SECTION's own
+    /// body surfaces (its `heading` + `text`), in USLM document order —
+    /// NOT its subdivisions' citations, which ride each
+    /// [`UscSubdivision::refs`] node (scoped per-node exactly as
+    /// `heading` / `text` are, not aggregated). Each entry is the
+    /// parse-faithful [`UsCodeRef`] `{ href, text }`: the `href` is a
+    /// USLM identifier URN (`/us/usc/t15/s78`), carried VERBATIM, and may
+    /// name a provision OUTSIDE the loaded corpus — it is a raw citation
+    /// surface, not a resolved reference. Empty for a placeholder
+    /// reservation (no body text to cite from).
+    pub refs: Vec<UsCodeRef>,
+}
+
+/// Title number encoded in a USC URN (e.g. `/us/usc/t18/s1` → `Some(18)`).
+/// `None` if `urn` doesn't match the canonical `/us/usc/t<N>/...` shape — the
+/// free-function form of [`UscSection::title_number`], reusable against a bare
+/// `href` string (a [`UsCodeRef`] target, say) that names no loaded `UscSection`.
+pub fn title_number_of_urn(urn: &str) -> Option<u32> {
+    let segments: Vec<&str> = urn.trim_start_matches('/').split('/').collect();
+    if segments.first().copied() != Some("us") || segments.get(1).copied() != Some("usc") {
+        return None;
+    }
+    segments
+        .get(2)
+        .and_then(|s| s.strip_prefix('t'))?
+        .parse()
+        .ok()
 }
 
 impl UscSection {
@@ -284,16 +355,7 @@ impl UscSection {
     /// Returns `None` if the URN doesn't match the canonical
     /// `/us/usc/t<N>/...` shape.
     pub fn title_number(&self) -> Option<u32> {
-        let v = self.urn.value();
-        let segments: Vec<&str> = v.trim_start_matches('/').split('/').collect();
-        if segments.first().copied() != Some("us") || segments.get(1).copied() != Some("usc") {
-            return None;
-        }
-        segments
-            .get(2)
-            .and_then(|s| s.strip_prefix('t'))?
-            .parse()
-            .ok()
+        title_number_of_urn(self.urn.value())
     }
 
     /// Count every node in the subdivision tree (pre-order). The
@@ -301,11 +363,12 @@ impl UscSection {
     /// subsection-and-below nodes. Equivalent to summing
     /// `descendants_including_self().count()` across every top-level
     /// subdivision.
-    pub fn subdivision_count(&self) -> usize {
+    pub fn subdivision_count(&self) -> Quantity {
         fn walk(s: &UscSubdivision) -> usize {
             1 + s.children.iter().map(walk).sum::<usize>()
         }
-        self.subdivisions.iter().map(walk).sum()
+        let count: usize = self.subdivisions.iter().map(walk).sum();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
     /// Materialize a runtime [`crate::social::compliance::statutes::Statute`]
@@ -490,9 +553,9 @@ impl UsCode {
             let heading = data.entity_labels[i].to_string();
             let text = data.entity_defs[i].to_string();
             by_urn.insert(urn_str.to_string(), i);
-            let (subdivisions, relations) = match aux_by_urn.get(urn_str) {
-                Some(a) => (a.subdivisions.clone(), a.relations.clone()),
-                None => (Vec::new(), Vec::new()),
+            let (subdivisions, relations, refs) = match aux_by_urn.get(urn_str) {
+                Some(a) => (a.subdivisions.clone(), a.relations.clone(), a.refs.clone()),
+                None => (Vec::new(), Vec::new(), Vec::new()),
             };
             sections.push(UscSection {
                 urn,
@@ -500,6 +563,7 @@ impl UsCode {
                 text,
                 subdivisions,
                 relations,
+                refs,
             });
         }
         Self { sections, by_urn }
@@ -520,9 +584,10 @@ impl UsCode {
         &self.sections
     }
 
-    /// Number of loaded sections.
-    pub fn section_count(&self) -> usize {
-        self.sections.len()
+    /// Number of loaded sections, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn section_count(&self) -> Quantity {
+        Quantity::from_unit(self.sections.len() as f64, &unit::UNITLESS)
     }
 
     /// Test-only accessor for the full corpus emitted by
@@ -583,17 +648,26 @@ impl UsCode {
                 // editorial footnote annotation the LRC nests inside the
                 // `<heading>` (a typed `<note type="footnote">` plus its
                 // `<ref class="footnoteRef">` marker). The flat
-                // `section.heading` (`heading_mixed.plain_text()`) flattens
-                // that footnote's own sentence INTO the title; the runtime
-                // vocabulary entry — and the lexical-understanding pipeline
-                // that reads it — wants the title, not the editor's note, so
-                // it projects from the typed tree via `prose_text()`. The
-                // corpus `section.heading` field itself stays untouched (the
-                // byte-exact writer path depends on it).
-                let heading = section.heading_mixed.prose_text();
+                // `section.heading` (`heading_mixed.plain_text()`, this
+                // struct's OWN `heading` field per `leaf_readers.rs::
+                // read_section`) flattens that footnote's own sentence INTO
+                // the title; the runtime vocabulary entry — and the
+                // lexical-understanding pipeline that reads it — wants the
+                // title, not the editor's note, so it projects from the
+                // typed tree via `heading_prose_text()` (NOT the body-prose
+                // `prose_text()`, which deliberately KEEPS footnotes for
+                // `chapeau`/`content` — see `NonProseSubtreeKind`'s own doc
+                // for why the two disagree). The corpus `section.heading`
+                // field itself stays untouched (the byte-exact writer path
+                // depends on it).
+                let heading = section.heading_mixed.heading_prose_text();
                 let text = section_body_text(&section);
                 let (subdivisions, relations) =
                     subdivisions_owned(&section.children, &section.identifier);
+                // Section-scoped citations: `UsCodeSection::refs` is already
+                // the §'s OWN top-level `<ref>`s (its subdivisions hold their
+                // own), so it carries over verbatim.
+                let refs = section.refs.clone();
                 by_urn.insert(section.identifier.clone(), sections.len());
                 sections.push(UscSection {
                     urn,
@@ -601,6 +675,7 @@ impl UsCode {
                     text,
                     subdivisions,
                     relations,
+                    refs,
                 });
             }
         }
@@ -741,6 +816,9 @@ fn subdivisions_owned(
             chapeau: sub.chapeau.clone(),
             content: sub.content.clone(),
             children,
+            // `UsCodeSubdivision::refs` is already this node's OWN body
+            // `<ref>`s (its children hold their own) — carried verbatim.
+            refs: sub.refs.clone(),
         });
     }
     (result_subs, all_edges)
@@ -778,7 +856,7 @@ mod tests {
     #[test]
     fn from_codegen_materialises_every_section() {
         let usc = UsCode::from_codegen(&FIXTURE_DATA);
-        assert_eq!(usc.section_count(), 2);
+        assert_eq!(usc.section_count().value, 2.0);
         assert_eq!(usc.all_sections().len(), 2);
     }
 
@@ -834,7 +912,7 @@ mod tests {
                 s.urn.value()
             );
             assert!(s.relations.is_empty(), "relations for {}", s.urn.value());
-            assert_eq!(s.subdivision_count(), 0);
+            assert_eq!(s.subdivision_count().value, 0.0);
         }
     }
 }

@@ -30,7 +30,7 @@ fn canonical_context() -> FormalContext<&'static str, &'static str> {
 fn discover_returns_lattice_clusters() {
     // Per the FCA tests, the canonical context has 3 concepts.
     let disc = discover(&canonical_context());
-    assert_eq!(disc.cluster_count(), 3);
+    assert_eq!(disc.cluster_count().value as usize, 3);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -88,7 +88,7 @@ fn empty_context_yields_minimal_discovery() {
     let ctx: FormalContext<&str, &str> = FormalContext::from_matrix(vec![], vec![], vec![]);
     let disc = discover(&ctx);
     // FCA emits at least the (∅, ∅) concept.
-    assert!(disc.cluster_count() >= 1);
+    assert!(disc.cluster_count().value >= 1.0);
     // No attributes → no implications.
     assert_eq!(disc.implication_count(), 0);
 }
@@ -112,7 +112,7 @@ fn attribute_extractor_closure_works() {
         extractor.attributes_of(o).contains(a)
     });
     let disc = discover(&ctx);
-    assert!(disc.cluster_count() >= 1);
+    assert!(disc.cluster_count().value >= 1.0);
 }
 
 // =============================================================================
@@ -169,7 +169,7 @@ proptest! {
     fn property_cluster_count_equals_lattice_size(ctx in arb_context()) {
         let disc = discover(&ctx);
         let lat = ctx.build_lattice();
-        prop_assert_eq!(disc.cluster_count(), lat.len());
+        prop_assert_eq!(disc.cluster_count().value as usize, lat.len());
     }
 
     /// Every emitted implication is *valid* in the context: its

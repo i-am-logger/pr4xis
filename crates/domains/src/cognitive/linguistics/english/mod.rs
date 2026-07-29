@@ -1,12 +1,16 @@
+pub mod concept_senses_index;
 pub mod concept_store;
+pub mod fold_index;
 pub mod function_word_store;
 pub mod morphology_store;
 pub mod ontology;
 pub mod relation_store;
+pub mod sense_concept_index;
 pub mod synset_index;
 pub mod taxonomy_store;
 pub mod verb_transitivity_index;
 pub mod word_index;
+pub mod word_sense;
 pub mod writing_system_store;
 
 /// The WordNet → `.prx` runtime bridge — projects the loaded [`English`] struct
@@ -26,12 +30,16 @@ pub mod bridge;
 #[cfg(all(feature = "prx", target_endian = "little"))]
 pub mod store_bundle;
 
-pub use concept_store::{ConceptStore, ConceptStrs, ConceptView};
+pub use concept_senses_index::ConceptSensesIndex;
+pub use concept_store::{ConceptStore, ConceptStrs, ConceptView, DefinitionSources};
 pub use ontology::{
-    Concept, ConceptId, English, LexicalReasoner, SenseId, WordnetRelations, english_load_owned,
-    english_loaded,
+    Concept, ConceptId, English, LexicalReasoner, SenseId, WordnetRelations,
+    derivation_relation_kind, domain_topic_relation_kind, english_load_owned, english_loaded,
+    exemplifies_relation_kind, has_domain_topic_relation_kind, is_exemplified_by_relation_kind,
+    pertainym_relation_kind,
 };
 pub use relation_store::{RelationKind, RelationStore};
+pub use sense_concept_index::SenseConceptIndex;
 pub use synset_index::SynsetIndex;
 pub use taxonomy_store::TaxonomyStore;
 

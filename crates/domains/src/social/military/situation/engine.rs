@@ -1,5 +1,7 @@
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::compliance::classification::{Confidence, EntityType};
 use crate::social::military::situation::combat_identity::CombatIdentityConcept;
 use crate::social::military::situation::kinematic_relation::{
@@ -95,13 +97,20 @@ impl SituationAssessment {
     }
 
     /// Number of entities.
-    pub fn num_entities(&self) -> usize {
-        self.entities.len()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — a count is a citable, composable ontological quantity, not
+    /// an invisible primitive (see [`crate::formal::mereology::counting::ontology::cardinality`]).
+    pub fn num_entities(&self) -> Quantity {
+        Quantity::from_unit(self.entities.len() as f64, &unit::UNITLESS)
     }
 
     /// Number of assessed relationships.
-    pub fn num_relationships(&self) -> usize {
-        self.relationships.len()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — see [`Self::num_entities`].
+    pub fn num_relationships(&self) -> Quantity {
+        Quantity::from_unit(self.relationships.len() as f64, &unit::UNITLESS)
     }
 }
 

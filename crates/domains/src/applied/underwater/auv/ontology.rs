@@ -2,6 +2,7 @@
 //!
 //! Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
 
+use crate::formal::math::quantity::dimension::Dimension;
 use pr4xis::category::FinitelyGenerated;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -20,20 +21,23 @@ pr4xis::ontology! {
     },
 }
 
-/// Quality: what physical quantity each sensor measures.
+/// Quality: what physical quantity each sensor measures, as its SI
+/// [`Dimension`] — DVL/ADCP measure velocity (`L·T⁻¹`), the depth sensor
+/// measures a length (depth below the surface), and the compass measures an
+/// angle (heading) (Kinsey et al. 2006 §II).
 #[derive(Debug, Clone)]
 pub struct MeasuredQuantity;
 
 impl Quality for MeasuredQuantity {
     type Individual = AuvConcept;
-    type Value = &'static str;
+    type Value = Dimension;
 
-    fn get(&self, sensor: &AuvConcept) -> Option<&'static str> {
+    fn get(&self, sensor: &AuvConcept) -> Option<Dimension> {
         Some(match sensor {
-            AuvConcept::DVL => "velocity relative to seabed (m/s)",
-            AuvConcept::DepthSensor => "depth/pressure (meters)",
-            AuvConcept::Compass => "magnetic heading (rad)",
-            AuvConcept::ADCP => "water current velocity profile (m/s)",
+            AuvConcept::DVL => Dimension::VELOCITY,
+            AuvConcept::DepthSensor => Dimension::LENGTH,
+            AuvConcept::Compass => Dimension::ANGLE,
+            AuvConcept::ADCP => Dimension::VELOCITY,
         })
     }
 }
@@ -85,6 +89,9 @@ impl Axiom for DepthNonNegative {
     fn verify(&self) -> Verdict {
         use crate::applied::underwater::auv::engine::{AuvState, DvlMeasurement, dead_reckon};
         use crate::formal::math::angle::Angle;
+        use crate::formal::math::geometry::point::Point3;
+        use crate::formal::math::temporal::duration::Duration;
+        use crate::natural::physics::kinematics::velocity::Velocity;
 
         // Hydrostatic depth is surface-referenced and positive-downward
         // (Kinsey et al. 2006 §II): P = ρ·g·h with ρ, g > 0 and h ≥ 0 below
@@ -100,19 +107,22 @@ impl Axiom for DepthNonNegative {
         ];
         let all_non_negative = fixtures.iter().all(|&(depth, downward, dt)| {
             let state = AuvState {
-                north: 0.0,
-                east: 0.0,
-                depth,
+                position: Point3::new(0.0, 0.0, depth),
                 heading: Angle::from_radians(0.0),
             };
             let dvl = DvlMeasurement {
-                forward: 0.0,
-                starboard: 0.0,
-                downward,
+                velocity: Velocity::new(0.0, 0.0, downward),
                 bottom_lock: true,
             };
             // Real depth propagation: depth' = depth + downward·dt.
-            dead_reckon(&state, &dvl, 0.0, dt).depth >= 0.0
+            dead_reckon(
+                &state,
+                &dvl,
+                Angle::from_radians(0.0),
+                Duration::from_seconds(dt),
+            )
+            .position
+            .z >= 0.0
         });
         if all_non_negative {
             Ok(Box::new(SimpleProof::new(self.meta())))

@@ -672,6 +672,7 @@ mod tests {
         extract_sections(xml, b, a).expect("parse");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn emits_one_entity_per_section_across_multiple_titles() {
         let mut builder = OntologyBuilder::new();
@@ -683,6 +684,7 @@ mod tests {
         assert!(ids.contains(&"/us/usc/t18/s2"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn section_headings_captured() {
         let mut builder = OntologyBuilder::new();
@@ -693,6 +695,7 @@ mod tests {
         assert!(labels.contains(&"Second"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn section_bodies_concatenate_chapeau_and_content_text() {
         let mut builder = OntologyBuilder::new();
@@ -713,6 +716,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn entity_kind_is_section() {
         let mut builder = OntologyBuilder::new();
@@ -723,6 +727,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn no_word_index_in_first_cut() {
         let mut builder = OntologyBuilder::new();
@@ -731,6 +736,7 @@ mod tests {
         assert_eq!(builder.word_index.len(), 0);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn aux_table_one_entry_per_section() {
         let mut builder = OntologyBuilder::new();
@@ -742,6 +748,7 @@ mod tests {
         assert!(urns.contains(&"/us/usc/t18/s2"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn aux_subdivisions_capture_one_node_for_simple_subsection() {
         let mut builder = OntologyBuilder::new();
@@ -757,6 +764,7 @@ mod tests {
         assert_eq!(s2.subdivisions[0].num, "a");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn aux_relations_form_child_to_parent_composes_edges() {
         let mut builder = OntologyBuilder::new();
@@ -773,6 +781,7 @@ mod tests {
         assert_eq!(to, "/us/usc/t18/s2");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn nested_subdivisions_form_a_tree() {
         // Synthetic § 1514A-like fragment: subsection (a) with two
@@ -824,6 +833,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn generate_source_emits_codegen_data_marker_and_aux_table() {
         let src = generate_usc_corpus_source_from_strs(&[SAMPLE_TITLE_USLM], &cfg()).expect("emit");
@@ -842,6 +852,7 @@ mod tests {
         assert!(src.contains("SubdivisionKind::Subsection"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn notes_are_suppressed_from_body() {
         let xml = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><section identifier="/us/usc/t18/s1"><heading>Hed</heading><content>keep this</content><note>drop this</note></section></title>"##;
@@ -854,6 +865,7 @@ mod tests {
         assert!(!body.contains("drop this"), "got: {body:?}");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn empty_input_yields_empty_corpus() {
         let mut builder = OntologyBuilder::new();
@@ -867,6 +879,7 @@ mod tests {
         assert_eq!(aux.len(), 0);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn subdivision_kind_variant_dispatches_every_kind() {
         assert_eq!(subdivision_kind_variant(b"subsection"), Some("Subsection"));

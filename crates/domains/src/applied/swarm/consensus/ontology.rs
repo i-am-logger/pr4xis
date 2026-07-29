@@ -190,7 +190,7 @@ fn verdict_from(axiom: &dyn Axiom, ok: bool) -> pr4xis::logic::proof::Verdict {
 /// Run [`CONSENSUS_ROUNDS`] average-consensus steps on a fixture,
 /// returning every iterate (including the initial one).
 fn consensus_trajectory(topology: &super::engine::SwarmTopology, initial: &[f64]) -> Vec<Vec<f64>> {
-    let step = stable_step_size(topology);
+    let step = stable_step_size(topology).value;
     let mut trajectory = vec![initial.to_vec()];
     for _ in 0..CONSENSUS_ROUNDS {
         let next = average_consensus_step(trajectory.last().expect("non-empty"), topology, step);
@@ -265,9 +265,9 @@ impl Axiom for ConnectedTopologyConverges {
             .expect("non-empty trajectory")
             .clone();
 
-        let connected_converges = disagreement(&connected_final) < DISAGREEMENT_TOLERANCE;
+        let connected_converges = disagreement(&connected_final).value < DISAGREEMENT_TOLERANCE;
         let disconnected_stuck =
-            disagreement(&disconnected_final) >= DISCONNECTED_DISAGREEMENT_FLOOR;
+            disagreement(&disconnected_final).value >= DISCONNECTED_DISAGREEMENT_FLOOR;
         let spectral_characterization = connected.is_connected()
             && ALGEBRAIC_CONNECTIVITY_P3 > 0.0
             && !disconnected.is_connected()
@@ -303,14 +303,14 @@ impl Axiom for GossipMassConservation {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         let topology = path_graph_p3();
         let mut state = push_sum_initial(&FIXTURE_INITIAL_VALUES);
-        let expected = ratio_invariant(&state);
+        let expected = ratio_invariant(&state).value;
         let starts_at_average = (expected - FIXTURE_INITIAL_AVERAGE).abs() <= NUMERICAL_SLACK;
         let mut conserved = true;
         let mut mixed = false;
         for round in 0..PUSH_SUM_ROUNDS {
             let next = push_sum_round(&state, &topology, round);
             mixed |= next != state;
-            conserved &= (ratio_invariant(&next) - expected).abs() <= NUMERICAL_SLACK;
+            conserved &= (ratio_invariant(&next).value - expected).abs() <= NUMERICAL_SLACK;
             state = next;
         }
         verdict_from(self, starts_at_average && conserved && mixed)
@@ -334,7 +334,7 @@ impl Axiom for DisagreementMonotoneNonIncreasing {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         let topology = path_graph_p3();
         let trajectory = consensus_trajectory(&topology, &FIXTURE_INITIAL_VALUES);
-        let potentials: Vec<f64> = trajectory.iter().map(|v| disagreement(v)).collect();
+        let potentials: Vec<f64> = trajectory.iter().map(|v| disagreement(v).value).collect();
         let monotone = potentials
             .windows(2)
             .all(|pair| pair[1] <= pair[0] + NUMERICAL_SLACK);
@@ -388,7 +388,7 @@ impl Axiom for EquivocatorExcludedBeforeAggregation {
         // Operational half: the engine fixture. Middle peer 1 of P3
         // reports inconsistent values to peers 0 and 2 in the same round.
         let topology = path_graph_p3();
-        let step = stable_step_size(&topology);
+        let step = stable_step_size(&topology).value;
         let run = SwarmConsensusRun::fresh(&FIXTURE_INITIAL_VALUES, topology.clone());
         let round = equivocation_round_p3(&run.values, &topology);
         let flagged = equivocators(&round) == vec![PeerId(1)];

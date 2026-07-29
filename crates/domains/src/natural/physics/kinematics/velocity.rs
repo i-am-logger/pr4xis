@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Velocity vector: the first derivative of position with respect to time.
 ///
 /// v = dx/dt (meters per second).
@@ -30,8 +33,11 @@ impl Velocity {
     }
 
     /// Speed: |v| = √(vx² + vy² + vz²).
-    pub fn speed(&self) -> f64 {
-        (self.vx * self.vx + self.vy * self.vy + self.vz * self.vz).sqrt()
+    pub fn speed(&self) -> Quantity {
+        Quantity::new(
+            (self.vx * self.vx + self.vy * self.vy + self.vz * self.vz).sqrt(),
+            Dimension::VELOCITY,
+        )
     }
 
     /// Position change over duration dt: Δx = v * dt.

@@ -181,6 +181,43 @@ crate::register_lens!(
 );
 
 // =============================================================================
+// caregiving_lexicon@2026 — a WN-LMF graph-faithful source (Caregiver AI
+// Challenge Track 1).
+//
+// The Family Caregiving Lexicon (crates/domains/data/care/
+// caregiving_lexicon.xml) is a small WN-LMF definitional lexicon: one synset
+// per caregiving concept, cited gloss inline, synonym surfaces as extra
+// LexicalEntry items, hypernym SynsetRelations for the verified taxonomy. It
+// rides the IDENTICAL source-agnostic `WordNetLmfLens`, exactly as
+// us_legal_lexicon does; registering it flips the source off the universal
+// floor and earns the durable `[byte_exact_signatures]` identity pin (equal
+// to the `[hashes]` raw pin — registry.rs enforces sig == raw_hash). Its
+// source children are DTD-ordered (all LexicalEntry precede all Synset;
+// Definition precedes SynsetRelation), so the child-order residue is a
+// no-op — the generic species keeps the claim sound regardless.
+crate::register_lens!(
+    CAREGIVING_LEXICON_LENS,
+    "caregiving_lexicon",
+    "2026",
+    WordNetLmfLens
+);
+
+// =============================================================================
+// hcbs_compliance_lexicon@2026 — a WN-LMF graph-faithful source (Caregiver AI
+// Challenge Track 2).
+//
+// The HCBS Workforce and Compliance Lexicon (crates/domains/data/care/
+// hcbs_compliance_lexicon.xml), sibling of caregiving_lexicon under the same
+// authoring rules. IDENTICAL source-agnostic `WordNetLmfLens`; durable
+// `[byte_exact_signatures]` pin equal to the `[hashes]` raw pin.
+crate::register_lens!(
+    HCBS_COMPLIANCE_LEXICON_LENS,
+    "hcbs_compliance_lexicon",
+    "2026",
+    WordNetLmfLens
+);
+
+// =============================================================================
 // english_function_words@2026 — the THIRD WN-LMF graph-faithful source.
 //
 // The English closed-class / function-word lexicon

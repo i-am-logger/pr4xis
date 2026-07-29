@@ -140,6 +140,45 @@ impl Quality for TemporalityTag {
     }
 }
 
+/// A grade in the Futamura-projection staging hierarchy. Declared in
+/// ascending order so the derived `Ord` matches the projection count:
+/// `Baseline < FirstProjection < SecondProjection < ThirdProjection`.
+/// Named after Futamura's own terms for α applied once/twice/thrice
+/// (Futamura 1971 §3, see the module-level projection table); `Baseline`
+/// is the unstaged interpreter/program before any projection is applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FutamuraStagingLevel {
+    Baseline,
+    FirstProjection,
+    SecondProjection,
+    ThirdProjection,
+}
+
+impl FutamuraStagingLevel {
+    /// The level after one more Futamura projection is applied — Futamura
+    /// (1971) §3: each application of α raises the level by exactly one.
+    /// `None` past the third projection (cogen), the top of the hierarchy
+    /// this ontology models.
+    pub fn successor(&self) -> Option<Self> {
+        match self {
+            Self::Baseline => Some(Self::FirstProjection),
+            Self::FirstProjection => Some(Self::SecondProjection),
+            Self::SecondProjection => Some(Self::ThirdProjection),
+            Self::ThirdProjection => None,
+        }
+    }
+
+    /// The raw ordinal rank (0..=3), matching Futamura's projection count.
+    pub fn rank(&self) -> usize {
+        match self {
+            Self::Baseline => 0,
+            Self::FirstProjection => 1,
+            Self::SecondProjection => 2,
+            Self::ThirdProjection => 3,
+        }
+    }
+}
+
 /// Quality: staging level. Futamura projection arithmetic — each
 /// projection raises the level by 1.
 #[derive(Debug, Clone)]
@@ -147,15 +186,16 @@ pub struct StagingLevel;
 
 impl Quality for StagingLevel {
     type Individual = StagingConcept;
-    type Value = usize;
+    type Value = FutamuraStagingLevel;
 
-    fn get(&self, c: &StagingConcept) -> Option<usize> {
+    fn get(&self, c: &StagingConcept) -> Option<FutamuraStagingLevel> {
+        use FutamuraStagingLevel as L;
         use StagingConcept as S;
         match c {
-            S::Program | S::Interpreter | S::SourceProgram | S::DynamicInput => Some(0),
-            S::ObjectProgram | S::ResidualProgram | S::StaticInput => Some(1),
-            S::Compiler | S::Specializer => Some(2),
-            S::CompilerGenerator => Some(3),
+            S::Program | S::Interpreter | S::SourceProgram | S::DynamicInput => Some(L::Baseline),
+            S::ObjectProgram | S::ResidualProgram | S::StaticInput => Some(L::FirstProjection),
+            S::Compiler | S::Specializer => Some(L::SecondProjection),
+            S::CompilerGenerator => Some(L::ThirdProjection),
             _ => None,
         }
     }
@@ -211,11 +251,15 @@ impl Axiom for EachProjectionRaisesStagingByOne {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let q = StagingLevel;
-        let int = q.get(&StagingConcept::Interpreter).unwrap_or(0);
-        let obj = q.get(&StagingConcept::ObjectProgram).unwrap_or(0);
-        let cmp = q.get(&StagingConcept::Compiler).unwrap_or(0);
-        let cogen = q.get(&StagingConcept::CompilerGenerator).unwrap_or(0);
-        if obj == int + 1 && cmp == obj + 1 && cogen == cmp + 1 {
+        let base = FutamuraStagingLevel::Baseline;
+        let int = q.get(&StagingConcept::Interpreter).unwrap_or(base);
+        let obj = q.get(&StagingConcept::ObjectProgram).unwrap_or(base);
+        let cmp = q.get(&StagingConcept::Compiler).unwrap_or(base);
+        let cogen = q.get(&StagingConcept::CompilerGenerator).unwrap_or(base);
+        if int.successor() == Some(obj)
+            && obj.successor() == Some(cmp)
+            && cmp.successor() == Some(cogen)
+        {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

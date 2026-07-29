@@ -4,7 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 
-use crate::applied::sensor_fusion::sensor::modality::SensorType;
+use crate::applied::sensor_fusion::time::epoch::FusionEpoch;
 
 /// A measurement: the raw output of a sensor at a point in time.
 ///
@@ -17,25 +17,20 @@ pub struct Measurement {
     pub value: Vector,
     /// Measurement noise covariance R.
     pub noise_covariance: Matrix,
-    /// Which sensor produced this measurement.
-    pub sensor: SensorType,
-    /// Timestamp (seconds since epoch).
-    pub timestamp: f64,
+    /// The sensor and instant that produced this measurement — bundles
+    /// sensor identity with the temporal instant per
+    /// [`FusionEpoch`]'s
+    /// own doc comment, rather than carrying the two separately.
+    pub epoch: FusionEpoch,
 }
 
 impl Measurement {
-    pub fn new(
-        value: Vector,
-        noise_covariance: Matrix,
-        sensor: SensorType,
-        timestamp: f64,
-    ) -> Self {
+    pub fn new(value: Vector, noise_covariance: Matrix, epoch: FusionEpoch) -> Self {
         assert_eq!(value.dim(), noise_covariance.rows);
         Self {
             value,
             noise_covariance,
-            sensor,
-            timestamp,
+            epoch,
         }
     }
 

@@ -1,4 +1,4 @@
-//! The English STORE BUNDLE — the nine BUILT store buffers of a loaded
+//! The English STORE BUNDLE — the ten BUILT store buffers of a loaded
 //! [`English`], framed into one container, so a consumer can assemble the full
 //! `English` by per-store VALIDATION alone: no WordNet decode, no
 //! [`from_wordnet`](English::from_wordnet), no owned intermediate maps.
@@ -8,11 +8,11 @@
 //! The wasm (and native fast-path) load transient used to BE the permanent
 //! footprint: `english_load_owned` gunzipped the succinct `.prx.gz`, decoded
 //! the WordNet, and ran `from_wordnet` — building EVERY owned `HashMap`/`Vec`
-//! intermediate before transcoding them into the nine packed store buffers
+//! intermediate before transcoding them into the ten packed store buffers
 //! (measured +348.10 MiB peak over the ~43 MiB resident). wasm32 linear memory
 //! never shrinks, so the browser paid that peak forever. This bundle moves the
 //! `from_wordnet` transcode to EMIT time (`pr4xis compile`, the wasm
-//! `build.rs`): what ships is the nine buffers themselves, and the load leg is
+//! `build.rs`): what ships is the ten buffers themselves, and the load leg is
 //! gunzip → content gate → split frames → per-store validate → assemble.
 //!
 //! # The frame
@@ -23,7 +23,7 @@
 //!
 //! ```text
 //! varint  format_version          (= 1)
-//! varint  store_count             (= 9)
+//! varint  store_count             (= 10)
 //! per store, in the FIXED canonical order:
 //!   blob    name                  (varint len + UTF-8 name)
 //!   varint  col_count             (0 for a dict / rich store; the family
@@ -43,7 +43,7 @@
 //!
 //! The bundle rides behind a `praxis.lock` content pin
 //! (`[store_bundle_signatures]`), but the per-store validation is NOT waived:
-//! the five packed CSR stores enter through their fail-closed
+//! the six packed CSR stores enter through their fail-closed
 //! `from_untrusted_buf` (the sealed PackedCsr entry), and the four rich `rkyv`
 //! stores are `bytecheck`-validated once (`from_validated_buf`) before any
 //! `access_unchecked` read — the same validate-once discipline their trusted
@@ -52,7 +52,7 @@
 //!
 //! # Portability class — same-toolchain ONLY, never the published wire
 //!
-//! Four of the nine buffers are `rkyv` envelopes, so the bundle inherits the
+//! Four of the ten buffers are `rkyv` envelopes, so the bundle inherits the
 //! `[archive_signatures]` trust class (praxis.lock STEP-0 doctrine): a
 //! per-toolchain BUILD-OUTPUT pin, not the source's durable identity. It is
 //! safe embedded in the wasm binary and in the native `.prx-cache` — emitter
@@ -72,6 +72,7 @@ use super::function_word_store::FunctionWordStore;
 use super::morphology_store::MorphologyStore;
 use super::ontology::English;
 use super::relation_store::RelationStore;
+use super::sense_concept_index::SenseConceptIndex;
 use super::synset_index::SynsetIndex;
 use super::taxonomy_store::TaxonomyStore;
 use super::verb_transitivity_index::VerbTransitivityIndex;
@@ -79,18 +80,21 @@ use super::word_index::WordIndex;
 use super::writing_system_store::WritingSystemStore;
 
 /// The bundle frame format version — bumped on any layout change so an old
-/// reader refuses a new bundle instead of guessing.
-const STORE_BUNDLE_FORMAT_VERSION: u64 = 1;
+/// reader refuses a new bundle instead of guessing. Bumped 1 → 2 for the
+/// [`sense_concept`](English::sense_concept_store) frame (FIX-A: antonym /
+/// mereology reachability).
+const STORE_BUNDLE_FORMAT_VERSION: u64 = 2;
 
-/// The nine store names, in the FIXED canonical frame order (the [`English`]
+/// The ten store names, in the FIXED canonical frame order (the [`English`]
 /// field order). The reader enforces this exact sequence — the bundle is a
 /// closed, deterministic layout, not a self-describing container.
-pub const STORE_NAMES: [&str; 9] = [
+pub const STORE_NAMES: [&str; 10] = [
     "concepts",
     "word_index",
     "taxonomy",
     "relations",
     "synset_index",
+    "sense_concept",
     "function_words",
     "verb_transitivity",
     "writing",
@@ -106,7 +110,7 @@ pub enum StoreBundleError {
     Malformed(String),
     /// The bundle declares a format version this build does not read.
     UnsupportedVersion { declared: u64 },
-    /// The bundle does not carry exactly the nine canonical stores.
+    /// The bundle does not carry exactly the ten canonical stores.
     WrongStoreCount { declared: u64 },
     /// A frame's store name is not the canonical name expected at its slot.
     UnexpectedStore { expected: &'static str, got: String },
@@ -219,7 +223,7 @@ pub struct BundleFrame<'a> {
     pub payload: &'a [u8],
 }
 
-/// Split a bundle into its nine frames, fail-closed — the shared structural
+/// Split a bundle into its ten frames, fail-closed — the shared structural
 /// pass [`decode_store_bundle`] builds on. Enforces the format version, the
 /// store count, the exact canonical name order, and total consumption (no
 /// trailing bytes).
@@ -245,9 +249,10 @@ pub fn store_bundle_frames(bytes: &[u8]) -> Result<Vec<BundleFrame<'_>>, StoreBu
             });
         }
         let col_count = get_varint(bytes, &mut pos)?;
-        // The only families are the taxonomy (2 labels) and relations (27
-        // labels); a declared column table beyond the label-set ceiling is a
-        // forgery — bounded before the allocation is sized from it.
+        // The only families are the taxonomy (2 labels), relations (27
+        // labels) and sense_concept (1 label); a declared column table beyond
+        // the label-set ceiling is a forgery — bounded before the allocation
+        // is sized from it.
         if col_count > 64 {
             return Err(StoreBundleError::Malformed(format!(
                 "store {name:?} declares {col_count} columns — beyond any label set"
@@ -288,7 +293,7 @@ fn put_frame(out: &mut Vec<u8>, name: &str, cols: &[(usize, usize)], payload: &[
     put_blob(out, payload);
 }
 
-/// Serialize a loaded [`English`]'s nine BUILT store buffers into one framed
+/// Serialize a loaded [`English`]'s ten BUILT store buffers into one framed
 /// bundle (uncompressed — the emit leg gzips and the content pin is taken over
 /// THESE bytes, gzip-level-independent). The buffers are written verbatim, so
 /// the emitted bundle is BY CONSTRUCTION the store set `from_wordnet` built.
@@ -321,6 +326,12 @@ pub fn encode_store_bundle(english: &English) -> Vec<u8> {
         "synset_index",
         &[],
         english.synset_index_store().as_bytes(),
+    );
+    put_frame(
+        &mut out,
+        "sense_concept",
+        &english.sense_concept_store().col_layout(),
+        english.sense_concept_store().as_bytes(),
     );
     put_frame(
         &mut out,
@@ -379,7 +390,7 @@ fn cols_usize(
 /// Assemble a full [`English`] from a framed store bundle — the load leg.
 ///
 /// Splits the frames ([`store_bundle_frames`]), then per store runs its own
-/// fail-closed validating entry — `from_untrusted_buf` for the five packed CSR
+/// fail-closed validating entry — `from_untrusted_buf` for the six packed CSR
 /// stores (the sealed PackedCsr byte entry), the `bytecheck`
 /// `from_validated_buf` pass for the four rich `rkyv` stores — and assembles
 /// the `English` directly (`English::from_stores`). NO WordNet decode, NO
@@ -418,13 +429,18 @@ pub fn decode_store_bundle(bytes: &[u8]) -> Result<English, StoreBundleError> {
     .map_err(csr_err("relations"))?;
     let synset_index =
         SynsetIndex::from_untrusted_buf(aligned(f(4).payload)).map_err(csr_err("synset_index"))?;
-    let function_words = FunctionWordStore::from_validated_buf(aligned(f(5).payload))
+    let sense_concept = SenseConceptIndex::from_untrusted_buf(
+        aligned(f(5).payload),
+        &cols_usize("sense_concept", &f(5).cols)?,
+    )
+    .map_err(csr_err("sense_concept"))?;
+    let function_words = FunctionWordStore::from_validated_buf(aligned(f(6).payload))
         .map_err(rich_err("function_words"))?;
-    let verb_transitivity = VerbTransitivityIndex::from_untrusted_buf(aligned(f(6).payload))
+    let verb_transitivity = VerbTransitivityIndex::from_untrusted_buf(aligned(f(7).payload))
         .map_err(csr_err("verb_transitivity"))?;
-    let writing = WritingSystemStore::from_validated_buf(aligned(f(7).payload))
+    let writing = WritingSystemStore::from_validated_buf(aligned(f(8).payload))
         .map_err(rich_err("writing"))?;
-    let morphology = MorphologyStore::from_validated_buf(aligned(f(8).payload))
+    let morphology = MorphologyStore::from_validated_buf(aligned(f(9).payload))
         .map_err(rich_err("morphology"))?;
 
     Ok(English::from_stores(
@@ -433,6 +449,7 @@ pub fn decode_store_bundle(bytes: &[u8]) -> Result<English, StoreBundleError> {
         taxonomy,
         relations,
         synset_index,
+        sense_concept,
         function_words,
         verb_transitivity,
         writing,
@@ -460,7 +477,7 @@ mod tests {
         let loaded = decode_store_bundle(&bundle).expect("the fresh bundle decodes");
 
         // Per-store byte identity: re-encoding the decoded English writes the
-        // SAME nine buffers (each store's bytes were carried verbatim).
+        // SAME ten buffers (each store's bytes were carried verbatim).
         assert_eq!(
             encode_store_bundle(&loaded),
             bundle,
@@ -561,14 +578,19 @@ mod tests {
         let frames = store_bundle_frames(&bundle).expect("the fresh bundle splits");
         let names: Vec<&str> = frames.iter().map(|f| f.name).collect();
         assert_eq!(names, STORE_NAMES);
-        // The two family stores carry their column tables; the rest carry none.
+        // The three family stores carry their column tables; the rest carry none.
         assert_eq!(frames[2].cols.len(), 2, "taxonomy: one entry per Direction");
         assert_eq!(
             frames[3].cols.len(),
             27,
             "relations: one entry per RelationKind"
         );
-        for i in [0usize, 1, 4, 5, 6, 7, 8] {
+        assert_eq!(
+            frames[5].cols.len(),
+            1,
+            "sense_concept: one entry (the single SenseToConcept column)"
+        );
+        for i in [0usize, 1, 4, 6, 7, 8, 9] {
             assert!(
                 frames[i].cols.is_empty(),
                 "{} carries no column table",

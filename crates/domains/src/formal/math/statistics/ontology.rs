@@ -69,7 +69,7 @@ impl Axiom for MSEDecomposition {
         ];
 
         for (estimates, true_value) in &test_cases {
-            let mean_est = estimator::sample_mean(estimates);
+            let mean_est = estimator::sample_mean(estimates).value;
             let b = estimator::bias(mean_est, *true_value);
             let n = estimates.len() as f64;
             let var: f64 = estimates

@@ -60,8 +60,8 @@ fn build_simple_document() {
     )]);
 
     assert_eq!(doc.kind, NodeKind::Document);
-    assert_eq!(doc.node_count(), 4); // doc + root + child + text
-    assert_eq!(doc.depth(), 3);
+    assert_eq!(doc.node_count().value, 4.0); // doc + root + child + text
+    assert_eq!(doc.depth().value, 3.0);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -218,7 +218,7 @@ mod prop {
                     .collect();
                 MarkupNode::element("parent", vec![], children)
             };
-            prop_assert!(node.node_count() >= 1);
+            prop_assert!(node.node_count().value >= 1.0);
         }
 
         /// Text content of a text node equals its value.

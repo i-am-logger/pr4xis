@@ -2,11 +2,19 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::*;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use proptest::prelude::*;
 
 // =============================================================================
 // Proptest strategies
 // =============================================================================
+
+/// A dimensionless UNITLESS quantity, for comparing against [`Game::round`]
+/// and [`Game::sequence_length`]'s typed return values in these tests.
+fn q(n: u32) -> Quantity {
+    Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+}
 
 fn arb_color() -> impl Strategy<Value = SimonColor> {
     prop_oneof![
@@ -30,22 +38,22 @@ fn arb_seed() -> impl Strategy<Value = u64> {
 fn test_new_game_starts_showing() {
     let game = Game::new(42);
     assert!(matches!(game.state(), GameState::Showing));
-    assert_eq!(game.round(), 1);
-    assert_eq!(game.sequence_length(), 1);
+    assert_eq!(game.round(), q(1));
+    assert_eq!(game.sequence_length(), q(1));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_sequence_grows_each_round() {
     let mut game = Game::new(42);
-    assert_eq!(game.sequence_length(), 1);
+    assert_eq!(game.sequence_length(), q(1));
 
     game.start_input().unwrap();
     let color = game.sequence()[0];
     game.input(color);
     game.next_round().unwrap();
-    assert_eq!(game.sequence_length(), 2);
-    assert_eq!(game.round(), 2);
+    assert_eq!(game.sequence_length(), q(2));
+    assert_eq!(game.round(), q(2));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -108,7 +116,7 @@ fn test_cannot_advance_after_game_over() {
 fn test_replay_gives_correct_sequence() {
     let game = Game::new(42);
     let inputs = game.replay_correct();
-    assert_eq!(inputs.len(), game.sequence_length());
+    assert_eq!(inputs.len() as f64, game.sequence_length().value);
     for (i, input) in inputs.iter().enumerate() {
         assert_eq!(input.color, game.sequence()[i]);
         assert_eq!(input.position, i);
@@ -119,8 +127,8 @@ fn test_replay_gives_correct_sequence() {
 #[test]
 fn test_multi_round_game() {
     let mut game = Game::new(42);
-    for round in 1..=5 {
-        assert_eq!(game.round(), round);
+    for round in 1..=5u32 {
+        assert_eq!(game.round(), q(round));
         game.start_input().unwrap();
         let seq: Vec<SimonColor> = game.sequence().to_vec();
         for &color in &seq {
@@ -135,8 +143,8 @@ fn test_multi_round_game() {
             game.next_round().unwrap();
         }
     }
-    assert_eq!(game.round(), 5);
-    assert_eq!(game.sequence_length(), 5);
+    assert_eq!(game.round(), q(5));
+    assert_eq!(game.sequence_length(), q(5));
 }
 
 // =============================================================================
@@ -155,8 +163,8 @@ proptest! {
     #[test]
     fn prop_new_game_one_element(seed in arb_seed()) {
         let game = Game::new(seed);
-        prop_assert_eq!(game.sequence_length(), 1);
-        prop_assert_eq!(game.round(), 1);
+        prop_assert_eq!(game.sequence_length(), q(1));
+        prop_assert_eq!(game.round(), q(1));
     }
 
     /// Correct input on round 1 always completes the round
@@ -212,9 +220,9 @@ proptest! {
             for &color in &seq {
                 game.input(color);
             }
-            let len_before = game.sequence_length();
+            let len_before = game.sequence_length().value;
             game.next_round().unwrap();
-            prop_assert_eq!(game.sequence_length(), len_before + 1);
+            prop_assert_eq!(game.sequence_length().value, len_before + 1.0);
         }
     }
 

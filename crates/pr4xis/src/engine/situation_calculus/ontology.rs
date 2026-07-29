@@ -239,17 +239,20 @@ mod tests {
     use crate::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<SituationCalculusCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         SituationCalculusOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn strips_operators_have_add_and_delete_lists() {
         // Fikes & Nilsson (1971): every STRIPS operator (Action) has an
@@ -270,6 +273,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn bdi_agent_has_belief_desire_intention() {
         // Bratman (1987): an Agent has beliefs, desires, and intentions.
@@ -292,6 +296,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn successor_state_refines_frame_axiom() {
         // Reiter (1991/2001): successor-state axioms SUBSUME frame axioms
@@ -307,6 +312,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn every_concept_has_tradition() {
         let q = SituationCalculusTradition;
@@ -357,4 +363,8 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_tradition_total, Explainable, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

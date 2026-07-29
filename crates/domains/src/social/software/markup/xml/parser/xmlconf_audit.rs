@@ -56,6 +56,8 @@ use pr4xis::ontology::Axiom;
 
 use super::grammar::parse_document;
 use crate::applied::data_provisioning::registry::by_name_version;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// One TEST entry from XMLConf.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,10 +103,11 @@ impl XmlConfCorpus {
         self.cases.iter().filter(move |c| c.case_type == t)
     }
 
-    /// Total case count.
+    /// Total case count, as a dimensionless [`Quantity`] (`unit::UNITLESS`)
+    /// -- a count, not a physical quantity.
     #[must_use]
-    pub fn len(&self) -> usize {
-        self.cases.len()
+    pub fn len(&self) -> Quantity {
+        Quantity::from_unit(self.cases.len() as f64, &unit::UNITLESS)
     }
 
     /// True iff zero cases loaded.
@@ -625,7 +628,11 @@ mod tests {
     fn loaded_xmlconf_is_either_cached_or_absent() {
         match loaded_xmlconf() {
             Some(c1) => {
-                assert!(c1.len() >= 1_000, "expected ≥1k cases, got {}", c1.len());
+                assert!(
+                    c1.len().value >= 1_000.0,
+                    "expected ≥1k cases, got {}",
+                    c1.len().value
+                );
                 let c2 = loaded_xmlconf().expect("once-cached, always Some");
                 assert!(core::ptr::eq(c1 as *const _, c2 as *const _));
             }

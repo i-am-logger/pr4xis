@@ -21,6 +21,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // ---------------------------------------------------------------------------
 // Shared identifiers
 // ---------------------------------------------------------------------------
@@ -121,18 +124,21 @@ pub struct ConcurrencySituation {
 impl Situation for ConcurrencySituation {}
 
 impl ConcurrencySituation {
-    /// How many processes currently occupy the protected region.
-    pub fn critical_occupancy(&self) -> usize {
-        self.processes
+    /// How many processes currently occupy the protected region — a
+    /// dimensionless count.
+    pub fn critical_occupancy(&self) -> Quantity {
+        let n = self
+            .processes
             .iter()
             .filter(|p| p.occupies_critical_section())
-            .count()
+            .count();
+        Quantity::from_unit(n as f64, &unit::UNITLESS)
     }
 
     /// Mutual-exclusion violation: more than one process in the
     /// protected region at once — Dijkstra (1968).
     pub fn violates_mutual_exclusion(&self) -> bool {
-        self.critical_occupancy() > 1
+        self.critical_occupancy().value > 1.0
     }
 }
 

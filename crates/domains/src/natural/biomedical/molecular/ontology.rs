@@ -48,7 +48,7 @@
 #![allow(non_camel_case_types)]
 use pr4xis::category::{Arrow, Category};
 
-use crate::formal::math::quantity::unit::MILLIVOLT;
+use crate::formal::math::quantity::unit::{MILLIVOLT, UNITLESS};
 use crate::formal::math::quantity::value::Quantity;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
@@ -347,14 +347,14 @@ pub struct IonCharge;
 
 impl Quality for IonCharge {
     type Individual = MolecularConcept;
-    type Value = i32;
+    type Value = Quantity;
 
-    fn get(&self, c: &MolecularConcept) -> Option<i32> {
+    fn get(&self, c: &MolecularConcept) -> Option<Quantity> {
         use MolecularConcept::*;
         match c {
-            Sodium | Potassium | Proton => Some(1),
-            Calcium => Some(2),
-            Chloride => Some(-1),
+            Sodium | Potassium | Proton => Some(Quantity::from_unit(1.0, &UNITLESS)),
+            Calcium => Some(Quantity::from_unit(2.0, &UNITLESS)),
+            Chloride => Some(Quantity::from_unit(-1.0, &UNITLESS)),
             _ => None,
         }
     }
@@ -959,11 +959,14 @@ mod tests {
     #[test]
     fn ion_charges() {
         use MolecularConcept::*;
-        assert_eq!(IonCharge.get(&Sodium), Some(1));
-        assert_eq!(IonCharge.get(&Potassium), Some(1));
-        assert_eq!(IonCharge.get(&Calcium), Some(2));
-        assert_eq!(IonCharge.get(&Chloride), Some(-1));
-        assert_eq!(IonCharge.get(&Proton), Some(1));
+        fn z(n: f64) -> Quantity {
+            Quantity::from_unit(n, &UNITLESS)
+        }
+        assert_eq!(IonCharge.get(&Sodium), Some(z(1.0)));
+        assert_eq!(IonCharge.get(&Potassium), Some(z(1.0)));
+        assert_eq!(IonCharge.get(&Calcium), Some(z(2.0)));
+        assert_eq!(IonCharge.get(&Chloride), Some(z(-1.0)));
+        assert_eq!(IonCharge.get(&Proton), Some(z(1.0)));
         assert_eq!(IonCharge.get(&Nav), None);
     }
 

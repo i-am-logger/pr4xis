@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussion
+    url: https://github.com/i-am-logger/pr4xis/discussions
+    about: For open-ended questions, ideas, or discussion that isn't a specific bug or ontology request.

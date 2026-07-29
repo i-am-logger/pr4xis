@@ -15,13 +15,19 @@
 //!   SourceTaxonomyConcept::UsCodeTitle (the *kind*) — UsCodeTitleId
 //!   is the *which* (Title 18 vs Title 49).
 //! - English: the citation-form text ("18 U.S.C.", "title 18 of the
-//!   United States Code") is an English noun phrase — produced by
-//!   functor from UsCodeTitleId, lemmatized via English morphology.
+//!   United States Code", "title 18") is an English noun phrase —
+//!   produced by functor from UsCodeTitleId, lemmatized via English
+//!   morphology. The forms are enumerated by
+//!   [`UsCodeTitleCitationForm`], each carrying its own authority, so a
+//!   consumer covers "every way this title is named" by iterating
+//!   rather than by remembering to call three accessors.
 
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec::Vec};
 
+use crate::applied::data_provisioning::registry::data_sources;
 use crate::formal::meta::identifier_format::{Identifier, IdentifierParseError};
+use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
 /// Typed identifier for a U.S. Code title — the *which* (Title 18,
 /// Title 49, …) distinct from the *kind* (the
@@ -152,19 +158,172 @@ impl UsCodeTitleId {
         format!("usc_title_{}", self.number())
     }
 
-    /// Bluebook short citation form ("18 U.S.C.").
+    /// This title's text in one of its published citation forms — the
+    /// English noun-phrase projection of the URN, the output being English
+    /// text downstream NLP can tokenize / lemmatize.
     ///
-    /// Citation: The Bluebook: A Uniform System of Citation, 21st
-    /// ed., Rule 12.1 (Basic Citation Forms) + Table T1.1. This is the English
-    /// noun-phrase projection — the output is English text that
-    /// downstream NLP can lemmatize / tokenize.
-    pub fn short_citation(&self) -> String {
-        format!("{} U.S.C.", self.number())
+    /// The FORM is the parameter, so every published way of naming a title
+    /// is one enumeration ([`UsCodeTitleCitationForm`], which carries each
+    /// form's own authority) with one derivation from [`number`](Self::number).
+    /// A consumer that must cover "every way this title is named" iterates
+    /// [`UsCodeTitleCitationForm::ALL`] rather than listing accessors it might
+    /// under-enumerate — the failure that let the bare designation ("title 42")
+    /// go unrecognized while the other two forms resolved.
+    pub fn citation(&self, form: UsCodeTitleCitationForm) -> String {
+        let n = self.number();
+        match form {
+            UsCodeTitleCitationForm::Short => format!("{n} U.S.C."),
+            UsCodeTitleCitationForm::Long => format!("title {n} of the United States Code"),
+            UsCodeTitleCitationForm::Designation => format!("title {n}"),
+        }
     }
 
-    /// Bluebook long citation form ("title 18 of the United
-    /// States Code").
-    pub fn long_citation(&self) -> String {
-        format!("title {} of the United States Code", self.number())
+    /// Every published citation form of THIS title, in
+    /// [`UsCodeTitleCitationForm::ALL`] order — the complete set of surfaces a
+    /// reader may name it by.
+    pub fn citations(&self) -> impl Iterator<Item = String> + '_ {
+        UsCodeTitleCitationForm::ALL
+            .iter()
+            .map(|&form| self.citation(form))
     }
+}
+
+/// The published forms in which a U.S. Code title is NAMED — each a distinct
+/// convention with its own authority, not three spellings of one string.
+///
+/// A title is cited three ways in practice, and a reader types whichever the
+/// context taught them. Enumerating them here (rather than as free-standing
+/// accessors) makes "all the ways this title is named" a value the compiler
+/// can hand a consumer whole: adding a fourth attested form extends every
+/// consumer — the citation router, the definitional lexicon — at once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum UsCodeTitleCitationForm {
+    /// The Bluebook short form — `"18 U.S.C."`.
+    ///
+    /// Citation: The Bluebook: A Uniform System of Citation, 21st ed.,
+    /// Rule 12.1 (Basic Citation Forms) + Table T1.1.
+    Short,
+    /// The spelled-out cross-reference form — `"title 18 of the United States
+    /// Code"`.
+    ///
+    /// Citation: Congress's OWN enacted usage — 18 U.S.C. § 2516(1)(a) names
+    /// its predicate offenses as arising "under sections 2122 and 2274 through
+    /// 2277 of title 42 of the United States Code". This is the statutory
+    /// register, attested in the corpus this engine loads, not a style-guide
+    /// recommendation.
+    Long,
+    /// The publisher's bare designation — `"title 18"`.
+    ///
+    /// Citation: the Law Revision Counsel's own USLM markup, which opens each
+    /// title with `<num value="42">Title 42—</num><heading>THE PUBLIC HEALTH
+    /// AND WELFARE</heading>` (published per 1 U.S.C. § 204; USLM User Guide
+    /// §V). The `<num>` text minus its em-dash separator IS how the authority
+    /// designates the title, and it is the form a reader asking "what is title
+    /// 42" uses. Neither of the other two forms contains it, and no mechanical
+    /// alias derives it from them, so an enumeration missing this leaf leaves
+    /// the commonest phrasing unrecognized.
+    Designation,
+}
+
+impl UsCodeTitleCitationForm {
+    /// Every published form, in the order declared above (short → long →
+    /// designation). Iterating this is the ONLY correct way to cover "all the
+    /// ways a title is named"; a consumer naming forms individually silently
+    /// under-covers when a form is added.
+    pub const ALL: &'static [Self] = &[Self::Short, Self::Long, Self::Designation];
+}
+
+/// Which REGISTERED U.S. Code title, if any, does `surface` cite?
+///
+/// The routing question behind an abstention: the engine could not ground
+/// "42 u.s.c § 300ii", and the reader wants to know which source would let it.
+/// The answer is a registry source name (`usc_title_42`) — but a raw citation
+/// surface matches no source name, so something has to bridge them.
+///
+/// That bridge used to live in the demonstrator's JavaScript, as a regular
+/// expression over the citation form plus a hand-built `usc_title_${n}`. Both
+/// are facts this module already owns — the second is literally
+/// [`UsCodeTitleId::source_name`], whose inverse
+/// [`UsCodeTitleId::try_from_source_name`] documents itself as "the single
+/// point where the convention is recognized". Having a second point, in
+/// another language, in the client, is exactly the drift that convention
+/// exists to prevent.
+///
+/// So recognition here compares the surface against each REGISTERED title's
+/// OWN published citation forms ([`UsCodeTitleId::citations`], every leaf of
+/// [`UsCodeTitleCitationForm::ALL`]) rather than against a pattern describing
+/// how citations are written. Nothing about citation syntax is encoded: add a
+/// title to the registry and it becomes recognizable with no code change;
+/// change the naming convention and only `source_name` moves; attest a fourth
+/// citation form and it is recognized here without this function changing.
+///
+/// Comparison is over an orthographic key — case folded, punctuation dropped —
+/// because "42 U.S.C.", "42 USC" and "42 u.s.c." are the same citation
+/// differently typeset (Bluebook 21st ed. Rule 12.1 gives the canonical form;
+/// readers type all three).
+///
+/// The match is the LONGEST one, not the first: title designations nest
+/// orthographically ("title5" is a prefix of "title50"), so a first-hit scan
+/// would resolve "title 50" to Title 5 or Title 50 depending only on where the
+/// registry happened to sort them. Longest-key wins is the same
+/// maximal-munch discipline the tokenizer's multiword collapse uses, and it
+/// makes the answer a property of the citation rather than of registry order.
+///
+/// **Returns `None` freely, and that is not a shortfall.** This recognizes
+/// citations that name a title in one of its published forms; a surface that
+/// names one some other way ("the Public Health and Welfare title") resolves to
+/// nothing, and the caller falls back to filtering the catalog by the surface
+/// itself. An honest absence beats a guess: the alternative is inventing a
+/// citation grammar here, which is the thing being removed.
+pub fn title_cited_by(surface: &str) -> Option<UsCodeTitleId> {
+    let key = citation_key(surface);
+    if key.is_empty() {
+        return None;
+    }
+    registered_titles()
+        .filter_map(|id| {
+            // The longest of THIS title's forms that the surface carries — its
+            // strength of evidence. `None` when the surface carries none.
+            id.citations()
+                .map(|c| citation_key(&c))
+                .filter(|c| !c.is_empty() && key.contains(c))
+                .map(|c| c.len())
+                .max()
+                .map(|len| (len, id))
+        })
+        // Strictly-greater keeps the FIRST title at a given strength, so a
+        // genuine tie (two titles matched by equally long keys — impossible
+        // for distinct numbers today, but not a property to rely on silently)
+        // resolves by registry order rather than by iteration accident.
+        .fold(
+            None,
+            |best: Option<(usize, UsCodeTitleId)>, (len, id)| match &best {
+                Some((best_len, _)) if *best_len >= len => best,
+                _ => Some((len, id)),
+            },
+        )
+        .map(|(_, id)| id)
+}
+
+/// Every REGISTERED U.S. Code title as a typed id — the registry filtered to
+/// the `UsCodeTitle` kind and dissolved through
+/// [`UsCodeTitleId::try_from_source_name`]. Registration is a claim about what
+/// this deployment KNOWS OF, not about what it currently HOLDS; a consumer that
+/// needs the held set must derive it from loaded content (see
+/// `usc_title_lexicon::loaded_titles`).
+pub fn registered_titles() -> impl Iterator<Item = UsCodeTitleId> {
+    data_sources()
+        .iter()
+        .filter(|e| e.kind == SourceTaxonomyConcept::UsCodeTitle)
+        .filter_map(|e| UsCodeTitleId::try_from_source_name(&e.name).ok())
+}
+
+/// Fold a citation surface to its orthographic key: lowercase, alphanumerics
+/// only. Typesetting differences ("U.S.C." / "USC" / "u.s.c.") collapse;
+/// nothing about citation STRUCTURE is interpreted.
+fn citation_key(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
 }

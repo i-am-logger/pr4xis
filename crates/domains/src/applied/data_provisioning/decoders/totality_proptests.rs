@@ -22,8 +22,8 @@ use proptest::prelude::*;
 
 use super::super::{raw_source_prx, registry_prx};
 use super::{
-    adobe_glyph_list, owl, plaintext_tsv, tar_gz_archive, theme_collection, xhtml, xml_dtd,
-    xml_lmf, xml_xsd, zip_archive,
+    adobe_glyph_list, owl, plaintext_tsv, propbank_frameset_collection, tar_gz_archive,
+    theme_collection, verbnet_class_collection, xhtml, xml_dtd, xml_lmf, xml_xsd, zip_archive,
 };
 
 proptest! {
@@ -40,6 +40,16 @@ proptest! {
     #[test]
     fn prop_theme_collection_decode_is_total(bytes in any::<Vec<u8>>()) {
         let _ = theme_collection::decode(&bytes);
+    }
+
+    #[test]
+    fn prop_verbnet_class_collection_decode_is_total(bytes in any::<Vec<u8>>()) {
+        let _ = verbnet_class_collection::decode(&bytes);
+    }
+
+    #[test]
+    fn prop_propbank_frameset_collection_decode_is_total(bytes in any::<Vec<u8>>()) {
+        let _ = propbank_frameset_collection::decode(&bytes);
     }
 
     #[test]
@@ -149,6 +159,8 @@ proptest! {
 pr4xis::register_praxis_value!(prop_owl_decode_is_total, Honest);
 pr4xis::register_praxis_value!(prop_plaintext_tsv_decode_is_total, Honest);
 pr4xis::register_praxis_value!(prop_theme_collection_decode_is_total, Honest);
+pr4xis::register_praxis_value!(prop_verbnet_class_collection_decode_is_total, Honest);
+pr4xis::register_praxis_value!(prop_propbank_frameset_collection_decode_is_total, Honest);
 pr4xis::register_praxis_value!(prop_xhtml_decode_is_total, Honest);
 pr4xis::register_praxis_value!(prop_xml_lmf_decode_is_total, Honest);
 pr4xis::register_praxis_value!(prop_xml_xsd_decode_is_total, Honest);

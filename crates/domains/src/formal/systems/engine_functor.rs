@@ -47,6 +47,12 @@ pub enum EngineElement {
     Ontology,
     /// The Engine.next() cycle (= FeedbackLoop).
     EngineCycle,
+    /// The engine's declared rule/action repertoire (= Variety, per
+    /// Ashby 1956 Ch. 11): the Law of Requisite Variety applied to the
+    /// Engine says its ontology must declare at least as many distinct
+    /// rules/actions as the space of situations it must regulate —
+    /// this is the Engine's own variety.
+    RuleRepertoire,
 }
 
 impl Concept for EngineElement {}
@@ -63,6 +69,7 @@ impl FinitelyGenerated for EngineElement {
             Self::UnexpectedInput,
             Self::Ontology,
             Self::EngineCycle,
+            Self::RuleRepertoire,
         ]
     }
 }
@@ -264,6 +271,7 @@ impl Functor for ControlToEngine {
             ControlConcept::Disturbance => EngineElement::UnexpectedInput,
             ControlConcept::Model => EngineElement::Ontology,
             ControlConcept::FeedbackLoop => EngineElement::EngineCycle,
+            ControlConcept::Variety => EngineElement::RuleRepertoire,
         }
     }
 
@@ -280,6 +288,13 @@ impl Functor for ControlToEngine {
             ControlRelationKind::Represents => EngineRelationKind::Models,
             ControlRelationKind::Closes => EngineRelationKind::Closes,
             ControlRelationKind::Carries => EngineRelationKind::Records,
+            // Ashby (1956) §10-11: the controller regulating a
+            // disturbance is the same corrective-action relation as an
+            // actuator applying a correction to the plant.
+            ControlRelationKind::Regulates => EngineRelationKind::Applies,
+            // Variety quantifying a controller/disturbance is the same
+            // measuring relation as a sensor observing the plant.
+            ControlRelationKind::Quantifies => EngineRelationKind::Observes,
             // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
             // unreachable when source has no edges of these kinds.
             ControlRelationKind::Subsumption

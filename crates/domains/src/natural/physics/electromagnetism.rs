@@ -9,6 +9,9 @@ use pr4xis::engine::{Action, Engine, Precondition, Situation};
 use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 pub const K_E: f64 = 8.988e9;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,8 +39,9 @@ impl Circuit {
         (self.voltage - expected).abs() / scale < 1e-6
     }
 
-    pub fn power(&self) -> f64 {
-        self.voltage * self.current
+    /// Electrical power P = VI. Ohm (1827).
+    pub fn power(&self) -> Quantity {
+        Quantity::new(self.voltage * self.current, Dimension::POWER)
     }
 }
 
@@ -127,8 +131,9 @@ pub fn new_circuit(voltage: f64, resistance: f64) -> Result<Engine<CircuitAction
     ))
 }
 
-pub fn coulomb_force(q1: f64, q2: f64, r: f64) -> f64 {
-    K_E * q1 * q2 / (r * r)
+/// Coulomb's law: F = k·q1·q2/r². Coulomb (1785).
+pub fn coulomb_force(q1: f64, q2: f64, r: f64) -> Quantity {
+    Quantity::new(K_E * q1 * q2 / (r * r), Dimension::FORCE)
 }
 
 #[cfg(test)]
@@ -178,8 +183,8 @@ mod tests {
 
         #[test]
         fn prop_coulomb_symmetric(q1 in 1e-10..1e-6f64, q2 in 1e-10..1e-6f64, r in 0.01..1.0f64) {
-            let scale = coulomb_force(q1, q2, r).abs().max(1e-30);
-            prop_assert!((coulomb_force(q1, q2, r) - coulomb_force(q2, q1, r)).abs() / scale < 1e-10);
+            let scale = coulomb_force(q1, q2, r).value.abs().max(1e-30);
+            prop_assert!((coulomb_force(q1, q2, r).value - coulomb_force(q2, q1, r).value).abs() / scale < 1e-10);
         }
     }
 

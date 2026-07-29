@@ -188,6 +188,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Extensible, Verifiable)]
     #[test]
     fn reify_projects_identity() {
         let id = TestCat::identity(&Obj::A);
@@ -198,6 +199,7 @@ mod tests {
         assert_eq!(reified.from, reified.to);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn reify_projects_subsumption() {
         let sub = Morph {
@@ -210,6 +212,7 @@ mod tests {
         assert_eq!(reified.kind, MorphismKind::Subsumption);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn reify_kind_maps_canonical_variants() {
         #[derive(Debug)]

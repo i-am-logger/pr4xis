@@ -1,0 +1,52 @@
+ConceptNet 5 — Data License
+============================
+
+Source: https://github.com/commonsense/conceptnet5/blob/master/LICENSE.txt
+         https://github.com/commonsense/conceptnet5/blob/master/DATA-CREDITS.md
+Retrieved: 2026-07-13
+
+## Data license: Creative Commons Attribution-ShareAlike 4.0
+
+The data contained in ConceptNet is open data, and may be redistributed
+according to the terms of the Creative Commons Attribution-ShareAlike 4.0
+license (CC-By-SA 4.0): http://creativecommons.org/licenses/by-sa/4.0/
+
+The code and data in ConceptNet are different works. This praxis source
+carries only DATA derived from ConceptNet (a mechanical filter of the raw
+assertions CSV — see `crates/domains/src/cognitive/linguistics/conceptnet/
+regenerate.rs`), never any ConceptNet code, so only the data license applies.
+
+Suggested attribution (from DATA-CREDITS.md, reproduced verbatim):
+
+    This work includes data from ConceptNet 5, which was compiled by the
+    Commonsense Computing Initiative. ConceptNet 5 is freely available under
+    the Creative Commons Attribution-ShareAlike license (CC-By-SA 4.0) from
+    http://conceptnet.io.
+
+    The included data was created by contributors to Commonsense Computing
+    projects, contributors to Wikimedia projects, Games with a Purpose,
+    Princeton University's WordNet, DBPedia, Unicode, Jim Breen, MDBG, and
+    Cycorp's OpenCyc.
+
+## Provenance of the filtered subset shipped in this repository
+
+`crates/domains/data/conceptnet/conceptnet-5.7.0.assoc` is NOT the full
+ConceptNet assertions graph. It is a mechanical subset of the official
+conceptnet-assertions-5.7.0.csv.gz release
+(https://s3.amazonaws.com/conceptnet/downloads/2019/edges/conceptnet-assertions-5.7.0.csv.gz),
+filtered to the 943,308 (of 34,074,917) assertions whose start AND end
+concepts both resolve to a lemma present in the loaded Open English WordNet
+2025 — a pure format-conversion + membership filter of the original relation/
+start/end/weight fields, never a reweighting, re-ranking, or editorial
+interpretation of the source data. See `regenerate.rs`'s module doc for the
+exact filter and its literature/URL citations.
+
+Per the ShareAlike term, this derived subset is distributed under the same
+CC-By-SA 4.0 license as the original.
+
+## Full DATA-CREDITS.md
+
+For the complete list of ConceptNet's own upstream sub-source credits
+(Wiktionary/Wikipedia, DBPedia, Unicode, JMdict, OpenCyc, WordNet, and
+others), see the canonical, versioned document:
+https://github.com/commonsense/conceptnet5/blob/master/DATA-CREDITS.md

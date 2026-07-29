@@ -9,8 +9,9 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::applied::space::orbit::propagator::{OrbitalState, mu_earth_km3s2, propagate_rk4};
-use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::geometry::point::Point3;
 use crate::formal::math::quantity::unit::{self, Unit};
+use crate::natural::physics::kinematics::velocity::Velocity;
 
 pr4xis::ontology! {
     name: "Orbit",
@@ -55,12 +56,12 @@ impl Quality for ElementUnit {
 /// uses a sub-escape speed `k · v_circ` with `1 ≤ k < √2`, so the specific
 /// energy is negative (a > 0) and the eccentricity lies in [0, 1).
 fn elliptical_fixtures() -> [OrbitalState; 4] {
-    let mu = mu_earth_km3s2();
+    let mu = mu_earth_km3s2().value;
     let mk = |r: f64, k: f64| {
         let v_circ = (mu / r).sqrt();
         OrbitalState {
-            position: Vector::new(vec![r, 0.0, 0.0]),
-            velocity: Vector::new(vec![0.0, k * v_circ, 0.0]),
+            position: Point3::new(r, 0.0, 0.0),
+            velocity: Velocity::new(0.0, k * v_circ, 0.0),
         }
     };
     [
@@ -76,13 +77,14 @@ fn elliptical_fixtures() -> [OrbitalState; 4] {
 fn eccentricity_from_state(state: &OrbitalState, mu: f64) -> f64 {
     let r = &state.position;
     let v = &state.velocity;
-    let r_mag = state.radius();
-    let v2 = state.speed() * state.speed();
-    let r_dot_v = r.get(0) * v.get(0) + r.get(1) * v.get(1) + r.get(2) * v.get(2);
+    let r_mag = state.radius().value;
+    let speed = state.speed().value;
+    let v2 = speed * speed;
+    let r_dot_v = r.x * v.vx + r.y * v.vy + r.z * v.vz;
     let coef = v2 - mu / r_mag;
-    let ex = (coef * r.get(0) - r_dot_v * v.get(0)) / mu;
-    let ey = (coef * r.get(1) - r_dot_v * v.get(1)) / mu;
-    let ez = (coef * r.get(2) - r_dot_v * v.get(2)) / mu;
+    let ex = (coef * r.x - r_dot_v * v.vx) / mu;
+    let ey = (coef * r.y - r_dot_v * v.vy) / mu;
+    let ez = (coef * r.z - r_dot_v * v.vz) / mu;
     (ex * ex + ey * ey + ez * ez).sqrt()
 }
 
@@ -97,7 +99,7 @@ impl Axiom for EccentricityBounded {
         // from the state vector (eccentricity vector) while propagating each
         // canonical bound orbit with the real two-body RK4 integrator, and
         // confirm e stays in [0, 1) at every step.
-        let mu = mu_earth_km3s2();
+        let mu = mu_earth_km3s2().value;
         let holds = elliptical_fixtures().iter().all(|initial| {
             let mut state = initial.clone();
             (0..16).all(|_| {
@@ -138,9 +140,9 @@ impl Axiom for SemiMajorAxisPositive {
         let holds = elliptical_fixtures().iter().all(|initial| {
             let mut state = initial.clone();
             (0..16).all(|_| {
-                let a = state.semi_major_axis(mu);
-                state = propagate_rk4(&state, 30.0, mu);
-                a > 0.0
+                let a = state.semi_major_axis(&mu);
+                state = propagate_rk4(&state, 30.0, mu.value);
+                a.value > 0.0
             })
         });
         if holds {

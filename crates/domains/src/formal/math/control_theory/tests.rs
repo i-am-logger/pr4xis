@@ -40,6 +40,8 @@ mod proptest_proofs {
     use crate::formal::math::control_theory::pid::{PidController, PidGains};
     use crate::formal::math::control_theory::stability;
     use crate::formal::math::control_theory::transfer_function::{self, TransferFunction};
+    use crate::formal::math::quantity::unit;
+    use crate::formal::math::quantity::value::Quantity;
     use proptest::prelude::*;
 
     proptest! {
@@ -49,7 +51,7 @@ mod proptest_proofs {
             g in 0.1..100.0_f64,
             h in 0.1..100.0_f64,
         ) {
-            let cl = feedback::closed_loop_gain(g, h);
+            let cl = feedback::closed_loop_gain(g, h).value;
             prop_assert!(cl < g + 1e-10, "closed-loop gain {} should be < open-loop gain {}", cl, g);
             prop_assert!(cl > 0.0, "closed-loop gain should be positive for positive G and H");
         }
@@ -57,7 +59,7 @@ mod proptest_proofs {
         /// Error signal is zero when reference equals measured.
         #[test]
         fn error_zero_at_setpoint(value in -1000.0..1000.0_f64) {
-            let e = feedback::error_signal(value, value);
+            let e = feedback::error_signal(value, value).value;
             prop_assert!(e.abs() < 1e-15, "error should be zero at setpoint, got {}", e);
         }
 
@@ -69,10 +71,14 @@ mod proptest_proofs {
             kd in 0.0..5.0_f64,
             error in -100.0..100.0_f64,
         ) {
-            let gains = PidGains::new(kp, ki, kd);
-            let mut pid = PidController::new(gains, 0.01)
-                .with_limits(-50.0, 50.0);
-            let output = pid.update(error);
+            let gains = PidGains::new(
+                Quantity::dimensionless(kp),
+                Quantity::dimensionless(ki),
+                Quantity::dimensionless(kd),
+            );
+            let mut pid = PidController::new(gains, Quantity::from_unit(0.01, &unit::SECOND))
+                .with_limits(Quantity::dimensionless(-50.0), Quantity::dimensionless(50.0));
+            let output = pid.update(Quantity::dimensionless(error)).value;
             prop_assert!(output >= -50.0 - 1e-10, "output {} below min", output);
             prop_assert!(output <= 50.0 + 1e-10, "output {} above max", output);
         }

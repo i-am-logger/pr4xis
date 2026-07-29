@@ -220,6 +220,50 @@ pub fn form_atom(written_rep: &str) -> Definition {
     }
 }
 
+/// The praxis kind of a CITED-SOURCE atom — a `dcterms:BibliographicResource`
+/// ("a book, article, or other documentary resource", DCMI Metadata Terms
+/// 2020-01-20). A `BibliographicResource` node is a bare citation: it grounds
+/// "this document was cited", never a meaning and never a queryable natural
+/// surface. It is the honest target a [`DEFINITION_SOURCE_REL`] edge points AT.
+///
+/// Sibling of [`FORM_KIND`] and here for the SAME reason: the wire constant must
+/// be agreed by the producer (a lexicon bridge) and the consumer (the composed
+/// reasoner, which filters this kind OUT of the concept universe exactly as it
+/// filters `Form` out — a citation is not a concept a question can be about).
+pub const SOURCE_KIND: &str = "BibliographicResource";
+
+/// The DCMI `dcterms:source` role — the edge from a definition-bearing node to
+/// the documentary resource its definition was DERIVED FROM ("a related resource
+/// from which the described resource is derived", DCMI Metadata Terms
+/// 2020-01-20). Wire DATA.
+///
+/// This is provenance OF THE DEFINITION, categorically distinct from the
+/// ontologies a query reasoned OVER: "this gloss was authored from 42 USC
+/// 300ii(7)" is a claim about where the words came from, not a claim that the
+/// engine opened Title 42. Carrying it as an edge is what makes the two
+/// tellable apart at all — a citation living inside the gloss STRING is
+/// inspectable by nothing.
+pub const DEFINITION_SOURCE_REL: &str = "source";
+
+/// The `dcterms:BibliographicResource` atom for one citation — a bare
+/// documentary-resource node carrying the citation as both `name` and `lexical`,
+/// and NOTHING else: no edges, no axioms. Its content
+/// [`address`](Definition::address) is what a [`DEFINITION_SOURCE_REL`] edge
+/// points AT.
+///
+/// One atom per DISTINCT citation, shared by every node that cites it — so a
+/// multi-source definition is N edges into the graph, never one delimited
+/// string a reader would have to re-split.
+pub fn source_atom(citation: &str) -> Definition {
+    Definition {
+        kind: SOURCE_KIND.to_string(),
+        name: citation.to_string(),
+        edges: Vec::new(),
+        axioms: Vec::new(),
+        lexical: Some(citation.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,11 +278,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn identical_definitions_share_an_address() {
         assert_eq!(base().address().unwrap(), base().address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn changing_an_edge_changes_the_address() {
         let mut b = base();
@@ -246,6 +292,7 @@ mod tests {
         assert_ne!(base().address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn changing_an_axiom_changes_the_address() {
         let mut b = base();
@@ -253,6 +300,7 @@ mod tests {
         assert_ne!(base().address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn changing_the_lexical_changes_the_address() {
         let mut b = base();
@@ -260,6 +308,7 @@ mod tests {
         assert_ne!(base().address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn same_name_different_definition_does_not_collide() {
         // The G5 fix: same name, different structure → different address.
@@ -268,6 +317,7 @@ mod tests {
         assert_ne!(base().address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn address_is_order_independent() {
         let mut a = base();
@@ -287,6 +337,7 @@ mod tests {
 
     // --- EdgeTarget: the byte-exact migration guarantee ---
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_local_target_encodes_byte_identically_to_a_bare_string() {
         // The crux of the codec migration: a Local target serializes to the SAME
@@ -300,6 +351,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn an_all_local_definition_address_is_unchanged_by_the_edge_target_type() {
         // Concretely against the LEGACY shape: a node whose edges are Local
@@ -328,6 +380,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn a_grounded_target_round_trips_and_is_distinct_from_a_local_one() {
         // A foreign-atom target encodes as a CBOR map (not a string), so it is
@@ -347,6 +400,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_grounded_edge_changes_a_nodes_address() {
         // Grounding is identity-bearing: adding a foreign-atom edge changes the

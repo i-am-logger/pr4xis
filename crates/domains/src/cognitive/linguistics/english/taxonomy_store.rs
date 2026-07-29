@@ -43,6 +43,8 @@ use hashbrown::HashMap;
 use pr4xis::category::reach::{ReachSubstrate, ReachView, Uncached};
 
 use super::ontology::ConceptId;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 
 /// The two directions of the hypernym (Subsumption) relation — the family label,
@@ -109,13 +111,13 @@ impl TaxonomyStore {
     }
 
     /// Total number of parent (hypernym) edges.
-    pub fn parent_edge_count(&self) -> usize {
-        self.0.edge_count(Direction::Parent)
+    pub fn parent_edge_count(&self) -> Quantity {
+        Quantity::from_unit(self.0.edge_count(Direction::Parent) as f64, &unit::UNITLESS)
     }
 
     /// The dense concept count (`0..concept_count` are valid ids).
-    pub fn concept_count(&self) -> usize {
-        self.0.row_count(Direction::Parent)
+    pub fn concept_count(&self) -> Quantity {
+        Quantity::from_unit(self.0.row_count(Direction::Parent) as f64, &unit::UNITLESS)
     }
 
     // ── reachability surface (the ONE generic graded-reach engine) ────────────
@@ -277,8 +279,8 @@ mod fixture_tests {
         // Out-of-range id → empty slice, both directions.
         assert_eq!(store.parents(cid(99)), empty);
         assert_eq!(store.children(cid(99)), empty);
-        assert_eq!(store.concept_count(), 4);
-        assert_eq!(store.parent_edge_count(), 4); // 0 + 1 + 2 + 1
+        assert_eq!(store.concept_count().value, 4.0);
+        assert_eq!(store.parent_edge_count().value, 4.0); // 0 + 1 + 2 + 1
     }
 
     /// The reachability BFS reads the generic CSR: is-a, ancestors, LCA, chain.

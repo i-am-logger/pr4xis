@@ -18,6 +18,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use alloc::collections::BTreeMap;
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// A Form — one grammatical realization (ontolex:Form).
 /// Carries writtenRep (BCP 47 language-tagged).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -64,12 +67,13 @@ impl Sense {
     /// Carroll 2005). A sense whose domain matches the query is most salient
     /// (elevated); a general (unmarked) sense is the default fall-through; an
     /// other-domain sense is least salient here. Higher = more predominant.
-    pub fn salience_in(&self, domain: Option<&str>) -> u8 {
-        match (self.domain.as_deref(), domain) {
-            (Some(d), Some(q)) if d == q => 2,
-            (None, _) => 1,
-            (Some(_), _) => 0,
-        }
+    pub fn salience_in(&self, domain: Option<&str>) -> Quantity {
+        let salience = match (self.domain.as_deref(), domain) {
+            (Some(d), Some(q)) if d == q => 2.0,
+            (None, _) => 1.0,
+            (Some(_), _) => 0.0,
+        };
+        Quantity::from_unit(salience, &unit::UNITLESS)
     }
 }
 
@@ -99,7 +103,12 @@ impl LexicalEntry {
         self.senses
             .iter()
             .enumerate()
-            .max_by_key(|(i, s)| (s.salience_in(domain), core::cmp::Reverse(*i)))
+            .max_by(|(i1, s1), (i2, s2)| {
+                s1.salience_in(domain)
+                    .partial_cmp(&s2.salience_in(domain))
+                    .expect("salience is unitless and always comparable")
+                    .then(core::cmp::Reverse(*i1).cmp(&core::cmp::Reverse(*i2)))
+            })
             .map(|(_, s)| s)
     }
 }
@@ -202,8 +211,8 @@ impl Lexicon {
             .map(|e| e.canonical_form.written_rep.as_str())
     }
 
-    pub fn entry_count(&self) -> usize {
-        self.entries.len()
+    pub fn entry_count(&self) -> Quantity {
+        Quantity::from_unit(self.entries.len() as f64, &unit::UNITLESS)
     }
 
     pub fn entries(&self) -> impl Iterator<Item = (&String, &LexicalEntry)> {
@@ -238,9 +247,9 @@ mod lexicon_tests {
     fn english_terminology_is_nonempty() {
         let lex = build_english_terminology();
         assert!(
-            lex.entry_count() > 100,
+            lex.entry_count().value > 100.0,
             "expected >100 entries, got {}",
-            lex.entry_count()
+            lex.entry_count().value
         );
     }
 

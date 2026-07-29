@@ -41,6 +41,8 @@ mod tests {
     };
     use pr4xis_domains::formal::math::linear_algebra::matrix::Matrix;
     use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::formal::math::temporal::instant::Instant;
+    use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
     // === Documented, cited fixture parameters — no magic numbers ===
 
@@ -67,7 +69,7 @@ mod tests {
 
     /// The epoch labelling every conversion back to covariance form — the
     /// estimates are contemporaneous.
-    const FIXTURE_EPOCH: f64 = 0.0;
+    const FIXTURE_EPOCH: Instant = Instant::new(0.0, TimeSystem::GPS);
 
     /// The peer that equivocates mid-run. Its ring neighbours (peers 3 and
     /// 0) are the ones whose self-protection excludes it.

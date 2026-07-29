@@ -1,0 +1,32 @@
+GeoNames — Data License
+========================
+
+Source: https://www.geonames.org/export/
+Retrieved: 2026-07-21
+
+## Data license: Creative Commons Attribution 4.0 (CC BY 4.0)
+
+GeoNames.org's export terms state:
+
+  "The GeoNames Gazetteer Data is licensed under a Creative Commons
+   Attribution 4.0 License. You should give credit to GeoNames when using
+   data or web services with a link or another reference to GeoNames."
+
+  <https://www.geonames.org/export/>
+
+This praxis source carries only DATA fetched from GeoNames
+(`download.geonames.org/export/dump/countryInfo.txt`, verbatim raw bytes,
+no code), so only the data license applies.
+
+Suggested attribution: "Contains information from GeoNames
+(https://www.geonames.org/), which is made available here under the Creative
+Commons Attribution 4.0 License (https://creativecommons.org/licenses/by/4.0/)."
+
+## In this codebase
+
+- Registered source: `[sources.geonames_countryinfo]` in `praxis.toml`.
+- Bundled raw file: `crates/domains/data/geography/geonames-countryinfo-2026-07-21.geonames`.
+- Consumer: `crates/domains/src/natural/geography/` (`reader.rs`/`store.rs`) —
+  the `Country`/`Capital`/`Region`/`borders` facts `EveryCountryHasExactlyOneCapital`,
+  `RegionContainmentIsRcc8ProperPart`, and `BordersIsRcc8ExternalConnection`
+  verify against.

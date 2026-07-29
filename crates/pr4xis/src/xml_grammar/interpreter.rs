@@ -323,6 +323,7 @@ mod tests {
         matches!(result, MatchResult::Match { end_pos } if end_pos == expected_end)
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_literal() {
         let grammar = Grammar::new();
@@ -333,6 +334,7 @@ mod tests {
         assert!(matches!(not_ok.match_term(&t, 0), MatchResult::NoMatch));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_char_class_from_loaded_char_production() {
         let spec = "<prod id=\"NT-Char\" num=\"2\">\
@@ -354,6 +356,7 @@ mod tests {
         ));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_sequence_via_real_name_production() {
         // Mini grammar: Name = NameStartChar (NameChar)*
@@ -392,6 +395,7 @@ mod tests {
         ));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_alternation_longest_branch_wins() {
         // The W3C XML 1.0 grammar is CFG-style, so alternation here
@@ -413,6 +417,7 @@ mod tests {
         assert!(matches_completely(interp.match_production("X", 0), 6));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_alternation_leftmost_wins_on_tie() {
         // Tie-breaking convention (POSIX regex / lex(1)): equal-length
@@ -428,6 +433,7 @@ mod tests {
         assert!(matches_completely(interp.match_production("X", 0), 2));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_optional_and_kleene() {
         let spec = "
@@ -449,6 +455,7 @@ mod tests {
         assert!(matches_completely(bbb.match_production("A", 0), 3));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn matches_subtraction_for_comment_body_char() {
         // §2.5 Comment uses `Char - '-'` — a Char that is not a hyphen.
@@ -476,6 +483,7 @@ mod tests {
         ));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn match_production_caches_result_across_calls() {
         let spec = "

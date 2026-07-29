@@ -238,6 +238,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn inherits_expected_count() {
         let axioms = structural_axioms_for::<Cat>();
@@ -246,6 +247,7 @@ mod tests {
         assert_eq!(axioms.len(), 7);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn all_inherited_axioms_verify() {
         for a in structural_axioms_for::<Cat>() {

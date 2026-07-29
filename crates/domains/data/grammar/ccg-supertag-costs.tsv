@@ -1,0 +1,209 @@
+# CCG supertag/rule cost table — PUBLISHED CCGbank frequencies as negative-log
+# costs (nats), the derivation-ranking floor for the Viterbi min-cost chart
+# (`lambek::reduce::chart_reduce`). Carried as DATA and interpreted by the
+# generic min-cost fold (`lambek::supertag_costs`), never a Rust `match` of
+# weights. These are READ-OFF published counts — not invented weights, not
+# trained parameters (the full Clark & Curran 2007 log-linear model is a
+# separate research effort; this table is the honest cited floor).
+#
+# Sources (every count VERBATIM from the published page; verified 2026-07-10
+# against the fetched PDFs/page renders):
+#   • Lexical-category counts: Hockenmaier (2003), *Data and Models for
+#     Statistical Parsing with Combinatory Categorial Grammar*, PhD thesis,
+#     University of Edinburgh, Table 5.5 p. 176 — the `#ref` column: counts of
+#     the 30 most common lexical categories in the CCGbank section 00 gold
+#     standard (45,422 tokens). <https://era.ed.ac.uk/handle/1842/320>
+#   • Subject wh-question count (8): same thesis, §5.12 p. 186 ("There are
+#     eight instances of subject wh-question words (Who buys shares?)").
+#   • Unary (type-changing) rule counts: Hockenmaier & Steedman (2005),
+#     *CCGbank LDC2005T13 User's Manual*, MS-CIS-05-09, Univ. of Pennsylvania,
+#     Table 4.3 p. 86 — rule-instantiation frequencies in sections 02-21
+#     (929,552 word tokens). NP → N is the most frequent type-changing rule
+#     (115,516 applications). <https://hockenmaier.cs.illinois.edu/Papers/CCGbank/CCGbankManual.pdf>
+#   • Normalizers + hapax floor: Hockenmaier & Steedman (2007), "CCGbank",
+#     Computational Linguistics 33(3):355-396 — §8 p. 387: section 00 =
+#     45,422 tokens, sections 02-21 = 929,552 tokens; §8.2 p. 389: 439
+#     lexical category types occur exactly once (the hapax ground for the
+#     `default` row). <https://aclanthology.org/J07-3004/>
+#
+# NOTATION: the repo's Lambek convention, NOT CCGbank's. `/` is result/argument
+# (CCG-style) but `\` is argument\result (Lambek-style) — CCGbank `S\NP` is this
+# grammar's `NP\S`. The `ccgbank` column preserves the VERBATIM published
+# category (the citation key); the `category` column is its transliteration
+# into repo notation, parsed by `notation_parser::parse_category` (asserted at
+# load). Repo bare-`S` categories transliterate CCGbank's `S[dcl]`-featured
+# counterparts — the same bare-S convention as `olia-ccg-categories.tsv`.
+#
+# COLUMNS (kind-discriminated rows):
+#   lex	<repo-category>	<ccgbank-category>	<count>	<total>	<cost-nats>
+#   unary	<repo-from>	<repo-to>	<ccgbank-rule>	<count>	<total>	<cost-nats>
+#   default	<count>	<total>	<cost-nats>
+# `count` and `total` are the PUBLISHED numbers (verbatim). `cost-nats` is the
+# DERIVED negative log -ln(count/total), 6 decimals — machine-rechecked against
+# count/total by `supertag_costs::tests::the_cost_column_is_the_negative_log_of_the_published_ratio`.
+# The `default` row prices any category ABSENT from this table as a hapax
+# (count 1): CL 33(3) §8.2 p. 389 records 439 categories occurring exactly
+# once, so an unlisted category is priced as one of them — corpus-grounded,
+# not invented.
+#
+# SELECTION: of Table 5.5's 30 rows, this table transcribes exactly those
+# whose repo-notation transliteration is a category this grammar's lexical
+# assignment can produce (the tokenizer/olia-ccg/svo inventory) — a cost row
+# for a category no token ever receives would never be consulted. The other
+# published rows (e.g. `PP/NP`, `((S\NP)\(S\NP))/NP`, `conj`, punctuation and
+# auxiliary/participle categories) have no counterpart category in this
+# grammar today; add their rows when the grammar grows those categories.
+#
+# Cost model (the weighted-CYK shape of Goodman 1999, "Semiring Parsing" —
+# his Viterbi semiring; (min,+) is the broader literature's tropical
+# semiring):
+#   cost(derivation) = Σ lex cost(leaf category) + Σ unary rule cost
+# Binary application steps cost 0 (they consume no probability mass in the
+# unigram model). Cost is the FINAL component of the chart's derivation-
+# preference key (after fewest-type-changing-steps and leftmost-split;
+# see `reduce.rs::CellEntry::key`).
+
+# ── Lexical category unigram counts (Hockenmaier 2003, Table 5.5 p. 176; sec 00 gold, 45,422 tokens) ──
+lex	N	N	10498	45422	1.464812
+lex	N/N	N/N	7212	45422	1.840250
+lex	NP/N	NP[nb]/N	4077	45422	2.410635
+lex	(NP\NP)/NP	(NP\NP)/NP	2123	45422	3.063166
+lex	NP	NP	975	45422	3.841314
+lex	(NP\S)/NP	(S[dcl]\NP)/NP	867	45422	3.958713
+lex	(NP\S)\(NP\S)	(S\NP)\(S\NP)	745	45422	4.110368
+lex	NP\S[adj]	S[adj]\NP	343	45422	4.886021
+lex	(NP\NP)/(NP\S)	(NP\NP)/(S[dcl]\NP)	260	45422	5.163070
+lex	NP\S	S[dcl]\NP	232	45422	5.277014
+lex	(NP\S[dcl])/(NP\S[adj])	(S[dcl]\NP)/(S[adj]\NP)	197	45422	5.440548
+
+# ── Wh-question category (Hockenmaier 2003, §5.12 p. 186 prose; sec 00 gold) ──
+lex	S[wq]/(NP\S)	S[wq]/(S[dcl]\NP)	8	45422	8.644310
+
+# ── Unary (type-changing) rules (CCGbank User's Manual, Table 4.3 p. 86; sec 02-21, 929,552 tokens) ──
+# CCGbank's most frequent type-changing rule is `NP → N` (a bare noun stands
+# as an NP; 115,516 applications in sec 02-21 — the 2nd most frequent rule
+# instantiation overall). The chart's unary machinery loads rows of this
+# section generically (fixture-proven; see reduce.rs chart_tests and the
+# DeterminerFrameNeedsNoTypeChanging axiom). The row itself is NOT carried
+# yet.
+#
+# First measured 2026-07-10 (task 2.7's original attempt, against a much
+# smaller pre-Slice-B/D corpus): monotonic-or-nothing REJECTED (define −6
+# but is-a +12 / non-edge +44).
+#
+# RE-MEASURED 2026-07-12 (task 2.7 design pass, row = "unary N NP NP -> N
+# 115516 929552 2.085294", against the CURRENT chat-capability baseline
+# 42/4/213/8 define/is-a/directional-No/non-edge, after the intervening
+# verb-determiner-frame fix (04457cf6) + Slice B (does-support quoted
+# mention) + Slice D (case-folding index) shipped since the first attempt):
+# define 42 -> 35 (IMPROVES, −7), is-a 4 -> 4 (unchanged), directional-No
+# 213 -> 213 (unchanged), non-edge 8 -> 11 (REGRESSES, +3) — total defects
+# 267 -> 263 (net IMPROVEMENT), but the per-class ratchet is strict, so this
+# still trips REJECTED on non-edge alone. The 3 new non-edge failures were
+# traced (a real PipelineTrace, not guessed): "is O.K. an interlanguage?"
+# aborts with `unresolved: ["o.k"]` — `surface_tokens`/`flush_word` strips
+# "O.K."'s defining trailing period as ordinary ASCII punctuation before
+# lookup ever runs, a PRE-EXISTING tokenization bug independent of this
+# row's own raise mechanism (also the root cause of the still-open
+# "what does \u{201C}O.K.\u{201D} mean" define-class gloss-miss). The row's
+# raise mechanism itself is not implicated in any traced failure; the
+# regression is this orthogonal bug becoming newly visible once the row
+# lets more probes reach the resolution stage. Next attempt: fix "O.K."'s
+# tokenization (extend the loaded quote/operator-glyph-style exemption in
+# `flush_word` to abbreviation-final periods, or a dedicated loaded
+# abbreviation table) FIRST, then re-run this exact measurement — do not
+# just re-add the row blind. The `montague raise-awareness` framing from
+# the original 2026-07-10 note (a PredProvenance-shaped signal on
+# Sem::Concept distinguishing a lexical NP leaf from a raised one) remains
+# a real, unbuilt gap but was NOT what any of the 3 traced 2026-07-12
+# failures needed — do not build it speculatively before a failure that
+# actually requires it is found.
+#
+# RE-ATTEMPTED 2026-07-13 (task 2.7b): the traced blocker above — "O.K."'s
+# defining trailing period stripped as ordinary ASCII punctuation before
+# lexicon lookup — is now fixed (`Language::is_known_surface`,
+# `lambek::tokenize::flush_word`). Re-measured this exact row against the
+# current 42/4/213/8 baseline: define 42 -> 35 (IMPROVES, −7, unchanged from
+# the prior attempt), is-a 4 -> 4 (unchanged), directional-No 213 -> 213
+# (unchanged), non-edge 8 -> 10 (REGRESSES, +2 — DOWN from the prior +3,
+# total 267 -> 262, a BETTER net improvement than the prior 267 -> 263), but
+# the strict per-class ratchet still trips REJECTED on non-edge alone.
+#
+# CORRECTION to an intermediate finding during this same re-attempt: the
+# corpus harness's panic message caps its printed examples at 12 across ALL
+# classes combined, in corpus-iteration order (`FailureBreakdown::examples`,
+# `chat/src/capability.rs`) — NOT the full non-edge failure list, and NOT
+# specifically "the newly regressed ones". "is a legislatively a gawker?"
+# and "is a tragically a please?" happened to appear in that capped sample
+# both WITH and WITHOUT the row active — traced
+# (`trace_n_to_np_row_remaining_non_edge_probe`, `scratch_probe.rs`) and
+# confirmed IDENTICAL (same `Abstained`, same malformed-entity trace,
+# `is(legislatively a, λ.gawker)`) in both configurations. So these two are a
+# genuine PRE-EXISTING non-edge defect (already counted in the baseline's 8),
+# completely UNRELATED to this row — an adverb-plus-bare-determiner Montague
+# absorption bug worth its own investigation some day, but NOT this row's
+# regression.
+#
+# REAL DIFF (task #29, same day): built `non_edge_full_census_probe`
+# (`scratch_probe.rs`) — the full, UNCAPPED non-edge failure set, run once
+# with the row absent (8, matching the committed ceiling exactly) and once
+# with it present (10). The set difference is the row's ACTUAL two new
+# failures — neither is "legislatively a gawker" / "tragically a please":
+#   1. "is cut an end?" (an intended-unrelated pair) — FALSE Yes. Traced: the
+#      pipeline answers via a chain over VERB senses — `cut` (gloss "cease,
+#      stop") -> `break up` -> `break` -> `end` (gloss "bring to an end or
+#      halt") — a real WordNet is-a chain, but over senses the probe did NOT
+#      intend (it picked NOUN senses as the unrelated pair). Tokens: `cut`
+#      typed `N/N`, `end` typed `NP\S` — the row's extra N->NP-derived parse
+#      alternatives let the chart's preference ranking land on this
+#      accidentally-true verb-sense reading instead of the intended noun
+#      reading. A word-sense-disambiguation ranking issue, not a chart bug.
+#   2. "is islamising a lexeme?" — FALSE NEGATION, `unresolved: ["islamising"]`.
+#      Tokenizes and types cleanly (`islamising`: `N`), but entity resolution
+#      ("gather knowledge") cannot resolve it to a concept — likely an
+#      inflected-form lemmatization interaction (islamising -> islamise) that
+#      the row's new parse alternatives disturb.
+# Both are real, narrow, traceable bugs — not evidence the row itself is
+# wrong — but the strict per-class ratchet still holds them out.
+#
+# THIRD ATTEMPT 2026-07-13 (tasks #30/#31): case 2 (islamising/lexeme) was a
+# pre-existing lemmatizer gap the row merely exposed (mirroring O.K.) — FIXED
+# (resolve_surface now composes lemmatization with case-folding on every
+# candidate, not just the raw surface; commit 112e50af) and CONFIRMED gone
+# from the non-edge failure set. Case 1 (cut/end spurious verb-sense chain)
+# got a real WSD mechanism — built (word_sense::best_reaching_pair, Lesk
+# 1986 bare gloss-overlap scoring among MULTIPLE candidate sense pairs that
+# all satisfy `reaches`; commit bb7449cc) — but re-measuring with the row
+# active shows it does NOT fix "is cut an end?": define 42 -> 34 (IMPROVES,
+# -8), is-a 4 -> 0 (IMPROVES, the class is now CLEAN), directional-No
+# 213 -> 212 (IMPROVES, -1), non-edge 8 -> 9 (REGRESSES, +1 — DOWN from the
+# prior +2, and the islamising/lexeme failure is confirmed gone) — total
+# 267 -> 255, the best net result of all three attempts, but the strict
+# ratchet still trips REJECTED on the one remaining non-edge case.
+#
+# Traced why the WSD fix doesn't reach "cut"/"end" (`resolve_surface_mirror`
+# + a direct `reaches` sweep, `scratch_probe.rs`): "cut" resolves to 70
+# senses, "end" to 18 (1,260 candidate pairs) — and EXACTLY ONE of those
+# 1,260 pairs satisfies `reaches` at all: cut ("cease, stop") -> break up ->
+# break -> end ("bring to an end or halt"), a real but obscure 4-hop verb-
+# sense chain. `best_reaching_pair`'s gloss-overlap ranking only activates
+# when MULTIPLE candidates already satisfy `reaches` — with a SINGLE hit
+# among 1,260 candidates, there is nothing to rank against; the single true
+# edge is returned as-is, exactly as blind first-hit already did. This is a
+# genuinely DIFFERENT problem than task #31 was scoped to fix: not "which of
+# several true candidates is right" but "should a single, obscure, multi-hop
+# relation be trusted as an answer when it's the lone hit out of a massively
+# polysemous candidate space" — a sense-SALIENCE or confidence question, not
+# a ranking-among-ties question. Tracked as its own task (do not conflate
+# with #31's already-shipped, already-correct WSD mechanism — that mechanism
+# is real, general, and already measurably improved the corpus independent
+# of this row: is-a 4 -> 0, define -8, directional-No -1, none of which
+# needed the row at all to matter once it's re-added).
+#
+# The row stays reverted. Both landed fixes (#30, #31) are real, general
+# improvements already committed and verified regardless of this row's fate.
+# Next attempt at this row needs the sense-salience follow-up task done
+# first — do not re-add blind a fourth time.
+
+# ── Default: unlisted category priced as a hapax (CL 33(3) §8.2 p. 389: 439 categories occur once) ──
+default	1	45422	10.723752

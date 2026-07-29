@@ -5,10 +5,10 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::ontology::{
     AuthorityStrengthCategory, AuthorityStrengthConcept, AuthorityStrengthOntology,
-    BINDING_TIER_FLOOR, BindingExceedsAllPersuasive, BindingForceOf, ConstitutionalSupremacy,
-    ForceTiersAreDistinct, JurisdictionScopeOf, PartitionCompleteness, StatuteExceedsRegulation,
-    SupremeCourtAtopPrecedentHierarchy, at_least_as_binding, binding_leaves, is_binding, is_leaf,
-    is_persuasive, leaves, persuasive_leaves,
+    BINDING_TIER_FLOOR, BindingExceedsAllPersuasive, BindingForceOf, BindingForceTier,
+    ConstitutionalSupremacy, ForceTiersAreDistinct, JurisdictionScopeOf, PartitionCompleteness,
+    StatuteExceedsRegulation, SupremeCourtAtopPrecedentHierarchy, at_least_as_binding,
+    binding_leaves, is_binding, is_leaf, is_persuasive, leaves, persuasive_leaves,
 };
 use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
@@ -76,7 +76,7 @@ fn binding_persuasive_partitions_leaves() {
 fn constitutional_is_highest_tier() {
     assert_eq!(
         BindingForceOf.get(&AuthorityStrengthConcept::ConstitutionalText),
-        Some(9)
+        Some(BindingForceTier::ConstitutionalText)
     );
 }
 
@@ -85,7 +85,7 @@ fn constitutional_is_highest_tier() {
 fn secondary_source_is_lowest_tier() {
     assert_eq!(
         BindingForceOf.get(&AuthorityStrengthConcept::SecondarySource),
-        Some(1)
+        Some(BindingForceTier::SecondarySource)
     );
 }
 
@@ -124,12 +124,20 @@ fn binding_tier_floor_excludes_arb() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn descending_tier_order() {
-    // The leaves array is documented in descending order; verify.
-    let mut last = 10u8;
+    // The leaves array is documented in descending binding-force order;
+    // verify. `BindingForceTier`'s `Ord` is ascending by declaration, so
+    // "descending force" means each successive tier is strictly *less*
+    // under `Ord`.
+    let mut last: Option<BindingForceTier> = None;
     for c in leaves() {
         let t = BindingForceOf.get(&c).unwrap();
-        assert!(t < last, "{c:?} (tier {t}) should be below previous {last}");
-        last = t;
+        if let Some(prev) = last {
+            assert!(
+                t < prev,
+                "{c:?} (tier {t:?}) should be below previous {prev:?}"
+            );
+        }
+        last = Some(t);
     }
 }
 
@@ -348,7 +356,8 @@ proptest! {
     /// All nine leaf tiers are distinct.
     #[test]
     fn prop_tiers_distinct(_seed in any::<u32>()) {
-        let mut tiers: Vec<u8> = leaves().iter().map(|c| BindingForceOf.get(c).unwrap()).collect();
+        let mut tiers: Vec<BindingForceTier> =
+            leaves().iter().map(|c| BindingForceOf.get(c).unwrap()).collect();
         let original = tiers.len();
         tiers.sort();
         tiers.dedup();

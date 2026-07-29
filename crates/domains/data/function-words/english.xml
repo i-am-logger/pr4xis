@@ -31,6 +31,22 @@
         speech" *J. Pragmatics* 18(2):101-118 — expressive / conative /
         phatic. (H&P 2002 Ch. 16 treats interjections as a class but
         gives no functional subclasses, so the kind is sourced here.)
+    • Interrogative pronoun/determiner referent-type feature
+      (fw-interrogative-{pron,det}-* synsets) and interrogative adverb
+      role feature (fw-interrogative-adv-* synsets):
+        Cysouw, M. (2004) "Interrogative words: an exercise in lexical
+        typology", handout, session on question formation in Bantu,
+        Bantu Grammar: Description and Theory 3, ZAS Berlin, 13 Feb 2004,
+        §3.2 table (9) — who/whom/whose -> PERSON, what -> THING,
+        which -> SELECTION, where -> PLACE, when -> TIME, how -> MANNER,
+        why -> REASON. Building on Ultan, R. (1978) "Some general
+        characteristics of interrogative systems", in J. Greenberg (ed.)
+        *Universals of Human Language* vol. 4, Stanford UP, pp. 211-248
+        (the cross-linguistic source Cysouw's own table cites). The OLiA
+        `InterrogativeAdverb`/`InterrogativePronoun`/`InterrogativeDeterminer`
+        subcat (above) covers all wh-words in each class uniformly; this
+        is the finer feature that distinguishes them, riding the synset
+        rather than the subcat — see WhReferentRole/WhAdverbRole.
 
   POS tags follow Universal Dependencies:
     det = determiner, pron = pronoun, adp = preposition,
@@ -106,20 +122,29 @@
          carry multiple entries (which/what are pronoun AND determiner; when is
          this interrogative adverb AND the subordinator below) — the chart
          explores all. H&P (2002) Ch.5 §5 (pronouns/determiners) + Ch.7 (adverbs). -->
-    <!-- Interrogative pronouns (OLiA: InterrogativePronoun) -->
-    <LexicalEntry id="fw-what"><Lemma writtenForm="what" partOfSpeech="pron"/><Sense id="fw-what-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
-    <LexicalEntry id="fw-who"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
-    <LexicalEntry id="fw-which"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
-    <LexicalEntry id="fw-whom"><Lemma writtenForm="whom" partOfSpeech="pron"/><Sense id="fw-whom-1" synset="fw-interrogative-pron" subcat="InterrogativePronoun"/></LexicalEntry>
-    <!-- Interrogative determiners (OLiA: InterrogativeDeterminer) — "which dog", "what time", "whose book" -->
-    <LexicalEntry id="fw-which-det"><Lemma writtenForm="which" partOfSpeech="det"/><Sense id="fw-which-det-1" synset="fw-interrogative-det" subcat="InterrogativeDeterminer"/></LexicalEntry>
-    <LexicalEntry id="fw-what-det"><Lemma writtenForm="what" partOfSpeech="det"/><Sense id="fw-what-det-1" synset="fw-interrogative-det" subcat="InterrogativeDeterminer"/></LexicalEntry>
-    <LexicalEntry id="fw-whose"><Lemma writtenForm="whose" partOfSpeech="det"/><Sense id="fw-whose-1" synset="fw-interrogative-det" subcat="InterrogativeDeterminer"/></LexicalEntry>
-    <!-- Interrogative adverbs (OLiA: InterrogativeAdverb) — re-classed from the `pron` mis-tag; `when` also keeps its subordinator entry below -->
-    <LexicalEntry id="fw-where"><Lemma writtenForm="where" partOfSpeech="r"/><Sense id="fw-where-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
-    <LexicalEntry id="fw-how"><Lemma writtenForm="how" partOfSpeech="r"/><Sense id="fw-how-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
-    <LexicalEntry id="fw-why"><Lemma writtenForm="why" partOfSpeech="r"/><Sense id="fw-why-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
-    <LexicalEntry id="fw-when-adv"><Lemma writtenForm="when" partOfSpeech="r"/><Sense id="fw-when-adv-1" synset="fw-interrogative-adv" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <!-- Interrogative pronouns (OLiA: InterrogativePronoun). Each carries a
+         DISTINCT synset (not a shared `fw-interrogative-pron`) so the
+         praxis-side `wh_referent_role_from_synset` codec can decode the
+         "expected answer type" feature — Cysouw (2004) "Interrogative
+         words: an exercise in lexical typology", handout, session on
+         question formation in Bantu, ZAS Berlin, 13 Feb 2004, §3.2 table
+         (9): who/whom → PERSON, what → THING, which → SELECTION. The
+         `subcat` stays the shared OLiA `InterrogativePronoun` fragment
+         (unaffected — the CCG category projection is orthogonal to this
+         feature). -->
+    <LexicalEntry id="fw-what"><Lemma writtenForm="what" partOfSpeech="pron"/><Sense id="fw-what-1" synset="fw-interrogative-pron-thing" subcat="InterrogativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-who"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-1" synset="fw-interrogative-pron-person" subcat="InterrogativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-which"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-1" synset="fw-interrogative-pron-selection" subcat="InterrogativePronoun"/></LexicalEntry>
+    <LexicalEntry id="fw-whom"><Lemma writtenForm="whom" partOfSpeech="pron"/><Sense id="fw-whom-1" synset="fw-interrogative-pron-person" subcat="InterrogativePronoun"/></LexicalEntry>
+    <!-- Interrogative determiners (OLiA: InterrogativeDeterminer) — "which dog", "what time", "whose book". Same Cysouw (2004) §3.2 table (9) role split as the pronouns above (the SAME lexical item realized as a determiner rather than heading its own NP): what→THING, which→SELECTION, whose→PERSON (possessor). -->
+    <LexicalEntry id="fw-which-det"><Lemma writtenForm="which" partOfSpeech="det"/><Sense id="fw-which-det-1" synset="fw-interrogative-det-selection" subcat="InterrogativeDeterminer"/></LexicalEntry>
+    <LexicalEntry id="fw-what-det"><Lemma writtenForm="what" partOfSpeech="det"/><Sense id="fw-what-det-1" synset="fw-interrogative-det-thing" subcat="InterrogativeDeterminer"/></LexicalEntry>
+    <LexicalEntry id="fw-whose"><Lemma writtenForm="whose" partOfSpeech="det"/><Sense id="fw-whose-1" synset="fw-interrogative-det-person" subcat="InterrogativeDeterminer"/></LexicalEntry>
+    <!-- Interrogative adverbs (OLiA: InterrogativeAdverb) — re-classed from the `pron` mis-tag; `when` also keeps its subordinator entry below. Each carries a DISTINCT synset (not a shared `fw-interrogative-adv`) so `wh_adverb_role_from_synset` can decode the manner/reason/place/time feature — Cysouw (2004) §3.2 table (9): how→MANNER, why→REASON, where→PLACE, when→TIME. The `subcat` stays the shared OLiA `InterrogativeAdverb` fragment. -->
+    <LexicalEntry id="fw-where"><Lemma writtenForm="where" partOfSpeech="r"/><Sense id="fw-where-1" synset="fw-interrogative-adv-place" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <LexicalEntry id="fw-how"><Lemma writtenForm="how" partOfSpeech="r"/><Sense id="fw-how-1" synset="fw-interrogative-adv-manner" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <LexicalEntry id="fw-why"><Lemma writtenForm="why" partOfSpeech="r"/><Sense id="fw-why-1" synset="fw-interrogative-adv-reason" subcat="InterrogativeAdverb"/></LexicalEntry>
+    <LexicalEntry id="fw-when-adv"><Lemma writtenForm="when" partOfSpeech="r"/><Sense id="fw-when-adv-1" synset="fw-interrogative-adv-time" subcat="InterrogativeAdverb"/></LexicalEntry>
     <LexicalEntry id="fw-whether"><Lemma writtenForm="whether" partOfSpeech="conj"/><Sense id="fw-whether-1" synset="fw-conjunction"/></LexicalEntry>
     <!-- Relative pronouns (OLiA: RelativePronoun) — "the dog that runs", "the
          one who runs", "the book which sells". Additional senses; who/which keep
@@ -216,22 +241,27 @@
     <LexicalEntry id="fw-so"><Lemma writtenForm="so" partOfSpeech="conj"/><Sense id="fw-so-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-yet"><Lemma writtenForm="yet" partOfSpeech="conj"/><Sense id="fw-yet-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-nor"><Lemma writtenForm="nor" partOfSpeech="conj"/><Sense id="fw-nor-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-because"><Lemma writtenForm="because" partOfSpeech="conj"/><Sense id="fw-because-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-although"><Lemma writtenForm="although" partOfSpeech="conj"/><Sense id="fw-although-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-if"><Lemma writtenForm="if" partOfSpeech="conj"/><Sense id="fw-if-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-when"><Lemma writtenForm="when" partOfSpeech="conj"/><Sense id="fw-when-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-while"><Lemma writtenForm="while" partOfSpeech="conj"/><Sense id="fw-while-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-until"><Lemma writtenForm="until" partOfSpeech="conj"/><Sense id="fw-until-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-since"><Lemma writtenForm="since" partOfSpeech="conj"/><Sense id="fw-since-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-unless"><Lemma writtenForm="unless" partOfSpeech="conj"/><Sense id="fw-unless-1" synset="fw-conjunction"/></LexicalEntry>
+    <!-- Subordinating conjunctions (OLiA: SubordinatingConjunction): combine
+         with a full embedded clause on the right, then the resulting
+         adjunct combines with the main clause, CCG (S/S)/S (Huddleston &
+         Pullum 2002 Ch.11 adverbial clauses; Karttunen 1973 on the factive
+         subset's presupposition behavior). -->
+    <LexicalEntry id="fw-because"><Lemma writtenForm="because" partOfSpeech="conj"/><Sense id="fw-because-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-although"><Lemma writtenForm="although" partOfSpeech="conj"/><Sense id="fw-although-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-if"><Lemma writtenForm="if" partOfSpeech="conj"/><Sense id="fw-if-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-when"><Lemma writtenForm="when" partOfSpeech="conj"/><Sense id="fw-when-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-while"><Lemma writtenForm="while" partOfSpeech="conj"/><Sense id="fw-while-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-until"><Lemma writtenForm="until" partOfSpeech="conj"/><Sense id="fw-until-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-since"><Lemma writtenForm="since" partOfSpeech="conj"/><Sense id="fw-since-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-unless"><Lemma writtenForm="unless" partOfSpeech="conj"/><Sense id="fw-unless-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
     <LexicalEntry id="fw-than"><Lemma writtenForm="than" partOfSpeech="conj"/><Sense id="fw-than-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-then"><Lemma writtenForm="then" partOfSpeech="conj"/><Sense id="fw-then-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-as"><Lemma writtenForm="as" partOfSpeech="conj"/><Sense id="fw-as-1" synset="fw-conjunction"/></LexicalEntry>
-    <LexicalEntry id="fw-whereas"><Lemma writtenForm="whereas" partOfSpeech="conj"/><Sense id="fw-whereas-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-as"><Lemma writtenForm="as" partOfSpeech="conj"/><Sense id="fw-as-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-whereas"><Lemma writtenForm="whereas" partOfSpeech="conj"/><Sense id="fw-whereas-1" synset="fw-conjunction" subcat="SubordinatingConjunction"/></LexicalEntry>
 
     <!-- Particles -->
     <LexicalEntry id="fw-not"><Lemma writtenForm="not" partOfSpeech="part"/><Sense id="fw-not-1" synset="fw-particle"/></LexicalEntry>
-    <LexicalEntry id="fw-to-part"><Lemma writtenForm="to" partOfSpeech="part"/><Sense id="fw-to-part-1" synset="fw-particle"/></LexicalEntry>
+    <LexicalEntry id="fw-to-part"><Lemma writtenForm="to" partOfSpeech="part"/><Sense id="fw-to-part-1" synset="fw-particle" subcat="InfinitiveParticle"/></LexicalEntry>
 
     <!-- Interjections (OLiA: Interjection) -->
     <LexicalEntry id="fw-hello"><Lemma writtenForm="hello" partOfSpeech="intj"/><Sense id="fw-hello-1" synset="fw-greeting"/></LexicalEntry>
@@ -241,9 +271,11 @@
     <LexicalEntry id="fw-bye"><Lemma writtenForm="bye" partOfSpeech="intj"/><Sense id="fw-bye-1" synset="fw-farewell"/></LexicalEntry>
     <LexicalEntry id="fw-thanks"><Lemma writtenForm="thanks" partOfSpeech="intj"/><Sense id="fw-thanks-1" synset="fw-politeness"/></LexicalEntry>
     <LexicalEntry id="fw-please"><Lemma writtenForm="please" partOfSpeech="intj"/><Sense id="fw-please-1" synset="fw-politeness"/></LexicalEntry>
-    <LexicalEntry id="fw-yes"><Lemma writtenForm="yes" partOfSpeech="intj"/><Sense id="fw-yes-1" synset="fw-response"/></LexicalEntry>
-    <LexicalEntry id="fw-no-intj"><Lemma writtenForm="no" partOfSpeech="intj"/><Sense id="fw-no-intj-1" synset="fw-response"/></LexicalEntry>
-    <LexicalEntry id="fw-ok"><Lemma writtenForm="ok" partOfSpeech="intj"/><Sense id="fw-ok-1" synset="fw-response"/></LexicalEntry>
+    <LexicalEntry id="fw-yes"><Lemma writtenForm="yes" partOfSpeech="intj"/><Sense id="fw-yes-1" synset="fw-response-affirmative"/></LexicalEntry>
+    <LexicalEntry id="fw-no-intj"><Lemma writtenForm="no" partOfSpeech="intj"/><Sense id="fw-no-intj-1" synset="fw-response-negative"/></LexicalEntry>
+    <LexicalEntry id="fw-ok"><Lemma writtenForm="ok" partOfSpeech="intj"/><Sense id="fw-ok-1" synset="fw-response-affirmative"/></LexicalEntry>
+    <LexicalEntry id="fw-yeah"><Lemma writtenForm="yeah" partOfSpeech="intj"/><Sense id="fw-yeah-1" synset="fw-response-affirmative"/></LexicalEntry>
+    <LexicalEntry id="fw-nope"><Lemma writtenForm="nope" partOfSpeech="intj"/><Sense id="fw-nope-1" synset="fw-response-negative"/></LexicalEntry>
     <LexicalEntry id="fw-sorry"><Lemma writtenForm="sorry" partOfSpeech="intj"/><Sense id="fw-sorry-1" synset="fw-politeness"/></LexicalEntry>
     <LexicalEntry id="fw-well"><Lemma writtenForm="well" partOfSpeech="intj"/><Sense id="fw-well-1" synset="fw-expressive"/></LexicalEntry>
     <LexicalEntry id="fw-oh"><Lemma writtenForm="oh" partOfSpeech="intj"/><Sense id="fw-oh-1" synset="fw-expressive"/></LexicalEntry>
@@ -259,7 +291,9 @@
     <Synset id="fw-copula" partOfSpeech="cop"><Definition>copular verb (linking verb)</Definition></Synset>
     <Synset id="fw-auxiliary" partOfSpeech="aux"><Definition>auxiliary verb</Definition></Synset>
     <Synset id="fw-personal-pron" partOfSpeech="pron"><Definition>personal pronoun</Definition></Synset>
-    <Synset id="fw-interrogative-pron" partOfSpeech="pron"><Definition>interrogative pronoun</Definition></Synset>
+    <Synset id="fw-interrogative-pron-person" partOfSpeech="pron"><Definition>interrogative pronoun — person (who/whom; Cysouw 2004 §3.2 table (9))</Definition></Synset>
+    <Synset id="fw-interrogative-pron-thing" partOfSpeech="pron"><Definition>interrogative pronoun — thing (what; Cysouw 2004 §3.2 table (9))</Definition></Synset>
+    <Synset id="fw-interrogative-pron-selection" partOfSpeech="pron"><Definition>interrogative pronoun — selection from a set (which; Cysouw 2004 §3.2 table (9))</Definition></Synset>
     <Synset id="fw-possessive-pron" partOfSpeech="pron"><Definition>possessive pronoun / genitive determiner (Huddleston &amp; Pullum 2002 Ch. 5 §10)</Definition></Synset>
     <Synset id="fw-preposition" partOfSpeech="adp"><Definition>preposition</Definition></Synset>
     <Synset id="fw-conjunction" partOfSpeech="conj"><Definition>conjunction</Definition></Synset>
@@ -267,7 +301,8 @@
     <Synset id="fw-greeting" partOfSpeech="intj"><Definition>greeting interjection</Definition></Synset>
     <Synset id="fw-farewell" partOfSpeech="intj"><Definition>farewell interjection</Definition></Synset>
     <Synset id="fw-politeness" partOfSpeech="intj"><Definition>politeness interjection</Definition></Synset>
-    <Synset id="fw-response" partOfSpeech="intj"><Definition>response interjection (Ameka 1992 phatic / back-channel)</Definition></Synset>
+    <Synset id="fw-response-affirmative" partOfSpeech="intj"><Definition>affirmative response interjection (Ameka 1992 phatic / back-channel; Holmberg 2016 The Syntax of Yes and No, OUP, polar response particles)</Definition></Synset>
+    <Synset id="fw-response-negative" partOfSpeech="intj"><Definition>negative response interjection (Ameka 1992 phatic / back-channel; Holmberg 2016 The Syntax of Yes and No, OUP, polar response particles)</Definition></Synset>
     <Synset id="fw-expressive" partOfSpeech="intj"><Definition>expressive interjection (Ameka 1992 expressive)</Definition></Synset>
     <Synset id="fw-conative" partOfSpeech="intj"><Definition>conative interjection — directed at an auditor, demanding attention/action (Ameka 1992 conative)</Definition></Synset>
 

@@ -132,11 +132,13 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn identical_connections_share_an_address() {
         assert_eq!(functor().address().unwrap(), functor().address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn changing_the_action_changes_the_address() {
         let mut b = functor();
@@ -146,6 +148,7 @@ mod tests {
         assert_ne!(functor().address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn action_table_order_does_not_affect_address() {
         let mut a = functor();
@@ -161,6 +164,7 @@ mod tests {
         assert_eq!(a.address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn distinct_families_get_distinct_addresses() {
         let mut l = functor();
@@ -172,6 +176,7 @@ mod tests {
         assert_ne!(functor().address().unwrap(), l.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn changing_the_kind_changes_the_address() {
         let mut b = functor();
@@ -179,6 +184,7 @@ mod tests {
         assert_ne!(functor().address().unwrap(), b.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn every_family_addresses() {
         for action in [

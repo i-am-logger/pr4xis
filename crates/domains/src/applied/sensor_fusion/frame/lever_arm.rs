@@ -2,7 +2,10 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
+use crate::formal::math::geometry::vector::Vec3;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Physical offset between sensor reference points.
 ///
@@ -23,7 +26,7 @@ pub struct LeverArm {
     /// The sensor reference point we are measuring TO.
     pub to_sensor: ReferenceFrame,
     /// Offset vector (x, y, z) in meters, expressed in `expressed_in`.
-    pub offset: Vector,
+    pub offset: Vec3,
     /// The frame in which the offset vector is expressed.
     pub expressed_in: ReferenceFrame,
 }
@@ -33,7 +36,7 @@ impl LeverArm {
     pub fn new(
         from_sensor: ReferenceFrame,
         to_sensor: ReferenceFrame,
-        offset: Vector,
+        offset: Vec3,
         expressed_in: ReferenceFrame,
     ) -> Self {
         Self {
@@ -49,7 +52,7 @@ impl LeverArm {
         Self {
             from_sensor,
             to_sensor,
-            offset: Vector::zeros(3),
+            offset: Vec3::zero(),
             expressed_in: from_sensor,
         }
     }
@@ -68,8 +71,13 @@ impl LeverArm {
     }
 
     /// Magnitude of the lever arm in meters (Euclidean norm).
-    pub fn magnitude(&self) -> f64 {
-        self.offset.norm()
+    ///
+    /// `Vec3::norm()` is dimensionless at the generic linear-algebra layer
+    /// (no inherent physical unit); this domain-specific accessor re-grounds
+    /// it in the physical unit `LeverArm.offset` actually carries — meters
+    /// (Groves 2013, Section 14.2.1).
+    pub fn magnitude(&self) -> Quantity {
+        Quantity::from_unit(self.offset.norm().value, &unit::METER)
     }
 
     /// Velocity correction for a rotating body.
@@ -80,7 +88,7 @@ impl LeverArm {
     /// Source: Groves (2013), Eq. 14.14.
     pub fn velocity_correction(&self, omega: &Vector) -> Vector {
         let (ox, oy, oz) = (omega.get(0), omega.get(1), omega.get(2));
-        let (lx, ly, lz) = (self.offset.get(0), self.offset.get(1), self.offset.get(2));
+        let (lx, ly, lz) = (self.offset.x, self.offset.y, self.offset.z);
         Vector::new(vec![
             oy * lz - oz * ly,
             oz * lx - ox * lz,
@@ -97,7 +105,7 @@ mod tests {
     #[test]
     fn zero_lever_arm_has_zero_magnitude() {
         let la = LeverArm::zero(ReferenceFrame::IMU, ReferenceFrame::GNSS);
-        assert!(la.magnitude() < 1e-10);
+        assert!(la.magnitude().value < 1e-10);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -106,15 +114,15 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            Vector::new(vec![1.0, 2.0, 3.0]),
+            Vec3::new(1.0, 2.0, 3.0),
             ReferenceFrame::Body,
         );
         let inv = la.inverse();
         assert_eq!(inv.from_sensor, ReferenceFrame::GNSS);
         assert_eq!(inv.to_sensor, ReferenceFrame::IMU);
-        for i in 0..3 {
-            assert!((inv.offset.get(i) + la.offset.get(i)).abs() < 1e-10);
-        }
+        assert!((inv.offset.x + la.offset.x).abs() < 1e-10);
+        assert!((inv.offset.y + la.offset.y).abs() < 1e-10);
+        assert!((inv.offset.z + la.offset.z).abs() < 1e-10);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -123,10 +131,10 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            Vector::new(vec![3.0, 4.0, 0.0]),
+            Vec3::new(3.0, 4.0, 0.0),
             ReferenceFrame::Body,
         );
-        assert!((la.magnitude() - 5.0).abs() < 1e-10);
+        assert!((la.magnitude().value - 5.0).abs() < 1e-10);
     }
 
     #[pr4xis::praxis_value(Deterministic)]
@@ -135,7 +143,7 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            Vector::new(vec![1.5, -0.3, 0.7]),
+            Vec3::new(1.5, -0.3, 0.7),
             ReferenceFrame::Body,
         );
         let la2 = la.inverse().inverse();
@@ -150,7 +158,7 @@ mod tests {
         let la = LeverArm::new(
             ReferenceFrame::IMU,
             ReferenceFrame::GNSS,
-            Vector::new(vec![1.0, 0.0, 0.0]),
+            Vec3::new(1.0, 0.0, 0.0),
             ReferenceFrame::Body,
         );
         let v = la.velocity_correction(&Vector::new(vec![0.0, 0.0, 1.0]));

@@ -1,6 +1,6 @@
 # Domain Catalog
 
-> **Note (2026-04-14):** This page is in transition. The previous catalog enumerated ~21 domains using a `science::math` / `games::chess` / `systems::*` organization that no longer matches the codebase. The current workspace contains more than 160 ontologies under a different structure (`formal/applied/social/natural/cognitive`), and a hand-maintained catalog of every entry is not the right shape going forward. Instead, this page now points at the **canonical source**, the **current organization**, and the **two pieces of in-flight work** that will replace it: per-ontology READMEs ([#57](https://github.com/i-am-logger/pr4xis/issues/57)) and the source-of-truth report pipeline ([#60](https://github.com/i-am-logger/pr4xis/issues/60)).
+> **Note (2026-07-11):** This page is in transition. The previous catalog enumerated ~21 domains using a `science::math` / `games::chess` / `systems::*` organization that no longer matches the codebase. The current workspace contains 182 ontologies under a different structure (`formal/applied/social/natural/cognitive`), and a hand-maintained catalog of every entry is not the right shape going forward. Instead, this page now points at the **canonical source**, the **current organization**, and the **two pieces of in-flight work** that will replace it: per-ontology READMEs ([#57](https://github.com/i-am-logger/pr4xis/issues/57)) and the source-of-truth report pipeline ([#60](https://github.com/i-am-logger/pr4xis/issues/60)).
 
 ## Canonical source
 
@@ -10,7 +10,7 @@ Every ontology lives at exactly one path under `crates/domains/src/`. The full l
 find crates/domains/src -name ontology.rs
 ```
 
-Pipe it to `| wc -l` to count; today that returns more than 160 ontologies.
+Pipe it to `| wc -l` to count; today that returns 182 ontologies.
 
 Every ontology directory contains an `ontology.rs` file with the `pr4xis::ontology!` invocation that declares its concepts, kinded morphisms, axioms, and metadata. To understand any specific ontology, read its `ontology.rs` directly. Per-ontology `README.md` and `citings.md` files are pending [#57](https://github.com/i-am-logger/pr4xis/issues/57).
 

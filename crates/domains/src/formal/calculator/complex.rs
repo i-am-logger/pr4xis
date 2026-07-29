@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::value::CalcError;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use core::fmt;
 
 /// Complex number: a + bi.
@@ -29,8 +31,15 @@ impl Complex {
     pub const ONE: Complex = Complex { re: 1.0, im: 0.0 };
 
     /// Magnitude (absolute value): |a + bi| = sqrt(a² + b²).
-    pub fn magnitude(&self) -> f64 {
-        (self.re * self.re + self.im * self.im).sqrt()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+    /// `f64` — the magnitude of an abstract `Complex` number has no
+    /// inherent physical unit at this generic layer.
+    pub fn magnitude(&self) -> Quantity {
+        Quantity::from_unit(
+            (self.re * self.re + self.im * self.im).sqrt(),
+            &unit::UNITLESS,
+        )
     }
 
     /// Phase angle in radians.
@@ -82,7 +91,7 @@ impl Complex {
     /// Square root of a complex number.
     /// sqrt(-1) = i (works where real sqrt fails).
     pub fn sqrt(&self) -> Complex {
-        let mag = self.magnitude();
+        let mag = self.magnitude().value;
         let re = ((mag + self.re) / 2.0).sqrt();
         let im = ((mag - self.re) / 2.0).sqrt();
         Complex::new(re, if self.im >= 0.0 { im } else { -im })
@@ -96,7 +105,7 @@ impl Complex {
 
     /// Complex natural log: ln(z) = ln|z| + i*arg(z).
     pub fn ln(&self) -> Result<Complex, CalcError> {
-        let mag = self.magnitude();
+        let mag = self.magnitude().value;
         if mag < 1e-15 {
             return Err(CalcError::LogOfNonPositive);
         }
@@ -110,7 +119,7 @@ impl Complex {
 
     /// Power: z^w for complex z and w.
     pub fn pow(&self, w: &Complex) -> Result<Complex, CalcError> {
-        if self.magnitude() < 1e-15 {
+        if self.magnitude().value < 1e-15 {
             if w.re > 0.0 {
                 return Ok(Complex::ZERO);
             }

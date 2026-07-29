@@ -52,3 +52,11 @@ unreachable = "deny"
 
 [dev-dependencies]
 proptest = "1.11"
+# Test-only activation of the already-optional `pr4xis` dependency above (line
+# 22): the `#[pr4xis::praxis_value(...)]` constitution-coverage attribute used
+# inside `#[cfg(test)]` modules needs it resolvable, but the crate must stay
+# "free of any compile-time coupling by default" (see the `emit` feature
+# comment) for anyone depending on this crate as a library. A dev-dependency
+# entry activates the optional dep only for `cargo test`, not for downstream
+# consumers or plain `cargo build`.
+pr4xis = { version = "0.28.0", path = "../pr4xis" }

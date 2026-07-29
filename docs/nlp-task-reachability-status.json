@@ -1,0 +1,138 @@
+[
+  {
+    "component": "TextOntology",
+    "unit": "Token::tense",
+    "task": "PartOfSpeechTagging",
+    "reachability": "CarryingTypeHasNoSlot",
+    "reachable": false,
+    "evidence": "tense_accessor_exists_but_no_producer_populates_it"
+  },
+  {
+    "component": "ChannelOntology",
+    "unit": "channel::classify_etiology",
+    "task": "SpellingCorrection",
+    "reachability": "ClassifierBypassed",
+    "reachable": false,
+    "evidence": "spelling_correction_bypasses_the_noisy_channel_classifier"
+  },
+  {
+    "component": "English (WordNet)",
+    "unit": "composed::reaches",
+    "task": "WordSenseDisambiguation",
+    "reachability": "DispatcherArmIncomplete",
+    "reachable": false,
+    "evidence": "composed_reaches_has_no_arm_for_derivation"
+  },
+  {
+    "component": "VerbNet",
+    "unit": "grounding::defines_lens",
+    "task": "InformationRetrieval",
+    "reachability": "OwnTestsOnly",
+    "reachable": false,
+    "evidence": "defines_lens_is_reachable_only_from_its_own_tests"
+  },
+  {
+    "component": "LambekOntology",
+    "unit": "tokenize::tokenize + reduce::chart_reduce (live parse path)",
+    "task": "Tokenization",
+    "reachability": "Reachable",
+    "reachable": true,
+    "evidence": "lambek_tokenize_and_parse_are_reachable_from_a_live_turn"
+  },
+  {
+    "component": "Lexicon",
+    "unit": "lexicon::pos::PosTag (via Language::lexical_lookup)",
+    "task": "PartOfSpeechTagging",
+    "reachability": "Reachable",
+    "reachable": true,
+    "evidence": "lexicon_pos_tag_drives_live_predicate_routing"
+  },
+  {
+    "component": "Spelling Errors",
+    "unit": "distance::closest_matches",
+    "task": "SpellingCorrection",
+    "reachability": "ClassifierBypassed",
+    "reachable": false,
+    "evidence": "spelling_correction_bypasses_the_noisy_channel_classifier"
+  },
+  {
+    "component": "Tense & Aspect",
+    "unit": "morphology::tense::TenseAspect (via Token::tense)",
+    "task": "PartOfSpeechTagging",
+    "reachability": "CarryingTypeHasNoSlot",
+    "reachable": false,
+    "evidence": "tense_accessor_exists_but_no_producer_populates_it"
+  },
+  {
+    "component": "ResponseOntology",
+    "unit": "ResponseFrame::AssertKnowledge",
+    "task": "DialogueManagement",
+    "reachability": "Reachable",
+    "reachable": true,
+    "evidence": "response_assert_knowledge_is_reachable_from_a_live_turn"
+  },
+  {
+    "component": "ResponseOntology",
+    "unit": "ResponseFrame::PhaticReturn",
+    "task": "DialogueManagement",
+    "reachability": "Reachable",
+    "reachable": true,
+    "evidence": "phatic_return_has_a_live_detector"
+  },
+  {
+    "component": "DiscourseOntology",
+    "unit": "discourse::ontology (RST/coherence relations)",
+    "task": "DiscourseCoherence",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  },
+  {
+    "component": "FragmentOntology",
+    "unit": "fragment::ontology (non-sentential utterance resolution)",
+    "task": "DialogueManagement",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  },
+  {
+    "component": "GroundingOntology",
+    "unit": "pragmatics::grounding::ontology (Clark & Schaefer contribution model)",
+    "task": "DialogueManagement",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  },
+  {
+    "component": "PlanningOntology",
+    "unit": "pragmatics::planning::ontology (speech-act planning)",
+    "task": "DialogueManagement",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  },
+  {
+    "component": "ReferenceOntology",
+    "unit": "pragmatics::reference (DRT + Centering theory)",
+    "task": "CoreferenceResolution",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  },
+  {
+    "component": "DialogueOntology",
+    "unit": "dialogue::ontology (Austin/Traum/Clark/Ginzburg dialogue model)",
+    "task": "DialogueManagement",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  },
+  {
+    "component": "DialogueGroundingOntology",
+    "unit": "dialogue::grounding (grounding-state finite state machine)",
+    "task": "DialogueManagement",
+    "reachability": "Unclaimed",
+    "reachable": false,
+    "evidence": "nlp_relevant_components_pending_reachability_triage_task11_sweep"
+  }
+]

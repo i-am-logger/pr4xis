@@ -713,6 +713,7 @@ mod tests {
         CodePointRange { lo, hi }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_default_decl_rhs_with_nested_optional_group() {
         // §3.3 [60] DefaultDecl as it appears in the spec — two
@@ -735,6 +736,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_char_production_rhs() {
         // §2.2 [2] Char
@@ -753,6 +755,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_name_start_char_with_ascii_literals() {
         // §2.3 [4] NameStartChar — mixes "':'", "[A-Z]", "'_'", etc.
@@ -782,6 +785,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_elementdecl_rhs_with_nt_refs_and_literal() {
         // §3.2 [45] elementdecl — verbatim from xmlspec.dtd format
@@ -805,6 +809,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_name_char_with_nt_reference_then_alternation() {
         // §2.3 [4a] NameChar — references NameStartChar via <nt> then ORs
@@ -853,6 +858,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_subtraction_for_comment_char() {
         // §2.5 [15] Comment body uses (Char - '-')
@@ -865,6 +871,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_kleene_star_and_plus() {
         // §3 [43] content uses ... (... CharData?)* etc.
@@ -879,6 +886,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_grouping_for_sequence_inside_alternation() {
         // (A B) | C — grouping forces precedence.
@@ -890,6 +898,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn decodes_xml_predefined_entities_in_literals() {
         let rhs = "'&lt;' | '&gt;' | '&amp;' | '&quot;' | '&apos;'";
@@ -916,12 +925,14 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn rejects_empty_rhs() {
         assert!(matches!(parse_rhs(""), Err(ParseRhsError::EmptyRhs)));
         assert!(matches!(parse_rhs("   "), Err(ParseRhsError::EmptyRhs)));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn rejects_dangling_quantifier() {
         assert!(matches!(
@@ -930,6 +941,7 @@ mod tests {
         ));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn rejects_unbalanced_paren() {
         let r = parse_rhs("( #x20");

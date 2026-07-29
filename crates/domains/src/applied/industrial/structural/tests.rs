@@ -84,14 +84,14 @@ fn rms_strain_constant() {
             timestamp: i as f64,
         })
         .collect();
-    let rms = rms_strain(&readings);
+    let rms = rms_strain(&readings).value;
     assert!((rms - 500.0).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Honest)]
 #[test]
 fn rms_strain_empty() {
-    assert!((rms_strain(&[]) - 0.0).abs() < 1e-12);
+    assert!((rms_strain(&[]).value - 0.0).abs() < 1e-12);
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +148,7 @@ mod proptest_proofs {
             let readings: Vec<StrainReading> = strains.iter().enumerate()
                 .map(|(i, &s)| StrainReading { microstrain: s, sensor_id: 0, timestamp: i as f64 })
                 .collect();
-            prop_assert!(rms_strain(&readings) >= 0.0);
+            prop_assert!(rms_strain(&readings).value >= 0.0);
         }
     }
 

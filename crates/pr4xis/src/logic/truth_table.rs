@@ -56,6 +56,7 @@ pub fn is_satisfiable(connective: Connective) -> bool {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_and_truth_table() {
         let table = binary_truth_table(Connective::And);
@@ -65,6 +66,7 @@ mod tests {
         assert!(!table[3].output); // F && F
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_or_truth_table() {
         let table = binary_truth_table(Connective::Or);
@@ -74,6 +76,7 @@ mod tests {
         assert!(!table[3].output);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_implies_truth_table() {
         let table = binary_truth_table(Connective::Implies);
@@ -83,6 +86,7 @@ mod tests {
         assert!(table[3].output); // F -> F
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_xor_iff_are_complements() {
         let xor = binary_truth_table(Connective::Xor);
@@ -92,6 +96,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_no_connective_is_tautology() {
         for c in Connective::variants() {
@@ -102,6 +107,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_all_connectives_satisfiable() {
         for c in Connective::variants() {
@@ -112,6 +118,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_no_connective_is_contradiction() {
         for c in Connective::variants() {
@@ -126,6 +133,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_nand_nor_not_equivalent() {
         assert!(!equivalent(Connective::Nand, Connective::Nor));

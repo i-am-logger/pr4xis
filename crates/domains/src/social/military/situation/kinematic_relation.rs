@@ -203,9 +203,13 @@ impl RelativeKinematics {
         }
         let dp = position_b.sub(position_a);
         let dv = velocity_b.sub(velocity_a);
-        let sep = dp.norm();
-        let rel_speed = dv.norm();
-        let range_rate = if sep > 0.0 { dp.dot(&dv) / sep } else { 0.0 };
+        let sep = dp.norm().value;
+        let rel_speed = dv.norm().value;
+        let range_rate = if sep > 0.0 {
+            dp.dot(&dv).value / sep
+        } else {
+            0.0
+        };
         Some(Self {
             separation: Quantity::from_unit(sep, &METER),
             relative_speed: Quantity::from_unit(rel_speed, &METER_PER_SECOND),

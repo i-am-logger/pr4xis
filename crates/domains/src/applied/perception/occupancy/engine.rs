@@ -1,4 +1,6 @@
 use crate::applied::perception::occupancy::ontology::OccupancyConcept;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Log-odds saturation bounds for occupancy mapping.
 ///
@@ -43,32 +45,35 @@ pub struct OccupancyGrid {
     /// Log-odds values for each cell. 0.0 = unknown (p=0.5).
     pub log_odds: Vec<f64>,
     /// Clamping thresholds for log-odds to prevent overconfidence.
-    pub log_odds_min: f64,
-    pub log_odds_max: f64,
+    pub saturation: LogOddsSaturation,
 }
 
 impl OccupancyGrid {
     /// Create a new occupancy grid initialized to unknown (log-odds = 0), with
     /// the standard cited log-odds saturation ([`LogOddsSaturation::standard`]).
     pub fn new(width: usize, height: usize) -> Self {
-        let saturation = LogOddsSaturation::standard();
         Self {
             width,
             height,
             log_odds: vec![0.0; width * height],
-            log_odds_min: saturation.min,
-            log_odds_max: saturation.max,
+            saturation: LogOddsSaturation::standard(),
         }
     }
 
     /// Convert log-odds to probability.
-    pub fn log_odds_to_probability(l: f64) -> f64 {
-        1.0 / (1.0 + (-l).exp())
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — a
+    /// probability is a pure number in `[0, 1]`, not a bare `f64`.
+    pub fn log_odds_to_probability(l: f64) -> Quantity {
+        Quantity::from_unit(1.0 / (1.0 + (-l).exp()), &unit::UNITLESS)
     }
 
     /// Convert probability to log-odds.
-    pub fn probability_to_log_odds(p: f64) -> f64 {
-        (p / (1.0 - p)).ln()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — log-odds is
+    /// a pure number, not a bare `f64`.
+    pub fn probability_to_log_odds(p: f64) -> Quantity {
+        Quantity::from_unit((p / (1.0 - p)).ln(), &unit::UNITLESS)
     }
 
     /// Get the cell index.
@@ -80,18 +85,24 @@ impl OccupancyGrid {
     pub fn update(&mut self, x: usize, y: usize, sensor_log_odds: f64) {
         let idx = self.index(x, y);
         self.log_odds[idx] =
-            (self.log_odds[idx] + sensor_log_odds).clamp(self.log_odds_min, self.log_odds_max);
+            (self.log_odds[idx] + sensor_log_odds).clamp(self.saturation.min, self.saturation.max);
     }
 
     /// Get the occupancy probability for a cell.
-    pub fn probability(&self, x: usize, y: usize) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), see
+    /// [`Self::log_odds_to_probability`].
+    pub fn probability(&self, x: usize, y: usize) -> Quantity {
         Self::log_odds_to_probability(self.log_odds[self.index(x, y)])
     }
 
     /// Get the cell state based on threshold.
-    pub fn cell_state(&self, x: usize, y: usize, threshold: f64) -> OccupancyConcept {
-        let p = self.probability(x, y);
-        if (p - 0.5).abs() < threshold {
+    ///
+    /// `threshold` is a dimensionless [`Quantity`] (`unit::UNITLESS`),
+    /// matching [`Self::probability`] — both are pure numbers in `[0, 1]`.
+    pub fn cell_state(&self, x: usize, y: usize, threshold: Quantity) -> OccupancyConcept {
+        let p = self.probability(x, y).value;
+        if (p - 0.5).abs() < threshold.value {
             OccupancyConcept::Unknown
         } else if p > 0.5 {
             OccupancyConcept::Occupied

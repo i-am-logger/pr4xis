@@ -148,12 +148,14 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn op_preserves_category_laws() {
         assert_category_laws::<LightCat>();
         assert_category_laws::<Op<LightCat>>();
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn op_flips_source_and_target() {
         let m = LightEdge {
@@ -165,6 +167,7 @@ mod tests {
         assert_eq!(m_op.target(), Light::Red);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn op_composition_reverses_order() {
         // In C: Red → Green composed with Green → Red gives Red → Red.

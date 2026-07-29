@@ -52,9 +52,9 @@ proptest! {
     #[test]
     fn prop_consensus_step_preserves_average(values in arb_values()) {
         let topology = path_graph_p3();
-        let step = stable_step_size(&topology);
+        let step = stable_step_size(&topology).value;
         let next = average_consensus_step(&values, &topology, step);
-        prop_assert!((average(&next) - average(&values)).abs() <= NUMERICAL_SLACK);
+        prop_assert!((average(&next).value - average(&values).value).abs() <= NUMERICAL_SLACK);
     }
 
     /// Every iterate stays inside the convex hull of the previous values
@@ -63,7 +63,7 @@ proptest! {
     #[test]
     fn prop_consensus_step_stays_in_hull(values in arb_values()) {
         let topology = path_graph_p3();
-        let step = stable_step_size(&topology);
+        let step = stable_step_size(&topology).value;
         let lo = values.iter().copied().fold(f64::INFINITY, f64::min);
         let hi = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let next = average_consensus_step(&values, &topology, step);
@@ -79,10 +79,10 @@ proptest! {
     fn prop_push_sum_conserves_mass(values in arb_values()) {
         let topology = path_graph_p3();
         let mut state = push_sum_initial(&values);
-        let expected = ratio_invariant(&state);
+        let expected = ratio_invariant(&state).value;
         for round in 0..PUSH_SUM_ROUNDS {
             state = push_sum_round(&state, &topology, round);
-            prop_assert!((ratio_invariant(&state) - expected).abs() <= NUMERICAL_SLACK);
+            prop_assert!((ratio_invariant(&state).value - expected).abs() <= NUMERICAL_SLACK);
         }
     }
 

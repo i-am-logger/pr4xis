@@ -14,12 +14,16 @@ use pr4xis::engine::{Action, Engine, Precondition, Situation};
 use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 pub const EPSILON_0: f64 = 8.854e-12; // vacuum permittivity (F/m)
 pub const MU_0: f64 = 1.257e-6; // vacuum permeability (H/m)
 
-/// Speed of light derived from Maxwell's equations.
-pub fn speed_of_light() -> f64 {
-    1.0 / (MU_0 * EPSILON_0).sqrt()
+/// Speed of light derived from Maxwell's equations: c = 1/√(μ₀ε₀).
+pub fn speed_of_light() -> Quantity {
+    Quantity::from_unit(1.0 / (MU_0 * EPSILON_0).sqrt(), &unit::METER_PER_SECOND)
 }
 
 /// 3D vector.
@@ -41,11 +45,26 @@ impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
     }
-    pub fn magnitude(&self) -> f64 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    /// Euclidean norm |v|. `Vec3` here is a bare 3-component carrier reused
+    /// polymorphically for E-field (V/m), B-field (T) and current-density
+    /// (A/m²) vectors with different SI dimensions — the type itself
+    /// carries no fixed dimension, so the magnitude is UNITLESS at this
+    /// generic layer (same treatment as `formal::math::geometry::point::
+    /// Point3::distance_to`); callers interpret the value in whatever
+    /// concrete unit their own field variable declares.
+    pub fn magnitude(&self) -> Quantity {
+        Quantity::from_unit(
+            (self.x * self.x + self.y * self.y + self.z * self.z).sqrt(),
+            &unit::UNITLESS,
+        )
     }
-    pub fn dot(&self, other: &Vec3) -> f64 {
-        self.x * other.x + self.y * other.y + self.z * other.z
+    /// Dimensionless [`Quantity`] (`unit::UNITLESS`), same reasoning as
+    /// [`Vec3::magnitude`].
+    pub fn dot(&self, other: &Vec3) -> Quantity {
+        Quantity::from_unit(
+            self.x * other.x + self.y * other.y + self.z * other.z,
+            &unit::UNITLESS,
+        )
     }
     pub fn cross(&self, other: &Vec3) -> Vec3 {
         Vec3 {
@@ -108,10 +127,15 @@ impl EMField {
         self.div_b.abs() < 1e-10
     }
 
-    /// Energy density: u = ½(ε₀E² + B²/μ₀)
-    pub fn energy_density(&self) -> f64 {
-        0.5 * (EPSILON_0 * self.e_field.magnitude().powi(2)
-            + self.b_field.magnitude().powi(2) / MU_0)
+    /// Energy density: u = ½(ε₀E² + B²/μ₀). Energy per unit volume:
+    /// Dimension::ENERGY / Dimension::LENGTH³.
+    pub fn energy_density(&self) -> Quantity {
+        let e_mag = self.e_field.magnitude().value;
+        let b_mag = self.b_field.magnitude().value;
+        Quantity::new(
+            0.5 * (EPSILON_0 * e_mag * e_mag + b_mag * b_mag / MU_0),
+            Dimension::ENERGY.divide(&Dimension::LENGTH.power(3)),
+        )
     }
 
     /// Poynting vector: S = E × B / μ₀ (energy flux)
@@ -186,7 +210,7 @@ impl Precondition<MaxwellAction> for NonNegativeEnergy {
             "electromagnetic energy density must be non-negative",
         );
         let next = apply_maxwell_inner(field, action);
-        if next.energy_density() >= -1e-20 {
+        if next.energy_density().value >= -1e-20 {
             Ok(Box::new(SimpleProof::new(meta)))
         } else {
             Err(Box::new(SimpleCounterexample::new(meta)))
@@ -262,7 +286,7 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_speed_of_light_derived() {
-        let c = speed_of_light();
+        let c = speed_of_light().value;
         // c ≈ 299,792,458 m/s
         assert!((c - 2.998e8).abs() < 1e6, "c={} should be ≈ 3e8", c);
     }
@@ -273,7 +297,7 @@ mod tests {
         let field = EMField::vacuum();
         assert!(field.gauss_electric_holds());
         assert!(field.gauss_magnetic_holds());
-        assert!((field.energy_density() - 0.0).abs() < 1e-20);
+        assert!((field.energy_density().value - 0.0).abs() < 1e-20);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -302,7 +326,7 @@ mod tests {
                 e: Vec3::new(100.0, 0.0, 0.0),
             })
             .unwrap();
-        assert!(e.situation().energy_density() > 0.0);
+        assert!(e.situation().energy_density().value > 0.0);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -338,7 +362,7 @@ mod tests {
     fn test_dot_product() {
         let a = Vec3::new(1.0, 2.0, 3.0);
         let b = Vec3::new(4.0, 5.0, 6.0);
-        assert!((a.dot(&b) - 32.0).abs() < 1e-10);
+        assert!((a.dot(&b).value - 32.0).abs() < 1e-10);
     }
 
     #[pr4xis::praxis_value(Deterministic)]
@@ -349,9 +373,9 @@ mod tests {
                 e: Vec3::new(100.0, 0.0, 0.0),
             })
             .unwrap();
-        assert!(e.situation().e_field.magnitude() > 0.0);
+        assert!(e.situation().e_field.magnitude().value > 0.0);
         let e = e.back().unwrap();
-        assert!((e.situation().e_field.magnitude() - 0.0).abs() < 1e-10);
+        assert!((e.situation().e_field.magnitude().value - 0.0).abs() < 1e-10);
     }
 
     proptest! {
@@ -378,13 +402,13 @@ mod tests {
             let e = new_field()
                 .next(MaxwellAction::SetEField { e: Vec3::new(ex, ey, 0.0) }).unwrap()
                 .next(MaxwellAction::SetBField { b: Vec3::new(0.0, 0.0, bz) }).unwrap();
-            prop_assert!(e.situation().energy_density() >= 0.0);
+            prop_assert!(e.situation().energy_density().value >= 0.0);
         }
 
         /// Speed of light: c = 1/√(μ₀ε₀) ≈ 3×10⁸
         #[test]
         fn prop_speed_of_light(_x in 0..1u8) {
-            let c = speed_of_light();
+            let c = speed_of_light().value;
             prop_assert!((c - 2.998e8).abs() < 1e6);
         }
 
@@ -411,7 +435,7 @@ mod tests {
         ) {
             let a = Vec3::new(ax, ay, az);
             let b = Vec3::new(bx, by, bz);
-            prop_assert!((a.dot(&b) - b.dot(&a)).abs() < 1e-10);
+            prop_assert!((a.dot(&b).value - b.dot(&a).value).abs() < 1e-10);
         }
 
         /// Poynting vector perpendicular to both E and B
@@ -424,9 +448,9 @@ mod tests {
             let b = Vec3::new(bx, by, 0.0);
             let s = e.cross(&b);
             // S ⊥ E: S⋅E = 0
-            prop_assert!(s.dot(&e).abs() < 1e-6, "S not perpendicular to E");
+            prop_assert!(s.dot(&e).value.abs() < 1e-6, "S not perpendicular to E");
             // S ⊥ B: S⋅B = 0
-            prop_assert!(s.dot(&b).abs() < 1e-6, "S not perpendicular to B");
+            prop_assert!(s.dot(&b).value.abs() < 1e-6, "S not perpendicular to B");
         }
     }
 

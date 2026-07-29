@@ -6,10 +6,12 @@ use hashbrown::HashMap;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::ontology::{ConceptRef, subsumption_kind};
 
+use crate::cognitive::linguistics::english::concept_senses_index::{self, ConceptSensesIndex};
 use crate::cognitive::linguistics::english::concept_store::{ConceptStore, ConceptView};
 use crate::cognitive::linguistics::english::function_word_store::FunctionWordStore;
 use crate::cognitive::linguistics::english::morphology_store::MorphologyStore;
 use crate::cognitive::linguistics::english::relation_store::{RelationKind, RelationStore};
+use crate::cognitive::linguistics::english::sense_concept_index::SenseConceptIndex;
 use crate::cognitive::linguistics::english::synset_index::SynsetIndex;
 use crate::cognitive::linguistics::english::taxonomy_store::TaxonomyStore;
 use crate::cognitive::linguistics::english::verb_transitivity_index::VerbTransitivityIndex;
@@ -20,6 +22,8 @@ use crate::cognitive::linguistics::lexicon::pos::*;
 use crate::cognitive::linguistics::morphology::MorphologicalRule;
 use crate::cognitive::linguistics::orthography::WritingSystem;
 use crate::formal::information::ontology::Reference;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::software::markup::xml::lmf::ontology as lmf;
 
 // English language ontology — built from Open English WordNet 2025.
@@ -70,6 +74,26 @@ pub struct English {
     /// (the largest single reclaim of the loaded reasoner's footprint), an owned
     /// map otherwise. See [`word_index`](super::word_index).
     pub word_index: WordIndex,
+    /// The largest whitespace-separated word count among ALL of
+    /// [`word_index`](Self::word_index)'s own keys — e.g. `4` if the loaded
+    /// WordNet carries a 4-word multi-word lemma like "old-age insurance
+    /// benefits" as one of its longest entries. DERIVED from `word_index`
+    /// at construction (a single O(word-count) scan over `word_index.words()`,
+    /// the same "compute once at construction" convention
+    /// [`fold_index`](Self::fold_index)/[`concept_senses`](Self::concept_senses)
+    /// already establish), never recomputed per query. Backs
+    /// [`Language::max_known_surface_words`](crate::cognitive::linguistics::language::Language::max_known_surface_words) —
+    /// the bound `tokenize::multiword_surface_spans` searches up to when
+    /// protecting an already-known WordNet multi-word surface from
+    /// `correct_unknown_word_surfaces`'s per-word noisy-channel correction. A
+    /// real, DATA-DERIVED bound, not a hand-picked constant: before this
+    /// field existed, that search tried every window length from 2 up to the
+    /// FULL remaining sentence for every start position — confirmed via
+    /// direct instrumentation to be the dominant O(n²)-to-O(n³) cost behind
+    /// `defines_pointers` timing out on real, long USC Title 42 candidates
+    /// (`crates/domains/src/cognitive/linguistics/lambek/tokenize.rs`'s own
+    /// `multiword_surface_spans` doc has the full measurement).
+    max_multiword_surface_words: usize,
     /// The hypernym (Subsumption) taxonomy — both adjacency directions
     /// (child → parents, parent → children) held as a compact, zero-copy
     /// [`TaxonomyStore`] CSR under `prx` (an owned pair of `HashMap`s otherwise).
@@ -120,6 +144,31 @@ pub struct English {
     /// the suffix texts zero-copy; the cold trait reader deserializes. See
     /// [`morphology_store`](super::morphology_store).
     morphology: MorphologyStore,
+    /// The fold-on-miss secondary index (Slice D,
+    /// `.notes/chat-fix-c-build-state.md`) — fold(original) → the union of
+    /// concept ids across every original-cased surface in THIS instance's
+    /// [`word_index`](Self::word_index) that folds to it, via the loaded
+    /// Unicode simple case-folding table
+    /// ([`case_folding`](crate::cognitive::linguistics::orthography::case_folding)).
+    /// Computed EAGERLY at construction (mirroring `word_index` itself),
+    /// not lazily behind a global cache — an `English` value is queried
+    /// through [`lookup_case_folded`](Self::lookup_case_folded) on its OWN
+    /// data, correctly scoped to whichever instance is `self` (a small test
+    /// fixture and the process-wide `english_loaded()` singleton each get
+    /// their own). See [`fold_index`](super::fold_index).
+    fold_index: WordIndex,
+    /// The sense→concept bridge (`SenseId → ConceptId`) — the forward leg
+    /// bridging WordNet's sense-keyed [`RelationKind::Opposition`] onto
+    /// concept-keyed queries ([`opposes`](Self::opposes)). Held as a compact,
+    /// zero-copy [`SenseConceptIndex`] under `prx` (an owned map otherwise).
+    /// See [`sense_concept_index`](super::sense_concept_index).
+    sense_concept: SenseConceptIndex,
+    /// The concept→senses inverse (`ConceptId → [SenseId]`) — DERIVED from
+    /// [`sense_concept`](Self::sense_concept) at construction (never
+    /// persisted, mirroring [`fold_index`](Self::fold_index)'s derive-at-
+    /// construction pattern). See
+    /// [`concept_senses_index`](super::concept_senses_index).
+    concept_senses: ConceptSensesIndex,
 }
 
 /// All non-taxonomy / non-opposition / non-mereology WordNet
@@ -176,13 +225,31 @@ pub struct WordnetRelations {
     /// Synset-level exemplifies / is_exemplified_by (instance of).
     pub exemplifies: HashMap<ConceptId, Vec<ConceptId>>,
     pub is_exemplified_by: HashMap<ConceptId, Vec<ConceptId>>,
-    /// Topic-domain labels (term → domain, e.g. "patent" → "law").
+    /// Topic-domain membership, keyed by the DOMAIN synset -> its member
+    /// terms (e.g. "law" -> "patent"). CORRECTED direction (2026-07-21):
+    /// despite the field's name reading as "a term has a domain topic",
+    /// OEWN 2025 stores this `relType` on the DOMAIN synset pointing AT
+    /// its members -- verified against the loaded corpus:
+    /// `oewn-08458195-n` "law" carries `has_domain_topic` edges to ~30
+    /// member synsets (including the "letters patent" sense
+    /// `oewn-06563618-n`), and `oewn-06376048-n` "literature" carries 19.
+    /// See [`domain_topic`](Self::domain_topic) for the inverse
+    /// (member -> domain) direction. Bentivogli & Pianta (2004).
     pub has_domain_topic: HashMap<ConceptId, Vec<ConceptId>>,
-    /// Inverse: domain → terms in that domain.
+    /// The inverse of `has_domain_topic`: topic-domain membership keyed
+    /// by the MEMBER synset -> the domain(s) it belongs to (e.g.
+    /// "patent" -> "law"). Verified against the loaded corpus:
+    /// `oewn-06563618-n` ("letters patent") carries a `domain_topic`
+    /// edge to `oewn-08458195-n` ("law"). Bentivogli & Pianta (2004).
     pub domain_topic: HashMap<ConceptId, Vec<ConceptId>>,
-    /// Region-domain labels (term → region, e.g. "kangaroo" → "Australia").
+    /// Region-domain membership, keyed by the REGION synset -> its
+    /// member terms (e.g. "Australia" -> "kangaroo") -- by the same
+    /// container-on-the-`has_`-side convention verified for
+    /// `has_domain_topic` above (not independently re-verified against a
+    /// real `domain_region` edge; OEWN 2025's bundled data has none under
+    /// "kangaroo").
     pub has_domain_region: HashMap<ConceptId, Vec<ConceptId>>,
-    /// Inverse: region → terms.
+    /// Inverse: region member -> the region(s) it belongs to.
     pub domain_region: HashMap<ConceptId, Vec<ConceptId>>,
     /// Synset-level participle.
     pub participle_synset: HashMap<ConceptId, Vec<ConceptId>>,
@@ -245,7 +312,7 @@ pub trait LexicalReasoner {
     /// the ancestors of `child` that are themselves at-or-below `ancestor`,
     /// ordered by is-a distance), never a `0..N` parent loop.
     fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>>;
-    fn concept_count(&self) -> usize;
+    fn concept_count(&self) -> Quantity;
 
     /// The maximum number of whitespace-separated words in any surface this
     /// reasoner can resolve — the window the chat's multi-token recognizer scans
@@ -256,6 +323,135 @@ pub trait LexicalReasoner {
     /// multi-word surfaces overrides it with its real maximum.
     fn max_surface_words(&self) -> usize {
         1
+    }
+
+    /// The [`ConditionalRule`](crate::social::judicial::conditional_rule::ConditionalRule)
+    /// governing `predicate` when asked about `object`, if a loaded
+    /// registry has grounded one — e.g. `predicate` "eligible for" and
+    /// `object` naming an asset transfer → the Medicaid asset-transfer rule
+    /// extracted from 42 U.S.C. § 1396p(c)(1)(A). `object` is REQUIRED, not
+    /// optional: a real registry entry is topically narrow (this one is
+    /// specifically about asset transfers, not general program eligibility),
+    /// so matching on `predicate` alone would confidently attach a rule to
+    /// unrelated questions — see `conditional_rule::registry::
+    /// rule_for_predicate_and_object`'s module doc. Defaults to `None`
+    /// (embedded English carries no rule corpus, making every existing
+    /// question shape byte-identical); `English`'s own impl delegates to the
+    /// registry's matcher, and a composed reasoner delegates to `English`.
+    fn conditional_rule_for_predicate(
+        &self,
+        predicate: &str,
+        object: &str,
+    ) -> Option<crate::social::judicial::conditional_rule::ConditionalRule> {
+        let _ = (predicate, object);
+        None
+    }
+
+    /// Case-FOLDED fallback lookup — tried only after `lookup(word)` (exact
+    /// case) misses. Recovers a loaded surface whose ORIGINAL casing differs
+    /// from `word` (the WordNet lemma "Section Eight" for a query surface
+    /// "section eight"; "O.K."; "Turkish bath") via the loaded Unicode
+    /// simple case-folding table
+    /// ([`case_folding`](crate::cognitive::linguistics::orthography::case_folding)),
+    /// never `str::to_lowercase` (Slice D,
+    /// `.notes/chat-fix-c-build-state.md`: 17,272 of 131,798 loaded WordNet
+    /// surfaces carry an uppercase letter, and the tokenizer's lowercasing
+    /// discards that case before `lookup`'s exact-case index ever runs).
+    ///
+    /// Returns an OWNED `Vec` (unlike `lookup`'s zero-copy `&[ConceptId]`) —
+    /// this is a rarely-hit fallback tier, not the hot exact-match path, so
+    /// unioning across every differently-cased variant that shares a fold is
+    /// not worth a second zero-copy index for every implementor.
+    ///
+    /// Default: no fold support (an empty result) — matching
+    /// [`max_surface_words`](Self::max_surface_words)'s own default-no-op
+    /// pattern. Embedded English overrides it (the concrete loaded lexicon
+    /// case-folding targets); a composed reasoner overrides it too,
+    /// delegating to the wrapped English substrate for the English-vertex
+    /// population.
+    fn lookup_case_folded(&self, _word: &str) -> Vec<ConceptId> {
+        Vec::new()
+    }
+
+    /// Is `word` a loaded function word (closed-class: determiner,
+    /// preposition, auxiliary, …)? Used to strip non-content words from the
+    /// gloss-overlap word-sense scorer ([`word_sense::best_reaching_pair`](super::word_sense::best_reaching_pair) —
+    /// standard Lesk-family stopword removal, sourced from this reasoner's
+    /// OWN loaded closed-class lexicon, never a hand-authored stopword list.
+    ///
+    /// Default: `false` — a reasoner with no loaded function-word lexicon
+    /// treats every word as content (conservative: no false stripping).
+    fn is_function_word(&self, _word: &str) -> bool {
+        false
+    }
+
+    /// Is `word`'s loaded closed-class reading SPECIFICALLY a non-possessive
+    /// pronoun ("I", "he", "who", …)? A narrower query than
+    /// [`is_function_word`](Self::is_function_word): several closed-class
+    /// words ("above", "so") are ALSO legitimate open-class content words in
+    /// a different sense ("the above information", "deadly serious"), so
+    /// gating entity-hood on `is_function_word` over-excludes those
+    /// polysemous readings. A personal/interrogative/demonstrative/relative/
+    /// reflexive/indefinite pronoun essentially never IS the queried content
+    /// word in a caregiver-style question (Bobrow, Kaplan, Norman, Thompson &
+    /// Winograd 1977, GUS: refuse rather than guess), so excluding those
+    /// kinds is exact rather than a coarse stopword-style filter.
+    ///
+    /// [`PronounKind::Possessive`]
+    /// is DELIBERATELY excluded from this check even though it is a pronoun
+    /// reading: Huddleston & Pullum 2002 Ch. 5 §10's genitive/independent-
+    /// possessive class ("mine", "yours", "his", …) is exactly the kind that
+    /// collides with an unrelated open-class common noun ("mine" = "a gold
+    /// mine") — the same over-exclusion failure mode `is_function_word`
+    /// has for "above"/"so", now known to recur inside the pronoun class
+    /// itself. A caller that also needs to catch a genuine possessive-
+    /// pronoun content word must query the loaded [`PronounKind`] directly,
+    /// not this coarse gate.
+    ///
+    /// Default: `false` — a reasoner with no loaded closed-class lexicon
+    /// treats no word as a pronoun (conservative: no false exclusion).
+    fn is_pronoun(&self, _word: &str) -> bool {
+        false
+    }
+
+    /// Is `word` an interrogative pronoun/determiner whose expected-answer
+    /// type is a THING or a SELECTION-from-a-set ("what"/"which") — as
+    /// opposed to a PERSON-asking wh-word ("who"/"whom"/"whose")? The
+    /// cross-linguistic THING/SELECTION vs PERSON split among wh-words
+    /// (Cysouw 2004, "Interrogative words: an exercise in lexical typology",
+    /// handout, session on question formation in Bantu, ZAS Berlin, 13 Feb
+    /// 2004, §3.2 table (9)) — the loaded [`WhReferentRole`]
+    /// (`crate::cognitive::linguistics::lexicon::pos`) feature this reads,
+    /// grouping `Thing`+`Selection` together (not `Selection` alone) since
+    /// this gate's only use so far ("is this a 'what/which is X' definitional
+    /// query, not a person-identifying one") treats both the same way a
+    /// caller needing the finer 3-way split must query [`WhReferentRole`]
+    /// directly, the same "coarse gate vs. loaded feature" split
+    /// [`is_pronoun`](Self::is_pronoun)'s own doc draws for
+    /// `PronounKind::Possessive`.
+    ///
+    /// Default: `false` — a reasoner with no loaded closed-class lexicon
+    /// treats no word as any interrogative kind (conservative: no false
+    /// inclusion).
+    fn is_nonpersonal_interrogative(&self, _word: &str) -> bool {
+        false
+    }
+
+    /// Every real statutory definition of `word` reachable through a loaded
+    /// USC-style corpus's `defines` grounding edges — `(provision URN, the
+    /// defining provision's own prose)` pairs, most-specific-first as the
+    /// loaded ontology orders them. Distinct from
+    /// [`concept`](Self::concept)'s WordNet/LKIF gloss: this reads the
+    /// separate statutory-definition channel a
+    /// `social::judicial::statute_structure::grounding::defines_pointers`
+    /// chart-parse extraction (never regex) grounds onto a provision node,
+    /// letting a "what is X" answer cite the actual controlling statutory
+    /// text when one exists, rather than (or alongside) a dictionary gloss.
+    ///
+    /// Default: empty — a reasoner with no loaded statute corpus (or no
+    /// `defines` edges within it) has no statutory definitions to offer.
+    fn statute_definitions(&self, _word: &str) -> alloc::vec::Vec<(&str, &str)> {
+        alloc::vec::Vec::new()
     }
 
     /// Does `child` reach `ancestor` along the loaded relation `kind`? — the
@@ -292,6 +488,33 @@ pub trait LexicalReasoner {
     /// English) cannot name a relation from a surface, and the caller falls back
     /// to Subsumption. A composed reasoner that loaded the lexicon overrides it.
     fn relation_for_surface(&self, _surface: &str) -> Option<ConceptRef> {
+        None
+    }
+
+    /// The comparison-relation kind a DERIVED relational-noun HEAD word
+    /// asserts, resolved through the loaded comparison-relation lexicon —
+    /// `"difference"` ↦ the Relations vocabulary's `Association` kind, etc.
+    /// (`comparison_relation_lexicon::comparison_relation_surface_index`).
+    /// Barker (2011) "Possessives and Relational Nouns" §1.4: a DERIVED
+    /// relational noun ("difference", deverbal from "differ (from)") can
+    /// overtly express MULTIPLE participants via its own PP complement
+    /// ("the difference BETWEEN X and Y"), unlike an underived relational
+    /// noun's single-participant ceiling ("the Secretary OF Commerce" —
+    /// "secretary" is never in this lexicon). A SEPARATE method/index from
+    /// [`relation_for_surface`](Self::relation_for_surface) — deliberately:
+    /// a "difference between X and Y" question is not a fact to verify
+    /// against a materialized closure (there is no Contrast edge between
+    /// two arbitrary defined terms), it is a request to recite each named
+    /// term's own gloss, so folding it into the closure-verification
+    /// surface `relation_for_surface` feeds would silently misroute it into
+    /// relation-verification instead (see
+    /// `comparison_relation_lexicon`'s own module doc for the full
+    /// rationale).
+    ///
+    /// Default: `None` — a reasoner with no loaded comparison-relation
+    /// lexicon (embedded English) cannot name a comparison relation from a
+    /// surface. A composed reasoner that loaded the lexicon overrides it.
+    fn comparison_relation_for_surface(&self, _head_word: &str) -> Option<ConceptRef> {
         None
     }
 
@@ -363,6 +586,41 @@ impl LexicalReasoner for English {
     fn lookup(&self, word: &str) -> &[ConceptId] {
         English::lookup(self, word)
     }
+    fn lookup_case_folded(&self, word: &str) -> Vec<ConceptId> {
+        use crate::cognitive::linguistics::orthography::case_folding;
+        let folded = case_folding::table().fold(word);
+        // The common case first: a lemma that is ALREADY all-lowercase
+        // (the overwhelming majority) needs no fold-index entry at all —
+        // an all-caps/title-case query folds straight back to its ordinary
+        // exact key.
+        let exact = English::lookup(self, &folded);
+        if !exact.is_empty() {
+            return exact.to_vec();
+        }
+        // The genuinely case-marked population ("Section Eight", "O.K.",
+        // "Turkish bath") whose OWN WordIndex key does not fold to itself —
+        // THIS instance's own fold index (Self::fold_index), never a global.
+        self.fold_index.lookup(&folded).to_vec()
+    }
+    fn is_function_word(&self, word: &str) -> bool {
+        self.function_words.first(word).is_some()
+    }
+    fn is_pronoun(&self, word: &str) -> bool {
+        use crate::cognitive::linguistics::lexicon::pos::{LexicalEntry, PronounKind};
+        matches!(
+            self.function_words.first(word),
+            Some(LexicalEntry::Pronoun(p)) if p.kind != PronounKind::Possessive
+        )
+    }
+    fn is_nonpersonal_interrogative(&self, word: &str) -> bool {
+        use crate::cognitive::linguistics::lexicon::pos::WhReferentRole;
+        matches!(
+            self.function_words
+                .first(word)
+                .and_then(|e| e.wh_referent_role()),
+            Some(WhReferentRole::Thing | WhReferentRole::Selection)
+        )
+    }
     fn concept(&self, id: ConceptId) -> Option<ConceptView<'_>> {
         English::concept(self, id)
     }
@@ -387,8 +645,17 @@ impl LexicalReasoner for English {
     fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
         English::ancestor_chain(self, child, ancestor)
     }
-    fn concept_count(&self) -> usize {
+    fn concept_count(&self) -> Quantity {
         English::concept_count(self)
+    }
+    fn conditional_rule_for_predicate(
+        &self,
+        predicate: &str,
+        object: &str,
+    ) -> Option<crate::social::judicial::conditional_rule::ConditionalRule> {
+        crate::social::judicial::conditional_rule::registry::rule_for_predicate_and_object(
+            self, predicate, object,
+        )
     }
 }
 
@@ -398,7 +665,11 @@ impl English {
     ///
     /// `sense_count` is the dense sense-id key space (`0..sense_count`) for the
     /// sense-level relations (opposition, derivation, …); a deployment path with
-    /// no assigned senses (codegen) passes `0`. The synset-level relations
+    /// no assigned senses (codegen) passes `0` and an empty `sense_concept` map
+    /// — codegen's flat generated arrays carry no sense-level data at all (every
+    /// other sense-level map is likewise empty on that path), so a codegen-built
+    /// `English` has no opposition reachability, consistent with its existing
+    /// zero-sense-level-relations posture. The synset-level relations
     /// (mereology, `also_synset`, …) are keyed over `concepts.len()`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -410,6 +681,7 @@ impl English {
         mereology_parts: HashMap<ConceptId, Vec<ConceptId>>,
         relations: WordnetRelations,
         sense_count: usize,
+        sense_concept: HashMap<SenseId, ConceptId>,
         synset_to_concept: HashMap<String, ConceptId>,
         function_words: HashMap<String, Vec<LexicalEntry>>,
         verb_transitivity: HashMap<String, Vec<Transitivity>>,
@@ -417,14 +689,37 @@ impl English {
         morphology: Vec<MorphologicalRule>,
     ) -> Self {
         let concept_count = concepts.len();
+        // Scanned BEFORE `word_index` moves into the packed `WordIndex` build
+        // below — see `English`'s own `max_multiword_surface_words` field doc
+        // for why this is a real, DATA-DERIVED bound rather than a hand-picked
+        // constant. One-time O(word-count) pass, the same cost class every
+        // other `*_index::build`/`*Store::build` call here already pays.
+        let max_multiword_surface_words = word_index
+            .keys()
+            .map(|w| w.split_whitespace().count())
+            .max()
+            .unwrap_or(1)
+            .max(1);
+        // Transcode the owned build into the compact index ONCE; the source map
+        // is consumed and freed, only the packed form survives. The fold index
+        // is DERIVED from the packed form (never persisted, never re-parsed) —
+        // see `fold_index::build`.
+        let word_index = WordIndex::build(word_index);
+        let fold_index = super::fold_index::build(&word_index);
+        // Transcode the owned sense→concept map into the compact index ONCE; the
+        // source map is consumed and freed. `concept_senses` is DERIVED from the
+        // packed form (never persisted, never re-parsed) — see
+        // `concept_senses_index::build` (§`sense_concept_index`).
+        let sense_concept = SenseConceptIndex::build(sense_concept, sense_count);
+        let concept_senses = concept_senses_index::build(&sense_concept, concept_count);
         Self {
             // Transcode the owned concept build into the compact store ONCE; the
             // source `Vec<Concept>` is consumed and freed, only the archived form
             // survives (§`concept_store`).
             concepts: ConceptStore::build(concepts),
-            // Transcode the owned build into the compact index ONCE; the source
-            // map is consumed and freed, only the packed form survives.
-            word_index: WordIndex::build(word_index),
+            word_index,
+            max_multiword_surface_words,
+            fold_index,
             // Transcode the owned adjacency maps into the compact taxonomy CSR
             // ONCE; the source maps are consumed and freed (§`taxonomy_store`).
             taxonomy: TaxonomyStore::build(taxonomy_parents, taxonomy_children, concept_count),
@@ -448,6 +743,8 @@ impl English {
             verb_transitivity: VerbTransitivityIndex::build(verb_transitivity),
             writing: WritingSystemStore::build(writing),
             morphology: MorphologyStore::build(morphology),
+            sense_concept,
+            concept_senses,
         }
     }
 
@@ -463,17 +760,45 @@ impl English {
         self.relations.rel(RelationKind::Pertainym, sense)
     }
 
-    /// Domain-topic labels assigned to a concept (term → domain,
-    /// per Bentivogli & Pianta 2004).
-    pub fn has_domain_topic(&self, concept: ConceptId) -> &[ConceptId] {
-        self.relations.rel(RelationKind::HasDomainTopic, concept)
+    /// Every member concept assigned to `domain`'s domain-topic (domain →
+    /// member, per Bentivogli & Pianta 2004). CORRECTED direction
+    /// (2026-07-21): despite the name reading "concept has a domain
+    /// topic", the loaded `has_domain_topic` edge is carried by the
+    /// DOMAIN synset — verified against the loaded OEWN 2025 corpus (see
+    /// [`WordnetRelations::has_domain_topic`] doc). See
+    /// [`domain_topic`](Self::domain_topic) for the inverse.
+    pub fn has_domain_topic(&self, domain: ConceptId) -> &[ConceptId] {
+        self.relations.rel(RelationKind::HasDomainTopic, domain)
+    }
+
+    /// The inverse of [`has_domain_topic`](Self::has_domain_topic): the
+    /// domain-topic(s) `member` itself belongs to (member → domain, per
+    /// Bentivogli & Pianta 2004) — e.g. `domain_topic(patent) ==
+    /// [law]`, verified against the loaded OEWN 2025 corpus.
+    pub fn domain_topic(&self, member: ConceptId) -> &[ConceptId] {
+        self.relations.rel(RelationKind::DomainTopic, member)
+    }
+
+    /// The class(es) `instance` exemplifies (synset-level `exemplifies`,
+    /// WN-LMF instance-of: the classic FRBR/IFLA-relevant "Homer exemplifies
+    /// poet" edge — `exemplifies(homer) == [poet]`, empirically confirmed;
+    /// the edge is keyed by the INSTANCE synset, not the class, so a prior
+    /// doc revision naming the parameter `class` had the direction backwards).
+    pub fn exemplifies(&self, instance: ConceptId) -> &[ConceptId] {
+        self.relations.rel(RelationKind::Exemplifies, instance)
+    }
+
+    /// The inverse of [`exemplifies`](Self::exemplifies): the instance(s)
+    /// that exemplify `class` — `is_exemplified_by(poet) == [homer]`.
+    pub fn is_exemplified_by(&self, class: ConceptId) -> &[ConceptId] {
+        self.relations.rel(RelationKind::IsExemplifiedBy, class)
     }
 
     /// The number of edges of a given relation `kind` — the discoverable count
     /// accessor over the labelled [`RelationStore`], replacing the removed
     /// `relations()` struct exposure (the sole reader was a self-test asserting a
     /// relation is populated).
-    pub fn relation_edge_count(&self, kind: RelationKind) -> usize {
+    pub fn relation_edge_count(&self, kind: RelationKind) -> Quantity {
         self.relations.edge_count(kind)
     }
 
@@ -606,12 +931,18 @@ impl English {
             }
         }
 
-        // Phase 2: Assign SenseIds
+        // Phase 2: Assign SenseIds, and record each sense's owning concept
+        // (synset). `synset_to_concept` is already fully populated (Phase 1
+        // ran first), so this is a direct lookup, not a second parse.
         let mut sense_counter = 0u64;
+        let mut sense_concept: HashMap<SenseId, ConceptId> = HashMap::new();
         for entry in &wn.entries {
             for sense in &entry.senses {
                 let sense_id = SenseId::new(sense_counter);
                 sense_to_id.insert(sense.id.clone(), sense_id);
+                if let Some(&concept_id) = synset_to_concept.get(&sense.synset) {
+                    sense_concept.insert(sense_id, concept_id);
+                }
                 sense_counter += 1;
             }
         }
@@ -760,14 +1091,33 @@ impl English {
         drop(sense_to_id);
 
         let concept_count = concepts.len();
+        // Transcode the owned build into the compact index ONCE; the source map
+        // is consumed and freed, only the packed form survives. The fold index
+        // is DERIVED from the packed form — see `fold_index::build`.
+        // Scanned BEFORE `word_index` moves into the packed `WordIndex` build
+        // below — see `English`'s own `max_multiword_surface_words` field doc.
+        let max_multiword_surface_words = word_index
+            .keys()
+            .map(|w| w.split_whitespace().count())
+            .max()
+            .unwrap_or(1)
+            .max(1);
+        let word_index = WordIndex::build(word_index);
+        let fold_index = super::fold_index::build(&word_index);
+        // Transcode the owned sense→concept map (Phase 2) into the compact index
+        // ONCE; the source map is consumed and freed. `concept_senses` is
+        // DERIVED from the packed form — see `concept_senses_index::build`
+        // (§`sense_concept_index`).
+        let sense_concept = SenseConceptIndex::build(sense_concept, sense_counter as usize);
+        let concept_senses = concept_senses_index::build(&sense_concept, concept_count);
         English {
             // Transcode the owned concept build into the compact store ONCE; the
             // source `Vec<Concept>` is consumed and freed, only the archived form
             // survives (§`concept_store`).
             concepts: ConceptStore::build(concepts),
-            // Transcode the owned build into the compact index ONCE; the source
-            // map is consumed and freed, only the packed form survives.
-            word_index: WordIndex::build(word_index),
+            word_index,
+            max_multiword_surface_words,
+            fold_index,
             // Transcode the owned adjacency maps (Phase 3) into the compact
             // taxonomy CSR ONCE; the source maps are consumed and freed. The
             // reflexive-transitive is-a reachability is computed per query by a
@@ -790,6 +1140,8 @@ impl English {
             // compact index ONCE; the source map is consumed and freed
             // (§`synset_index`).
             synset_index: SynsetIndex::build(synset_to_concept),
+            sense_concept,
+            concept_senses,
             // Transcode the Language-trait data into its compact stores ONCE; each
             // source collection is consumed and freed. `function_word_list` is GONE
             // — the sorted key set of `function_words` IS the word list
@@ -820,6 +1172,14 @@ impl English {
         self.synset_index
             .lookup(synset_id)
             .and_then(|id| self.concept(id))
+    }
+
+    /// The concept (synset) `sense` belongs to — the forward leg of the
+    /// sense↔concept bridge (`None` if `sense` is absent from the source
+    /// WordNet dump or out of range). See [`senses_of`](Self::senses_of) for
+    /// the inverse.
+    pub fn concept_of_sense(&self, sense: SenseId) -> Option<ConceptId> {
+        self.sense_concept.concept_of(sense)
     }
 
     /// Every concept, as a [`ConceptView`], in [`ConceptId`] order — the
@@ -887,23 +1247,94 @@ impl English {
         self.relations.rel(RelationKind::Opposition, sense_id)
     }
 
+    /// Does concept `a` oppose concept `b` — Saussure (1916) / Cruse (1986)
+    /// antonymy, at the CONCEPT level? WordNet's `Opposition` edges are
+    /// sense-keyed (`big#1` opposes `small#1`, not the concept "big" wholesale)
+    /// and — unlike [`is_a`](Self::is_a)/[`parts_reach`](Self::parts_reach) —
+    /// non-transitive (a single direct edge is the whole answer; see
+    /// [`opposition_relation_kind`](crate::formal::relations::ontology::opposition_relation_kind)),
+    /// so this bridges concept → its senses ([`senses_of`](Self::senses_of))
+    /// → each sense's direct opposition targets → back to `b`'s sense set: `a`
+    /// opposes `b` iff SOME sense of `a` has a direct edge to SOME sense of `b`.
+    pub fn opposes(&self, a: ConceptId, b: ConceptId) -> bool {
+        let b_senses = self.senses_of(b);
+        self.senses_of(a).iter().any(|&sa| {
+            self.relations
+                .rel(RelationKind::Opposition, sa)
+                .iter()
+                .any(|target| b_senses.contains(target))
+        })
+    }
+
+    /// Every sense naming `concept` (its synonym set), in ascending
+    /// [`SenseId`] order — the [`ConceptSensesIndex`] read backing
+    /// [`opposes`](Self::opposes).
+    pub fn senses_of(&self, concept: ConceptId) -> &[SenseId] {
+        self.concept_senses.senses_of(concept)
+    }
+
+    /// Does `whole` transitively have `part` as a part — Casati & Varzi (1999)
+    /// mereology, part-of is transitive (unlike [`opposes`](Self::opposes)'s
+    /// direct-edge-only check; see
+    /// [`parthood_relation_kind`](crate::formal::relations::ontology::parthood_relation_kind)).
+    /// A bounded, `Sync` per-query breadth-first descent over the direct
+    /// `MereologyParts` edges — the same shared graded-reach engine
+    /// [`is_a`](Self::is_a) mints over the taxonomy. Parthood is `Irreflexive`,
+    /// so — unlike `is_a`'s reflexive short-circuit — `whole == part` never
+    /// itself witnesses `true`.
+    pub fn parts_reach(&self, whole: ConceptId, part: ConceptId) -> bool {
+        self.relations.parts_reach(whole, part)
+    }
+
+    /// Does concept `a` relate to concept `b` via WordNet's Derivation
+    /// relation (morphological relatedness — Fellbaum-Osherson-Clark 2009,
+    /// `compensate ↔ compensation`) at the CONCEPT level? Sense-keyed and
+    /// non-transitive (a single direct edge is the whole answer, like
+    /// [`opposes`](Self::opposes)), bridged the same way: `a` derivation-
+    /// relates to `b` iff some sense of `a` has a direct Derivation edge to
+    /// some sense of `b`.
+    pub fn derivation_relates(&self, a: ConceptId, b: ConceptId) -> bool {
+        let b_senses = self.senses_of(b);
+        self.senses_of(a).iter().any(|&sa| {
+            self.relations
+                .rel(RelationKind::Derivation, sa)
+                .iter()
+                .any(|target| b_senses.contains(target))
+        })
+    }
+
+    /// Does concept `a` (a relational adjective, e.g. "dental") pertain to
+    /// concept `b` (its noun base, e.g. "tooth") — Fellbaum 1998 §5.2?
+    /// Sense-keyed, DIRECTIONAL (adjective → noun; WordNet declares no
+    /// inverse Pertainym pointer) and non-transitive, bridged the same way
+    /// [`opposes`](Self::opposes) bridges Opposition.
+    pub fn pertains_to(&self, a: ConceptId, b: ConceptId) -> bool {
+        let b_senses = self.senses_of(b);
+        self.senses_of(a).iter().any(|&sa| {
+            self.relations
+                .rel(RelationKind::Pertainym, sa)
+                .iter()
+                .any(|target| b_senses.contains(target))
+        })
+    }
+
     /// Total number of concepts.
-    pub fn concept_count(&self) -> usize {
+    pub fn concept_count(&self) -> Quantity {
         self.concepts.len()
     }
 
     /// Total number of unique words.
-    pub fn word_count(&self) -> usize {
-        self.word_index.len()
+    pub fn word_count(&self) -> Quantity {
+        Quantity::from_unit(self.word_index.len() as f64, &unit::UNITLESS)
     }
 
     /// Total taxonomy relations.
-    pub fn taxonomy_count(&self) -> usize {
+    pub fn taxonomy_count(&self) -> Quantity {
         self.taxonomy.parent_edge_count()
     }
 
     /// Total opposition relations.
-    pub fn opposition_count(&self) -> usize {
+    pub fn opposition_count(&self) -> Quantity {
         self.relations.edge_count(RelationKind::Opposition)
     }
 
@@ -920,11 +1351,11 @@ impl English {
 /// the bundle serializes the packed/archived store representations verbatim.
 #[cfg(all(feature = "prx", target_endian = "little"))]
 impl English {
-    /// Assemble an `English` DIRECTLY from its nine already-validated stores —
+    /// Assemble an `English` DIRECTLY from its ten already-validated stores —
     /// the decode leg of the store bundle. No WordNet decode, no
     /// [`from_wordnet`](Self::from_wordnet), no owned intermediate maps: each
     /// store was validated by its own fail-closed entry
-    /// (`from_untrusted_buf` for the five packed CSR stores, the `bytecheck`
+    /// (`from_untrusted_buf` for the six packed CSR stores, the `bytecheck`
     /// `from_validated_buf` pass for the four rich `rkyv` stores) before it
     /// reaches here.
     #[allow(clippy::too_many_arguments)]
@@ -934,17 +1365,38 @@ impl English {
         taxonomy: TaxonomyStore,
         relations: RelationStore,
         synset_index: SynsetIndex,
+        sense_concept: SenseConceptIndex,
         function_words: FunctionWordStore,
         verb_transitivity: VerbTransitivityIndex,
         writing: WritingSystemStore,
         morphology: MorphologyStore,
     ) -> Self {
+        // Not bundled stores — DERIVED (never persisted, no bundle-schema
+        // change): `fold_index` from `word_index` (`fold_index::build`),
+        // `concept_senses` from `sense_concept` (`concept_senses_index::build`),
+        // `max_multiword_surface_words` from `word_index` (see `English`'s
+        // own field doc — the SAME derivation the two HashMap-based
+        // constructors run, just over the already-packed store's own
+        // `words()` reader instead of an owned map's `keys()`).
+        let fold_index = super::fold_index::build(&word_index);
+        let concept_senses =
+            concept_senses_index::build(&sense_concept, concepts.len().value as usize);
+        let max_multiword_surface_words = word_index
+            .words()
+            .map(|w| w.split_whitespace().count())
+            .max()
+            .unwrap_or(1)
+            .max(1);
         Self {
             concepts,
             word_index,
+            max_multiword_surface_words,
+            fold_index,
             taxonomy,
             relations,
             synset_index,
+            sense_concept,
+            concept_senses,
             function_words,
             verb_transitivity,
             writing,
@@ -972,6 +1424,14 @@ impl English {
         &self.synset_index
     }
 
+    /// The sense→concept index — bundle-emit access. `concept_senses` (its
+    /// derived inverse) is NOT emitted — it is rebuilt at
+    /// [`from_stores`](Self::from_stores) time from this store, same as
+    /// `fold_index` from `word_index`.
+    pub(super) fn sense_concept_store(&self) -> &SenseConceptIndex {
+        &self.sense_concept
+    }
+
     /// The function-word store — bundle-emit access.
     pub(super) fn function_words_store(&self) -> &FunctionWordStore {
         &self.function_words
@@ -991,6 +1451,49 @@ impl English {
     pub(super) fn morphology_store(&self) -> &MorphologyStore {
         &self.morphology
     }
+}
+
+/// The `Derivation` relation kind (Fellbaum-Osherson-Clark 2009) as a
+/// [`ConceptRef`] — the typed handle `ComposedReasoner::reaches` (`crate::
+/// cognitive::linguistics::composed`) compares against to route a query to
+/// [`English::derivation_relates`]. Named directly via `relations_kind`
+/// (`pr4xis_runtime::ontology`), the same minting pattern [`subsumption_kind`]
+/// itself uses — not one of the ten canonical cross-ontology
+/// `RelationsConcept` types (those live in `formal::relations::ontology`), a
+/// WordNet-specific lexical-semantic relation kind instead.
+pub fn derivation_relation_kind() -> ConceptRef {
+    pr4xis_runtime::ontology::relations_kind("Derivation")
+}
+
+/// The `Pertainym` relation kind (Fellbaum 1998 §5.2) as a [`ConceptRef`] —
+/// see [`derivation_relation_kind`] for the minting pattern.
+pub fn pertainym_relation_kind() -> ConceptRef {
+    pr4xis_runtime::ontology::relations_kind("Pertainym")
+}
+
+/// The `HasDomainTopic` relation kind (term → domain; Bentivogli & Pianta
+/// 2004) as a [`ConceptRef`] — see [`derivation_relation_kind`] for the
+/// minting pattern.
+pub fn has_domain_topic_relation_kind() -> ConceptRef {
+    pr4xis_runtime::ontology::relations_kind("HasDomainTopic")
+}
+
+/// The inverse of [`has_domain_topic_relation_kind`]: `DomainTopic` (domain
+/// → term).
+pub fn domain_topic_relation_kind() -> ConceptRef {
+    pr4xis_runtime::ontology::relations_kind("DomainTopic")
+}
+
+/// The `Exemplifies` relation kind (synset-level instance-of; the FRBR/IFLA
+/// "Homer exemplifies poet" edge) as a [`ConceptRef`] — see
+/// [`derivation_relation_kind`] for the minting pattern.
+pub fn exemplifies_relation_kind() -> ConceptRef {
+    pr4xis_runtime::ontology::relations_kind("Exemplifies")
+}
+
+/// The inverse of [`exemplifies_relation_kind`]: `IsExemplifiedBy`.
+pub fn is_exemplified_by_relation_kind() -> ConceptRef {
+    pr4xis_runtime::ontology::relations_kind("IsExemplifiedBy")
 }
 
 /// The canonical full English (Open English WordNet) ontology, loaded ONCE per
@@ -1216,28 +1719,153 @@ impl crate::cognitive::linguistics::language::Language for English {
             }
         }
 
-        // Morphological stemming: if the word has a known suffix, try the stem.
-        // "runs" → strip "s" → "run" → lookup "run" → get verb entries.
-        // This IS the morphology functor: InflectedForm → Stem → LexicalEntry.
-        // The suffix texts are read ZERO-COPY out of the compact
-        // [`MorphologyStore`] (no allocation on the tokenizer's per-token path).
-        for suffix_text in self.morphology.suffix_texts() {
-            if let Some(stem) = word.strip_suffix(suffix_text)
-                && !stem.is_empty()
-            {
-                for &cid in self.lookup(stem) {
-                    if let Some(concept) = self.concept(cid)
-                        && seen_pos.insert(concept.pos())
-                    {
-                        let transitivities = self.verb_transitivities(stem);
-                        results.extend(
-                            crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
-                                stem,
-                                concept.pos(),
-                                transitivities,
-                            ),
-                        );
-                    }
+        // Morphological analysis: resolve inflected surfaces through the cited
+        // dual-route lemmatizer (identity → loaded AGID irregulars → rule
+        // inversion + Spencer-§5.2 allomorphy) instead of a naive suffix
+        // strip — "coughing"/"running"/"exhaling" all reach their verb lemma
+        // where bare stripping left "runn"/"exhal" unresolvable. For each
+        // candidate stem the lexicon knows, emit the stem's entries (the
+        // morphology functor InflectedForm → Stem → LexicalEntry, as before).
+        //
+        // When the surface IS the stem's -ing form — decided by the same
+        // dual route in the GENERATING direction (`ing_form(stem) == word`:
+        // loaded AGID exceptions blocking the Quirk-§3 rule) — ALSO emit the
+        // verb entries MARKED with the form-level OLiA class (`ing`, the
+        // EAGLES gerund-participle merger class; CGEL pp. 1220–1222), so the
+        // loaded OLiA→CCG functor projects the gerundial-nominal reading
+        // (CCGbank Manual App. B.4.1: gerund subjects are treated like NPs)
+        // with zero tokenizer logic.
+        use crate::cognitive::linguistics::lexicon::olia::form_level_class;
+        use crate::cognitive::linguistics::morphology::SemanticEffect;
+        use crate::cognitive::linguistics::morphology::english::generation::{
+            ing_form, is_past_participle_form_of, is_plural_form_of,
+        };
+        use crate::cognitive::linguistics::morphology::lemmatizer::{
+            Language as MorphLanguage, lemmatize,
+        };
+        let mut seen_gerund = hashbrown::HashSet::new();
+        let mut seen_participle = hashbrown::HashSet::new();
+        let mut seen_plural = hashbrown::HashSet::new();
+        for form in lemmatize(word, MorphLanguage::English) {
+            let stem = form.written_rep;
+            if stem == word {
+                continue;
+            }
+            for &cid in self.lookup(&stem) {
+                let Some(concept) = self.concept(cid) else {
+                    continue;
+                };
+                if seen_pos.insert(concept.pos()) {
+                    let transitivities = self.verb_transitivities(&stem);
+                    results.extend(
+                        crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
+                            &stem,
+                            concept.pos(),
+                            transitivities,
+                        ),
+                    );
+                }
+                // The gerundial reading is keyed by stem (one marked entry
+                // set per verb lemma), NOT by bare POS — a plain verb entry
+                // for the stem must not swallow it, nor vice versa.
+                if concept.pos() == crate::social::software::markup::xml::lmf::LmfPos::Verb
+                    && ing_form(&stem) == word
+                    && seen_gerund.insert(stem.clone())
+                    && let Some(class) = form_level_class(SemanticEffect::Progressive)
+                {
+                    let transitivities = self.verb_transitivities(&stem);
+                    results.extend(
+                        crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
+                            word,
+                            concept.pos(),
+                            transitivities,
+                        )
+                        .into_iter()
+                        .filter_map(|e| match e {
+                            LexicalEntry::Verb(mut v) => {
+                                v.lemma = stem.clone();
+                                v.olia_class = Some(class.to_string());
+                                Some(LexicalEntry::Verb(v))
+                            }
+                            _ => None,
+                        }),
+                    );
+                }
+                // The PAST/PASSIVE-PARTICIPLE reading — decided by the same
+                // dual route in the GENERATING direction
+                // (`is_past_participle_form_of(stem, word)`: the loaded AGID
+                // participle/preterite slots blocking the Quirk-§3 `-ed`
+                // rule) — ALSO emits the verb entries MARKED with the
+                // form-level OLiA class `PastParticiple`
+                // (`rdfs:subClassOf olia.owl#Participle`,
+                // `owl:equivalentClass Participle and (hasTense some Past)`),
+                // so a consumer can tell the participial reading of an `-ed`
+                // surface apart from the FINITE reading `lmf_pos_to_lexical_
+                // entries` mints above — which is all WordNet's own frame
+                // data can give, since WordNet indexes lemmas, not word
+                // forms. Without this mark the two readings are literally the
+                // same `Verb` value and no grammar downstream can select the
+                // participial one. Keyed by stem (one marked entry set per
+                // verb lemma), mirroring the gerund block above exactly.
+                //
+                // The mark is INERT unless a consumer asks for it: the
+                // loaded OLiA→CCG functor
+                // (`data/grammar/olia-ccg-categories.tsv`) carries no
+                // `PastParticiple` row, so `categories_for_class` returns
+                // empty for it and the tokenizer's OLiA-class projection adds
+                // no category — by design (see
+                // `statute_structure::grounding::participle_alternatives`,
+                // which scopes the CCGbank reduced-relative analysis to the
+                // defines lens the way `bare_noun_phrase_unary_rule` is
+                // already scoped there).
+                if concept.pos() == crate::social::software::markup::xml::lmf::LmfPos::Verb
+                    && is_past_participle_form_of(&stem, word)
+                    && seen_participle.insert(stem.clone())
+                    && let Some(class) = form_level_class(SemanticEffect::PastParticiple)
+                {
+                    let transitivities = self.verb_transitivities(&stem);
+                    results.extend(
+                        crate::cognitive::linguistics::language::lmf_pos_to_lexical_entries(
+                            word,
+                            concept.pos(),
+                            transitivities,
+                        )
+                        .into_iter()
+                        .filter_map(|e| match e {
+                            LexicalEntry::Verb(mut v) => {
+                                v.lemma = stem.clone();
+                                v.olia_class = Some(class.to_string());
+                                Some(LexicalEntry::Verb(v))
+                            }
+                            _ => None,
+                        }),
+                    );
+                }
+                // The plural reading — decided by the same dual route in the
+                // GENERATING direction (`is_plural_form_of(stem, word)`:
+                // loaded AGID exceptions blocking the Quirk et al. 1985
+                // §3.21 rule) — ALSO emits a Noun entry keyed to the SURFACE
+                // `word` (not the stem) and marked `Number::Plural`, so a
+                // downstream bare-plural-NP promotion (Carlson 1977, "A
+                // unified analysis of the English bare plural") can tell a
+                // genuine plural surface ("dogs", "children") from the
+                // stem's own (singular) entry above, without re-deriving
+                // morphology of its own. Keyed by stem (one marked entry per
+                // noun lemma), mirroring the gerund block immediately above.
+                if concept.pos() == crate::social::software::markup::xml::lmf::LmfPos::Noun
+                    && is_plural_form_of(&stem, word)
+                    && seen_plural.insert(stem.clone())
+                {
+                    results.push(LexicalEntry::Noun(
+                        crate::cognitive::linguistics::lexicon::pos::Noun {
+                            text: word.to_string(),
+                            number: crate::cognitive::linguistics::lexicon::pos::Number::Plural,
+                            person: crate::cognitive::linguistics::lexicon::pos::Person::Third,
+                            countability:
+                                crate::cognitive::linguistics::lexicon::pos::Countability::Countable,
+                            kind: crate::cognitive::linguistics::lexicon::pos::NounKind::Common,
+                        },
+                    ));
                 }
             }
         }
@@ -1258,12 +1886,31 @@ impl crate::cognitive::linguistics::language::Language for English {
         words
     }
 
-    fn concept_count(&self) -> usize {
+    fn concept_count(&self) -> Quantity {
         self.concepts.len()
     }
 
-    fn word_count(&self) -> usize {
-        self.word_index.len() + self.function_words.len()
+    fn word_count(&self) -> Quantity {
+        Quantity::from_unit(
+            self.word_index.len() as f64 + self.function_words.len().value,
+            &unit::UNITLESS,
+        )
+    }
+
+    /// Exact-case lookup first (WordNet spells `"O.K."` with its defining
+    /// capitals and periods verbatim in `word_index`), then case-folded —
+    /// the SAME exact-then-folded order [`LexicalReasoner::lookup_case_folded`]
+    /// already applies, reused rather than re-implemented.
+    fn is_known_surface(&self, word: &str) -> bool {
+        !self.lookup(word).is_empty() || !self.lookup_case_folded(word).is_empty()
+    }
+
+    /// Reads the field computed ONCE at construction — see
+    /// `max_multiword_surface_words`'s own doc for the real O(word-count)
+    /// derivation and why it lives there rather than being rescanned per
+    /// query.
+    fn max_known_surface_words(&self) -> usize {
+        self.max_multiword_surface_words
     }
 }
 
@@ -1373,19 +2020,24 @@ mod inflection_index_tests {
 
         // Derivation: compensate ↔ compensation, both directions.
         assert!(
-            en.relation_edge_count(RelationKind::Derivation) > 0,
+            en.relation_edge_count(RelationKind::Derivation).value > 0.0,
             "derivation relation should be populated"
         );
 
         // Pertainym: "legal" → "law".
         assert!(
-            en.relation_edge_count(RelationKind::Pertainym) > 0,
+            en.relation_edge_count(RelationKind::Pertainym).value > 0.0,
             "pertainym relation should be populated"
         );
 
-        // Domain-topic: compensation has_domain_topic LAW.
+        // Domain-topic: this fixture's `has_domain_topic` edge is carried
+        // by "compensation" pointing at "law" -- an inline-fixture
+        // convenience only, not a claim about which side is the domain in
+        // real WN-LMF data (the loaded corpus carries `has_domain_topic`
+        // on the DOMAIN synset; see `WordnetRelations::has_domain_topic`).
+        // This assertion just checks the relType loads at all.
         assert!(
-            en.relation_edge_count(RelationKind::HasDomainTopic) > 0,
+            en.relation_edge_count(RelationKind::HasDomainTopic).value > 0.0,
             "has_domain_topic should be populated"
         );
     }
@@ -1407,5 +2059,190 @@ mod inflection_index_tests {
         let en = English::from_wordnet(&wn);
         let dog_ids = en.lookup("dog");
         assert!(!dog_ids.is_empty(), "lemma without forms still resolves");
+    }
+}
+
+/// FIX-A: concept-level Opposition (`opposes`) and Parthood (`parts_reach`)
+/// reachability, bridged through the new sense↔concept stores
+/// ([`sense_concept_index`](super::sense_concept_index),
+/// [`concept_senses_index`](super::concept_senses_index)). WordNet's
+/// `Opposition` edges are sense-keyed (a single direct edge is the whole
+/// answer — non-transitive); `MereologyParts` edges are concept-keyed and
+/// genuinely transitive (Casati & Varzi 1999), so `parts_reach` must find a
+/// link `parts()` (direct-only) does not.
+#[cfg(test)]
+mod reachability_bridge_tests {
+    use super::*;
+    use crate::social::software::markup::xml::lmf::reader::read_wordnet;
+
+    /// `big`/`small` each have TWO senses (a synonym pair per concept); only
+    /// ONE sense-pair (`big-a-1` ↔ `small-a-1`) carries the antonym edge. A
+    /// three-link mereology chain `car -> engine -> piston -> ring` exercises
+    /// multi-hop Parthood; `car -> wheel` is a direct (one-hop) edge as a
+    /// control.
+    const LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="t" label="T" language="en" version="1.0">
+    <LexicalEntry id="e-big-a">
+      <Lemma writtenForm="big" partOfSpeech="a"/>
+      <Sense id="big-a-1" synset="s-big">
+        <SenseRelation relType="antonym" target="small-a-1"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="e-large-a">
+      <Lemma writtenForm="large" partOfSpeech="a"/>
+      <Sense id="large-a-1" synset="s-big"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-small-a">
+      <Lemma writtenForm="small" partOfSpeech="a"/>
+      <Sense id="small-a-1" synset="s-small">
+        <SenseRelation relType="antonym" target="big-a-1"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="e-little-a">
+      <Lemma writtenForm="little" partOfSpeech="a"/>
+      <Sense id="little-a-1" synset="s-small"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-red-a">
+      <Lemma writtenForm="red" partOfSpeech="a"/>
+      <Sense id="red-a-1" synset="s-red"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-car-n">
+      <Lemma writtenForm="car" partOfSpeech="n"/>
+      <Sense id="car-n-1" synset="s-car"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-engine-n">
+      <Lemma writtenForm="engine" partOfSpeech="n"/>
+      <Sense id="engine-n-1" synset="s-engine"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-piston-n">
+      <Lemma writtenForm="piston" partOfSpeech="n"/>
+      <Sense id="piston-n-1" synset="s-piston"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-ring-n">
+      <Lemma writtenForm="ring" partOfSpeech="n"/>
+      <Sense id="ring-n-1" synset="s-ring"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-wheel-n">
+      <Lemma writtenForm="wheel" partOfSpeech="n"/>
+      <Sense id="wheel-n-1" synset="s-wheel"/>
+    </LexicalEntry>
+    <Synset id="s-big" ili="i1" partOfSpeech="a"><Definition>of considerable size</Definition></Synset>
+    <Synset id="s-small" ili="i2" partOfSpeech="a"><Definition>of little size</Definition></Synset>
+    <Synset id="s-red" ili="i3" partOfSpeech="a"><Definition>of the color red</Definition></Synset>
+    <Synset id="s-car" ili="i4" partOfSpeech="n">
+      <Definition>a motor vehicle</Definition>
+      <SynsetRelation relType="mero_part" target="s-engine"/>
+      <SynsetRelation relType="mero_part" target="s-wheel"/>
+    </Synset>
+    <Synset id="s-engine" ili="i5" partOfSpeech="n">
+      <Definition>a machine that converts energy to motion</Definition>
+      <SynsetRelation relType="mero_part" target="s-piston"/>
+    </Synset>
+    <Synset id="s-piston" ili="i6" partOfSpeech="n">
+      <Definition>a sliding engine component</Definition>
+      <SynsetRelation relType="mero_part" target="s-ring"/>
+    </Synset>
+    <Synset id="s-ring" ili="i7" partOfSpeech="n"><Definition>a piston seal</Definition></Synset>
+    <Synset id="s-wheel" ili="i8" partOfSpeech="n"><Definition>a circular frame</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+    fn fixture() -> English {
+        English::from_wordnet(&read_wordnet(LMF).unwrap())
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn opposes_holds_for_a_concept_pair_bridged_through_either_synonym() {
+        let en = fixture();
+        let big = en.lookup("big")[0];
+        let large = en.lookup("large")[0];
+        let small = en.lookup("small")[0];
+        let little = en.lookup("little")[0];
+        assert_eq!(big, large, "big/large share one concept (s-big)");
+        assert_eq!(small, little, "small/little share one concept (s-small)");
+
+        assert!(
+            en.opposes(big, small),
+            "the concept 'big' opposes 'small' via the big-a-1/small-a-1 sense edge"
+        );
+        // Symmetric read via the SAME concept pair through its other name —
+        // still resolves, since `large`/`little` are the same concepts.
+        assert!(en.opposes(large, little));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn opposes_is_false_for_an_unrelated_concept_pair() {
+        let en = fixture();
+        let big = en.lookup("big")[0];
+        let red = en.lookup("red")[0];
+        assert!(
+            !en.opposes(big, red),
+            "no antonym edge exists between 'big' and 'red' — honest false, not a guess"
+        );
+        // Irreflexive in practice: no self-antonym edge was declared.
+        assert!(!en.opposes(big, big));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn senses_of_and_concept_of_sense_are_mutual_inverses() {
+        let en = fixture();
+        let big = en.lookup("big")[0];
+        let senses = en.senses_of(big);
+        assert_eq!(senses.len(), 2, "big-a-1 and large-a-1 both name s-big");
+        for &s in senses {
+            assert_eq!(en.concept_of_sense(s), Some(big));
+        }
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn parts_reach_finds_a_multi_hop_link_direct_parts_does_not() {
+        let en = fixture();
+        let car = en.lookup("car")[0];
+        let engine = en.lookup("engine")[0];
+        let piston = en.lookup("piston")[0];
+        let ring = en.lookup("ring")[0];
+        let wheel = en.lookup("wheel")[0];
+
+        // Direct edges: `parts()` sees only the one-hop targets.
+        assert!(en.parts(car).contains(&engine));
+        assert!(en.parts(car).contains(&wheel));
+        assert!(
+            !en.parts(car).contains(&ring),
+            "ring is 3 hops from car — not a direct edge"
+        );
+
+        // `parts_reach` follows the full transitive chain car -> engine ->
+        // piston -> ring (Casati & Varzi 1999: a part of a part is a part).
+        assert!(en.parts_reach(car, engine), "1 hop");
+        assert!(en.parts_reach(car, piston), "2 hops");
+        assert!(
+            en.parts_reach(car, ring),
+            "3 hops — the link parts() misses"
+        );
+        assert!(
+            en.parts_reach(engine, ring),
+            "2 hops from the intermediate node"
+        );
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn parts_reach_is_irreflexive_and_directional() {
+        let en = fixture();
+        let car = en.lookup("car")[0];
+        let ring = en.lookup("ring")[0];
+        assert!(
+            !en.parts_reach(car, car),
+            "Parthood is Irreflexive — no self-part witness"
+        );
+        assert!(
+            !en.parts_reach(ring, car),
+            "part-of is directional — the ring does not have the car as a part"
+        );
     }
 }

@@ -37,11 +37,13 @@ fn ontology_validates() {
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
-fn thirty_three_concepts() {
-    // Lexicon family (9): Source, Lexicon, Language, DomainLexicon,
-    //                     LegalLexicon, SchemaVocabulary,
-    //                     ClosedClassLexicon, InflectionLexicon,
-    //                     DerivationalLexicon.
+fn forty_seven_concepts() {
+    // Lexicon family (13): Source, Lexicon, Language, DomainLexicon,
+    //                      LegalLexicon, CaregivingLexicon,
+    //                      HcbsComplianceLexicon, SchemaVocabulary,
+    //                      ClosedClassLexicon, InflectionLexicon,
+    //                      DerivationalLexicon, VerbClassLexicon,
+    //                      PredicateArgumentLexicon.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
     //                         UsCodeTitle, Regulation,
     //                         ConstitutionalArticle, ProceduralRule,
@@ -53,12 +55,22 @@ fn thirty_three_concepts() {
     //                        ConceptualSpec, OntologyVocabulary.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    // ControlledVocabulary family (5): ControlledVocabulary,
-    //                                  WindowStateVocabulary,
-    //                                  LexicalCategoryProjection,
-    //                                  MathOperatorVocabulary,
-    //                                  ColorSchemeVocabulary.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 33);
+    // ControlledVocabulary family (15): ControlledVocabulary,
+    //                                   WindowStateVocabulary,
+    //                                   LexicalCategoryProjection,
+    //                                   RealizationFrameTable,
+    //                                   MathOperatorVocabulary,
+    //                                   ColorSchemeVocabulary,
+    //                                   SupertagCostTable,
+    //                                   QuoteGlyphVocabulary,
+    //                                   DashPunctuationVocabulary,
+    //                                   CaseFoldingTable,
+    //                                   AssociativeConceptTable,
+    //                                   FrameSemanticTable,
+    //                                   SumoWordNetMappingTable,
+    //                                   GazetteerTable,
+    //                                   EnglishGraphemeClasses.
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 47);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -124,6 +136,8 @@ fn is_lexicon_recognizes_subtree() {
         C::Language,
         C::DomainLexicon,
         C::LegalLexicon,
+        C::CaregivingLexicon,
+        C::HcbsComplianceLexicon,
         C::SchemaVocabulary,
     ] {
         assert!(is_lexicon(c), "{:?} should be Lexicon", c);
@@ -273,6 +287,13 @@ fn hart_secondary_classification() {
     assert_eq!(q.get(&C::Regulation), Some(HartRuleKind::Secondary));
     assert_eq!(q.get(&C::CaseLaw), Some(HartRuleKind::Secondary));
     assert_eq!(q.get(&C::LegalLexicon), Some(HartRuleKind::Secondary));
+    // The caregiving / HCBS-compliance definitional lexicons carry glosses
+    // ABOUT primary rules — secondary, exactly as LegalLexicon.
+    assert_eq!(q.get(&C::CaregivingLexicon), Some(HartRuleKind::Secondary));
+    assert_eq!(
+        q.get(&C::HcbsComplianceLexicon),
+        Some(HartRuleKind::Secondary)
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -389,7 +410,10 @@ proptest! {
         let is_legal_leaf = matches!(c,
             C::Statute | C::UsFederalStatute | C::Regulation
             | C::ConstitutionalArticle | C::ProceduralRule
-            | C::CaseLaw | C::LegalLexicon);
+            | C::CaseLaw | C::LegalLexicon
+            // The caregiving definitional lexicons classify Secondary
+            // exactly as LegalLexicon (glosses ABOUT primary rules).
+            | C::CaregivingLexicon | C::HcbsComplianceLexicon);
         if is_legal_leaf {
             prop_assert!(v != Some(HartRuleKind::NotApplicable));
         } else {

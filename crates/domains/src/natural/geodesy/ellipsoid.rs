@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Reference ellipsoid parameters.
 ///
 /// An oblate spheroid used as a mathematical model of the Earth's shape.
@@ -16,35 +19,43 @@ pub struct Ellipsoid {
 }
 
 impl Ellipsoid {
-    /// Semi-minor axis (polar radius): b = a(1 - f).
-    pub fn b(&self) -> f64 {
-        self.a * (1.0 - self.f)
+    /// Semi-minor axis (polar radius): b = a(1 - f). A real physical
+    /// length, carried as `Quantity` with unit `METER` (Torge & Muller
+    /// 2012, Ch. 5; NIMA TR8350.2 2000).
+    pub fn b(&self) -> Quantity {
+        Quantity::from_unit(self.a * (1.0 - self.f), &unit::METER)
     }
 
-    /// First eccentricity squared: e² = 2f - f².
-    pub fn e_squared(&self) -> f64 {
-        2.0 * self.f - self.f * self.f
+    /// First eccentricity squared: e² = 2f - f². A dimensionless
+    /// geometric ratio, carried as `Quantity` with unit `UNITLESS`.
+    pub fn e_squared(&self) -> Quantity {
+        Quantity::from_unit(2.0 * self.f - self.f * self.f, &unit::UNITLESS)
     }
 
-    /// Second eccentricity squared: e'² = e² / (1 - e²).
-    pub fn ep_squared(&self) -> f64 {
-        let e2 = self.e_squared();
-        e2 / (1.0 - e2)
+    /// Second eccentricity squared: e'² = e² / (1 - e²). Dimensionless,
+    /// same reasoning as [`Ellipsoid::e_squared`].
+    pub fn ep_squared(&self) -> Quantity {
+        let e2 = self.e_squared().value;
+        Quantity::from_unit(e2 / (1.0 - e2), &unit::UNITLESS)
     }
 
     /// Radius of curvature in the prime vertical at geodetic latitude φ.
-    /// N(φ) = a / √(1 - e² sin²φ)
-    pub fn prime_vertical_radius(&self, lat: f64) -> f64 {
+    /// N(φ) = a / √(1 - e² sin²φ). A real physical length, carried as
+    /// `Quantity` with unit `METER`, matching [`Ellipsoid::b`].
+    pub fn prime_vertical_radius(&self, lat: f64) -> Quantity {
         let sin_lat = lat.sin();
-        self.a / (1.0 - self.e_squared() * sin_lat * sin_lat).sqrt()
+        let e2 = self.e_squared().value;
+        Quantity::from_unit(self.a / (1.0 - e2 * sin_lat * sin_lat).sqrt(), &unit::METER)
     }
 
     /// Radius of curvature in the meridian at geodetic latitude φ.
-    /// M(φ) = a(1 - e²) / (1 - e² sin²φ)^{3/2}
-    pub fn meridian_radius(&self, lat: f64) -> f64 {
+    /// M(φ) = a(1 - e²) / (1 - e² sin²φ)^{3/2}. A real physical length,
+    /// carried as `Quantity` with unit `METER`, matching [`Ellipsoid::b`].
+    pub fn meridian_radius(&self, lat: f64) -> Quantity {
         let sin_lat = lat.sin();
-        let denom = (1.0 - self.e_squared() * sin_lat * sin_lat).powf(1.5);
-        self.a * (1.0 - self.e_squared()) / denom
+        let e2 = self.e_squared().value;
+        let denom = (1.0 - e2 * sin_lat * sin_lat).powf(1.5);
+        Quantity::from_unit(self.a * (1.0 - e2) / denom, &unit::METER)
     }
 }
 

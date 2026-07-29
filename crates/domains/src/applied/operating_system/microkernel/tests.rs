@@ -17,6 +17,8 @@ use super::ontology::{
     IsMechanism, KernelPrivilege, MicrokernelCategory, MicrokernelConcept, MicrokernelOntology,
     Privilege,
 };
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -195,7 +197,10 @@ fn client_server_round_trip_is_kernel_mediated() {
     assert!(s3.every_delivery_is_endpoint_mediated());
     // Non-vacuity: the round trip actually crossed an isolation
     // boundary (client and server live in different address spaces).
-    assert_eq!(s3.cross_space_delivery_count(), 1);
+    assert_eq!(
+        s3.cross_space_delivery_count(),
+        Quantity::from_unit(1.0, &unit::UNITLESS)
+    );
 }
 
 /// A receive with nothing queued is rejected — nothing can be delivered

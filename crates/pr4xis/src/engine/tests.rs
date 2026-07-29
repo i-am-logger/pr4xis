@@ -93,6 +93,7 @@ fn make_engine(value: i32, max: i32) -> Engine<CounterAction> {
 // Basic tests
 // =============================================================================
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_increment() {
     let engine = make_engine(0, 10);
@@ -100,6 +101,7 @@ fn test_increment() {
     assert_eq!(engine.situation().value, 5);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_decrement() {
     let engine = make_engine(5, 10);
@@ -107,6 +109,7 @@ fn test_decrement() {
     assert_eq!(engine.situation().value, 2);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_reset() {
     let engine = make_engine(7, 10);
@@ -114,6 +117,7 @@ fn test_reset() {
     assert_eq!(engine.situation().value, 0);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_chain() {
     let engine = make_engine(0, 10)
@@ -126,6 +130,7 @@ fn test_chain() {
     assert_eq!(engine.situation().value, 5);
 }
 
+#[crate::praxis_value(Honest)]
 #[test]
 fn test_below_zero_blocked() {
     let engine = make_engine(2, 10);
@@ -133,6 +138,7 @@ fn test_below_zero_blocked() {
     assert!(result.is_err());
 }
 
+#[crate::praxis_value(Honest)]
 #[test]
 fn test_above_max_blocked() {
     let engine = make_engine(8, 10);
@@ -140,6 +146,7 @@ fn test_above_max_blocked() {
     assert!(result.is_err());
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_trace_records_success() {
     let engine = make_engine(0, 10)
@@ -151,6 +158,7 @@ fn test_trace_records_success() {
     assert_eq!(engine.trace().violations(), 0);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_trace_records_violations() {
     let engine = make_engine(0, 10);
@@ -163,6 +171,7 @@ fn test_trace_records_violations() {
     assert_eq!(engine.trace().violations(), 1);
 }
 
+#[crate::praxis_value(Explainable, Verifiable)]
 #[test]
 fn test_violation_carries_typed_counterexample() {
     let engine = make_engine(2, 10);
@@ -182,6 +191,7 @@ fn test_violation_carries_typed_counterexample() {
     );
 }
 
+#[crate::praxis_value(Explainable, Verifiable)]
 #[test]
 fn test_satisfied_precondition_is_typed_proof() {
     let engine = make_engine(0, 10)
@@ -207,6 +217,7 @@ fn test_satisfied_precondition_is_typed_proof() {
 // Back/Forward tests
 // =============================================================================
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_back_restores_previous() {
     let engine = make_engine(0, 10)
@@ -217,6 +228,7 @@ fn test_back_restores_previous() {
     assert_eq!(engine.situation().value, 0);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_forward_after_back() {
     let engine = make_engine(0, 10)
@@ -229,6 +241,7 @@ fn test_forward_after_back() {
     assert_eq!(engine.situation().value, 5);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_back_forward_roundtrip() {
     let engine = make_engine(0, 10)
@@ -247,12 +260,14 @@ fn test_back_forward_roundtrip() {
     assert_eq!(engine.situation().value, 9);
 }
 
+#[crate::praxis_value(Honest)]
 #[test]
 fn test_back_on_initial_fails() {
     let engine = make_engine(0, 10);
     assert!(engine.back().is_err());
 }
 
+#[crate::praxis_value(Honest)]
 #[test]
 fn test_forward_without_back_fails() {
     let engine = make_engine(0, 10)
@@ -261,6 +276,7 @@ fn test_forward_without_back_fails() {
     assert!(engine.forward().is_err());
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_next_after_back_clears_future() {
     let engine = make_engine(0, 10)
@@ -319,3 +335,6 @@ proptest! {
         prop_assert_eq!(engine.situation().value, after_incr);
     }
 }
+crate::register_praxis_value!(prop_increment_within_bounds_always_succeeds, Verifiable);
+crate::register_praxis_value!(prop_decrement_below_zero_always_fails, Honest);
+crate::register_praxis_value!(prop_back_forward_restores_value, Verifiable);

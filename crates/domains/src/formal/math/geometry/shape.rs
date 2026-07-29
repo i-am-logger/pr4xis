@@ -38,9 +38,9 @@ impl Triangle {
     /// Side lengths (a = BC, b = CA, c = AB — opposite vertex convention).
     pub fn side_lengths(&self) -> (f64, f64, f64) {
         (
-            self.b.distance_to(&self.c),
-            self.c.distance_to(&self.a),
-            self.a.distance_to(&self.b),
+            self.b.distance_to(&self.c).value,
+            self.c.distance_to(&self.a).value,
+            self.a.distance_to(&self.b).value,
         )
     }
 
@@ -54,7 +54,7 @@ impl Triangle {
     pub fn area(&self) -> f64 {
         let ab = self.a.vector_to(&self.b);
         let ac = self.a.vector_to(&self.c);
-        ab.cross(&ac).norm() / 2.0
+        ab.cross(&ac).norm().value / 2.0
     }
 
     /// Interior angles at each vertex using the law of cosines.
@@ -134,12 +134,12 @@ impl Circle {
 
     /// Does the point lie on the circle?
     pub fn contains_point(&self, p: &Point3) -> bool {
-        (self.center.distance_to(p) - self.radius).abs() < 1e-10
+        (self.center.distance_to(p).value - self.radius).abs() < 1e-10
     }
 
     /// Is the point inside the circle?
     pub fn is_interior(&self, p: &Point3) -> bool {
-        self.center.distance_to(p) < self.radius
+        self.center.distance_to(p).value < self.radius
     }
 }
 
@@ -160,6 +160,6 @@ impl Sphere {
 
     /// Does the point lie on the sphere?
     pub fn contains_point(&self, p: &Point3) -> bool {
-        (self.center.distance_to(p) - self.radius).abs() < 1e-10
+        (self.center.distance_to(p).value - self.radius).abs() < 1e-10
     }
 }

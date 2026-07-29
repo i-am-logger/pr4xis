@@ -94,40 +94,62 @@ pr4xis::ontology! {
 // Quality: BindingForceOf — strict total ordering on leaves
 // ---------------------------------------------------------------------------
 
-/// Quality: integer binding-force tier. Higher tier = greater
-/// abstract binding force. Returns `None` on the abstract root and
-/// the two branch concepts (which partition the leaves but have no
-/// tier of their own).
+/// Typed ordinal ranking of abstract binding force. Declared in
+/// **ascending** binding-force order — `SecondarySource` (weakest,
+/// formerly tier 1) first, `ConstitutionalText` (strongest, formerly
+/// tier 9) last — so that Rust's derived `Ord` for a fieldless enum
+/// (which orders variants by declaration order: earlier declared
+/// compares as *lesser*) directly mirrors the original 1..9 numeric
+/// tier ordering without inverting any comparison operator at call
+/// sites.
 ///
-/// Calibration sources, by tier:
-/// - 9 ConstitutionalText: Marbury v. Madison (1803); U.S. Const. Art. VI cl. 2
-/// - 8 FederalStatute: Schauer (2009) Ch. 5
-/// - 7 SupremeCourtPrecedent: Garner (2016) §1.2
-/// - 6 FederalRegulation: Chevron U.S.A. v. NRDC (1984)
-/// - 5 ControllingCircuitPrecedent: Garner (2016) §11.1
-/// - 4 AdministrativeReviewBoardDecision: Skidmore v. Swift (1944)
-/// - 3 SisterCircuitPrecedent: Garner (2016) §11.2
-/// - 2 DistrictCourtPrecedent: Garner (2016) §11.3
-/// - 1 SecondarySource: Garner (2016) §13.1
+/// Calibration sources, ascending:
+/// - SecondarySource (was 1): Garner (2016) §13.1
+/// - DistrictCourtPrecedent (was 2): Garner (2016) §11.3
+/// - SisterCircuitPrecedent (was 3): Garner (2016) §11.2
+/// - AdministrativeReviewBoardDecision (was 4): Skidmore v. Swift (1944)
+/// - ControllingCircuitPrecedent (was 5): Garner (2016) §11.1
+/// - FederalRegulation (was 6): Chevron U.S.A. v. NRDC (1984)
+/// - SupremeCourtPrecedent (was 7): Garner (2016) §1.2
+/// - FederalStatute (was 8): Schauer (2009) Ch. 5
+/// - ConstitutionalText (was 9): Marbury v. Madison (1803); U.S. Const. Art. VI cl. 2
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BindingForceTier {
+    SecondarySource,
+    DistrictCourtPrecedent,
+    SisterCircuitPrecedent,
+    AdministrativeReviewBoardDecision,
+    ControllingCircuitPrecedent,
+    FederalRegulation,
+    SupremeCourtPrecedent,
+    FederalStatute,
+    ConstitutionalText,
+}
+
+/// Quality: typed binding-force tier. Higher [`BindingForceTier`]
+/// (per its ascending `Ord`) = greater abstract binding force.
+/// Returns `None` on the abstract root and the two branch concepts
+/// (which partition the leaves but have no tier of their own).
 #[derive(Debug, Clone)]
 pub struct BindingForceOf;
 
 impl Quality for BindingForceOf {
     type Individual = AuthorityStrengthConcept;
-    type Value = u8;
+    type Value = BindingForceTier;
 
-    fn get(&self, c: &AuthorityStrengthConcept) -> Option<u8> {
+    fn get(&self, c: &AuthorityStrengthConcept) -> Option<BindingForceTier> {
         use AuthorityStrengthConcept as A;
+        use BindingForceTier as T;
         match c {
-            A::ConstitutionalText => Some(9),
-            A::FederalStatute => Some(8),
-            A::SupremeCourtPrecedent => Some(7),
-            A::FederalRegulation => Some(6),
-            A::ControllingCircuitPrecedent => Some(5),
-            A::AdministrativeReviewBoardDecision => Some(4),
-            A::SisterCircuitPrecedent => Some(3),
-            A::DistrictCourtPrecedent => Some(2),
-            A::SecondarySource => Some(1),
+            A::ConstitutionalText => Some(T::ConstitutionalText),
+            A::FederalStatute => Some(T::FederalStatute),
+            A::SupremeCourtPrecedent => Some(T::SupremeCourtPrecedent),
+            A::FederalRegulation => Some(T::FederalRegulation),
+            A::ControllingCircuitPrecedent => Some(T::ControllingCircuitPrecedent),
+            A::AdministrativeReviewBoardDecision => Some(T::AdministrativeReviewBoardDecision),
+            A::SisterCircuitPrecedent => Some(T::SisterCircuitPrecedent),
+            A::DistrictCourtPrecedent => Some(T::DistrictCourtPrecedent),
+            A::SecondarySource => Some(T::SecondarySource),
             // Root and branches have no tier of their own.
             A::AuthorityStrength | A::BindingAuthority | A::PersuasiveAuthority => None,
         }
@@ -141,7 +163,7 @@ impl Quality for BindingForceOf {
 /// tier; ARB decisions are the highest persuasive tier (Skidmore
 /// 1944) — they hover at the boundary but the binding cutoff sits
 /// above them per Chevron/Skidmore distinction.
-pub const BINDING_TIER_FLOOR: u8 = 5;
+pub const BINDING_TIER_FLOOR: BindingForceTier = BindingForceTier::ControllingCircuitPrecedent;
 
 // ---------------------------------------------------------------------------
 // Quality: JurisdictionScopeOf — horizontal scope as typed Identifier
@@ -453,7 +475,7 @@ pub struct ForceTiersAreDistinct;
 impl Axiom for ForceTiersAreDistinct {
     fn verify(&self) -> Verdict {
         let q = BindingForceOf;
-        let mut tiers: Vec<u8> = leaves().iter().map(|c| q.get(c).unwrap_or(0)).collect();
+        let mut tiers: Vec<BindingForceTier> = leaves().iter().filter_map(|c| q.get(c)).collect();
         tiers.sort();
         let original = tiers.len();
         tiers.dedup();

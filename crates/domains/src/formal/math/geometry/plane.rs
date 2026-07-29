@@ -26,7 +26,7 @@ impl Plane {
         let ab = a.vector_to(b);
         let ac = a.vector_to(c);
         let normal = ab.cross(&ac);
-        if normal.norm() < 1e-10 {
+        if normal.norm().value < 1e-10 {
             return None; // collinear
         }
         Some(Self {
@@ -39,7 +39,7 @@ impl Plane {
     /// Positive = same side as normal, negative = opposite.
     pub fn signed_distance(&self, p: &Point3) -> f64 {
         let v = self.point.vector_to(p);
-        v.dot(&self.normal) / self.normal.norm()
+        v.dot(&self.normal) / self.normal.norm().value
     }
 
     /// Absolute distance from a point to the plane.

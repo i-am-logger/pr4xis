@@ -5,6 +5,7 @@ use crate::formal::math::geometry::point::Point3;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
 use crate::formal::math::signal_processing::filter::FirstOrderLowPass;
+use crate::formal::math::temporal::duration::Duration;
 use crate::natural::physics::kinematics::acceleration::Acceleration;
 use crate::natural::physics::kinematics::velocity::Velocity;
 
@@ -43,8 +44,8 @@ pub struct ImuSample {
     /// Angular rate in body frame (rad/s). Length-3 `Vector` ordered
     /// [x, y, z] in the Body frame.
     pub angular_rate: Vector,
-    /// Time step (seconds).
-    pub dt: f64,
+    /// Time step.
+    pub dt: Duration,
 }
 
 /// Gravity vector in NED frame, from the quantity ontology.
@@ -82,7 +83,7 @@ pub fn filter_imu_sample(
             gyro_filter[1].update(sample.angular_rate.get(1)),
             gyro_filter[2].update(sample.angular_rate.get(2)),
         ]),
-        dt: sample.dt,
+        dt: sample.dt.clone(),
     }
 }
 
@@ -91,7 +92,7 @@ pub fn filter_imu_sample(
 /// This is the core of inertial navigation: integrate gyro and accel
 /// measurements to update position, velocity, and attitude.
 pub fn mechanize(state: &NavState, sample: &ImuSample) -> NavState {
-    let dt = sample.dt;
+    let dt = sample.dt.seconds();
 
     // 1. Attitude update: integrate angular rate
     //    Δq = Quaternion from angular rate * dt

@@ -492,11 +492,11 @@ impl Axiom for GreedySchedulerBound {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let dag = fixture();
-        let t1 = dag.work();
-        let t_inf = span(&dag);
+        let t1 = dag.work().value as usize;
+        let t_inf = span(&dag).value as usize;
         let mut ok = t1 == WORK_FIB4 && t_inf == SPAN_FIB4;
         for p in greedy_processor_counts(t_inf) {
-            let t_p = greedy_schedule(&dag, p).makespan();
+            let t_p = greedy_schedule(&dag, p).makespan().value as usize;
             // Lower bound: T_p ≥ T∞ and p·T_p ≥ T1 (i.e. T_p ≥ ⌈T1/p⌉).
             let lower = t_p >= t_inf && p * t_p >= t1;
             // Upper bound: T_p ≤ ⌊T1/p⌋ + T∞ (T∞ integer, so this is the
@@ -538,12 +538,12 @@ impl Axiom for SpeedupBoundedByParallelism {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let dag = fixture();
-        let t1 = dag.work();
-        let t_inf = span(&dag);
+        let t1 = dag.work().value as usize;
+        let t_inf = span(&dag).value as usize;
         let parallelism = t1 as f64 / t_inf as f64;
         let mut ok = t_inf > 0;
         for p in greedy_processor_counts(t_inf) {
-            let t_p = greedy_schedule(&dag, p).makespan();
+            let t_p = greedy_schedule(&dag, p).makespan().value as usize;
             let speedup = t1 as f64 / t_p as f64;
             if speedup > parallelism + NUMERIC_TOLERANCE {
                 ok = false;
@@ -678,7 +678,7 @@ impl Axiom for DeterministicParallelismIsSequentialSemantics {
         let sequential = fibonacci(FIB_INDEX);
         let intrinsic = evaluate(&dag);
         let mut ok = intrinsic == sequential;
-        for p in greedy_processor_counts(span(&dag)) {
+        for p in greedy_processor_counts(span(&dag).value as usize) {
             let schedule = greedy_schedule(&dag, p);
             let along = evaluate_along(&dag, &schedule.flatten());
             if along != sequential {
@@ -853,9 +853,13 @@ mod tests {
     #[test]
     fn fixture_matches_cited_work_and_span() {
         let dag = fixture();
-        assert_eq!(dag.work(), WORK_FIB4, "work T1 must equal the cited 17");
         assert_eq!(
-            span(&dag),
+            dag.work().value as usize,
+            WORK_FIB4,
+            "work T1 must equal the cited 17"
+        );
+        assert_eq!(
+            span(&dag).value as usize,
             SPAN_FIB4,
             "span T-infinity must equal the cited 8"
         );

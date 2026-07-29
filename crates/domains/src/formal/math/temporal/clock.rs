@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::math::temporal::duration::Duration;
 
 /// Clock error model.
@@ -53,15 +55,22 @@ impl ClockModel {
     /// σ²_y(τ) = (3 * Q² / τ) + (N² * τ / 3)
     ///
     /// where Q = white noise density, N = random walk coefficient.
-    pub fn allan_variance(&self, tau: f64) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+    /// `f64` — Allan variance of fractional frequency y(t) is conventionally
+    /// dimensionless by construction (Allan 1966).
+    pub fn allan_variance(&self, tau: f64) -> Quantity {
         let q2 = self.white_noise_density * self.white_noise_density;
         let n2 = self.random_walk * self.random_walk;
-        3.0 * q2 / tau + n2 * tau / 3.0
+        Quantity::from_unit(3.0 * q2 / tau + n2 * tau / 3.0, &unit::UNITLESS)
     }
 
     /// Allan deviation at averaging time τ.
-    pub fn allan_deviation(&self, tau: f64) -> f64 {
-        self.allan_variance(tau).sqrt()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same
+    /// reasoning as [`allan_variance`](Self::allan_variance).
+    pub fn allan_deviation(&self, tau: f64) -> Quantity {
+        Quantity::from_unit(self.allan_variance(tau).value.sqrt(), &unit::UNITLESS)
     }
 }
 

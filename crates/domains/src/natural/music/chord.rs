@@ -4,6 +4,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::interval::Interval;
 use super::note::Note;
 use super::scale::Scale;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Chord kinds with their interval structures (from root).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,9 +114,10 @@ impl Chord {
         false
     }
 
-    /// Number of notes in the chord.
-    pub fn note_count(&self) -> usize {
-        self.kind.intervals().len()
+    /// Number of notes in the chord. A dimensionless count — see
+    /// [`super::note::Note::octave`].
+    pub fn note_count(&self) -> Quantity {
+        Quantity::from_unit(self.kind.intervals().len() as f64, &unit::UNITLESS)
     }
 
     pub fn name(&self) -> String {

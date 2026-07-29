@@ -101,8 +101,8 @@ mod proptest_proofs {
             b in arb_quaternion(),
         ) {
             let c = a.multiply(&b);
-            prop_assert!((c.norm() - 1.0).abs() < 1e-10,
-                "norm was {}", c.norm());
+            prop_assert!((c.norm().value - 1.0).abs() < 1e-10,
+                "norm was {}", c.norm().value);
         }
 
         #[test]
@@ -196,25 +196,25 @@ fn type_enforces_unit_norm_new() {
     // Zero input must produce unit quaternion (identity)
     let q1 = crate::formal::math::rotation::quaternion::Quaternion::new(0.0, 0.0, 0.0, 0.0);
     assert!(
-        (q1.norm() - 1.0).abs() < 1e-10,
+        (q1.norm().value - 1.0).abs() < 1e-10,
         "zero input must produce unit quaternion, got norm={}",
-        q1.norm()
+        q1.norm().value
     );
 
     // Unnormalized input must be normalized
     let q2 = crate::formal::math::rotation::quaternion::Quaternion::new(100.0, 0.0, 0.0, 0.0);
     assert!(
-        (q2.norm() - 1.0).abs() < 1e-10,
+        (q2.norm().value - 1.0).abs() < 1e-10,
         "unnormalized input must be normalized, got norm={}",
-        q2.norm()
+        q2.norm().value
     );
 
     // Arbitrary large components
     let q3 = crate::formal::math::rotation::quaternion::Quaternion::new(3.0, 4.0, 5.0, 6.0);
     assert!(
-        (q3.norm() - 1.0).abs() < 1e-10,
+        (q3.norm().value - 1.0).abs() < 1e-10,
         "arbitrary input must be normalized, got norm={}",
-        q3.norm()
+        q3.norm().value
     );
 }
 
@@ -227,7 +227,7 @@ fn type_enforces_unit_norm_from_axis_angle() {
         1.0,
     );
     assert!(
-        (q1.norm() - 1.0).abs() < 1e-10,
+        (q1.norm().value - 1.0).abs() < 1e-10,
         "unit axis must produce unit quaternion"
     );
 
@@ -237,9 +237,9 @@ fn type_enforces_unit_norm_from_axis_angle() {
         1.0,
     );
     assert!(
-        (q2.norm() - 1.0).abs() < 1e-10,
+        (q2.norm().value - 1.0).abs() < 1e-10,
         "non-unit axis must still produce unit quaternion, got norm={}",
-        q2.norm()
+        q2.norm().value
     );
 
     // All-component non-unit axis
@@ -248,9 +248,9 @@ fn type_enforces_unit_norm_from_axis_angle() {
         2.5,
     );
     assert!(
-        (q3.norm() - 1.0).abs() < 1e-10,
+        (q3.norm().value - 1.0).abs() < 1e-10,
         "arbitrary axis must produce unit quaternion, got norm={}",
-        q3.norm()
+        q3.norm().value
     );
 }
 
@@ -259,7 +259,7 @@ fn type_enforces_unit_norm_from_axis_angle() {
 fn type_enforces_unit_norm_from_euler_321() {
     let q = crate::formal::math::rotation::quaternion::Quaternion::from_euler_321(1.0, 0.5, 0.3);
     assert!(
-        (q.norm() - 1.0).abs() < 1e-10,
+        (q.norm().value - 1.0).abs() < 1e-10,
         "Euler construction must produce unit quaternion"
     );
 }
@@ -271,7 +271,7 @@ fn type_enforces_unit_norm_from_dcm() {
     let id = Matrix::new(3, 3, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
     let q = crate::formal::math::rotation::quaternion::Quaternion::from_matrix(&id);
     assert!(
-        (q.norm() - 1.0).abs() < 1e-10,
+        (q.norm().value - 1.0).abs() < 1e-10,
         "from_dcm(identity) must produce unit quaternion"
     );
 
@@ -279,7 +279,7 @@ fn type_enforces_unit_norm_from_dcm() {
     let r = Matrix::new(3, 3, vec![0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
     let q2 = crate::formal::math::rotation::quaternion::Quaternion::from_matrix(&r);
     assert!(
-        (q2.norm() - 1.0).abs() < 1e-10,
+        (q2.norm().value - 1.0).abs() < 1e-10,
         "from_dcm(Rz90) must produce unit quaternion"
     );
 }
@@ -289,7 +289,7 @@ fn type_enforces_unit_norm_from_dcm() {
 fn type_enforces_unit_norm_identity() {
     let q = crate::formal::math::rotation::quaternion::Quaternion::identity();
     assert!(
-        (q.norm() - 1.0).abs() < 1e-15,
+        (q.norm().value - 1.0).abs() < 1e-15,
         "identity must be exactly unit"
     );
 }

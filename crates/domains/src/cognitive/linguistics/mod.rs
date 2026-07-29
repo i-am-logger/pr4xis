@@ -3,10 +3,12 @@
 // `RuntimeOntology` (a std crate), so it is `std`-gated — consistent with the
 // crate's other std-only surfaces. The WASM build enables `std` via `prx`, so
 // the browser chat still gets it.
+pub mod comparison_relation_lexicon;
 #[cfg(feature = "std")]
 pub mod composed;
+pub mod conceptnet;
 pub mod english;
-pub mod grammar;
+pub mod framenet;
 // A string interner for lexical surfaces (a `no_std`+`alloc` mechanism, hence
 // ungated) — used by `composed` to key its union lookup on `Symbol` handles
 // instead of duplicating every surface as an owned `String`.
@@ -17,11 +19,19 @@ pub mod lemon;
 pub mod lexicon;
 
 pub mod morphology;
+pub mod nlp_task;
 pub mod orthography;
 pub mod pipeline;
 pub mod pragmatics;
+pub mod predicate_lexicon;
+pub mod presupposition_trigger_lexicon;
+pub mod propbank;
 pub mod relation_lexicon;
+pub mod scope_predicate_lexicon;
 pub mod semantics;
+pub mod sumo;
 pub mod symbols;
 pub mod text;
+pub mod verbal_relation_lexicon;
+pub mod verbnet;
 pub mod wordnet;

@@ -9,6 +9,9 @@ use pr4xis::engine::{Action, Engine, Precondition, Situation};
 use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 pub const H: f64 = 6.626e-34;
 pub const HBAR: f64 = 1.055e-34;
 
@@ -38,11 +41,13 @@ impl QuantumParticle {
         }
     }
 
-    pub fn uncertainty_product(&self) -> f64 {
-        self.delta_x * self.delta_p
+    /// Uncertainty product ΔxΔp. Dimension L·MOMENTUM = ANGULAR_MOMENTUM
+    /// (Heisenberg 1927).
+    pub fn uncertainty_product(&self) -> Quantity {
+        Quantity::new(self.delta_x * self.delta_p, Dimension::ANGULAR_MOMENTUM)
     }
     pub fn heisenberg_holds(&self) -> bool {
-        self.uncertainty_product() >= HBAR / 2.0 - 1e-40
+        self.uncertainty_product().value >= HBAR / 2.0 - 1e-40
     }
 }
 
@@ -152,18 +157,18 @@ pub fn new_minimum_uncertainty() -> Engine<QuantumAction> {
 }
 
 /// Photon energy: E = hf.
-pub fn photon_energy(frequency: f64) -> f64 {
-    H * frequency
+pub fn photon_energy(frequency: f64) -> Quantity {
+    Quantity::new(H * frequency, Dimension::ENERGY)
 }
 
 /// De Broglie wavelength: λ = h/p.
-pub fn de_broglie_wavelength(momentum: f64) -> f64 {
-    H / momentum
+pub fn de_broglie_wavelength(momentum: f64) -> Quantity {
+    Quantity::new(H / momentum, Dimension::LENGTH)
 }
 
 /// Hydrogen energy levels: E_n = -13.6/n² eV.
-pub fn hydrogen_energy_level(n: u32) -> f64 {
-    -13.6 / (n as f64 * n as f64)
+pub fn hydrogen_energy_level(n: u32) -> Quantity {
+    Quantity::new(-13.6 / (n as f64 * n as f64), Dimension::ENERGY)
 }
 
 #[cfg(test)]
@@ -176,7 +181,7 @@ mod tests {
     fn test_minimum_uncertainty() {
         let p = QuantumParticle::minimum_uncertainty();
         assert!(p.heisenberg_holds());
-        assert!((p.uncertainty_product() - HBAR / 2.0).abs() < 1e-40);
+        assert!((p.uncertainty_product().value - HBAR / 2.0).abs() < 1e-40);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -203,8 +208,8 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_hydrogen_levels() {
-        assert!((hydrogen_energy_level(1) - (-13.6)).abs() < 1e-10);
-        assert!(hydrogen_energy_level(2) > hydrogen_energy_level(1)); // less negative
+        assert!((hydrogen_energy_level(1).value - (-13.6)).abs() < 1e-10);
+        assert!(hydrogen_energy_level(2).value > hydrogen_energy_level(1).value); // less negative
     }
 
     proptest! {
@@ -228,21 +233,21 @@ mod tests {
         /// E = hf: proportional
         #[test]
         fn prop_photon_proportional(f in 1e9..1e15f64) {
-            let e1 = photon_energy(f);
-            let e2 = photon_energy(2.0 * f);
+            let e1 = photon_energy(f).value;
+            let e2 = photon_energy(2.0 * f).value;
             prop_assert!((e2 - 2.0 * e1).abs() < 1e-30);
         }
 
         /// Hydrogen levels always negative
         #[test]
         fn prop_hydrogen_negative(n in 1..100u32) {
-            prop_assert!(hydrogen_energy_level(n) < 0.0);
+            prop_assert!(hydrogen_energy_level(n).value < 0.0);
         }
 
         /// Higher n → less negative
         #[test]
         fn prop_hydrogen_monotonic(n in 1..99u32) {
-            prop_assert!(hydrogen_energy_level(n + 1) > hydrogen_energy_level(n));
+            prop_assert!(hydrogen_energy_level(n + 1).value > hydrogen_energy_level(n).value);
         }
     }
 

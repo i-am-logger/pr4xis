@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// A note represented as a MIDI number (0-127).
 /// Middle C = 60, A4 = 69 (440Hz).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -15,14 +18,20 @@ impl Note {
     pub const A4: Self = Note(69);
     pub const B4: Self = Note(71);
 
-    /// Pitch class (0-11): C=0, C#=1, D=2, ... B=11.
-    pub fn pitch_class(&self) -> u8 {
-        self.0 % 12
+    /// Pitch class (0-11): C=0, C#=1, D=2, ... B=11. A dimensionless count,
+    /// not a physical quantity — see [`Note::octave`] for the same
+    /// reasoning.
+    pub fn pitch_class(&self) -> Quantity {
+        Quantity::from_unit((self.0 % 12) as f64, &unit::UNITLESS)
     }
 
-    /// Octave number (-1 to 9 in standard MIDI).
-    pub fn octave(&self) -> i8 {
-        (self.0 / 12) as i8 - 1
+    /// Octave number (-1 to 9 in standard MIDI). A dimensionless count, not
+    /// a physical quantity — carried as `Quantity` (unit `UNITLESS`) so it
+    /// composes with the rest of the codebase's typed-quantity boundary,
+    /// matching `formal::mereology::counting::ontology::cardinality`'s
+    /// precedent for dimensionless counts.
+    pub fn octave(&self) -> Quantity {
+        Quantity::from_unit(((self.0 / 12) as i8 - 1) as f64, &unit::UNITLESS)
     }
 
     /// Transpose by semitones. Returns None if out of MIDI range.
@@ -38,7 +47,7 @@ impl Note {
 
     /// Name of the pitch class.
     pub fn name(&self) -> &'static str {
-        match self.pitch_class() {
+        match self.pitch_class().value as u8 {
             0 => "C",
             1 => "C#",
             2 => "D",
@@ -55,9 +64,10 @@ impl Note {
         }
     }
 
-    /// Distance in semitones to another note.
-    pub fn distance_to(&self, other: Note) -> i16 {
-        other.0 as i16 - self.0 as i16
+    /// Distance in semitones to another note. A dimensionless interval
+    /// count — see [`Note::octave`] for the same reasoning.
+    pub fn distance_to(&self, other: Note) -> Quantity {
+        Quantity::from_unit((other.0 as i16 - self.0 as i16) as f64, &unit::UNITLESS)
     }
 
     /// Are these notes enharmonic (same pitch class)?

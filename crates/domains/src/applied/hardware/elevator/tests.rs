@@ -312,13 +312,13 @@ proptest! {
         building.request(Request::new(floor, dest, 80)).unwrap();
         let assignments = building.dispatch();
         if let Some(&(eid, _)) = assignments.first() {
-            let assigned_dist = building.elevators[eid].distance_to(floor);
+            let assigned_dist = building.elevators[eid].distance_to(floor).value;
             // The assigned elevator should be within 3x of the actual nearest
             // (because direction penalty is 3x)
             let min_dist = building.elevators.iter()
-                .map(|e| e.distance_to(floor))
-                .min().unwrap();
-            prop_assert!(assigned_dist <= min_dist * 3 + 1,
+                .map(|e| e.distance_to(floor).value)
+                .fold(f64::INFINITY, f64::min);
+            prop_assert!(assigned_dist <= min_dist * 3.0 + 1.0,
                 "assigned elevator {} (dist={}) but nearest is dist={}",
                 eid, assigned_dist, min_dist);
         }

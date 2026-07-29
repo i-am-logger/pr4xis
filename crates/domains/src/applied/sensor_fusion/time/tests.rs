@@ -7,6 +7,7 @@ use crate::applied::sensor_fusion::time::ontology::*;
 use crate::applied::sensor_fusion::time::synchronization;
 
 use crate::applied::sensor_fusion::sensor::modality::SensorType;
+use crate::formal::math::temporal::duration::Duration;
 use crate::formal::math::temporal::instant::Instant;
 use crate::formal::math::temporal::time_system::TimeSystem;
 
@@ -58,10 +59,16 @@ fn axiom_nearest_neighbor_bounded() {
 fn epoch_staleness_detection() {
     let epoch = FusionEpoch::from_gps_seconds(100.0, SensorType::GnssReceiver);
     let now = Instant::new(100.5, TimeSystem::GPS);
-    assert_eq!(epoch.is_stale(&now, 1.0), Some(false));
+    assert_eq!(
+        epoch.is_stale(&now, &Duration::from_seconds(1.0)),
+        Some(false)
+    );
 
     let later = Instant::new(102.0, TimeSystem::GPS);
-    assert_eq!(epoch.is_stale(&later, 1.0), Some(true));
+    assert_eq!(
+        epoch.is_stale(&later, &Duration::from_seconds(1.0)),
+        Some(true)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -74,12 +81,12 @@ fn clock_offset_conversion_round_trip() {
     let clock = SensorClock::new(
         SensorType::IMU,
         crate::formal::math::temporal::clock::ClockModel::ideal(),
-        0.003,
+        Duration::from_seconds(0.003),
     );
     let system_time = 500.0;
     let sensor_time = clock.from_system_time(system_time);
-    let recovered = clock.to_system_time(sensor_time);
-    assert!((recovered - system_time).abs() < 1e-12);
+    let recovered = clock.to_system_time(sensor_time.value);
+    assert!((recovered.value - system_time).abs() < 1e-12);
 }
 
 // ---------------------------------------------------------------------------
@@ -89,9 +96,15 @@ fn clock_offset_conversion_round_trip() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn interpolate_quarter_point() {
-    let (value, alpha) = synchronization::interpolate(0.0, 0.0, 4.0, 100.0, 1.0);
-    assert!((value - 25.0).abs() < 1e-10);
-    assert!((alpha - 0.25).abs() < 1e-10);
+    let (value, alpha) = synchronization::interpolate(
+        &Instant::new(0.0, TimeSystem::GPS),
+        0.0,
+        &Instant::new(4.0, TimeSystem::GPS),
+        100.0,
+        &Instant::new(1.0, TimeSystem::GPS),
+    );
+    assert!((value.value - 25.0).abs() < 1e-10);
+    assert!((alpha.value - 0.25).abs() < 1e-10);
 }
 
 // ---------------------------------------------------------------------------
@@ -113,11 +126,13 @@ mod proptest_proofs {
             dt in 0.001..10.0_f64,
         ) {
             let t1 = t0 + dt;
-            let (val_at_t0, _) = synchronization::interpolate(t0, v0, t1, v1, t0);
-            let (val_at_t1, _) = synchronization::interpolate(t0, v0, t1, v1, t1);
-            prop_assert!((val_at_t0 - v0).abs() < 1e-8,
+            let inst0 = Instant::new(t0, TimeSystem::GPS);
+            let inst1 = Instant::new(t1, TimeSystem::GPS);
+            let (val_at_t0, _) = synchronization::interpolate(&inst0, v0, &inst1, v1, &inst0);
+            let (val_at_t1, _) = synchronization::interpolate(&inst0, v0, &inst1, v1, &inst1);
+            prop_assert!((val_at_t0.value - v0).abs() < 1e-8,
                 "interpolation at t_before should return v_before");
-            prop_assert!((val_at_t1 - v1).abs() < 1e-8,
+            prop_assert!((val_at_t1.value - v1).abs() < 1e-8,
                 "interpolation at t_after should return v_after");
         }
 
@@ -131,9 +146,15 @@ mod proptest_proofs {
         ) {
             let t1 = t0 + dt;
             let mid = (t0 + t1) / 2.0;
-            let (val, _) = synchronization::interpolate(t0, v0, t1, v1, mid);
+            let (val, _) = synchronization::interpolate(
+                &Instant::new(t0, TimeSystem::GPS),
+                v0,
+                &Instant::new(t1, TimeSystem::GPS),
+                v1,
+                &Instant::new(mid, TimeSystem::GPS),
+            );
             let expected = (v0 + v1) / 2.0;
-            prop_assert!((val - expected).abs() < 1e-8);
+            prop_assert!((val.value - expected).abs() < 1e-8);
         }
 
         /// Extrapolation with zero rate returns original value.
@@ -142,8 +163,8 @@ mod proptest_proofs {
             v in -1000.0..1000.0_f64,
             dt in -10.0..10.0_f64,
         ) {
-            let result = synchronization::extrapolate(v, 0.0, dt);
-            prop_assert!((result - v).abs() < 1e-10);
+            let result = synchronization::extrapolate(v, 0.0, &Duration::from_seconds(dt));
+            prop_assert!((result.value - v).abs() < 1e-10);
         }
 
         /// Clock round-trip preserves time.
@@ -155,11 +176,11 @@ mod proptest_proofs {
             let clock = SensorClock::new(
                 SensorType::IMU,
                 crate::formal::math::temporal::clock::ClockModel::ideal(),
-                offset,
+                Duration::from_seconds(offset),
             );
             let sensor_t = clock.from_system_time(t);
-            let recovered = clock.to_system_time(sensor_t);
-            prop_assert!((recovered - t).abs() < 1e-10);
+            let recovered = clock.to_system_time(sensor_t.value);
+            prop_assert!((recovered.value - t).abs() < 1e-10);
         }
 
         /// Epoch age is non-negative when reference is after measurement.
@@ -171,7 +192,7 @@ mod proptest_proofs {
             let epoch = FusionEpoch::from_gps_seconds(t_meas, SensorType::IMU);
             let reference = Instant::new(t_meas + dt, TimeSystem::GPS);
             let age = epoch.age(&reference).unwrap();
-            prop_assert!(age >= -1e-10, "age should be non-negative: {}", age);
+            prop_assert!(age.value >= -1e-10, "age should be non-negative: {}", age.value);
         }
     }
 

@@ -5,8 +5,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::ontology::{
     Air21ProofStandardCategory, Air21ProofStandardConcept, Air21ProofStandardOntology,
-    Air21StringencyOf, ContributingFactorBelowReferencePartition, PartitionCompleteness,
-    ReferenceMinTierCoherence, is_leaf, leaves,
+    Air21StringencyOf, Air21StringencyTier, ContributingFactorBelowReferencePartition,
+    PartitionCompleteness, ReferenceMinTierCoherence, is_leaf, leaves,
 };
 use crate::social::judicial::proof_standard::ontology::{
     ProofStandardConcept, StringencyOf as ReferenceStringency,
@@ -59,7 +59,7 @@ fn contributing_factor_is_only_leaf() {
 fn contributing_factor_is_tier_zero() {
     assert_eq!(
         Air21StringencyOf.get(&Air21ProofStandardConcept::ContributingFactor),
-        Some(0)
+        Some(Air21StringencyTier::BelowPreponderance)
     );
 }
 
@@ -78,12 +78,14 @@ fn contributing_factor_strictly_below_reference_preponderance() {
     let air21 = Air21StringencyOf
         .get(&Air21ProofStandardConcept::ContributingFactor)
         .unwrap();
-    let preponderance = ReferenceStringency
-        .get(&ProofStandardConcept::Preponderance)
-        .unwrap();
+    let preponderance = Air21StringencyTier::Reference(
+        ReferenceStringency
+            .get(&ProofStandardConcept::Preponderance)
+            .unwrap(),
+    );
     assert!(
         air21 < preponderance,
-        "AIR21 contributing-factor tier {air21} must be strictly below reference preponderance tier {preponderance}"
+        "AIR21 contributing-factor tier {air21:?} must be strictly below reference preponderance tier {preponderance:?}"
     );
 }
 
@@ -98,10 +100,10 @@ fn contributing_factor_below_all_reference_tiers() {
         ProofStandardConcept::ClearAndConvincing,
         ProofStandardConcept::BeyondReasonableDoubt,
     ] {
-        let ref_tier = ReferenceStringency.get(&c).unwrap();
+        let ref_tier = Air21StringencyTier::Reference(ReferenceStringency.get(&c).unwrap());
         assert!(
             air21 < ref_tier,
-            "ContributingFactor tier {air21} must be below {c:?} tier {ref_tier}"
+            "ContributingFactor tier {air21:?} must be below {c:?} tier {ref_tier:?}"
         );
     }
 }

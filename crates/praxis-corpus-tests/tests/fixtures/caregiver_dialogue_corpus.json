@@ -1,0 +1,88 @@
+[
+  {
+    "name": "assets_yes_resolves_applies",
+    "description": "Opening question names the asset-transfer rule's evidence vocabulary (\"assets\"); an affirmative response-interjection satisfies the one Boolean slot and resolves the rule as applying.",
+    "turns": [
+      { "utterance": "is a widget eligible for the assets", "expectedOutcome": "Conditional" },
+      { "utterance": "yes", "expectedOutcome": "RuleResolved", "expectedApplies": true }
+    ]
+  },
+  {
+    "name": "assets_no_resolves_does_not_apply",
+    "description": "Same opening question; a negative response-interjection resolves the rule as NOT applying.",
+    "turns": [
+      { "utterance": "is a widget eligible for the assets", "expectedOutcome": "Conditional" },
+      { "utterance": "no", "expectedOutcome": "RuleResolved", "expectedApplies": false }
+    ]
+  },
+  {
+    "name": "fair_market_value_yes_resolves_applies",
+    "description": "A different content-word overlap (\"fair market value\", verbatim from the rule's own cited evidence text) opens the same rule.",
+    "turns": [
+      { "utterance": "is a widget eligible for the fair market value", "expectedOutcome": "Conditional" },
+      { "utterance": "yes", "expectedOutcome": "RuleResolved", "expectedApplies": true }
+    ]
+  },
+  {
+    "name": "spouse_no_resolves_does_not_apply",
+    "description": "A third content-word overlap (\"spouse\") opens the same rule; resolves NOT applying.",
+    "turns": [
+      { "utterance": "is a widget eligible for a spouse", "expectedOutcome": "Conditional" },
+      { "utterance": "no", "expectedOutcome": "RuleResolved", "expectedApplies": false }
+    ]
+  },
+  {
+    "name": "subject_phrase_varies_predicate_still_routes",
+    "description": "Varying the subject noun phrase (\"the applicant\" instead of \"a widget\") still reaches the predicate mechanism — the routing depends on the object's vocabulary overlap, not the subject.",
+    "turns": [
+      { "utterance": "is the applicant eligible for the assets", "expectedOutcome": "Conditional" },
+      { "utterance": "yes", "expectedOutcome": "RuleResolved", "expectedApplies": true }
+    ]
+  },
+  {
+    "name": "unrecognized_answer_reasks_then_resolves",
+    "description": "An answer that is not a loaded response-interjection (\"maybe\") does not fabricate a parse — the session re-states the SAME pending question rather than guessing or dropping the frame. A later recognized answer resolves it normally.",
+    "turns": [
+      { "utterance": "is a widget eligible for the assets", "expectedOutcome": "Conditional" },
+      { "utterance": "maybe", "expectedOutcome": "Conditional" },
+      { "utterance": "yes", "expectedOutcome": "RuleResolved", "expectedApplies": true }
+    ]
+  },
+  {
+    "name": "unrelated_question_mid_frame_reasks_rather_than_switching_topic",
+    "description": "While a rule is pending, an ordinary, well-formed but unrelated question (\"what is a dog\") is interpreted against the PENDING slot, not routed as a fresh question — it fails to parse as yes/no, so the session re-asks the same pending fact rather than silently abandoning the open frame.",
+    "turns": [
+      { "utterance": "is a widget eligible for the assets", "expectedOutcome": "Conditional" },
+      { "utterance": "what is a dog", "expectedOutcome": "Conditional" },
+      { "utterance": "no", "expectedOutcome": "RuleResolved", "expectedApplies": false }
+    ]
+  },
+  {
+    "name": "unrelated_eligibility_question_never_opens_a_frame",
+    "description": "An \"eligible for\" question whose object shares no vocabulary with the registry rule's own cited evidence text must never open a rule frame — the topic-overlap gate (task #28), a single-turn control case restated in dialogue form.",
+    "turns": [
+      { "utterance": "is a widget eligible for a benefit", "expectedOutcome": "Abstained" }
+    ]
+  },
+  {
+    "name": "real_corpus_shaped_eligibility_questions_never_misattribute",
+    "description": "The shape of the real 4617-question corpus's actual \"eligible for X\" questions (named benefit programs, not asset transfers) — none may resolve to the asset-transfer rule, run here as three independent single-turn exchanges in one session to confirm no cross-turn state leaks between unrelated questions. `Abstained` is the correct, honest outcome: \"eligible for\" is recognized as a governance predicate (predicate_lexicon.rs), but no loaded rule covers Medicare/Medicaid/TennCare eligibility specifically, so the pipeline admits it doesn't have that rule rather than fabricating one. (Previously expected `Answered` — that captured the pre-fix pipeline's actual behavior, which was a WordNet-sense dump of \"mother\"/\"eligible\"/\"medicare\" via the same over-eager fallback the Track 2.3 fix corrected, not a genuine eligibility determination.)",
+    "turns": [
+      { "utterance": "is my mother eligible for Medicare", "expectedOutcome": "Abstained" },
+      { "utterance": "is my mother eligible for Medicaid", "expectedOutcome": "Abstained" },
+      { "utterance": "is my mother eligible for TennCare", "expectedOutcome": "Abstained" }
+    ]
+  },
+  {
+    "name": "ordinary_questions_bracket_two_independent_resolved_frames",
+    "description": "One session, in order: an ordinary define question, a rule opened and resolved Applies, an ordinary is-a question, then a SECOND independent rule opened and resolved DoesNotApply — proving a session behaves identically to a stateless call when no frame is pending (task #17's own doc claim) and that resolving one frame leaves the session ready for a wholly separate one.",
+    "turns": [
+      { "utterance": "what is a dog", "expectedOutcome": "Answered" },
+      { "utterance": "is a widget eligible for the assets", "expectedOutcome": "Conditional" },
+      { "utterance": "yes", "expectedOutcome": "RuleResolved", "expectedApplies": true },
+      { "utterance": "is a dog an animal", "expectedOutcome": "Answered" },
+      { "utterance": "is a widget eligible for a spouse", "expectedOutcome": "Conditional" },
+      { "utterance": "no", "expectedOutcome": "RuleResolved", "expectedApplies": false }
+    ]
+  }
+]

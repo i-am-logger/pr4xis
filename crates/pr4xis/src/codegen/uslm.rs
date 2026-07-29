@@ -994,6 +994,7 @@ mod tests {
     /// subparagraphs.
     const SAMPLE_USLM: &str = r##"<section identifier="/us/usc/t18/s1514A"><num value="1514A">§ 1514A.</num><heading> Civil action to protect against retaliation in fraud cases</heading><subsection identifier="/us/usc/t18/s1514A/a"><num value="a">(a)</num><heading> <inline class="small-caps">Whistleblower Protection</inline></heading><chapeau>No company may discriminate against an employee—</chapeau><paragraph identifier="/us/usc/t18/s1514A/a/1"><num value="1">(1)</num><chapeau>to provide information—</chapeau><subparagraph identifier="/us/usc/t18/s1514A/a/1/A"><num value="A">(A)</num><content>a Federal regulatory or law enforcement agency;</content></subparagraph><subparagraph identifier="/us/usc/t18/s1514A/a/1/B"><num value="B">(B)</num><content>any Member of Congress;</content></subparagraph></paragraph><paragraph identifier="/us/usc/t18/s1514A/a/2"><num value="2">(2)</num><content>to file a proceeding.</content></paragraph></subsection><subsection identifier="/us/usc/t18/s1514A/b"><num value="b">(b)</num><heading> <inline class="small-caps">Enforcement Action</inline></heading><content>A person who alleges discharge may seek relief.</content></subsection></section>"##;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn default_tokenizer_config_classifies_usml_1_0_elements() {
         let c = UslmTokenizerConfig::default_uslm_1_0();
@@ -1025,6 +1026,7 @@ mod tests {
         assert_eq!(c.classify(b""), UslmElementClass::Other);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn from_level_substitution_group_preserves_section_as_container() {
         // Simulate the XSD's level-group membership for a subset
@@ -1057,6 +1059,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parse_uslm_str_with_xsd_grounded_config_matches_default() {
         // The XSD-grounded config built from a level-group set
@@ -1084,6 +1087,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_section_into_term_per_container() {
         let doc = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
@@ -1092,6 +1096,7 @@ mod tests {
         assert_eq!(doc.terms.len(), 7, "got terms: {:?}", doc.terms);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn curies_match_existing_convention() {
         let doc = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
@@ -1105,6 +1110,7 @@ mod tests {
         assert!(ids.contains(&"sox_1514a:a_1_B"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn composes_relations_form_strict_hierarchy() {
         let doc = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
@@ -1127,6 +1133,7 @@ mod tests {
         assert!(has_a_to_root, "(a) → § edge missing");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn headings_capture_inline_text() {
         let doc = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
@@ -1142,6 +1149,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn bodies_capture_chapeau_and_content() {
         let doc = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
@@ -1157,6 +1165,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn fallback_name_used_when_heading_absent() {
         let doc = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
@@ -1170,6 +1179,7 @@ mod tests {
         assert_eq!(a_1_a.name, "(a)(1)(A)");
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn section_not_found_returns_named_error() {
         let err =
@@ -1182,6 +1192,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn parser_is_deterministic() {
         let d1 = parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").unwrap();
@@ -1193,6 +1204,7 @@ mod tests {
         assert_eq!(d1.relations.len(), d2.relations.len());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn identifier_to_curie_section_root() {
         assert_eq!(
@@ -1201,6 +1213,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn identifier_to_curie_nested_subdivision() {
         assert_eq!(
@@ -1213,6 +1226,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn derive_name_from_id_formats_subdivision_markers() {
         assert_eq!(derive_name_from_id("sox_1514a:a"), "(a)");
@@ -1228,6 +1242,7 @@ mod tests {
     /// for `parse_uslm_title_all_sections_str`.
     const SAMPLE_TITLE_USLM: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">Title 18—</num><heading>CRIMES</heading><section identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>First</heading><content>x</content></section><section identifier="/us/usc/t18/s2"><num value="2">§ 2.</num><heading>Second</heading><subsection identifier="/us/usc/t18/s2/a"><num value="a">(a)</num><content>body</content></subsection></section></title>"##;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parse_uslm_title_all_sections_finds_every_section() {
         let docs = parse_uslm_title_all_sections_str(SAMPLE_TITLE_USLM).unwrap();
@@ -1238,6 +1253,7 @@ mod tests {
         assert!(names.contains(&"us_usc_t18_s2"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn section_identifier_to_statute_name_lowercases_and_slashifies() {
         assert_eq!(
@@ -1250,6 +1266,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn generate_title_module_source_emits_valid_rust_signature() {
         let src = generate_title_module_source_from_str(SAMPLE_TITLE_USLM).unwrap();
@@ -1263,6 +1280,7 @@ mod tests {
         assert!(src.contains("/us/usc/t18/s2"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn generate_title_module_source_handles_quotes_in_text() {
         // Content with double-quotes + hash signs — verifies raw-
@@ -1282,6 +1300,7 @@ mod tests {
     /// deleted standalone `sox_1514a-2002.xml` fixture — `pr4xis-domains` went
     /// crates.io-publishable, so the standalone granule no longer ships. FAILS
     /// LOUD (panics) when the corpus is absent; tests do not skip.
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn generate_title_module_source_on_real_sox_slice() {
         // Wrap the verbatim § 1514A `<section>` (sliced out of Title 18) in a
@@ -1308,6 +1327,7 @@ mod tests {
     /// under a second on Title 18 (12 MB, 1,399 sections). Earlier
     /// per-section re-parse pattern took ~14 seconds; this fixes
     /// it to O(XML_size) rather than O(N × XML_size).
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parse_title_18_is_single_pass_fast() {
         // The registered `usc_title_18` corpus — CI fetches it via
@@ -1338,6 +1358,7 @@ mod tests {
     /// does. Verifies the parser handles the actual published structure, not
     /// just the synthetic inline fixture above. FAILS LOUD (panics) when the
     /// corpus is absent; tests do not skip.
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn parses_real_sox_1514a_slice() {
         let xml = real_title_18_xml();

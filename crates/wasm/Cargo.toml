@@ -1,12 +1,24 @@
 [package]
 name = "pr4xis-wasm"
+# Never published. This is the browser build of the demonstrator — it ships as
+# a deployed page, not as a crate anyone depends on.
+#
+# Declaring it matters now that the crate is a workspace MEMBER: release-plz
+# computes each publishable member's next version from its crates.io baseline,
+# so the first tag cut for a publish=true crate that is absent from the registry
+# ABORTS the Release PR for the entire workspace. `publish = false` is what
+# exempts it, and CI's publish-invariant gate enforces the rule that every
+# member is either published or declared this way.
+publish = false
 version = "0.1.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "pr4xis chatbot — WASM build for browser"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
-homepage = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://pr4xis.dev"
+keywords = ["wasm", "pr4xis", "chatbot", "neurosymbolic"]
+categories = ["wasm", "web-programming"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -26,6 +38,16 @@ pr4xis-domains = { path = "../domains", features = ["prx"] }
 # into English. WASM-safe (sha2 + serde_ipld_dagcbor build for wasm32); same
 # crate `pr4xis-domains` already pulls in transitively.
 pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
+# The rkyv-native zero-copy load path (task #21): the browser converts
+# fetched, unaligned bytes into a 16-aligned `AlignedVec<16>` before handing
+# them to `pr4xis_runtime::ontology::materialize_bytes` — the SAME two-step
+# idiom every other rkyv consumer in this workspace uses (there is no
+# reusable "align arbitrary bytes" helper; see `store_bundle.rs`'s local
+# `aligned()`). Same version/features pr4xis-runtime itself pins, so the
+# workspace stays on one rkyv (rkyv's archived layout is toolchain-bound —
+# same-Cargo.lock is the trust class this crate's build.rs already relies on
+# for the English store bundle).
+rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"] }
 wasm-bindgen = "0.2"
 
 [dev-dependencies]
@@ -62,3 +84,10 @@ pr4xis-domains = { path = "../domains", features = ["prx"] }
 # emitter runs natively; the bytes + root are baked into the wasm via
 # include_bytes!/a const, so the demo `.prx` needs no network.
 pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
+# `ArchiveLens::put_aligned`, so build.rs can serialize a projected USC
+# `Archive` (task #21) directly to its rkyv local-cache bytes — the SAME
+# zero-copy format the English store bundle already uses — rather than the
+# content-addressed DAG-CBOR wire form (`pr4xis_runtime::load::emit`), which
+# would cost the browser an extra owned decode+re-encode pass it does not
+# need to pay for network-fetched, same-toolchain bytes.
+rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"] }

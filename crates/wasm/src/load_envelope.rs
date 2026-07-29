@@ -1,6 +1,6 @@
 //! Load-envelope ontology — the browser runtime's ONE typed load path
-//! ([`LoadRequest`](crate::Pr4xis) → [`Encoding`](crate::Encoding) →
-//! [`TrustAnchor`](crate::TrustAnchor) → `decode_and_project`) declared as a
+//! ([`LoadRequest`](crate::Pr4xis) → `Encoding` →
+//! `TrustAnchor` → `decode_and_project`) declared as a
 //! first-class praxis ontology, with its fail-closed guarantee as a runnable,
 //! registered axiom.
 //!
@@ -14,7 +14,7 @@
 //! concepts are declared, its edges are kinded, and its one guarantee — EVERY
 //! `Encoding` arm verifies its `TrustAnchor` BEFORE decoding a byte, and every
 //! gate refuses fail-closed — is [`LoadEnvelopeFailClosed`], whose `verify()`
-//! drives the REAL [`decode_and_project`](crate::decode_and_project) arms
+//! drives the REAL `decode_and_project` arms
 //! (never a restatement of the enum).
 //!
 //! # Literature
@@ -39,6 +39,9 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use pr4xis_runtime::address::ContentAddress;
+use pr4xis_runtime::archive::Archive;
+use pr4xis_runtime::definition::Definition;
+use pr4xis_runtime::lens::archive_lens::ArchiveLens;
 
 use crate::{Encoding, LoadError, TrustAnchor, decode_and_project, embedded_demo};
 
@@ -46,6 +49,28 @@ use crate::{Encoding, LoadError, TrustAnchor, decode_and_project, embedded_demo}
 /// the fail-closed axiom AND the native acceptance tests share, so the axiom
 /// exercises the same arm the load-a-statute demo drives.
 pub(crate) const SAMPLE_USLM_TITLE: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">Title 18—</num><heading>CRIMES AND CRIMINAL PROCEDURE</heading><section identifier="/us/usc/t18/s1"><num value="1">§ 1.</num><heading>First section</heading><content>Body text.</content></section></title>"##;
+
+/// A minimal, real `rkyv`-encoded [`Archive`] — the [`Encoding::RkyvArchive`]
+/// leg's valid-payload fixture. Built here (not read from a staged file: the
+/// axiom must hold even in a checkout with no fetched USC corpus) via the
+/// SAME `ArchiveLens::put_aligned` build.rs uses to stage a real title, so
+/// the axiom exercises the real encoder, not a hand-rolled byte literal.
+fn rkyv_probe_archive_bytes() -> (rkyv::util::AlignedVec<16>, ContentAddress) {
+    let archive = Archive {
+        nodes: vec![Definition {
+            kind: "Probe".to_string(),
+            name: "load-envelope-rkyv-probe".to_string(),
+            edges: Vec::new(),
+            axioms: Vec::new(),
+            lexical: None,
+        }],
+        connections: Vec::new(),
+    };
+    let root = archive
+        .root()
+        .expect("a single-node Archive has a derivable Merkle root");
+    (ArchiveLens::put_aligned(&archive), root)
+}
 
 pr4xis::ontology! {
     name: "LoadEnvelope",
@@ -58,7 +83,7 @@ pr4xis::ontology! {
         UslmTitleEncoding,
         OwlSourceEncoding,
         OwlPrxGzEncoding,
-        ContentAddressedArchiveEncoding,
+        RkyvArchiveEncoding,
         TransportAnchor,
         LockPinnedAnchor,
         MerkleRootAnchor,
@@ -77,8 +102,8 @@ pr4xis::ontology! {
             "A W3C OWL 2 RDF/XML source, decoded by read_owl and projected by the OWL bridge; its bytes carry no embedded hash, so its trust is the transport anchor."),
         OwlPrxGzEncoding: ("en", "OWL .prx.gz encoding",
             "The OWL .prx.gz distribution envelope (RFC 1952 wrapper), decoded by the three-pin gated load_prx_gz; its trust is the lock-pinned anchor (archive signature + source hash + RDFC-1.0 canonical id, looked up by name@version)."),
-        ContentAddressedArchiveEncoding: ("en", "Content-addressed archive encoding",
-            "The content-addressed .prx Archive, admitted by pr4xis_runtime::load::load re-deriving the Merkle root from the decoded content (Dolstra 2006); its trust is the Merkle-root anchor."),
+        RkyvArchiveEncoding: ("en", "rkyv archive encoding",
+            "A pre-projected rkyv local-cache .prx archive (tasks #21/#29) — the same-toolchain, same-Cargo.lock zero-copy form every build-baked or on-demand-fetched ontology in this crate uses, admitted by ontology::materialize_bytes then re-deriving the Merkle root from the decoded content and refusing on mismatch (Dolstra 2006); its trust is the Merkle-root anchor."),
         TransportAnchor: ("en", "Transport anchor",
             "Integrity rests on the host having fetched the bytes from the registry-pinned URL — the honest floor for source encodings whose bytes embed no hash."),
         LockPinnedAnchor: ("en", "Lock-pinned anchor",
@@ -93,7 +118,7 @@ pr4xis::ontology! {
         (UslmTitleEncoding, LoadEncoding),
         (OwlSourceEncoding, LoadEncoding),
         (OwlPrxGzEncoding, LoadEncoding),
-        (ContentAddressedArchiveEncoding, LoadEncoding),
+        (RkyvArchiveEncoding, LoadEncoding),
         (TransportAnchor, LoadTrustAnchor),
         (LockPinnedAnchor, LoadTrustAnchor),
         (MerkleRootAnchor, LoadTrustAnchor),
@@ -110,7 +135,7 @@ pr4xis::ontology! {
         (UslmTitleEncoding, TransportAnchor, Dependency),
         (OwlSourceEncoding, TransportAnchor, Dependency),
         (OwlPrxGzEncoding, LockPinnedAnchor, Dependency),
-        (ContentAddressedArchiveEncoding, MerkleRootAnchor, Dependency),
+        (RkyvArchiveEncoding, MerkleRootAnchor, Dependency),
     ],
 }
 
@@ -136,8 +161,8 @@ impl Quality for ConceptDescription {
             C::OwlPrxGzEncoding => {
                 ".prx.gz distribution envelope (RFC 1952) under the triple lock pin"
             }
-            C::ContentAddressedArchiveEncoding => {
-                "content-addressed .prx Archive under the re-derived Merkle root (Dolstra 2006)"
+            C::RkyvArchiveEncoding => {
+                "pre-projected rkyv archive, same-toolchain zero-copy, under the re-derived Merkle root"
             }
             C::TransportAnchor => "registry-pinned-URL transport trust (bytes embed no hash)",
             C::LockPinnedAnchor => "praxis.lock triple pin by name@version",
@@ -146,8 +171,8 @@ impl Quality for ConceptDescription {
     }
 }
 
-/// THE fail-closed load-envelope axiom: every [`Encoding`] arm of the REAL
-/// [`decode_and_project`] verifies its [`TrustAnchor`] BEFORE decoding — a
+/// THE fail-closed load-envelope axiom: every `Encoding` arm of the REAL
+/// `decode_and_project` verifies its `TrustAnchor` BEFORE decoding — a
 /// mismatched anchor is a typed `TrustMismatch` even when the payload is
 /// arbitrary garbage (were trust checked after decode, garbage would surface
 /// as a parse error instead) — and every gate refuses garbage / tampered /
@@ -163,13 +188,15 @@ impl LoadEnvelopeFailClosed {
     /// The predicate — every leg against the real arms. Returns `false` on the
     /// first violated leg.
     fn holds() -> bool {
-        let garbage: &[u8] = b"\xffnot any of the four formats\x00\x01\x02";
+        let garbage: &[u8] = b"\xffnot any of the five formats\x00\x01\x02";
         let demo = embedded_demo();
         let true_root = match ContentAddress::from_hex(demo.root_hex) {
             Some(root) => root,
             None => return false,
         };
         let wrong_root = ContentAddress::of(b"not the demo root");
+        let (rkyv_probe_buf, rkyv_true_root) = rkyv_probe_archive_bytes();
+        let rkyv_probe_bytes = rkyv_probe_buf.as_slice();
 
         // ── Leg 1: anchor verified BEFORE decode, on every arm. A GARBAGE
         // payload under a mismatched anchor must be TrustMismatch — a parse
@@ -183,7 +210,7 @@ impl LoadEnvelopeFailClosed {
                 },
             ),
             (Encoding::OwlPrxGz, TrustAnchor::Transport),
-            (Encoding::ContentAddressedArchive, TrustAnchor::Transport),
+            (Encoding::RkyvArchive, TrustAnchor::Transport),
         ];
         for (encoding, trust) in &mismatched {
             if !matches!(
@@ -233,18 +260,16 @@ impl LoadEnvelopeFailClosed {
         ) {
             return false;
         }
-        // The content-addressed gate: the TRUE bytes under a WRONG root are a
-        // typed root-mismatch refusal…
+        // The rkyv gate, over the REAL embedded demo bytes: the TRUE bytes
+        // under a WRONG root are a typed root-mismatch refusal…
         if !matches!(
             decode_and_project(
                 demo.name,
-                Encoding::ContentAddressedArchive,
+                Encoding::RkyvArchive,
                 &TrustAnchor::MerkleRoot(wrong_root),
                 demo.bytes,
             ),
-            Err(LoadError::Refused(
-                pr4xis_runtime::load::LoadError::RootMismatch { .. }
-            ))
+            Err(LoadError::RkyvRootMismatch { .. })
         ) {
             return false;
         }
@@ -256,21 +281,70 @@ impl LoadEnvelopeFailClosed {
         if !matches!(
             decode_and_project(
                 demo.name,
-                Encoding::ContentAddressedArchive,
+                Encoding::RkyvArchive,
                 &TrustAnchor::MerkleRoot(true_root),
                 &tampered,
             ),
-            Err(LoadError::Refused(_))
+            Err(LoadError::Materialize(_)) | Err(LoadError::RkyvRootMismatch { .. })
         ) {
+            return false;
+        }
+        // The rkyv gate over a SEPARATE minimal synthetic archive: garbage
+        // bytes under the RIGHT anchor kind fail
+        // bytecheck validation inside `materialize_bytes` — a typed
+        // Materialize refusal, never a silent admit.
+        if !matches!(
+            decode_and_project(
+                "rkyv-probe",
+                Encoding::RkyvArchive,
+                &TrustAnchor::MerkleRoot(rkyv_true_root),
+                garbage,
+            ),
+            Err(LoadError::Materialize(_))
+        ) {
+            return false;
+        }
+        // The TRUE rkyv bytes under a WRONG root are a typed root-mismatch
+        // refusal (materialize_bytes takes no root of its own to check
+        // against — the comparison this axiom exercises is the one
+        // decode_and_project's RkyvArchive arm adds).
+        if !matches!(
+            decode_and_project(
+                "rkyv-probe",
+                Encoding::RkyvArchive,
+                &TrustAnchor::MerkleRoot(wrong_root),
+                rkyv_probe_bytes,
+            ),
+            Err(LoadError::RkyvRootMismatch { .. })
+        ) {
+            return false;
+        }
+        // …and TAMPERED rkyv bytes under the TRUE root are refused too
+        // (either bytecheck rejects the corrupted buffer, or a corruption
+        // bytecheck admits still re-derives a different root — both are
+        // typed refusals, never a silent admit).
+        let mut rkyv_tampered = rkyv_probe_bytes.to_vec();
+        if let Some(last) = rkyv_tampered.last_mut() {
+            *last ^= 0xff;
+        }
+        if decode_and_project(
+            "rkyv-probe",
+            Encoding::RkyvArchive,
+            &TrustAnchor::MerkleRoot(rkyv_true_root),
+            &rkyv_tampered,
+        )
+        .is_ok()
+        {
             return false;
         }
 
         // ── Leg 3: positive controls — the refusals above are not vacuous.
         // The true demo bytes under the true root load; the sample USLM title
-        // parses and projects under transport trust.
+        // parses and projects under transport trust; the true rkyv probe
+        // bytes under their own true root load too.
         decode_and_project(
             demo.name,
-            Encoding::ContentAddressedArchive,
+            Encoding::RkyvArchive,
             &TrustAnchor::MerkleRoot(true_root),
             demo.bytes,
         )
@@ -280,6 +354,13 @@ impl LoadEnvelopeFailClosed {
                 Encoding::UslmTitle,
                 &TrustAnchor::Transport,
                 SAMPLE_USLM_TITLE.as_bytes(),
+            )
+            .is_ok()
+            && decode_and_project(
+                "rkyv-probe",
+                Encoding::RkyvArchive,
+                &TrustAnchor::MerkleRoot(rkyv_true_root),
+                rkyv_probe_bytes,
             )
             .is_ok()
     }

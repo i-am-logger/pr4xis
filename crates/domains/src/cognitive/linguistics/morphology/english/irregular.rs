@@ -57,6 +57,37 @@ pub fn english_irregulars() -> Vec<IrregularForm> {
     }
 }
 
+/// Scan every loaded irregular row WITHOUT materializing a copy of the table.
+///
+/// [`english_irregulars`] hands back an owned `Vec`, which means every caller
+/// that only wants to *read* the table pays for a full clone of ~7,470 rows,
+/// each carrying two heap `String`s. That is fine once; it is catastrophic on
+/// a hot path. `lexical_lookup_all`
+/// ([`English`](crate::cognitive::linguistics::english::ontology)) calls
+/// [`ing_form`](super::generation::ing_form) and
+/// [`is_plural_form_of`](super::generation::is_plural_form_of) per lemmatized
+/// stem candidate per token, so the clone was measured firing 156 times per
+/// statute work-unit — about 2.33 million `String` allocations per unit, and
+/// ~71% of all executed instructions in a `defines` compile were the glibc
+/// allocator as a direct result. Scanning the cached slice instead is the
+/// same work minus the copy: 593–613 µs to clone the table versus 4.0–9.5 µs
+/// to scan it, measured over 2,000 iterations in-process.
+///
+/// Takes a closure rather than returning a slice because the `no_std`/wasm
+/// build has no `OnceLock` to own a `'static` cache; there it parses into a
+/// local `Vec` and lends it for the duration of the call, so both targets get
+/// the same borrowing API and neither clones.
+pub fn with_irregulars<R>(scan: impl FnOnce(&[IrregularForm]) -> R) -> R {
+    #[cfg(feature = "std")]
+    {
+        scan(irregulars_cached())
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        scan(&parse_irregulars_tsv(&irregulars_tsv()))
+    }
+}
+
 /// The process-wide cached parse of the AGID-derived TSV (`std` only) — the slice
 /// [`lookup_irregular`] scans without cloning or re-parsing.
 #[cfg(feature = "std")]
@@ -77,6 +108,7 @@ fn parse_irregulars_tsv(tsv: &str) -> Vec<IrregularForm> {
                 "PluralNoun" => IrregularKind::PluralNoun,
                 "PastTense" => IrregularKind::PastTense,
                 "PastParticiple" => IrregularKind::PastParticiple,
+                "PresentParticiple" => IrregularKind::PresentParticiple,
                 "Comparative" => IrregularKind::Comparative,
                 "Superlative" => IrregularKind::Superlative,
                 _ => return None,
@@ -146,44 +178,18 @@ mod regenerate {
         }
     }
 
-    /// Regular plural forms (Quirk et al. 1985 §3.21): +s; +es after a
-    /// sibilant / final -o; consonant+y → -ies; f(e) → -ves.
-    fn regular_plurals(base: &str) -> Vec<String> {
-        let mut v = vec![format!("{base}s")];
-        if base.ends_with('s')
-            || base.ends_with('x')
-            || base.ends_with('z')
-            || base.ends_with("ch")
-            || base.ends_with("sh")
-            || base.ends_with('o')
-        {
-            v.push(format!("{base}es"));
-        }
-        if let Some(stem) = ends_consonant_y(base) {
-            v.push(format!("{stem}ies"));
-        }
-        if let Some(stem) = base.strip_suffix("fe") {
-            v.push(format!("{stem}ves"));
-        } else if let Some(stem) = base.strip_suffix('f') {
-            v.push(format!("{stem}ves"));
-        }
-        v
-    }
-
     /// Regular -ed forms (past tense / past participle): +ed; final-e → +d;
     /// consonant+y → -ied; CVC doubling → +Ced.
+    ///
+    /// Delegates to the RUNTIME twin
+    /// ([`generation::regular_past_participle_candidates`](super::super::generation::regular_past_participle_candidates))
+    /// so the exception extractor and the runtime dual-route participle check
+    /// share ONE copy of the cited Quirk §3 rule — the same sharing
+    /// `regular_plural_candidates` already establishes for the plural. The
+    /// runtime version states the same alternations over the LOADED grapheme
+    /// classes rather than a local vowel literal.
     fn regular_ed(base: &str) -> Vec<String> {
-        let mut v = vec![format!("{base}ed")];
-        if base.ends_with('e') {
-            v.push(format!("{base}d"));
-        }
-        if let Some(stem) = ends_consonant_y(base) {
-            v.push(format!("{stem}ied"));
-        }
-        if let Some(c) = doubles_final(base) {
-            v.push(format!("{base}{c}ed"));
-        }
-        v
+        super::super::generation::regular_past_participle_candidates(base)
     }
 
     /// Regular comparative/superlative with a given suffix (-er/-est).
@@ -267,7 +273,7 @@ mod regenerate {
             "N" => {
                 push_if_irregular(
                     primary_form(groups[0]),
-                    &regular_plurals(base),
+                    &super::super::generation::regular_plural_candidates(base),
                     "PluralNoun",
                     out,
                 );
@@ -276,7 +282,12 @@ mod regenerate {
                 // `be` has AGID's documented special slot order
                 // (was | were | been | being | am | art | is | are).
                 if base == "be" {
-                    for (g, kind) in [(0, "PastTense"), (1, "PastTense"), (2, "PastParticiple")] {
+                    for (g, kind) in [
+                        (0, "PastTense"),
+                        (1, "PastTense"),
+                        (2, "PastParticiple"),
+                        (3, "PresentParticiple"),
+                    ] {
                         if let Some(f) = groups.get(g).and_then(|x| primary_form(x)) {
                             out.push((f, base.to_string(), kind));
                         }
@@ -285,10 +296,21 @@ mod regenerate {
                 }
                 let ed = regular_ed(base);
                 // group[0] = past tense; group[1] = past participle when the
-                // verb carries the full `past | pp | -ing | -s` layout.
+                // verb carries the full `past | pp | -ing | -s` layout —
+                // otherwise the 3-group layout is `past | -ing | -s`, so the
+                // -ing group is always the second-to-last of >= 3 groups.
                 push_if_irregular(primary_form(groups[0]), &ed, "PastTense", out);
                 if groups.len() >= 4 {
                     push_if_irregular(primary_form(groups[1]), &ed, "PastParticiple", out);
+                }
+                if groups.len() >= 3 {
+                    let rule = super::super::generation::present_participle_rule(base);
+                    push_if_irregular(
+                        primary_form(groups[groups.len() - 2]),
+                        core::slice::from_ref(&rule),
+                        "PresentParticiple",
+                        out,
+                    );
                 }
             }
             "A" => {
@@ -323,6 +345,120 @@ mod regenerate {
         out.sort();
         out.dedup();
         out
+    }
+
+    /// The AGID ORACLE SWEEP — the inverse law that makes AGID the authority
+    /// over the dual-route split: for EVERY verb line in the source,
+    /// `ing_form(lemma)` (memory route = the freshly extracted exceptions,
+    /// rule route = `present_participle_rule`) must reproduce AGID's own
+    /// -ing column. A disagreement means the rule route mis-generates a form
+    /// the exception table failed to store — a failing test, never a silent
+    /// "chelateing". Follows the regen precedent: prints-and-returns when the
+    /// fetched AGID source is absent (run after `pr4xis update agid`).
+    #[pr4xis::praxis_value(Verifiable, Honest)]
+    #[test]
+    fn agid_is_the_oracle_for_the_ing_rule_route() {
+        let Ok(agid) = std::fs::read_to_string(AGID_PATH) else {
+            eprintln!(
+                "agid-infl.txt absent at {AGID_PATH} — fetch with `pr4xis update agid` \
+                 to run the oracle sweep; skipping."
+            );
+            return;
+        };
+        let mut checked = 0usize;
+        let mut mismatches: Vec<String> = Vec::new();
+        for line in agid.lines() {
+            let Some((head, forms)) = line.split_once(':') else {
+                continue;
+            };
+            let mut hp = head.split_whitespace();
+            let (Some(base), Some(pos_raw)) = (hp.next(), hp.next()) else {
+                continue;
+            };
+            if pos_raw.trim_end_matches('?') != "V"
+                || base == "be"
+                || !base.chars().all(|c| c.is_ascii_lowercase() || c == '\'')
+            {
+                continue;
+            }
+            let groups: Vec<&str> = forms.split('|').map(|g| g.trim()).collect();
+            if groups.len() < 3 {
+                continue;
+            }
+            let Some(agid_ing) = primary_form(groups[groups.len() - 2]) else {
+                continue;
+            };
+            // The RUNTIME dual route — the COMMITTED loaded exception table
+            // (not this extraction run) blocking the rule — so a stale
+            // committed TSV, a dropped parse arm, or a rule drift all fail
+            // here against the live source.
+            let generated = super::super::generation::ing_form(base);
+            checked += 1;
+            if generated != agid_ing && mismatches.len() < 20 {
+                mismatches.push(format!("{base}: generated {generated}, AGID {agid_ing}"));
+            }
+        }
+        assert!(checked > 10_000, "the sweep covered the verb inventory");
+        assert!(
+            mismatches.is_empty(),
+            "ing_form disagrees with the AGID oracle on {} verbs (first 20):\n{}",
+            mismatches.len(),
+            mismatches.join("\n")
+        );
+    }
+
+    /// The AGID ORACLE SWEEP for nouns — the plural-formation counterpart of
+    /// [`agid_is_the_oracle_for_the_ing_rule_route`]: for EVERY noun line in
+    /// the source, [`super::super::generation::is_plural_form_of`] (memory
+    /// route = the freshly extracted PluralNoun exceptions, rule route =
+    /// [`super::super::generation::regular_plural_candidates`]) must accept
+    /// AGID's own primary plural spelling. A disagreement means either the
+    /// rule route cannot produce a form the exception table failed to store,
+    /// or the dual-route check wrongly rejects a genuine plural — a failing
+    /// test, never a silent gap in bare-plural-NP detection ([Construction
+    /// D], task #38).
+    #[pr4xis::praxis_value(Verifiable, Honest)]
+    #[test]
+    fn agid_is_the_oracle_for_the_plural_noun_rule_route() {
+        let Ok(agid) = std::fs::read_to_string(AGID_PATH) else {
+            eprintln!(
+                "agid-infl.txt absent at {AGID_PATH} — fetch with `pr4xis update agid` \
+                 to run the oracle sweep; skipping."
+            );
+            return;
+        };
+        let mut checked = 0usize;
+        let mut mismatches: Vec<String> = Vec::new();
+        for line in agid.lines() {
+            let Some((head, forms)) = line.split_once(':') else {
+                continue;
+            };
+            let mut hp = head.split_whitespace();
+            let (Some(base), Some(pos_raw)) = (hp.next(), hp.next()) else {
+                continue;
+            };
+            if pos_raw.trim_end_matches('?') != "N"
+                || !base.chars().all(|c| c.is_ascii_lowercase() || c == '\'')
+            {
+                continue;
+            }
+            let groups: Vec<&str> = forms.split('|').map(|g| g.trim()).collect();
+            let Some(agid_plural) = groups.first().and_then(|g| primary_form(g)) else {
+                continue;
+            };
+            let accepted = super::super::generation::is_plural_form_of(base, &agid_plural);
+            checked += 1;
+            if !accepted && mismatches.len() < 20 {
+                mismatches.push(format!("{base}: AGID plural {agid_plural} not accepted"));
+            }
+        }
+        assert!(checked > 10_000, "the sweep covered the noun inventory");
+        assert!(
+            mismatches.is_empty(),
+            "is_plural_form_of disagrees with the AGID oracle on {} nouns (first 20):\n{}",
+            mismatches.len(),
+            mismatches.join("\n")
+        );
     }
 
     /// Regenerate the committed `english-irregulars.tsv` from the vendored
@@ -382,6 +518,58 @@ mod tests {
             assert!(
                 surfaces.contains(w),
                 "missing high-frequency irregular: {w}"
+            );
+        }
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn every_committed_kind_string_parses() {
+        // The kind parser's `_ => return None` arm silently drops rows whose
+        // kind string it does not know — so a TSV regenerated with a NEW kind
+        // before the enum arm lands would silently shrink the loaded table.
+        // Pin: every non-comment row of the committed slice parses.
+        let tsv = irregulars_tsv();
+        let rows = tsv
+            .lines()
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .count();
+        assert_eq!(
+            english_irregulars().len(),
+            rows,
+            "committed rows were silently dropped by the kind parser"
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn present_participle_exceptions_present() {
+        // The -ing slice of the dual route: ie→y (die → dying), the
+        // suppletive "being", k-insertion (traffic → trafficking), and
+        // stress-driven polysyllabic doubling (admit → admitting) are all
+        // memory-route rows the deterministic rule cannot produce.
+        let table = english_irregulars();
+        for (surface, lemma) in [
+            ("dying", "die"),
+            ("being", "be"),
+            ("trafficking", "traffic"),
+            ("admitting", "admit"),
+        ] {
+            assert!(
+                table.iter().any(|e| e.surface == surface
+                    && e.lemma == lemma
+                    && e.kind == IrregularKind::PresentParticiple),
+                "missing PresentParticiple exception: {surface} → {lemma}"
+            );
+        }
+        // ...and rule-predictable spellings are NOT stored (exceptions-only,
+        // per the TSV header contract).
+        for regular in ["coughing", "exhaling", "seeing", "visiting", "carrying"] {
+            assert!(
+                !table
+                    .iter()
+                    .any(|e| e.surface == regular && e.kind == IrregularKind::PresentParticiple),
+                "rule-predictable form stored as an exception: {regular}"
             );
         }
     }

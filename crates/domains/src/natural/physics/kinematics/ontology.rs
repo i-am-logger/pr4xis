@@ -22,6 +22,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::geometry::point::Point3;
 use crate::formal::math::quantity::unit::{self, Unit};
+use crate::formal::math::quantity::value::Quantity;
 
 use crate::natural::physics::kinematics::acceleration::Acceleration as AccelerationVec;
 use crate::natural::physics::kinematics::motion_model::{self, MotionModelType};
@@ -57,20 +58,25 @@ pr4xis::ontology! {
 }
 
 /// Quality: derivative order (0 = position, 1 = velocity, 2 = acceleration, 3 = jerk).
+///
+/// The order is an ordinal, not a physical quantity, so it is a
+/// dimensionless [`Quantity`] (see `formal::mereology::counting::ontology::
+/// cardinality` for the same treatment of a bare count).
 #[derive(Debug, Clone)]
 pub struct DerivativeOrder;
 
 impl Quality for DerivativeOrder {
     type Individual = KinematicsConcept;
-    type Value = usize;
+    type Value = Quantity;
 
-    fn get(&self, q: &KinematicsConcept) -> Option<usize> {
-        Some(match q {
+    fn get(&self, q: &KinematicsConcept) -> Option<Quantity> {
+        let order = match q {
             KinematicsConcept::Position => 0,
             KinematicsConcept::Velocity => 1,
             KinematicsConcept::Acceleration => 2,
             KinematicsConcept::Jerk => 3,
-        })
+        };
+        Some(Quantity::dimensionless(order as f64))
     }
 }
 
@@ -331,7 +337,7 @@ impl Axiom for SpeedNonNegative {
             VelocityVec::new(-5.0, 3.0, -2.0),
             VelocityVec::new(100.0, -200.0, 300.0),
         ];
-        if test_velocities.iter().all(|v| v.speed() >= 0.0) {
+        if test_velocities.iter().all(|v| v.speed().value >= 0.0) {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -426,8 +432,14 @@ mod tests {
         for c in KinematicsConcept::variants() {
             assert!(q.get(&c).is_some());
         }
-        assert_eq!(q.get(&KinematicsConcept::Position), Some(0));
-        assert_eq!(q.get(&KinematicsConcept::Jerk), Some(3));
+        assert_eq!(
+            q.get(&KinematicsConcept::Position),
+            Some(Quantity::dimensionless(0.0))
+        );
+        assert_eq!(
+            q.get(&KinematicsConcept::Jerk),
+            Some(Quantity::dimensionless(3.0))
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]

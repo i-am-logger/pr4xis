@@ -4,6 +4,8 @@ use pr4xis::ontology::Ontology;
 
 use crate::applied::industrial::process::engine::*;
 use crate::applied::industrial::process::ontology::*;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -35,7 +37,9 @@ fn pressure_non_negative_holds() {
 fn celsius_kelvin_roundtrip() {
     let c = 25.0;
     let k = celsius_to_kelvin(c);
-    let c2 = kelvin_to_celsius(k);
+    let c2 = kelvin_to_celsius(k.value)
+        .in_unit(&unit::CELSIUS)
+        .expect("TEMPERATURE quantity must convert to CELSIUS");
     assert!((c - c2).abs() < 1e-12);
 }
 
@@ -43,7 +47,7 @@ fn celsius_kelvin_roundtrip() {
 #[test]
 fn absolute_zero_is_zero_kelvin() {
     let k = celsius_to_kelvin(-273.15);
-    assert!(k.abs() < 1e-10);
+    assert!(k.value.abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -81,7 +85,7 @@ fn pid_controller_drives_to_setpoint() {
     let dt = 0.1;
 
     for _ in 0..1000 {
-        let output = pid.update(setpoint, value, dt);
+        let output = pid.update(setpoint, value, dt).value;
         // Simple first-order plant: value changes proportionally to output
         value += (output - value) * dt;
     }
@@ -98,7 +102,7 @@ fn pid_controller_drives_to_setpoint() {
 #[test]
 fn pid_output_clamped() {
     let mut pid = PidController::new(100.0, 0.0, 0.0, 0.0, 10.0);
-    let output = pid.update(100.0, 0.0, 0.1);
+    let output = pid.update(100.0, 0.0, 0.1).value;
     assert!(
         output <= 10.0,
         "output should be clamped to max: {}",
@@ -112,8 +116,8 @@ fn pid_reset_clears_state() {
     let mut pid = PidController::new(1.0, 1.0, 1.0, -100.0, 100.0);
     pid.update(50.0, 0.0, 1.0);
     pid.reset();
-    assert!((pid.integral()).abs() < 1e-12);
-    assert!((pid.prev_error()).abs() < 1e-12);
+    assert!((pid.integral().value).abs() < 1e-12);
+    assert!((pid.prev_error().value).abs() < 1e-12);
 }
 
 /// The wrapped PID delegates to control_theory and produces the same results.
@@ -129,16 +133,24 @@ fn pid_delegates_to_control_theory() {
 
     // Create both: the wrapper and a raw control_theory PID
     let mut wrapper = PidController::new(kp, ki, kd, -100.0, 100.0);
-    let gains = ct_pid::PidGains::new(kp, ki, kd);
-    let mut raw = ct_pid::PidController::new(gains, dt).with_limits(-100.0, 100.0);
+    let gains = ct_pid::PidGains::new(
+        Quantity::dimensionless(kp),
+        Quantity::dimensionless(ki),
+        Quantity::dimensionless(kd),
+    );
+    let mut raw = ct_pid::PidController::new(gains, Quantity::from_unit(dt, &unit::SECOND))
+        .with_limits(
+            Quantity::dimensionless(-100.0),
+            Quantity::dimensionless(100.0),
+        );
 
     // Feed the same error sequence and compare outputs
     let setpoint = 10.0;
     let measured = 3.0;
     let error = setpoint - measured;
 
-    let out_wrapper = wrapper.update(setpoint, measured, dt);
-    let out_raw = raw.update(error);
+    let out_wrapper = wrapper.update(setpoint, measured, dt).value;
+    let out_raw = raw.update(Quantity::dimensionless(error)).value;
 
     assert!(
         (out_wrapper - out_raw).abs() < 1e-12,
@@ -157,9 +169,11 @@ mod proptest_proofs {
         #[test]
         fn celsius_kelvin_roundtrip_property(celsius in -273.15..1000.0_f64) {
             let kelvin = celsius_to_kelvin(celsius);
-            let back = kelvin_to_celsius(kelvin);
+            let back = kelvin_to_celsius(kelvin.value)
+                .in_unit(&unit::CELSIUS)
+                .expect("TEMPERATURE quantity must convert to CELSIUS");
             prop_assert!((celsius - back).abs() < 1e-10,
-                "roundtrip failed: {} -> {} -> {}", celsius, kelvin, back);
+                "roundtrip failed: {} -> {:?} -> {}", celsius, kelvin, back);
         }
 
         #[test]
@@ -169,7 +183,7 @@ mod proptest_proofs {
             kp in 0.1..10.0_f64
         ) {
             let mut pid = PidController::new(kp, 0.0, 0.0, 0.0, 100.0);
-            let output = pid.update(setpoint, measured, 0.1);
+            let output = pid.update(setpoint, measured, 0.1).value;
             prop_assert!((0.0..=100.0).contains(&output),
                 "output {} out of [0, 100]", output);
         }
@@ -187,7 +201,7 @@ mod proptest_proofs {
             let mut pid = PidController::new(kp, ki, kd, lo, hi);
             // Feed multiple steps to accumulate integral
             for _ in 0..5 {
-                let output = pid.update(setpoint, measured, 0.1);
+                let output = pid.update(setpoint, measured, 0.1).value;
                 prop_assert!(output >= lo && output <= hi,
                     "output {} out of [{}, {}]", output, lo, hi);
             }

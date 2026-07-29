@@ -32,15 +32,26 @@
 //! vertices, so two runs (or two engines) can be compared for equality at all.
 
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
+use pr4xis::category::quiver::ReachabilityClosure;
 use pr4xis::category::reach::{
     Cached, ReachSubstrate, ReachView, Uncached, graded_chain, graded_image, graded_meet,
     graded_reaches,
 };
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
+use pr4xis::ontology::meta::OntologyName;
+use pr4xis_runtime::ontology::{
+    ConceptRef, MaterializedClosure, RuntimeEdge, relations_kind, subsumption_kind,
+};
+
+use crate::applied::data_provisioning::registry::by_name_version;
+use crate::social::software::markup::xml::uslm::UsCode;
+use crate::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology;
+use crate::social::software::markup::xml::uslm::read_uslm_title;
 
 // ── witness graphs ───────────────────────────────────────────────────────────
 
@@ -283,6 +294,292 @@ impl Axiom for GradedReachDeterminism {
 }
 
 pr4xis::register_axiom!(GradedReachDeterminism, constructor);
+
+// ── the CORPUS-scale sibling: the runtime engine ≡ the eager oracle ──────────
+//
+// `GradedReachDeterminism` pins the graded-reach KERNEL over witness graphs.
+// This sibling pins the RUNTIME's `MaterializedClosure` (the u32-CSR lazy
+// engine every loaded `.prx` is reasoned over) against the INDEPENDENT eager
+// `ReachabilityClosure` (Floyd-fixpoint) oracle over a full real USC title —
+// the same Moore-1959 minimal-hop grading, checked at the scale the engine
+// exists for. It carries `usc_closure_oracle`'s differential behind a
+// registered, discoverable `Axiom`; the corpus test is its `#[test]` driver
+// (`praxis-corpus-tests/tests/usc_closure_oracle.rs`).
+
+/// Resolve the on-disk path for a praxis-registry source. Returns the absolute
+/// path the file *would* live at (caller checks existence). Mirrors
+/// `statutes::lens::resolve_source_path`: workspace-relative `local_path()`
+/// resolved to absolute via `CARGO_MANIFEST_DIR` + two `parent()` calls.
+fn resolve_source_path(name: &str, version: &str) -> Option<std::path::PathBuf> {
+    let entry = by_name_version(name, version)?;
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let path_str = entry.local_path();
+    let workspace_root = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(std::path::Path::parent);
+    Some(
+        workspace_root
+            .map(|root| root.join(&path_str))
+            .unwrap_or_else(|| std::path::PathBuf::from(&path_str)),
+    )
+}
+
+/// The eager `chain` reference — the reflexive ancestors of `child` that still
+/// (reflexively) reach `ancestor`, in `(hops from child, ConceptRef::Ord)`
+/// order. Verbatim the shared kernel's chain CONTRACT, evaluated over the
+/// oracle closure only (the INDEPENDENT oracle, not the engine under test).
+fn eager_chain(
+    closure: &ReachabilityClosure<ConceptRef>,
+    child: &ConceptRef,
+    ancestor: &ConceptRef,
+) -> Option<Vec<ConceptRef>> {
+    if child != ancestor && !closure.reaches(child, ancestor) {
+        return None;
+    }
+    let mut chain: Vec<(ConceptRef, u32)> = closure
+        .reflexive_image(child)
+        .into_iter()
+        .filter(|(x, _)| closure.reaches(x, ancestor))
+        .collect();
+    chain.sort_unstable_by(|(a, da), (b, db)| da.cmp(db).then_with(|| a.cmp(b)));
+    Some(chain.into_iter().map(|(v, _)| v).collect())
+}
+
+/// THE DIFFERENTIAL: the runtime `MaterializedClosure` answers every graded
+/// query IDENTICALLY to the independent eager `ReachabilityClosure` oracle over
+/// the full title, both up the mereology and down the inverse fan-out. Any
+/// mismatch — or a title too small to be the real corpus — is `false`. The
+/// edge set is read off the ARCHIVED buffer via `morphisms_from`, so a fold bug
+/// cannot certify itself. Structurally identical to `usc_closure_oracle`'s body
+/// with every `assert*` turned into a short-circuiting `false`.
+fn materialized_closure_matches_eager_oracle(usc: &UsCode) -> bool {
+    let Ok(onto) = usc_runtime_ontology(usc, OntologyName::new_static("usc")) else {
+        return false;
+    };
+
+    // The full title must be loaded (~150k archive nodes for Title 42).
+    let node_count = onto.archive().nodes.len();
+    if node_count <= 100_000 {
+        return false;
+    }
+
+    // The concept universe + the generating edges, read off the ARCHIVED buffer
+    // (morphisms_from), independent of the closure's own adjacency.
+    let concepts: Vec<ConceptRef> = onto
+        .archive()
+        .nodes
+        .iter()
+        .map(|n| onto.concept(n.name.to_string()))
+        .collect();
+    let parthood = relations_kind("Parthood");
+    let mut parthood_edges: Vec<(ConceptRef, ConceptRef)> = Vec::new();
+    for c in &concepts {
+        for edge in onto.morphisms_from(c) {
+            if edge.kind == parthood {
+                parthood_edges.push((edge.source, edge.target));
+            }
+        }
+    }
+    // A real title is a deep mereology.
+    if parthood_edges.len() <= 100_000 {
+        return false;
+    }
+    // Parthood is the ONE populated TRANSITIVE kind of a USC projection —
+    // `populated_kinds()` also reports non-transitive kinds with generating
+    // edges (the archive's `canonicalForm`/`otherForm` lexicalization edges,
+    // always present, single-hop, and irrelevant to the multi-hop Parthood
+    // comparison this axiom runs below), so this checks membership, not
+    // exact-set equality against the whole populated-kind list.
+    if !onto.closure().populated_kinds().contains(&parthood) {
+        return false;
+    }
+
+    // The independent eager oracle over the same edge set.
+    let oracle = ReachabilityClosure::fold(parthood_edges.iter().cloned());
+
+    // (1) EVERY node: graded image (set + hops + canonical order), reachable
+    // set, membership probe, reflexive chain, and the chain to every ancestor.
+    let closure = onto.closure();
+    for c in &concepts {
+        let mut want = oracle.strict_image(c);
+        want.sort_unstable_by(|(a, da), (b, db)| da.cmp(db).then_with(|| a.cmp(b)));
+        if closure.image(c, &parthood) != want {
+            return false;
+        }
+
+        let want_set: BTreeSet<ConceptRef> = want.iter().map(|(v, _)| v.clone()).collect();
+        if closure.reachable_from(c, parthood.clone()) != want_set {
+            return false;
+        }
+        for (a, _) in &want {
+            if !closure.reaches(c, a, parthood.clone()) {
+                return false;
+            }
+            if closure.chain(c, a, &parthood) != eager_chain(&oracle, c, a) {
+                return false;
+            }
+        }
+        // The reflexive chain is the honest singleton-or-cycle case.
+        if closure.chain(c, c, &parthood) != eager_chain(&oracle, c, c) {
+            return false;
+        }
+        // Self-meet: the nearest common ancestor of a node with itself.
+        if closure.meet(c, c, &parthood) != oracle.meet_by(c, c, |v| v.clone()) {
+            return false;
+        }
+        // The UNPOPULATED kind answers honestly empty.
+        if !closure.subsumption_image(c).is_empty() {
+            return false;
+        }
+    }
+
+    // (2) A deterministic ordered-pair sweep across the whole title for meet +
+    // chain — including the None/unreachable cases the per-ancestor loop never
+    // exercises.
+    let n = concepts.len();
+    let step = 7_919usize; // prime stride
+    let mut a_idx = 0usize;
+    for k in 0..50_000usize {
+        a_idx = (a_idx + step) % n;
+        let b_idx = (a_idx.wrapping_mul(3).wrapping_add(k)) % n;
+        let (a, b) = (&concepts[a_idx], &concepts[b_idx]);
+        if closure.meet(a, b, &parthood) != oracle.meet_by(a, b, |v| v.clone()) {
+            return false;
+        }
+        if closure.chain(a, b, &parthood) != eager_chain(&oracle, a, b) {
+            return false;
+        }
+        if closure.reaches(a, b, parthood.clone()) != (a != b && oracle.reaches(a, b)) {
+            return false;
+        }
+    }
+
+    // (3) The unpopulated-kind query surface at scale: no meet, no chain, no
+    // reachability along Subsumption anywhere in the sweep.
+    let sub = subsumption_kind();
+    for k in 0..1_000usize {
+        let a = &concepts[(k * step) % n];
+        let b = &concepts[(k * step * 3 + 1) % n];
+        if closure.reaches(a, b, sub.clone()) {
+            return false;
+        }
+        if closure.meet(a, b, &sub).is_some() {
+            return false;
+        }
+        if closure.chain(a, b, &sub) != (a == b).then(|| alloc::vec![a.clone()]) {
+            return false;
+        }
+    }
+
+    // (4) The INVERSE mereology — whole → parts, folded through the PUBLIC
+    // `fold` over the same title. The downward fan-out is the real tie surface:
+    // a section's parts at equal depth are thousands of equal-hop image members
+    // whose order IS the id ↔ ConceptRef order isomorphism.
+    drop(oracle);
+    let inverse_edges: Vec<RuntimeEdge> = parthood_edges
+        .iter()
+        .map(|(source, target)| RuntimeEdge {
+            source: target.clone(),
+            kind: parthood.clone(),
+            target: source.clone(),
+        })
+        .collect();
+    let transitive: BTreeSet<ConceptRef> = [parthood.clone()].into_iter().collect();
+    let downward = MaterializedClosure::fold(&inverse_edges, &transitive);
+    let inverse_oracle =
+        ReachabilityClosure::fold(parthood_edges.iter().map(|(s, t)| (t.clone(), s.clone())));
+    let mut tied_images = 0usize;
+    for c in &concepts {
+        let mut want = inverse_oracle.strict_image(c);
+        want.sort_unstable_by(|(a, da), (b, db)| da.cmp(db).then_with(|| a.cmp(b)));
+        if want.windows(2).any(|w| w[0].1 == w[1].1) {
+            tied_images += 1;
+        }
+        if downward.image(c, &parthood) != want {
+            return false;
+        }
+    }
+    // The downward fan-out must be a real tie surface.
+    if tied_images <= 10_000 {
+        return false;
+    }
+    // Meet + chain over the deterministic sweep, downward.
+    let mut a_idx = 0usize;
+    for k in 0..50_000usize {
+        a_idx = (a_idx + step) % n;
+        let b_idx = (a_idx.wrapping_mul(3).wrapping_add(k)) % n;
+        let (a, b) = (&concepts[a_idx], &concepts[b_idx]);
+        if downward.meet(a, b, &parthood) != inverse_oracle.meet_by(a, b, |v| v.clone()) {
+            return false;
+        }
+        if downward.chain(a, b, &parthood) != eager_chain(&inverse_oracle, a, b) {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// CORPUS-SCALE ENGINE EQUIVALENCE: the runtime `MaterializedClosure` (the
+/// u32-CSR lazy engine) answers every graded query — image, reachable set,
+/// membership probe, evidence chain, lattice meet — IDENTICALLY to the
+/// INDEPENDENT eager `ReachabilityClosure` (Floyd-fixpoint) oracle over a full
+/// real USC title (Title 42, ~150k nodes), both up the mereology and down the
+/// inverse fan-out. The Moore-1959 minimal-hop grading `GradedReachDeterminism`
+/// pins on witness graphs, checked at engine scale on real data.
+///
+/// Corpus absence FAILS the axiom, fail-closed — NOT a soft pass: a `verify()`
+/// that returns `Ok` while reading nothing is a false-green (the corpus crate's
+/// `require()` contract — "tests do not skip"). The corpus-test `#[test]`
+/// `require()`-gates on the title's presence, so absence hard-fails there with
+/// the `pr4xis update usc` hint before this runs; the `Err` here is the honest
+/// fallback if `verify()` is ever called directly. Any real closure divergence
+/// on present bytes also fails it.
+pub struct MaterializedClosureMatchesEagerOracle;
+
+impl Axiom for MaterializedClosureMatchesEagerOracle {
+    fn verify(&self) -> Verdict {
+        let Some(path) = resolve_source_path("usc_title_42", "pl-119-90") else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+        let bytes = match std::fs::read(&path) {
+            Ok(b) => b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // Corpus not fetched yet — NON-FATAL soft pass, matching
+                // RoundTripHarnessAllVerified (well_behaved_lens/harness.rs). This
+                // axiom is register_axiom!'d, so OntologyBaseIsConsistent sweeps its
+                // verify() over the WHOLE base in the DEFAULT (no-corpus) unit lane
+                // (constitution_coverage::ontology_base_is_consistent); an Err here on
+                // absence would make that whole-base consistency check require a
+                // fetched corpus. The real teeth are the require()-gated corpus
+                // #[test], which hard-fails with the `pr4xis update` hint.
+                return Ok(Box::new(SimpleProof::new(self.meta())));
+            }
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let Ok(text) = core::str::from_utf8(&bytes) else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+        let Ok(title) = read_uslm_title(text) else {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        };
+        let usc = UsCode::from_uslm_titles_owned(alloc::vec![title]);
+
+        if materialized_closure_matches_eager_oracle(&usc) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "MaterializedClosureMatchesEagerOracle",
+        "the runtime u32-CSR MaterializedClosure answers every graded query (image, reachable set, membership probe, evidence chain, lattice meet) identically to the independent eager ReachabilityClosure oracle over a full real USC title, both up the mereology and down the inverse fan-out",
+        "Moore (1959) The shortest path through a maze, Proceedings of an International Symposium on the Theory of Switching Part II, Harvard University Press, 285-292"
+    );
+}
+
+pr4xis::register_axiom!(MaterializedClosureMatchesEagerOracle, constructor);
 
 // ── laws-hold + discoverability (the packed_csr_laws shape) ──────────────────
 

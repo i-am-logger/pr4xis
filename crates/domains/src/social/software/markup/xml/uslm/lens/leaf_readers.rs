@@ -937,16 +937,27 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
     // legacy flat `*_runs` / plain-text views from them so the backbone tree
     // is the single source of truth (W3C XML 1.0 §3.2.2).
     let heading_mixed = first_child_mixed(elem, "heading").unwrap_or_default();
-    let heading = heading_mixed.plain_text();
+    // `heading_prose_text`, not `plain_text` — an embedded editorial
+    // footnote ("Section catchline was not amended...") belongs in
+    // `heading_mixed` for the byte-exact writer, never in the flat heading
+    // string a lexical-understanding consumer (e.g. heading lemma
+    // resolution) reads. See `UsCodeMixed::heading_prose_text`'s own doc.
+    let heading = heading_mixed.heading_prose_text();
     let heading_runs = inline_runs_from_mixed(&heading_mixed);
     let chapeau_mixed = first_child_mixed(elem, "chapeau");
-    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::plain_text);
+    // `prose_text`, not `plain_text`: an embedded footnote or XHTML data
+    // table inside `<chapeau>`/`<content>` belongs to `chapeau_mixed`/
+    // `content_mixed` for the byte-exact writer, never in the flat prose
+    // string `defines_pointers`/`cites_pointers`/`denotes_pointers` and
+    // every other lexical-understanding consumer reads. See
+    // `UsCodeMixed::prose_text`'s own doc.
+    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::prose_text);
     let chapeau_runs = chapeau_mixed
         .as_ref()
         .map(inline_runs_from_mixed)
         .unwrap_or_default();
     let content_mixed = first_child_mixed(elem, "content");
-    let content = content_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let content = content_mixed.as_ref().map(UsCodeMixed::prose_text);
     let content_runs = content_mixed
         .as_ref()
         .map(inline_runs_from_mixed)
@@ -1118,19 +1129,24 @@ fn read_subdivision(
     // `<inline class="small-caps">…</inline>` ornaments; a `<chapeau>` carries
     // an interleaved `<date>`).
     let heading_mixed = first_child_mixed(elem, "heading");
-    let heading = heading_mixed.as_ref().map(UsCodeMixed::plain_text);
+    // `heading_prose_text`, not `plain_text` — see `read_section`'s
+    // identical switch and `UsCodeMixed::heading_prose_text`'s own doc for
+    // why.
+    let heading = heading_mixed.as_ref().map(UsCodeMixed::heading_prose_text);
     let heading_runs = heading_mixed
         .as_ref()
         .map(inline_runs_from_mixed)
         .unwrap_or_default();
     let chapeau_mixed = first_child_mixed(elem, "chapeau");
-    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::plain_text);
+    // `prose_text`, not `plain_text` — see `read_section`'s identical switch
+    // and `UsCodeMixed::prose_text`'s own doc for why.
+    let chapeau = chapeau_mixed.as_ref().map(UsCodeMixed::prose_text);
     let chapeau_runs = chapeau_mixed
         .as_ref()
         .map(inline_runs_from_mixed)
         .unwrap_or_default();
     let content_mixed = first_child_mixed(elem, "content");
-    let content = content_mixed.as_ref().map(UsCodeMixed::plain_text);
+    let content = content_mixed.as_ref().map(UsCodeMixed::prose_text);
     let content_runs = content_mixed
         .as_ref()
         .map(inline_runs_from_mixed)

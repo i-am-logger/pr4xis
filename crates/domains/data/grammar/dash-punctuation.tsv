@@ -1,0 +1,57 @@
+# Dash-punctuation glyph inventory — the closed set of Unicode General_
+# Category=Pd (Dash_Punctuation) code points, used to fix a confirmed
+# tokenization bug: the tokenizer's `flush_word` (lambek::tokenize) trimmed
+# trailing/leading punctuation off an accumulated word buffer with a raw
+# `char::is_ascii_punctuation()` check, which is FALSE for every non-ASCII
+# Unicode dash — so real U.S. Code legal text carrying an EM DASH after a
+# defining verb (`the term "developmental disability" means—` followed by
+# an enumerated list, a common USC drafting convention) left the malformed
+# token `means—` in the stream, which then failed lexicon lookup for the
+# bare word `means`, breaking downstream grammar parsing. This table is the
+# loaded, cited fix: every Pd code point, queried instead of the raw ASCII
+# check.
+#
+# Source: Unicode Standard Annex #44 (Unicode Character Database), the
+# General_Category property, as tabulated in the UCD's
+# DerivedGeneralCategory.txt — verified against Unicode 18.0.0 (2026) via
+# compart.com/en/unicode/category/Pd (a UCD-General_Category-derived
+# reference table; independently re-fetched and cross-checked row-for-row
+# against the primary UCD source before this file was authored — all 25
+# rows agree, no discrepancies found).
+#
+# General_Category=Pd (Dash_Punctuation) is a SINGLE, small, closed set: 25
+# code points total, none of which pair or nest (unlike Pi/Pf quotation
+# marks — see `quote-glyphs.tsv`), so every row plays the identical "Dash"
+# role for tokenization purposes and no role/pairing column is needed.
+#
+# Format: `codepoint<TAB>glyph<TAB>name`
+#   codepoint   4-6 hex digits, no "U+" prefix.
+#   glyph       the literal UTF-8 character (for human sight-verification
+#               against `codepoint`; the loader cross-checks the two agree).
+#   name        the UCD character name, verbatim, for citation traceability.
+codepoint	glyph	name
+002D	-	HYPHEN-MINUS
+058A	֊	ARMENIAN HYPHEN
+05BE	־	HEBREW PUNCTUATION MAQAF
+1400	᐀	CANADIAN SYLLABICS HYPHEN
+1806	᠆	MONGOLIAN TODO SOFT HYPHEN
+2010	‐	HYPHEN
+2011	‑	NON-BREAKING HYPHEN
+2012	‒	FIGURE DASH
+2013	–	EN DASH
+2014	—	EM DASH
+2015	―	HORIZONTAL BAR
+2E17	⸗	DOUBLE OBLIQUE HYPHEN
+2E1A	⸚	HYPHEN WITH DIAERESIS
+2E3A	⸺	TWO-EM DASH
+2E3B	⸻	THREE-EM DASH
+2E40	⹀	DOUBLE HYPHEN
+301C	〜	WAVE DASH
+3030	〰	WAVY DASH
+30A0	゠	KATAKANA-HIRAGANA DOUBLE HYPHEN
+FE31	︱	PRESENTATION FORM FOR VERTICAL EM DASH
+FE32	︲	PRESENTATION FORM FOR VERTICAL EN DASH
+FE58	﹘	SMALL EM DASH
+FE63	﹣	SMALL HYPHEN-MINUS
+FF0D	－	FULLWIDTH HYPHEN-MINUS
+10EAD	𐺭	YEZIDI HYPHENATION MARK

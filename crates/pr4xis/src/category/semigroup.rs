@@ -90,6 +90,7 @@ impl<T: Clone + Debug> Semigroup for NonEmpty<T> {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn nonempty_semigroup_associativity() {
         let a = NonEmpty::new(1);
@@ -98,18 +99,21 @@ mod tests {
         assert_eq!(a.combine(&b).combine(&c), a.combine(&b.combine(&c)));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn nonempty_len() {
         let ne = NonEmpty::of(1, vec![2, 3]);
         assert_eq!(ne.len(), 3);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn nonempty_to_vec() {
         let ne = NonEmpty::of(1, vec![2, 3]);
         assert_eq!(ne.to_vec(), vec![1, 2, 3]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn vec_is_semigroup_via_monoid() {
         let a = vec![1, 2];
@@ -144,5 +148,7 @@ mod tests {
                 prop_assert_eq!(na.combine(&nb).len(), 2);
             }
         }
+        crate::register_praxis_value!(prop_nonempty_associativity, Deterministic);
+        crate::register_praxis_value!(prop_nonempty_combine_length, Verifiable);
     }
 }

@@ -107,14 +107,14 @@ pub fn axiom_hierarchy_strictly_nested(title: &UsCodeTitle) -> Result<(), String
 pub fn axiom_check_strict_nesting(parent: &UsCodeSubdivision) -> Result<(), String> {
     let parent_depth = parent.kind.nesting_depth();
     for child in &parent.children {
-        if child.kind.nesting_depth() <= parent_depth {
+        if child.kind.nesting_depth().value <= parent_depth.value {
             return Err(format!(
                 "{:?} (depth {}) at identifier {} has child {:?} (depth {}) — not strictly nested",
                 parent.kind,
-                parent_depth,
+                parent_depth.value,
                 parent.identifier,
                 child.kind,
-                child.kind.nesting_depth()
+                child.kind.nesting_depth().value
             ));
         }
         axiom_check_strict_nesting(child)?;

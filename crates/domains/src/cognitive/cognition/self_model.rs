@@ -19,7 +19,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 //   4. Powers PCT (1973) — self-image = Level 11 controlled perception
 //   5. Metzinger PSM (2003) — transparent self-model
 //   6. MOI (Nolte et al., FOIS 2023) — SoftwareComponent, Capability
-//   7. IEEE AuR (IEEE 1872.2, 2021) — SelfModel as required class
+//   7. IEEE AuR (IEEE 1872.2-2021, per published standard documentation --
+//      not independently primary-source verified against the paywalled
+//      standard text in this repo) — SelfModel as required class
 //   8. BDI Ontology (arXiv 2511.17162, 2024) — belief justified by introspection
 //
 // ORGANIZATIONAL (system IS its self-producing organization):

@@ -131,11 +131,13 @@ mod tests {
     use super::*;
     use crate::category::laws::assert_category_laws;
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ProvenanceCategory>();
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ProvenanceOntology::validate()

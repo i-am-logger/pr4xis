@@ -12,7 +12,10 @@
 //!         Groves (2013) Section 6.5.
 
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::{ARCSECOND, DEGREE};
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
     name: "Celestial",
@@ -34,7 +37,14 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: Angular accuracy of celestial sensors.
+/// Quality: angular accuracy of celestial sensors, a [`QuantityRange`]
+/// (arcseconds or degrees), NOT a prose string.
+///
+/// `None` for the abstract `Sensor` ("varies by type", implementation-
+/// dependent). `StarTracker` is reported in arcseconds (the finest-grained
+/// unit, matching its being the most accurate sensor); `SunSensor`/
+/// `HorizonSensor` in degrees, mirroring `AttitudeAccuracy` (applied/
+/// navigation/ahrs)'s established `QuantityRange` idiom.
 ///
 /// Source: Wertz (2001) Table 7-2.
 #[derive(Debug, Clone)]
@@ -42,14 +52,24 @@ pub struct AngularAccuracy;
 
 impl Quality for AngularAccuracy {
     type Individual = CelestialConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, sensor: &CelestialConcept) -> Option<&'static str> {
+    fn get(&self, sensor: &CelestialConcept) -> Option<QuantityRange> {
+        let arcsec = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &ARCSECOND),
+            max: Quantity::from_unit(hi, &ARCSECOND),
+        };
+        let deg = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &DEGREE),
+            max: Quantity::from_unit(hi, &DEGREE),
+        };
         Some(match sensor {
-            CelestialConcept::Sensor => "varies by type",
-            CelestialConcept::StarTracker => "1-10 arcseconds (best)",
-            CelestialConcept::SunSensor => "0.01-0.1 degrees",
-            CelestialConcept::HorizonSensor => "0.05-0.25 degrees",
+            // Abstract root — accuracy is implementation-dependent.
+            CelestialConcept::Sensor => return None,
+            CelestialConcept::StarTracker => arcsec(1.0, 10.0),
+            CelestialConcept::SunSensor => deg(0.01, 0.1),
+            CelestialConcept::HorizonSensor => deg(0.05, 0.25),
         })
     }
 }

@@ -310,8 +310,8 @@ fn has_decoder_for_agrees_with_each_module_const() {
     // a mis-cited arm trips the test (the exhaustive match already forces a new
     // ContentType variant to be decided here at compile time).
     use super::decoders::{
-        adobe_glyph_list, owl, plaintext_tsv, tar_gz_archive, theme_collection, xhtml, xml_dtd,
-        xml_xsd, zip_archive,
+        adobe_glyph_list, owl, plaintext_tsv, tar_gz_archive, theme_collection,
+        verbnet_class_collection, xhtml, xml_dtd, xml_xsd, zip_archive,
     };
     for ct in [
         xml_lmf::DECODES,
@@ -324,6 +324,7 @@ fn has_decoder_for_agrees_with_each_module_const() {
         zip_archive::DECODES,
         plaintext_tsv::DECODES,
         theme_collection::DECODES,
+        verbnet_class_collection::DECODES,
     ] {
         assert!(
             has_decoder_for(ct),
@@ -398,7 +399,7 @@ fn full_chain_raw_bytes_to_english_ontology() {
     let english = English::from_wordnet(&wordnet);
     assert!(english.word_index.contains("dog"));
     assert!(english.word_index.contains("cat"));
-    assert_eq!(english.concept_count(), 2);
+    assert_eq!(english.concept_count().value, 2.0);
 }
 
 /// Negative full-chain: corrupt the version attribute, confirm the
@@ -449,13 +450,15 @@ fn every_content_type() -> Vec<ContentType> {
         ContentType::XmlDtd,
         ContentType::ZipArchive,
         ContentType::ThemeCollection,
+        ContentType::VerbNetClassCollection,
+        ContentType::PropBankFramesetCollection,
     ]
 }
 
 proptest! {
     /// `has_decoder_for` must be a pure function of the variant.
     #[test]
-    fn prop_has_decoder_for_is_pure(idx in 0usize..18) {
+    fn prop_has_decoder_for_is_pure(idx in 0usize..20) {
         let variant = every_content_type()[idx];
         let first = has_decoder_for(variant);
         for _ in 0..16 {

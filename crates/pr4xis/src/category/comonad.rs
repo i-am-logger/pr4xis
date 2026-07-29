@@ -164,12 +164,14 @@ mod tests {
 
     // --- Focused comonad laws ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn focused_extract_returns_value() {
         let f = Focused::new(42, "context");
         assert_eq!(f.extract(), &42);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn focused_left_identity() {
         // extend(extract, w) = w
@@ -179,6 +181,7 @@ mod tests {
         assert_eq!(result.context, w.context);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn focused_right_identity() {
         // extract(extend(f, w)) = f(w)
@@ -188,6 +191,7 @@ mod tests {
         assert_eq!(*extended.extract(), f(&w));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn focused_duplicate_extract() {
         let w = Focused::new(42, "ctx");
@@ -197,6 +201,7 @@ mod tests {
 
     // --- Cofree comonad ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn cofree_leaf_extract() {
         let leaf = Cofree::leaf(42);
@@ -207,6 +212,7 @@ mod tests {
         c.extract()
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn cofree_tree_structure() {
         let tree = Cofree::node("root", vec![Cofree::leaf("left"), Cofree::leaf("right")]);
@@ -215,6 +221,7 @@ mod tests {
         assert_eq!(tree.tail[0].extract(), &"left");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn cofree_fold_counts_nodes() {
         let tree = Cofree::node(
@@ -225,6 +232,7 @@ mod tests {
         assert_eq!(count, 4);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn cofree_extend_sums_subtrees() {
         let tree = Cofree::node(1, vec![Cofree::leaf(2), Cofree::leaf(3)]);
@@ -237,6 +245,7 @@ mod tests {
 
     // --- Practical: trace schema as cofree ---
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn trace_schema_as_cofree() {
         // Each pipeline step carries its result + subtrace

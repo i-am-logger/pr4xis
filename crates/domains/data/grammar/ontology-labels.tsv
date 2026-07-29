@@ -1,0 +1,43 @@
+# Ontology-name → plain-English label projection — the LEXICALIZATION leg of the
+# NLG realization stage (Reiter & Dale 2000, *Building Natural Language
+# Generation Systems*, CUP: lexicalization is choosing the surface words for a
+# domain entity). The "Why?" layer (pragmatics::realize::realize_why) fills its
+# {sources} slot from the loaded ontologies a turn reasoned over — each carried
+# as a raw internal OntologyName (`caregiving_lexicon`, `usc_title_42`, …). This
+# table projects each such name to the human-facing surface a reader can
+# understand, so a snake_case internal identifier NEVER leaks into a
+# user-facing sentence (the jargon-leak the why-layer critique forbids).
+#
+# A name absent from this table is NOT an error: it is projected to the generic
+# fallback "your loaded documents" (realize::ontology_labels::plain_label), the
+# honest default for any source the engine can load at runtime but this table
+# does not name individually. So the projection is total over every possible
+# OntologyName without ever emitting a raw identifier.
+#
+# Each label names the source as a reader would recognize it — the built-in
+# lexicons/bases by what they cover, the U.S. Code titles by their official
+# title name (1 U.S.C. § 204; the LRC's USLM catalogue). Sourced from the
+# registered entries' own descriptions in praxis.toml.
+#
+# Format: `ontology_name<TAB>label`. The `ontology_name` is the registered
+# OntologyName as it appears in reasoned_over (praxis.toml `[sources.*]` key, or
+# the embedded-base name `LegalSources`); `label` is the plain surface.
+#
+# Cite: Reiter & Dale (2000), the realization/lexicalization stage.
+ontology_name	label
+english_wordnet	the built-in English language model
+LegalSources	the built-in U.S. sources-of-law taxonomy
+us_legal_lexicon	the U.S. federal legal-text lexicon
+caregiving_lexicon	the Family Caregiving lexicon
+hcbs_compliance_lexicon	the HCBS workforce and compliance lexicon
+usc_title_1	U.S. Code Title 1 (General Provisions)
+usc_title_5	U.S. Code Title 5 (Government Organization and Employees)
+usc_title_15	U.S. Code Title 15 (Commerce and Trade)
+usc_title_18	U.S. Code Title 18 (Crimes and Criminal Procedure)
+usc_title_28	U.S. Code Title 28 (Judiciary and Judicial Procedure)
+usc_title_29	U.S. Code Title 29 (Labor)
+usc_title_42	U.S. Code Title 42 (The Public Health and Welfare)
+usc_title_49	U.S. Code Title 49 (Transportation)
+usc_title_50	U.S. Code Title 50 (War and National Defense)
+usc	the loaded U.S. Code corpus
+usc_titles	the U.S. Code title index

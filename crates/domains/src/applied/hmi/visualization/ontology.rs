@@ -158,22 +158,57 @@ impl FinitelyGenerated for PerceptualTask {
     }
 }
 
-/// Quality: accuracy rank (1 = best, 6 = worst).
+/// Cleveland-McGill perceptual-accuracy rank: an ordinal position on the
+/// accuracy scale, best to worst — a closed taxonomy, not a raw `u8` that
+/// would let an out-of-table rank (e.g. `7`) type-check. `Ord` is derived
+/// from declaration order, which mirrors Table 1's rank order exactly, so
+/// comparisons (`<`, `<=`, …) stay meaningful.
+///
+/// Source: Cleveland & McGill (1984) Graphical Perception, JASA 79(387)
+/// Table 1.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AccuracyRankPosition {
+    PositionCommonScale,
+    PositionNonAligned,
+    LengthDirectionAngle,
+    Area,
+    VolumeCurvature,
+    ShadingColorSaturation,
+}
+
+impl AccuracyRankPosition {
+    /// The 1-based ordinal Cleveland & McGill (1984) Table 1 assigns this
+    /// rank (1=best..6=worst) — for callers that must express the rank as
+    /// a dimensionless [`Quantity`](crate::formal::math::quantity::value::Quantity)
+    /// ordinal rather than compare it structurally via `Ord`.
+    pub fn ordinal(self) -> u8 {
+        match self {
+            Self::PositionCommonScale => 1,
+            Self::PositionNonAligned => 2,
+            Self::LengthDirectionAngle => 3,
+            Self::Area => 4,
+            Self::VolumeCurvature => 5,
+            Self::ShadingColorSaturation => 6,
+        }
+    }
+}
+
+/// Quality: accuracy rank (best..worst per Cleveland & McGill Table 1).
 #[derive(Debug, Clone)]
 pub struct AccuracyRank;
 
 impl Quality for AccuracyRank {
     type Individual = PerceptualTask;
-    type Value = u8;
+    type Value = AccuracyRankPosition;
 
-    fn get(&self, task: &PerceptualTask) -> Option<u8> {
+    fn get(&self, task: &PerceptualTask) -> Option<AccuracyRankPosition> {
         Some(match task {
-            PerceptualTask::PositionCommonScale => 1,
-            PerceptualTask::PositionNonAligned => 2,
-            PerceptualTask::LengthDirectionAngle => 3,
-            PerceptualTask::Area => 4,
-            PerceptualTask::VolumeCurvature => 5,
-            PerceptualTask::ShadingColorSaturation => 6,
+            PerceptualTask::PositionCommonScale => AccuracyRankPosition::PositionCommonScale,
+            PerceptualTask::PositionNonAligned => AccuracyRankPosition::PositionNonAligned,
+            PerceptualTask::LengthDirectionAngle => AccuracyRankPosition::LengthDirectionAngle,
+            PerceptualTask::Area => AccuracyRankPosition::Area,
+            PerceptualTask::VolumeCurvature => AccuracyRankPosition::VolumeCurvature,
+            PerceptualTask::ShadingColorSaturation => AccuracyRankPosition::ShadingColorSaturation,
         })
     }
 }
@@ -384,23 +419,42 @@ impl FinitelyGenerated for GrammarLayer {
     }
 }
 
-/// Quality: pipeline order (Data=0, Facet=6).
+/// Position of a layer in the Grammar of Graphics pipeline (Data first,
+/// Facet last) — a closed taxonomy, not a raw `u8` that would let an
+/// out-of-pipeline stage type-check. `Ord` is derived from declaration
+/// order, which mirrors the pipeline order exactly, so comparisons
+/// (`<`, `<=`, …) stay meaningful.
+///
+/// Source: Wickham (2010) A Layered Grammar of Graphics, JCGS 19(1),
+/// extending Wilkinson (2005).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PipelineStage {
+    Data,
+    Aesthetics,
+    Geom,
+    Stat,
+    Scale,
+    Coord,
+    Facet,
+}
+
+/// Quality: pipeline order (Data earliest, Facet latest).
 #[derive(Debug, Clone)]
 pub struct PipelineOrder;
 
 impl Quality for PipelineOrder {
     type Individual = GrammarLayer;
-    type Value = u8;
+    type Value = PipelineStage;
 
-    fn get(&self, layer: &GrammarLayer) -> Option<u8> {
+    fn get(&self, layer: &GrammarLayer) -> Option<PipelineStage> {
         Some(match layer {
-            GrammarLayer::Data => 0,
-            GrammarLayer::Aesthetics => 1,
-            GrammarLayer::Geom => 2,
-            GrammarLayer::Stat => 3,
-            GrammarLayer::Scale => 4,
-            GrammarLayer::Coord => 5,
-            GrammarLayer::Facet => 6,
+            GrammarLayer::Data => PipelineStage::Data,
+            GrammarLayer::Aesthetics => PipelineStage::Aesthetics,
+            GrammarLayer::Geom => PipelineStage::Geom,
+            GrammarLayer::Stat => PipelineStage::Stat,
+            GrammarLayer::Scale => PipelineStage::Scale,
+            GrammarLayer::Coord => PipelineStage::Coord,
+            GrammarLayer::Facet => PipelineStage::Facet,
         })
     }
 }
@@ -476,7 +530,9 @@ pub struct PositionMostAccurate;
 
 impl Axiom for PositionMostAccurate {
     fn verify(&self) -> Verdict {
-        if AccuracyRank.get(&PerceptualTask::PositionCommonScale) == Some(1) {
+        if AccuracyRank.get(&PerceptualTask::PositionCommonScale)
+            == Some(AccuracyRankPosition::PositionCommonScale)
+        {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -501,7 +557,9 @@ pub struct ColorLeastAccurate;
 
 impl Axiom for ColorLeastAccurate {
     fn verify(&self) -> Verdict {
-        if AccuracyRank.get(&PerceptualTask::ShadingColorSaturation) == Some(6) {
+        if AccuracyRank.get(&PerceptualTask::ShadingColorSaturation)
+            == Some(AccuracyRankPosition::ShadingColorSaturation)
+        {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -735,7 +793,7 @@ mod tests {
     fn test_position_rank_1() {
         assert_eq!(
             AccuracyRank.get(&PerceptualTask::PositionCommonScale),
-            Some(1)
+            Some(AccuracyRankPosition::PositionCommonScale)
         );
     }
 
@@ -744,7 +802,7 @@ mod tests {
     fn test_shading_rank_6() {
         assert_eq!(
             AccuracyRank.get(&PerceptualTask::ShadingColorSaturation),
-            Some(6)
+            Some(AccuracyRankPosition::ShadingColorSaturation)
         );
     }
 
@@ -852,8 +910,11 @@ mod tests {
         #[test]
         fn prop_every_task_has_rank(idx in 0usize..6) {
             let task = &PerceptualTask::variants()[idx];
-            let rank = AccuracyRank.get(task).unwrap();
-            prop_assert!((1..=6).contains(&rank));
+            // The old `(1..=6).contains(&rank)` bounds check is now
+            // enforced by the closed `AccuracyRankPosition` taxonomy
+            // itself (there is no out-of-table variant to construct), so
+            // the surviving check is that every task resolves to a rank.
+            prop_assert!(AccuracyRank.get(task).is_some());
         }
 
         #[test]

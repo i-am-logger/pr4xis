@@ -20,7 +20,7 @@ Key references:
 
 | Quality | Type | Description |
 |---|---|---|
-| NoteName | String | Letter name for the pitch class (C, C#, D, …, B) |
+| NoteName | PitchName | Letter name for the pitch class (C, C#, D, …, B) — a 12-variant enum, not a formatted string |
 | IsNatural | bool | True for C, D, E, F, G, A, B (no sharp/flat) |
 | IsConsonant | bool | True when the pitch class interpreted as an interval from the root is consonant |
 

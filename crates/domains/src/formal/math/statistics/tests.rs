@@ -51,7 +51,7 @@ mod proptest_proofs {
             data in arb_data(5),
             true_value in -1000.0..1000.0_f64,
         ) {
-            let mean = estimator::sample_mean(&data);
+            let mean = estimator::sample_mean(&data).value;
             let b = estimator::bias(mean, true_value);
             // Population variance (divide by n, not n-1)
             let n = data.len() as f64;
@@ -88,7 +88,7 @@ mod proptest_proofs {
         /// P-value is always in [0, 1] for any z-statistic.
         #[test]
         fn p_value_bounded(z in -10.0..10.0_f64) {
-            let p = hypothesis::two_sided_p_value(z);
+            let p = hypothesis::two_sided_p_value(z).value;
             prop_assert!(p >= -1e-10, "p-value must be non-negative, got {}", p);
             prop_assert!(p <= 1.0 + 1e-10, "p-value must be <= 1, got {}", p);
         }
@@ -96,7 +96,7 @@ mod proptest_proofs {
         /// Sample variance is non-negative.
         #[test]
         fn sample_variance_non_negative(data in arb_data(3)) {
-            let var = estimator::sample_variance(&data);
+            let var = estimator::sample_variance(&data).value;
             prop_assert!(var >= -1e-10, "variance must be non-negative, got {}", var);
         }
 
@@ -109,11 +109,11 @@ mod proptest_proofs {
             // Compare SE of smaller vs larger dataset with same base value spread
             let small: Vec<f64> = base.clone();
             let large: Vec<f64> = base.iter().chain(extra.iter()).cloned().collect();
-            let _se_small = estimator::standard_error(&small);
-            let se_large = estimator::standard_error(&large);
+            let _se_small = estimator::standard_error(&small).value;
+            let se_large = estimator::standard_error(&large).value;
             // With more data, SE generally decreases, but it's not guaranteed
             // for arbitrary data. Instead, verify SE = s/sqrt(n) relationship.
-            let s_large = estimator::sample_std_dev(&large);
+            let s_large = estimator::sample_std_dev(&large).value;
             let se_expected = s_large / (large.len() as f64).sqrt();
             prop_assert!((se_large - se_expected).abs() < 1e-10);
         }

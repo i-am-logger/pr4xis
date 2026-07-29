@@ -99,6 +99,14 @@ pub enum FetchOutcome {
         path: PathBuf,
         reason: String,
     },
+    /// `entry.fetchable` is `false` (a DERIVED/AUTHORED/BUNDLED
+    /// source-of-truth whose `url` is a citation, not a download endpoint)
+    /// and the requested operation would have touched the network. The
+    /// local file is left untouched. This is the fail-closed refusal that
+    /// replaces the old silent overwrite (once wrote an ERA landing page
+    /// over `ccg-supertag-costs.tsv`) — the caller should use `--lock
+    /// --offline` (the custody re-pin) after hand-editing the file instead.
+    RefusedNotFetchable { name: String, reason: String },
     /// File is absent and `check` was set, so nothing was fetched.
     MissingAndCheckOnly { name: String, path: PathBuf },
     /// File is absent and `offline` was set, so we couldn't fetch.
@@ -284,6 +292,26 @@ pub fn fetch_entry(
 // --------------------------------------------------------------------------
 
 fn do_fetch(entry: &RegistryEntry, path: &Path, lock: bool) -> FetchOutcome {
+    // The ONE choke point every network-touching call (`--lock`'s network
+    // mode and both `do_fetch` fallbacks below `fetch_entry`) routes
+    // through, so a non-fetchable source can never reach `download` no
+    // matter which caller reaches it. `--lock --offline` never calls this
+    // function (it reads and re-verifies the on-disk bytes directly), so
+    // the correct custody re-pin flow is unaffected.
+    if !entry.fetchable {
+        return FetchOutcome::RefusedNotFetchable {
+            name: entry.name.clone(),
+            reason: format!(
+                "{}'s url ({}) is a citation, not a fetchable endpoint (a DERIVED/AUTHORED/\
+                 BUNDLED source-of-truth) — refusing to overwrite {} from the network. \
+                 After hand-editing the file, re-pin with `pr4xis update {} --lock --offline`",
+                entry.name,
+                entry.url,
+                path.display(),
+                entry.name,
+            ),
+        };
+    }
     let bytes = match download(&entry.url) {
         Ok(b) => b,
         Err(e) => {
@@ -807,6 +835,7 @@ mod tests {
             url: String::new(),
             description: None,
             local_path: None,
+            fetchable: true,
             identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(
                 Vec::new(),
             ),
@@ -867,6 +896,85 @@ mod tests {
         };
         let outcome = fetch_entry(wordnet, opts, &tmp);
         assert!(matches!(outcome, FetchOutcome::MissingAndOffline { .. }));
+    }
+
+    /// The sharp edge this module once hit: `pr4xis update <derived-source>
+    /// --lock` (network mode) FETCHED the citation URL and overwrote the
+    /// hand-authored TSV (wrote an ERA landing page over
+    /// `ccg-supertag-costs.tsv`). `entry.fetchable = false` on a real
+    /// registered entry must refuse the network mode without touching the
+    /// local file, regardless of whether it's present.
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn fetch_entry_lock_refuses_a_non_fetchable_source() {
+        let tmp = tempdir_path();
+        let entry = super::super::registry::by_name("ccg_supertag_costs")
+            .expect("ccg_supertag_costs is registered");
+        assert!(
+            !entry.fetchable,
+            "this test's premise requires a real non-fetchable registered entry"
+        );
+        let opts = FetchOptions {
+            check: false,
+            force: false,
+            offline: false,
+            lock: true,
+        };
+        let outcome = fetch_entry(entry, opts, &tmp);
+        assert!(
+            matches!(outcome, FetchOutcome::RefusedNotFetchable { .. }),
+            "got {outcome:?}"
+        );
+        assert!(!outcome.is_ok(), "a refusal must not be treated as success");
+        assert!(
+            !tmp.join(entry.local_path()).exists(),
+            "the refusal must not write anything to disk"
+        );
+    }
+
+    /// The custody re-pin (`--lock --offline`) is UNAFFECTED by
+    /// `fetchable = false` — it never touches the network, reading and
+    /// re-verifying the on-disk bytes directly, so it stays the correct flow
+    /// for re-pinning a derived source after a hand edit.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn fetch_entry_lock_offline_still_works_for_a_non_fetchable_source() {
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        // A stub-only, non-fetchable fixture: the offline+lock (custody
+        // re-pin) branch checks `is_stub_only()` and returns `Skipped`
+        // BEFORE it would ever reach `do_fetch` — it never calls `do_fetch`
+        // at all, so `fetchable = false` cannot block it. Proven hermetically
+        // (no real files, no network) rather than against real repo data.
+        let entry = RegistryEntry {
+            name: "not-in-registry".into(),
+            version: "0".into(),
+            kind: SourceTaxonomyConcept::SupertagCostTable,
+            url: "https://example.com/citation".into(),
+            description: None,
+            local_path: None,
+            fetchable: false,
+            identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(vec![
+                IdentityClaim {
+                    concept: IdentityConcept::RawHash,
+                    data: ClaimData::Stub {
+                        reason: "no lock hash yet".into(),
+                    },
+                },
+            ]),
+        };
+        let tmp = tempdir_path();
+        let opts = FetchOptions {
+            check: false,
+            force: false,
+            offline: true,
+            lock: true,
+        };
+        let outcome = fetch_entry(&entry, opts, &tmp);
+        assert!(
+            !matches!(outcome, FetchOutcome::RefusedNotFetchable { .. }),
+            "the offline custody re-pin must not be refused by fetchable=false; got {outcome:?}"
+        );
+        assert!(matches!(outcome, FetchOutcome::Skipped { .. }));
     }
 
     #[pr4xis::praxis_value(Verifiable)]

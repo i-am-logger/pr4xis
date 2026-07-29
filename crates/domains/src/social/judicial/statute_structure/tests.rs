@@ -14,6 +14,8 @@ use super::invariants::{
     check_subdivisions_in_canonical_order, label_to_ord, roman_to_u32,
 };
 use super::parser::{LabelKind, ParseError, parse_statute_text};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::judicial::citation::{
     PinpointCite, PinpointSegment, ontology::PinpointCitationConcept,
 };
@@ -23,6 +25,13 @@ use proptest::prelude::*;
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
+
+/// A dimensionless UNITLESS quantity, for comparing against
+/// `label_to_ord`/`roman_to_u32`/`node_count`/`max_depth`'s typed return
+/// values in these tests.
+fn q(n: u32) -> Quantity {
+    Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+}
 
 fn root_cite() -> PinpointCite {
     PinpointCite {
@@ -146,19 +155,19 @@ fn label_rejects_mixed_case() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn roman_basics() {
-    assert_eq!(roman_to_u32("i"), Some(1));
-    assert_eq!(roman_to_u32("ii"), Some(2));
-    assert_eq!(roman_to_u32("iii"), Some(3));
-    assert_eq!(roman_to_u32("iv"), Some(4));
-    assert_eq!(roman_to_u32("v"), Some(5));
-    assert_eq!(roman_to_u32("vi"), Some(6));
-    assert_eq!(roman_to_u32("vii"), Some(7));
-    assert_eq!(roman_to_u32("viii"), Some(8));
-    assert_eq!(roman_to_u32("ix"), Some(9));
-    assert_eq!(roman_to_u32("x"), Some(10));
-    assert_eq!(roman_to_u32("xi"), Some(11));
-    assert_eq!(roman_to_u32("xiv"), Some(14));
-    assert_eq!(roman_to_u32("xx"), Some(20));
+    assert_eq!(roman_to_u32("i"), Some(q(1)));
+    assert_eq!(roman_to_u32("ii"), Some(q(2)));
+    assert_eq!(roman_to_u32("iii"), Some(q(3)));
+    assert_eq!(roman_to_u32("iv"), Some(q(4)));
+    assert_eq!(roman_to_u32("v"), Some(q(5)));
+    assert_eq!(roman_to_u32("vi"), Some(q(6)));
+    assert_eq!(roman_to_u32("vii"), Some(q(7)));
+    assert_eq!(roman_to_u32("viii"), Some(q(8)));
+    assert_eq!(roman_to_u32("ix"), Some(q(9)));
+    assert_eq!(roman_to_u32("x"), Some(q(10)));
+    assert_eq!(roman_to_u32("xi"), Some(q(11)));
+    assert_eq!(roman_to_u32("xiv"), Some(q(14)));
+    assert_eq!(roman_to_u32("xx"), Some(q(20)));
 }
 
 #[pr4xis::praxis_value(Honest)]
@@ -176,7 +185,7 @@ fn roman_rejects_invalid() {
 #[test]
 fn parse_empty_text_produces_root_only() {
     let tree = parse_statute_text("", root_cite(), "test://").unwrap();
-    assert_eq!(tree.node_count(), 1);
+    assert_eq!(tree.node_count(), q(1));
     assert!(tree.root.children.is_empty());
 }
 
@@ -189,7 +198,7 @@ fn parse_text_with_no_markers_attaches_to_root() {
         "test://",
     )
     .unwrap();
-    assert_eq!(tree.node_count(), 1);
+    assert_eq!(tree.node_count(), q(1));
     assert_eq!(tree.root.text.text, "Just some prose without any markers.");
 }
 
@@ -197,7 +206,7 @@ fn parse_text_with_no_markers_attaches_to_root() {
 #[test]
 fn parse_single_subsection() {
     let tree = parse_statute_text("(a) The text of subsection a.", root_cite(), "test://").unwrap();
-    assert_eq!(tree.node_count(), 2);
+    assert_eq!(tree.node_count(), q(2));
     assert_eq!(tree.root.children.len(), 1);
     let a = &tree.root.children[0];
     assert_eq!(a.id.segments.last().unwrap().label, "a");
@@ -754,12 +763,12 @@ fn print_parse_summary() {
     .unwrap();
     eprintln!("\n=== Statute-structure parser real-corpus summary ===");
     eprintln!("SOX § 1514A:");
-    eprintln!("  nodes:     {}", sox.node_count());
-    eprintln!("  max depth: {}", sox.max_depth());
+    eprintln!("  nodes:     {}", sox.node_count().value);
+    eprintln!("  max depth: {}", sox.max_depth().value);
     eprintln!("  top-level: {}", sox.root.children.len());
     eprintln!("AIR21 § 42121:");
-    eprintln!("  nodes:     {}", air21.node_count());
-    eprintln!("  max depth: {}", air21.max_depth());
+    eprintln!("  nodes:     {}", air21.node_count().value);
+    eprintln!("  max depth: {}", air21.max_depth().value);
     eprintln!("  top-level: {}", air21.root.children.len());
     eprintln!();
 }

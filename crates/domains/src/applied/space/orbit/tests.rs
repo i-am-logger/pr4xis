@@ -9,7 +9,10 @@ use crate::applied::space::orbit::engine::*;
 use crate::applied::space::orbit::ontology::*;
 use crate::applied::space::orbit::propagator::*;
 use crate::formal::math::angle::Angle;
-use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+use crate::natural::physics::kinematics::velocity::Velocity;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -41,8 +44,8 @@ fn semi_major_axis_positive_holds() {
 fn leo_orbit_is_bound() {
     // ISS-like orbit: ~408 km altitude, ~7.66 km/s
     let state = OrbitalState {
-        position: Vector::new(vec![6786.0, 0.0, 0.0]),
-        velocity: Vector::new(vec![0.0, 7.66, 0.0]),
+        position: Point3::new(6786.0, 0.0, 0.0),
+        velocity: Velocity::new(0.0, 7.66, 0.0),
     };
     assert!(is_bound_orbit(&state), "LEO orbit should be bound");
 }
@@ -51,17 +54,17 @@ fn leo_orbit_is_bound() {
 #[test]
 fn energy_conservation_during_propagation() {
     // Circular orbit at ~7000 km radius
-    let v_circ = (mu_earth_km3s2() / 7000.0).sqrt();
+    let v_circ = (mu_earth_km3s2().value / 7000.0).sqrt();
     let initial = OrbitalState {
-        position: Vector::new(vec![7000.0, 0.0, 0.0]),
-        velocity: Vector::new(vec![0.0, v_circ, 0.0]),
+        position: Point3::new(7000.0, 0.0, 0.0),
+        velocity: Velocity::new(0.0, v_circ, 0.0),
     };
-    let e_initial = initial.specific_energy(mu_earth_km3s2());
+    let e_initial = initial.specific_energy(&mu_earth_km3s2()).value;
 
     // Propagate for 100 steps of 10 seconds each
     let trajectory = propagate_orbit(&initial, 10.0, 100);
     let final_state = trajectory.last().unwrap();
-    let e_final = final_state.specific_energy(mu_earth_km3s2());
+    let e_final = final_state.specific_energy(&mu_earth_km3s2()).value;
 
     let relative_error = ((e_final - e_initial) / e_initial).abs();
     assert!(
@@ -77,13 +80,13 @@ fn energy_conservation_during_propagation() {
 #[test]
 fn propagation_preserves_radius_for_circular_orbit() {
     let r = 7000.0;
-    let v = (mu_earth_km3s2() / r).sqrt();
+    let v = (mu_earth_km3s2().value / r).sqrt();
     let initial = OrbitalState {
-        position: Vector::new(vec![r, 0.0, 0.0]),
-        velocity: Vector::new(vec![0.0, v, 0.0]),
+        position: Point3::new(r, 0.0, 0.0),
+        velocity: Velocity::new(0.0, v, 0.0),
     };
-    let propagated = propagate_rk4(&initial, 60.0, mu_earth_km3s2());
-    let r_after = propagated.radius();
+    let propagated = propagate_rk4(&initial, 60.0, mu_earth_km3s2().value);
+    let r_after = propagated.radius().value;
     assert!(
         (r_after - r).abs() / r < 1e-4,
         "circular orbit radius should be ~constant: {} vs {}",
@@ -96,15 +99,15 @@ fn propagation_preserves_radius_for_circular_orbit() {
 #[test]
 fn radar_to_eci_at_zenith() {
     let obs = RadarObservation {
-        range: 1000.0,
-        range_rate: 0.0,
+        range: Quantity::new(1000.0, Dimension::LENGTH),
+        range_rate: Quantity::new(0.0, Dimension::VELOCITY),
         azimuth: Angle::from_radians(0.0),
         elevation: Angle::from_radians(core::f64::consts::FRAC_PI_2),
     };
     let pos = radar_to_eci(&obs);
-    assert!(pos.get(0).abs() < 1e-10);
-    assert!(pos.get(1).abs() < 1e-10);
-    assert!((pos.get(2) - 1000.0).abs() < 1e-10);
+    assert!(pos.x.abs() < 1e-10);
+    assert!(pos.y.abs() < 1e-10);
+    assert!((pos.z - 1000.0).abs() < 1e-10);
 }
 
 #[cfg(test)]
@@ -117,12 +120,12 @@ mod proptest_proofs {
         fn bound_orbit_has_negative_energy(
             r in 6500.0..50000.0_f64
         ) {
-            let v = (mu_earth_km3s2() / r).sqrt(); // circular velocity
+            let v = (mu_earth_km3s2().value / r).sqrt(); // circular velocity
             let state = OrbitalState {
-                position: Vector::new(vec![r, 0.0, 0.0]),
-                velocity: Vector::new(vec![0.0, v, 0.0]),
+                position: Point3::new(r, 0.0, 0.0),
+                velocity: Velocity::new(0.0, v, 0.0),
             };
-            prop_assert!(state.specific_energy(mu_earth_km3s2()) < 0.0,
+            prop_assert!(state.specific_energy(&mu_earth_km3s2()).value < 0.0,
                 "circular orbit at r={} should have negative energy", r);
         }
 
@@ -133,13 +136,13 @@ mod proptest_proofs {
             el in -1.5..1.5_f64
         ) {
             let obs = RadarObservation {
-                range,
-                range_rate: 0.0,
+                range: Quantity::new(range, Dimension::LENGTH),
+                range_rate: Quantity::new(0.0, Dimension::VELOCITY),
                 azimuth: Angle::from_radians(az),
                 elevation: Angle::from_radians(el),
             };
             let pos = radar_to_eci(&obs);
-            let computed_range = (pos.get(0).powi(2) + pos.get(1).powi(2) + pos.get(2).powi(2)).sqrt();
+            let computed_range = (pos.x.powi(2) + pos.y.powi(2) + pos.z.powi(2)).sqrt();
             prop_assert!((computed_range - range).abs() / range < 1e-10,
                 "range should be preserved: {} vs {}", computed_range, range);
         }

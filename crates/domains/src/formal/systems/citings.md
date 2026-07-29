@@ -8,7 +8,14 @@ Every published source this ontology stands on. Entries below are drawn from the
 - Wiener 1948: *Cybernetics*
 - Ashby 1956: *An Introduction to Cybernetics*
 - Beer 1972: *Brain of the Firm*
+- Beer 1979: *The Heart of the Enterprise*
+- Beer 1985: *Diagnosing the System for Organizations*
+- Espejo & Reyes 2011: *Organizational Systems: Managing Complexity with the Viable System Model*
 - Meadows 2008: *Thinking in Systems*
+- Conant & Ashby 1970: *Every Good Regulator of a System Must Be a Model of that System*, Int. J. Systems Science 1(2):89-97
+- Powers 1973: *Behavior: The Control of Perception*
+- von Foerster 1981: *Observing Systems*
+- Åström & Murray 2008: *Feedback Systems*
 
 - **Local PDF:** [`papers/ashby-introduction-to-cybernetics-1956.pdf`](papers/ashby-introduction-to-cybernetics-1956.pdf) — Ashby 1956
 

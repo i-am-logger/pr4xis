@@ -58,7 +58,7 @@ use crate::cognitive::linguistics::english::morphology_store::MorphologicalRuleR
 use crate::cognitive::linguistics::english::writing_system_store::WritingSystemRecord;
 use crate::cognitive::linguistics::english::{Concept, ConceptId};
 use crate::cognitive::linguistics::lexicon::pos::{
-    Determiner, DeterminerKind, LexicalEntry, Number, Person, Pronoun, PronounKind,
+    Determiner, DeterminerKind, LexicalEntry, Number, Person, Pronoun, PronounKind, WhReferentRole,
 };
 use crate::cognitive::linguistics::morphology::MorphologicalRule;
 use crate::cognitive::linguistics::morphology::english::english_rules;
@@ -111,6 +111,7 @@ fn function_word_witnesses() -> Vec<HashMap<String, Vec<LexicalEntry>>> {
             kind: DeterminerKind::Definite,
             number: None,
             olia_class: None,
+            referent_role: None,
         })],
     );
     rich.insert(
@@ -121,6 +122,7 @@ fn function_word_witnesses() -> Vec<HashMap<String, Vec<LexicalEntry>>> {
             person: Person::Third,
             kind: PronounKind::Interrogative,
             olia_class: None,
+            referent_role: Some(WhReferentRole::Person),
         })],
     );
     rich.insert(
@@ -132,12 +134,14 @@ fn function_word_witnesses() -> Vec<HashMap<String, Vec<LexicalEntry>>> {
                 person: Person::Third,
                 kind: PronounKind::Interrogative,
                 olia_class: Some(String::from("InterrogativePronoun")),
+                referent_role: Some(WhReferentRole::Thing),
             }),
             LexicalEntry::Determiner(Determiner {
                 text: String::from("what"),
                 kind: DeterminerKind::Indefinite,
                 number: None,
                 olia_class: Some(String::from("InterrogativeDeterminer")),
+                referent_role: Some(WhReferentRole::Thing),
             }),
         ],
     );
@@ -301,6 +305,7 @@ pr4xis::register_axiom!(RkyvLensOwnedPutAgrees, constructor);
 mod tests {
     use super::*;
 
+    use crate::cognitive::linguistics::lexicon::pos::WhAdverbRole;
     use pr4xis::ontology::registry::axiom_by_name;
 
     /// The four lens-law axioms hold over the four rich English store instances.
@@ -349,8 +354,8 @@ mod tests {
 
     use crate::cognitive::linguistics::lexicon::pos::{
         Adjective, Adverb, Auxiliary, Conjunction, Copula, Countability, Interjection,
-        InterjectionKind, Noun, NounKind, Numeral, Particle, Preposition, Tense, Transitivity,
-        Verb,
+        InterjectionKind, Noun, NounKind, Numeral, Particle, Polarity, Preposition, Tense,
+        Transitivity, Verb,
     };
 
     /// Every `LmfPos` variant — the full WN-LMF/UD part-of-speech enumeration.
@@ -424,6 +429,17 @@ mod tests {
     fn arb_lexical_entry() -> impl Strategy<Value = LexicalEntry> {
         let text = "[a-z' -]{1,10}";
         let olia = prop::option::of("[A-Za-z]{1,16}".prop_map(String::from));
+        let wh_referent_role = prop::option::of(prop::sample::select(alloc::vec![
+            WhReferentRole::Person,
+            WhReferentRole::Thing,
+            WhReferentRole::Selection,
+        ]));
+        let wh_adverb_role = prop::option::of(prop::sample::select(alloc::vec![
+            WhAdverbRole::Manner,
+            WhAdverbRole::Reason,
+            WhAdverbRole::Place,
+            WhAdverbRole::Time,
+        ]));
         prop_oneof![
             (
                 text,
@@ -464,6 +480,7 @@ mod tests {
                         person,
                         tense,
                         transitivity,
+                        olia_class: None,
                     })
                 }),
             (
@@ -476,21 +493,29 @@ mod tests {
                 ]),
                 prop::option::of(arb_number()),
                 olia.clone(),
+                wh_referent_role.clone(),
             )
-                .prop_map(|(text, kind, number, olia_class)| {
+                .prop_map(|(text, kind, number, olia_class, referent_role)| {
                     LexicalEntry::Determiner(Determiner {
                         text,
                         kind,
                         number,
                         olia_class,
+                        referent_role,
                     })
                 }),
             text.prop_map(|text| LexicalEntry::Adjective(Adjective { text })),
-            (text, olia.clone()).prop_map(|(text, olia_class)| {
-                LexicalEntry::Adverb(Adverb { text, olia_class })
+            (text, olia.clone(), wh_adverb_role).prop_map(|(text, olia_class, role)| {
+                LexicalEntry::Adverb(Adverb {
+                    text,
+                    olia_class,
+                    role,
+                })
             }),
             text.prop_map(|text| LexicalEntry::Preposition(Preposition { text })),
-            text.prop_map(|text| LexicalEntry::Conjunction(Conjunction { text })),
+            (text, olia.clone()).prop_map(|(text, olia_class)| {
+                LexicalEntry::Conjunction(Conjunction { text, olia_class })
+            }),
             (
                 text,
                 arb_number(),
@@ -502,16 +527,19 @@ mod tests {
                     PronounKind::Relative,
                     PronounKind::Reflexive,
                     PronounKind::Indefinite,
+                    PronounKind::Possessive,
                 ]),
-                olia,
+                olia.clone(),
+                wh_referent_role,
             )
-                .prop_map(|(text, number, person, kind, olia_class)| {
+                .prop_map(|(text, number, person, kind, olia_class, referent_role)| {
                     LexicalEntry::Pronoun(Pronoun {
                         text,
                         number,
                         person,
                         kind,
                         olia_class,
+                        referent_role,
                     })
                 }),
             (text, arb_number(), arb_person(), arb_tense()).prop_map(
@@ -546,9 +574,21 @@ mod tests {
                     InterjectionKind::Politeness,
                     InterjectionKind::Conative,
                 ]),
+                prop::option::of(prop::sample::select(alloc::vec![
+                    Polarity::Affirmative,
+                    Polarity::Negative,
+                ])),
             )
-                .prop_map(|(text, kind)| LexicalEntry::Interjection(Interjection { text, kind })),
-            text.prop_map(|text| LexicalEntry::Particle(Particle { text })),
+                .prop_map(|(text, kind, polarity)| {
+                    LexicalEntry::Interjection(Interjection {
+                        text,
+                        kind,
+                        polarity,
+                    })
+                }),
+            (text, olia).prop_map(|(text, olia_class)| {
+                LexicalEntry::Particle(Particle { text, olia_class })
+            }),
             text.prop_map(|text| LexicalEntry::Numeral(Numeral { text })),
         ]
     }

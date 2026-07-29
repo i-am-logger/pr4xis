@@ -38,6 +38,8 @@ pub mod apply;
 pub mod archive;
 pub mod codec;
 pub mod connection;
+#[cfg(test)]
+mod coverage_gate;
 pub mod definition;
 #[cfg(feature = "emit")]
 pub mod emit;

@@ -17,6 +17,9 @@ mod tests {
     use pr4xis_domains::formal::math::linear_algebra::matrix::Matrix;
     use pr4xis_domains::formal::math::linear_algebra::positive_definite;
     use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::formal::math::temporal::duration::Duration;
+    use pr4xis_domains::formal::math::temporal::instant::Instant;
+    use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
     #[test]
     fn ins_gnss_loosely_coupled() {
@@ -24,7 +27,7 @@ mod tests {
         let state = StateEstimate::new(
             Vector::new(vec![0.0, 10.0]), // start at 0, moving at 10 m/s
             Matrix::diagonal(&[1.0, 1.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         );
         let mut engine = new_fusion_engine(state);
 
@@ -40,7 +43,7 @@ mod tests {
             // IMU prediction (high rate)
             engine = engine
                 .next(FusionAction::Predict {
-                    dt: imu_dt,
+                    dt: Duration::from_seconds(imu_dt),
                     transition: f_imu.clone(),
                     process_noise: q_imu.clone(),
                 })

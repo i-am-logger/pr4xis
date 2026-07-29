@@ -1,0 +1,35 @@
+name: Ontology request or contribution
+description: Propose a new domain ontology, or a gap in an existing one.
+labels: ["ontology"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        See [Build an ontology from a paper](../../docs/use/build-ontology-from-paper.md)
+        for the authoring workflow before starting work.
+  - type: input
+    id: domain
+    attributes:
+      label: Domain / concept
+      description: What real-world domain or concept is missing or incomplete?
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Source literature
+      description: Per the praxis-way, every concept/axiom must trace to a cited source (paper, spec, RFC, standard). List what you'd ground this in.
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: What's missing or wrong today?
+      description: If this extends/corrects an existing ontology under crates/domains/src/, link to it.
+  - type: checkboxes
+    id: intent
+    attributes:
+      label: Intent
+      options:
+        - label: I'm reporting this for someone else to pick up
+        - label: I'd like to build this myself and want feedback on scope first

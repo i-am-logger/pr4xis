@@ -3,6 +3,8 @@ use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Ve
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use crate::cognitive::linguistics::pragmatics::speech_act::{DialogueType, SpeechAct};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
     Provenance {
@@ -89,8 +91,9 @@ impl DialogueState {
         self.referents.last().map(|r| r.word.as_str())
     }
 
-    pub fn turn_count(&self) -> usize {
-        self.turns.len()
+    /// Number of turns in the dialogue so far — a dimensionless count.
+    pub fn turn_count(&self) -> Quantity {
+        Quantity::from_unit(self.turns.len() as f64, &unit::UNITLESS)
     }
 
     pub fn last_speaker(&self) -> Option<Speaker> {

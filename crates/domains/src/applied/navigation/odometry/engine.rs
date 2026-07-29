@@ -4,14 +4,16 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use pr4xis::engine::{Action, Situation};
 
 use crate::formal::math::angle::Angle;
+use crate::formal::math::geometry::point::Point2;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
 
 /// Odometry pose: 2D position + heading.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OdometryPose {
-    /// X position (meters).
-    pub x: f64,
-    /// Y position (meters).
-    pub y: f64,
+    /// Position in the 2D navigation plane.
+    pub position: Point2,
     /// Heading angle (0 = forward/north), an element of the circle group S¹.
     pub heading: Angle,
 }
@@ -19,21 +21,24 @@ pub struct OdometryPose {
 impl OdometryPose {
     /// Create a new pose.
     pub fn new(x: f64, y: f64, heading: Angle) -> Self {
-        Self { x, y, heading }
+        Self {
+            position: Point2::new(x, y),
+            heading,
+        }
     }
 
     /// Origin pose.
     pub fn origin() -> Self {
         Self {
-            x: 0.0,
-            y: 0.0,
+            position: Point2::origin(),
             heading: Angle::ZERO,
         }
     }
 
     /// Euclidean distance from origin.
-    pub fn distance_from_origin(&self) -> f64 {
-        (self.x * self.x + self.y * self.y).sqrt()
+    pub fn distance_from_origin(&self) -> Quantity {
+        let distance = self.position.distance_to(&Point2::origin());
+        Quantity::from_unit(distance.value, &unit::METER)
     }
 }
 
@@ -42,12 +47,12 @@ impl OdometryPose {
 pub struct OdometrySituation {
     /// Current pose.
     pub pose: OdometryPose,
-    /// Forward velocity (m/s).
-    pub velocity: f64,
-    /// Accumulated distance traveled (meters).
-    pub distance_traveled: f64,
-    /// Estimated position error (meters, 1-sigma).
-    pub estimated_error: f64,
+    /// Forward velocity.
+    pub velocity: Quantity,
+    /// Accumulated distance traveled.
+    pub distance_traveled: Quantity,
+    /// Estimated position error (1-sigma).
+    pub estimated_error: Quantity,
     /// Drift rate (fraction of distance).
     pub drift_rate: f64,
     /// Step counter.
@@ -61,21 +66,21 @@ impl Situation for OdometrySituation {}
 pub enum OdometryAction {
     /// Drive forward with given velocity and heading rate.
     DriveForward {
-        /// Forward velocity (m/s).
-        velocity: f64,
-        /// Heading rate (rad/s).
-        heading_rate: f64,
-        /// Time step (seconds).
-        dt: f64,
+        /// Forward velocity.
+        velocity: Quantity,
+        /// Heading rate.
+        heading_rate: Quantity,
+        /// Time step.
+        dt: Duration,
     },
     /// Wheel encoder tick: distance traveled by each wheel.
     WheelTick {
-        /// Left wheel distance (meters).
-        left: f64,
-        /// Right wheel distance (meters).
-        right: f64,
-        /// Wheel base width (meters).
-        wheel_base: f64,
+        /// Left wheel distance.
+        left: Quantity,
+        /// Right wheel distance.
+        right: Quantity,
+        /// Wheel base width.
+        wheel_base: Quantity,
     },
 }
 
@@ -96,24 +101,25 @@ pub fn apply_odometry(
             heading_rate,
             dt,
         } => {
-            if *dt < 0.0 {
+            if dt.is_negative() {
                 return Err("dt must be non-negative".into());
             }
-            let distance = velocity * dt;
-            let new_heading = situation.pose.heading.radians() + heading_rate * dt;
+            let dt_secs = dt.seconds();
+            let distance = velocity.value * dt_secs;
+            let new_heading = situation.pose.heading.radians() + heading_rate.value * dt_secs;
             // Use mid-heading for better integration accuracy
-            let mid_heading = situation.pose.heading.radians() + heading_rate * dt * 0.5;
-            let new_x = situation.pose.x + distance * mid_heading.cos();
-            let new_y = situation.pose.y + distance * mid_heading.sin();
+            let mid_heading = situation.pose.heading.radians() + heading_rate.value * dt_secs * 0.5;
+            let new_x = situation.pose.position.x + distance * mid_heading.cos();
+            let new_y = situation.pose.position.y + distance * mid_heading.sin();
 
-            let new_distance = situation.distance_traveled + distance.abs();
+            let new_distance = situation.distance_traveled.value + distance.abs();
             let new_error = situation.drift_rate * new_distance;
 
             Ok(OdometrySituation {
                 pose: OdometryPose::new(new_x, new_y, Angle::from_radians(new_heading)),
-                velocity: *velocity,
-                distance_traveled: new_distance,
-                estimated_error: new_error,
+                velocity: velocity.clone(),
+                distance_traveled: Quantity::from_unit(new_distance, &unit::METER),
+                estimated_error: Quantity::from_unit(new_error, &unit::METER),
                 drift_rate: situation.drift_rate,
                 step: situation.step + 1,
             })
@@ -123,26 +129,27 @@ pub fn apply_odometry(
             right,
             wheel_base,
         } => {
-            if *wheel_base <= 0.0 {
+            if wheel_base.value <= 0.0 {
                 return Err("wheel base must be positive".into());
             }
             // Differential drive model
-            let distance = (left + right) / 2.0;
-            let dtheta = (right - left) / wheel_base;
+            let distance = (left.value + right.value) / 2.0;
+            let dtheta = (right.value - left.value) / wheel_base.value;
 
             let mid_heading = situation.pose.heading.radians() + dtheta * 0.5;
-            let new_x = situation.pose.x + distance * mid_heading.cos();
-            let new_y = situation.pose.y + distance * mid_heading.sin();
+            let new_x = situation.pose.position.x + distance * mid_heading.cos();
+            let new_y = situation.pose.position.y + distance * mid_heading.sin();
             let new_heading = situation.pose.heading.radians() + dtheta;
 
-            let new_distance = situation.distance_traveled + distance.abs();
+            let new_distance = situation.distance_traveled.value + distance.abs();
             let new_error = situation.drift_rate * new_distance;
 
             Ok(OdometrySituation {
                 pose: OdometryPose::new(new_x, new_y, Angle::from_radians(new_heading)),
-                velocity: 0.0, // unknown without dt
-                distance_traveled: new_distance,
-                estimated_error: new_error,
+                // unknown without dt
+                velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                distance_traveled: Quantity::from_unit(new_distance, &unit::METER),
+                estimated_error: Quantity::from_unit(new_error, &unit::METER),
                 drift_rate: situation.drift_rate,
                 step: situation.step + 1,
             })

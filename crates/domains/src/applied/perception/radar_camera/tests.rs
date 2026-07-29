@@ -5,6 +5,9 @@ use pr4xis::ontology::Ontology;
 use crate::applied::perception::radar_camera::engine::*;
 use crate::applied::perception::radar_camera::ontology::*;
 use crate::formal::math::angle::Angle;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -35,8 +38,12 @@ fn fused_output_is_terminal_holds() {
 #[test]
 fn azimuth_to_image_center() {
     // Azimuth 0 should map to image center
-    let x = radar_azimuth_to_image_x(0.0, 640.0, core::f64::consts::PI);
-    assert!((x - 320.0).abs() < 1e-6);
+    let x = radar_azimuth_to_image_x(
+        Angle::from_radians(0.0),
+        640.0,
+        Angle::from_radians(core::f64::consts::PI),
+    );
+    assert!((x.value - 320.0).abs() < 1e-6);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -44,8 +51,8 @@ fn azimuth_to_image_center() {
 fn radar_camera_association() {
     let frame = AlignedFrame {
         radar_targets: vec![RadarTarget {
-            range: 50.0,
-            doppler: -10.0,
+            range: Quantity::from_unit(50.0, &unit::METER),
+            doppler: Quantity::from_unit(-10.0, &unit::METER_PER_SECOND),
             azimuth: Angle::from_radians(0.0),
             rcs: 5.0,
         }],
@@ -54,15 +61,15 @@ fn radar_camera_association() {
             y_min: 100.0,
             x_max: 400.0,
             y_max: 300.0,
-            class_label: "car",
+            class_label: ObjectClass::Car,
             confidence: 0.95,
         }],
-        time_offset_s: 0.0,
+        time_offset_s: Duration::from_seconds(0.0),
     };
-    let fused = associate_radar_camera(&frame, 640.0, core::f64::consts::PI);
+    let fused = associate_radar_camera(&frame, 640.0, Angle::from_radians(core::f64::consts::PI));
     assert_eq!(fused.len(), 1);
-    assert_eq!(fused[0].class_label, "car");
-    assert!((fused[0].range - 50.0).abs() < 1e-12);
+    assert_eq!(fused[0].class_label, ObjectClass::Car);
+    assert!((fused[0].range.value - 50.0).abs() < 1e-12);
 }
 
 // ---------------------------------------------------------------------------
@@ -74,8 +81,8 @@ fn radar_camera_association() {
 fn associate_radar_camera_nan_confidence_no_panic() {
     let frame = AlignedFrame {
         radar_targets: vec![RadarTarget {
-            range: 50.0,
-            doppler: -10.0,
+            range: Quantity::from_unit(50.0, &unit::METER),
+            doppler: Quantity::from_unit(-10.0, &unit::METER_PER_SECOND),
             azimuth: Angle::from_radians(0.0),
             rcs: 5.0,
         }],
@@ -85,7 +92,7 @@ fn associate_radar_camera_nan_confidence_no_panic() {
                 y_min: 100.0,
                 x_max: 400.0,
                 y_max: 300.0,
-                class_label: "car",
+                class_label: ObjectClass::Car,
                 confidence: f64::NAN,
             },
             CameraObject {
@@ -93,14 +100,14 @@ fn associate_radar_camera_nan_confidence_no_panic() {
                 y_min: 100.0,
                 x_max: 400.0,
                 y_max: 300.0,
-                class_label: "truck",
+                class_label: ObjectClass::Truck,
                 confidence: 0.8,
             },
         ],
-        time_offset_s: 0.0,
+        time_offset_s: Duration::from_seconds(0.0),
     };
     // Should not panic
-    let fused = associate_radar_camera(&frame, 640.0, core::f64::consts::PI);
+    let fused = associate_radar_camera(&frame, 640.0, Angle::from_radians(core::f64::consts::PI));
     assert_eq!(fused.len(), 1);
 }
 
@@ -115,10 +122,10 @@ mod proptest_proofs {
             azimuth in -1.0..1.0_f64,
             width in 100.0..2000.0_f64
         ) {
-            let fov = core::f64::consts::PI;
-            let x = radar_azimuth_to_image_x(azimuth, width, fov);
+            let fov = Angle::from_radians(core::f64::consts::PI);
+            let x = radar_azimuth_to_image_x(Angle::from_radians(azimuth), width, fov).value;
             // Azimuth in [-fov/2, fov/2] should map within [0, width]
-            if azimuth.abs() <= fov / 2.0 {
+            if azimuth.abs() <= fov.radians() / 2.0 {
                 prop_assert!(x >= 0.0 && x <= width,
                     "azimuth {} mapped to x={}, should be in [0, {}]", azimuth, x, width);
             }
@@ -132,15 +139,15 @@ mod proptest_proofs {
         ) {
             let frame = AlignedFrame {
                 radar_targets: vec![RadarTarget {
-                    range,
-                    doppler,
+                    range: Quantity::from_unit(range, &unit::METER),
+                    doppler: Quantity::from_unit(doppler, &unit::METER_PER_SECOND),
                     azimuth: Angle::from_radians(azimuth),
                     rcs: 5.0,
                 }],
                 camera_objects: vec![],
-                time_offset_s: 0.0,
+                time_offset_s: Duration::from_seconds(0.0),
             };
-            let fused = associate_radar_camera(&frame, 640.0, core::f64::consts::PI);
+            let fused = associate_radar_camera(&frame, 640.0, Angle::from_radians(core::f64::consts::PI));
             prop_assert!(fused.is_empty(), "no camera objects means no fused detections");
         }
     }

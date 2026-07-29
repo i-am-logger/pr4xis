@@ -30,6 +30,8 @@ use crate::applied::sensor_fusion::state::information::InformationEstimate;
 use crate::applied::swarm::consensus::engine::{PeerId, PeerTrust};
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::instant::Instant;
+use crate::formal::math::temporal::time_system::TimeSystem;
 
 // ---------------------------------------------------------------------------
 // The four MAPE-K phases and their canonical order (Kephart & Chess 2003)
@@ -96,7 +98,7 @@ pub const SMART_ELEMENT_STATE_DIMENSION: usize = 2;
 /// Fixture timestamp: the element and its neighbours hold contemporaneous
 /// estimates, so a single epoch labels every conversion between covariance
 /// and information form.
-pub const SMART_FIXTURE_EPOCH: f64 = 0.0;
+pub const SMART_FIXTURE_EPOCH: Instant = Instant::new(0.0, TimeSystem::GPS);
 
 /// The smart element's own local mean — a documented structural fixture
 /// value (distinct from its neighbours so fusion actually mixes

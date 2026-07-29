@@ -20,13 +20,16 @@
 
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::control_theory::adwin::Adwin;
 use crate::formal::math::control_theory::feedback;
 use crate::formal::math::control_theory::pid::{PidController, PidGains};
 use crate::formal::math::control_theory::stability;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "ControlTheory",
-    source: "Astrom & Murray (2008) Feedback Systems, Princeton University Press; Ogata (2010) Modern Control Engineering, 5th ed.; Lyapunov (1892) The General Problem of the Stability of Motion",
+    source: "Astrom & Murray (2008) Feedback Systems, Princeton University Press; Ogata (2010) Modern Control Engineering, 5th ed.; Lyapunov (1892) The General Problem of the Stability of Motion; Bifet & Gavalda (2007) Learning from Time-Changing Data with Adaptive Windowing, SDM",
 
     concepts: [
         Plant,
@@ -36,6 +39,7 @@ pr4xis::ontology! {
         Reference,
         Error,
         Feedback,
+        DriftDetector,
     ],
 
     labels: {
@@ -53,6 +57,8 @@ pr4xis::ontology! {
             "Astrom & Murray (2008) §1.4: the signal e = r - y, the difference between reference and measured output that drives the controller."),
         Feedback: ("en", "Feedback",
             "Astrom & Murray (2008) §1.1: the return path that takes the plant's measured output back to the comparator with the reference; the defining structural feature of closed-loop control."),
+        DriftDetector: ("en", "Drift detector",
+            "Bifet & Gavalda (2007): monitors a signal for a change in its underlying distribution (a Hoeffding-bound test over an adaptive window), rather than assuming the plant's dynamics are static — the concrete instrument for noticing a disturbance has occurred."),
     },
 
     has_a: [
@@ -64,6 +70,10 @@ pr4xis::ontology! {
         (Feedback, Actuator),
         (Feedback, Reference),
         (Feedback, Error),
+        // A drift detector is an optional, monitoring component of the
+        // loop (Bifet & Gavalda 2007) — not on the causal control path
+        // itself, but part of what a closed loop can be built from.
+        (Feedback, DriftDetector),
     ],
 
     opposes: [
@@ -93,6 +103,7 @@ impl Quality for ConceptDescription {
             C::Reference => "desired output value (setpoint)",
             C::Error => "difference between reference and measured output: e = r - y",
             C::Feedback => "path from output back to input for closed-loop control",
+            C::DriftDetector => "monitors a signal for a change in its underlying distribution",
         })
     }
 }
@@ -106,6 +117,7 @@ impl Ontology for ControlTheoryOntology {
         axioms.push(Box::new(NegativeFeedbackStabilizes));
         axioms.push(Box::new(ErrorConvergesToZero));
         axioms.push(Box::new(BIBOStabilityDefinition));
+        axioms.push(Box::new(DriftDetectionSound));
         axioms
     }
 }
@@ -132,10 +144,10 @@ impl Axiom for NegativeFeedbackStabilizes {
         ];
         for &(g, h) in &test_cases {
             let cl = feedback::closed_loop_gain(g, h);
-            if cl.abs() >= g.abs() + 1e-10 {
+            if cl.value.abs() >= g.abs() + 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
-            let s = feedback::sensitivity(g, h);
+            let s = feedback::sensitivity(g, h).value;
             if s >= 1.0 + 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
@@ -165,15 +177,15 @@ pub struct ErrorConvergesToZero;
 impl Axiom for ErrorConvergesToZero {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let gains = PidGains::pi(1.0, 2.0);
-        let dt = 0.01;
+        let gains = PidGains::pi(Quantity::dimensionless(1.0), Quantity::dimensionless(2.0));
+        let dt = Quantity::from_unit(0.01, &unit::SECOND);
         let mut pid = PidController::new(gains, dt);
         let reference = 1.0;
         let mut output = 0.0;
         for _ in 0..5000 {
             let error = feedback::error_signal(reference, output);
-            let control = pid.update(error);
-            output = 0.95 * output + 0.05 * control;
+            let control = pid.update(Quantity::dimensionless(error.value));
+            output = 0.95 * output + 0.05 * control.value;
         }
         if (reference - output).abs() < 0.01 {
             Ok(Box::new(SimpleProof::new(self.meta())))
@@ -250,6 +262,71 @@ pr4xis::register_axiom!(
     "Ogata (2010) Modern Control Engineering, 5th ed. §5.3"
 );
 
+/// Drift detection is sound: a [`Adwin`] detector run over a genuinely
+/// stationary signal reports no change, and the SAME detector run over
+/// a signal with an abrupt distribution shift reports a change shortly
+/// after it occurs. Bifet & Gavaldà (2007) Theorem 1 — the Hoeffding
+/// bound controls the false-positive rate at `delta` while still
+/// guaranteeing detection of a large-enough shift.
+pub struct DriftDetectionSound;
+
+impl Axiom for DriftDetectionSound {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+
+        // No false positive: a constant stream never drifts.
+        let mut stationary = Adwin::new(
+            Quantity::dimensionless(0.002),
+            Quantity::dimensionless(1024.0),
+        );
+        for _ in 0..200 {
+            if stationary
+                .update(Quantity::dimensionless(1.0))
+                .verdict
+                .is_detected()
+            {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
+        // Detection: an abrupt mean shift IS caught within the tail.
+        let mut shifting = Adwin::new(
+            Quantity::dimensionless(0.002),
+            Quantity::dimensionless(1024.0),
+        );
+        for _ in 0..100 {
+            shifting.update(Quantity::dimensionless(0.0));
+        }
+        let mut detected = false;
+        for _ in 0..50 {
+            if shifting
+                .update(Quantity::dimensionless(5.0))
+                .verdict
+                .is_detected()
+            {
+                detected = true;
+                break;
+            }
+        }
+        if !detected {
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+        }
+
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "DriftDetectionSound",
+        "a stationary stream never drifts, and an abrupt shift is detected shortly after it occurs",
+        "Bifet & Gavalda (2007) Learning from Time-Changing Data with Adaptive Windowing, SDM, Theorem 1"
+    );
+}
+
+pr4xis::register_axiom!(
+    DriftDetectionSound,
+    "Bifet & Gavalda (2007) Learning from Time-Changing Data with Adaptive Windowing, SDM, Theorem 1"
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,8 +349,8 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn seven_control_concepts() {
-        assert_eq!(ControlTheoryConcept::variants().len(), 7);
+    fn eight_control_concepts() {
+        assert_eq!(ControlTheoryConcept::variants().len(), 8);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -301,6 +378,12 @@ mod tests {
     #[test]
     fn bibo_stability_definition_holds() {
         assert!(BIBOStabilityDefinition.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn drift_detection_sound_holds() {
+        assert!(DriftDetectionSound.verify().is_ok());
     }
 
     fn arb_concept() -> impl Strategy<Value = ControlTheoryConcept> {

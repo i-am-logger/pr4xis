@@ -366,7 +366,7 @@ impl Axiom for KlDivergenceNonNegative {
                 if p.size() != q.size() {
                     continue;
                 }
-                let kl = entropy::kl_divergence_discrete(&p.probabilities, &q.probabilities);
+                let kl = entropy::kl_divergence_discrete(&p.probabilities, &q.probabilities).value;
                 if kl < -1e-10 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
@@ -395,7 +395,7 @@ impl Axiom for KlDivergenceZeroIffEqual {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for p in &canonical_distributions() {
-            let kl = entropy::kl_divergence_discrete(&p.probabilities, &p.probabilities);
+            let kl = entropy::kl_divergence_discrete(&p.probabilities, &p.probabilities).value;
             if kl.abs() > 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
@@ -423,7 +423,7 @@ impl Axiom for EntropyNonNegative {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for dist in &canonical_distributions() {
-            let h = entropy::shannon_entropy(&dist.probabilities);
+            let h = entropy::shannon_entropy(&dist.probabilities).value;
             if h < -1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
@@ -453,9 +453,9 @@ impl Axiom for UniformMaximizesEntropy {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let n = 4;
         let uniform = DiscreteDistribution::uniform(n);
-        let h_uniform = entropy::shannon_entropy(&uniform.probabilities);
+        let h_uniform = entropy::shannon_entropy(&uniform.probabilities).value;
         let non_uniform = DiscreteDistribution::new(vec![0.5, 0.25, 0.15, 0.1]).unwrap();
-        let h_non_uniform = entropy::shannon_entropy(&non_uniform.probabilities);
+        let h_non_uniform = entropy::shannon_entropy(&non_uniform.probabilities).value;
         if h_uniform > h_non_uniform - 1e-10 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -492,7 +492,9 @@ impl Axiom for MahalanobisNonNegative {
             Vector::new(vec![-2.0, 1.0]),
         ];
         for x in &test_points {
-            let d2 = mahalanobis::mahalanobis_squared(x, &mean, &cov).unwrap();
+            let d2 = mahalanobis::mahalanobis_squared(x, &mean, &cov)
+                .unwrap()
+                .value;
             if d2 < -1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
@@ -527,9 +529,11 @@ impl Axiom for MahalanobisReducesToEuclidean {
             Vector::new(vec![0.0, 0.0, 0.0]),
         ];
         for x in &test_points {
-            let d2_mahal = mahalanobis::mahalanobis_squared(x, &mean, &identity).unwrap();
+            let d2_mahal = mahalanobis::mahalanobis_squared(x, &mean, &identity)
+                .unwrap()
+                .value;
             let diff = x.sub(&mean);
-            let d2_euclid = diff.norm_squared();
+            let d2_euclid = diff.norm_squared().value;
             if (d2_mahal - d2_euclid).abs() > 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }

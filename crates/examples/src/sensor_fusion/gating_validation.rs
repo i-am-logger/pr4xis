@@ -57,7 +57,7 @@ mod tests {
         let cov = Matrix::diagonal(&[1.0, 2.0, 3.0]);
 
         let d2 = mahalanobis::mahalanobis_squared(&mean, &mean, &cov).unwrap();
-        assert!(d2 < 1e-10);
+        assert!(d2.value < 1e-10);
     }
 
     mod proptest_proofs {
@@ -73,7 +73,7 @@ mod tests {
                 let mean = Vector::new(vec![m1, m2]);
                 let cov = Matrix::new(2, 2, vec![2.0, 0.5, 0.5, 3.0]);
                 let d2 = mahalanobis::mahalanobis_squared(&mean, &mean, &cov).unwrap();
-                prop_assert!(d2 < 1e-10);
+                prop_assert!(d2.value < 1e-10);
             }
 
             #[test]
@@ -85,7 +85,7 @@ mod tests {
                 let mean = Vector::new(vec![m1, m2]);
                 let cov = Matrix::new(2, 2, vec![2.0, 0.5, 0.5, 3.0]);
                 let d2 = mahalanobis::mahalanobis_squared(&x, &mean, &cov).unwrap();
-                prop_assert!(d2 >= -1e-10);
+                prop_assert!(d2.value >= -1e-10);
             }
 
             #[test]

@@ -16,6 +16,7 @@
 
 use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
+use crate::formal::analytical_methods::ontology::ComplexityClass;
 use crate::formal::math::quantity::level::{
     LogarithmicLevel, LogarithmicLevelReferenceConcept as Ref,
 };
@@ -193,21 +194,18 @@ pr4xis::ontology! {
     ],
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Complexity {
-    pub order: &'static str,
-}
-
 #[derive(Debug, Clone)]
 pub struct ComputationalComplexity;
 impl Quality for ComputationalComplexity {
     type Individual = SignalConcept;
-    type Value = Complexity;
-    fn get(&self, individual: &SignalConcept) -> Option<Complexity> {
+    type Value = ComplexityClass;
+    fn get(&self, individual: &SignalConcept) -> Option<ComplexityClass> {
         use SignalConcept::*;
         match individual {
-            FFT | InverseFFT => Some(Complexity { order: "N log N" }),
-            FourierTransform | Convolution | Correlation => Some(Complexity { order: "N^2" }),
+            // Cooley & Tukey (1965) Math. Comput. 19(90):297 — O(N log N).
+            FFT | InverseFFT => Some(ComplexityClass::Linearithmic),
+            // Direct DFT / naive convolution and correlation — O(N^2).
+            FourierTransform | Convolution | Correlation => Some(ComplexityClass::Quadratic),
             _ => None,
         }
     }

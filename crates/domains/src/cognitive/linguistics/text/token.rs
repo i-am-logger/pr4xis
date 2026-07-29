@@ -44,12 +44,39 @@ pub struct Token {
     /// Part-of-speech from the lexicon (OLiA annotation).
     /// Derived from the lexical entry's POS tag.
     pub pos: Option<crate::cognitive::linguistics::lexicon::pos::PosTag>,
+
+    /// Tense/aspect (Reichenbach 1947; Comrie 1976, 1985) — `None` until a
+    /// producer populates it. No current call site sets this to `Some`; the
+    /// field exists so a claimed tense/aspect capability
+    /// (`crate::cognitive::linguistics::morphology::tense`) has a real,
+    /// compileable slot to check for reachability
+    /// (`crate::cognitive::linguistics::nlp_task`) rather than the
+    /// capability being checkable only by whether the accessor exists at
+    /// all (Rust has no runtime reflection for that) — see
+    /// [`Self::tense`].
+    pub tense: Option<crate::cognitive::linguistics::morphology::tense::TenseAspect>,
+
+    /// Whether this occurrence USES its surface or MENTIONS it — Quine's
+    /// use/mention distinction, see
+    /// [`ExpressionUse`](crate::cognitive::linguistics::lambek::reduce::ExpressionUse)
+    /// for the citation and for why the tokenizer is the only stage that can
+    /// still establish it. Carried here so the ontological token is not
+    /// STRICTLY POORER than the `TypedToken` it exists to replace: a
+    /// conversion that dropped it would silently re-introduce the erasure.
+    pub expression_use: crate::cognitive::linguistics::lambek::reduce::ExpressionUse,
 }
 
 impl Token {
     /// Whether this token has a resolved ontology reference.
     pub fn has_sense(&self) -> bool {
         self.sense.is_some()
+    }
+
+    /// This token's tense/aspect, if resolved. `None` today for every
+    /// token — no producer populates [`Self::tense`] yet — an honest,
+    /// checkable gap rather than a silently-absent accessor.
+    pub fn tense(&self) -> Option<crate::cognitive::linguistics::morphology::tense::TenseAspect> {
+        self.tense
     }
 }
 
@@ -64,6 +91,7 @@ impl From<Token> for crate::cognitive::linguistics::lambek::reduce::TypedToken {
         Self {
             word: t.word,
             lambek_type: t.lambek_type,
+            expression_use: t.expression_use,
         }
     }
 }
@@ -84,6 +112,8 @@ mod tests {
                 concept: "Canine".to_string(),
             }),
             pos: None,
+            tense: None,
+            expression_use: crate::cognitive::linguistics::lambek::reduce::ExpressionUse::Used,
         };
         assert!(token.has_sense());
         assert_eq!(token.sense.as_ref().unwrap().concept, "Canine");
@@ -100,8 +130,27 @@ mod tests {
                 concept: "Run".to_string(),
             }),
             pos: None,
+            tense: None,
+            expression_use: crate::cognitive::linguistics::lambek::reduce::ExpressionUse::Used,
         };
         let legacy: crate::cognitive::linguistics::lambek::reduce::TypedToken = token.into();
         assert_eq!(legacy.word, "runs");
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn tense_is_none_until_a_producer_populates_it() {
+        // No current call site sets `tense` to `Some` -- an honest,
+        // checkable gap (a real accessor exists; nothing feeds it yet),
+        // not a claimed capability with no accessor to check at all.
+        let token = Token {
+            word: "ran".into(),
+            lambek_type: LambekType::n(),
+            sense: None,
+            pos: None,
+            tense: None,
+            expression_use: crate::cognitive::linguistics::lambek::reduce::ExpressionUse::Used,
+        };
+        assert_eq!(token.tense(), None);
     }
 }

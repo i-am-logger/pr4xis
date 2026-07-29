@@ -139,6 +139,49 @@ pub const ARCSECOND: Unit = Unit {
     offset: 0.0,
 };
 
+/// Nat — the natural unit of information: the information content of an event
+/// with probability 1/e, i.e. a negative NATURAL log of a probability.
+/// ISO/IEC 80000-13:2008 unit entry 13-24.c (nat, under item 13-24
+/// "information content"); Shannon (1948), Introduction, BSTJ 27(3) p. 379
+/// ("The resulting units of information will be called natural units").
+/// The information analogue of [`RADIAN`]: a named unit over a dimensionless
+/// dimension ([`Dimension::INFORMATION`]).
+pub const NAT: Unit = Unit {
+    name: "nat",
+    symbol: "nat",
+    dimension: Dimension::INFORMATION,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Shannon — the binary unit of information (one binary digit's capacity):
+/// 1 Sh = ln 2 nat. ISO/IEC 80000-13:2008 unit entry 13-24.a (shannon, under
+/// item 13-24 "information content"); Shannon (1948), Introduction, BSTJ
+/// 27(3) p. 379 (log base 2: "binary digits, or more briefly bits").
+/// Scaled to the nat the way [`DEGREE`] scales to [`RADIAN`].
+pub const SHANNON: Unit = Unit {
+    name: "shannon",
+    symbol: "Sh",
+    dimension: Dimension::INFORMATION,
+    scale: core::f64::consts::LN_2,
+    offset: 0.0,
+};
+
+/// Bit (storage) — the traditional unit of storage capacity/size: the
+/// count of binary digits a representation occupies. ISO/IEC 80000-13:2008
+/// item 13-9.a ("bit" as the recommended unit of storage capacity/storage
+/// size, item 13-9), a DIFFERENT quantity from item 13-24's information
+/// content (nat/shannon/hartley) even though both are conventionally
+/// spelled "bit" — storage width does not depend on a probability
+/// distribution the way Shannon information content does.
+pub const BIT_STORAGE: Unit = Unit {
+    name: "bit (storage)",
+    symbol: "bit",
+    dimension: Dimension::DATA_SIZE,
+    scale: 1.0,
+    offset: 0.0,
+};
+
 /// Hertz — cycles per second (T⁻¹), for update rates and bandwidths.
 pub const HERTZ: Unit = Unit {
     name: "hertz",
@@ -352,5 +395,56 @@ pub const PART_PER_MILLION: Unit = Unit {
     symbol: "ppm",
     dimension: Dimension::DIMENSIONLESS,
     scale: 1e-6,
+    offset: 0.0,
+};
+
+/// Decibel-hertz — carrier-to-noise-density ratio (C/N0), a logarithmic
+/// level referenced to 1 Hz. The stored value IS the level in dB directly
+/// (10·log₁₀ of the linear C/N0 ratio in Hz) — the same already-log idiom
+/// [`NAT`]/[`SHANNON`] use for information content, over [`Dimension::LEVEL`].
+/// Source: ITU-R Recommendation V.574-5 (08/2015) "Use of the decibel and
+///         the neper in telecommunications"; Misra & Enge (2011) —
+///         GNSS Signal Processing, the C/N0 metric.
+pub const DECIBEL_HERTZ: Unit = Unit {
+    name: "decibel-hertz",
+    symbol: "dB-Hz",
+    dimension: Dimension::LEVEL,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Floating-point operation (flop) — a dimensionless algorithm-cost COUNT,
+/// NOT a rate (see [`Dimension::OPERATION_COUNT`]).
+/// Source: Golub & Van Loan (2013), *Matrix Computations* 4th ed., Section 1.2.
+pub const FLOP: Unit = Unit {
+    name: "floating-point operation",
+    symbol: "FLOP",
+    dimension: Dimension::OPERATION_COUNT,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Reciprocal meter — the SI coherent derived unit of curvature.
+/// Source: do Carmo (1976), *Differential Geometry of Curves and Surfaces*,
+/// §1-5/§3-2; BIPM SI Brochure (2019) Table 4 (coherent derived units).
+pub const RECIPROCAL_METER: Unit = Unit {
+    name: "reciprocal meter",
+    symbol: "m⁻¹",
+    dimension: Dimension::CURVATURE,
+    scale: 1.0,
+    offset: 0.0,
+};
+
+/// Practical Salinity Unit (PSU) — the dimensionless unit of practical
+/// salinity on the Practical Salinity Scale 1978 (PSS-78). UNESCO (1981),
+/// "Background Papers and Supporting Data on the Practical Salinity Scale
+/// 1978," UNESCO Technical Papers in Marine Science No. 37. The
+/// oceanographic analogue of [`RADIAN`]/[`NAT`]: a named unit over a
+/// dimensionless dimension ([`Dimension::SALINITY`]).
+pub const PSU: Unit = Unit {
+    name: "practical salinity unit",
+    symbol: "PSU",
+    dimension: Dimension::SALINITY,
+    scale: 1.0,
     offset: 0.0,
 };

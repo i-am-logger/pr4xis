@@ -66,10 +66,14 @@ impl Functor for SourceKindToRole {
             // The published OWL vocabularies (SPAR CiTO/DoCO/C4O/BiRO/PROV-O,
             // OLiA) load as ontologies the reasoner queries.
             C::OntologyVocabulary => R::ChatKnowledge,
-            // Loadable legal corpus: whole U.S. Code titles (USLM decoder)
-            // and the legal lexicon (LMF decoder) are reasoned-over knowledge.
-            // The abstract `LegalCorpus` root sits with its loadable leaves.
-            C::LegalCorpus | C::UsCodeTitle | C::LegalLexicon => R::ChatKnowledge,
+            // Loadable legal corpus: whole U.S. Code titles (USLM decoder) are
+            // reasoned-over knowledge. The abstract `LegalCorpus` root sits
+            // with its loadable leaves.
+            C::LegalCorpus | C::UsCodeTitle => R::ChatKnowledge,
+            // The Caregiver AI Challenge definitional lexicons (WN-LMF, same
+            // LMF decoder as LegalLexicon): cited caregiving / HCBS-compliance
+            // glosses the reasoner composes and recites — chat knowledge.
+            C::CaregivingLexicon | C::HcbsComplianceLexicon => R::ChatKnowledge,
 
             // === NotYetLoadable — prov:used by no activity yet ===
             //
@@ -109,15 +113,49 @@ impl Functor for SourceKindToRole {
             C::ControlledVocabulary
             | C::WindowStateVocabulary
             | C::LexicalCategoryProjection
+            | C::RealizationFrameTable
             | C::MathOperatorVocabulary
-            | C::ColorSchemeVocabulary => R::DecoderInput,
-            // The closed-class / inflectional / derivational lexical substrate
-            // IS the language engine (function words, AGID inflections, CatVar
-            // derivations) — consumed by the linguistics pipeline, not browsed
-            // as knowledge.
-            C::ClosedClassLexicon | C::InflectionLexicon | C::DerivationalLexicon => {
-                R::DecoderInput
-            }
+            | C::ColorSchemeVocabulary
+            | C::SupertagCostTable
+            | C::QuoteGlyphVocabulary
+            | C::DashPunctuationVocabulary
+            | C::EnglishGraphemeClasses
+            | C::CaseFoldingTable
+            | C::AssociativeConceptTable
+            | C::FrameSemanticTable
+            | C::SumoWordNetMappingTable
+            | C::GazetteerTable
+            // `LegalLexicon` is a statutory RECOGNIZER vocabulary, not a
+            // definitional one, and it belongs here for a structural reason
+            // anyone can check: `us_legal_lexicon.xml` carries 606 lexical
+            // entries sharing just 19 synsets, and those synsets are word
+            // CLASSES — `lt-us-state`, `lt-citation-abbr`, `lt-eng-compound`,
+            // `lt-named-entity`, even `lt-tokenizer-artifact`. Their glosses
+            // read "Month abbreviation per GPO Style Manual §9.20". Compare a
+            // real definitional lexicon: caregiving is 173 synsets to 361
+            // entries, near one cited gloss per term.
+            //
+            // Classifying it as ChatKnowledge put it in the loadable-source
+            // catalog with no load route, and would have been actively harmful
+            // if one were added: `alzheimer`, `parkinson` and `tourette` sit in
+            // `lt-named-entity`, so a reasoner composing this could answer
+            // "What is Alzheimer's?" with "a named entity" — a class label
+            // wearing an answer's clothes, on precisely the terms Track 1
+            // leads with. `chat_lexicons`'s own module docs already state this
+            // reading (Pustejovsky 1995 domain-scoped qualia; Solan 1993
+            // statutory terms of art) and deliberately exclude it from chat
+            // composition; this classification now agrees with them.
+            | C::LegalLexicon => R::DecoderInput,
+            // The closed-class / inflectional / derivational / verb-class /
+            // predicate-argument lexical substrate IS the language engine
+            // (function words, AGID inflections, CatVar derivations, VerbNet
+            // class membership, PropBank roleset membership) — consumed by
+            // the linguistics pipeline, not browsed as knowledge.
+            C::ClosedClassLexicon
+            | C::InflectionLexicon
+            | C::DerivationalLexicon
+            | C::VerbClassLexicon
+            | C::PredicateArgumentLexicon => R::DecoderInput,
 
             // The abstract taxonomy root maps to the abstract role root.
             C::Source => R::SourceRole,
@@ -239,12 +277,12 @@ mod tests {
     fn chat_knowledge_kinds_map_to_chat_knowledge() {
         use SourceRoleConcept as R;
         use SourceTaxonomyConcept as C;
-        for kind in [
-            C::Language,
-            C::OntologyVocabulary,
-            C::UsCodeTitle,
-            C::LegalLexicon,
-        ] {
+        // `LegalLexicon` is deliberately NOT here — it is a recognizer
+        // vocabulary (19 word-class synsets over 606 entries), asserted as
+        // `DecoderInput` below. It sat in this list while carrying no load
+        // route at all, which is how the catalog came to show a source a
+        // reader could neither load nor reason with.
+        for kind in [C::Language, C::OntologyVocabulary, C::UsCodeTitle] {
             assert_eq!(source_role(kind), R::ChatKnowledge, "{kind:?}");
         }
     }
@@ -260,9 +298,14 @@ mod tests {
             C::TypographicGlyphSet,
             C::ColorSchemeVocabulary,
             C::MathOperatorVocabulary,
+            C::SupertagCostTable,
             C::ClosedClassLexicon,
             C::InflectionLexicon,
             C::DerivationalLexicon,
+            C::PredicateArgumentLexicon,
+            // A statutory recognizer vocabulary — surface forms tagged with a
+            // word class, consumed by decoding, never recited as an answer.
+            C::LegalLexicon,
             C::XmlConformanceTestSuite,
         ] {
             assert_eq!(source_role(kind), R::DecoderInput, "{kind:?}");
@@ -333,21 +376,28 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn chat_loadable_cardinality_is_seventeen() {
-        // The pinned chat-loadable count the review doc cites (denominator 47 →
-        // 17 chat-loadable). Derived through the functor, not hardcoded per name:
-        // the ChatKnowledge-role kinds registered in `praxis.toml` are
-        // `9 UsCodeTitle + 6 OntologyVocabulary + 1 Language + 1 LegalLexicon`.
-        // A functor edit that reclassified any of these — or a registry edit that
-        // added/removed a chat-loadable source — moves this number, so it is
-        // gate-guarded, not a doc claim.
+    fn chat_loadable_cardinality_is_eighteen() {
+        // The pinned chat-loadable count. Derived through the functor, not
+        // hardcoded per name: the ChatKnowledge-role kinds registered in
+        // `praxis.toml` are `9 UsCodeTitle + 6 OntologyVocabulary + 1 Language
+        // + 1 CaregivingLexicon + 1 HcbsComplianceLexicon`.
+        //
+        // Was 19, and included `LegalLexicon`. That source carries 606 lexical
+        // entries over 19 word-CLASS synsets — a statutory RECOGNIZER
+        // vocabulary, not a definitional one — and it reached the catalog as a
+        // loadable row with no load route at all. Reclassifying it to
+        // `DecoderInput` (the role reserved for sources a decoder uses and the
+        // reasoner never queries) dropped the denominator by one. This gate
+        // caught that the moment it happened, which is the point of pinning it:
+        // a reclassification is a deliberate act, and the build should stop and
+        // make someone say so rather than let a catalog quietly change size.
         let loadable = crate::applied::data_provisioning::registry::data_sources()
             .iter()
             .filter(|e| is_chat_loadable(e))
             .count();
         assert_eq!(
-            loadable, 17,
-            "expected 17 chat-loadable registered sources (the review doc's pinned figure)"
+            loadable, 18,
+            "expected 18 chat-loadable registered sources (the pinned figure)"
         );
     }
 

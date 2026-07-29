@@ -11,6 +11,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - W3C WCAG 2.1: relative luminance, contrast ratio, compliance levels
 use super::rgb::Rgb;
 use crate::formal::math::functions::{Interval, LinearCombination, OffsetRatio, Piecewise};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::ontology::Axiom;
 
 /// sRGB electro-optical transfer function (EOTF).
@@ -61,25 +63,36 @@ pub enum WcagLevel {
 }
 
 impl WcagLevel {
-    pub fn min_contrast_normal(&self) -> f64 {
-        match self {
-            WcagLevel::AA => 4.5,
-            WcagLevel::AAA => 7.0,
-        }
+    /// A WCAG contrast-ratio threshold — dimensionless, like
+    /// [`Rgb::contrast_ratio`](super::rgb::Rgb::contrast_ratio).
+    pub fn min_contrast_normal(&self) -> Quantity {
+        Quantity::from_unit(
+            match self {
+                WcagLevel::AA => 4.5,
+                WcagLevel::AAA => 7.0,
+            },
+            &unit::UNITLESS,
+        )
     }
 
-    pub fn min_contrast_large(&self) -> f64 {
-        match self {
-            WcagLevel::AA => 3.0,
-            WcagLevel::AAA => 4.5,
-        }
+    pub fn min_contrast_large(&self) -> Quantity {
+        Quantity::from_unit(
+            match self {
+                WcagLevel::AA => 3.0,
+                WcagLevel::AAA => 4.5,
+            },
+            &unit::UNITLESS,
+        )
     }
 }
 
 /// Compute the relative luminance of an Rgb color per WCAG 2.1.
 ///
 /// Applies sRGB linearization to each channel, then BT.709 weighted sum.
-pub fn relative_luminance(color: &Rgb) -> f64 {
+/// WCAG 2.1 §1.4.3 relative luminance is normalised to `[0, 1]` (0 = black,
+/// 1 = reference white) — a dimensionless ratio, not an absolute photometric
+/// luminance in cd/m² — so it is carried as `Quantity` with unit `UNITLESS`.
+pub fn relative_luminance(color: &Rgb) -> Quantity {
     let linearize = srgb_linearize();
     let luma = bt709_luminance();
 
@@ -87,14 +100,15 @@ pub fn relative_luminance(color: &Rgb) -> f64 {
     let g_lin = linearize.eval(color.g as f64 / 255.0);
     let b_lin = linearize.eval(color.b as f64 / 255.0);
 
-    luma.eval(&[r_lin, g_lin, b_lin])
+    Quantity::from_unit(luma.eval(&[r_lin, g_lin, b_lin]), &unit::UNITLESS)
 }
 
-/// Compute WCAG contrast ratio between two colors.
-pub fn contrast_ratio(a: &Rgb, b: &Rgb) -> f64 {
-    let la = relative_luminance(a);
-    let lb = relative_luminance(b);
-    wcag_contrast().eval(la, lb)
+/// Compute WCAG contrast ratio between two colors. A dimensionless ratio
+/// by definition (WCAG 2.1 §1.4.3).
+pub fn contrast_ratio(a: &Rgb, b: &Rgb) -> Quantity {
+    let la = relative_luminance(a).value;
+    let lb = relative_luminance(b).value;
+    Quantity::from_unit(wcag_contrast().eval(la, lb), &unit::UNITLESS)
 }
 
 /// Check WCAG compliance between foreground and background.
@@ -104,7 +118,7 @@ pub fn wcag_compliant(fg: &Rgb, bg: &Rgb, level: WcagLevel) -> bool {
 
 /// Is this a dark color? (relative luminance < 0.5)
 pub fn is_dark(color: &Rgb) -> bool {
-    relative_luminance(color) < 0.5
+    relative_luminance(color).value < 0.5
 }
 
 // ── Axioms ──
@@ -166,8 +180,8 @@ pub struct LuminanceBounded;
 impl Axiom for LuminanceBounded {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let black_l = relative_luminance(&Rgb::BLACK);
-        let white_l = relative_luminance(&Rgb::WHITE);
+        let black_l = relative_luminance(&Rgb::BLACK).value;
+        let white_l = relative_luminance(&Rgb::WHITE).value;
         if Interval::UNIT.contains(black_l)
             && Interval::UNIT.contains(white_l)
             && black_l < 0.01
@@ -194,8 +208,8 @@ pub struct ContrastBounded;
 impl Axiom for ContrastBounded {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let min = contrast_ratio(&Rgb::BLACK, &Rgb::BLACK);
-        let max = contrast_ratio(&Rgb::WHITE, &Rgb::BLACK);
+        let min = contrast_ratio(&Rgb::BLACK, &Rgb::BLACK).value;
+        let max = contrast_ratio(&Rgb::WHITE, &Rgb::BLACK).value;
         if (min - 1.0).abs() < 0.01 && (max - 21.0).abs() < 0.1 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -315,13 +329,13 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_black() {
-        assert!(relative_luminance(&Rgb::BLACK) < 0.001);
+        assert!(relative_luminance(&Rgb::BLACK).value < 0.001);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_luminance_white() {
-        assert!(relative_luminance(&Rgb::WHITE) > 0.99);
+        assert!(relative_luminance(&Rgb::WHITE).value > 0.99);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -334,14 +348,14 @@ mod tests {
     #[test]
     fn test_contrast_same_color() {
         let ratio = contrast_ratio(&Rgb::new(128, 128, 128), &Rgb::new(128, 128, 128));
-        assert!((ratio - 1.0).abs() < 0.01);
+        assert!((ratio.value - 1.0).abs() < 0.01);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_contrast_black_white() {
         let ratio = contrast_ratio(&Rgb::WHITE, &Rgb::BLACK);
-        assert!((ratio - 21.0).abs() < 0.1);
+        assert!((ratio.value - 21.0).abs() < 0.1);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -397,7 +411,7 @@ mod tests {
         fn prop_luminance_bounded(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
             let color = Rgb::new(r, g, b);
             let l = relative_luminance(&color);
-            prop_assert!((0.0..=1.0).contains(&l), "luminance({:?}) = {} not in [0,1]", color, l);
+            prop_assert!((0.0..=1.0).contains(&l.value), "luminance({:?}) = {:?} not in [0,1]", color, l);
         }
 
         #[test]
@@ -408,7 +422,7 @@ mod tests {
             let a = Rgb::new(r1, g1, b1);
             let b = Rgb::new(r2, g2, b2);
             let cr = contrast_ratio(&a, &b);
-            prop_assert!((1.0..=21.1).contains(&cr), "contrast({:?}, {:?}) = {}", a, b, cr);
+            prop_assert!((1.0..=21.1).contains(&cr.value), "contrast({:?}, {:?}) = {:?}", a, b, cr);
         }
 
         #[test]
@@ -418,14 +432,14 @@ mod tests {
         ) {
             let a = Rgb::new(r1, g1, b1);
             let b = Rgb::new(r2, g2, b2);
-            prop_assert!((contrast_ratio(&a, &b) - contrast_ratio(&b, &a)).abs() < 1e-10);
+            prop_assert!((contrast_ratio(&a, &b).value - contrast_ratio(&b, &a).value).abs() < 1e-10);
         }
 
         #[test]
         fn prop_contrast_identity(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
             let color = Rgb::new(r, g, b);
             let cr = contrast_ratio(&color, &color);
-            prop_assert!((cr - 1.0).abs() < 0.01, "contrast with self should be 1.0, got {}", cr);
+            prop_assert!((cr.value - 1.0).abs() < 0.01, "contrast with self should be 1.0, got {:?}", cr);
         }
 
         #[test]
@@ -434,7 +448,7 @@ mod tests {
             let ca = Rgb::new(a, a, a);
             let cb = Rgb::new(b, b, b);
             if a <= b {
-                prop_assert!(relative_luminance(&ca) <= relative_luminance(&cb) + 1e-10);
+                prop_assert!(relative_luminance(&ca).value <= relative_luminance(&cb).value + 1e-10);
             }
         }
 
@@ -444,7 +458,7 @@ mod tests {
             let color = Rgb::new(r, g, b);
             let dark = is_dark(&color);
             let l = relative_luminance(&color);
-            prop_assert_eq!(dark, l < 0.5);
+            prop_assert_eq!(dark, l.value < 0.5);
         }
     }
 

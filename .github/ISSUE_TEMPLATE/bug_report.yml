@@ -1,0 +1,48 @@
+name: Bug report
+description: A query broke, an answer was wrong, or the engine violated one of its own guarantees.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per the README: broken queries are bug reports, not user error. If you hit
+        something in the [pr4xis.dev](https://pr4xis.dev) demo, this is the right place.
+  - type: textarea
+    id: query
+    attributes:
+      label: What did you ask / run?
+      description: The exact query text (chat demo) or command (CLI), verbatim.
+      placeholder: |
+        e.g. "what is a bird?" in the chat demo
+        or: cargo run -p pr4xis-cli -- query "..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+      description: Paste the full output, error, or proof trace if there is one.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen?
+      options:
+        - pr4xis.dev (browser chat demo)
+        - CLI (pr4xis-cli)
+        - Library usage (pr4xis / pr4xis-domains / pr4xis-runtime)
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: pr4xis version, or commit SHA if built from source.

@@ -3,6 +3,9 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // OWL 2 Web Ontology Language — W3C Recommendation (2012)
 // https://www.w3.org/TR/owl2-syntax/
 //
@@ -614,8 +617,10 @@ pub struct OwlOntology {
 }
 
 impl OwlOntology {
-    pub fn class_count(&self) -> usize {
-        self.classes.len()
+    /// Count of classes in this ontology, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn class_count(&self) -> Quantity {
+        Quantity::from_unit(self.classes.len() as f64, &unit::UNITLESS)
     }
 
     pub fn find_class(&self, iri: &str) -> Option<&OwlClass> {
@@ -643,8 +648,10 @@ impl OwlOntology {
             .unwrap_or_default()
     }
 
-    pub fn property_count(&self) -> usize {
-        self.properties.len()
+    /// Count of properties in this ontology, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn property_count(&self) -> Quantity {
+        Quantity::from_unit(self.properties.len() as f64, &unit::UNITLESS)
     }
 
     pub fn find_property(&self, iri: &str) -> Option<&OwlObjectProperty> {

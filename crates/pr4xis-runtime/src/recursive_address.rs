@@ -199,10 +199,10 @@ fn default_kind_vocab() -> &'static KindVocab {
 /// (every kind WITH its `HasProperty`/inter-kind edges). Embedded + fail-closed
 /// against its baked root, the same discipline as `relation_lexicon.prx` and the
 /// functor projections; the `domains` drift test regenerates + re-pins it.
-fn load_relation_kinds() -> Archive {
+pub(crate) fn load_relation_kinds() -> Archive {
     const MORPHISM_KINDS_PRX: &[u8] = include_bytes!("morphism_kinds.prx");
     const MORPHISM_KINDS_ROOT_HEX: &str =
-        "6c83ec88e28cd19b13f7762747162a0136f23e468267b3214bc7b9b30d5665a8";
+        "ea5008f3c422b38cd50667df8f115a808133ad324859edaac7b349c6a9f84167";
     let root = ContentAddress::from_hex(MORPHISM_KINDS_ROOT_HEX)
         .expect("MORPHISM_KINDS_ROOT_HEX is valid 64-hex");
     crate::load::load(MORPHISM_KINDS_PRX, root)
@@ -609,6 +609,7 @@ mod tests {
 
     /// Test 1 — a concept's recursive address transitively fixes a DEEP referent
     /// (the property the local floor lacked).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn recursive_address_fixes_a_deep_referent() {
         let mk = |c_lex: &str| Archive {
@@ -630,6 +631,7 @@ mod tests {
     }
 
     /// Test 2 — assembly-order independence, deep-difference sensitivity.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn recursive_root_is_order_independent_but_deep_sensitive() {
         let a = Archive {
@@ -664,6 +666,7 @@ mod tests {
     /// recursive layer stays a faithful refinement of the local floor (regression:
     /// `node_canon` once sorted edges but did not dedup them, so a dup-edge node
     /// addressed differently from its equal, deduped sibling).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn a_duplicate_edge_does_not_change_the_recursive_address() {
         let plain = Archive {
@@ -702,6 +705,7 @@ mod tests {
 
     /// Test 3 — a labeled symmetric cycle terminates, addresses each member
     /// distinctly, and is deterministic under node reordering.
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn a_labeled_symmetric_cycle_addresses_deterministically() {
         let hot = node("Hot", Some("hot"), &[("Equivalence", "Cold")]);
@@ -728,6 +732,7 @@ mod tests {
     }
 
     /// A dangling local edge fails closed (referential closure).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn a_dangling_local_edge_is_refused() {
         let a = Archive {
@@ -744,6 +749,7 @@ mod tests {
     /// concept's minimal payload; a receiver recomputes its recursive address and
     /// AGREES, including the transitive (and grounded) dependencies — from a
     /// payload that excludes everything unrelated.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn teach_a_peer_round_trip() {
         // G grounds into a foreign ontology by atom address (a leaf).
@@ -790,6 +796,7 @@ mod tests {
     /// Slice (c) — the FUNCTOR rides with the concept, so the peer can INTERPRET
     /// it (rebind via `apply`), not merely identify it, and the functor's identity
     /// is fixed in the recursive root.
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn the_functor_rides_with_the_concept() {
         use crate::connection::{Connection, GeneratorAction};
@@ -838,6 +845,7 @@ mod tests {
     /// the floor were not referentially closed it would fail-closed and EVERY
     /// recursive call (incl. the A2 suite) would panic. Prove it builds and grounds
     /// the format's own kinds.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_default_kind_vocab_builds() {
         let vocab =
@@ -869,6 +877,7 @@ mod tests {
     /// in a CHOSEN vocab: the SAME archive addresses differently under a vocab
     /// where the kind is `Transitive` vs one where it is not. Discrimination is
     /// vocab-relative — exactly what two peers comparing kind meaning exercise.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_kind_resolves_to_its_meaning_in_the_vocab() {
         let vocab_with = KindVocab::from_archive(&Archive {
@@ -907,6 +916,7 @@ mod tests {
     /// A kind the vocab does not know stays a `Free` leaf, carried by name —
     /// injective on spelling, and identical across any vocab that omits it (the
     /// open-world status, like a `Local` generator before `rebind`).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn an_ungrounded_kind_is_a_free_leaf() {
         let mk = |k: &str| Archive {
@@ -937,6 +947,7 @@ mod tests {
     /// is referentially closed under the strict recursive rules (incl. the labeled
     /// Subsumption⟷Specialisation cycle). If it were not, `default_kind_vocab()` —
     /// hence every `recursive_addresses()` call — would panic.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_loaded_relation_vocab_builds() {
         let relations = load_relation_kinds();
@@ -951,6 +962,7 @@ mod tests {
     /// Slice (b) — the default vocab grounds the DOMAIN relation kinds
     /// (`Parthood`, `Causation`, …) the meta FLOOR does not define: they come from
     /// the committed Relations projection (loaded, not hardcoded).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_default_vocab_grounds_the_loaded_relation_kinds() {
         let floor = KindVocab::from_archive(&meta::ontology()).unwrap();
@@ -996,6 +1008,7 @@ mod tests {
     /// Slice (b) — the authoritative Relations definition WINS a name collision
     /// over the bootstrap floor: `Subsumption` resolves to its richer Relations
     /// meaning (which adds Antisymmetric/Reflexive + InverseOf Specialisation).
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_loaded_authority_overrides_the_bootstrap_floor() {
         let floor = KindVocab::from_archive(&meta::ontology()).unwrap();
@@ -1022,6 +1035,7 @@ mod tests {
     /// in the payload (B.3.i: both peers bootstrap the same vocab). A peer whose
     /// vocab gives that kind a DIFFERENT meaning computes a DIFFERENT address — so
     /// agreement is on what the kind IS, never just its spelling.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_peer_agrees_on_kind_meaning_via_default_vocab() {
         let full = Archive {

@@ -153,6 +153,28 @@
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
 "us_legal_lexicon@2026"  = "blake3:59397b5d42712554ed5eed9be26a23854c2b19cf9fb2051b9b63daa3cbac9b38"
+# Family Caregiving Lexicon (WN-LMF, Caregiver AI Challenge Track 1).
+# Pinned hash of crates/domains/data/care/caregiving_lexicon.xml — the
+# AUTHORED (fetchable = false) definitional lexicon: statutory glosses
+# verified against the loaded usc_title_42@pl-119-90 corpus, Medicaid
+# HCBS waiver / Medicare / OAA regulatory definitions (42 CFR 409/418/
+# 435/438/440/441/484, 45 CFR 1321.3), NIA dementia-care vocabulary,
+# ACL guardianship alternatives (citations in the XML header +
+# [sources.caregiving_lexicon]). Updating the XML requires regenerating
+# this hash (`pr4xis update caregiving_lexicon --lock --offline`).
+"caregiving_lexicon@2026"  = "blake3:fbf74b8c1b63f81afc14ae3e7440dfdcd1c83e4f071a28ef519eafedb05606d9"
+# HCBS Workforce and Compliance Lexicon (WN-LMF, Caregiver AI Challenge
+# Track 2). Pinned hash of
+# crates/domains/data/care/hcbs_compliance_lexicon.xml — the AUTHORED
+# (fetchable = false) definitional lexicon: EVV statutory definitions
+# verified against the loaded usc_title_42@pl-119-90 corpus (42 USC
+# 1396b(l)), HCBS waiver / Access Rule / settings / billing / program-
+# integrity regulatory definitions (42 CFR 438/440/441/447/455; 89 FR
+# 40542), False Claims Act 31 USC 3729 (citations in the XML header +
+# [sources.hcbs_compliance_lexicon]). Updating the XML requires
+# regenerating this hash (`pr4xis update hcbs_compliance_lexicon --lock
+# --offline`).
+"hcbs_compliance_lexicon@2026"  = "blake3:7b2af2454fa2be1b477e991a8cddd1e82d07e0c27db8b07811562b697d9c86b3"
 # English closed-class / function-word lexicon (LMF XML). Pinned hash of
 # crates/domains/data/function-words/english.xml — the `ClosedClassLexicon`
 # disjoint complement of the open-class english_wordnet (Quirk et al. 1985
@@ -162,7 +184,7 @@
 # + [sources.english_function_words]). Fast-loaded from the committed
 # english-function-words-2026.prx.gz; updating the XML requires regenerating
 # both this hash and the artifact (--ignored regenerate_english_function_words_prx).
-"english_function_words@2026"  = "blake3:3c903026f069d306c8912580dc5e51ae8ffaed68906516313cbd8e8cad5541e8"
+"english_function_words@2026"  = "blake3:bb9e4d18797f6b0e0f302efef3e4620ecde0d548ba0aa658d474f941358f73b0"
 # AGID (agid@2016.01.19) — Automatically Generated Inflection Database (Atkinson
 # 2016) — is deliberately NOT pinned here: the 3.3 MB raw database is a BUILD-TIME
 # source read only by the `regenerate_english_irregulars_tsv` step, never decoded
@@ -180,8 +202,62 @@
 # through the generalized raw-source gate). Each is authored-from-spec or derived,
 # not URL-fetchable, so it carries a provenance citation URL in praxis.toml.
 "ewmh_wm_state@1.5"        = "blake3:c1526ef8000d57c75299b56073716c77e23cfced0181fcc950b2dfab36fa6453"
-"olia_ccg_categories@2026" = "blake3:a68538dc19badcc63bec96c38f4693c2f99ff4e72bbb9639725490233b953b48"
-"english_irregulars@2016.01.19" = "blake3:8ab82de01a60a6502398f88e420afa742fc0035c89708294434402bb8481b566"
+"olia_ccg_categories@2026" = "blake3:632a9527c9fbf18d46c37aa0bf03baa48b589ceb0ef448d312193acd5e2d8c16"
+"abstain_frames@2026"      = "blake3:749c2899d39ba49adb1c7d42b03f17a672e1ca14e3ba3dfe3eefd4933388b247"
+"conditional_frames@2026"  = "blake3:3834d84ca180596f4754a904d946fe6a79aaf7db00aa8ee0d91d36a8173826d6"
+"explain_frames@2026"      = "blake3:e5a25afe42813b864ad309781b1aa52949b141ad066cb9237c6550b3a64b7bef"
+"ontology_labels@2026"     = "blake3:65c24e9ae97d8c84cd71c3ef541171446c3d4b2d878eb064533d61e42693e563"
+"ccg_supertag_costs@2026"  = "blake3:50aafe62b85adbfcc50d1aaa8982f99a1da25e542a1ac2a527ec4aec10ee5d2e"
+# Quote-glyph vocabulary — the Unicode Pi/Pf quotation-mark glyph inventory,
+# AUTHORED from the UCD's DerivedGeneralCategory.txt (Slice B's quoted-mention
+# span recognizer). Raw-bytes pin of the git-tracked authored source-of-truth
+# crates/domains/data/grammar/quote-glyphs.tsv, not URL-fetchable.
+"quote_glyphs@2026"        = "blake3:d0756e244f0ed266a42b481f6df6d28c8ef533be7973a58dc6a66063c7def70c"
+# Dash-punctuation vocabulary — the Unicode Pd (Dash_Punctuation) glyph
+# inventory, AUTHORED from the UCD's DerivedGeneralCategory.txt (fixes the
+# confirmed flush_word em-dash tokenization bug). Raw-bytes pin of the
+# git-tracked authored source-of-truth
+# crates/domains/data/grammar/dash-punctuation.tsv, not URL-fetchable.
+"dash_punctuation@2026"    = "blake3:9dcbc249ac8006cc58b132e366ce1be7afb799f04474ec0151749e6f06979097"
+"english_grapheme_classes@1994" = "blake3:44f4bb45ac47f608ca8ffd9052eec75b2131f0a904301690c48d6e8d1738a0e5"
+# VerbNet 3.3 class hierarchy — BUNDLED source-of-truth (git-clone-and-archive
+# of a fixed tag is not guaranteed byte-reproducible via GitHub's own tarball
+# packaging). Raw-bytes pin of the git-tracked deterministic archive
+# crates/domains/data/verbnet/verbnet-3.3.verbnet.
+"verbnet@3.3"              = "blake3:ce9be58dc248a89e06a0f047dd05648020bb25832f368355d759433bcf5acbd2"
+# ConceptNet 5.7.0 commonsense association graph — BUNDLED source-of-truth (no
+# official English-only/WordNet-linked subset is distributed; the full 34M-row
+# assertions CSV is too large to bundle whole). Raw-bytes pin of the
+# git-tracked deterministic, mechanically-filtered archive
+# crates/domains/data/conceptnet/conceptnet-5.7.0.assoc.
+"conceptnet@5.7.0"         = "blake3:03dbec04101b804e4fccf8c81f10827fd527900f9a2ceeadd7df2a1b2b910413"
+# FrameNet 1.7 lexical-unit + frame-relation graph — BUNDLED source-of-truth
+# (no official small subset is distributed; the full release's `lu/`
+# directory alone is too large to bundle whole). Raw-bytes pin of the
+# git-tracked deterministic, mechanically-extracted TSV
+# crates/domains/data/framenet/framenet-1.7.tsv.
+"framenet@1.7"             = "blake3:a07af72b1957950f67521a9ffc11fe7e194b3b2956606621b63817f41e466bdd"
+# SUMO WordNet↔SUMO mapping table — BUNDLED source-of-truth (the source has no
+# tagged release and the four annotated-WNDB files are too large to bundle
+# whole). Raw-bytes pin of the git-tracked deterministic, mechanically-extracted
+# TSV crates/domains/data/sumo/sumo-wordnetmappings-30.tsv. Re-pinned 2026-07-14
+# (4th `oewn_synset_id` column added — see `cognitive::linguistics::sumo::sssom`).
+"sumo@2026.07.14"          = "blake3:312a7b124c8fb5a1f8f7db144fc354b93483de37d67fe472cd93a26581776dbd"
+# PropBank 3.4.0 predicate argument-structure frames — BUNDLED source-of-truth
+# (a git-clone-and-archive of a fixed tag is not guaranteed byte-reproducible
+# via GitHub's own tarball packaging). Raw-bytes pin of the git-tracked
+# deterministic directory archive crates/domains/data/propbank/propbank-3.4.0.propbank.
+"propbank@3.4.0"           = "blake3:9faa66d83bd90a0c663e0a9bbe1031bd963868c9005022cfc7db2dde80c42135"
+# GeoNames countryInfo.txt gazetteer — BUNDLED source-of-truth (a single small
+# HTTP-fetchable file). Raw-bytes pin of the git-tracked
+# crates/domains/data/geography/geonames-countryinfo-2026-07-21.geonames.
+"geonames_countryinfo@2026-07-21" = "blake3:535258099e9e21e7910cef058f2b647d7d552918cb6f0180a787181c37547927"
+# Simple case-folding table — filtered from Unicode's CaseFolding.txt (status
+# C+S) — Slice D's fold-on-miss lexicon lookup. Raw-bytes pin of the
+# git-tracked authored source-of-truth
+# crates/domains/data/orthography/case-folding.tsv, not URL-fetchable.
+"case_folding@2026"        = "blake3:ef5fd6ded749c720c2ad3e87b693a26675b6fc6e967ff6734ec4010de15a73fb"
+"english_irregulars@2016.01.19" = "blake3:cce7d53167970eb9728a59a71a7f222c590dff333ba5ad86b19fcfea34d9d988"
 # Mathematical-operator vocabulary — AUTHORED LMF-shaped XML (NOT a TSV; the same
 # `<LexicalEntry>` reader as WordNet), consumed as raw bytes into an
 # `OperatorVocabulary`. Raw-bytes pin of the git-tracked authored source-of-truth
@@ -385,6 +461,7 @@
 # stable. The
 # `formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`
 # axiom verifies these match on every test run.
+"agid@2016.01.19" = "blake3:24ea4a1e3cf69d0ae662eb2df3a021cf1a3530e7e28839ca050a710431b8ce53"
 [canonical_signatures]
 # No USC title carries a canonical signature anymore: ALL nine are byte-exact
 # graph-faithful (SLICE U8 flipped the last floor title, usc_title_49, to the
@@ -449,15 +526,15 @@
 # usc_title_1/18/28/29/50 are byte-exact graph-faithful envelopes (typed
 # `UsCodeTitle` ontology + concrete-syntax complement, NOT a raw blob);
 # usc_title_5/15/42/49 are raw-floor envelopes.
-"usc_title_1@pl-119-90" = "blake3:c6a62ddc6aac7443c4d82e597a6b81de3460c18210da9146521742770da01ecc"
-"usc_title_15@pl-119-90" = "blake3:5ac35631462b457e86846b3a09382a193d2f73002a53e87639824924789f1b2d"
-"usc_title_18@pl-119-90" = "blake3:7fb6710d3bf6d238dbc9897d961c92fbaeb366b21f1344df6fbc54d5ffd85138"
-"usc_title_28@pl-119-90" = "blake3:358ff055c6017f13dbac2592be0ec145886d5fc97b930b5e70976e2d1e5c4174"
-"usc_title_29@pl-119-90" = "blake3:5cdedf92e63b8e8894507ef6ca67d8ccdace590ea791a48fb9d3511118d8ffac"
-"usc_title_42@pl-119-90" = "blake3:fb850a5323b628e2a4182e840c7357658fce038908033458301b7cefaeff8ec9"
-"usc_title_49@pl-119-90" = "blake3:ba50ab615bde64024844da43ac943f6649c38842da8d9e23b70b48367f0a31a9"
-"usc_title_5@pl-119-90" = "blake3:a34e64decf6dce98dc68f9d33762b6c0cf806a387d565e677d1e619949abac4f"
-"usc_title_50@pl-119-90" = "blake3:0f0a2718ee635c9127032de7028800d3c390a5e92abc77421b5f55e0d63932e4"
+"usc_title_1@pl-119-90" = "blake3:b3d9801fe9608a5210d22d0897db96ad9fe09e5953536692ff1936cd47dc065c"
+"usc_title_15@pl-119-90" = "blake3:15cab7cab55d6dadbdf2e3244bdce4ae7326dc8c616d923bc27c1d9cdfefe6b5"
+"usc_title_18@pl-119-90" = "blake3:9d99b415a985a9ab35756aef05cd8fbb0c3527bb60e0274262f2921bb95d41dc"
+"usc_title_28@pl-119-90" = "blake3:682598cbce0ce80e558fe85fffd52f9be9c8e8b5e8fde0ad97edbc8ca1ffe675"
+"usc_title_29@pl-119-90" = "blake3:36fbab00834e688734904111a2f475990f0ff04c9b241e51219125270502c23a"
+"usc_title_42@pl-119-90" = "blake3:42f45d6a4d0e57ff052924dd33866d72d207e8d5e6352e1e58dea03f8d7ac18b"
+"usc_title_49@pl-119-90" = "blake3:e850093781a9fe4829fc957107af0384d158349758a023e7436ff58f6174720b"
+"usc_title_5@pl-119-90" = "blake3:477739f960b6a19b54b94f9ee34e4dc1e25bb1bc4ff0fe318edd2a93c240b43e"
+"usc_title_50@pl-119-90" = "blake3:da9925b8b53d38d184b230ca690c5bc5e6f1aa05508fbb5770f36a866d27c539"
 "english_wordnet@2025" = "blake3:8ceef7486b29c6e74862282ee8bd09c32d392f60c20a1b6c20f68ce234d69a87"
 
 # Byte-exact round-trip signatures — the content digest of the bytes a source's
@@ -487,13 +564,26 @@
 # equal the `us_legal_lexicon@2026` `[hashes]` pin (registry.rs enforces
 # sig == raw_hash).
 "us_legal_lexicon@2026"  = "blake3:59397b5d42712554ed5eed9be26a23854c2b19cf9fb2051b9b63daa3cbac9b38"
+# caregiving_lexicon — Family Caregiving Lexicon (Caregiver AI Challenge
+# Track 1), a WN-LMF graph-faithful source on the same source-agnostic
+# `WordNetLmfLens` (the source is DTD-ordered, so the child-order residue is a
+# no-op), with NO stored raw blob. Because `put(get(b)) == b`, this value MUST
+# equal the `caregiving_lexicon@2026` `[hashes]` pin (registry.rs enforces
+# sig == raw_hash).
+"caregiving_lexicon@2026"  = "blake3:fbf74b8c1b63f81afc14ae3e7440dfdcd1c83e4f071a28ef519eafedb05606d9"
+# hcbs_compliance_lexicon — HCBS Workforce and Compliance Lexicon (Caregiver AI
+# Challenge Track 2), sibling of caregiving_lexicon on the same source-agnostic
+# `WordNetLmfLens`. Because `put(get(b)) == b`, this value MUST equal the
+# `hcbs_compliance_lexicon@2026` `[hashes]` pin (registry.rs enforces
+# sig == raw_hash).
+"hcbs_compliance_lexicon@2026"  = "blake3:7b2af2454fa2be1b477e991a8cddd1e82d07e0c27db8b07811562b697d9c86b3"
 # english_function_words — the THIRD WN-LMF graph-faithful source. The
 # source-agnostic `WordNetLmfLens` regenerates the on-disk english.xml bytes
 # from the typed `WordNet` ontology + the concrete-syntax complement (the source
 # is DTD-ordered, so the child-order residue is a no-op), with NO stored raw blob.
 # Because `put(get(b)) == b`, this value MUST equal the
 # `english_function_words@2026` `[hashes]` pin (registry.rs enforces sig == raw_hash).
-"english_function_words@2026"  = "blake3:3c903026f069d306c8912580dc5e51ae8ffaed68906516313cbd8e8cad5541e8"
+"english_function_words@2026"  = "blake3:bb9e4d18797f6b0e0f302efef3e4620ecde0d548ba0aa658d474f941358f73b0"
 # USC Title 1 — General Provisions. The `UslmGraphFaithfulLens` regenerates the
 # literal on-disk `usc01.xml` bytes (CRLFs included) from the typed `UsCodeTitle`
 # ontology + a concrete-syntax complement, so the byte-exact round-trip output
@@ -569,15 +659,15 @@
 # these; `loaded()` takes the fast, no-source-reconstruction path only for a title
 # pinned here. Written by `pr4xis compile --lock`.
 [compact_archive_signatures]
-"usc_title_1@pl-119-90" = "blake3:6dcf390ad1a8b453d5dae4202a2da6993e787b5fa00d50b5d66ce03c541b536f"
-"usc_title_15@pl-119-90" = "blake3:0447cb4f94905dbe8b4beddb2aa2254e7f6aafb8b4658b7bed5f505e80a55295"
-"usc_title_18@pl-119-90" = "blake3:f13e0ea572fa205cd99dbf6b2ed0c1a79f9e35280ce213444fb5ae3fbc67fb31"
-"usc_title_28@pl-119-90" = "blake3:c77f0f6a59f9a60539327fb6f810b7b2a430ccb8d27cd8ec75e482508a8250f7"
-"usc_title_29@pl-119-90" = "blake3:6ad6571fbe1c0a93bef6cabe80a7e76993dc153c43d3307835e5089ce8b3815c"
-"usc_title_42@pl-119-90" = "blake3:ef6df2ba3572e4e0aba5d64980972af78c7886f1016dc427a5a015a5a1b3cf9d"
-"usc_title_49@pl-119-90" = "blake3:bf907cf1c2aee5b31e6ff3c819c8ea05df2d1627ddd008eb17ec41abf07f0f16"
-"usc_title_5@pl-119-90" = "blake3:c3e540ce595f914e9a3f3aa6c5747803ab6a76807797835ab1dcbba577c2685b"
-"usc_title_50@pl-119-90" = "blake3:ae0cf53ff4903450a4f1a5fe7ea104018d20293d3d8d8051ff0828c32a3c22ed"
+"usc_title_1@pl-119-90" = "blake3:3312f45d9dc43f020b9ea7f0d8f0bd624e308331cbf44e325b2098e2c9822e5d"
+"usc_title_15@pl-119-90" = "blake3:a04340b25797d6135ece30433897cd5731a6538c8a18fa5b064932226f7c2ed0"
+"usc_title_18@pl-119-90" = "blake3:b0a25b214a42e3899ac5cad5a236a31c1b4cfebea0ec7099a7ba73674ab57e79"
+"usc_title_28@pl-119-90" = "blake3:73f3edf289d815f2233e2137c52d1b80b29268ccd45d9828b776d729c5efb21d"
+"usc_title_29@pl-119-90" = "blake3:6d9df70570d5f738b5372701ca7d07eccf0d7481a956e5bd8f94f9376007415b"
+"usc_title_42@pl-119-90" = "blake3:e6ba2e2c2b21942865da94c06411b8b63807e293a2cf971a77c0d13d47fcdebc"
+"usc_title_49@pl-119-90" = "blake3:5a47b01074e9b7eab67af080469879518bff3a2fc41e0cc862e5c29d124d9209"
+"usc_title_5@pl-119-90" = "blake3:064d145a5918945855dd71536cbb8a8b0bffcae0ff36dbe452488e8e091020d1"
+"usc_title_50@pl-119-90" = "blake3:1b423aff6457382783651b45759bf4f0254996f435c29d07a581254505bbb85d"
 "english_wordnet@2025" = "blake3:6a7c9cfa7ddec79976b64d881a52f40a91e78b5314b385086dc1220ee03a7c96"
 "biro@1.1.1" = "blake3:8b541ca2b092c6742e3505f30b6950792c6d8b85ca7410c532e67f163e6b713c"
 "c4o@1.2" = "blake3:d6c1d4865b2325b01dad39d8a4a2cf0066c91db61861f018050d5a3d0ffeadf7"
@@ -590,9 +680,11 @@
 "uslm_xsd@1.0.18" = "blake3:8e87ef3ea87b60cd126d030b040fc1961cfca1c878dcada3f59c1c0bab7dc90f"
 "wn_lmf_dtd@1.3" = "blake3:e2516f435bd285b47b8bfacd821fcc6f780d847faca7ddf276120a1a635553d5"
 "xhtml_1_0_xsd@1.0" = "blake3:84ab77ea87efd22e7a5ed7da34c8b35d8969a3c182c5b98e127b55940924975a"
-"english_irregulars@2016.01.19" = "blake3:17bc0afa5c0b2a70b95f36a94d0fb907fc6f660c49e4eef87f3decc97a9d3c22"
+"english_irregulars@2016.01.19" = "blake3:24291f5e6b39841e863cfd4373cc1d7a66b2199aa9f96c7a2c23fad17a8b1ec0"
 "ewmh_wm_state@1.5" = "blake3:0ca155826c2861297d40558a165157896a5c2f1fbed6ff7ebbea1c2005cdab48"
-"olia_ccg_categories@2026" = "blake3:4838bcf178941bdbbbf85d23bada94dd2c7de5d8e34d180dcea1f6fe0ec012c5"
+"olia_ccg_categories@2026" = "blake3:ce73bf13dce19396598ce5b5713b3294a24bfa6d9d7231025e8f70ee73d79ee2"
+"abstain_frames@2026" = "blake3:81600e694f9ea2e7992d9c553c65a0f73088dcbb46f3e48a6ce3840de832f2c4"
+"ccg_supertag_costs@2026" = "blake3:b5687202473ad96e44f3fa16f5ee62e23714d9ebfec40747f6ae1c5d7a451d93"
 "ooxml_schema_strict@2016" = "blake3:75973982dd82910cddfb71dad61a3d50eb2334949d648fda0cade51fc52df716"
 "xml_1_0_fifth_edition@2008" = "blake3:4b03be344f0f636a1f9891b0d21ac458735073c2a42502bb29fce0c3ead3b9a8"
 "xml_1_0_namespace_xsd@1.0" = "blake3:de2e01aaf005689a89ea55ef2ab34478163b325236c9c0d304817d3cd82b8f27"
@@ -601,7 +693,7 @@
 "xsd_meta_schema@1.1" = "blake3:ca7e36fefc755074ae9bdaba0439b9924adda97b32e59ae8789a6c3c2a32b88c"
 "xsts_xml_schema_test_suite@2007-06-20" = "blake3:08418fc3f7871cfa5cae5145cf8e05a3d05b5225d253f2e50b6bfc2dee11cfa7"
 "math_operators@2019" = "blake3:8b06eaf4cd24f1a2a282bed45db4a5f65a4be477e79513992d06fd2670bf7220"
-"english_function_words@2026" = "blake3:6831da15426f588760e85315a838187d469a9a09fbedfd6ac00862538047a67f"
+"english_function_words@2026" = "blake3:2695604d088ac17fe7793306de86ad844e51240269b3322fe4b18fed7c025413"
 "us_legal_lexicon@2026" = "blake3:abc7d66de4b33b3862547a92e8d40d1fbdd9961fc6aff57d846962ce6808e3ed"
 "tinted_schemes@2025" = "blake3:15845a83caad76d4547ffdd7cf5acfcf7e85a5683b6446fef987fe85e83b3c1a"
 
@@ -624,5 +716,47 @@
 # rkyv stores). Re-pinned mechanically from the value
 # dump_wordnet_store_bundle_addresses reports (or `pr4xis compile --lock`);
 # guarded by wordnet_store_bundle_anchors_match_lock.
+"agid@2016.01.19" = "blake3:1ebb6e3b448d2ef4fa6f09e9173994afac1e775d3b2ecab40fbe116869e6545e"
+"quote_glyphs@2026" = "blake3:0e8cdcbbdfed5ea02958135c71e22c344dcccb9183e19fc05b3823def8246797"
+"dash_punctuation@2026" = "blake3:962c279f925b959d2f06a8ff2de5eb7777677e2e2490a201d023160cb062fdfa"
+"case_folding@2026" = "blake3:60f08d0b8f6a9aa3e287679b7cedc72f44421b7581a78516def1001963ee1fde"
+"verbnet@3.3" = "blake3:7f401b1b5c777b6811070fbdba317f0a94be152b7d3a4d91f9d7d8b53a8790f2"
+"conceptnet@5.7.0" = "blake3:f65c9900df8aacdee7fbfecca9deb5334dbf8f8cb69561507ed6d25c1e43275d"
+"framenet@1.7" = "blake3:a46a03e17fb4f2cffa234c48d432ba5410dea0ae70ec267db46b6c5621c4bfd5"
+"propbank@3.4.0" = "blake3:3165c5a2a6b1a2636c85e087082a4f62f5015b3bdab1cd1d9b865e0fc2c1a08a"
+"sumo@2026.07.14" = "blake3:125fbee4b659694457090aeaec43449d72372f779e29f73e6e5387ed011312dd"
+"caregiving_lexicon@2026" = "blake3:befe077f47d3137f6b3aa728bdafa112288aac1a796be2af87bd1a15ffd06b23"
+"hcbs_compliance_lexicon@2026" = "blake3:afd95d05f0a3446d6e53ecd24e5e869b0a2da73ebf1f1548f5b6a48633be2ae9"
+"conditional_frames@2026" = "blake3:1a0d26a0273f4f207b021047061f0fcaed66965c36195d41b8c5f67a2effbcf9"
+"explain_frames@2026" = "blake3:945ac9c5489e17dd247fb11be3da833bad9503d5ead01f90d31e5d5dc8c2902e"
+"ontology_labels@2026" = "blake3:fbe963a61441c09a2476878c9a0780975e5ba91d0fa408b2fc69ee6cb17a24bb"
+
+# Content addresses of the DEFINES-overlay compact archives — the content digest of
+# each source's sparse (provision_urn, term) pairs found by defines_pointers grounding
+# its prose. SEPARATE from [compact_archive_signatures]: this is the expensive
+# NLP-grammar extraction result, not the structural corpus, so it is pinned
+# independently — a defines-grammar change doesn't force a spurious re-lock of
+# unrelated structural pins. Same portability class (dependency-free bit-packing,
+# stable across toolchains). The defines-overlay load gate
+# (`load_compact_usc_defines_prx_gz_gated`) checks the installed overlay bytes against
+# these. Written by `pr4xis compile --defines --lock` (never run in CI or by default —
+# full-corpus grounding is measured at ~3.3 hours).
+"geonames_countryinfo@2026-07-21" = "blake3:7aa9f728491b9ed43b0c19b7fe3cf972fe755488cae17b914a71f76917b5ca8a"
+"english_grapheme_classes@1994" = "blake3:e1758ce4ea28f2fd0863d728b993b4a52d0aae3f30cc9a4205b5955b0927d4f6"
+[compact_defines_signatures]
+"usc_title_1@pl-119-90" = "blake3:b563e386a538dba13ae873e8be5c68bac115006322d6a2b768085ea3ecba9da0"
+"usc_title_15@pl-119-90" = "blake3:0ea703b8db4568ee685ee3a8357794093bc9c7ec10ec7e198bc9433658ab9fef"
+"usc_title_18@pl-119-90" = "blake3:835d5d919ed29f9b7fe92bcddda92e8a92876755f7af4cc92dc8d7b4ef91f14a"
+"usc_title_28@pl-119-90" = "blake3:60f13d874fae142b702596d12b34e71c008c33250b5525d5c3d9ea85c779454f"
+"usc_title_29@pl-119-90" = "blake3:22f0c5919bef0964f51121fc1a2edbca4741ed755b7d42f6e55ea5929067e751"
+"usc_title_42@pl-119-90" = "blake3:c57b878e06ae725940f6e56fb8acc8689ff21efaacb132935d4637551cd688b7"
+"usc_title_49@pl-119-90" = "blake3:9418dc0c4f2f2405b42eaad733fde9cf21e0b50bbda9b7a422f90a15251844f4"
+"usc_title_5@pl-119-90" = "blake3:dbdbfc4bf75455ca301d3106093a116faccf67fde8f11521e72f5e7ebe2b839a"
+"usc_title_50@pl-119-90" = "blake3:9945708ed394e95ada6a74022a7b0d65726eb682e3e57e48b1bcaeb4e99b23cc"
+
+[grammar_signatures]
+"corpus_parse" = "blake3:c4f19f7f720dd137681004e034f616103a4122aafaa7c66600d356765f9025f8"
+"defines_overlay" = "blake3:715b2fbf9bad5e8183cfc3e3c54937119ae38cd545b9d22839c64bef9ed7220b"
+
 [store_bundle_signatures]
-"english_wordnet@2025" = "blake3:ee24c6a01c9f7622c56eb399f5dd6f5908fe8af022b6de366a5a0e9edf9a45be"
+"english_wordnet@2025" = "blake3:34a2a0058276126536334910a1d68dd5ca7a6d29a9e52723a51f629403732920"

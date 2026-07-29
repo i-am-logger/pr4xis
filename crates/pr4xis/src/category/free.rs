@@ -134,6 +134,7 @@ impl<A: Clone + Debug> Chain<A> {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn chain_accumulates_steps() {
         let (result, steps) = Chain::start(10)
@@ -146,6 +147,7 @@ mod tests {
         assert_eq!(steps, vec!["double", "add_one", "to_string"]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn chain_empty() {
         let chain = Chain::start(42);
@@ -153,6 +155,7 @@ mod tests {
         assert!(chain.steps().is_empty());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn chain_single_step() {
         let (val, steps) = Chain::start("hello").then("length", |s| s.len()).run();
@@ -162,6 +165,7 @@ mod tests {
 
     // --- Pipeline as free monad ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn pipeline_as_chain() {
         // Simulate the chat pipeline as a computation chain
@@ -197,5 +201,6 @@ mod tests {
                 prop_assert_eq!(*chain.value(), n as i32);
             }
         }
+        crate::register_praxis_value!(prop_chain_step_count, Verifiable);
     }
 }

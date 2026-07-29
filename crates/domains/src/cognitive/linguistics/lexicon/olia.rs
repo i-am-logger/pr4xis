@@ -197,6 +197,16 @@ pub fn semantic_effect_to_olia_fragments(
         SemanticEffect::TenseChange => vec!["Tense", "Past", "Present", "Future"],
         // OLiA Aspect with the Progressive class specifically.
         SemanticEffect::Progressive => vec!["Aspect", "ProgressiveAspect"],
+        // The past participle's FEATURE-level identity is the Tense axis
+        // at Past: the loaded Reference Model defines
+        // `olia.owl#PastParticiple` by `owl:equivalentClass` as
+        // `Participle and (hasTense some Past)`, and carries the
+        // `owl:versionInfo` "introduced as a shorthand for Participle and
+        // hasTense some Past" (`data/ontologies/olia-2026-04-09.owl`). Its
+        // MORPHOSYNTACTIC WORD CLASS (the other half of that intersection)
+        // is what `form_level_class` returns, exactly the same split the
+        // Progressive/`ing` pair above already makes.
+        SemanticEffect::PastParticiple => vec!["Tense", "Past"],
         // OLiA covers agent-nominal derivation under
         // AgentiveNoun (in the Lexinfo extension; the base OLiA
         // does not carry it). Returned for downstream resolution.
@@ -205,6 +215,41 @@ pub fn semantic_effect_to_olia_fragments(
         // direct class — `StativeVerb` is the closest sibling.
         // Empty until a richer derivational extension is loaded.
         SemanticEffect::QualityNoun => vec![],
+    }
+}
+
+/// The FORM-LEVEL OLiA word class a
+/// [`SemanticEffect`](super::super::morphology::SemanticEffect) marks its
+/// surface with, if any — the typed sibling of
+/// [`semantic_effect_to_olia_fragments`], split so callers never scan the
+/// feature-fragment `Vec` for a known string.
+///
+/// The feature fragments above are CLAUSE/feature-level identities (Aspect,
+/// Tense, Number); this returns the MORPHOSYNTACTIC WORD CLASS of the marked
+/// form itself. Two effects mark a form class:
+///
+/// - `Progressive` → OLiA `ing`, the EAGLES gerund-participle merger class
+///   (subClassOf both Gerund and Participle in the loaded Reference Model) —
+///   the loaded counterpart of CGEL's finding (Huddleston & Pullum 2002,
+///   pp. 1220–1222) that the gerund/participle distinction cannot be
+///   sustained for the English -ing form.
+/// - `PastParticiple` → OLiA `PastParticiple`, `rdfs:subClassOf`
+///   `olia.owl#Participle` and `owl:equivalentClass` `Participle and
+///   (hasTense some Past)` in the same loaded Reference Model. Unlike the
+///   -ing form, the past participle IS a class English keeps distinct from
+///   its finite sibling — "given" vs "gave" (Huddleston & Pullum 2002
+///   Ch.3 §1.4's six-form paradigm); the regular verb's syncretism
+///   ("provided") is a spelling accident, not a category merger, so this
+///   gets its OWN class rather than a merger class.
+///
+/// Each fragment is asserted to resolve in the loaded Reference Model by the
+/// bridge test.
+pub fn form_level_class(effect: super::super::morphology::SemanticEffect) -> Option<&'static str> {
+    use super::super::morphology::SemanticEffect;
+    match effect {
+        SemanticEffect::Progressive => Some("ing"),
+        SemanticEffect::PastParticiple => Some("PastParticiple"),
+        _ => None,
     }
 }
 
@@ -348,6 +393,7 @@ mod tests {
             Just(SemanticEffect::NumberChange),
             Just(SemanticEffect::TenseChange),
             Just(SemanticEffect::Progressive),
+            Just(SemanticEffect::PastParticiple),
             Just(SemanticEffect::AgentNoun),
             Just(SemanticEffect::QualityNoun),
         ]
@@ -478,6 +524,45 @@ mod prx_fast_load {
                 "{fragment} must resolve in the loaded OLiA Reference Model"
             );
         }
+    }
+
+    /// Every FORM-LEVEL class [`form_level_class`] can name resolves in the
+    /// loaded Reference Model — the grounding check that keeps the mark an
+    /// OLiA identity rather than a private string. Iterates the closed
+    /// `SemanticEffect` set so a new marking effect cannot be added without
+    /// its fragment being real.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
+    #[test]
+    fn every_form_level_class_resolves_in_the_loaded_model() {
+        use crate::cognitive::linguistics::morphology::SemanticEffect;
+        use pr4xis::category::FinitelyGenerated;
+        let mut marked = 0usize;
+        for effect in SemanticEffect::variants() {
+            let Some(fragment) = form_level_class(effect) else {
+                continue;
+            };
+            marked += 1;
+            assert!(
+                is_loaded_class(fragment),
+                "{fragment:?} (form class of {effect:?}) must resolve in the loaded OLiA Reference Model"
+            );
+        }
+        // The two form-marking effects: Progressive → `ing`,
+        // PastParticiple → `PastParticiple`.
+        assert_eq!(marked, 2);
+        assert_eq!(form_level_class(SemanticEffect::Progressive), Some("ing"));
+        assert_eq!(
+            form_level_class(SemanticEffect::PastParticiple),
+            Some("PastParticiple")
+        );
+        // The two are DISTINCT classes: English merges gerund and present
+        // participle in the -ing form (CGEL pp. 1220–1222) but keeps the past
+        // participle apart from its finite siblings, so a single merger class
+        // would be wrong here.
+        assert_ne!(
+            form_level_class(SemanticEffect::Progressive),
+            form_level_class(SemanticEffect::PastParticiple)
+        );
     }
 
     /// STALENESS GUARD: the committed compact `.prx.gz` is faithful to the

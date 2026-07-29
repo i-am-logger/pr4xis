@@ -582,6 +582,7 @@ mod tests {
     }
     type Collapsed = FreeExtension<Collapse>;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn compose_concatenates_paths() {
         let f = Path::<TwoCycle>::edge(E {
@@ -602,6 +603,7 @@ mod tests {
         assert!(FreeCategory::<TwoCycle>::compose(&f, &f).is_none());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn identity_is_the_empty_path() {
         let id_a = FreeCategory::<TwoCycle>::identity(&V::A);
@@ -622,6 +624,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Extensible)]
     #[test]
     fn free_extension_satisfies_functor_laws() {
         // Identity + composition laws, checked on the generating set — sound by
@@ -629,6 +632,7 @@ mod tests {
         assert_functor_laws::<Collapsed>();
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn free_extension_folds_paths_through_the_target() {
         let f = Path::<TwoCycle>::edge(E {
@@ -654,6 +658,7 @@ mod tests {
 
     // ---- ReachabilityClosure: the materialized reflection, as data ----
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn closure_materializes_the_transitive_image_once() {
         // A linear taxonomy: dog → mammal → animal (is-a chain). The closure
@@ -673,6 +678,7 @@ mod tests {
         assert_eq!(c.distance(&2, &0), None);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn closure_reflexive_image_includes_self_and_descendants() {
         let c = ReachabilityClosure::fold([(0u32, 1u32), (1, 2)]);
@@ -683,6 +689,7 @@ mod tests {
         assert!(!c.reflexive_image(&0).iter().any(|(v, _)| *v == 9));
     }
 
+    #[crate::praxis_value(Honest, Verifiable)]
     #[test]
     fn closure_meet_is_the_nearest_shared_target() {
         // dog(0)→mammal(2)→animal(3); cat(1)→mammal(2)→animal(3). The meet of
@@ -696,6 +703,7 @@ mod tests {
         assert_eq!(d.meet_by(&0, &5, |v| *v), None);
     }
 
+    #[crate::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn closure_of_a_closure_is_set_idempotent() {
         // Folding an already-transitively-closed edge set yields the SAME

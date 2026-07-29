@@ -27,7 +27,7 @@ impl AxisAngle {
 
     /// Construct and normalize the axis to unit length.
     pub fn new(axis: Vector, angle: f64) -> Self {
-        let n = axis.norm();
+        let n = axis.norm().value;
         if n < 1e-12 {
             Self::identity()
         } else {

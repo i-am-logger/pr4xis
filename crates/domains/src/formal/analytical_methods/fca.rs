@@ -82,6 +82,9 @@ use core::marker::PhantomData;
 
 use pr4xis::ontology::Axiom;
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // =============================================================================
 // Bit-set helper. Attributes are stored as a Vec<u64> bitmask indexed
 // by attribute position. This keeps closure computations tight without
@@ -151,10 +154,11 @@ impl BitSet {
         }
     }
 
-    /// Number of set bits.
+    /// Number of set bits — a dimensionless popcount.
     #[must_use]
-    pub fn count(&self) -> usize {
-        self.words.iter().map(|w| w.count_ones() as usize).sum()
+    pub fn count(&self) -> Quantity {
+        let n: usize = self.words.iter().map(|w| w.count_ones() as usize).sum();
+        Quantity::from_unit(n as f64, &unit::UNITLESS)
     }
 
     /// Set-inclusion: `self ⊆ other` iff every bit in `self` is set

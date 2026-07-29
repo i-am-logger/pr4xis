@@ -73,6 +73,7 @@ impl<A: 'static + Clone + Debug + PartialOrd, B: 'static + Clone + Debug + Parti
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn galois_floor_ceil() {
         // Classic example: floor ⊣ ceil between f64 and i64
@@ -101,6 +102,7 @@ mod tests {
         assert!(gc2.check_counit(&3.7)); // embed(floor(3.7)) = 3.0 ≤ 3.7 ✓
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn galois_taxonomy_abstraction() {
         // Taxonomy levels: specific ≤ general
@@ -147,5 +149,7 @@ mod tests {
                 prop_assert!(gc.check_counit(&x));
             }
         }
+        crate::register_praxis_value!(prop_galois_unit, Deterministic);
+        crate::register_praxis_value!(prop_galois_counit, Deterministic);
     }
 }

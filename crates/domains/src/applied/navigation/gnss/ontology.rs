@@ -9,9 +9,11 @@
 #![allow(clippy::needless_range_loop)]
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
+use crate::formal::math::quantity::unit::DECIBEL_HERTZ;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 use pr4xis::category::{Arrow, Category};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 pr4xis::ontology! {
     name: "Gnss",
@@ -54,22 +56,40 @@ impl Quality for DilutionOfPrecision {
     }
 }
 
-/// Quality: Signal strength in carrier-to-noise-density ratio (C/N0, dB-Hz).
+/// Quality: signal strength in carrier-to-noise-density ratio (C/N0), a
+/// [`QuantityRange`] in dB-Hz, NOT a prose string.
+///
+/// `None` for the abstract `Observable` (no fixed metric — C/N0 is the
+/// metric name itself) and for `Doppler` (frequency-shift measurement
+/// derived from carrier tracking, not independently rated in C/N0).
+/// `NavigationMessage`'s figure is a decode *threshold*, open-ended above
+/// (no upper bound on signal quality once decodable) — the same
+/// open-upper-bound idiom `CouplingBandwidth::DeeplyCoupled` uses.
 #[derive(Debug, Clone)]
 pub struct SignalStrength;
 
 impl Quality for SignalStrength {
     type Individual = GnssConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, obs: &GnssConcept) -> Option<&'static str> {
-        match obs {
-            GnssConcept::Observable => Some("C/N0 (dB-Hz)"),
-            GnssConcept::Pseudorange => Some("C/N0 35-50 dB-Hz open sky"),
-            GnssConcept::CarrierPhase => Some("C/N0 35-50 dB-Hz, more sensitive to loss"),
-            GnssConcept::Doppler => Some("C/N0 derived from carrier tracking"),
-            GnssConcept::NavigationMessage => Some("requires C/N0 > 25 dB-Hz to decode"),
-        }
+    fn get(&self, obs: &GnssConcept) -> Option<QuantityRange> {
+        let db_hz = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &DECIBEL_HERTZ),
+            max: Quantity::from_unit(hi, &DECIBEL_HERTZ),
+        };
+        Some(match obs {
+            // Abstract root — C/N0 (dB-Hz) is the metric name, not a value.
+            GnssConcept::Observable => return None,
+            // 35-50 dB-Hz open sky.
+            GnssConcept::Pseudorange => db_hz(35.0, 50.0),
+            // Same open-sky range; more sensitive to cycle-slip/loss-of-lock.
+            GnssConcept::CarrierPhase => db_hz(35.0, 50.0),
+            // Derived from carrier tracking, not independently rated.
+            GnssConcept::Doppler => return None,
+            // Decode threshold: > 25 dB-Hz, unbounded above.
+            GnssConcept::NavigationMessage => db_hz(25.0, f64::INFINITY),
+        })
     }
 }
 

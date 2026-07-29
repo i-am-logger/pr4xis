@@ -81,10 +81,10 @@ proptest! {
     #[test]
     fn prop_greedy_bound_over_small_dags(n in 2u64..7) {
         let dag = fib_dag(n);
-        let t1 = dag.work();
-        let t_inf = span(&dag);
+        let t1 = dag.work().value as usize;
+        let t_inf = span(&dag).value as usize;
         for p in greedy_processor_counts(t_inf) {
-            let t_p = greedy_schedule(&dag, p).makespan();
+            let t_p = greedy_schedule(&dag, p).makespan().value as usize;
             prop_assert!(t_p >= t_inf, "T_p >= Tinf");
             prop_assert!(p * t_p >= t1, "p*T_p >= T1");
             prop_assert!(t_p <= t1 / p + t_inf, "T_p <= floor(T1/p) + Tinf");
@@ -99,7 +99,7 @@ proptest! {
         let dag = fib_dag(n);
         let sequential = fibonacci(n);
         prop_assert_eq!(evaluate(&dag), sequential);
-        for p in greedy_processor_counts(span(&dag)) {
+        for p in greedy_processor_counts(span(&dag).value as usize) {
             let schedule = greedy_schedule(&dag, p);
             prop_assert_eq!(evaluate_along(&dag, &schedule.flatten()), sequential);
         }

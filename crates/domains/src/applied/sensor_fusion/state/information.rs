@@ -4,6 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use crate::formal::math::linear_algebra::decomposition;
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::instant::Instant;
 
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 
@@ -37,7 +38,7 @@ impl InformationEstimate {
     }
 
     /// Convert back to standard form.
-    pub fn to_estimate(&self, epoch: f64) -> Option<StateEstimate> {
+    pub fn to_estimate(&self, epoch: Instant) -> Option<StateEstimate> {
         let p = decomposition::inverse_spd(&self.information_matrix)?;
         let x = p.multiply_vector(&self.information_vector);
         Some(StateEstimate::new(x, p, epoch))

@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// A color channel value (0-255).
 pub type Channel = u8;
 
@@ -64,37 +67,47 @@ impl Rgb {
     }
 
     /// Luminance (perceived brightness, 0.0-1.0).
-    pub fn luminance(&self) -> f64 {
-        0.2126 * (self.r as f64 / 255.0)
-            + 0.7152 * (self.g as f64 / 255.0)
-            + 0.0722 * (self.b as f64 / 255.0)
+    ///
+    /// This is the WCAG 2.1 §1.4.3 relative luminance: a dimensionless
+    /// ratio normalised to `[0, 1]` from the sRGB channels directly (not
+    /// the sRGB-linearized BT.709 formula `srgb::relative_luminance` uses —
+    /// see that function's doc comment for the distinction), so it is
+    /// carried as `Quantity` with unit `UNITLESS`, not an absolute
+    /// photometric luminance in cd/m².
+    pub fn luminance(&self) -> Quantity {
+        Quantity::from_unit(
+            0.2126 * (self.r as f64 / 255.0)
+                + 0.7152 * (self.g as f64 / 255.0)
+                + 0.0722 * (self.b as f64 / 255.0),
+            &unit::UNITLESS,
+        )
     }
 
     /// Is this a dark color? (luminance < 0.5)
     pub fn is_dark(&self) -> bool {
-        self.luminance() < 0.5
+        self.luminance().value < 0.5
     }
 
     /// Contrast ratio against another color (WCAG formula).
-    /// Returns 1.0 to 21.0.
-    pub fn contrast_ratio(&self, other: Rgb) -> f64 {
-        let l1 = self.luminance() + 0.05;
-        let l2 = other.luminance() + 0.05;
-        if l1 > l2 { l1 / l2 } else { l2 / l1 }
+    /// Returns 1.0 to 21.0, a dimensionless ratio by definition.
+    pub fn contrast_ratio(&self, other: Rgb) -> Quantity {
+        let l1 = self.luminance().value + 0.05;
+        let l2 = other.luminance().value + 0.05;
+        Quantity::from_unit(if l1 > l2 { l1 / l2 } else { l2 / l1 }, &unit::UNITLESS)
     }
 
     /// WCAG AA compliance: contrast ratio >= 4.5 for normal text.
     pub fn wcag_aa(&self, other: Rgb) -> bool {
-        self.contrast_ratio(other) >= 4.5
+        self.contrast_ratio(other).value >= 4.5
     }
 
     /// WCAG AAA compliance: contrast ratio >= 7.0 for normal text.
     pub fn wcag_aaa(&self, other: Rgb) -> bool {
-        self.contrast_ratio(other) >= 7.0
+        self.contrast_ratio(other).value >= 7.0
     }
 
     /// Hue in degrees (0-360). Returns None for achromatic colors.
-    pub fn hue(&self) -> Option<f64> {
+    pub fn hue(&self) -> Option<Quantity> {
         let r = self.r as f64 / 255.0;
         let g = self.g as f64 / 255.0;
         let b = self.b as f64 / 255.0;
@@ -114,17 +127,23 @@ impl Rgb {
             60.0 * (((r - g) / delta) + 4.0)
         };
 
-        Some(if hue < 0.0 { hue + 360.0 } else { hue })
+        Some(Quantity::from_unit(
+            if hue < 0.0 { hue + 360.0 } else { hue },
+            &unit::DEGREE,
+        ))
     }
 
-    /// Saturation (0.0-1.0).
-    pub fn saturation(&self) -> f64 {
+    /// Saturation (0.0-1.0), a dimensionless ratio.
+    pub fn saturation(&self) -> Quantity {
         let r = self.r as f64 / 255.0;
         let g = self.g as f64 / 255.0;
         let b = self.b as f64 / 255.0;
         let max = r.max(g).max(b);
         let min = r.min(g).min(b);
-        if max < 0.001 { 0.0 } else { (max - min) / max }
+        Quantity::from_unit(
+            if max < 0.001 { 0.0 } else { (max - min) / max },
+            &unit::UNITLESS,
+        )
     }
 
     /// Is this an achromatic color (gray/black/white)?
@@ -139,7 +158,7 @@ impl Rgb {
 
     /// Grayscale version (using luminance).
     pub fn grayscale(&self) -> Rgb {
-        let l = (self.luminance() * 255.0) as u8;
+        let l = (self.luminance().value * 255.0) as u8;
         Rgb::new(l, l, l)
     }
 }

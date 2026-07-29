@@ -100,8 +100,8 @@ pub use lens_trait::{FailureStage, LensLawFailure, RoundTripFidelity, WellBehave
 
 #[cfg(feature = "prx")]
 pub use completeness::{
-    CompletenessReport, completeness_meter, declared_matches_achieved, floor_source_count,
-    print_completeness_meter,
+    AchievedFidelity, CompletenessReport, completeness_meter, declared_matches_achieved,
+    floor_source_count, print_completeness_meter,
 };
 #[cfg(feature = "prx")]
 pub use decompile::{DecompileError, DecompileKind, decompile};

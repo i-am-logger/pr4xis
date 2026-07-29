@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::note::Note;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Scale kinds with their interval patterns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,17 +89,24 @@ impl Scale {
 
     /// Is a given note in this scale?
     pub fn contains(&self, note: Note) -> bool {
-        let scale_pcs: Vec<u8> = self.notes().iter().map(|n| n.pitch_class()).collect();
-        scale_pcs.contains(&note.pitch_class())
+        let scale_pcs: Vec<u8> = self
+            .notes()
+            .iter()
+            .map(|n| n.pitch_class().value as u8)
+            .collect();
+        scale_pcs.contains(&(note.pitch_class().value as u8))
     }
 
     /// Total semitones in the scale (should be 12 for a complete octave scale).
-    pub fn total_semitones(&self) -> u8 {
-        self.kind.intervals().iter().sum()
+    /// A dimensionless semitone count — see [`super::note::Note::octave`].
+    pub fn total_semitones(&self) -> Quantity {
+        let total: u8 = self.kind.intervals().iter().sum();
+        Quantity::from_unit(total as f64, &unit::UNITLESS)
     }
 
-    /// Number of notes in the scale (excluding the repeated octave).
-    pub fn degree_count(&self) -> usize {
-        self.kind.intervals().len()
+    /// Number of notes in the scale (excluding the repeated octave). A
+    /// dimensionless count — see [`super::note::Note::octave`].
+    pub fn degree_count(&self) -> Quantity {
+        Quantity::from_unit(self.kind.intervals().len() as f64, &unit::UNITLESS)
     }
 }

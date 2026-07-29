@@ -6,6 +6,9 @@ Every published source this ontology stands on. Entries below are drawn from the
 
 - Goldstein 1987: *Terrain Aided Navigation*
 - Bergen, Dickmann, Haykin 1996 (terrain contour matching)
+- Zevenbergen, L.W. & Thorne, C.R. 1987: "Quantitative analysis of land surface topography," Earth Surface Processes and Landforms, 12(1), 47-56 (3x3 finite-difference curvature estimate `DemTile::principal_curvatures` uses)
+- Wood, J. 1996: "The Geomorphological Characterisation of Digital Elevation Models," PhD thesis, University of Leicester (deployment-tunable curvature-classification tolerance, `TerrainClassificationCriteria`)
+- do Carmo, M.P. 1976: *Differential Geometry of Curves and Surfaces*, Prentice-Hall (principal curvatures as Hessian eigenvalues; grounds `Dimension::CURVATURE`)
 
 ## Cross-references
 

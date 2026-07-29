@@ -1733,7 +1733,7 @@ mod tests {
 
         // It came from a real CiTO parse, so it is rich and carries the
         // citesAsEvidence is_a cites edge.
-        assert!(direct.entity_count() > 30, "real CiTO is rich");
+        assert!(direct.entity_count().value > 30.0, "real CiTO is rich");
         assert!(loaded.find(CITES_AS_EVIDENCE_IRI).is_some());
         assert!(
             loaded.is_a(CITES_AS_EVIDENCE_IRI, CITES_IRI),
@@ -1906,7 +1906,7 @@ mod tests {
         let prx_gz = emit_prx_gz(owl.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL).expect("emit");
         // Through the live registry lock lookup (no pin passed in).
         let loaded = load_prx_gz_from_lock(&prx_gz).expect("must load + validate via lock");
-        assert!(loaded.entity_count() > 30);
+        assert!(loaded.entity_count().value > 30.0);
         assert!(loaded.find(CITES_AS_EVIDENCE_IRI).is_some());
     }
 
@@ -2382,7 +2382,7 @@ mod tests {
             let loaded = load_prx_gz_from_lock(&bytes)
                 .unwrap_or_else(|e| panic!("artifact {} must re-load: {e}", art.path.display()));
             assert!(
-                loaded.entity_count() > 0,
+                loaded.entity_count().value > 0.0,
                 "loaded vocabulary {} is non-empty",
                 art.name
             );
@@ -2574,10 +2574,13 @@ mod tests {
 
             let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin, &canonical_pin)
                 .expect("matching pins must load");
-            prop_assert_eq!(loaded.entity_count(), s.classes.len() + s.properties.len());
             prop_assert_eq!(
-                loaded.subsumption_edge_count(),
-                s.class_edges.len() + s.prop_edges.len()
+                loaded.entity_count().value,
+                (s.classes.len() + s.properties.len()) as f64
+            );
+            prop_assert_eq!(
+                loaded.subsumption_edge_count().value,
+                (s.class_edges.len() + s.prop_edges.len()) as f64
             );
             // Every synthesised class edge survives as an is_a.
             for (c, p) in &s.class_edges {

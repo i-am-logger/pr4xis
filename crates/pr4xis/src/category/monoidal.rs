@@ -128,6 +128,7 @@ impl<A, B> Coproduct<A, B> {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn product_new() {
         let p = Product::new(1, "hello");
@@ -135,6 +136,7 @@ mod tests {
         assert_eq!(p.right, "hello");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn product_bimap() {
         let p = Product::new(1, 2).bimap(|x| x + 10, |y| y * 2);
@@ -144,6 +146,7 @@ mod tests {
 
     // --- Monoidal laws ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn associator_roundtrip() {
         let p = Product::new(Product::new(1, 2), 3);
@@ -152,18 +155,21 @@ mod tests {
         assert_eq!(p, back);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn left_unitor_law() {
         let p = Product::new((), 42);
         assert_eq!(left_unitor(p), 42);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn right_unitor_law() {
         let p = Product::new(42, ());
         assert_eq!(right_unitor(p), 42);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn swap_involution() {
         let p = Product::new(1, 2);
@@ -173,6 +179,7 @@ mod tests {
 
     // --- Coproduct ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn coproduct_fold() {
         let left: Coproduct<i32, &str> = Coproduct::Left(42);
@@ -184,6 +191,7 @@ mod tests {
 
     // --- Practical: product ontology ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn product_ontology_storage() {
         // Vol × Con × Dur = storage tier classification
@@ -248,5 +256,9 @@ mod tests {
                 prop_assert_eq!(right_unitor(Product::new(a, ())), a);
             }
         }
+        crate::register_praxis_value!(prop_assoc_roundtrip, Deterministic);
+        crate::register_praxis_value!(prop_swap_involution, Deterministic);
+        crate::register_praxis_value!(prop_left_unitor, Deterministic);
+        crate::register_praxis_value!(prop_right_unitor, Deterministic);
     }
 }

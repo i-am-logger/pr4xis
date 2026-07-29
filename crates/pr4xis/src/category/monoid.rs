@@ -66,6 +66,7 @@ impl Monoid for () {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn vec_monoid_identity() {
         let v = vec![1, 2, 3];
@@ -73,6 +74,7 @@ mod tests {
         assert_eq!(v.combine(&Vec::empty()), v);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn vec_monoid_associativity() {
         let a = vec![1];
@@ -81,6 +83,7 @@ mod tests {
         assert_eq!(a.combine(&b).combine(&c), a.combine(&b.combine(&c)));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn string_monoid_identity() {
         let s = "hello".to_string();
@@ -88,6 +91,7 @@ mod tests {
         assert_eq!(s.combine(&String::empty()), s);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn string_monoid_associativity() {
         let a = "a".to_string();
@@ -96,6 +100,7 @@ mod tests {
         assert_eq!(a.combine(&b).combine(&c), a.combine(&b.combine(&c)));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn unit_monoid() {
         assert_eq!(().combine(&()), ());
@@ -152,5 +157,11 @@ mod tests {
                 );
             }
         }
+        crate::register_praxis_value!(prop_vec_left_identity, Deterministic);
+        crate::register_praxis_value!(prop_vec_right_identity, Deterministic);
+        crate::register_praxis_value!(prop_vec_associativity, Deterministic);
+        crate::register_praxis_value!(prop_string_left_identity, Deterministic);
+        crate::register_praxis_value!(prop_string_right_identity, Deterministic);
+        crate::register_praxis_value!(prop_string_associativity, Deterministic);
     }
 }

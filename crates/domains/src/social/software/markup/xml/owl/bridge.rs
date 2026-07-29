@@ -311,8 +311,8 @@ mod tests {
         let archive = owl_project_archive(&vocab);
         let concepts = archive.nodes.iter().filter(|n| n.kind != FORM_KIND).count();
         assert_eq!(
-            concepts,
-            vocab.entity_count(),
+            concepts as f64,
+            vocab.entity_count().value,
             "one concept node per entity"
         );
         let subsumes: usize = archive
@@ -321,12 +321,12 @@ mod tests {
             .flat_map(|n| &n.edges)
             .filter(|(rel, _)| rel == SUBSUMES_REL)
             .count();
-        assert_eq!(subsumes, vocab.subsumption_edge_count());
+        assert_eq!(subsumes as f64, vocab.subsumption_edge_count().value);
         // One canonical-form surface per entity (each has a local-name label here).
         let forms = archive.nodes.iter().filter(|n| n.kind == FORM_KIND).count();
         assert_eq!(
-            forms,
-            vocab.entity_count(),
+            forms as f64,
+            vocab.entity_count().value,
             "a canonical-form Form per entity"
         );
     }

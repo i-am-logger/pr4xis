@@ -16,8 +16,8 @@ fn arb_alpha() -> impl Strategy<Value = f64> {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_constants() {
-    assert_eq!(Rgb::BLACK.luminance(), 0.0);
-    assert!(Rgb::WHITE.luminance() > 0.99);
+    assert_eq!(Rgb::BLACK.luminance().value, 0.0);
+    assert!(Rgb::WHITE.luminance().value > 0.99);
     assert!(Rgb::BLACK.is_dark());
     assert!(!Rgb::WHITE.is_dark());
 }
@@ -105,14 +105,14 @@ proptest! {
     #[test]
     fn prop_luminance_range(c in arb_rgb()) {
         let l = c.luminance();
-        prop_assert!((0.0..=1.0).contains(&l), "luminance {} out of range", l);
+        prop_assert!((0.0..=1.0).contains(&l.value), "luminance {:?} out of range", l);
     }
 
     /// Black has luminance 0, white has luminance ~1
     #[test]
     fn prop_black_darkest(_x in 0..1u8) {
-        prop_assert_eq!(Rgb::BLACK.luminance(), 0.0);
-        prop_assert!(Rgb::WHITE.luminance() > 0.99);
+        prop_assert_eq!(Rgb::BLACK.luminance().value, 0.0);
+        prop_assert!(Rgb::WHITE.luminance().value > 0.99);
     }
 
     /// Double invert = identity
@@ -124,7 +124,7 @@ proptest! {
     /// Contrast ratio is >= 1.0
     #[test]
     fn prop_contrast_at_least_1(a in arb_rgb(), b in arb_rgb()) {
-        prop_assert!(a.contrast_ratio(b) >= 1.0);
+        prop_assert!(a.contrast_ratio(b).value >= 1.0);
     }
 
     /// Contrast ratio is symmetric
@@ -132,21 +132,21 @@ proptest! {
     fn prop_contrast_symmetric(a in arb_rgb(), b in arb_rgb()) {
         let ab = a.contrast_ratio(b);
         let ba = b.contrast_ratio(a);
-        prop_assert!((ab - ba).abs() < 0.001);
+        prop_assert!((ab.value - ba.value).abs() < 0.001);
     }
 
     /// Contrast with self = 1.0
     #[test]
     fn prop_self_contrast(c in arb_rgb()) {
         let ratio = c.contrast_ratio(c);
-        prop_assert!((ratio - 1.0).abs() < 0.001);
+        prop_assert!((ratio.value - 1.0).abs() < 0.001);
     }
 
     /// Black vs white has max contrast (21:1)
     #[test]
     fn prop_max_contrast(_x in 0..1u8) {
         let ratio = Rgb::BLACK.contrast_ratio(Rgb::WHITE);
-        prop_assert!(ratio > 20.0);
+        prop_assert!(ratio.value > 20.0);
     }
 
     /// Grayscale is always achromatic
@@ -174,13 +174,13 @@ proptest! {
     #[test]
     fn prop_saturation_range(c in arb_rgb()) {
         let s = c.saturation();
-        prop_assert!((0.0..=1.0).contains(&s));
+        prop_assert!((0.0..=1.0).contains(&s.value));
     }
 
     /// Achromatic has 0 saturation
     #[test]
     fn prop_achromatic_zero_saturation(v in 0..=255u8) {
-        prop_assert_eq!(Rgb::new(v, v, v).saturation(), 0.0);
+        prop_assert_eq!(Rgb::new(v, v, v).saturation().value, 0.0);
     }
 
     /// Additive mix with black = identity
@@ -275,7 +275,7 @@ proptest! {
     #[test]
     fn prop_wcag_aa_implies_large(a in arb_rgb(), b in arb_rgb()) {
         if a.wcag_aa(b) {
-            prop_assert!(a.contrast_ratio(b) >= 3.0);
+            prop_assert!(a.contrast_ratio(b).value >= 3.0);
         }
     }
 

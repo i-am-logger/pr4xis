@@ -158,6 +158,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn relabels_kinds_carries_identity_content() {
         let source = Archive {
@@ -185,6 +186,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unmapped_kind_is_the_identity_image_not_dropped() {
         // `antonym` is not in the functor (pending the full relation-kind
@@ -209,6 +211,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn re_emitting_a_different_functor_changes_the_projection() {
         // The user's directive realized: the projection is data. A different
@@ -232,6 +235,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn refuses_a_non_functor_action_fail_closed() {
         let lens = GeneratorAction::Lens {

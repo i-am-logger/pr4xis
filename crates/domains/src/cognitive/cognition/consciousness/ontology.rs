@@ -96,16 +96,27 @@ pr4xis::ontology! {
     ],
 }
 
+/// Which factor of the Dehaene, Lau & Kouider (2017) C1×C2 product a
+/// concept belongs to — a closed two-member taxonomy, not a prose label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ConsciousnessDimension {
+    /// C1: global broadcasting (Baars 1988; Dehaene, Lau & Kouider 2017).
+    C1Broadcasting,
+    /// C2: self-monitoring / metacognition (Rosenthal 2005; Dehaene, Lau
+    /// & Kouider 2017).
+    C2SelfMonitoring,
+}
+
 /// Which dimension a concept belongs to.
 #[derive(Debug, Clone)]
 pub struct Dimension;
 
 impl Quality for Dimension {
     type Individual = C1Concept;
-    type Value = &'static str;
+    type Value = ConsciousnessDimension;
 
-    fn get(&self, _individual: &C1Concept) -> Option<&'static str> {
-        Some("C1-Broadcasting")
+    fn get(&self, _individual: &C1Concept) -> Option<ConsciousnessDimension> {
+        Some(ConsciousnessDimension::C1Broadcasting)
     }
 }
 
@@ -115,10 +126,10 @@ pub struct C2Dimension;
 
 impl Quality for C2Dimension {
     type Individual = C2Concept;
-    type Value = &'static str;
+    type Value = ConsciousnessDimension;
 
-    fn get(&self, _individual: &C2Concept) -> Option<&'static str> {
-        Some("C2-SelfMonitoring")
+    fn get(&self, _individual: &C2Concept) -> Option<ConsciousnessDimension> {
+        Some(ConsciousnessDimension::C2SelfMonitoring)
     }
 }
 

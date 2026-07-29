@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::cognitive::cognition::self_model::AwarenessLevel;
+use crate::cognitive::linguistics::nlp_task::claims::TaskClaim;
 use crate::formal::information::knowledge::catalog::{SourceStatus, staging_label};
 use crate::formal::information::knowledge::vocabulary::OntologyCapability;
 use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
@@ -48,6 +49,49 @@ pub fn is_self_referent(surface: &str) -> bool {
     self_referents().contains(&surface)
 }
 
+/// The surface forms that ask a self-referential question SPECIFICALLY about
+/// the [`Capability`](crate::cognitive::cognition::self_model::SelfModelConcept::Capability)
+/// concept — "what CAN you REASON ABOUT/KNOW" — as opposed to a generic
+/// self-referential question ("who are you", "are you a computer"). Owned by
+/// the self-model layer for the same reason [`self_referents`] is: a routing
+/// decision reads a typed, cited set here rather than comparing word literals
+/// at the call site (`answer_self_referential`).
+///
+/// Grounded in the Capability concept's own gloss ("what the system can
+/// reason about", SOSA `SystemCapability`, `self_model.rs`): "capability"/
+/// "capabilities"/"capable" and its modal paraphrase "can" are the concept's
+/// own English name and its standard modal-verb realization (Palmer, *Mood
+/// and Modality*, 2001 ch. 3 — "can" expresses dynamic/ability modality);
+/// "reason" and "know" are the two cognitive verbs the concept's own edges
+/// name (`Capability`↔`Component` via `HasCapability`/`EnabledBy`, and the
+/// KnownKnown mapping in `SelfModelToEpistemics`).
+///
+/// SMALLEST TYPED STEP (mirrors [`self_referents`]'s own caveat): this is a
+/// flat token-membership test, not a semantic classifier — an utterance
+/// containing "reason" for an unrelated purpose ("why do you reason that
+/// dogs bark") would false-positive into the capability-query branch just as
+/// readily as a genuine "what can you reason about" false-negatives if a
+/// paraphrase outside this set is used. Tightening this into a real
+/// classification (resolving the token to a sense that IS-A the Capability
+/// concept, rather than surface-matching) is tracked as a follow-up, same as
+/// the indexical→SelfModel sense bridge `self_referents` itself defers.
+pub fn capability_query_referents() -> [&'static str; 6] {
+    [
+        "capability",
+        "capabilities",
+        "capable",
+        "can",
+        "reason",
+        "know",
+    ]
+}
+
+/// Whether `surface` marks a self-referential utterance as a CAPABILITY
+/// query specifically — membership in [`capability_query_referents`].
+pub fn is_capability_query_referent(surface: &str) -> bool {
+    capability_query_referents().contains(&surface)
+}
+
 /// Runtime instance of the self-model — the eigenform.
 ///
 /// `components` is the object-level the meta-level *monitors* (the loaded
@@ -73,6 +117,16 @@ pub struct SelfModelInstance {
     ///
     /// [`with_capabilities`]: Self::with_capabilities
     pub capabilities: Vec<OntologyCapability>,
+    /// Which NLP tasks (`crate::cognitive::linguistics::nlp_task`) the
+    /// registered components actually claim, and whether that claim is
+    /// verified reachable from a live conversation turn or merely present
+    /// in code — so a capability answer can say "spelling correction is
+    /// registered, not yet reachable in conversation" instead of silently
+    /// listing a component that works. Empty until [`with_task_claims`] is
+    /// attached.
+    ///
+    /// [`with_task_claims`]: Self::with_task_claims
+    pub task_claims: Vec<TaskClaim>,
     /// The append-only LOAD HISTORY (doc §2.4) — the temporal dimension the
     /// system entirely lacked. Each event records a `.prx` becoming part of the
     /// reasoned-over set, content-addressed by its Merkle root, so the system
@@ -132,6 +186,7 @@ impl SelfModelInstance {
             total_concepts,
             total_morphisms,
             capabilities: Vec::new(),
+            task_claims: Vec::new(),
             history: Vec::new(),
             state_cid: None,
             footprint_bytes: None,
@@ -149,6 +204,14 @@ impl SelfModelInstance {
     /// ontology can actually answer, so "loaded" stops lying about capability.
     pub fn with_capabilities(mut self, capabilities: Vec<OntologyCapability>) -> Self {
         self.capabilities = capabilities;
+        self
+    }
+
+    /// Attach the NLP-task claim table — which tasks the registered
+    /// components claim, and whether each claim is verified reachable from
+    /// a live conversation turn.
+    pub fn with_task_claims(mut self, task_claims: Vec<TaskClaim>) -> Self {
+        self.task_claims = task_claims;
         self
     }
 
@@ -262,6 +325,27 @@ impl Present for SelfModelInstance {
                         None => SchemaValue::Absent,
                     },
                 );
+                // How the source came to be loaded — carried separately from
+                // `staging` because releasability follows from the choice, not
+                // the medium. A host reads `releasable` to decide whether to
+                // offer an unload control, rather than inferring it from
+                // `staging` (which says only where the bytes came from, and
+                // under which a resident base looks exactly like a fetched one
+                // the reader may put down).
+                src.set(
+                    "residency",
+                    match s.residency {
+                        Some(r) => SchemaValue::Text(r.label().into()),
+                        None => SchemaValue::Absent,
+                    },
+                );
+                src.set(
+                    "releasable",
+                    match s.residency {
+                        Some(r) => SchemaValue::Boolean(r.is_releasable()),
+                        None => SchemaValue::Absent,
+                    },
+                );
                 src.set("concepts", SchemaValue::Unsigned(s.concepts as u64));
                 src.set("morphisms", SchemaValue::Unsigned(s.morphisms as u64));
                 SchemaValue::Record(src)
@@ -305,6 +389,36 @@ impl Present for SelfModelInstance {
             })
             .collect();
         p.set("capabilities", SchemaValue::List(capabilities));
+
+        // NLP-task claims — which tasks the registered components claim, and
+        // whether each is verified reachable from a live conversation turn
+        // (`crate::cognitive::linguistics::nlp_task`). Enum fields render via
+        // their Debug string, matching `pr4xis::ontology::reasoning::catalog`'s
+        // own "canonical name = the Debug rendering" precedent.
+        let task_claims: Vec<SchemaValue> = self
+            .task_claims
+            .iter()
+            .map(|c| {
+                let mut claim = Presentation::new();
+                claim.set(
+                    "component",
+                    SchemaValue::Text(c.component.as_str().to_string()),
+                );
+                claim.set("unit", SchemaValue::Text(c.unit.as_str().to_string()));
+                claim.set("task", SchemaValue::Text(format!("{:?}", c.task)));
+                claim.set(
+                    "reachability",
+                    SchemaValue::Text(format!("{:?}", c.reachability)),
+                );
+                claim.set("reachable", SchemaValue::Boolean(c.is_reachable()));
+                claim.set(
+                    "evidence",
+                    SchemaValue::Text(c.evidence.as_str().to_string()),
+                );
+                SchemaValue::Record(claim)
+            })
+            .collect();
+        p.set("task_claims", SchemaValue::List(task_claims));
 
         // The load history + the content-addressed state fingerprint (doc §2.4) —
         // the temporal/memory dimension: what was loaded, in order, and an identity
@@ -461,6 +575,26 @@ mod self_reference {
         // The set is derived from the self-model identity, not re-spelled.
         assert!(self_referents().contains(&SYSTEM_NAME));
     }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn capability_words_are_capability_query_referents() {
+        assert!(is_capability_query_referent("capability"));
+        assert!(is_capability_query_referent("capabilities"));
+        assert!(is_capability_query_referent("capable"));
+        assert!(is_capability_query_referent("can"));
+        assert!(is_capability_query_referent("reason"));
+        assert!(is_capability_query_referent("know"));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn a_generic_self_referential_word_is_not_a_capability_query_referent() {
+        // "who are you" is self-referential but not a capability query --
+        // the two typed sets are distinct, not the same set under two names.
+        assert!(!is_capability_query_referent("you"));
+        assert!(!is_capability_query_referent("who"));
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -476,7 +610,9 @@ mod self_reference {
 #[cfg(test)]
 mod wire_surface {
     use super::*;
-    use crate::formal::information::knowledge::catalog::{SourceAvailability, SourceStatus};
+    use crate::formal::information::knowledge::catalog::{
+        Residency, SourceAvailability, SourceStatus,
+    };
     use serde_json::Value;
 
     fn one_loaded_one_available() -> Vec<SourceStatus> {
@@ -489,6 +625,7 @@ mod wire_surface {
                 citation: "BiRO Bibliographic Reference Ontology".into(),
                 availability: SourceAvailability::Loaded,
                 staging: None,
+                residency: Some(Residency::Eager),
                 concepts: 14,
                 morphisms: 1,
             },
@@ -500,6 +637,7 @@ mod wire_surface {
                 citation: "DoCO Document Components Ontology".into(),
                 availability: SourceAvailability::Available,
                 staging: None,
+                residency: None,
                 concepts: 0,
                 morphisms: 0,
             },
@@ -601,5 +739,55 @@ mod wire_surface {
             "top-level loaded_source_count must equal the number of per-source \
              records with availability == \"loaded\""
         );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn task_claims_round_trip_through_the_wire_including_two_verdicts_on_one_component() {
+        use crate::cognitive::linguistics::nlp_task::claims::TaskClaim;
+        use crate::cognitive::linguistics::nlp_task::ontology::{
+            NLPTaskConcept, TaskReachabilityConcept,
+        };
+
+        let json = SelfModelInstance::observe(Vec::new())
+            .with_task_claims(vec![
+                TaskClaim::new(
+                    "Response",
+                    "ResponseFrame::AssertKnowledge",
+                    NLPTaskConcept::DialogueManagement,
+                    TaskReachabilityConcept::Reachable,
+                    "assert_knowledge_is_dispatched_from_a_resolved_question",
+                ),
+                TaskClaim::new(
+                    "Response",
+                    "ResponseFrame::PhaticReturn",
+                    NLPTaskConcept::DialogueManagement,
+                    TaskReachabilityConcept::NoDetectorCallSite,
+                    "phatic_return_has_no_live_detector",
+                ),
+            ])
+            .to_json();
+        let v = parse(&json);
+        let claims = v
+            .get("task_claims")
+            .and_then(Value::as_array)
+            .expect("self_describe JSON must include `task_claims` as an array");
+        assert_eq!(claims.len(), 2, "both units of Response must round-trip");
+
+        let component = claims[0].get("component").and_then(Value::as_str);
+        assert_eq!(component, Some("Response"));
+
+        let reachable_units: Vec<&str> = claims
+            .iter()
+            .filter(|c| c.get("reachable").and_then(Value::as_bool) == Some(true))
+            .filter_map(|c| c.get("unit").and_then(Value::as_str))
+            .collect();
+        let unreachable_units: Vec<&str> = claims
+            .iter()
+            .filter(|c| c.get("reachable").and_then(Value::as_bool) == Some(false))
+            .filter_map(|c| c.get("unit").and_then(Value::as_str))
+            .collect();
+        assert_eq!(reachable_units, vec!["ResponseFrame::AssertKnowledge"]);
+        assert_eq!(unreachable_units, vec!["ResponseFrame::PhaticReturn"]);
     }
 }

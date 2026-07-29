@@ -67,7 +67,7 @@ fn nesting_depth_orders_subdivisions_correctly() {
         Subitem,
     ];
     for (i, k) in kinds.iter().enumerate() {
-        assert_eq!(k.nesting_depth(), i);
+        assert_eq!(k.nesting_depth().value, i as f64);
     }
 }
 
@@ -472,7 +472,7 @@ proptest! {
             Clause, Subclause, Item, Subitem,
         ];
         // Strictly increasing.
-        let depths: Vec<usize> = kinds.iter().map(|k| k.nesting_depth()).collect();
+        let depths: Vec<usize> = kinds.iter().map(|k| k.nesting_depth().value as usize).collect();
         for w in depths.windows(2) {
             prop_assert!(w[0] < w[1]);
         }
@@ -1096,7 +1096,10 @@ fn container_kind_parse_round_trips_canonical_tags() {
 fn container_nesting_depth_orders_kinds_canonically() {
     use ContainerKind::*;
     let kinds = [Subtitle, Part, Subpart, Chapter, Subchapter];
-    let depths: Vec<usize> = kinds.iter().map(|k| k.nesting_depth()).collect();
+    let depths: Vec<usize> = kinds
+        .iter()
+        .map(|k| k.nesting_depth().value as usize)
+        .collect();
     assert_eq!(depths, vec![0, 1, 2, 3, 4]);
 }
 
@@ -1936,6 +1939,68 @@ fn uscodetitle_id_round_trips_through_source_name() {
     assert_eq!(id.number(), 18);
 }
 
+#[pr4xis::praxis_value(Explainable)]
+#[test]
+fn a_citation_surface_routes_to_the_title_it_cites() {
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::title_cited_by;
+
+    // The abstention-routing case: the engine could not ground this, and the
+    // reader needs to know which source would let it. All three spellings are
+    // the same citation differently typeset, and readers type all three.
+    for surface in [
+        "42 U.S.C. § 300ii",
+        "42 USC 1396b(l)",
+        "what does 42 u.s.c. 3030s-1 require",
+    ] {
+        assert_eq!(
+            title_cited_by(surface).map(|id| id.source_name()),
+            Some("usc_title_42".to_string()),
+            "{surface:?} cites Title 42, so it must route to that source"
+        );
+    }
+
+    // The long form, which the previous JavaScript regex could not see at all.
+    assert_eq!(
+        title_cited_by("title 42 of the United States Code").map(|id| id.source_name()),
+        Some("usc_title_42".to_string())
+    );
+
+    // A surface citing nothing routes nowhere — an honest `None`, which the
+    // caller renders as "filter the catalog by the term itself" rather than
+    // sending the reader to an arbitrary title.
+    assert_eq!(title_cited_by("respite care"), None);
+    assert_eq!(title_cited_by(""), None);
+}
+
+#[pr4xis::praxis_value(Honest)]
+#[test]
+fn citation_routing_never_invents_an_unregistered_title() {
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::title_cited_by;
+
+    // Title 7 (Agriculture) is a real U.S. Code title that this deployment does
+    // not register. Routing to it would send the reader to a card that does not
+    // exist — the same dead end as naming a source with no load route.
+    //
+    // This is the property the deleted regex could not have: it derived the
+    // name arithmetically from whatever digits it found, so ANY number
+    // produced a plausible-looking `usc_title_N` whether or not it was carried.
+    let registered: Vec<&str> = data_sources()
+        .iter()
+        .filter(|e| e.kind == SourceTaxonomyConcept::UsCodeTitle)
+        .map(|e| e.name.as_str())
+        .collect();
+    assert!(
+        !registered.contains(&"usc_title_7"),
+        "precondition: this deployment does not register Title 7"
+    );
+    assert_eq!(
+        title_cited_by("7 U.S.C. § 2012").map(|id| id.source_name()),
+        None
+    );
+}
+
 #[pr4xis::praxis_value(Honest)]
 #[test]
 fn uscodetitle_id_rejects_out_of_range_number() {
@@ -1998,16 +2063,94 @@ fn uscodetitle_id_identifier_format_is_uslm_urn() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_short_citation_is_bluebook_form() {
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::UsCodeTitleCitationForm;
     // Bluebook 21st ed. Rule 12.1 — "18 U.S.C." (no trailing space).
     let id = UsCodeTitleId::try_from_number(18).unwrap();
-    assert_eq!(id.short_citation(), "18 U.S.C.");
+    assert_eq!(id.citation(UsCodeTitleCitationForm::Short), "18 U.S.C.");
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn uscodetitle_id_long_citation_is_english_noun_phrase() {
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::UsCodeTitleCitationForm;
+    // Congress's own enacted cross-reference register — 18 U.S.C. § 2516(1)(a)
+    // names offenses "under sections 2122 and 2274 through 2277 of title 42 of
+    // the United States Code".
     let id = UsCodeTitleId::try_from_number(18).unwrap();
-    assert_eq!(id.long_citation(), "title 18 of the United States Code");
+    assert_eq!(
+        id.citation(UsCodeTitleCitationForm::Long),
+        "title 18 of the United States Code"
+    );
+}
+
+/// The publisher's own designation — the LRC opens Title 18's USLM with
+/// `<num value="18">Title 18—</num>`, and this is that `<num>` text without its
+/// em-dash separator. It is the form a reader asking "what is title 18" types,
+/// and the form neither of the other two contains.
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn uscodetitle_id_designation_is_the_publishers_own_num_text() {
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::UsCodeTitleCitationForm;
+    let id = UsCodeTitleId::try_from_number(18).unwrap();
+    assert_eq!(
+        id.citation(UsCodeTitleCitationForm::Designation),
+        "title 18"
+    );
+    // Not derivable from its siblings: neither of the other published forms
+    // CONTAINS the designation, so an enumeration omitting it loses the
+    // surface outright rather than degrading gracefully.
+    for other in [
+        UsCodeTitleCitationForm::Short,
+        UsCodeTitleCitationForm::Long,
+    ] {
+        assert_ne!(
+            id.citation(other),
+            id.citation(UsCodeTitleCitationForm::Designation)
+        );
+    }
+}
+
+/// `citations()` yields every leaf of the enumeration, exactly once, in
+/// declared order — the property every consumer that must cover "all the ways
+/// this title is named" relies on.
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn uscodetitle_id_citations_cover_every_published_form() {
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::UsCodeTitleCitationForm;
+    let id = UsCodeTitleId::try_from_number(42).unwrap();
+    let produced: Vec<String> = id.citations().collect();
+    let expected: Vec<String> = UsCodeTitleCitationForm::ALL
+        .iter()
+        .map(|&f| id.citation(f))
+        .collect();
+    assert_eq!(produced, expected);
+    assert_eq!(
+        produced
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len(),
+        UsCodeTitleCitationForm::ALL.len(),
+        "the published forms are pairwise distinct"
+    );
+}
+
+/// Title designations nest orthographically — "title5" is a prefix of
+/// "title50" — so routing must take the LONGEST matching citation, not the
+/// first the registry happens to sort to. Both titles are registered here, and
+/// `usc_title_5` sorts BEFORE `usc_title_50`, so a first-hit scan would send
+/// every "title 50" question to Title 5.
+#[pr4xis::praxis_value(Deterministic)]
+#[test]
+fn nested_title_designations_route_to_the_longest_match() {
+    use crate::social::software::markup::xml::uslm::corpus::identifiers::title_cited_by;
+    assert_eq!(
+        title_cited_by("what is title 50").map(|id| id.source_name()),
+        Some("usc_title_50".to_string())
+    );
+    assert_eq!(
+        title_cited_by("what is title 5").map(|id| id.source_name()),
+        Some("usc_title_5".to_string())
+    );
 }
 
 #[pr4xis::praxis_value(Deterministic)]

@@ -59,6 +59,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::cognitive::linguistics::english::English;
 use crate::cognitive::linguistics::lexicon::pos::PosTag;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::meta::identifier_format::Identifier;
 use crate::social::compliance::statutes::Statute;
 use crate::social::software::markup::xml::lmf::ontology::LmfPos;
@@ -178,11 +180,17 @@ pub struct StatuteUnderstanding {
 impl StatuteUnderstanding {
     /// Count of fully-understood terms (every content lemma either
     /// resolved or marked StatutoryTermOfArt).
-    pub fn fully_understood_count(&self) -> usize {
-        self.terms
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — a count, the same typing discipline as
+    /// `formal::mereology::counting::ontology::cardinality`.
+    pub fn fully_understood_count(&self) -> Quantity {
+        let count = self
+            .terms
             .iter()
             .filter(|t| t.is_fully_understood())
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
     /// Terms with at least one [`Unresolved`][ResolutionStatus::Unresolved]
@@ -729,7 +737,7 @@ mod tests {
         // an empty corpus yields zero resolutions.
         let en = cached_english();
         let usc = UsCode::cached_full();
-        let corpus_loaded = usc.section_count() > 0;
+        let corpus_loaded = usc.section_count().value > 0.0;
 
         let mut any_resolved = false;
         for s in all_registered_statutes() {
@@ -769,13 +777,17 @@ mod tests {
     /// statutory term-of-art).
     ///
     /// `section.heading` is the runtime corpus's heading prose —
-    /// `heading_mixed.prose_text()`, the title text MINUS the editorial
-    /// footnote annotation the LRC nests inside a few `<heading>`s (the typed
-    /// `<note type="footnote">` + its `<ref class="footnoteRef">` marker, e.g.
-    /// "Section catchline was not amended…" on 18 U.S.C. §§ 1303/3402/4351/
-    /// 4352). That note is metadata ABOUT the title, not a word IN it, so the
-    /// understanding pipeline must not see its lemmas (the whole point of the
-    /// typed prose projection — no lexicon entry, no allowlist).
+    /// `heading_mixed.heading_prose_text()`, the title text MINUS the
+    /// editorial footnote annotation the LRC nests inside a few
+    /// `<heading>`s (the typed `<note type="footnote">` + its `<ref
+    /// class="footnoteRef">` marker, e.g. "Section catchline was not
+    /// amended…" on 18 U.S.C. §§ 1303/3402/4351/4352). That note is
+    /// metadata ABOUT the title, not a word IN it, so the understanding
+    /// pipeline must not see its lemmas (the whole point of the typed
+    /// heading-prose projection — no lexicon entry, no allowlist). This is
+    /// DELIBERATELY the opposite answer `chapeau`/`content`'s own
+    /// `prose_text()` gives on footnotes — see `NonProseSubtreeKind`'s own
+    /// doc for the real, measured evidence behind each.
     ///
     /// Runs against the full build-time codegen-loaded corpus when
     /// USC title XML is on disk (~2770 sections across Titles 18 +
@@ -801,7 +813,7 @@ mod tests {
 
         let en = cached_english();
         let usc_full = UsCode::cached_full();
-        let (usc, source_label): (&UsCode, &str) = if usc_full.section_count() > 0 {
+        let (usc, source_label): (&UsCode, &str) = if usc_full.section_count().value > 0.0 {
             (usc_full, "runtime USLM-XML-loaded corpus")
         } else {
             // Fallback: sample only carries two synthetic sections.
@@ -854,7 +866,7 @@ mod tests {
                  Top 20 by frequency:\n  {}\n\n\
                  Full list ({} entries):\n  - {}",
                 source_label,
-                usc.section_count(),
+                usc.section_count().value,
                 failures.len(),
                 frequency.len(),
                 top20.join("\n  "),

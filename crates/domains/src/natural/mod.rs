@@ -3,6 +3,7 @@
 pub mod biomedical;
 pub mod colors;
 pub mod geodesy;
+pub mod geography;
 pub mod hearing;
 pub mod music;
 pub mod physics;

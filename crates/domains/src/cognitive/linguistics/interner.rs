@@ -36,6 +36,9 @@ use core::hash::BuildHasher;
 
 use hashbrown::{DefaultHashBuilder, HashTable};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// An interned lexical surface: a small `Copy` handle standing for exactly one
 /// unique surface string held once in an [`Interner`]'s arena.
 ///
@@ -161,8 +164,8 @@ impl Interner {
     }
 
     /// The number of distinct surfaces interned.
-    pub fn len(&self) -> usize {
-        self.spans.len()
+    pub fn len(&self) -> Quantity {
+        Quantity::from_unit(self.spans.len() as f64, &unit::UNITLESS)
     }
 
     /// Whether nothing has been interned yet.
@@ -204,7 +207,7 @@ mod tests {
         assert_ne!(a1, b, "distinct surfaces intern to distinct handles");
         // Two distinct surfaces → two symbols, and the arena grew by the bytes
         // of each once (no third copy of "section").
-        assert_eq!(interner.len(), 2);
+        assert_eq!(interner.len().value, 2.0);
         assert_eq!(interner.resolve(a1), "section");
         assert_eq!(interner.resolve(b), "statute");
     }
@@ -220,7 +223,7 @@ mod tests {
         assert_eq!(interner.get("title"), Some(seen));
         assert_eq!(interner.get("subsection"), None);
         // The failed lookup did not intern anything.
-        assert_eq!(interner.len(), 1);
+        assert_eq!(interner.len().value, 1.0);
     }
 
     /// Case is significant — the interner normalizes nothing, so "Statute" and
@@ -255,6 +258,6 @@ mod tests {
             assert_eq!(interner.resolve(*symbol), surface.as_str());
             assert_eq!(interner.intern(surface), *symbol);
         }
-        assert_eq!(interner.len(), 1_000);
+        assert_eq!(interner.len().value, 1_000.0);
     }
 }

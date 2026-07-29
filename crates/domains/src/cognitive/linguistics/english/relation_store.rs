@@ -20,7 +20,11 @@ use alloc::vec::Vec;
 
 use hashbrown::HashMap;
 
+use pr4xis::category::reach::{ReachSubstrate, ReachView, Uncached};
+
 use super::ontology::{ConceptId, WordnetRelations};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 
 /// The labelled family of relations `English` holds — the tag on each CSR. The
@@ -48,7 +52,7 @@ use crate::formal::meta::packed_csr::{LabelKind, PackedCsrFamily, PodRun};
 /// (`every_relation_kind_grounds_in_the_loaded_wn_lmf_reltype_enumeration`),
 /// which walks this enum against the registered `wn_lmf_dtd` relType
 /// enumeration so the vocabulary itself stays LOADED, not encoded.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RelationKind {
     /// Antonym opposition (sense-keyed): the `big ↔ small` pair.
     Opposition,
@@ -285,19 +289,66 @@ impl RelationStore {
     }
 
     /// Total number of edges of `kind`.
-    pub fn edge_count(&self, kind: RelationKind) -> usize {
-        self.0.edge_count(kind)
+    pub fn edge_count(&self, kind: RelationKind) -> Quantity {
+        Quantity::from_unit(self.0.edge_count(kind) as f64, &unit::UNITLESS)
     }
 
     /// The dense row count (key space) of `kind`.
-    pub fn row_count(&self, kind: RelationKind) -> usize {
-        self.0.row_count(kind)
+    pub fn row_count(&self, kind: RelationKind) -> Quantity {
+        Quantity::from_unit(self.0.row_count(kind) as f64, &unit::UNITLESS)
     }
 
     /// The total number of edges across every relation — for the [`Debug`] summary
     /// and coarse gap checks.
-    pub fn total_edge_count(&self) -> usize {
-        RelationKind::ALL.iter().map(|&k| self.edge_count(k)).sum()
+    pub fn total_edge_count(&self) -> Quantity {
+        let total: f64 = RelationKind::ALL
+            .iter()
+            .map(|&k| self.edge_count(k).value)
+            .sum();
+        Quantity::from_unit(total, &unit::UNITLESS)
+    }
+
+    // ── mereology reachability (the shared graded-reach engine) ───────────────
+    //
+    // Parthood is TRANSITIVE (Casati & Varzi 1999; OBO-RO: a part of a part is a
+    // part of the whole — `ParthoodIsTransitive`,
+    // `crate::formal::relations::ontology`), unlike Opposition's direct-edge-only
+    // check (`RelationStore::rel(RelationKind::Opposition, ..)` above IS the
+    // whole answer for that kind — non-transitive, so no closure is warranted).
+    // `parts_reach` mints the SAME generic engine `TaxonomyStore` uses for is-a
+    // ([`pr4xis::category::reach`]) over the `MereologyParts` column: `Uncached`,
+    // so `RelationStore` stays `Sync` (no interior mutability) inside `English`'s
+    // `OnceLock`.
+    //
+    // UNLIKE the taxonomy's shallow hypernym DAG (max depth 16, largest
+    // reflexive image 33 — `TaxonomyStore`'s module doc), WordNet's meronymy is
+    // genuinely deeper: measured (`full_corpus_mereology_chain_depth`,
+    // `english/tests.rs`) at 9,095 concepts holding a direct part edge, max
+    // whole→leaf-part chain depth 33, largest single reflexive image 840 nodes.
+    // `Uncached` is still the right call — `parts_reach` is a MEMBERSHIP probe,
+    // not a full-image enumeration, so it short-circuits the moment `part` is
+    // found; the ~840-node worst case (an absent target, forcing the full walk)
+    // is microseconds, not the "indistinguishable from O(1)" claim the shallower
+    // taxonomy case earns — but it is honest to say so explicitly rather than
+    // silently inherit that stronger claim from a walk over a much shallower
+    // graph.
+
+    /// The engine's view over the mereology descent — this substrate, the
+    /// [`Uncached`] policy, the [`RelationKind::MereologyParts`] column. MINTED
+    /// PER CALL (a stored view would self-borrow); three references, free to
+    /// build.
+    fn parts_ascent(&self) -> ReachView<'_, Self, Uncached> {
+        ReachView::new(self, &Uncached, &RelationKind::MereologyParts)
+    }
+
+    /// Does `whole` transitively have `part` as a part (Casati & Varzi 1999
+    /// mereology, part-of is transitive)? Parthood is declared `Irreflexive`
+    /// (`crate::formal::relations::ontology`), so — unlike is-a's reflexive
+    /// short-circuit — `whole == part` is never itself a witness; only an actual
+    /// multi-hop `whole ⇝ part` chain over direct `mero_part`/`holo_part` edges
+    /// answers `true`.
+    pub fn parts_reach(&self, whole: ConceptId, part: ConceptId) -> bool {
+        self.parts_ascent().reaches(&whole, &part)
     }
 }
 
@@ -328,6 +379,24 @@ impl RelationStore {
         cols: &[(usize, usize)],
     ) -> Result<Self, crate::formal::meta::packed_csr::PackedCsrError> {
         Ok(Self(PackedCsrFamily::from_untrusted_buf(buf, cols)?))
+    }
+}
+
+impl ReachSubstrate for RelationStore {
+    type Kind = RelationKind;
+    type Vertex = ConceptId;
+
+    /// One labelled CSR column read, zero-copy: the [`RelationKind`] kind
+    /// selects the column, the vertex indexes its run — empty for an
+    /// out-of-range id. Used by the private `parts_ascent` helper over
+    /// [`RelationKind::MereologyParts`]; any other kind is a legal but
+    /// (today) unused substrate view.
+    fn neighbors<'s>(
+        &'s self,
+        kind: &RelationKind,
+        vertex: &ConceptId,
+    ) -> impl Iterator<Item = ConceptId> + use<'s> {
+        self.0.column(*kind, *vertex).iter().copied()
     }
 }
 
@@ -383,8 +452,8 @@ mod fixture_tests {
             store.rel(RelationKind::Opposition, cid(2)),
             &[cid(3), cid(1)]
         );
-        assert_eq!(store.edge_count(RelationKind::Opposition), 3);
-        assert_eq!(store.row_count(RelationKind::Opposition), 4);
+        assert_eq!(store.edge_count(RelationKind::Opposition).value, 3.0);
+        assert_eq!(store.row_count(RelationKind::Opposition).value, 4.0);
         assert_eq!(
             store.rel(RelationKind::MereologyParts, cid(0)),
             &[cid(1), cid(2)]

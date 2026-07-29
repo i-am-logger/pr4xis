@@ -57,22 +57,41 @@ pr4xis::ontology! {
 // (Title=0, Section=1, Subsection=2, Paragraph=3, Subparagraph=4, Clause=5).
 // ---------------------------------------------------------------------------
 
+/// Typed ordinal ranking of pinpoint-citation nesting depth. Declared
+/// in **ascending** nesting order — `Title` (outermost, formerly depth
+/// 0) first, `Clause` (innermost, formerly depth 5) last — so Rust's
+/// derived `Ord` for a fieldless enum (earlier-declared variant
+/// compares as *lesser*) directly mirrors the original 0..5 numeric
+/// depth ordering.
+///
+/// Source: Bluebook §3.3 (21st ed., 2020) nesting convention; USLM
+/// schema subdivision hierarchy (loaded praxis source).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CitationNestingLevel {
+    Title,
+    Section,
+    Subsection,
+    Paragraph,
+    Subparagraph,
+    Clause,
+}
+
 #[derive(Debug, Clone)]
 pub struct NestingDepth;
 
 impl Quality for NestingDepth {
     type Individual = PinpointCitationConcept;
-    type Value = u8;
+    type Value = CitationNestingLevel;
 
-    fn get(&self, c: &PinpointCitationConcept) -> Option<u8> {
+    fn get(&self, c: &PinpointCitationConcept) -> Option<CitationNestingLevel> {
         use PinpointCitationConcept as P;
         match c {
-            P::Title => Some(0),
-            P::Section => Some(1),
-            P::Subsection => Some(2),
-            P::Paragraph => Some(3),
-            P::Subparagraph => Some(4),
-            P::Clause => Some(5),
+            P::Title => Some(CitationNestingLevel::Title),
+            P::Section => Some(CitationNestingLevel::Section),
+            P::Subsection => Some(CitationNestingLevel::Subsection),
+            P::Paragraph => Some(CitationNestingLevel::Paragraph),
+            P::Subparagraph => Some(CitationNestingLevel::Subparagraph),
+            P::Clause => Some(CitationNestingLevel::Clause),
             P::PinpointCitation => None,
         }
     }
@@ -124,7 +143,7 @@ impl Axiom for NestingDepthIsStrictTotalOrder {
             PinpointCitationConcept::Subparagraph,
             PinpointCitationConcept::Clause,
         ];
-        let mut prev: Option<u8> = None;
+        let mut prev: Option<CitationNestingLevel> = None;
         for l in levels {
             let Some(v) = q.get(&l) else {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));

@@ -1,0 +1,71 @@
+name: Scorecard supply-chain security
+
+# OSSF Scorecard (https://github.com/ossf/scorecard) — an automated,
+# non-subjective assessment of the repo's supply-chain security posture
+# (pinned dependencies, branch protection, code review, SAST, fuzzing,
+# vulnerability disclosure, …), published to the OpenSSF Scorecard API and
+# surfaced as a badge in README.md. Runs on a weekly schedule (Scorecard's
+# own recommendation — the checks are repo-state snapshots, not per-commit
+# signal) plus on push to master so a meaningful branch-protection change is
+# reflected promptly, and on branch_protection_rule so that check specifically
+# updates the moment the ruleset changes.
+#
+# Every action this workflow itself calls is SHA-pinned (not tag-pinned, unlike
+# the rest of this repo's workflows) because Scorecard's own "Pinned-Dependencies"
+# check penalizes float-tag actions — this workflow would otherwise score itself
+# down on the exact dimension it exists to measure.
+#
+# A solo-maintainer repo will not score highly on branch-protection /
+# required-review / SAST / fuzzing dimensions immediately — that is an honest
+# reflection of the current process, not a workflow bug.
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "30 1 * * 6" # weekly, Saturday 01:30 UTC
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Publishes the result to the public Scorecard API/badge.
+      id-token: write
+      # Uploads the SARIF result to the repo's code-scanning tab.
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload to code-scanning
+        uses: github/codeql-action/upload-sarif@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
+        with:
+          sarif_file: results.sarif

@@ -188,11 +188,13 @@ mod ontology_tests {
 
     // ---------- Standard suite: laws + validation ----------
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ReasoningCategory>();
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         ReasoningOntology::validate()
@@ -201,6 +203,7 @@ mod ontology_tests {
 
     // ---------- Structural claims (hand-checked) ----------
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn peircean_trichotomy_plus_analogy_are_reasoning_modes() {
         // Peirce (1903) names deduction / induction / abduction as the
@@ -226,6 +229,7 @@ mod ontology_tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn sound_implies_valid() {
         // SoundArgument is-a ValidArgument — Aristotle's soundness
@@ -241,6 +245,7 @@ mod ontology_tests {
         )));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn inference_has_premise_conclusion_rule() {
         // Frege (1879): an inference is essentially premise + rule → conclusion.
@@ -263,6 +268,7 @@ mod ontology_tests {
         }
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn every_concept_has_tradition() {
         // ReasoningTradition quality is total over ReasoningConcept.
@@ -333,4 +339,8 @@ mod ontology_tests {
             }
         }
     }
+    crate::register_praxis_value!(prop_tradition_is_total, Explainable, Verifiable);
+    crate::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    crate::register_praxis_value!(prop_subsumption_targets_valid_concepts, Verifiable);
+    crate::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
 }

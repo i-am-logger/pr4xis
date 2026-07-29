@@ -55,6 +55,22 @@ pr4xis::ontology! {
     ],
 }
 
+/// A number system's position in the strict inclusion chain
+/// N ⊂ Z ⊂ Q ⊂ R ⊂ C, DERIVED from the loaded `is_a` graph (the count of
+/// systems strictly contained within it) rather than a hand-numbered
+/// constant — Landau (1930) constructs each inclusion explicitly. A typed
+/// ordinal newtype rather than a bare `u8` so callers compare ranks through
+/// `Ord`, not raw integer arithmetic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DomainRank(usize);
+
+impl DomainRank {
+    /// The raw rank: how many number systems this domain strictly contains.
+    pub fn rank(&self) -> usize {
+        self.0
+    }
+}
+
 /// Quality: position of each number system in the inclusion chain
 /// N ⊂ Z ⊂ Q ⊂ R ⊂ C — Landau (1930) construction order.
 #[derive(Debug, Clone)]
@@ -62,9 +78,9 @@ pub struct DomainOrder;
 
 impl Quality for DomainOrder {
     type Individual = NumberConcept;
-    type Value = u8;
+    type Value = DomainRank;
 
-    fn get(&self, domain: &NumberConcept) -> Option<u8> {
+    fn get(&self, domain: &NumberConcept) -> Option<DomainRank> {
         use pr4xis::category::{Arrow, Category, FinitelyGenerated};
         // Position in the N ⊂ Z ⊂ Q ⊂ R ⊂ C inclusion chain = the number of
         // systems strictly contained in `domain` (its proper descendants in the
@@ -92,7 +108,7 @@ impl Quality for DomainOrder {
             .into_iter()
             .filter(|c| c != domain && ancestors(*c).contains(domain))
             .count();
-        Some(descendants as u8)
+        Some(DomainRank(descendants))
     }
 }
 

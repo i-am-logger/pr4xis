@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::value::CalcError;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Unit categories for conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,7 +202,13 @@ fn convert_temperature(value: f64, from: Unit, to: Unit) -> Result<f64, CalcErro
 }
 
 /// Combinatorics: n choose r.
-pub fn combinations(n: u64, r: u64) -> Result<u64, CalcError> {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `u64` — an n-choose-r combinatorial count is the same shape as
+/// `formal::mereology::counting::ontology::cardinality`. The accumulation
+/// loop stays raw `u64`; only the returned result at the function boundary
+/// is wrapped.
+pub fn combinations(n: u64, r: u64) -> Result<Quantity, CalcError> {
     if r > n {
         return Err(CalcError::InvalidDomain {
             op: "nCr".into(),
@@ -212,7 +220,7 @@ pub fn combinations(n: u64, r: u64) -> Result<u64, CalcError> {
     for i in 0..r {
         result = result.checked_mul(n - i).ok_or(CalcError::Overflow)? / (i + 1);
     }
-    Ok(result)
+    Ok(Quantity::from_unit(result as f64, &unit::UNITLESS))
 }
 
 /// Combinatorics: n permute r.

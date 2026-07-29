@@ -6,7 +6,9 @@ authors = ["i-am-logger"]
 description = "Applied domains — chess, calculator, elevator, legal, traffic, HTTP, games, math, physics, music, colors"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
-homepage = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://pr4xis.dev"
+keywords = ["ontology", "neurosymbolic", "category-theory", "knowledge-representation", "reasoning"]
+categories = ["science", "mathematics", "algorithms"]
 # The published crate is Rust + `.prx` ONLY — a hardcore rule, enforced
 # DECLARATIVELY by this `include` ALLOWLIST (not an ever-growing `exclude`).
 # Everything else — per-module `README.md` / `citings.md` docs, papers,

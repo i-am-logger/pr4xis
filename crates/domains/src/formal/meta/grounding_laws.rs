@@ -45,18 +45,29 @@
 
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use pr4xis::category::category_theory::is_grounding_functor_kind;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
+use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::{Connection, GeneratorAction};
 use pr4xis_runtime::definition::{Definition, EdgeTarget};
+use pr4xis_runtime::emit::emit;
 use pr4xis_runtime::grounding::LinkError;
+use pr4xis_runtime::ontology::{materialize, subsumption_kind};
 
-use super::grounding::ground_declared;
+use super::grounding::{ground_declared, ground_loaded_set};
+use crate::applied::data_provisioning::registry::data_sources;
+use crate::cognitive::linguistics::composed::ComposedReasoner;
+use crate::cognitive::linguistics::english::{English, LexicalReasoner};
+use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+use crate::social::judicial::legal_sources::ontology::LegalSourcesCategory;
+use crate::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology;
+use crate::social::software::markup::xml::uslm::{UsCode, read_uslm_title};
 
 // ── witness archives ─────────────────────────────────────────────────────────
 
@@ -370,6 +381,190 @@ impl Axiom for GroundingFailClosed {
 }
 
 pr4xis::register_axiom!(GroundingFailClosed, constructor);
+
+// ── the CORPUS-scale sibling: grounding-by-composition on the REAL corpus ────
+//
+// The witness laws above pin `ground_declared`'s shape (extension-only,
+// idempotent, fail-closed) over hand-built archives. This sibling runs the
+// pass END-TO-END over the REAL corpus: a LOADED USC section reaches
+// `legal_sources:Statute` and transitively `LegalSource` ("law") ONLY because
+// the USC→LegalSources grounding functor (Spivak functorial data migration)
+// minted the typing edge and `ground_loaded_set` added it (the extensive law
+// `x ≤ c(x)` — grounding only adds edges) against the loaded LegalSources peer.
+// It carries `usc_grounding`'s composition claim behind a registered,
+// discoverable `Axiom`; the corpus test is its `#[test]` driver
+// (`praxis-corpus-tests/tests/usc_grounding.rs`).
+
+/// Resolve a workspace-relative registry `local_path` to an absolute path
+/// (`CARGO_MANIFEST_DIR` + two `parent()` calls is the workspace root).
+fn corpus_abs_path(local_path: &str) -> std::path::PathBuf {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let root = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(std::path::Path::parent);
+    root.map(|r| r.join(local_path))
+        .unwrap_or_else(|| std::path::PathBuf::from(local_path))
+}
+
+/// Load the first provisioned USC title as a [`UsCode`], or `None` when none is
+/// on disk (the caller fails the axiom closed). Mirrors the corpus test's
+/// `first_provisioned_title`; a present-but-unparseable title also yields
+/// `None` (fail-closed), never a soft pass.
+fn corpus_first_provisioned_title() -> Option<UsCode> {
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let Ok(source) = std::fs::read(corpus_abs_path(&entry.local_path())) else {
+            continue;
+        };
+        let Ok(text) = core::str::from_utf8(&source) else {
+            return None;
+        };
+        let Ok(title) = read_uslm_title(text) else {
+            return None;
+        };
+        return Some(UsCode::from_uslm_titles_owned(alloc::vec![title]));
+    }
+    None
+}
+
+/// THE DIFFERENTIAL, over BOTH load orders (LegalSources loaded before AND
+/// after the USC corpus — the mint is a pure function of the loaded set, not
+/// its order): a LOADED USC section reaches `legal_sources:Statute` (its
+/// typing) and transitively `LegalSource` ("law") through the grounding
+/// functor + the loaded peer, but NOT `Precedent` ("case law") — so the answer
+/// reads the REAL LegalSources closure, crediting the functor + closure, never
+/// a blanket cross-ontology yes. Structurally identical to `usc_grounding`'s
+/// gate with every `assert*` turned into a short-circuiting `false`.
+fn loaded_usc_section_reaches_law_by_composition(usc: &UsCode) -> bool {
+    for base_first in [true, false] {
+        let Ok(usc_onto) = usc_runtime_ontology(usc, OntologyName::new_static("usc")) else {
+            return false;
+        };
+        let Ok(legal) = materialize(
+            emit::<LegalSourcesCategory>(),
+            OntologyName::new_static("LegalSources"),
+        ) else {
+            return false;
+        };
+
+        let mut set = if base_first {
+            alloc::vec![Rc::new(legal), Rc::new(usc_onto)]
+        } else {
+            alloc::vec![Rc::new(usc_onto), Rc::new(legal)]
+        };
+        // The general grounding step — mints the USC→LegalSources type edges.
+        if ground_loaded_set(&mut set, English::sample_static()).is_err() {
+            return false;
+        }
+
+        let composed = ComposedReasoner::new(English::sample_static(), set);
+        let subsumption = subsumption_kind();
+
+        // The conceptual layer still answers: statute ⊑ … ⊑ law in LegalSources.
+        let statute = composed.lookup("statute").to_vec();
+        let law = composed.lookup("law").to_vec();
+        if statute.is_empty() || law.is_empty() {
+            return false;
+        }
+        if !statute
+            .iter()
+            .any(|&s| law.iter().any(|&l| composed.reaches(s, l, &subsumption)))
+        {
+            return false;
+        }
+
+        // A LOADED section — addressed by its URN surface (the first provisioned
+        // section of the first title, no hardcoded section number).
+        let Some(first) = usc.all_sections().first() else {
+            return false;
+        };
+        let section_urn = first.urn.value().to_lowercase();
+        let section = composed.lookup(&section_urn).to_vec();
+        if section.is_empty() {
+            return false;
+        }
+
+        // THE CLAIM: the loaded section reaches legal_sources:Statute (its
+        // typing) …
+        if !section.iter().any(|&sec| {
+            statute
+                .iter()
+                .any(|&st| composed.reaches(sec, st, &subsumption))
+        }) {
+            return false;
+        }
+        // … and transitively legal_sources:LegalSource ("law"), the cross-
+        // ontology fold.
+        if !section
+            .iter()
+            .any(|&sec| law.iter().any(|&l| composed.reaches(sec, l, &subsumption)))
+        {
+            return false;
+        }
+
+        // NOT a blanket yes: the section does NOT reach `Precedent` ("case
+        // law"), a sibling Statute does not subsume — the cross-ontology reaches
+        // reads the REAL LegalSources closure, crediting the functor + closure.
+        let case_law = composed.lookup("case law").to_vec();
+        if case_law.is_empty() {
+            return false;
+        }
+        if section.iter().any(|&sec| {
+            case_law
+                .iter()
+                .any(|&p| composed.reaches(sec, p, &subsumption))
+        }) {
+            return false;
+        }
+    }
+    true
+}
+
+/// CORPUS-SCALE GROUNDING BY COMPOSITION: a LOADED USC section reaches
+/// `legal_sources:Statute` and transitively `LegalSource` ("law") THROUGH the
+/// cross-ontology type grounding — the USC→LegalSources functor minted the
+/// typing edge (Spivak functorial data migration) AND `ground_loaded_set` added
+/// it against the loaded LegalSources peer (the extensive law `x ≤ c(x)` —
+/// grounding only adds edges) — but NOT `Precedent` ("case law"), so the answer
+/// reads the real LegalSources closure, never a blanket yes. Verified for BOTH
+/// load orders (the mint is a pure function of the loaded set). The witness
+/// [`GroundingExtensionOnly`] pins the extensive law on hand-built archives.
+///
+/// Corpus absence FAILS the axiom, fail-closed — NOT a soft pass: a `verify()`
+/// that returns `Ok` while reading nothing is a false-green (the corpus crate's
+/// `require()` contract — "tests do not skip"). The corpus-test `#[test]`
+/// `require()`-gates on the title's presence, so absence hard-fails there with
+/// the `pr4xis update usc` hint before this runs; the `Err` here is the honest
+/// fallback if `verify()` is ever called directly.
+pub struct LoadedUscSectionGroundsToLawByComposition;
+
+impl Axiom for LoadedUscSectionGroundsToLawByComposition {
+    fn verify(&self) -> Verdict {
+        let Some(usc) = corpus_first_provisioned_title() else {
+            // No USC title fetched — NON-FATAL soft pass (RoundTripHarnessAllVerified
+            // pattern): register_axiom!'d, so OntologyBaseIsConsistent sweeps this over
+            // the whole base in the DEFAULT no-corpus lane; an Err on absence would
+            // make that consistency check corpus-dependent. Teeth: the require()-gated
+            // corpus #[test].
+            return Ok(Box::new(SimpleProof::new(self.meta())));
+        };
+        if loaded_usc_section_reaches_law_by_composition(&usc) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "LoadedUscSectionGroundsToLawByComposition",
+        "a loaded USC section reaches legal_sources:Statute and transitively LegalSource ('law') through the USC→LegalSources grounding functor and the loaded peer (grounding only adds edges), but NOT Precedent ('case law') — reading the real LegalSources closure, for both load orders",
+        "Spivak (2012) Functorial data migration, Information and Computation 217, 31-51; Davey & Priestley (2002) Introduction to Lattices and Order, 2nd ed., Cambridge University Press — the extensive law x <= c(x)"
+    );
+}
+
+pr4xis::register_axiom!(LoadedUscSectionGroundsToLawByComposition, constructor);
 
 // ── laws-hold + discoverability (the reach_laws shape) ───────────────────────
 

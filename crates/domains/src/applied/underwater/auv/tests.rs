@@ -5,6 +5,9 @@ use pr4xis::ontology::Ontology;
 use crate::applied::underwater::auv::engine::*;
 use crate::applied::underwater::auv::ontology::*;
 use crate::formal::math::angle::Angle;
+use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::temporal::duration::Duration;
+use crate::natural::physics::kinematics::velocity::Velocity;
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -35,77 +38,71 @@ fn dvl_requires_bottom_lock_holds() {
 #[test]
 fn dead_reckoning_straight_north() {
     let state = AuvState {
-        north: 0.0,
-        east: 0.0,
-        depth: 10.0,
+        position: Point3::new(0.0, 0.0, 10.0),
         heading: Angle::from_radians(0.0),
     };
     let dvl = DvlMeasurement {
-        forward: 1.0,
-        starboard: 0.0,
-        downward: 0.0,
+        velocity: Velocity::new(1.0, 0.0, 0.0),
         bottom_lock: true,
     };
-    let new_state = dead_reckon(&state, &dvl, 0.0, 10.0);
-    assert!((new_state.north - 10.0).abs() < 1e-10);
-    assert!(new_state.east.abs() < 1e-10);
-    assert!((new_state.depth - 10.0).abs() < 1e-10);
+    let new_state = dead_reckon(
+        &state,
+        &dvl,
+        Angle::from_radians(0.0),
+        Duration::from_seconds(10.0),
+    );
+    assert!((new_state.position.x - 10.0).abs() < 1e-10);
+    assert!(new_state.position.y.abs() < 1e-10);
+    assert!((new_state.position.z - 10.0).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dead_reckoning_straight_east() {
     let state = AuvState {
-        north: 0.0,
-        east: 0.0,
-        depth: 10.0,
+        position: Point3::new(0.0, 0.0, 10.0),
         heading: Angle::from_radians(core::f64::consts::FRAC_PI_2), // heading east
     };
     let dvl = DvlMeasurement {
-        forward: 2.0,
-        starboard: 0.0,
-        downward: 0.0,
+        velocity: Velocity::new(2.0, 0.0, 0.0),
         bottom_lock: true,
     };
-    let new_state = dead_reckon(&state, &dvl, core::f64::consts::FRAC_PI_2, 5.0);
-    assert!(new_state.north.abs() < 1e-10);
-    assert!((new_state.east - 10.0).abs() < 1e-10);
+    let new_state = dead_reckon(
+        &state,
+        &dvl,
+        Angle::from_radians(core::f64::consts::FRAC_PI_2),
+        Duration::from_seconds(5.0),
+    );
+    assert!(new_state.position.x.abs() < 1e-10);
+    assert!((new_state.position.y - 10.0).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn distance_2d_basic() {
     let a = AuvState {
-        north: 0.0,
-        east: 0.0,
-        depth: 0.0,
+        position: Point3::new(0.0, 0.0, 0.0),
         heading: Angle::from_radians(0.0),
     };
     let b = AuvState {
-        north: 3.0,
-        east: 4.0,
-        depth: 0.0,
+        position: Point3::new(3.0, 4.0, 0.0),
         heading: Angle::from_radians(0.0),
     };
-    assert!((distance_2d(&a, &b) - 5.0).abs() < 1e-10);
+    assert!((distance_2d(&a, &b).value - 5.0).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn distance_3d_basic() {
     let a = AuvState {
-        north: 0.0,
-        east: 0.0,
-        depth: 0.0,
+        position: Point3::new(0.0, 0.0, 0.0),
         heading: Angle::from_radians(0.0),
     };
     let b = AuvState {
-        north: 1.0,
-        east: 2.0,
-        depth: 2.0,
+        position: Point3::new(1.0, 2.0, 2.0),
         heading: Angle::from_radians(0.0),
     };
-    assert!((distance_3d(&a, &b) - 3.0).abs() < 1e-10);
+    assert!((distance_3d(&a, &b).value - 3.0).abs() < 1e-10);
 }
 
 #[cfg(test)]
@@ -123,18 +120,21 @@ mod proptest_proofs {
             dt in 0.1..100.0_f64
         ) {
             let state = AuvState {
-                north,
-                east,
-                depth,
+                position: Point3::new(north, east, depth),
                 heading: Angle::from_radians(heading),
             };
             let dvl = DvlMeasurement {
-                forward: 0.0, starboard: 0.0, downward: 0.0, bottom_lock: true,
+                velocity: Velocity::new(0.0, 0.0, 0.0), bottom_lock: true,
             };
-            let new_state = dead_reckon(&state, &dvl, heading, dt);
-            prop_assert!((new_state.north - north).abs() < 1e-10);
-            prop_assert!((new_state.east - east).abs() < 1e-10);
-            prop_assert!((new_state.depth - depth).abs() < 1e-10);
+            let new_state = dead_reckon(
+                &state,
+                &dvl,
+                Angle::from_radians(heading),
+                Duration::from_seconds(dt),
+            );
+            prop_assert!((new_state.position.x - north).abs() < 1e-10);
+            prop_assert!((new_state.position.y - east).abs() < 1e-10);
+            prop_assert!((new_state.position.z - depth).abs() < 1e-10);
         }
 
         #[test]
@@ -145,18 +145,14 @@ mod proptest_proofs {
             e2 in -100.0..100.0_f64
         ) {
             let a = AuvState {
-                north: n1,
-                east: e1,
-                depth: 0.0,
+                position: Point3::new(n1, e1, 0.0),
                 heading: Angle::from_radians(0.0),
             };
             let b = AuvState {
-                north: n2,
-                east: e2,
-                depth: 0.0,
+                position: Point3::new(n2, e2, 0.0),
                 heading: Angle::from_radians(0.0),
             };
-            prop_assert!(distance_2d(&a, &b) >= 0.0);
+            prop_assert!(distance_2d(&a, &b).value >= 0.0);
         }
     }
 

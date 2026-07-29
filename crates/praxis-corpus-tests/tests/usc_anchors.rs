@@ -15,11 +15,13 @@
 
 use pr4xis_domains::applied::data_provisioning::registry::{
     LockDigest, data_sources, lock_archive_signature, lock_compact_archive_signature,
+    lock_compact_defines_signature,
 };
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis_domains::social::software::markup::xml::owl::prx::prx_archive_address;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
-    compact_prx_archive_address, emit_compact_usc_prx_gz, emit_usc_prx_gz,
+    compact_prx_archive_address, compact_usc_defines_archive_address,
+    emit_compact_usc_defines_prx_gz, emit_compact_usc_prx_gz, emit_usc_prx_gz,
 };
 use praxis_corpus_tests::{require_provisioned, workspace_root};
 
@@ -118,4 +120,62 @@ fn compact_usc_archive_anchors_match_lock() {
     // A pinned title within the cap MUST be on disk — with none, the loop
     // asserted nothing (a false-green). CI provisions via `pr4xis update`.
     require_provisioned(checked, "usc");
+}
+
+/// DEFINES-OVERLAY ARCHIVE ANCHOR — for every on-disk title within the budget
+/// that has a `[compact_defines_signatures]` pin, a fresh
+/// `emit_compact_usc_defines_prx_gz` re-derives EXACTLY that pin. Unlike the two
+/// anchors above, `[compact_defines_signatures]` is legitimately EMPTY until a
+/// maintainer runs the rare, opt-in `pr4xis compile --defines --lock` (a
+/// ~3.3-hour full-corpus grounding pass, see
+/// `uslm::corpus::bridge::usc_runtime_ontology_with_defines`'s doc) — so this
+/// gate soft-passes (asserts nothing) when nothing is pinned yet, UNLIKE the
+/// hard-fail `require_provisioned` the structural anchors use. It gains real
+/// teeth the moment the first defines pin is committed. `#[ignore]`d: even one
+/// title's defines re-emit runs the full tokenize/chart/Montague pipeline over
+/// every lexical-prose node (~26-40ms/node measured) — not cheap enough for a
+/// routine `cargo test` run, so `ANCHOR_EMIT_SIZE_CAP` alone would not bound it
+/// the way it does for the structural anchors; run explicitly via
+/// `cargo test --ignored compact_usc_defines_archive_anchors_match_lock`.
+#[test]
+#[ignore]
+fn compact_usc_defines_archive_anchors_match_lock() {
+    use pr4xis_domains::cognitive::linguistics::english::ontology::english_load_owned;
+    use pr4xis_domains::cognitive::linguistics::verbnet::store::verbnet_classes_loaded;
+
+    let root = workspace_root();
+    let lang = english_load_owned();
+    let verbnet = verbnet_classes_loaded();
+    let mut checked = 0usize;
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let Some(pinned) = lock_compact_defines_signature(&entry.name, &entry.version) else {
+            continue; // not pinned yet — the expected pre-`--defines` state
+        };
+        let path = root.join(entry.local_path());
+        let Ok(src) = std::fs::read(&path) else {
+            continue; // not provisioned this run — covered when on disk
+        };
+        let defines_gz = emit_compact_usc_defines_prx_gz(&src, &lang, verbnet)
+            .expect("emit pinned USC defines overlay");
+        let addr =
+            compact_usc_defines_archive_address(&defines_gz).expect("derive defines address");
+        assert_eq!(
+            &LockDigest::address(addr),
+            pinned,
+            "{}@{} defines-overlay address must equal its \
+             [compact_defines_signatures] pin (grammar or source drift?)",
+            entry.name,
+            entry.version
+        );
+        checked += 1;
+    }
+    if checked == 0 {
+        eprintln!(
+            "[compact_defines_signatures] has no pins yet — nothing to anchor \
+             (run `pr4xis compile --defines --lock` to provision the first one)"
+        );
+    }
 }

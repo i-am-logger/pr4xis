@@ -44,20 +44,20 @@
 //!   a functor is determined by its finite action on generators, which is why
 //!   the relation→kind table is carried as data and applied by a table lookup.
 
-use alloc::string::ToString;
+use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use pr4xis::ontology::meta::OntologyName;
 use pr4xis_runtime::address::ContentAddress;
-// `apply` is used only by the test module (the corpus-scale consumer is the
-// archive-level functor gate in `praxis-corpus-tests`); gate it so non-test
-// builds don't see an unused import.
-#[cfg(test)]
 use pr4xis_runtime::apply::apply;
 use pr4xis_runtime::archive::Archive;
 use pr4xis_runtime::connection::Connection;
-use pr4xis_runtime::definition::{Definition, EdgeTarget};
+use pr4xis_runtime::definition::{CANONICAL_FORM_REL, Definition, EdgeTarget};
+use pr4xis_runtime::ontology::{MaterializeError, RuntimeOntology, materialize};
 
 use super::ontology::English;
+use crate::social::software::markup::xml::lmf::reader::LmfReadError;
 
 /// The ontology name the projected English `.prx` materializes under — the same
 /// `OntologyName` the existing English-grounding path (`english_adjunction`)
@@ -84,6 +84,23 @@ pub const SYNSET_KIND: &str = "Synset";
 /// The raw WordNet relation name a hypernym (is-a) edge carries in the SOURCE
 /// archive — the schema generator the praxis functor maps to `Subsumption`.
 pub const HYPERNYM_REL: &str = "hypernym";
+
+/// The praxis relation kind a relabeled `antonym` edge becomes — the
+/// NON-transitive kind (Saussure 1916 / Cruse 1986 antonymy; see
+/// [`opposition_relation_kind`](crate::formal::relations::ontology::opposition_relation_kind))
+/// [`materialize`](pr4xis_runtime::ontology) leaves OUT of its transitive-fold
+/// set, so a single direct edge is the whole answer — the same semantics
+/// [`English::opposes`](super::ontology::English::opposes) already gives the
+/// embedded lexicon's own antonym pairs, now available for a LOADED WN-LMF
+/// lexicon's concepts too.
+pub const OPPOSITION_REL: &str = "Opposition";
+
+/// The raw WordNet relation name an antonym (opposition) edge carries in the
+/// SOURCE archive — the schema generator the praxis functor maps to
+/// [`OPPOSITION_REL`]. Matches the wire string
+/// [`SynsetRelationType::parse`](crate::social::software::markup::xml::lmf::ontology::SynsetRelationType::parse)
+/// recognizes for `antonym` (WN-LMF `<SynsetRelation relType="antonym">`).
+pub const ANTONYM_REL: &str = "antonym";
 
 // The `ontolex:Form` wire primitives (`FORM_KIND`, `form_atom`) live in the
 // runtime crate beside [`Definition`], so the compiled-ontology emitter
@@ -131,21 +148,47 @@ pub fn synset_definition(
     english: &English,
     concept: &super::concept_store::ConceptView<'_>,
 ) -> Definition {
+    let mut edges: Vec<(String, EdgeTarget)> = english
+        .parents(concept.id())
+        .iter()
+        .filter_map(|&parent| {
+            english.concept(parent).map(|p| {
+                (
+                    HYPERNYM_REL.to_string(),
+                    EdgeTarget::Local(p.original_id().to_string()),
+                )
+            })
+        })
+        .collect();
+    // Antonym (Opposition) edges, additive — a concept with no antonyms (the
+    // overwhelming majority; WordNet's antonym relation is chiefly an
+    // adjective/adverb phenomenon) gets no edges appended here, so its
+    // Definition — and hence its content address — is BYTE-IDENTICAL to
+    // before this was added. WordNet's antonym relation is SENSE-keyed
+    // ("big#1" opposes "small#1", not the synset wholesale — see
+    // `English::opposes`), so this bridges concept → its senses → each
+    // sense's direct opposition targets → back to the target's OWNING
+    // concept, deduplicating since two synonymous senses of this concept can
+    // independently point at the same opposite concept.
+    for &sense in english.senses_of(concept.id()) {
+        for &opp_sense in english.opposites(sense) {
+            if let Some(opp_concept) = english.concept_of_sense(opp_sense)
+                && let Some(p) = english.concept(opp_concept)
+            {
+                let edge = (
+                    ANTONYM_REL.to_string(),
+                    EdgeTarget::Local(p.original_id().to_string()),
+                );
+                if !edges.contains(&edge) {
+                    edges.push(edge);
+                }
+            }
+        }
+    }
     Definition {
         kind: SYNSET_KIND.to_string(),
         name: concept.original_id().to_string(),
-        edges: english
-            .parents(concept.id())
-            .iter()
-            .filter_map(|&parent| {
-                english.concept(parent).map(|p| {
-                    (
-                        HYPERNYM_REL.to_string(),
-                        EdgeTarget::Local(p.original_id().to_string()),
-                    )
-                })
-            })
-            .collect(),
+        edges,
         axioms: Vec::new(),
         lexical: concept.definitions().next().map(|d| d.to_string()),
     }
@@ -199,6 +242,79 @@ pub fn project_archive_with_forms(english: &English) -> Archive {
     archive
 }
 
+/// Project a loaded [`English`] struct into a LEXICALIZED source [`Archive`] —
+/// [`project_archive_with_forms`] PLUS the concept→surface edges: for every
+/// written form `w` in the word index, each concept `english.lookup(w)` resolves
+/// to gains a ([`CANONICAL_FORM_REL`], `Local(w)`) edge aimed at `w`'s appended
+/// [`form_atom`]. This is the OntoLex-Lemon lexicalization channel (McCrae,
+/// Bosque-Gil, Gracia, Buitelaar & Cimiano 2017, *The OntoLex-Lemon Model*,
+/// Proc. eLex 2017: a `LexicalEntry`'s `Form` carries the surface, its `Sense`
+/// points at the concept) — the SAME channel the compiled-ontology emitter
+/// (`pr4xis_runtime::emit`) mints for `ontology!` labels, so the projection's
+/// image is chat-composable BY CONSTRUCTION: the composed reasoner indexes
+/// exactly these Form-targeted edges as queryable surfaces.
+///
+/// This is the projection a REGISTERED WN-LMF LEXICON source (a bounded
+/// closed-class lexicon like `us_legal_lexicon@2026`) rides into the runtime
+/// substrate ([`lexicon_runtime_ontology`]). The full-corpus `english_wordnet`
+/// deliberately does NOT take this path (see the NOTE below
+/// [`english_functor`]): its grounding uses the lean
+/// [`project_archive_with_forms`] transient, whose Form atoms stay edge-inert.
+///
+/// Shape guarantees, mirroring `emit`:
+/// - one Form atom per DISTINCT written form (the word index is keyed by
+///   surface), appended AFTER the concept edges are aimed, so the archive stays
+///   referentially closed with no duplicate;
+/// - a form that (case-insensitively) equals its concept's identifier adds no
+///   redundant edge — the node-name grounding already covers that surface;
+/// - a touched node's edge rows are canonicalized (sorted, deduped) so its
+///   content address does not depend on lexicalization order.
+pub fn project_lexicon_archive(english: &English) -> Archive {
+    let mut archive = project_archive(english);
+    // name → node position: `project_archive` emits one node per concept, named
+    // by its `original_id`, so each written form's concepts are found by id.
+    let position: BTreeMap<String, usize> = archive
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (n.name.clone(), i))
+        .collect();
+    // Nodes that gained lexicalization edges — canonicalized once after the
+    // walk (the `emit` discipline), not per push.
+    let mut touched: BTreeSet<usize> = BTreeSet::new();
+    for word in english.word_index.words() {
+        for &cid in english.lookup(word) {
+            let Some(concept) = english.concept(cid) else {
+                continue;
+            };
+            let Some(&pos) = position.get(concept.original_id()) else {
+                continue;
+            };
+            // Skip the redundant: a form that equals the identifier adds no
+            // surface the node-name grounding lacks (the `emit` rule).
+            if word.eq_ignore_ascii_case(&archive.nodes[pos].name) {
+                continue;
+            }
+            archive.nodes[pos].edges.push((
+                CANONICAL_FORM_REL.to_string(),
+                EdgeTarget::Local(word.to_string()),
+            ));
+            touched.insert(pos);
+        }
+    }
+    for pos in touched {
+        archive.nodes[pos].edges.sort();
+        archive.nodes[pos].edges.dedup();
+    }
+    // One `ontolex:Form` atom per distinct written form — the referents every
+    // canonicalForm edge above names, appended last (same order as
+    // `project_archive_with_forms`, whose atom set this is exactly).
+    archive
+        .nodes
+        .extend(english.word_index.words().map(form_atom));
+    archive
+}
+
 /// The committed WordNet→praxis projection functor — the CANONICAL home of the
 /// projection, the directive "projections live in `.prx`, not code" realized
 /// (Track C #203). The map tables (`Synset ↦ Concept`, `hypernym ↦ Subsumption`)
@@ -219,7 +335,7 @@ const ENGLISH_FUNCTOR_PRX: &[u8] = include_bytes!(concat!(
 /// The trusted Merkle root of [`ENGLISH_FUNCTOR_PRX`] — the integrity pin the
 /// fail-closed load checks against (file ⇔ pin coherence is asserted in tests).
 const ENGLISH_FUNCTOR_ROOT_HEX: &str =
-    "55c3a8cabc2f52cb42e0e10d6a232c881f50e91a24ec35e06dadda6550c3cc1f";
+    "5bfb24ec2092b0fc72d7ab6286922f278be6d9ed9d09aaf2542e64286e40d7b2";
 
 /// Load the WordNet→praxis functor from its committed `.prx`
 /// (`ENGLISH_FUNCTOR_PRX`) — FAIL-CLOSED: the embedded bytes are admitted only
@@ -227,7 +343,7 @@ const ENGLISH_FUNCTOR_ROOT_HEX: &str =
 /// projection is refused, never silently mis-applied. Reuses the kernel
 /// [`load`](pr4xis_runtime::load::load); no new runtime API. The functor is a
 /// finite action on generators (the finite-presentation theorem; Fong & Spivak
-/// *Seven Sketches* Ch. 3), interpreted by [`apply`](pr4xis_runtime::apply::apply) over a [`project_archive`]
+/// *Seven Sketches* Ch. 3), interpreted by [`apply`] over a [`project_archive`]
 /// source. A load failure here is a build-time invariant violation (the bytes
 /// ship embedded in the binary), exactly like the `english.xml` parse `expect`.
 ///
@@ -260,6 +376,93 @@ pub fn english_functor() -> Connection {
 // theorem (English's schema projects via the committed functor) is proven
 // archive-level, without materializing, by the corpus gate
 // `english_functor_projects_the_csr_edge_set` in `praxis-corpus-tests`.
+//
+// `lexicon_runtime_ontology` below is NOT that fat bridge coming back: it
+// materializes a REGISTERED WN-LMF LEXICON source — a bounded closed-class
+// lexicon (hundreds of entries, e.g. `us_legal_lexicon@2026`), never the
+// 107k-synset English corpus — into a chat-composable `RuntimeOntology`.
+
+/// Why a registered WN-LMF lexicon source failed to become a
+/// [`RuntimeOntology`] — the typed sum of the two fallible pipeline stages
+/// ([`lexicon_runtime_ontology`]). The embedded-`.prx` gate stage is NOT here:
+/// a pin/content-gate failure on an EMBEDDED source is a build-time invariant
+/// violation (the bytes ship in the binary) and panics inside
+/// `raw_source_text_embedded`, exactly like the `english.xml` parse `expect`.
+#[derive(Debug)]
+pub enum LexiconBridgeError {
+    /// The source text is not well-formed WN-LMF.
+    Lmf(LmfReadError),
+    /// The projected archive failed to materialize (codec failure or a
+    /// referential-closure violation, carried typed).
+    Materialize(MaterializeError),
+}
+
+impl core::fmt::Display for LexiconBridgeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Lmf(e) => write!(f, "lexicon source failed to parse as WN-LMF: {e}"),
+            Self::Materialize(e) => {
+                write!(f, "projected lexicon archive failed to materialize: {e:?}")
+            }
+        }
+    }
+}
+
+/// Bridge WN-LMF lexicon TEXT into a chat-composable [`RuntimeOntology`] — the
+/// generic pipeline core, source-agnostic:
+///
+/// ```text
+/// read_wordnet → English::from_wordnet → project_lexicon_archive
+///              → apply(english_functor) → materialize(name)
+/// ```
+///
+/// The verbatim shape of `usc_runtime_ontology` (`project → apply →
+/// materialize`), with the ONE committed `english_functor.prx` relabeling the
+/// raw WN-LMF generators (`Synset ↦ Concept`, `hypernym ↦ Subsumption`) — a
+/// lexicon IS WordNet-shaped data, so it rides the SAME functor, no per-source
+/// relabel table. The lexicalization edges ([`CANONICAL_FORM_REL`]) and Form
+/// atoms are already praxis wire data and pass through [`apply`] unchanged
+/// (an unmapped generator is carried, never dropped).
+///
+/// `apply` cannot fail here (the loaded `english_functor` is always a
+/// `Functor` action); parse and materialization failures propagate typed.
+pub fn lexicon_runtime_ontology_from_lmf(
+    lmf_xml: &str,
+    name: OntologyName,
+) -> Result<RuntimeOntology, LexiconBridgeError> {
+    let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(lmf_xml)
+        .map_err(LexiconBridgeError::Lmf)?;
+    let english = English::from_wordnet(&wn);
+    let source = project_lexicon_archive(&english);
+    let praxis = apply(&english_functor().action, &source)
+        .expect("the loaded english_functor is always a Functor action, which apply interprets");
+    materialize(praxis, name).map_err(LexiconBridgeError::Materialize)
+}
+
+/// Bridge a REGISTERED, EMBEDDED WN-LMF lexicon source into a chat-composable
+/// [`RuntimeOntology`] named after the source — the loader any registered
+/// lexicon (`us_legal_lexicon` today; further domain lexicons as they are
+/// registered) calls with its own `(name, version, committed .prx bytes)`.
+/// Zero per-domain code: the source entry IS the parameterization.
+///
+/// The source text is admitted through the fail-closed
+/// [`raw_source_text_embedded`](crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded)
+/// gate (praxis.lock `[compact_archive_signatures]` pin), then takes
+/// [`lexicon_runtime_ontology_from_lmf`]. The materialized ontology's
+/// [`OntologyName`] is the registered source name, so every concept's
+/// [`ConceptRef`](pr4xis_runtime::ontology::ConceptRef) cites its source.
+pub fn lexicon_runtime_ontology(
+    name: &str,
+    version: &str,
+    embedded_prx: &[u8],
+) -> Result<RuntimeOntology, LexiconBridgeError> {
+    let xml = crate::applied::data_provisioning::raw_source_prx::raw_source_text_embedded(
+        name,
+        version,
+        embedded_prx,
+    );
+    lexicon_runtime_ontology_from_lmf(&xml, OntologyName::new(name.to_string()))
+}
 
 #[cfg(test)]
 mod tests {
@@ -364,6 +567,62 @@ mod tests {
         assert_eq!(
             node(&archive, "s-mammal").edges,
             alloc::vec![(HYPERNYM_REL.to_string(), local("s-animal"))]
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn a_synset_with_no_antonym_projects_byte_identical_edges() {
+        // The antonym walk is additive: a concept with no declared antonym
+        // (the overwhelming majority — WordNet's antonym relation is chiefly
+        // adjective/adverb) must project the EXACT SAME edge list as before
+        // this capability existed, so every content address depending on
+        // `synset_definition` for a non-antonym concept is unchanged.
+        let archive = project_archive(&English::sample());
+        assert_eq!(
+            node(&archive, "s-dog").edges,
+            alloc::vec![(HYPERNYM_REL.to_string(), local("s-mammal"))],
+            "no antonym for 'dog' means no ANTONYM_REL edge is appended"
+        );
+    }
+
+    /// A tiny WN-LMF fixture declaring a sense-keyed antonym pair (hot#1 /
+    /// cold#1), the SAME shape [`English::opposes`]'s own test fixture uses —
+    /// two single-sense adjective synsets whose senses carry a mutual
+    /// `SynsetRelation relType="antonym"` edge.
+    const ANTONYM_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-hot-a">
+      <Lemma writtenForm="hot" partOfSpeech="a"/>
+      <Sense id="hot-a-1" synset="s-hot">
+        <SenseRelation relType="antonym" target="cold-a-1"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="e-cold-a">
+      <Lemma writtenForm="cold" partOfSpeech="a"/>
+      <Sense id="cold-a-1" synset="s-cold">
+        <SenseRelation relType="antonym" target="hot-a-1"/>
+      </Sense>
+    </LexicalEntry>
+    <Synset id="s-hot" ili="i1" partOfSpeech="a"><Definition>having a high temperature</Definition></Synset>
+    <Synset id="s-cold" ili="i2" partOfSpeech="a"><Definition>having a low temperature</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn a_declared_antonym_projects_as_a_raw_antonym_edge() {
+        let english = English::from_wordnet(
+            &crate::social::software::markup::xml::lmf::reader::read_wordnet(ANTONYM_LMF)
+                .expect("the antonym fixture is well-formed WN-LMF"),
+        );
+        let archive = project_archive(&english);
+        assert_eq!(
+            node(&archive, "s-hot").edges,
+            alloc::vec![(ANTONYM_REL.to_string(), local("s-cold"))],
+            "hot's sense-keyed antonym edge bridges to cold's OWNING synset, \
+             carried under the raw ANTONYM_REL generator for the functor to relabel"
         );
     }
 
@@ -560,4 +819,171 @@ mod tests {
             "a synset is a sense-bearing concept, not a written-form floor target"
         );
     }
+
+    // --- the generic lexicon projection (project_lexicon_archive) ---
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn the_lexicon_projection_is_referentially_closed() {
+        // Every edge — the raw hypernym mereology AND the §9 canonicalForm
+        // lexicalization — is a same-archive local edge to a DECLARED node
+        // (the closure `materialize` enforces). The Form atoms are appended
+        // for exactly the written forms the canonicalForm edges name.
+        let archive = project_lexicon_archive(&English::sample());
+        let declared: BTreeSet<&str> = archive.nodes.iter().map(|n| n.name.as_str()).collect();
+        for n in &archive.nodes {
+            for (kind, target) in &n.edges {
+                let to = target
+                    .local_name()
+                    .expect("a projected edge is a same-archive local edge");
+                assert!(
+                    declared.contains(to),
+                    "edge {}--{kind}-->{to} names an undeclared node",
+                    n.name
+                );
+                assert!(
+                    kind == HYPERNYM_REL || kind == CANONICAL_FORM_REL,
+                    "projected edge kinds are hypernym / canonicalForm; got {kind}"
+                );
+            }
+        }
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn a_written_form_lexicalizes_the_concepts_it_expresses() {
+        // "dog" is a written form of the s-dog synset: the projection aims a
+        // canonicalForm edge from the concept at the "dog" Form atom, KEEPING
+        // the raw hypernym reasoning edge beside it.
+        let archive = project_lexicon_archive(&English::sample());
+        let dog = node(&archive, "s-dog");
+        assert!(
+            dog.edges
+                .contains(&(CANONICAL_FORM_REL.to_string(), local("dog"))),
+            "s-dog lexicalizes its written form; edges: {:?}",
+            dog.edges
+        );
+        assert!(
+            dog.edges
+                .contains(&(HYPERNYM_REL.to_string(), local("s-mammal"))),
+            "the reasoning edge is kept beside the lexicalization"
+        );
+        assert!(
+            archive
+                .nodes
+                .iter()
+                .any(|n| n.kind == FORM_KIND && n.name == "dog"),
+            "the written form's Form atom is appended"
+        );
+    }
+
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn the_lexicon_projection_is_deterministic() {
+        // Two projections of the same loaded lexicon derive the same Merkle
+        // root — every consumer (materialize, grounding pins) sees ONE stable
+        // content identity. The touched-node edge canonicalization (sort +
+        // dedup) is what makes this hold independent of lexicalization order.
+        let english = English::sample();
+        let a = project_lexicon_archive(&english).root().unwrap();
+        let b = project_lexicon_archive(&english).root().unwrap();
+        assert_eq!(a, b, "the lexicon projection is content-deterministic");
+    }
+
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
+    #[test]
+    fn the_lexicon_pipeline_materializes_and_composes() {
+        // The whole generic pipeline over the sample lexicon: project →
+        // apply(english_functor) → materialize → compose under the
+        // ComposedReasoner — and a define-style lookup ("dog") resolves a
+        // LOADED concept whose definition (the synset gloss) is reachable.
+        use crate::cognitive::linguistics::composed::{ComposedReasoner, GroundedConcept};
+        use crate::cognitive::linguistics::english::LexicalReasoner;
+        use alloc::rc::Rc;
+
+        let onto = lexicon_runtime_ontology_from_lmf(
+            SAMPLE_LMF,
+            OntologyName::new_static("sample_lexicon"),
+        )
+        .expect("the sample lexicon materializes");
+        let composed = ComposedReasoner::new(English::sample_static(), alloc::vec![Rc::new(onto)]);
+
+        let ids = composed.lookup("dog");
+        let loaded = ids
+            .iter()
+            .copied()
+            .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+            .expect("the lexicon's written form resolves to a LOADED concept");
+        let concept = composed.concept(loaded).expect("its concept view resolves");
+        assert_eq!(
+            concept.definitions().next(),
+            Some("a domesticated canine"),
+            "the define-style lookup reaches the loaded concept's definition"
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
+    #[test]
+    fn a_loaded_lexicons_antonym_pair_answers_a_confident_opposition_reaches() {
+        // The capability this whole antonym/Opposition addition exists for:
+        // a FRESHLY-AUTHORED WN-LMF lexicon (not the embedded English) declares
+        // an antonym pair, and the generic materialized-closure `reaches()`
+        // path (`ComposedReasoner`'s `(Loaded, Loaded)` branch — the SAME path
+        // Parthood already proves for `LegalSources`) answers a confident
+        // Opposition query for it, through the REAL committed
+        // `english_functor()`, not a one-off test Connection.
+        use crate::cognitive::linguistics::composed::{ComposedReasoner, GroundedConcept};
+        use crate::cognitive::linguistics::english::LexicalReasoner;
+        use crate::formal::relations::ontology::opposition_relation_kind;
+        use alloc::rc::Rc;
+
+        let onto = lexicon_runtime_ontology_from_lmf(
+            ANTONYM_LMF,
+            OntologyName::new_static("antonym_lexicon"),
+        )
+        .expect("the antonym lexicon materializes");
+        let composed = ComposedReasoner::new(English::sample_static(), alloc::vec![Rc::new(onto)]);
+
+        let hot = composed
+            .lookup("hot")
+            .iter()
+            .copied()
+            .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+            .expect("'hot' resolves to a LOADED concept");
+        let cold = composed
+            .lookup("cold")
+            .iter()
+            .copied()
+            .find(|&id| matches!(composed.decode(id), Some(GroundedConcept::Loaded(_))))
+            .expect("'cold' resolves to a LOADED concept");
+
+        assert!(
+            composed.reaches(hot, cold, &opposition_relation_kind()),
+            "hot opposes cold through the materialized Opposition closure"
+        );
+        assert!(
+            composed.reaches(cold, hot, &opposition_relation_kind()),
+            "Opposition is checked both directions at query time"
+        );
+        assert!(
+            !composed.reaches(
+                hot,
+                cold,
+                &crate::cognitive::linguistics::relation_lexicon::subsumption_kind()
+            ),
+            "an Opposition edge is not a Subsumption edge — the two closures are distinct"
+        );
+    }
+
+    /// The inline WN-LMF fixture the pipeline test loads — the same shape as the
+    /// one `English::sample()` embeds, cut to the dog ⊑ mammal witness pair.
+    const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"/><Sense id="dog-n-01" synset="s-dog"/></LexicalEntry>
+    <LexicalEntry id="e-mammal-n"><Lemma writtenForm="mammal" partOfSpeech="n"/><Sense id="mammal-n-01" synset="s-mammal"/></LexicalEntry>
+    <Synset id="s-dog" ili="i1" partOfSpeech="n"><Definition>a domesticated canine</Definition><SynsetRelation relType="hypernym" target="s-mammal"/></Synset>
+    <Synset id="s-mammal" ili="i3" partOfSpeech="n"><Definition>warm-blooded vertebrate</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
 }

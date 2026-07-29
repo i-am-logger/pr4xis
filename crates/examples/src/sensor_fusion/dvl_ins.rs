@@ -15,6 +15,9 @@ mod tests {
     use pr4xis_domains::formal::math::linear_algebra::matrix::Matrix;
     use pr4xis_domains::formal::math::linear_algebra::positive_definite;
     use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::formal::math::temporal::duration::Duration;
+    use pr4xis_domains::formal::math::temporal::instant::Instant;
+    use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
     #[test]
     fn dvl_aided_ins_position_estimation() {
@@ -23,7 +26,7 @@ mod tests {
         let state = StateEstimate::new(
             Vector::new(vec![0.0, 2.0]), // start at 0, moving at 2 m/s
             Matrix::diagonal(&[100.0, 10.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         );
         let mut engine = new_fusion_engine(state);
 
@@ -40,7 +43,7 @@ mod tests {
         for _ in 0..30 {
             engine = engine
                 .next(FusionAction::Predict {
-                    dt,
+                    dt: Duration::from_seconds(dt),
                     transition: f.clone(),
                     process_noise: q.clone(),
                 })

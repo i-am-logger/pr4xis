@@ -57,6 +57,10 @@ pub enum IrregularKind {
     PastTense,
     /// Past participle: go → gone, run → run, write → written.
     PastParticiple,
+    /// Present participle / gerund-participial -ing form whose spelling the
+    /// deterministic rule route cannot produce: be → being, die → dying,
+    /// traffic → trafficking, admit → admitting (stress-dependent doubling).
+    PresentParticiple,
     /// Comparative adjective: good → better.
     Comparative,
     /// Superlative adjective: good → best.
@@ -70,6 +74,7 @@ impl FinitelyGenerated for IrregularKind {
             Self::PluralNoun,
             Self::PastTense,
             Self::PastParticiple,
+            Self::PresentParticiple,
             Self::Comparative,
             Self::Superlative,
         ]
@@ -115,7 +120,7 @@ mod tests {
     #[test]
     fn kind_variants_complete() {
         let kinds = IrregularKind::variants();
-        assert_eq!(kinds.len(), 5);
+        assert_eq!(kinds.len(), 6);
     }
 
     #[pr4xis::praxis_value(Verifiable)]

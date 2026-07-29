@@ -29,6 +29,8 @@
 //!   23(1):149–157 — PPI heals erosive esophagitis via acid removal and
 //!   basal-cell turnover (GJ-independent repair pathway).
 
+use crate::formal::math::quantity::unit::{MILLIVOLT, UNITLESS};
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -225,44 +227,28 @@ pub use MorphospaceConcept as MorphospaceEntity;
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Membrane-potential range for an attractor state (Chernet & Levin 2013).
-#[derive(Debug, Clone, PartialEq)]
-pub struct VmemRange {
-    pub min: f64,
-    pub max: f64,
-}
-
-/// Quality: characteristic Vmem range for each attractor state.
+/// Quality: characteristic Vmem range for each attractor state, as a
+/// [`QuantityRange`] in [`MILLIVOLT`] (Chernet & Levin 2013), NOT a bare
+/// `(f64, f64)` pair.
 #[derive(Debug, Clone)]
 pub struct AttractorVmemRange;
 
 impl Quality for AttractorVmemRange {
     type Individual = MorphospaceConcept;
-    type Value = VmemRange;
+    type Value = QuantityRange;
 
-    fn get(&self, individual: &MorphospaceConcept) -> Option<VmemRange> {
+    fn get(&self, individual: &MorphospaceConcept) -> Option<QuantityRange> {
         use MorphospaceConcept::*;
+        let mv = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &MILLIVOLT),
+            max: Quantity::from_unit(hi, &MILLIVOLT),
+        };
         match individual {
-            Healthy => Some(VmemRange {
-                min: -70.0,
-                max: -40.0,
-            }),
-            Inflamed => Some(VmemRange {
-                min: -40.0,
-                max: -28.0,
-            }),
-            Barretts => Some(VmemRange {
-                min: -28.0,
-                max: -18.0,
-            }),
-            Dysplastic => Some(VmemRange {
-                min: -18.0,
-                max: 0.0,
-            }),
-            Fibrotic => Some(VmemRange {
-                min: -35.0,
-                max: -20.0,
-            }),
+            Healthy => Some(mv(-70.0, -40.0)),
+            Inflamed => Some(mv(-40.0, -28.0)),
+            Barretts => Some(mv(-28.0, -18.0)),
+            Dysplastic => Some(mv(-18.0, 0.0)),
+            Fibrotic => Some(mv(-35.0, -20.0)),
             _ => None,
         }
     }
@@ -277,16 +263,16 @@ pub struct DiseaseSeverity;
 
 impl Quality for DiseaseSeverity {
     type Individual = MorphospaceConcept;
-    type Value = u32;
+    type Value = Quantity;
 
-    fn get(&self, individual: &MorphospaceConcept) -> Option<u32> {
+    fn get(&self, individual: &MorphospaceConcept) -> Option<Quantity> {
         use MorphospaceConcept::*;
         match individual {
-            Healthy => Some(0),
-            Inflamed => Some(1),
-            Barretts => Some(2),
-            Fibrotic => Some(2),
-            Dysplastic => Some(3),
+            Healthy => Some(Quantity::from_unit(0.0, &UNITLESS)),
+            Inflamed => Some(Quantity::from_unit(1.0, &UNITLESS)),
+            Barretts => Some(Quantity::from_unit(2.0, &UNITLESS)),
+            Fibrotic => Some(Quantity::from_unit(2.0, &UNITLESS)),
+            Dysplastic => Some(Quantity::from_unit(3.0, &UNITLESS)),
             _ => None,
         }
     }
@@ -401,6 +387,9 @@ impl Axiom for HealthyIsMostPolarized {
             let r = vmem.get(a).unwrap();
             healthy.min < r.min
         });
+        // `Quantity::partial_cmp` is dimension-safe: both sides are in
+        // MILLIVOLT so `<` above resolves via `PartialOrd`, identical to the
+        // former `f64 < f64` comparison on the raw `.min` values.
         if ok {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -764,18 +753,18 @@ mod tests {
             AttractorVmemRange
                 .get(&MorphospaceConcept::Healthy)
                 .unwrap(),
-            VmemRange {
-                min: -70.0,
-                max: -40.0
+            QuantityRange {
+                min: Quantity::from_unit(-70.0, &MILLIVOLT),
+                max: Quantity::from_unit(-40.0, &MILLIVOLT),
             }
         );
         assert_eq!(
             AttractorVmemRange
                 .get(&MorphospaceConcept::Dysplastic)
                 .unwrap(),
-            VmemRange {
-                min: -18.0,
-                max: 0.0
+            QuantityRange {
+                min: Quantity::from_unit(-18.0, &MILLIVOLT),
+                max: Quantity::from_unit(0.0, &MILLIVOLT),
             }
         );
     }

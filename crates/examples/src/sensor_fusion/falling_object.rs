@@ -15,6 +15,9 @@ mod tests {
     use pr4xis_domains::applied::sensor_fusion::state::estimate::StateEstimate;
     use pr4xis_domains::formal::math::linear_algebra::matrix::Matrix;
     use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::formal::math::temporal::duration::Duration;
+    use pr4xis_domains::formal::math::temporal::instant::Instant;
+    use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
     #[test]
     fn falling_object_with_altimeter() {
@@ -26,7 +29,7 @@ mod tests {
         let state = StateEstimate::new(
             Vector::new(vec![h0, v0]),
             Matrix::diagonal(&[10.0, 10.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         );
         let mut engine = new_fusion_engine(state);
 
@@ -44,7 +47,7 @@ mod tests {
             // We model this by adjusting the prediction with gravity offset
             engine = engine
                 .next(FusionAction::Predict {
-                    dt,
+                    dt: Duration::from_seconds(dt),
                     transition: f,
                     process_noise: q,
                 })

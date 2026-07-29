@@ -69,6 +69,19 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
     let mut path = if rel.is_empty() || rel == "index.html" {
         // Root → chat UI
         root.join("chat/index.html")
+    } else if matches!(rel, "chat-ui.js" | "dashboard.js" | "tokens.css") {
+        // These three shared assets live under docs/chat/ in the repo but are
+        // served at the site root — mirrors the CI Pages job's flatten
+        // (docs/chat/*.{html,js,css} copied alongside docs/*.json,
+        // docs/worker.js, and docs/praxis-logo-*.jpg into ONE `pages/` root;
+        // see .github/workflows/ci.yml "Assemble pages"). `index.html` — the
+        // ONE app, served at `/` by the arm above — imports `./dashboard.js`
+        // and `./chat-ui.js` and links `./tokens.css` from the root, so
+        // without this arm the caregiver tab 404s its own controller under
+        // `dev-web`. index.html's other relative fetches (worker.js, the
+        // corpus JSON artifacts, the logo) resolve via the `else` arm below,
+        // since those already live at the `docs/` root.
+        root.join("chat").join(rel)
     } else if let Some(rest) = rel.strip_prefix("pkg/") {
         // /pkg/* → WASM build output
         workspace.join("crates/wasm/pkg").join(rest)

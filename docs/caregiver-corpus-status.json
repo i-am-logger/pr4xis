@@ -1,0 +1,16 @@
+{
+  "total": 4219,
+  "green": 144,
+  "missing_term": 2786,
+  "unparsed_known_term": 1223,
+  "over_answered": 0,
+  "possible_misroute": 66,
+  "ceilings": {
+    "green_floor": 144,
+    "missing_term": 2786,
+    "unparsed_known_term": 1223,
+    "over_answered": 0,
+    "possible_misroute": 66
+  },
+  "regenerated_by": "cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release --test caregiver_questions_generated -- --ignored regenerate_caregiver_snapshot --nocapture"
+}

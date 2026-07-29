@@ -50,8 +50,38 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use alloc::collections::BTreeSet;
 
 use super::allomorphy::AllomorphyRule;
-use super::{Affix, MorphologicalRule, english};
+use super::{Affix, MorphologicalRule, SemanticEffect, english};
 use crate::cognitive::linguistics::lemon::lexicon::Form;
+
+/// Where a [`lemmatize_kinded`] candidate came from, and (via
+/// [`Self::is_inflectional`]) whether recovering it past an already-resolved
+/// headword is linguistically safe. See [`SemanticEffect::is_inflectional`]
+/// for the inflection/derivation citation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RecoveryKind {
+    /// `surface` itself — not a recovery at all.
+    Identity,
+    /// A suppletive/irregular table entry (Pinker 1991 dual-route) — an
+    /// irregular INFLECTED form, e.g. "went" → "go", "children" → "child".
+    Irregular,
+    /// Recovered by inverting one [`MorphologicalRule`] (optionally further
+    /// expanded by an allomorphy rule); carries that rule's own
+    /// [`SemanticEffect`].
+    Rule(SemanticEffect),
+}
+
+impl RecoveryKind {
+    /// True for a same-lexeme grammatical variant (`Identity`, `Irregular`,
+    /// or a `Rule` whose effect is inflectional) — always safe to recover
+    /// even when the surface already has its own lexicalized entry. False
+    /// for a derivational `Rule`, where blocking (Aronoff 1976) applies.
+    pub fn is_inflectional(self) -> bool {
+        match self {
+            Self::Identity | Self::Irregular => true,
+            Self::Rule(effect) => effect.is_inflectional(),
+        }
+    }
+}
 
 /// Supported lemmatisation languages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -152,32 +182,52 @@ impl Language {
 /// assert!(lemmatize("", Language::English).is_empty());
 /// ```
 pub fn lemmatize(surface: &str, language: Language) -> Vec<Form> {
+    lemmatize_kinded(surface, language)
+        .into_iter()
+        .map(|(form, _kind)| form)
+        .collect()
+}
+
+/// [`lemmatize`]'s full implementation, additionally tagging each candidate
+/// with the [`RecoveryKind`] that produced it — how `resolve_surface`
+/// (`crates/chat/src/lib.rs`) distinguishes a same-lexeme inflectional
+/// recovery (always safe to union past an existing headword) from a
+/// derivational one (subject to Aronoff-1976 blocking). `lemmatize` itself
+/// is a thin projection of this that every other caller keeps using
+/// unchanged.
+pub fn lemmatize_kinded(surface: &str, language: Language) -> Vec<(Form, RecoveryKind)> {
     let canon = surface.to_ascii_lowercase();
     if canon.is_empty() {
         return Vec::new();
     }
 
     let mut seen: BTreeSet<String> = BTreeSet::new();
-    let mut out: Vec<Form> = Vec::new();
-    let push = |s: String, seen: &mut BTreeSet<String>, out: &mut Vec<Form>| {
+    let mut out: Vec<(Form, RecoveryKind)> = Vec::new();
+    let push = |s: String,
+                kind: RecoveryKind,
+                seen: &mut BTreeSet<String>,
+                out: &mut Vec<(Form, RecoveryKind)>| {
         if s.is_empty() {
             return;
         }
         if !seen.insert(s.clone()) {
             return;
         }
-        out.push(Form {
-            written_rep: s,
-            lang: language.bcp47_tag().to_string(),
-        });
+        out.push((
+            Form {
+                written_rep: s,
+                lang: language.bcp47_tag().to_string(),
+            },
+            kind,
+        ));
     };
 
     // (1) Identity.
-    push(canon.clone(), &mut seen, &mut out);
+    push(canon.clone(), RecoveryKind::Identity, &mut seen, &mut out);
 
     // (2) Irregular lookup.
     for lemma in language.lookup_irregular(&canon) {
-        push(lemma, &mut seen, &mut out);
+        push(lemma, RecoveryKind::Irregular, &mut seen, &mut out);
     }
 
     // (3) + (4) Rule inversion + allomorphy expansion, iterated to
@@ -205,27 +255,28 @@ pub fn lemmatize(surface: &str, language: Language) -> Vec<Form> {
         // candidates from the previous pass (or the seed on pass 0).
         let surfaces: Vec<String> = out[start_idx..end_idx]
             .iter()
-            .map(|f| f.written_rep.clone())
+            .map(|(f, _)| f.written_rep.clone())
             .collect();
         for surface in &surfaces {
             for rule in language.rules() {
+                let kind = RecoveryKind::Rule(rule.effect);
                 let bare_candidates = rule.invert(surface);
                 for bare in &bare_candidates {
-                    push(bare.clone(), &mut seen, &mut out);
+                    push(bare.clone(), kind, &mut seen, &mut out);
                 }
                 if let Affix::Suffix(suf) = &rule.affix {
                     for bare in &bare_candidates {
                         for allo in &allomorphy {
                             let extras = (allo.expand)(bare, surface, &suf.text);
                             for extra in extras {
-                                push(extra, &mut seen, &mut out);
+                                push(extra, kind, &mut seen, &mut out);
                             }
                         }
                     }
                     for allo in &allomorphy {
                         let extras = (allo.expand)("", surface, &suf.text);
                         for extra in extras {
-                            push(extra, &mut seen, &mut out);
+                            push(extra, kind, &mut seen, &mut out);
                         }
                     }
                 }

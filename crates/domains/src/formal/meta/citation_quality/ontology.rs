@@ -113,24 +113,38 @@ pub fn is_dimension(c: CitationQualityConcept) -> bool {
 // ordering follows GRADE's downgrade logic (Guyatt et al. 2008).
 // ---------------------------------------------------------------------------
 
-/// Severity ordinal of a citation-quality dimension. Info(0) < Warning(1)
-/// < Blocking(2).
+/// Severity ordinal of a citation-quality dimension. Declared in ascending
+/// rank order so the derived `Ord` matches the GRADE downgrade ordering
+/// (Guyatt et al. 2008): `Info < Warning < Blocking`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SeverityLevel {
+    /// A defect here is informational only.
+    Info,
+    /// A defect here is recorded as a non-blocking issue.
+    Warning,
+    /// Highest severity: a defect here invalidates the citation. The
+    /// sound-gate dimensions map to this.
+    Blocking,
+}
+
+/// Severity ordinal of a citation-quality dimension. Info < Warning
+/// < Blocking.
 #[derive(Debug, Clone)]
 pub struct Severity;
 
 /// Highest severity: a defect here invalidates the citation. The
 /// sound-gate dimensions map to this.
-pub const SEVERITY_BLOCKING: u8 = 2;
+pub const SEVERITY_BLOCKING: SeverityLevel = SeverityLevel::Blocking;
 /// A defect here is recorded as a non-blocking issue.
-pub const SEVERITY_WARNING: u8 = 1;
+pub const SEVERITY_WARNING: SeverityLevel = SeverityLevel::Warning;
 /// A defect here is informational only.
-pub const SEVERITY_INFO: u8 = 0;
+pub const SEVERITY_INFO: SeverityLevel = SeverityLevel::Info;
 
 impl Quality for Severity {
     type Individual = CitationQualityConcept;
-    type Value = u8;
+    type Value = SeverityLevel;
 
-    fn get(&self, c: &CitationQualityConcept) -> Option<u8> {
+    fn get(&self, c: &CitationQualityConcept) -> Option<SeverityLevel> {
         use CitationQualityConcept as C;
         match c {
             C::Existence | C::ClaimSupport => Some(SEVERITY_BLOCKING),

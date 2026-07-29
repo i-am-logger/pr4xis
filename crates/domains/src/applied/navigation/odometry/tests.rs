@@ -5,6 +5,9 @@ use pr4xis::ontology::Ontology;
 use crate::applied::navigation::odometry::engine::*;
 use crate::applied::navigation::odometry::ontology::*;
 use crate::formal::math::angle::Angle;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -50,23 +53,23 @@ fn slip_corrupts_wheel_odometry_axiom() {
 fn stationary_robot_stays_put() {
     let sit = OdometrySituation {
         pose: OdometryPose::origin(),
-        velocity: 0.0,
-        distance_traveled: 0.0,
-        estimated_error: 0.0,
+        velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+        distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+        estimated_error: Quantity::from_unit(0.0, &unit::METER),
         drift_rate: 0.02,
         step: 0,
     };
     let next = apply_odometry(
         &sit,
         &OdometryAction::DriveForward {
-            velocity: 0.0,
-            heading_rate: 0.0,
-            dt: 1.0,
+            velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+            heading_rate: Quantity::from_unit(0.0, &unit::RADIAN_PER_SECOND),
+            dt: Duration::from_seconds(1.0),
         },
     )
     .unwrap();
-    assert!((next.pose.x).abs() < 1e-10);
-    assert!((next.pose.y).abs() < 1e-10);
+    assert!((next.pose.position.x).abs() < 1e-10);
+    assert!((next.pose.position.y).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -74,25 +77,33 @@ fn stationary_robot_stays_put() {
 fn drive_forward_moves_in_heading_direction() {
     let sit = OdometrySituation {
         pose: OdometryPose::origin(),
-        velocity: 0.0,
-        distance_traveled: 0.0,
-        estimated_error: 0.0,
+        velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+        distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+        estimated_error: Quantity::from_unit(0.0, &unit::METER),
         drift_rate: 0.02,
         step: 0,
     };
     let next = apply_odometry(
         &sit,
         &OdometryAction::DriveForward {
-            velocity: 1.0,
-            heading_rate: 0.0,
-            dt: 10.0,
+            velocity: Quantity::from_unit(1.0, &unit::METER_PER_SECOND),
+            heading_rate: Quantity::from_unit(0.0, &unit::RADIAN_PER_SECOND),
+            dt: Duration::from_seconds(10.0),
         },
     )
     .unwrap();
     // Heading 0 means forward along x
-    assert!((next.pose.x - 10.0).abs() < 0.01, "x = {}", next.pose.x);
-    assert!(next.pose.y.abs() < 0.01, "y = {}", next.pose.y);
-    assert!((next.distance_traveled - 10.0).abs() < 0.01);
+    assert!(
+        (next.pose.position.x - 10.0).abs() < 0.01,
+        "x = {}",
+        next.pose.position.x
+    );
+    assert!(
+        next.pose.position.y.abs() < 0.01,
+        "y = {}",
+        next.pose.position.y
+    );
+    assert!((next.distance_traveled.value - 10.0).abs() < 0.01);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -100,9 +111,9 @@ fn drive_forward_moves_in_heading_direction() {
 fn wheel_tick_straight_line() {
     let sit = OdometrySituation {
         pose: OdometryPose::origin(),
-        velocity: 0.0,
-        distance_traveled: 0.0,
-        estimated_error: 0.0,
+        velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+        distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+        estimated_error: Quantity::from_unit(0.0, &unit::METER),
         drift_rate: 0.02,
         step: 0,
     };
@@ -110,14 +121,22 @@ fn wheel_tick_straight_line() {
     let next = apply_odometry(
         &sit,
         &OdometryAction::WheelTick {
-            left: 1.0,
-            right: 1.0,
-            wheel_base: 0.5,
+            left: Quantity::from_unit(1.0, &unit::METER),
+            right: Quantity::from_unit(1.0, &unit::METER),
+            wheel_base: Quantity::from_unit(0.5, &unit::METER),
         },
     )
     .unwrap();
-    assert!((next.pose.x - 1.0).abs() < 0.01, "x = {}", next.pose.x);
-    assert!(next.pose.y.abs() < 0.01, "y = {}", next.pose.y);
+    assert!(
+        (next.pose.position.x - 1.0).abs() < 0.01,
+        "x = {}",
+        next.pose.position.x
+    );
+    assert!(
+        next.pose.position.y.abs() < 0.01,
+        "y = {}",
+        next.pose.position.y
+    );
     assert!(
         next.pose.heading.radians().abs() < 0.01,
         "heading = {}",
@@ -130,9 +149,9 @@ fn wheel_tick_straight_line() {
 fn wheel_tick_turn_in_place() {
     let sit = OdometrySituation {
         pose: OdometryPose::origin(),
-        velocity: 0.0,
-        distance_traveled: 0.0,
-        estimated_error: 0.0,
+        velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+        distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+        estimated_error: Quantity::from_unit(0.0, &unit::METER),
         drift_rate: 0.02,
         step: 0,
     };
@@ -141,9 +160,9 @@ fn wheel_tick_turn_in_place() {
     let next = apply_odometry(
         &sit,
         &OdometryAction::WheelTick {
-            left: -0.25,
-            right: 0.25,
-            wheel_base,
+            left: Quantity::from_unit(-0.25, &unit::METER),
+            right: Quantity::from_unit(0.25, &unit::METER),
+            wheel_base: Quantity::from_unit(wheel_base, &unit::METER),
         },
     )
     .unwrap();
@@ -161,30 +180,30 @@ fn wheel_tick_turn_in_place() {
 fn error_grows_with_distance() {
     let sit = OdometrySituation {
         pose: OdometryPose::origin(),
-        velocity: 0.0,
-        distance_traveled: 0.0,
-        estimated_error: 0.0,
+        velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+        distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+        estimated_error: Quantity::from_unit(0.0, &unit::METER),
         drift_rate: 0.02,
         step: 0,
     };
     let next = apply_odometry(
         &sit,
         &OdometryAction::DriveForward {
-            velocity: 1.0,
-            heading_rate: 0.0,
-            dt: 100.0,
+            velocity: Quantity::from_unit(1.0, &unit::METER_PER_SECOND),
+            heading_rate: Quantity::from_unit(0.0, &unit::RADIAN_PER_SECOND),
+            dt: Duration::from_seconds(100.0),
         },
     )
     .unwrap();
     assert!(
-        next.estimated_error > 0.0,
+        next.estimated_error.value > 0.0,
         "error should grow: {}",
-        next.estimated_error
+        next.estimated_error.value
     );
     assert!(
-        (next.estimated_error - 0.02 * 100.0).abs() < 0.01,
+        (next.estimated_error.value - 0.02 * 100.0).abs() < 0.01,
         "error should be ~2.0m: {}",
-        next.estimated_error
+        next.estimated_error.value
     );
 }
 
@@ -193,18 +212,18 @@ fn error_grows_with_distance() {
 fn negative_dt_rejected() {
     let sit = OdometrySituation {
         pose: OdometryPose::origin(),
-        velocity: 0.0,
-        distance_traveled: 0.0,
-        estimated_error: 0.0,
+        velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+        distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+        estimated_error: Quantity::from_unit(0.0, &unit::METER),
         drift_rate: 0.02,
         step: 0,
     };
     let result = apply_odometry(
         &sit,
         &OdometryAction::DriveForward {
-            velocity: 1.0,
-            heading_rate: 0.0,
-            dt: -1.0,
+            velocity: Quantity::from_unit(1.0, &unit::METER_PER_SECOND),
+            heading_rate: Quantity::from_unit(0.0, &unit::RADIAN_PER_SECOND),
+            dt: Duration::from_seconds(-1.0),
         },
     );
     assert!(result.is_err());
@@ -227,19 +246,19 @@ mod proptest_proofs {
         ) {
             let sit = OdometrySituation {
                 pose: OdometryPose::origin(),
-                velocity: 0.0,
-                distance_traveled: 50.0,
-                estimated_error: 1.0,
+                velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                distance_traveled: Quantity::from_unit(50.0, &unit::METER),
+                estimated_error: Quantity::from_unit(1.0, &unit::METER),
                 drift_rate: 0.02,
                 step: 0,
             };
             let next = apply_odometry(&sit, &OdometryAction::DriveForward {
-                velocity: v,
-                heading_rate: 0.0,
-                dt,
+                velocity: Quantity::from_unit(v, &unit::METER_PER_SECOND),
+                heading_rate: Quantity::from_unit(0.0, &unit::RADIAN_PER_SECOND),
+                dt: Duration::from_seconds(dt),
             }).unwrap();
             prop_assert!(next.distance_traveled >= sit.distance_traveled,
-                "distance should not decrease: {} vs {}",
+                "distance should not decrease: {:?} vs {:?}",
                 next.distance_traveled, sit.distance_traveled);
         }
 
@@ -250,20 +269,20 @@ mod proptest_proofs {
         ) {
             let sit = OdometrySituation {
                 pose: OdometryPose::origin(),
-                velocity: 0.0,
-                distance_traveled: 10.0,
-                estimated_error: 0.2,
+                velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                distance_traveled: Quantity::from_unit(10.0, &unit::METER),
+                estimated_error: Quantity::from_unit(0.2, &unit::METER),
                 drift_rate: 0.02,
                 step: 0,
             };
             let next = apply_odometry(&sit, &OdometryAction::DriveForward {
-                velocity: v,
-                heading_rate: 0.0,
-                dt,
+                velocity: Quantity::from_unit(v, &unit::METER_PER_SECOND),
+                heading_rate: Quantity::from_unit(0.0, &unit::RADIAN_PER_SECOND),
+                dt: Duration::from_seconds(dt),
             }).unwrap();
-            prop_assert!(next.estimated_error >= sit.estimated_error - 1e-10,
+            prop_assert!(next.estimated_error.value >= sit.estimated_error.value - 1e-10,
                 "error should not decrease: {} vs {}",
-                next.estimated_error, sit.estimated_error);
+                next.estimated_error.value, sit.estimated_error.value);
         }
 
         #[test]
@@ -274,21 +293,21 @@ mod proptest_proofs {
         ) {
             let sit = OdometrySituation {
                 pose: OdometryPose::new(1.0, 2.0, Angle::from_radians(0.5)),
-                velocity: 0.0,
-                distance_traveled: 0.0,
-                estimated_error: 0.0,
+                velocity: Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                distance_traveled: Quantity::from_unit(0.0, &unit::METER),
+                estimated_error: Quantity::from_unit(0.0, &unit::METER),
                 drift_rate: 0.02,
                 step: 0,
             };
             let action = OdometryAction::DriveForward {
-                velocity: v,
-                heading_rate: w,
-                dt,
+                velocity: Quantity::from_unit(v, &unit::METER_PER_SECOND),
+                heading_rate: Quantity::from_unit(w, &unit::RADIAN_PER_SECOND),
+                dt: Duration::from_seconds(dt),
             };
             let r1 = apply_odometry(&sit, &action).unwrap();
             let r2 = apply_odometry(&sit, &action).unwrap();
-            prop_assert!((r1.pose.x - r2.pose.x).abs() < 1e-15);
-            prop_assert!((r1.pose.y - r2.pose.y).abs() < 1e-15);
+            prop_assert!((r1.pose.position.x - r2.pose.position.x).abs() < 1e-15);
+            prop_assert!((r1.pose.position.y - r2.pose.position.y).abs() < 1e-15);
             prop_assert!((r1.pose.heading.radians() - r2.pose.heading.radians()).abs() < 1e-15);
         }
     }

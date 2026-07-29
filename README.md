@@ -3,6 +3,9 @@
 </p>
 
 <p align="center">
+  <a href="https://crates.io/crates/pr4xis"><img src="https://img.shields.io/crates/v/pr4xis.svg" alt="crates.io"/></a>
+  <a href="https://docs.rs/pr4xis-domains"><img src="https://docs.rs/pr4xis-domains/badge.svg" alt="docs.rs"/></a>
+  <a href="https://doi.org/10.5281/zenodo.20755387"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20755387.svg" alt="DOI"/></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white" alt="Rust"/></a>
   <a href="https://nixos.org/"><img src="https://img.shields.io/badge/built_with-nix-5277C3?logo=nixos&logoColor=white" alt="Built with Nix"/></a>
   <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
@@ -11,6 +14,7 @@
 <p align="center">
   <a href="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml"><img src="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI"/></a>
   <a href="https://codecov.io/gh/i-am-logger/pr4xis"><img src="https://codecov.io/gh/i-am-logger/pr4xis/branch/master/graph/badge.svg" alt="Coverage"/></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/i-am-logger/pr4xis"><img src="https://api.securityscorecards.dev/projects/github.com/i-am-logger/pr4xis/badge" alt="OpenSSF Scorecard"/></a>
   <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/demo-pr4xis.dev-blue" alt="Live Demo"/></a>
 </p>
 
@@ -45,7 +49,7 @@ runs the whole suite — the primary `Syntrometry → Pr4xisSubstrate` functor (
 - **LLMs hallucinate by design.** Next-token prediction has no ground truth. When wrong, they cannot tell you which axiom failed because there are no axioms. For creative writing, this is fine. For domains where it kills people, it is unworkable.
 - **Scientific knowledge is siloed.** WordNet, BioPortal, the Gene Ontology, DOLCE, OBO Foundry — rich, well-curated, almost entirely unable to be combined and trusted. Decades of expert curation, no executable substrate to compose them.
 
-pr4xis solves both. It runs on formal scientific knowledge humans have already accumulated and on the 106 domain ontologies built directly in the workspace, with mathematical proof that every connection is sound. **Many more ontologies are still to be added** — the substrate exists precisely so that integration with BioPortal, the Gene Ontology, OBO Foundry, and the rest can be machine-checkable instead of merely hopeful.
+pr4xis solves both. It runs on formal scientific knowledge humans have already accumulated and on the 182 domain ontologies built directly in the workspace (`find crates/domains/src -name ontology.rs | wc -l`), with mathematical proof that every connection is sound. **Many more ontologies are still to be added** — the substrate exists precisely so that integration with BioPortal, the Gene Ontology, OBO Foundry, and the rest can be machine-checkable instead of merely hopeful.
 
 ## Where this matters
 
@@ -78,20 +82,20 @@ pr4xis holds properties about its own reasoning. They are not promises to a user
 - **Consistent** — the axiom base derives no contradiction; it cannot prove a thing and its negation.
 - **Extensible** *(composition)* — new ontologies compose by law-checked functor; the five answer-guarantees still hold.
 
-Honest is the keystone of the answer-guarantees: the others are credible only because the system can stop. And these are not slogans — **every one of the 6,685 tests in `pr4xis-domains` declares, via `#[pr4xis::praxis_value(..)]`, which guarantee it witnesses**, a completeness gate enforces that no test escapes classification, and each guarantee is additionally backed by a machine-checkable axiom or universal property (a consistency check, a totality fuzz, a proof-as-explanation check) — not merely a count of tests. One command re-derives the whole partition:
+Honest is the keystone of the answer-guarantees: the others are credible only because the system can stop. And these are not slogans — **every one of the 7,226 tests in `pr4xis-domains` declares, via `#[pr4xis::praxis_value(..)]`, which guarantee it witnesses**, a completeness gate enforces that no test escapes classification, and each guarantee is additionally backed by a machine-checkable axiom or universal property (a consistency check, a totality fuzz, a proof-as-explanation check) — not merely a count of tests. One command re-derives the whole partition:
 
 ```
-cargo test -p pr4xis-domains --lib -- constitution_coverage -- --nocapture
+cargo test -p pr4xis-domains --lib -- constitution_coverage --nocapture
 ```
 
 | Guarantee | Tests | of which ∀-properties |
 |---|---:|---:|
-| Verifiable | 4,769 (71%) | 877 |
-| Deterministic | 884 (13%) | 270 |
-| Honest | 532 (8%) | 92 |
-| Extensible | 370 (6%) | 41 |
-| Explainable | 129 (2%) | 84 |
-| Consistent | 1 (0%) | 0 |
+| Verifiable | 5,163 (71.5%) | 957 |
+| Deterministic | 923 (12.8%) | 277 |
+| Honest | 594 (8.2%) | 101 |
+| Extensible | 400 (5.5%) | 41 |
+| Explainable | 145 (2.0%) | 95 |
+| Consistent | 1 (0.0%) | 0 |
 
 The per-test declarations are the hard guarantee — `scripts/constitution-gate.sh` fails if any test is untagged or any tag is a typo. The *percentages* are a directional diagnostic: they show that Honest concentrates in operational/adversarial-input code and is thin in pure-knowledge domains, and that Explainable is rare everywhere — real gaps, surfaced by the suite classifying itself. Full account — what enforces each guarantee, what would violate it, why a statistical model cannot make the same promises, and how the classification works — in [The Constitution](docs/understand/constitution.md).
 
@@ -106,6 +110,8 @@ Install, run the CLI, and write your first interaction with the engine: **[docs/
 - **Partner on a safety-critical deployment** in aerospace, biomedical, industrial, or legal.
 
 ## Documentation
+
+Also browsable as a site at **[pr4xis.dev/docs](https://pr4xis.dev/docs/)** — the links below go to the same content on GitHub.
 
 **For a specific audience:**
 
@@ -143,7 +149,7 @@ Install, run the CLI, and write your first interaction with the engine: **[docs/
 | Doc | What it covers |
 |---|---|
 | [Glossary](docs/reference/glossary.md) | Every pr4xis term, in plain English |
-| [Domain catalog](docs/reference/domain-catalog.md) | The 106 ontologies in the workspace and how they are organized |
+| [Domain catalog](docs/reference/domain-catalog.md) | The 182 ontologies in the workspace and how they are organized |
 | [Gap detection](docs/research/gap-detection.md) | The bioelectricity Kv discovery — a concrete result you can verify |
 | [Novelty](docs/research/novelty.md) | What is new about pr4xis, what is prior art, what is pending verification |
 | [Draft papers](docs/research/papers/) | Three drafts: categorical bioelectricity, adjunction-based gap detection, and the ontology-diagnostics meta-ontology |
@@ -156,4 +162,4 @@ CC BY-NC-SA 4.0 — see [LICENSE](LICENSE).
 ---
 
 - **Repo:** [github.com/i-am-logger/pr4xis](https://github.com/i-am-logger/pr4xis)
-- **Document date:** 2026-04-14
+- **Document date:** 2026-07-11

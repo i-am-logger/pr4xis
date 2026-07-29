@@ -170,7 +170,7 @@ mod proptest_proofs {
     }
 
     fn arb_nonzero_vec3() -> impl Strategy<Value = Vec3> {
-        arb_vec3().prop_filter("non-zero", |v| v.norm() > 1e-6)
+        arb_vec3().prop_filter("non-zero", |v| v.norm().value > 1e-6)
     }
 
     fn arb_point2() -> impl Strategy<Value = Point2> {
@@ -182,13 +182,13 @@ mod proptest_proofs {
     proptest! {
         #[test]
         fn distance_is_non_negative(a in arb_point3(), b in arb_point3()) {
-            prop_assert!(a.distance_to(&b) >= 0.0);
+            prop_assert!(a.distance_to(&b).value >= 0.0);
         }
 
         #[test]
         fn distance_is_symmetric(a in arb_point3(), b in arb_point3()) {
-            let ab = a.distance_to(&b);
-            let ba = b.distance_to(&a);
+            let ab = a.distance_to(&b).value;
+            let ba = b.distance_to(&a).value;
             prop_assert!((ab - ba).abs() < 1e-12);
         }
 
@@ -198,15 +198,15 @@ mod proptest_proofs {
             b in arb_point3(),
             c in arb_point3(),
         ) {
-            let ac = a.distance_to(&c);
-            let ab = a.distance_to(&b);
-            let bc = b.distance_to(&c);
+            let ac = a.distance_to(&c).value;
+            let ab = a.distance_to(&b).value;
+            let bc = b.distance_to(&c).value;
             prop_assert!(ac <= ab + bc + 1e-10);
         }
 
         #[test]
         fn distance_to_self_is_zero(a in arb_point3()) {
-            prop_assert!(a.distance_to(&a) < 1e-15);
+            prop_assert!(a.distance_to(&a).value < 1e-15);
         }
 
         // --- Vector space axioms ---
@@ -240,7 +240,7 @@ mod proptest_proofs {
         #[test]
         fn additive_inverse(v in arb_vec3()) {
             let sum = v.add(&v.negate());
-            prop_assert!(sum.norm() < 1e-12);
+            prop_assert!(sum.norm().value < 1e-12);
         }
 
         #[test]
@@ -318,8 +318,8 @@ mod proptest_proofs {
         #[test]
         fn lagrange_identity(a in arb_vec3(), b in arb_vec3()) {
             // |a × b|² = |a|²|b|² - (a·b)²
-            let cross_sq = a.cross(&b).norm_squared();
-            let rhs = a.norm_squared() * b.norm_squared() - a.dot(&b) * a.dot(&b);
+            let cross_sq = a.cross(&b).norm_squared().value;
+            let rhs = a.norm_squared().value * b.norm_squared().value - a.dot(&b) * a.dot(&b);
             prop_assert!((cross_sq - rhs).abs() < 1e-6,
                 "lhs={}, rhs={}", cross_sq, rhs);
         }
@@ -327,7 +327,7 @@ mod proptest_proofs {
         #[test]
         fn rotation_preserves_norm(v in arb_nonzero_vec3()) {
             let unit = v.normalize().unwrap();
-            prop_assert!((unit.norm() - 1.0).abs() < 1e-12);
+            prop_assert!((unit.norm().value - 1.0).abs() < 1e-12);
         }
 
         // --- Projection ---
@@ -412,12 +412,12 @@ mod proptest_proofs {
 
         #[test]
         fn distance_2d_is_non_negative(a in arb_point2(), b in arb_point2()) {
-            prop_assert!(a.distance_to(&b) >= 0.0);
+            prop_assert!(a.distance_to(&b).value >= 0.0);
         }
 
         #[test]
         fn distance_2d_is_symmetric(a in arb_point2(), b in arb_point2()) {
-            prop_assert!((a.distance_to(&b) - b.distance_to(&a)).abs() < 1e-12);
+            prop_assert!((a.distance_to(&b).value - b.distance_to(&a).value).abs() < 1e-12);
         }
 
         #[test]

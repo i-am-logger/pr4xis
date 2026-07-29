@@ -14,6 +14,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// Vogix16 adds semantic names to Base16 slots.
 /// Ansi16 maps to terminal SGR codes (ECMA-48).
 use super::base16::ColorSlot;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
@@ -43,13 +45,14 @@ impl FinitelyGenerated for SchemeType {
 
 impl SchemeType {
     /// Number of color slots this scheme defines.
-    pub fn slot_count(&self) -> usize {
-        match self {
+    pub fn slot_count(&self) -> Quantity {
+        let n = match self {
             Self::Base16 => 16,
             Self::Base24 => 24,
             Self::Vogix16 => 16,
             Self::Ansi16 => 16,
-        }
+        };
+        Quantity::from_unit(f64::from(n), &unit::UNITLESS)
     }
 
     /// Does this scheme extend Base16?
@@ -471,10 +474,22 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_slot_counts() {
-        assert_eq!(SchemeType::Base16.slot_count(), 16);
-        assert_eq!(SchemeType::Base24.slot_count(), 24);
-        assert_eq!(SchemeType::Vogix16.slot_count(), 16);
-        assert_eq!(SchemeType::Ansi16.slot_count(), 16);
+        assert_eq!(
+            SchemeType::Base16.slot_count(),
+            Quantity::from_unit(16.0, &unit::UNITLESS)
+        );
+        assert_eq!(
+            SchemeType::Base24.slot_count(),
+            Quantity::from_unit(24.0, &unit::UNITLESS)
+        );
+        assert_eq!(
+            SchemeType::Vogix16.slot_count(),
+            Quantity::from_unit(16.0, &unit::UNITLESS)
+        );
+        assert_eq!(
+            SchemeType::Ansi16.slot_count(),
+            Quantity::from_unit(16.0, &unit::UNITLESS)
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]

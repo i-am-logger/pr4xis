@@ -6,7 +6,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::ontology::{
     BeyondReasonableDoubtIsMostStringent, PartitionCompleteness, ProofStandardCategory,
     ProofStandardConcept, ProofStandardOntology, StringencyIsTotalOnLeaves, StringencyOf,
-    at_least_as_stringent, is_leaf, leaves,
+    StringencyTier, at_least_as_stringent, is_leaf, leaves,
 };
 use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
@@ -56,7 +56,7 @@ fn three_leaves() {
 fn preponderance_lowest() {
     assert_eq!(
         StringencyOf.get(&ProofStandardConcept::Preponderance),
-        Some(1)
+        Some(StringencyTier::Preponderance)
     );
 }
 
@@ -65,7 +65,7 @@ fn preponderance_lowest() {
 fn beyond_reasonable_doubt_highest() {
     assert_eq!(
         StringencyOf.get(&ProofStandardConcept::BeyondReasonableDoubt),
-        Some(3)
+        Some(StringencyTier::BeyondReasonableDoubt)
     );
 }
 
@@ -80,7 +80,7 @@ fn preponderance_below_clear_and_convincing() {
         .unwrap();
     assert!(
         p < cc,
-        "preponderance ({}) < clear-and-convincing ({})",
+        "preponderance ({:?}) < clear-and-convincing ({:?})",
         p,
         cc
     );
@@ -199,7 +199,8 @@ proptest! {
     /// Every leaf has a unique stringency tier.
     #[test]
     fn prop_tiers_unique(_seed in any::<u32>()) {
-        let mut tiers: Vec<u8> = leaves().iter().map(|c| StringencyOf.get(c).unwrap()).collect();
+        let mut tiers: Vec<StringencyTier> =
+            leaves().iter().map(|c| StringencyOf.get(c).unwrap()).collect();
         tiers.sort();
         let original_len = tiers.len();
         tiers.dedup();

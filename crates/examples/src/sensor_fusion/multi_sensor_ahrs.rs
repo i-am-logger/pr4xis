@@ -17,6 +17,7 @@ mod tests {
     use pr4xis_domains::formal::math::geometry::point::Point3;
     use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
     use pr4xis_domains::formal::math::rotation::quaternion::Quaternion;
+    use pr4xis_domains::formal::math::temporal::duration::Duration;
     use pr4xis_domains::natural::physics::kinematics::velocity::Velocity;
 
     #[test]
@@ -31,7 +32,7 @@ mod tests {
         let sample = ImuSample {
             specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
             angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
-            dt: 0.01,
+            dt: Duration::from_seconds(0.01),
         };
 
         let mut nav = state;
@@ -41,16 +42,16 @@ mod tests {
 
         // Should still be at origin
         assert!(
-            nav.position.distance_to(&Point3::origin()) < 0.1,
+            nav.position.distance_to(&Point3::origin()).value < 0.1,
             "stationary IMU drifted: dist={}",
-            nav.position.distance_to(&Point3::origin())
+            nav.position.distance_to(&Point3::origin()).value
         );
 
         // Attitude should be near identity
         assert!(
-            (nav.attitude.norm() - 1.0).abs() < 1e-10,
+            (nav.attitude.norm().value - 1.0).abs() < 1e-10,
             "attitude quaternion not unit: norm={}",
-            nav.attitude.norm()
+            nav.attitude.norm().value
         );
     }
 
@@ -67,7 +68,7 @@ mod tests {
         let sample = ImuSample {
             specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
             angular_rate: Vector::new(vec![0.0, 0.0, yaw_rate]),
-            dt: 0.01,
+            dt: Duration::from_seconds(0.01),
         };
 
         let mut nav = state;

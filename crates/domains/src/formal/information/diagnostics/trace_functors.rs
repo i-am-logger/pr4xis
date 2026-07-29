@@ -339,7 +339,12 @@ pub fn functor_connections(step: PipelineStep) -> Vec<FunctorConnection> {
         vec![
             FunctorConnection {
                 target_ontology: "Communication (Shannon)",
-                functor_name: "NoisyChannel→Communication",
+                // `ChannelToCommunication` is the registered functor's name.
+                // This row read `NoisyChannel→Communication`, which resolved to
+                // nothing — the same defect as the Execute arm's, one row over
+                // and older. The noisy-channel MODEL is what tokenization's
+                // correction implements; the ARROW is Channel → Communication.
+                functor_name: "Channel→Communication",
                 reference: "Shannon 1948",
             },
             FunctorConnection {
@@ -349,10 +354,36 @@ pub fn functor_connections(step: PipelineStep) -> Vec<FunctorConnection> {
             },
         ]
     } else if step == PipelineStep::PARSE {
+        // NOT the noisy-channel functor TOKENIZE carries. Tokenization really
+        // does decode through a channel — `tokenize::correct_unknown_word_surfaces`
+        // implements the Observation → Correction → Intention adjunction. A CYK
+        // chart parse over pregroup types has no channel and no noise model, so
+        // naming Shannon's coding theorem here would be a citation that does not
+        // hold in a system whose whole claim is that its citations do.
+        //
+        // What IS Shannon here is the MEASURE: the supertag costs are the
+        // negative logs of published CCGbank frequencies (`supertag_costs.rs`),
+        // i.e. self-information, and `chart_reduce` keeps the minimum-cost
+        // derivation per (span, type) — a Viterbi-semiring parse (Goodman 1999)
+        // that therefore minimises total surprisal.
+        //
+        // And the parse's OUTPUT is carried into semantics by a real,
+        // composition-preserving functor: `lambek::montague::interpret` maps
+        // each Lambek type to a semantic domain and reduction to function
+        // application, which is the Montague syntax-semantics homomorphism.
+        // `SupertagCost→Surprisal` is deliberately NOT a row here. That the
+        // costs are negative logs of published frequencies — self-information,
+        // in Shannon's own sense — is a true and cited fact about a MEASURE,
+        // and it is recorded in the comment above where it belongs. It is not
+        // a functor: there is no arrow between two ontologies to name, and a
+        // `FunctorConnection` that names one claims a 1-cell that does not
+        // exist. The Shannon citation travels on the step's own reference
+        // channel instead, which costs the reader nothing and asserts only
+        // what is true.
         vec![FunctorConnection {
-            target_ontology: "Communication (Shannon)",
-            functor_name: "NoisyChannel→Communication",
-            reference: "Shannon 1948",
+            target_ontology: "Montague (semantics)",
+            functor_name: "Lambek→Montague",
+            reference: "Montague 1970; Lambek 1958",
         }]
     } else if step == PipelineStep::INTERPRET {
         vec![
@@ -388,11 +419,29 @@ pub fn functor_connections(step: PipelineStep) -> Vec<FunctorConnection> {
             reference: "Jakobson 1960",
         }]
     } else if step.phase() == MapeKConcept::Execute {
-        vec![FunctorConnection {
-            target_ontology: "Communication (Shannon)",
-            functor_name: "NLG→Communication",
-            reference: "Reiter & Dale 2000",
-        }]
+        // Names the functors that EXIST. `NLG→Communication` sat here and did
+        // not: nothing on the Execute path touches the Communication ontology,
+        // and no such functor is defined or registered anywhere. It was
+        // serialised into `trace_structured` on every single turn, so a
+        // reviewer reading the published trace was reading a functor name that
+        // resolves to nothing — the exact failure the trace exists to prevent.
+        //
+        // What the Execute path really composes is Reiter & Dale's own
+        // pipeline: document planning hands content to the NLG stage
+        // (`DiscourseToNlg`), which hands it to realization (`NlgToPipeline`).
+        // Both are registered and both pass `assert_functor_laws`.
+        vec![
+            FunctorConnection {
+                target_ontology: "NLG (Reiter & Dale)",
+                functor_name: "Discourse→NLG",
+                reference: "Mann & Thompson 1988; Reiter & Dale 2000",
+            },
+            FunctorConnection {
+                target_ontology: "Production (realization)",
+                functor_name: "NLG→Pipeline",
+                reference: "Reiter & Dale 2000",
+            },
+        ]
     } else if step.phase() == MapeKConcept::Analyze {
         vec![
             FunctorConnection {
@@ -658,13 +707,12 @@ mod tests {
     #[test]
     fn traced_pipeline_from_traceable() {
         use super::super::trace_impls;
-        let result = trace_impls::ResponseResult {
-            response: "Yes.".into(),
-            entities_found: vec!["dog".into()],
-            taxonomy_checked: Some(("dog".into(), "mammal".into(), true)),
-            from_ontology: true,
-            reasoned_over: vec![],
-        };
+        use crate::cognitive::linguistics::pragmatics::response::ResponseFrame;
+        let result =
+            trace_impls::ResponseResult::new(ResponseFrame::AssertKnowledge, "Yes.".into())
+                .with_entities_found(vec!["dog".into()])
+                .with_taxonomy_checked(Some(("dog".into(), "mammal".into(), true)))
+                .grounded(true);
         let trace = PipelineTrace::from_traceable(&result);
         assert_eq!(trace.entries.len(), 1);
         assert_eq!(trace.entries[0].step, PipelineStep::CONTENT_DETERMINATION);
@@ -675,14 +723,15 @@ mod tests {
     #[test]
     fn reasoned_over_names_loaded_ontologies_and_keeps_the_success_bit() {
         use super::super::trace_impls;
+        use crate::cognitive::linguistics::pragmatics::response::ResponseFrame;
         // A successful answer that drew on a loaded `.prx` (a USC Title).
-        let result = trace_impls::ResponseResult {
-            response: "First section.".into(),
-            entities_found: vec!["section 1".into()],
-            taxonomy_checked: None,
-            from_ontology: true,
-            reasoned_over: vec![OntologyName::new_static("us_code")],
-        };
+        let result = trace_impls::ResponseResult::new(
+            ResponseFrame::AssertKnowledge,
+            "First section.".into(),
+        )
+        .with_entities_found(vec!["section 1".into()])
+        .grounded(true)
+        .with_reasoned_over(vec![OntologyName::new_static("us_code")]);
         let provenance = PipelineTrace::from_traceable(&result).reasoned_over();
 
         // The compiled pipeline ontology appears as `Compiled`, the loaded one as
@@ -702,13 +751,8 @@ mod tests {
         );
 
         // A FAILED step carries success=false — traversed, not answered-from.
-        let failed = trace_impls::ResponseResult {
-            response: String::new(),
-            entities_found: vec![],
-            taxonomy_checked: None,
-            from_ontology: false,
-            reasoned_over: vec![],
-        };
+        let failed =
+            trace_impls::ResponseResult::new(ResponseFrame::AdmitLimitation, String::new());
         assert!(
             PipelineTrace::from_traceable(&failed)
                 .reasoned_over()
@@ -888,6 +932,150 @@ mod tests {
         );
     }
 
+    /// The noisy channel belongs to TOKENIZE and NOT to PARSE, and the
+    /// difference is not cosmetic.
+    ///
+    /// `tokenize::correct_unknown_word_surfaces` really does decode through a
+    /// channel (Observation → Correction → Intention). A CYK chart parse over
+    /// pregroup types has no channel and no noise model — its Shannon content
+    /// is the MEASURE (supertag costs are negative logs of published CCGbank
+    /// frequencies, so the Viterbi-semiring chart minimises surprisal), and its
+    /// outgoing functor is the Montague syntax-semantics homomorphism.
+    ///
+    /// This is pinned because the trace is published evidence: a reviewer reads
+    /// these functor names beside the step that claims them, and a citation
+    /// that does not hold is worse than no citation in a system whose case
+    /// rests on citations holding.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn parse_claims_montagues_homomorphism_and_no_channel() {
+        let parse = functor_connections(PipelineStep::PARSE);
+        assert!(
+            !parse.iter().any(|c| c.functor_name.contains("Channel")),
+            "a pregroup chart parse decodes no channel — the channel functor \
+             belongs to TOKENIZE, which implements one"
+        );
+        assert!(
+            parse
+                .iter()
+                .any(|c| c.target_ontology == "Montague (semantics)"),
+            "`lambek::montague::interpret` carries the parse into semantics, \
+             and `LambekToMontague` is the arrow that says so"
+        );
+        // A measure identity is NOT an arrow. The supertag costs really are
+        // negative logs of published frequencies — self-information in
+        // Shannon's own sense — and that fact is worth recording, but it
+        // relates a number to its definition, not one ontology to another.
+        // A row here claiming `SupertagCost→Surprisal` asserted a 1-cell that
+        // does not exist, so it is stated in the arm's comment instead.
+        assert!(
+            !parse
+                .iter()
+                .any(|c| c.target_ontology == "Information (Shannon)"),
+            "the supertag-cost/surprisal identity is a fact about a MEASURE; \
+             publishing it as a functor connection claims an arrow between two \
+             ontologies that nothing defines"
+        );
+        // The contrast: TOKENIZE keeps the channel, because it has one.
+        assert!(
+            functor_connections(PipelineStep::TOKENIZE)
+                .iter()
+                .any(|c| c.functor_name.contains("Channel")),
+            "tokenization's unknown-word correction IS a noisy-channel decode"
+        );
+    }
+
+    /// Every functor NAME the trace publishes must be one this codebase can
+    /// point at, and every one must carry a reference.
+    ///
+    /// This exists because `NLG→Communication` sat in the Execute arm and
+    /// resolved to nothing: no such functor was defined, registered, or
+    /// performed anywhere, and nothing on that path touches the Communication
+    /// ontology at all. It was serialised into `trace_structured` on every
+    /// turn, so the published proof path — the artifact whose entire purpose
+    /// is that a reviewer can check it — carried a name that checked out to
+    /// nothing.
+    ///
+    /// Each name must RESOLVE: reading the arrow as "To" must land on a functor
+    /// this codebase actually registered (`Discourse→NLG` ↔ `DiscourseToNlg`).
+    /// The comparison ignores case and punctuation, because the registry
+    /// spells acronyms `Nlg` where the published name spells them `NLG`; it
+    /// does not ignore the identifier itself.
+    ///
+    /// The previous version of this test only *described* that rule — it
+    /// asserted the name was non-empty, contained an arrow, and was not one
+    /// specific dead string. Every row satisfied it by construction, including
+    /// three that resolved to nothing. A gate whose stated rule and actual
+    /// predicate differ is worse than no gate: it reports the property as
+    /// checked. This resolves for real, so an invented name fails here rather
+    /// than shipping into `trace_structured` and the downloadable record.
+    ///
+    /// It still cannot prove a functor is the RIGHT one — only that it exists.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn every_published_functor_name_carries_a_reference_and_a_target() {
+        /// `A→B` and `AToB` compare equal; `NoisyChannel→Communication` and
+        /// `ChannelToCommunication` do not.
+        fn key(name: &str) -> String {
+            name.replace('→', "To")
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect()
+        }
+        let registered: Vec<String> = pr4xis::ontology::registry::FUNCTOR_CONSTRUCTORS
+            .iter()
+            .map(|f| key(f().name.as_str()))
+            .collect();
+
+        for step in PipelineStep::ALL {
+            for c in functor_connections(step) {
+                assert!(
+                    !c.functor_name.is_empty() && c.functor_name.contains('→'),
+                    "{}: a functor name must read as a mapping, got {:?}",
+                    step.operation_name(),
+                    c.functor_name,
+                );
+                // A registered name is the functor's full module path with its
+                // identifier last (`…lambek::montague_functor::LambekToMontague`),
+                // so the published short name must be a SUFFIX of it — not
+                // equal to it.
+                assert!(
+                    registered.iter().any(|r| r.ends_with(&key(c.functor_name))),
+                    "{}: functor {:?} resolves to no registered functor. The \
+                     trace publishes this name as evidence, so it must name \
+                     something a reader can open — either register the functor \
+                     (with `assert_functor_laws`) or drop the row. Registered: \
+                     {registered:?}",
+                    step.operation_name(),
+                    c.functor_name,
+                );
+                assert!(
+                    !c.reference.trim().is_empty(),
+                    "{}: functor {:?} publishes no reference — an unreferenced \
+                     citation in the proof path is the defect this whole trace \
+                     exists to make impossible",
+                    step.operation_name(),
+                    c.functor_name,
+                );
+                assert!(
+                    !c.target_ontology.trim().is_empty(),
+                    "{}: functor {:?} names no target ontology",
+                    step.operation_name(),
+                    c.functor_name,
+                );
+                // The specific dead name, pinned so it cannot return.
+                assert_ne!(
+                    c.functor_name,
+                    "NLG→Communication",
+                    "{}: `NLG→Communication` names no functor in this codebase \
+                     — the Execute path composes Discourse→NLG and NLG→Pipeline",
+                    step.operation_name(),
+                );
+            }
+        }
+    }
+
     #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn interpret_connects_to_drt_and_dialogue() {
@@ -971,6 +1159,41 @@ mod tests {
                 "{:?} should have functor connections",
                 step
             );
+        }
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn every_pipeline_step_names_a_currently_registered_ontology() {
+        // PipelineStep::ontology is a const &'static str, not a call to the
+        // owning ontology's own meta().name() -- architecturally required
+        // (see this file's TraceOntology doc comment: PipelineStep must
+        // stay Copy and const-constructible, and Vocabulary/Provenance are
+        // not const-constructible), so nothing catches a rename of the REAL
+        // ontology drifting out of sync with this literal at compile time.
+        // This test is the runtime drift guard that gap implies: every
+        // step's name must match a genuinely CURRENTLY-registered ontology
+        // (found via a live probe of describe_knowledge_base()'s own
+        // output, not assumed) -- if one of these ever goes stale (the
+        // owning ontology renamed, the literal not updated), this fails
+        // loudly instead of the trace silently naming a Loaded ontology
+        // that doesn't exist.
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let registered: Vec<String> = pr4xis::ontology::describe_knowledge_base()
+                .iter()
+                .map(|v| v.name().to_string())
+                .collect();
+            for step in PipelineStep::ALL {
+                assert!(
+                    registered.iter().any(|n| n == step.ontology_name()),
+                    "{:?}'s ontology_name {:?} does not match any currently \
+                     registered ontology -- the owning ontology was likely \
+                     renamed without updating this const literal",
+                    step,
+                    step.ontology_name()
+                );
+            }
         }
     }
 }

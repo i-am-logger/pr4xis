@@ -3,6 +3,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::category::{Concept, FinitelyGenerated};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// A character — the atomic unit of written communication.
 ///
 /// Characters are abstract symbols that carry no meaning on their own.
@@ -132,8 +135,9 @@ impl Script {
         self.characters.iter().any(|ch| ch.codepoint == c)
     }
 
-    pub fn letter_count(&self) -> usize {
-        self.characters.iter().filter(|c| c.is_letter()).count()
+    pub fn letter_count(&self) -> Quantity {
+        let count = self.characters.iter().filter(|c| c.is_letter()).count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 }
 

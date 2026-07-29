@@ -124,8 +124,11 @@ where
     let extracted_terms = extract_terms(&tree);
     let extracted_relations = extract_relations(&tree);
 
-    out.push_str(&format!("- Parsed clause nodes: {}\n", tree.node_count()));
-    out.push_str(&format!("- Max parse depth: {}\n", tree.max_depth()));
+    out.push_str(&format!(
+        "- Parsed clause nodes: {}\n",
+        tree.node_count().value
+    ));
+    out.push_str(&format!("- Max parse depth: {}\n", tree.max_depth().value));
     out.push_str(&format!(
         "- Extracted headings: {}\n",
         extracted_terms
@@ -144,19 +147,19 @@ where
     out.push_str("## Term-side bridge audit\n\n");
     out.push_str(&format!(
         "- Lock terms matched: {}\n",
-        report.matched_term_count()
+        report.matched_term_count().value
     ));
     out.push_str(&format!(
         "- Lock terms unmatched: {}\n",
-        report.unmatched_term_count()
+        report.unmatched_term_count().value
     ));
     out.push_str(&format!(
         "- Canonical clauses covered: {}\n",
-        report.covered_clause_count()
+        report.covered_clause_count().value
     ));
     out.push_str(&format!(
         "- Canonical clauses uncovered: {}\n",
-        report.uncovered_clause_count()
+        report.uncovered_clause_count().value
     ));
     out.push_str(&format!(
         "- Orphan clauses (no subtree coverage): {}\n\n",

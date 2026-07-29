@@ -52,7 +52,8 @@ The domain content is encoded as morphism edges verified by tests: Schema contai
 
 - `ontology.rs` -- `SchemaConcept`, meta-level category, MdaLevel quality, tests
 - `instance.rs` -- Runtime instance construction (functor to Set)
-- `alignment.rs` -- Schema alignment / mapping construction
+- `alignment.rs` -- Schema alignment / mapping construction (Euzenat & Shvaiko `Alignment`/`Correspondence` category)
+- `sssom.rs` -- SSSOM (Matentzoglu et al. 2022) `SssomMapping`/`SssomMappingSet` — the spec's mandatory-field subset as plain typed data (NOT a `pr4xis::ontology!` category, mirroring `cognitive::linguistics::sumo::ontology`'s instance-data shape); the exchangeable serialization of one concrete `alignment.rs` `Correspondence`. First concrete producer: `cognitive::linguistics::sumo::sssom`.
 - `systems_functor.rs` -- Schema → systems-thinking functor
 - `trace_functor.rs` -- Schema → observability trace functor
 - `trace_schema.rs` -- Trace-specific schema definition

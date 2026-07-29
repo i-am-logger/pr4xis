@@ -13,6 +13,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Beck et al., "Dynamic Graph Visualization" (2017): temporal animation
 /// - W3C PROV-O: provenance data model
 use crate::applied::hmi::report::generator::ThemePalette;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
@@ -146,8 +148,8 @@ impl ReasoningTrace {
         self.result = result;
     }
 
-    pub fn step_count(&self) -> usize {
-        self.steps.len()
+    pub fn step_count(&self) -> Quantity {
+        Quantity::from_unit(self.steps.len() as f64, &unit::UNITLESS)
     }
 }
 
@@ -186,12 +188,12 @@ impl OntologyGraph {
         });
     }
 
-    pub fn node_count(&self) -> usize {
-        self.nodes.len()
+    pub fn node_count(&self) -> Quantity {
+        Quantity::from_unit(self.nodes.len() as f64, &unit::UNITLESS)
     }
 
-    pub fn edge_count(&self) -> usize {
-        self.edges.len()
+    pub fn edge_count(&self) -> Quantity {
+        Quantity::from_unit(self.edges.len() as f64, &unit::UNITLESS)
     }
 }
 
@@ -405,7 +407,7 @@ pub struct TraceMinimalSteps;
 impl Axiom for TraceMinimalSteps {
     fn verify(&self) -> Verdict {
         let t = monotonicity_trace("test", true);
-        if t.step_count() >= 2 {
+        if t.step_count().value >= 2.0 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -873,8 +875,8 @@ mod tests {
     #[test]
     fn test_theming_graph_has_nodes() {
         let g = theming_ontology_graph();
-        assert!(g.node_count() > 20);
-        assert!(g.edge_count() > 15);
+        assert!(g.node_count().value > 20.0);
+        assert!(g.edge_count().value > 15.0);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -887,7 +889,7 @@ mod tests {
     #[test]
     fn test_monotonicity_trace_pass() {
         let t = monotonicity_trace("test-dark", true);
-        assert!(t.step_count() >= 4);
+        assert!(t.step_count().value >= 4.0);
         assert_eq!(t.result, ActivationState::Satisfied);
     }
 

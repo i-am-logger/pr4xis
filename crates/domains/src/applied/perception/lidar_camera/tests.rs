@@ -7,6 +7,7 @@ use crate::applied::perception::lidar_camera::calibration::{
 };
 use crate::applied::perception::lidar_camera::engine::*;
 use crate::applied::perception::lidar_camera::ontology::*;
+use crate::formal::math::geometry::point::Point3;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 
 #[pr4xis::praxis_value(Deterministic)]
@@ -77,15 +78,11 @@ fn project_lidar_points_filters_behind_camera() {
     };
     let points = vec![
         LidarPoint {
-            x: 0.0,
-            y: 0.0,
-            z: 5.0,
+            position: Point3::new(0.0, 0.0, 5.0),
             intensity: 1.0,
         },
         LidarPoint {
-            x: 0.0,
-            y: 0.0,
-            z: -1.0,
+            position: Point3::new(0.0, 0.0, -1.0),
             intensity: 1.0,
         },
     ];

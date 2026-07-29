@@ -202,17 +202,19 @@ pr4xis::ontology! {
     ],
 }
 
+/// Quality: consonance ranking (lower = more consonant). A unitless
+/// perceptual ordinal, not a physical quantity.
 #[derive(Debug, Clone)]
 pub struct ConsonanceRanking;
 impl Quality for ConsonanceRanking {
     type Individual = MusicConcept;
-    type Value = u32;
-    fn get(&self, individual: &MusicConcept) -> Option<u32> {
+    type Value = Quantity;
+    fn get(&self, individual: &MusicConcept) -> Option<Quantity> {
         use MusicConcept::*;
         match individual {
-            Consonance => Some(1),
-            Dissonance => Some(10),
-            OctaveEquivalence => Some(1),
+            Consonance => Some(Quantity::from_unit(1.0, &UNITLESS)),
+            Dissonance => Some(Quantity::from_unit(10.0, &UNITLESS)),
+            OctaveEquivalence => Some(Quantity::from_unit(1.0, &UNITLESS)),
             _ => None,
         }
     }
@@ -289,8 +291,12 @@ impl Axiom for ConsonanceRankedHigher {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use MusicConcept::*;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let c = ConsonanceRanking.get(&Consonance).unwrap_or(u32::MAX);
-        let d = ConsonanceRanking.get(&Dissonance).unwrap_or(0);
+        let c = ConsonanceRanking
+            .get(&Consonance)
+            .unwrap_or(Quantity::from_unit(f64::MAX, &UNITLESS));
+        let d = ConsonanceRanking
+            .get(&Dissonance)
+            .unwrap_or(Quantity::from_unit(0.0, &UNITLESS));
         if c < d {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

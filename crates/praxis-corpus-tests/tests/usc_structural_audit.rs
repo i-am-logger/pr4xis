@@ -49,17 +49,17 @@ fn phase1_structural_audit_across_registered_usc_titles() {
         let label = format!("{}@{}", entry.name, entry.version);
         let audit = audit_structural_content(&bytes)
             .unwrap_or_else(|e| panic!("audit failed for {label}: {e}"));
-        total_dropped += audit.total_dropped();
+        total_dropped += audit.total_dropped().value as i64;
         audited += 1;
 
         // Compact per-title summary line.
         report_lines.push(format!(
             "  {label}: raw_total={}  typed_total={}  total_dropped={}  raw_distinct={}  typed_distinct={}",
-            audit.raw.total(),
-            audit.typed.total(),
-            audit.total_dropped(),
-            audit.raw.distinct(),
-            audit.typed.distinct(),
+            audit.raw.total().value,
+            audit.typed.total().value,
+            audit.total_dropped().value,
+            audit.raw.distinct().value,
+            audit.typed.distinct().value,
         ));
 
         // Per-element dropped-only diff (raw > typed).

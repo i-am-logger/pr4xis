@@ -11,16 +11,42 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::social::judicial::proof_standard::ontology::{
-    ProofStandardConcept, StringencyOf as ReferenceStringency,
+    ProofStandardConcept, StringencyOf as ReferenceStringency, StringencyTier,
 };
 
-/// The minimum stringency tier in the reference layer. Captured as a
-/// constant here so the cross-layer asymmetry axiom is verifiable
-/// without crossing ontology boundaries at axiom time.
+/// Extends the reference layer's [`StringencyTier`] ordering one step
+/// below its minimum (`Preponderance`), so AIR21's below-preponderance
+/// "contributing factor" causation standard is a *typed* ordinal — not
+/// a raw integer compared against the reference layer's raw integer on
+/// a shared, undocumented numeric scale.
+///
+/// `BelowPreponderance` is declared as the first (unit) variant, ahead
+/// of the `Reference(StringencyTier)` wrapping variant. Rust's derived
+/// `Ord` for an enum compares the outer variant index before recursing
+/// into payload fields, so `BelowPreponderance` sorts strictly below
+/// every `Reference(_)` value regardless of which `StringencyTier` is
+/// wrapped — exactly the "below the entire reference partition"
+/// semantics AIR21 needs.
+///
+/// Source: 49 U.S.C. § 42121(b)(2)(B)(i) — statutory text expressly
+/// frames the showing as "a contributing factor" rather than "more
+/// likely than not," establishing the lower bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Air21StringencyTier {
+    BelowPreponderance,
+    Reference(StringencyTier),
+}
+
+/// The minimum stringency tier in the reference layer, wrapped into
+/// [`Air21StringencyTier`]. Captured as a constant here so the
+/// cross-layer asymmetry axiom is verifiable without crossing ontology
+/// boundaries at axiom time.
 ///
 /// Source: `social::judicial::proof_standard::ontology::StringencyOf`
-/// assigns Preponderance = 1 (the lowest reference-layer tier).
-const REFERENCE_MIN_TIER: u8 = 1;
+/// assigns `StringencyTier::Preponderance` as the lowest reference-layer
+/// tier.
+const REFERENCE_MIN_TIER: Air21StringencyTier =
+    Air21StringencyTier::Reference(StringencyTier::Preponderance);
 
 pr4xis::ontology! {
     name: "Air21ProofStandard",
@@ -51,10 +77,10 @@ pr4xis::ontology! {
 // Quality: Air21StringencyOf — extends the reference stringency ordering
 // ---------------------------------------------------------------------------
 
-/// Quality: integer stringency tier for AIR21 contributing-factor
-/// causation. ContributingFactor's tier is **0** — strictly below the
-/// reference layer's minimum (Preponderance = 1). Returns `None` for
-/// the abstract root.
+/// Quality: typed stringency tier for AIR21 contributing-factor
+/// causation. ContributingFactor's tier is [`Air21StringencyTier::BelowPreponderance`]
+/// — strictly below the reference layer's minimum (`Preponderance`).
+/// Returns `None` for the abstract root.
 ///
 /// Source: 49 U.S.C. § 42121(b)(2)(B)(i) — statutory text expressly
 /// frames the showing as "a contributing factor" rather than "more
@@ -64,11 +90,13 @@ pub struct Air21StringencyOf;
 
 impl Quality for Air21StringencyOf {
     type Individual = Air21ProofStandardConcept;
-    type Value = u8;
+    type Value = Air21StringencyTier;
 
-    fn get(&self, c: &Air21ProofStandardConcept) -> Option<u8> {
+    fn get(&self, c: &Air21ProofStandardConcept) -> Option<Air21StringencyTier> {
         match c {
-            Air21ProofStandardConcept::ContributingFactor => Some(0),
+            Air21ProofStandardConcept::ContributingFactor => {
+                Some(Air21StringencyTier::BelowPreponderance)
+            }
             Air21ProofStandardConcept::Air21ProofStandard => None,
         }
     }
@@ -182,7 +210,9 @@ impl Axiom for ReferenceMinTierCoherence {
     fn verify(&self) -> Verdict {
         let reference_preponderance = ReferenceStringency.get(&ProofStandardConcept::Preponderance);
         match reference_preponderance {
-            Some(t) if t == REFERENCE_MIN_TIER => Ok(Box::new(SimpleProof::new(self.meta()))),
+            Some(t) if Air21StringencyTier::Reference(t) == REFERENCE_MIN_TIER => {
+                Ok(Box::new(SimpleProof::new(self.meta())))
+            }
             _ => Err(Box::new(SimpleCounterexample::new(self.meta()))),
         }
     }

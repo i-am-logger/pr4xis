@@ -5,6 +5,7 @@ use pr4xis::ontology::Ontology;
 use crate::applied::navigation::ahrs::engine::*;
 use crate::applied::navigation::ahrs::ontology::*;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::duration::Duration;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -52,13 +53,13 @@ fn zero_gyro_preserves_attitude() {
         attitude: AttitudeEstimate::new(0.1, 0.2, 0.3),
         alpha: 0.98,
         step: 0,
-        total_time: 0.0,
+        total_time: Duration::from_seconds(0.0),
     };
     let next = apply_ahrs(
         &sit,
         &AhrsAction::GyroUpdate {
             angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
-            dt: 0.01,
+            dt: Duration::from_seconds(0.01),
         },
     )
     .unwrap();
@@ -97,7 +98,7 @@ fn accel_at_rest_gives_level() {
         attitude: AttitudeEstimate::new(0.5, 0.5, 0.0), // start tilted
         alpha: 0.0,                                     // trust accel completely
         step: 0,
-        total_time: 0.0,
+        total_time: Duration::from_seconds(0.0),
     };
     let g = 9.80665;
     let next = apply_ahrs(
@@ -127,7 +128,7 @@ fn mag_north_gives_zero_heading() {
         attitude: AttitudeEstimate::new(0.0, 0.0, 1.0), // start with non-zero yaw
         alpha: 0.0,                                     // trust mag completely
         step: 0,
-        total_time: 0.0,
+        total_time: Duration::from_seconds(0.0),
     };
     let next = apply_ahrs(
         &sit,
@@ -151,13 +152,13 @@ fn negative_dt_rejected() {
         attitude: AttitudeEstimate::zero(),
         alpha: 0.98,
         step: 0,
-        total_time: 0.0,
+        total_time: Duration::from_seconds(0.0),
     };
     let result = apply_ahrs(
         &sit,
         &AhrsAction::GyroUpdate {
             angular_rate: Vector::new(vec![0.0, 0.0, 0.1]),
-            dt: -0.01,
+            dt: Duration::from_seconds(-0.01),
         },
     );
     assert!(result.is_err());
@@ -170,7 +171,7 @@ fn zero_accel_rejected() {
         attitude: AttitudeEstimate::zero(),
         alpha: 0.98,
         step: 0,
-        total_time: 0.0,
+        total_time: Duration::from_seconds(0.0),
     };
     let result = apply_ahrs(
         &sit,
@@ -205,11 +206,11 @@ mod proptest_proofs {
                 attitude: AttitudeEstimate::new(roll, pitch, yaw),
                 alpha: 0.98,
                 step: 0,
-                total_time: 0.0,
+                total_time: Duration::from_seconds(0.0),
             };
             let action = AhrsAction::GyroUpdate {
                 angular_rate: Vector::new(vec![wx, wy, wz]),
-                dt,
+                dt: Duration::from_seconds(dt),
             };
             let r1 = apply_ahrs(&sit, &action).unwrap();
             let r2 = apply_ahrs(&sit, &action).unwrap();
@@ -226,11 +227,11 @@ mod proptest_proofs {
                 attitude: AttitudeEstimate::zero(),
                 alpha: 0.98,
                 step: 0,
-                total_time: 0.0,
+                total_time: Duration::from_seconds(0.0),
             };
             let next = apply_ahrs(&sit, &AhrsAction::GyroUpdate {
                 angular_rate: Vector::new(vec![0.0, 0.0, 0.1]),
-                dt,
+                dt: Duration::from_seconds(dt),
             }).unwrap();
             prop_assert!(next.total_time > sit.total_time);
             prop_assert_eq!(next.step, sit.step + 1);
@@ -253,11 +254,11 @@ mod proptest_proofs {
                 attitude: AttitudeEstimate::new(roll, pitch, yaw),
                 alpha,
                 step: 0,
-                total_time: 0.0,
+                total_time: Duration::from_seconds(0.0),
             };
             let next = apply_ahrs(&sit, &AhrsAction::GyroUpdate {
                 angular_rate: Vector::new(vec![wx, wy, wz]),
-                dt,
+                dt: Duration::from_seconds(dt),
             }).unwrap();
 
             // Pure integration: new = old + rate*dt
@@ -290,7 +291,7 @@ mod proptest_proofs {
                 attitude: AttitudeEstimate::new(0.0, 0.0, yaw),
                 alpha: 0.5,
                 step: 0,
-                total_time: 0.0,
+                total_time: Duration::from_seconds(0.0),
             };
             let result = apply_ahrs(&sit, &AhrsAction::AccelCorrection {
                 accel: Vector::new(vec![ax, ay, -g]),

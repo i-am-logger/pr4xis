@@ -28,6 +28,8 @@
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::data_provisioning::registry::{StructuralData, StructuralRelation};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::judicial::citation::PinpointCite;
 use crate::social::judicial::statute_structure::parser::{ClauseNode, ClauseTree};
 use crate::social::judicial::statute_structure::relation_extractor::{
@@ -112,35 +114,50 @@ pub enum ClauseMatchResult {
 
 impl BridgeReport {
     /// Count of lock terms that matched a clause.
-    pub fn matched_term_count(&self) -> usize {
-        self.by_lock_term
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — a count, the same typing discipline as
+    /// `formal::mereology::counting::ontology::cardinality`.
+    pub fn matched_term_count(&self) -> Quantity {
+        let count = self
+            .by_lock_term
             .iter()
             .filter(|r| matches!(r, TermMatchResult::Matched { .. }))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
-    /// Count of lock terms with no matching clause.
-    pub fn unmatched_term_count(&self) -> usize {
-        self.by_lock_term
+    /// Count of lock terms with no matching clause — see
+    /// [`Self::matched_term_count`] for the typing note.
+    pub fn unmatched_term_count(&self) -> Quantity {
+        let count = self
+            .by_lock_term
             .iter()
             .filter(|r| matches!(r, TermMatchResult::Unmatched { .. }))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
-    /// Count of clauses with at least one covering lock term.
-    pub fn covered_clause_count(&self) -> usize {
-        self.by_clause
+    /// Count of clauses with at least one covering lock term — see
+    /// [`Self::matched_term_count`] for the typing note.
+    pub fn covered_clause_count(&self) -> Quantity {
+        let count = self
+            .by_clause
             .iter()
             .filter(|r| matches!(r, ClauseMatchResult::Covered { .. }))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
-    /// Count of clauses with no covering lock term.
-    pub fn uncovered_clause_count(&self) -> usize {
-        self.by_clause
+    /// Count of clauses with no covering lock term — see
+    /// [`Self::matched_term_count`] for the typing note.
+    pub fn uncovered_clause_count(&self) -> Quantity {
+        let count = self
+            .by_clause
             .iter()
             .filter(|r| matches!(r, ClauseMatchResult::Uncovered { .. }))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
     /// All unmatched lock-term CURIEs.
@@ -426,18 +443,25 @@ pub struct RelationBridgeReport {
 }
 
 impl RelationBridgeReport {
-    pub fn lock_backed_count(&self) -> usize {
-        self.by_extracted
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — see [`BridgeReport::matched_term_count`]'s note.
+    pub fn lock_backed_count(&self) -> Quantity {
+        let count = self
+            .by_extracted
             .iter()
             .filter(|r| matches!(r, ExtractedRelationResult::LockBacked { .. }))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
-    pub fn no_match_count(&self) -> usize {
-        self.by_extracted
+    /// See [`BridgeReport::matched_term_count`]'s note.
+    pub fn no_match_count(&self) -> Quantity {
+        let count = self
+            .by_extracted
             .iter()
             .filter(|r| matches!(r, ExtractedRelationResult::NoLockMatch { .. }))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
     /// Indices of extracted candidates that found no lock match.
@@ -605,6 +629,12 @@ mod tests {
     use crate::social::judicial::citation::ontology::PinpointCitationConcept;
     use crate::social::judicial::statute_structure::parser::parse_statute_text;
 
+    /// A dimensionless UNITLESS count quantity, for comparing against the
+    /// `*_count` methods' typed return values in these tests.
+    fn q(n: u32) -> Quantity {
+        Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+    }
+
     fn root_cite() -> PinpointCite {
         PinpointCite::new()
             .push(PinpointCitationConcept::Title, "TEST")
@@ -669,7 +699,7 @@ mod tests {
         let data = make_data(vec![make_term("test:a", "foo")]);
         let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
 
-        assert_eq!(report.matched_term_count(), 1);
+        assert_eq!(report.matched_term_count(), q(1));
         let r = report.lock_term("test:a").expect("term in report");
         if let TermMatchResult::Matched {
             text_match: TextMatch::NameInBody,
@@ -707,7 +737,7 @@ mod tests {
         let data = make_data(vec![make_term("test:b", "missing")]);
         let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
 
-        assert_eq!(report.unmatched_term_count(), 1);
+        assert_eq!(report.unmatched_term_count(), q(1));
         let r = report.lock_term("test:b").expect("term in report");
         if let TermMatchResult::Unmatched {
             reason: UnmatchedReason::SubsectionNotFoundInTree { .. },
@@ -727,8 +757,8 @@ mod tests {
         let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
 
         // (a) covered, (b) uncovered.
-        assert_eq!(report.covered_clause_count(), 1);
-        assert_eq!(report.uncovered_clause_count(), 1);
+        assert_eq!(report.covered_clause_count(), q(1));
+        assert_eq!(report.uncovered_clause_count(), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -741,9 +771,9 @@ mod tests {
         ]);
         let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
 
-        assert_eq!(report.matched_term_count(), 2);
+        assert_eq!(report.matched_term_count(), q(2));
         // Single clause (a) covered by both terms.
-        assert_eq!(report.covered_clause_count(), 1);
+        assert_eq!(report.covered_clause_count(), q(1));
         if let Some(ClauseMatchResult::Covered { lock_term_ids, .. }) = report.by_clause.first() {
             assert_eq!(lock_term_ids.len(), 2);
         } else {
@@ -801,7 +831,7 @@ mod tests {
         let data = make_data(Vec::new());
         let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
         assert!(report.by_lock_term.is_empty());
-        assert_eq!(report.uncovered_clause_count(), 1);
+        assert_eq!(report.uncovered_clause_count(), q(1));
     }
 
     #[pr4xis::praxis_value(Honest)]
@@ -811,7 +841,7 @@ mod tests {
         let data = make_data(vec![make_term("test:a", "Anything")]);
         let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
         // (a) doesn't exist in tree → unmatched.
-        assert_eq!(report.unmatched_term_count(), 1);
+        assert_eq!(report.unmatched_term_count(), q(1));
         // No subdivisions → no clause results.
         assert!(report.by_clause.is_empty());
     }
@@ -961,8 +991,8 @@ mod tests {
             sox_like_mapper,
             2, // Title + Section
         );
-        assert_eq!(report.lock_backed_count(), 1);
-        assert_eq!(report.no_match_count(), 0);
+        assert_eq!(report.lock_backed_count(), q(1));
+        assert_eq!(report.no_match_count(), q(0));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -980,7 +1010,7 @@ mod tests {
         data.relations = vec![make_rel("test:b1a", "test:b1b", "AffirmativeDefenseTo")];
 
         let report = audit_extracted_relations_against_lock(&extracted, &data, sox_like_mapper, 2);
-        assert_eq!(report.lock_backed_count(), 1);
+        assert_eq!(report.lock_backed_count(), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -996,7 +1026,7 @@ mod tests {
         data.relations = vec![make_rel("test:c1", "test:other", "Requires")];
 
         let report = audit_extracted_relations_against_lock(&extracted, &data, sox_like_mapper, 2);
-        assert_eq!(report.no_match_count(), 1);
+        assert_eq!(report.no_match_count(), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -1012,7 +1042,7 @@ mod tests {
         data.relations = vec![make_rel("test:b1", "test:other", "ExhaustionRequiredFor")];
 
         let report = audit_extracted_relations_against_lock(&extracted, &data, sox_like_mapper, 2);
-        assert_eq!(report.lock_backed_count(), 1);
+        assert_eq!(report.lock_backed_count(), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable, Extensible)]

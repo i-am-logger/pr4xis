@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::math::temporal::clock::ClockModel;
 use crate::formal::math::temporal::duration::Duration;
 
@@ -26,14 +28,14 @@ pub struct SensorClock {
     pub sensor: SensorType,
     /// The clock error model (bias, drift, noise characteristics).
     pub model: ClockModel,
-    /// Estimated offset from system time (seconds).
+    /// Estimated offset from system time.
     /// Positive means sensor clock is ahead of system time.
-    pub offset_from_system: f64,
+    pub offset_from_system: Duration,
 }
 
 impl SensorClock {
     /// Create a new sensor clock.
-    pub fn new(sensor: SensorType, model: ClockModel, offset_from_system: f64) -> Self {
+    pub fn new(sensor: SensorType, model: ClockModel, offset_from_system: Duration) -> Self {
         Self {
             sensor,
             model,
@@ -46,31 +48,40 @@ impl SensorClock {
         Self {
             sensor,
             model: ClockModel::ideal(),
-            offset_from_system: 0.0,
+            offset_from_system: Duration::zero(),
         }
     }
 
     /// Convert a sensor timestamp to system time.
     ///
     /// system_time = sensor_time - offset
-    pub fn to_system_time(&self, sensor_time: f64) -> f64 {
-        sensor_time - self.offset_from_system
+    pub fn to_system_time(&self, sensor_time: f64) -> Quantity {
+        Quantity::from_unit(
+            sensor_time - self.offset_from_system.seconds(),
+            &unit::SECOND,
+        )
     }
 
     /// Convert a system timestamp to sensor time.
     ///
     /// sensor_time = system_time + offset
-    pub fn from_system_time(&self, system_time: f64) -> f64 {
-        system_time + self.offset_from_system
+    pub fn from_system_time(&self, system_time: f64) -> Quantity {
+        Quantity::from_unit(
+            system_time + self.offset_from_system.seconds(),
+            &unit::SECOND,
+        )
     }
 
     /// Predicted clock error at elapsed time since last calibration.
-    pub fn predicted_error(&self, elapsed: &Duration) -> f64 {
-        self.model.error_at(elapsed)
+    pub fn predicted_error(&self, elapsed: &Duration) -> Quantity {
+        Quantity::from_unit(self.model.error_at(elapsed), &unit::SECOND)
     }
 
     /// Allan deviation at averaging time tau.
-    pub fn allan_deviation(&self, tau: f64) -> f64 {
+    ///
+    /// Dimensionless by convention (same family as
+    /// `formal::math::temporal::clock::ClockModel::allan_deviation`).
+    pub fn allan_deviation(&self, tau: f64) -> Quantity {
         self.model.allan_deviation(tau)
     }
 }
@@ -83,8 +94,8 @@ mod tests {
     #[test]
     fn ideal_clock_zero_offset() {
         let clock = SensorClock::ideal(SensorType::GnssReceiver);
-        assert!((clock.offset_from_system).abs() < 1e-15);
-        assert!((clock.to_system_time(100.0) - 100.0).abs() < 1e-15);
+        assert!((clock.offset_from_system.seconds()).abs() < 1e-15);
+        assert!((clock.to_system_time(100.0).value - 100.0).abs() < 1e-15);
     }
 
     #[pr4xis::praxis_value(Deterministic)]
@@ -93,20 +104,24 @@ mod tests {
         let clock = SensorClock::new(
             SensorType::IMU,
             ClockModel::ideal(),
-            0.005, // 5ms ahead
+            Duration::from_seconds(0.005), // 5ms ahead
         );
         let system_time = 1000.0;
         let sensor_time = clock.from_system_time(system_time);
-        let recovered = clock.to_system_time(sensor_time);
-        assert!((recovered - system_time).abs() < 1e-12);
+        let recovered = clock.to_system_time(sensor_time.value);
+        assert!((recovered.value - system_time).abs() < 1e-12);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn offset_correction() {
-        let clock = SensorClock::new(SensorType::GnssReceiver, ClockModel::ideal(), 0.1);
+        let clock = SensorClock::new(
+            SensorType::GnssReceiver,
+            ClockModel::ideal(),
+            Duration::from_seconds(0.1),
+        );
         // Sensor says 100.1, but system time is 100.0
-        assert!((clock.to_system_time(100.1) - 100.0).abs() < 1e-12);
+        assert!((clock.to_system_time(100.1).value - 100.0).abs() < 1e-12);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -114,6 +129,6 @@ mod tests {
     fn predicted_error_ideal_is_zero() {
         let clock = SensorClock::ideal(SensorType::IMU);
         let error = clock.predicted_error(&Duration::from_seconds(100.0));
-        assert!(error.abs() < 1e-15);
+        assert!(error.value.abs() < 1e-15);
     }
 }

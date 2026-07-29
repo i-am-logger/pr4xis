@@ -4,18 +4,19 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Expr, Ident, LitStr, Token, braced, bracketed, parenthesized};
 
-/// The transitive relation-kind vocabulary — a DISTILLED, drift-guarded cache of
-/// the Relations ontology's `(R, Transitive, HasProperty)` declarations
-/// (`crates/domains/src/formal/relations/ontology.rs`), the ONE source of truth.
-/// `pr4xis-derive` is the bottom of the dependency graph and CANNOT read Relations
-/// as compiled Rust, so the macro reads this projection of it — the build-time
-/// half of "one declaration, two readers" (the runtime half is `pr4xis-runtime`'s
-/// `declared_transitive_kinds`, which reads its own copy of the same cache). The
-/// file is regenerated from `emit_kind_vocabulary::<RelationsCategory>()` and drift-guarded by a
-/// `transitive_kinds()` re-derivation in the `domains` test suite; a hand-edit or
-/// a stale cache fails that test. This replaces the former hardcoded
-/// `Subsumption / Parthood / Causation` allowlist (the last "code is ontological"
-/// hardcode in the closure tiers).
+/// The transitive relation-kind vocabulary — a DISTILLED, drift-guarded projection
+/// of the Relations ontology's `(R, Transitive, HasProperty)` declarations
+/// (`crates/domains/src/formal/relations/ontology.rs`); `morphism_kinds.prx` is the
+/// authority. `pr4xis-derive` is the bottom of the dependency graph and expands at
+/// COMPILE TIME: it can neither load the `.prx` (a proc-macro does no IO) nor pull
+/// in the archive decoder (that would add a codec dependency to every downstream
+/// compile), so it reads this committed projection at expansion. This is the SINGLE
+/// sanctioned proc-macro exception to "no `.prx` content restated in code" — the
+/// runtime half was removed; `pr4xis-runtime`'s `declared_transitive_kinds` now
+/// derives the set directly from the loaded `morphism_kinds.prx`. The file is
+/// regenerated from `emit_kind_vocabulary::<RelationsCategory>()` and drift-guarded
+/// by a `transitive_kinds()` re-derivation in the `domains` test suite; a hand-edit
+/// or a stale cache fails that test.
 const RELATIONS_TRANSITIVE_KINDS_SRC: &str = include_str!("relations_transitive_kinds.txt");
 
 struct LabelEntry {

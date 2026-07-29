@@ -9,6 +9,9 @@ use pr4xis::engine::{Action, Engine, Precondition, Situation};
 use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 pub const G: f64 = 9.81;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,14 +36,22 @@ impl System {
         })
     }
 
-    pub fn kinetic_energy(&self) -> f64 {
-        0.5 * self.mass * self.velocity * self.velocity
+    /// Kinetic energy KE = ½mv². Helmholtz (1847).
+    pub fn kinetic_energy(&self) -> Quantity {
+        Quantity::new(
+            0.5 * self.mass * self.velocity * self.velocity,
+            Dimension::ENERGY,
+        )
     }
-    pub fn potential_energy(&self) -> f64 {
-        self.mass * G * self.height
+    /// Gravitational potential energy PE = mgh. Helmholtz (1847).
+    pub fn potential_energy(&self) -> Quantity {
+        Quantity::new(self.mass * G * self.height, Dimension::ENERGY)
     }
-    pub fn total_energy(&self) -> f64 {
-        self.kinetic_energy() + self.potential_energy()
+    /// Total mechanical energy E = KE + PE. Helmholtz (1847).
+    pub fn total_energy(&self) -> Quantity {
+        self.kinetic_energy()
+            .add(&self.potential_energy())
+            .expect("kinetic and potential energy always share Dimension::ENERGY")
     }
 }
 
@@ -75,8 +86,8 @@ impl Precondition<EnergyAction> for EnergyConservation {
     fn check(&self, sys: &System, action: &EnergyAction) -> Verdict {
         let meta = energy_meta("EnergyConservation", "KE + PE must remain constant");
         let next = apply_energy_inner(sys, action).unwrap_or_else(|_| sys.clone());
-        let e_before = sys.total_energy();
-        let e_after = next.total_energy();
+        let e_before = sys.total_energy().value;
+        let e_after = next.total_energy().value;
         let scale = e_before.abs().max(1.0);
         if (e_before - e_after).abs() / scale < 1e-6 {
             Ok(Box::new(SimpleProof::new(meta)))
@@ -105,7 +116,7 @@ impl Precondition<EnergyAction> for PhysicalConstraints {
                     return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
                 let pe_needed = sys.mass * G * delta_h;
-                if pe_needed > sys.kinetic_energy() + 1e-6 {
+                if pe_needed > sys.kinetic_energy().value + 1e-6 {
                     return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
             }
@@ -165,7 +176,7 @@ mod tests {
             .unwrap()
             .next(EnergyAction::Drop { delta_h: 5.0 })
             .unwrap();
-        assert!(e.situation().kinetic_energy() > 0.0);
+        assert!(e.situation().kinetic_energy().value > 0.0);
         assert!((e.situation().height - 5.0).abs() < 1e-10);
     }
 
@@ -173,9 +184,9 @@ mod tests {
     #[test]
     fn test_energy_conserved_on_drop() {
         let e0 = new_system(1.0, 0.0, 10.0).unwrap();
-        let e_before = e0.situation().total_energy();
+        let e_before = e0.situation().total_energy().value;
         let e1 = e0.next(EnergyAction::Drop { delta_h: 10.0 }).unwrap();
-        let e_after = e1.situation().total_energy();
+        let e_after = e1.situation().total_energy().value;
         assert!((e_before - e_after).abs() < 0.01);
     }
 
@@ -209,10 +220,10 @@ mod tests {
         #[test]
         fn prop_energy_conserved(mass in 0.1..100.0f64, v in 0.0..50.0f64, h in 1.0..100.0f64) {
             let e0 = new_system(mass, v, h).unwrap();
-            let e_before = e0.situation().total_energy();
+            let e_before = e0.situation().total_energy().value;
             let drop_h = h / 2.0;
             let e1 = e0.next(EnergyAction::Drop { delta_h: drop_h }).unwrap();
-            let e_after = e1.situation().total_energy();
+            let e_after = e1.situation().total_energy().value;
             let scale = e_before.abs().max(1.0);
             prop_assert!((e_before - e_after).abs() / scale < 1e-6);
         }
@@ -221,7 +232,7 @@ mod tests {
         fn prop_ke_nonneg(mass in 0.1..100.0f64, v in 0.0..50.0f64, h in 1.0..100.0f64) {
             let e = new_system(mass, v, h).unwrap()
                 .next(EnergyAction::Drop { delta_h: h / 2.0 }).unwrap();
-            prop_assert!(e.situation().kinetic_energy() >= 0.0);
+            prop_assert!(e.situation().kinetic_energy().value >= 0.0);
         }
 
         #[test]

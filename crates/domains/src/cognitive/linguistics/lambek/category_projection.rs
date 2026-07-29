@@ -214,7 +214,16 @@ mod tests {
     #[pr4xis::praxis_value(Extensible)]
     #[test]
     fn the_pos_rows_recover_the_svo_categories() {
-        assert_eq!(categories_for_class("Noun"), vec![svo::noun()]);
+        // Noun carries BOTH loaded rows in file order -- the bare-noun N and
+        // the nominal-premodifier N/N (Hockenmaier & Steedman 2005, CCGbank
+        // User's Manual MS-CIS-05-09 §3.6.1/§3.6.2: prenominal nouns are
+        // functions from nouns to nouns, structurally identical to how the
+        // Adjective class already carries its own second row below) -- the
+        // second same-key multi-row class; the chart explores both readings.
+        assert_eq!(
+            categories_for_class("Noun"),
+            vec![svo::noun(), svo::nominal_modifier_noun()]
+        );
         assert_eq!(
             categories_for_class_valency("Verb", Some("Intransitive")),
             vec![svo::intransitive_verb()]
@@ -229,7 +238,14 @@ mod tests {
         );
         assert_eq!(categories_for_class("Determiner"), vec![svo::determiner()]);
         assert_eq!(categories_for_class("Numeral"), vec![svo::determiner()]);
-        assert_eq!(categories_for_class("Adjective"), vec![svo::adjective()]);
+        // Adjective carries BOTH loaded rows in file order — the attributive
+        // N/N and the predicative S[adj]\NP (Hockenmaier & Steedman 2007 §3.4
+        // "Predicative adjectives have the category S[adj]\NP") — the first
+        // same-key multi-row class; the chart explores both readings.
+        assert_eq!(
+            categories_for_class("Adjective"),
+            vec![svo::adjective(), svo::predicate_adjective()]
+        );
         assert_eq!(categories_for_class("Adverb"), vec![svo::adverb()]);
         assert_eq!(
             categories_for_class("Preposition"),

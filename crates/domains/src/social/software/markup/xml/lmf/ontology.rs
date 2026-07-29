@@ -3,6 +3,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::category::Concept;
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // WordNet Lexical Markup Framework (LMF) ontology.
 //
 // LMF is an XML application (schema) for encoding lexical databases.
@@ -470,7 +473,7 @@ impl SenseRelationType {
 /// - WordNet-LMF: n, v, a, s, r
 /// - Universal Dependencies: DET, PRON, ADP, CCONJ, SCONJ, PART, AUX, INTJ
 /// - OLiA: Determiner, Pronoun, Copula, Auxiliary, Preposition, etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Concept)]
 #[cfg_attr(
     feature = "prx",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
@@ -722,12 +725,16 @@ pub struct WordNet {
 }
 
 impl WordNet {
-    pub fn synset_count(&self) -> usize {
-        self.synsets.len()
+    /// Count of synsets in this WordNet, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn synset_count(&self) -> Quantity {
+        Quantity::from_unit(self.synsets.len() as f64, &unit::UNITLESS)
     }
 
-    pub fn entry_count(&self) -> usize {
-        self.entries.len()
+    /// Count of lexical entries in this WordNet, as a dimensionless
+    /// [`Quantity`] (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn entry_count(&self) -> Quantity {
+        Quantity::from_unit(self.entries.len() as f64, &unit::UNITLESS)
     }
 
     pub fn find_synset(&self, id: &str) -> Option<&Synset> {

@@ -249,17 +249,20 @@ mod tests {
     use crate::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<OpticsCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         OpticsOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn iso_is_both_lens_and_prism() {
         // Kmett: Iso is the strictest optic — both a Lens and a Prism.
@@ -272,6 +275,7 @@ mod tests {
         assert!(sub.contains(&(OpticsConcept::Iso, OpticsConcept::Prism)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lens_targets_product_prism_targets_sum() {
         // Foster et al. (2007) / Kmett: lens ↔ products, prism ↔ sums.
@@ -285,6 +289,7 @@ mod tests {
         assert!(parthood.contains(&(OpticsConcept::Sum, OpticsConcept::Prism)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn lens_opposes_prism() {
         // Pickering-Gibbons-Wu (2017): lens and prism are dual optics —
@@ -298,6 +303,7 @@ mod tests {
         assert!(opp.contains(&(OpticsConcept::Prism, OpticsConcept::Lens)));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn all_optics_are_optics() {
         // The hierarchy roots at Optic.
@@ -325,6 +331,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn every_concept_has_lineage() {
         let q = OpticsLineage;
@@ -379,4 +386,8 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_lineage_total, Explainable, Verifiable);
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_symmetric, Verifiable);
 }

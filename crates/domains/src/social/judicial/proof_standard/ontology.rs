@@ -47,10 +47,25 @@ pr4xis::ontology! {
 // Quality: StringencyOf — total ordering on the three leaves
 // ---------------------------------------------------------------------------
 
-/// Quality: integer stringency tier for ordering proof standards. Lower
-/// numbers = easier to carry the burden. Calibrated against McCauliff
-/// (1982)'s probability estimates: Preponderance < ClearAndConvincing
-/// < BeyondReasonableDoubt.
+/// Typed ordinal ranking of proof-standard stringency. Declared in
+/// **ascending** stringency order — `Preponderance` (easiest to carry,
+/// formerly tier 1) first, `BeyondReasonableDoubt` (hardest, formerly
+/// tier 3) last — so Rust's derived `Ord` for a fieldless enum
+/// (earlier-declared variant compares as *lesser*) directly mirrors the
+/// original 1..3 numeric tier ordering.
+///
+/// Calibrated against McCauliff (1982)'s probability estimates:
+/// Preponderance < ClearAndConvincing < BeyondReasonableDoubt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum StringencyTier {
+    Preponderance,
+    ClearAndConvincing,
+    BeyondReasonableDoubt,
+}
+
+/// Quality: typed stringency tier for ordering proof standards. Lower
+/// [`StringencyTier`] (per its ascending `Ord`) = easier to carry the
+/// burden.
 ///
 /// Returns `None` for the abstract root `ProofStandard`.
 #[derive(Debug, Clone)]
@@ -58,14 +73,14 @@ pub struct StringencyOf;
 
 impl Quality for StringencyOf {
     type Individual = ProofStandardConcept;
-    type Value = u8;
+    type Value = StringencyTier;
 
-    fn get(&self, c: &ProofStandardConcept) -> Option<u8> {
+    fn get(&self, c: &ProofStandardConcept) -> Option<StringencyTier> {
         use ProofStandardConcept as P;
         match c {
-            P::Preponderance => Some(1),
-            P::ClearAndConvincing => Some(2),
-            P::BeyondReasonableDoubt => Some(3),
+            P::Preponderance => Some(StringencyTier::Preponderance),
+            P::ClearAndConvincing => Some(StringencyTier::ClearAndConvincing),
+            P::BeyondReasonableDoubt => Some(StringencyTier::BeyondReasonableDoubt),
             P::ProofStandard => None,
         }
     }
@@ -160,7 +175,7 @@ pub struct StringencyIsTotalOnLeaves;
 impl Axiom for StringencyIsTotalOnLeaves {
     fn verify(&self) -> Verdict {
         let s = StringencyOf;
-        let mut tiers: Vec<u8> = leaves().iter().map(|c| s.get(c).unwrap_or(0)).collect();
+        let mut tiers: Vec<StringencyTier> = leaves().iter().filter_map(|c| s.get(c)).collect();
         tiers.sort();
         tiers.dedup();
         if tiers.len() == 3 {

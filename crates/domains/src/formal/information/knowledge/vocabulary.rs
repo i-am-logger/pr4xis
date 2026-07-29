@@ -26,6 +26,8 @@ use pr4xis_runtime::ontology::RuntimeOntology;
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
 use crate::formal::information::schema::transport::{Presentation, SchemaValue};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Present a Vocabulary as a Schema Presentation for transport.
 pub fn present_vocabulary(v: &Vocabulary) -> Presentation {
@@ -152,8 +154,9 @@ impl KnowledgeBase {
         Self { vocabularies }
     }
 
-    pub fn vocabulary_count(&self) -> usize {
-        self.vocabularies.len()
+    /// Number of catalogued vocabularies — a dimensionless count.
+    pub fn vocabulary_count(&self) -> Quantity {
+        Quantity::from_unit(self.vocabularies.len() as f64, &unit::UNITLESS)
     }
 
     pub fn total_concepts(&self) -> usize {

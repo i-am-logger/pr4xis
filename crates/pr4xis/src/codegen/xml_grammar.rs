@@ -579,6 +579,7 @@ fn emit_predicate(out: &mut String, fname: &str, table: &str) {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_hex_range() {
         let r = parse_token("[#x20-#xD7FF]").unwrap();
@@ -586,6 +587,7 @@ mod tests {
         assert_eq!(r.hi, 0xD7FF);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_single_hex() {
         let r = parse_token("#x9").unwrap();
@@ -593,6 +595,7 @@ mod tests {
         assert_eq!(r.hi, 9);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_ascii_range() {
         let r = parse_token("[A-Z]").unwrap();
@@ -600,6 +603,7 @@ mod tests {
         assert_eq!(r.hi, 0x5A);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_ascii_literal() {
         let r = parse_token("\":\"").unwrap();
@@ -610,12 +614,14 @@ mod tests {
         assert_eq!(r.hi, 0x5F);
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn rejects_unknown_token() {
         assert!(parse_token("xyzzy").is_none());
         assert!(parse_token("[abc]").is_none()); // not a range
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_full_char_rhs() {
         // The actual §2.2 Char production RHS, verbatim.
@@ -641,6 +647,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn extracts_nt_reference() {
         assert_eq!(
@@ -651,6 +658,7 @@ mod tests {
         assert_eq!(extract_nt_reference("#x20"), None);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn locate_rhs_tolerates_attributes_on_lhs_and_rhs() {
         // Mimics the spec's `<lhs diff="chg">NameStartChar</lhs>`
@@ -661,6 +669,7 @@ mod tests {
         assert!(rhs.contains("[A-Z]"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn resolves_predefined_entity_double_escape() {
         // §4.6's `lt` and `amp` use the double-escape pattern
@@ -671,6 +680,7 @@ mod tests {
         assert_eq!(resolve_predefined_entity_value("&#38;#38;"), Some('&'));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn resolves_predefined_entity_single_escape() {
         // §4.6's `gt`, `apos`, `quot` use a single character ref.
@@ -679,6 +689,7 @@ mod tests {
         assert_eq!(resolve_predefined_entity_value("&#34;"), Some('"'));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_predefined_entity_line_with_extra_whitespace() {
         let decl = parse_predefined_entity_line(r#"<!ENTITY lt     "&#38;#60;">"#).unwrap();
@@ -687,6 +698,7 @@ mod tests {
         assert_eq!(decl.replacement_literal, "&#38;#60;");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn extracts_all_five_predefined_entities_from_spec() {
         // Mini spec slice mirroring the §4.6 markup. Verify all five
@@ -711,6 +723,7 @@ mod tests {
         assert_eq!(by_name.get("quot"), Some(&'"'));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn name_char_resolves_via_nt_expansion() {
         // Mini two-production spec; NameChar references NameStartChar

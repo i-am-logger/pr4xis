@@ -11,6 +11,12 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use super::engine::{Pose2D, PoseGraph};
 
+use crate::formal::math::angle::Angle;
+use crate::formal::math::geometry::point::Point2;
+use crate::formal::math::geometry::vector::Vec2;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 pr4xis::ontology! {
     name: "Slam",
     source: "Grisetti et al. (2010); Durrant-Whyte & Bailey (2006)",
@@ -68,32 +74,46 @@ impl Axiom for ConstraintReducesUncertainty {
         // constraint does not raise the uncertainty 1/tr(H).
         let mut graph = PoseGraph::new();
         graph.add_pose(Pose2D {
-            x: 0.0,
-            y: 0.0,
-            theta: 0.0,
+            position: Point2::new(0.0, 0.0),
+            theta: Angle::ZERO,
         });
         graph.add_pose(Pose2D {
-            x: 1.0,
-            y: 0.0,
-            theta: 0.0,
+            position: Point2::new(1.0, 0.0),
+            theta: Angle::ZERO,
         });
         graph.add_pose(Pose2D {
-            x: 2.0,
-            y: 0.0,
-            theta: 0.0,
+            position: Point2::new(2.0, 0.0),
+            theta: Angle::ZERO,
         });
         graph.add_pose(Pose2D {
-            x: 2.0,
-            y: 1.0,
-            theta: core::f64::consts::FRAC_PI_2,
+            position: Point2::new(2.0, 1.0),
+            theta: Angle::from_radians(core::f64::consts::FRAC_PI_2),
         });
-        graph.add_odometry_edge(0, 1, 1.0, 0.0, 0.0, 1.0);
-        graph.add_odometry_edge(1, 2, 1.0, 0.0, 0.0, 1.0);
-        graph.add_odometry_edge(2, 3, 1.0, 0.0, core::f64::consts::FRAC_PI_2, 1.0);
+        graph.add_odometry_edge(
+            0,
+            1,
+            Vec2::new(1.0, 0.0),
+            Angle::ZERO,
+            Quantity::from_unit(1.0, &unit::UNITLESS),
+        );
+        graph.add_odometry_edge(
+            1,
+            2,
+            Vec2::new(1.0, 0.0),
+            Angle::ZERO,
+            Quantity::from_unit(1.0, &unit::UNITLESS),
+        );
+        graph.add_odometry_edge(
+            2,
+            3,
+            Vec2::new(1.0, 0.0),
+            Angle::from_radians(core::f64::consts::FRAC_PI_2),
+            Quantity::from_unit(1.0, &unit::UNITLESS),
+        );
 
         // Uncertainty as the reciprocal of the total constraint information.
         let uncertainty = |g: &PoseGraph| -> f64 {
-            let information: f64 = g.edges.iter().map(|e| e.information_weight).sum();
+            let information: f64 = g.edges.iter().map(|e| e.information_weight.value).sum();
             if information > 0.0 {
                 1.0 / information
             } else {
@@ -106,7 +126,13 @@ impl Axiom for ConstraintReducesUncertainty {
         // Re-observe the origin pose from the final pose: a valid loop
         // closure carries strictly positive information (inverse measurement
         // covariance).
-        graph.add_loop_closure(3, 0, 0.0, 0.0, 0.0, 2.0);
+        graph.add_loop_closure(
+            3,
+            0,
+            Vec2::new(0.0, 0.0),
+            Angle::ZERO,
+            Quantity::from_unit(2.0, &unit::UNITLESS),
+        );
 
         let uncertainty_after = uncertainty(&graph);
 

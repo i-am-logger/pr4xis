@@ -276,6 +276,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn a_cycle_is_fully_connected() {
         assert!(
@@ -284,6 +285,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn an_isolated_object_fails_full_connectivity() {
         assert!(
@@ -294,6 +296,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn a_one_way_chain_fails_full_connectivity() {
         assert!(

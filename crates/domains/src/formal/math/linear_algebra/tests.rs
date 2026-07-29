@@ -147,7 +147,7 @@ fn eigenvalues_symmetric_converges_for_well_conditioned() {
         );
     }
     // Trace should equal sum of eigenvalues
-    let trace = m.trace();
+    let trace = m.trace().value;
     let ev_sum: f64 = evs.iter().sum();
     assert!(
         (trace - ev_sum).abs() < 1e-6,
@@ -241,7 +241,7 @@ mod proptest_proofs {
         #[test]
         fn vec_additive_inverse(v in arb_vec(3)) {
             let sum = v.add(&v.negate());
-            prop_assert!(sum.norm() < 1e-12);
+            prop_assert!(sum.norm().value < 1e-12);
         }
 
         #[test]
@@ -295,21 +295,21 @@ mod proptest_proofs {
         #[test]
         fn det_of_identity_is_one(n in 1..5_usize) {
             let i = Matrix::identity(n);
-            prop_assert!((determinant::det(&i) - 1.0).abs() < 1e-12);
+            prop_assert!((determinant::det(&i).value - 1.0).abs() < 1e-12);
         }
 
         #[test]
         fn det_transpose_invariance(m in arb_square_matrix(3)) {
-            let d = determinant::det(&m);
-            let dt = determinant::det(&m.transpose());
+            let d = determinant::det(&m).value;
+            let dt = determinant::det(&m.transpose()).value;
             prop_assert!((d - dt).abs() < 1e-6,
                 "det={}, det(T)={}", d, dt);
         }
 
         #[test]
         fn det_multiplicativity(a in arb_square_matrix(2), b in arb_square_matrix(2)) {
-            let lhs = determinant::det(&a.multiply(&b));
-            let rhs = determinant::det(&a) * determinant::det(&b);
+            let lhs = determinant::det(&a.multiply(&b)).value;
+            let rhs = determinant::det(&a).value * determinant::det(&b).value;
             prop_assert!((lhs - rhs).abs() < 1e-4,
                 "det(AB)={}, det(A)*det(B)={}", lhs, rhs);
         }
@@ -323,7 +323,7 @@ mod proptest_proofs {
 
         #[test]
         fn pd_quadratic_form_is_positive(m in arb_pd_matrix(2), x in arb_vec(2)) {
-            if x.norm() > 1e-10 {
+            if x.norm().value > 1e-10 {
                 let q = positive_definite::quadratic_form(&m, &x);
                 prop_assert!(q > -1e-10, "x^T A x = {} for PD matrix", q);
             }
@@ -355,8 +355,8 @@ mod proptest_proofs {
 
         #[test]
         fn trace_is_linear(a in arb_square_matrix(3), b in arb_square_matrix(3)) {
-            let lhs = a.add(&b).trace();
-            let rhs = a.trace() + b.trace();
+            let lhs = a.add(&b).trace().value;
+            let rhs = a.trace().value + b.trace().value;
             prop_assert!((lhs - rhs).abs() < 1e-10);
         }
     }

@@ -97,6 +97,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn emit_then_load_round_trips() {
         let a = sample();
@@ -105,6 +106,7 @@ mod tests {
         assert_eq!(loaded, a);
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn load_refuses_a_wrong_root() {
         let a = sample();
@@ -113,6 +115,7 @@ mod tests {
         assert!(matches!(err, LoadError::RootMismatch { .. }));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn load_refuses_tampered_bytes() {
         let a = sample();
@@ -124,6 +127,7 @@ mod tests {
         assert!(load(&bytes, trusted).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn load_refuses_garbage() {
         let err = load(b"not dag-cbor at all", ContentAddress::of(b"x")).unwrap_err();
@@ -190,5 +194,12 @@ mod tests {
                 prop_assert!(res.is_ok(), "load PANICKED on arbitrary bytes");
             }
         }
+
+        pr4xis::register_praxis_value!(
+            prop_mutated_prx_refused_or_content_identical,
+            Honest,
+            Verifiable
+        );
+        pr4xis::register_praxis_value!(prop_load_is_total_over_arbitrary_bytes, Honest);
     }
 }

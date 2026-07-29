@@ -1,0 +1,75 @@
+# English orthographic grapheme classes — the vowel/consonant partition of the
+# 26 basic-Latin letters used by English spelling, plus the ONE letter whose
+# class is genuinely dual.
+#
+# Why this table exists: the morphological GENERATION rules
+# (`morphology::english::generation`) and the irregular-table oracle
+# (`morphology::english::irregular`) each carried their own private
+#     fn is_vowel(c: char) -> bool { matches!(c, 'a'|'e'|'i'|'o'|'u') }
+# — the English vowel inventory hardcoded as a Rust match arm, duplicated in
+# two files, with `y`'s dual status scattered alongside it as ad-hoc
+# `|| c == 'y'` tests. The RULES those functions implement are cited (Quirk
+# et al. 1985 §3, §3.21; Spencer 1991 §5.2) but the ALPHABET they range over
+# was not loaded from anywhere. This table is that alphabet, loaded and cited,
+# so the rules query a vocabulary instead of a literal.
+#
+# The vowel/consonant split of the Latin alphabet as used for English is not a
+# Unicode property — the UCD classifies these code points only as
+# General_Category=Ll/Lu (letters); it says nothing about vowel-hood, which is
+# a language-specific orthographic fact. So this is an AUTHORED table from the
+# descriptive literature, not a UCD derivation.
+#
+# Sources:
+#   Carney, Edward (1994). *A Survey of English Spelling*. London: Routledge.
+#     The standard descriptive survey of English orthography. Ch. 1 sets out
+#     the basic-Latin letter inventory used by English and its division into
+#     vowel letters <a, e, i, o, u> and consonant letters, and treats <y> as
+#     the letter with dual vowel/consonant function.
+#   Quirk, Randolph; Greenbaum, Sidney; Leech, Geoffrey; Svartvik, Jan (1985).
+#     *A Comprehensive Grammar of the English Language*. London: Longman.
+#     §3.21 states the orthographic plural rule in terms of a *consonant*
+#     before a final <y> ("baby" -> "babies", but "boy" -> "boys" because the
+#     <y> follows a vowel) — i.e. the rule is stated over exactly this
+#     partition, and depends on <y> itself patterning as a vowel in "boy".
+#
+# On <y> (class = Dual): <y> spells a consonant word-initially and
+# syllable-initially ("yes", "beyond") and a vowel elsewhere ("baby",
+# "rhythm", "boy"). Both cited sources treat it as dual rather than assigning
+# it to one class. The consuming code must therefore ask which ROLE it is
+# playing rather than asking a boolean "is it a vowel", and the two roles are
+# separated in the two query methods on the loaded vocabulary — the
+# syllable-peak count treats <y> as a vowel (so "rhythm" has a peak), while
+# the consonant-before-final-<y> test treats a preceding <y> as NOT a
+# consonant (so "boy" -> "boys"). Those are the two behaviours the previous
+# hardcoded `is_vowel` + `|| c == 'y'` pair implemented by hand.
+#
+# Column format:
+#   letter  class   note
+# where class is one of: Vowel | Consonant | Dual
+letter	class	note
+a	Vowel	Carney 1994 Ch.1 — basic vowel letter
+e	Vowel	Carney 1994 Ch.1 — basic vowel letter
+i	Vowel	Carney 1994 Ch.1 — basic vowel letter
+o	Vowel	Carney 1994 Ch.1 — basic vowel letter
+u	Vowel	Carney 1994 Ch.1 — basic vowel letter
+y	Dual	Carney 1994 Ch.1 — consonant word/syllable-initially ("yes"), vowel elsewhere ("baby", "boy"); Quirk et al. 1985 §3.21 relies on the vowel reading in "boy" -> "boys"
+b	Consonant	Carney 1994 Ch.1
+c	Consonant	Carney 1994 Ch.1
+d	Consonant	Carney 1994 Ch.1
+f	Consonant	Carney 1994 Ch.1
+g	Consonant	Carney 1994 Ch.1
+h	Consonant	Carney 1994 Ch.1
+j	Consonant	Carney 1994 Ch.1
+k	Consonant	Carney 1994 Ch.1
+l	Consonant	Carney 1994 Ch.1
+m	Consonant	Carney 1994 Ch.1
+n	Consonant	Carney 1994 Ch.1
+p	Consonant	Carney 1994 Ch.1
+q	Consonant	Carney 1994 Ch.1
+r	Consonant	Carney 1994 Ch.1
+s	Consonant	Carney 1994 Ch.1
+t	Consonant	Carney 1994 Ch.1
+v	Consonant	Carney 1994 Ch.1
+w	Consonant	Carney 1994 Ch.1
+x	Consonant	Carney 1994 Ch.1
+z	Consonant	Carney 1994 Ch.1

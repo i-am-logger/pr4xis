@@ -135,18 +135,24 @@ impl FinitelyGenerated for FloorIndex {
 }
 
 /// Quality: physical height (in floor units) of a `FloorIndex` above the
-/// ground. The mapping is the identity — `FloorIndex(n) → n` units —
+/// ground. The mapping is the identity — `FloorIndex(n) → FloorIndex(n)` —
 /// since per Barney & Dos Santos (1985) every Floor sits one storey above
 /// the previous in a uniform-storey building.
+///
+/// The value type is `FloorIndex` itself, not a bare `usize`: `FloorIndex`
+/// is already the typed index for "storeys above ground", so wrapping it a
+/// second time (e.g. in a `HeightAboveGround(usize)` newtype) would add a
+/// distinct Rust type with no distinct ontological content — the identity
+/// map from one typed index to the same typed index.
 #[derive(Debug, Clone)]
 pub struct HeightFromGround;
 
 impl Quality for HeightFromGround {
     type Individual = FloorIndex;
-    type Value = usize;
+    type Value = FloorIndex;
 
-    fn get(&self, floor: &FloorIndex) -> Option<usize> {
-        Some(floor.0)
+    fn get(&self, floor: &FloorIndex) -> Option<FloorIndex> {
+        Some(*floor)
     }
 }
 
@@ -208,7 +214,7 @@ pub struct GroundFloorIsLowest;
 
 impl Axiom for GroundFloorIsLowest {
     fn verify(&self) -> Verdict {
-        if HeightFromGround.get(&FloorIndex(0)) == Some(0) {
+        if HeightFromGround.get(&FloorIndex(0)) == Some(FloorIndex(0)) {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))
@@ -258,13 +264,13 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ground_floor_index_height_zero() {
-        assert_eq!(HeightFromGround.get(&FloorIndex(0)), Some(0));
+        assert_eq!(HeightFromGround.get(&FloorIndex(0)), Some(FloorIndex(0)));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn floor_index_height_matches_index() {
-        assert_eq!(HeightFromGround.get(&FloorIndex(5)), Some(5));
+        assert_eq!(HeightFromGround.get(&FloorIndex(5)), Some(FloorIndex(5)));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -360,7 +366,7 @@ mod tests {
         #[test]
         fn prop_height_matches_index(f in arb_floor_index()) {
             // HeightFromGround is the identity on the floor index.
-            prop_assert_eq!(HeightFromGround.get(&f), Some(f.0));
+            prop_assert_eq!(HeightFromGround.get(&f), Some(f));
         }
 
         #[test]

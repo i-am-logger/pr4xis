@@ -484,6 +484,7 @@ mod tests {
         },
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn emits_every_concept_as_a_node() {
         let archive = emit::<OrgCategory>();
@@ -493,6 +494,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn emits_the_subsumption_closure_as_edges() {
         let archive = emit::<OrgCategory>();
@@ -510,6 +512,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn emits_each_concepts_gloss_as_its_lexical_and_round_trips() {
         // The labels table the `ontology!` macro generated for this fixture —
@@ -559,6 +562,7 @@ mod tests {
         assert_eq!(employer.lexical.as_deref(), Some("One who employs."));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn emitted_ontology_round_trips_through_the_runtime() {
         let archive = emit::<OrgCategory>();
@@ -567,6 +571,7 @@ mod tests {
         assert_eq!(loaded, archive);
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn axioms_field_is_wired_through_the_codec_round_trip() {
         // The meta-`.prx` declares an `Axiom` concept that `Constrains` a
@@ -636,6 +641,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn emits_declared_domain_axioms_as_nodes_that_round_trip_and_rebind() {
         // The Guild ontology DECLARES two domain axioms in its `axioms:` clause.
@@ -732,6 +738,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn connections_are_wired_through_the_codec_round_trip() {
         // The field-wiring proof for `Archive.connections` (complementing the
@@ -783,6 +790,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn emitted_ontology_rebinds_against_itself() {
         struct Selfish(HashMap<String, ContentAddress>);
@@ -813,6 +821,7 @@ mod tests {
             .expect("the registered Org→Workforce functor must be emitted as a connection")
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn emits_a_registered_functor_as_a_connection() {
         // An ontology that participates in a registered functor emits a NON-EMPTY
@@ -856,6 +865,7 @@ mod tests {
         assert!(conn.laws.contains(&"FunctorCompositionLaw".to_string()));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn the_same_functor_is_emitted_from_both_endpoints() {
         // The connection is incident to BOTH ontologies: emitting either Org or
@@ -872,6 +882,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn the_connection_is_content_addressed_and_action_sensitive() {
         // Non-vacuity: the connection's address depends on its ACTION — mutate
@@ -894,6 +905,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn emitted_connections_survive_the_round_trip_byte_exact() {
         // The connections survive emit → load byte-exact, fail-closed against the
@@ -913,6 +925,7 @@ mod tests {
         assert_eq!(before.address().unwrap(), after.address().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn connections_rebind_by_content_address_agreement() {
         // A connection is admitted into a peer's world only when its source AND
@@ -974,6 +987,7 @@ mod tests {
         ],
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn emit_lexicalizes_a_label_distinct_from_the_identifier_but_the_kind_vocab_does_not() {
         // The MARKED plain projection carries `Enactment`'s gloss but no surface
@@ -1041,6 +1055,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn emit_equals_emit_kind_vocabulary_when_every_label_matches_its_identifier() {
         // The Org fixture's labels all equal their variant names (case-insensitively),

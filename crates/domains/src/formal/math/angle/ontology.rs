@@ -7,6 +7,8 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 use core::f64::consts::{FRAC_PI_2, PI, TAU};
 
 use crate::formal::math::angle::Angle;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Angle",
@@ -22,28 +24,36 @@ pr4xis::ontology! {
     },
 }
 
-/// Quality: the canonical radian measure of each notable angle.
+/// Quality: the canonical radian measure of each notable angle, as a
+/// dimension-safe [`Quantity`] over [`unit::RADIAN`] rather than a bare
+/// `f64` — see the module doc on why `Angle` itself stays a distinct type
+/// (the SI plane-angle dimension is not reliable protection on its own).
 #[derive(Debug, Clone)]
 pub struct RadianMeasure;
 
 impl Quality for RadianMeasure {
     type Individual = AngleConcept;
-    type Value = f64;
+    type Value = Quantity;
 
-    fn get(&self, a: &AngleConcept) -> Option<f64> {
-        Some(match a {
+    fn get(&self, a: &AngleConcept) -> Option<Quantity> {
+        let radians = match a {
             AngleConcept::Zero => 0.0,
             AngleConcept::RightAngle => FRAC_PI_2,
             AngleConcept::StraightAngle => PI,
             AngleConcept::FullTurn => TAU,
-        })
+        };
+        Some(Quantity::from_unit(radians, &unit::RADIAN))
     }
 }
 
 impl AngleConcept {
     /// The notable angle as an [`Angle`] value.
     pub fn angle(&self) -> Angle {
-        Angle::from_radians(RadianMeasure.get(self).unwrap_or(0.0))
+        let radians = RadianMeasure
+            .get(self)
+            .and_then(|q| q.in_unit(&unit::RADIAN))
+            .unwrap_or(0.0);
+        Angle::from_radians(radians)
     }
 }
 

@@ -4,7 +4,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::character::*;
 use super::numeral;
 use super::punctuation;
-use super::special;
 
 // =============================================================================
 // Script tests
@@ -14,7 +13,7 @@ use super::special;
 #[test]
 fn latin_has_52_letters() {
     let latin = latin();
-    assert_eq!(latin.letter_count(), 52); // 26 upper + 26 lower
+    assert_eq!(latin.letter_count().value, 52.0); // 26 upper + 26 lower
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -33,7 +32,7 @@ fn hebrew_is_rtl() {
 #[test]
 fn hebrew_has_27_letters() {
     let hebrew = hebrew();
-    assert_eq!(hebrew.letter_count(), 27); // 22 basic + 5 final forms (sofit)
+    assert_eq!(hebrew.letter_count().value, 27.0); // 22 basic + 5 final forms (sofit)
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -160,29 +159,6 @@ fn roman_numerals() {
     assert_eq!(roman.value_of('V'), Some(5));
     assert_eq!(roman.value_of('X'), Some(10));
     assert_eq!(roman.value_of('M'), Some(1000));
-}
-
-// =============================================================================
-// Special symbol tests
-// =============================================================================
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn common_symbols_exist() {
-    let symbols = special::common_symbols();
-    assert!(symbols.iter().any(|s| s.character == '<'));
-    assert!(symbols.iter().any(|s| s.character == '>'));
-    assert!(symbols.iter().any(|s| s.character == '&'));
-    assert!(symbols.iter().any(|s| s.character == '='));
-}
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn angle_bracket_is_general() {
-    // '<' is General because its meaning depends on language context
-    let symbols = special::common_symbols();
-    let lt = symbols.iter().find(|s| s.character == '<').unwrap();
-    assert_eq!(lt.domain, special::SymbolDomain::General);
 }
 
 // =============================================================================

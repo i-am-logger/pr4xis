@@ -299,6 +299,16 @@ proptest! {
     }
 }
 
+crate::register_praxis_value!(prop_ontology_validates, Verifiable, Deterministic);
+crate::register_praxis_value!(prop_duration_is_total, Verifiable);
+crate::register_praxis_value!(prop_duration_is_positive, Verifiable);
+crate::register_praxis_value!(prop_green_is_longest, Verifiable);
+crate::register_praxis_value!(prop_no_dead_states, Verifiable);
+crate::register_praxis_value!(prop_no_orphan_states, Verifiable);
+crate::register_praxis_value!(prop_quality_deterministic, Deterministic);
+crate::register_praxis_value!(prop_individuals_with_complete, Verifiable);
+crate::register_praxis_value!(prop_all_axioms_hold, Verifiable);
+
 // =============================================================================
 // Property-based tests — Category laws via Ontology
 // =============================================================================
@@ -353,10 +363,18 @@ proptest! {
     }
 }
 
+crate::register_praxis_value!(prop_left_identity, Deterministic);
+crate::register_praxis_value!(prop_right_identity, Deterministic);
+crate::register_praxis_value!(prop_associativity, Deterministic);
+crate::register_praxis_value!(prop_closure, Deterministic);
+crate::register_praxis_value!(prop_morphism_endpoints_valid, Verifiable);
+crate::register_praxis_value!(prop_type_safety, Honest);
+
 // =============================================================================
 // Exhaustive tests
 // =============================================================================
 
+#[crate::praxis_value(Verifiable, Deterministic)]
 #[test]
 fn test_ontology_validates() {
     match TrafficLightOntology::validate() {
@@ -368,6 +386,7 @@ fn test_ontology_validates() {
     }
 }
 
+#[crate::praxis_value(Verifiable, Deterministic)]
 #[test]
 fn test_ontology_check() {
     match super::validate::check_ontology::<TrafficLightOntology>() {
@@ -376,6 +395,7 @@ fn test_ontology_check() {
     }
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_quality_get() {
     let dur = Duration;
@@ -384,6 +404,7 @@ fn test_quality_get() {
     assert_eq!(dur.get(&Light::Green), Some(45));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_quality_individuals_with() {
     let dur = Duration;
@@ -398,11 +419,13 @@ fn expect_proves<A: Axiom>(axiom: A) {
     }
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_axiom_green_is_longest() {
     expect_proves(GreenIsLongest);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn test_axiom_no_dead_states() {
     expect_proves(NoDeadStates);
@@ -457,17 +480,20 @@ mod proc_macro_test {
         opposes: [(Noise, Code)],
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn proc_macro_generates_entity() {
         let concepts = CommunicationConcept::variants();
         assert_eq!(concepts.len(), 8);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn proc_macro_generates_category() {
         assert_category_laws::<CommunicationCategory>();
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn proc_macro_generates_vocabulary() {
         let vocab = CommunicationOntology::vocabulary();
@@ -476,12 +502,14 @@ mod proc_macro_test {
         assert_eq!(vocab.source.as_str(), "Shannon (1948); Jakobson (1960)");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn proc_macro_validates_concept_names() {
         let sender = CommunicationConcept::Sender;
         assert_eq!(sender.name(), "Sender");
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn proc_macro_labels() {
         let labels = CommunicationOntology::labels();
@@ -496,6 +524,7 @@ mod proc_macro_test {
         assert!(def.contains("agent"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn proc_macro_opposition() {
         // Opposition is now expressed as kinded morphisms in the category.
@@ -536,17 +565,20 @@ mod proc_macro_dense_test {
         ],
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn dense_category_generated() {
         let concepts = BiologyConcept::variants();
         assert_eq!(concepts.len(), 4);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn dense_category_laws() {
         assert_category_laws::<BiologyCategory>();
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn dense_vocabulary() {
         let vocab = BiologyOntology::vocabulary();
@@ -554,6 +586,7 @@ mod proc_macro_dense_test {
         assert_eq!(vocab.source.as_str(), "Mayr (1982)");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn dense_taxonomy() {
         // Taxonomy is now expressed as kinded morphisms — filter by Subsumption.
@@ -567,6 +600,7 @@ mod proc_macro_dense_test {
         assert!(subsumption_edges.contains(&(BiologyConcept::Cell, BiologyConcept::Tissue)));
     }
 
+    #[crate::praxis_value(Explainable)]
     #[test]
     fn dense_labels() {
         let labels = BiologyOntology::labels();
@@ -608,6 +642,7 @@ mod proc_macro_closure_test {
         ],
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn custom_kinds_have_no_transitive_closure() {
         // Step1/2/3 aren't in the canonical transitive set, so no
@@ -622,6 +657,7 @@ mod proc_macro_closure_test {
         );
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn subsumption_chain_has_transitive_closure() {
         // Sub ∘ Sub = Sub per OBO-RO transitive_over — closure IS emitted.
@@ -635,6 +671,7 @@ mod proc_macro_closure_test {
         );
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn compose_output_is_in_morphisms() {
         let morphisms = ChainedEdgesCategory::morphisms();

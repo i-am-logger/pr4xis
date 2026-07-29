@@ -54,6 +54,10 @@ pr4xis::ontology! {
         AvailableSource,
         Monitoring,
         Control,
+        ResidentSource,
+        EagerSource,
+        ElectiveSource,
+        DerivedSource,
     ],
 
     labels: {
@@ -62,6 +66,10 @@ pr4xis::ontology! {
         AvailableSource: ("en", "Available source", "A registered source not yet materialized — a known unknown the meta-level can choose to load."),
         Monitoring: ("en", "Monitoring", "The object→meta information flow: the meta-level observes which sources are loaded (Nelson & Narens 1990)."),
         Control: ("en", "Control", "The meta→object information flow: the meta-level loads an available source (Nelson & Narens 1990). The 'load' action."),
+        ResidentSource: ("en", "Resident source", "A loaded source the deployment ships as part of what it IS — installed at construction, never obtained by a control act, and so not releasable by one."),
+        EagerSource: ("en", "Eager source", "A loaded source this deployment declares it fetches at startup rather than waiting to be asked for — obtained without a control act, but releasable by one."),
+        ElectiveSource: ("en", "Elective source", "A loaded source present because the reader invoked control to obtain it, and which the same control may release."),
+        DerivedSource: ("en", "Derived source", "A loaded source the runtime COMPOSED from sources already present — it was never obtained, so no control act releases it; releasing its basis removes it."),
     },
 
     edges: [
@@ -74,6 +82,25 @@ pr4xis::ontology! {
         (Control, AvailableSource, Loads),
         // The state transition control effects.
         (AvailableSource, LoadedSource, BecomesViaControl),
+        // Residency refines the loaded set by HOW each member arrived — the
+        // three ways a source can come to be loaded.
+        (ResidentSource, LoadedSource, SpecializesAsResidency),
+        (EagerSource, LoadedSource, SpecializesAsResidency),
+        (ElectiveSource, LoadedSource, SpecializesAsResidency),
+        (DerivedSource, LoadedSource, SpecializesAsResidency),
+        // …and that is what decides whether control can reverse the arrival.
+        // Nelson & Narens' control flow is not total over the loaded set: a
+        // resident source was never acquired by a control act, so there is no
+        // control act that releases it. Modelling this is what keeps a UI from
+        // offering an unload that cannot be undone.
+        //
+        // A DERIVED source is outside the control flow for the same reason and
+        // one more: it is a FUNCTION of the loaded set, so "release it" is not
+        // a state the object level can occupy while its basis is present — the
+        // next monitoring pass would re-derive it. Control releases the basis,
+        // and the derivative follows.
+        (Control, EagerSource, Releases),
+        (Control, ElectiveSource, Releases),
     ],
 }
 
@@ -104,6 +131,71 @@ impl SourceAvailability {
     }
 }
 
+/// **How a loaded source came to be in the working set** — and therefore
+/// whether the reader may put it back down.
+///
+/// This is a different question from [`Staging`], which reports how a source
+/// *arrived* (baked into the binary vs. fetched at runtime). The two are
+/// independent: an ontology whose bytes ship inside the binary may still be
+/// there because the reader asked for it. Reading `Staging` as a proxy for
+/// releasability conflates the medium with the choice, and the failure mode is
+/// concrete — a resident base tagged as though it had been fetched gets offered
+/// an unload control that no load control can reverse, because the reader never
+/// invoked one to obtain it.
+///
+/// The partition is the deployment's, declared as data — the embedded
+/// manifest's `default_loaded` flag and the eager-residency list — rather than
+/// inferred from what a source is called. The one exception is
+/// [`Residency::Derived`], which a host recognises by the canonical name its own
+/// producer mints from; that is identity equality, not a guess about a name's
+/// shape, but it is an exception and this comment used to deny there were any.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Residency {
+    /// Installed at construction — part of what the deployment *is*.
+    /// [`SourceAvailability::Loaded`] before the reader does anything.
+    Resident,
+    /// Fetched at startup because this deployment declares it eager: obtained
+    /// without a control act, but releasable by one.
+    Eager,
+    /// Loaded because the reader invoked control to obtain it.
+    Elective,
+    /// Composed by the runtime from sources already loaded — obtained by no
+    /// control act, and not releasable by one. It is a FUNCTION of the loaded
+    /// set: releasing what it was derived FROM is what removes it.
+    Derived,
+}
+
+impl Residency {
+    /// Lowercase wire label used by the self-model JSON surface.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Resident => "resident",
+            Self::Eager => "eager",
+            Self::Elective => "elective",
+            Self::Derived => "derived",
+        }
+    }
+
+    /// Whether a control act can *release* this source — the question a host
+    /// asks before offering an unload affordance.
+    ///
+    /// False for [`Residency::Resident`]: control never acquired it, so no
+    /// control releases it. An [`Residency::Eager`] source is releasable even
+    /// though the reader did not ask for it — the deployment fetched it on
+    /// their behalf, and a reader who does not want a large corpus resident
+    /// must be able to say so.
+    ///
+    /// Also false for [`Residency::Derived`], on a stronger argument: it is not
+    /// merely un-acquired but not independently *held*. It is recomputed from
+    /// the loaded set, so an unload control over it would either be undone at
+    /// once by the next derivation or, worse, appear to succeed while the
+    /// knowledge it summarizes is still loaded — an affordance that misreports
+    /// the system's own state.
+    pub fn is_releasable(&self) -> bool {
+        !matches!(self, Self::Resident | Self::Derived)
+    }
+}
+
 /// A loaded source as reported by the runtime — the *monitoring* input.
 ///
 /// `name` is the registry primary key (matches `[sources.<name>]` in
@@ -112,6 +204,10 @@ impl SourceAvailability {
 pub struct LoadedRef {
     pub name: String,
     pub staging: Staging,
+    /// How this source came to be loaded — see [`Residency`]. Carried
+    /// separately from `staging` because releasability follows from the choice,
+    /// not from the medium.
+    pub residency: Residency,
     pub concepts: usize,
     pub morphisms: usize,
 }
@@ -120,12 +216,14 @@ impl LoadedRef {
     pub fn new(
         name: impl Into<String>,
         staging: Staging,
+        residency: Residency,
         concepts: usize,
         morphisms: usize,
     ) -> Self {
         Self {
             name: name.into(),
             staging,
+            residency,
             concepts,
             morphisms,
         }
@@ -153,6 +251,10 @@ pub struct SourceStatus {
     pub availability: SourceAvailability,
     /// The staging a loaded source arrived through; `None` while available.
     pub staging: Option<Staging>,
+    /// How a loaded source came to be in the working set, which is what decides
+    /// whether a host may offer to release it; `None` while available (nothing
+    /// to release). See [`Residency`].
+    pub residency: Option<Residency>,
     /// Concept / morphism counts when loaded; `0` while available.
     pub concepts: usize,
     pub morphisms: usize,
@@ -189,14 +291,15 @@ pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
         .filter(|entry| is_chat_loadable(entry))
         .map(|entry| {
             let hit = loaded.iter().find(|l| l.name == entry.name);
-            let (availability, staging, concepts, morphisms) = match hit {
+            let (availability, staging, residency, concepts, morphisms) = match hit {
                 Some(l) => (
                     SourceAvailability::Loaded,
                     Some(l.staging),
+                    Some(l.residency),
                     l.concepts,
                     l.morphisms,
                 ),
-                None => (SourceAvailability::Available, None, 0, 0),
+                None => (SourceAvailability::Available, None, None, 0, 0),
             };
             SourceStatus {
                 name: entry.name.clone(),
@@ -209,6 +312,7 @@ pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
                     .unwrap_or_else(|| entry.url.clone()),
                 availability,
                 staging,
+                residency,
                 concepts,
                 morphisms,
             }
@@ -230,6 +334,7 @@ pub fn source_catalog(loaded: &[LoadedRef]) -> Vec<SourceStatus> {
                 citation: "Loaded at runtime — content-addressed .prx".to_string(),
                 availability: SourceAvailability::Loaded,
                 staging: Some(l.staging),
+                residency: Some(l.residency),
                 concepts: l.concepts,
                 morphisms: l.morphisms,
             });
@@ -306,7 +411,13 @@ mod tests {
             .expect("registry has a chat-loadable source")
             .name
             .clone();
-        let loaded = [LoadedRef::new(some.clone(), Staging::Embedded, 42, 7)];
+        let loaded = [LoadedRef::new(
+            some.clone(),
+            Staging::Embedded,
+            Residency::Resident,
+            42,
+            7,
+        )];
         let catalog = source_catalog(&loaded);
         let hit = catalog
             .iter()
@@ -325,6 +436,128 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable)]
+    #[test]
+    fn residency_not_staging_decides_what_control_can_release() {
+        // THE property that governs an unload affordance. Staging and residency
+        // are independent, and a host that reads the first for the second gets
+        // it wrong in exactly one direction: a resident base whose bytes ship
+        // embedded looks identical to an embedded-but-elective load, so it is
+        // offered a release that no acquisition can undo — the reader never
+        // performed one.
+        //
+        // The pairs below are all reachable in the shipped deployment: the
+        // caregiving bases (embedded + resident), the one-click demo (embedded
+        // + elective, because the reader clicked), a prefetched title (async +
+        // eager) and a reader-loaded title (async + elective).
+        for (staging, residency, releasable) in [
+            (Staging::Embedded, Residency::Resident, false),
+            (Staging::Embedded, Residency::Elective, true),
+            (Staging::Async, Residency::Eager, true),
+            (Staging::Async, Residency::Elective, true),
+            // …and the derived title lexicon, composed in-process from the
+            // titles already loaded: never acquired, so never released.
+            (Staging::Composed, Residency::Derived, false),
+        ] {
+            assert_eq!(
+                residency.is_releasable(),
+                releasable,
+                "{} + {} must be {}releasable — releasability follows residency, \
+                 never staging",
+                staging_label(staging),
+                residency.label(),
+                if releasable { "" } else { "un" },
+            );
+        }
+
+        // Stated as the invariant rather than a table of cases: staging alone
+        // cannot decide it, because both staging values appear on both sides.
+        assert!(
+            !Residency::Resident.is_releasable(),
+            "a resident source is what the deployment IS; control never \
+             acquired it, so no control releases it"
+        );
+        assert!(
+            Residency::Eager.is_releasable(),
+            "a reader who does not want a prefetched corpus resident must be \
+             able to say so — the deployment fetched it on their behalf, which \
+             is not the same as their having asked for it"
+        );
+        assert!(
+            !Residency::Derived.is_releasable(),
+            "a derived source is a FUNCTION of the loaded set — an unload that \
+             the next derivation immediately undoes would misreport the \
+             system's own state; control releases the basis instead"
+        );
+    }
+
+    /// The DECLARED edges decide releasability — `is_releasable` may not drift
+    /// from them.
+    ///
+    /// The ontology above declares `(Control, EagerSource, Releases)` and
+    /// `(Control, ElectiveSource, Releases)` and deliberately declares no such
+    /// edge for `ResidentSource` or `DerivedSource`. Until this existed, that
+    /// declaration was inert: adding or deleting a `Releases` edge changed no
+    /// behaviour and failed no test, so the Rust `matches!` was the real rule
+    /// and the ontology was commentary. This makes them one statement —
+    /// disagree, and the disagreement is what fails.
+    ///
+    /// Cross-checked rather than derived: `is_releasable` stays a cheap `const`
+    /// -shaped match on the hot path, and this proves the match and the edges
+    /// say the same thing. That is an independent second statement, not the
+    /// tautology of asserting a function equals itself.
+    #[pr4xis::praxis_value(Explainable)]
+    #[test]
+    fn the_declared_releases_edges_decide_releasability() {
+        use pr4xis::category::Category;
+
+        let releasable_by_declaration = |c: KnowledgeBoundaryConcept| {
+            KnowledgeBoundaryCategory::morphisms().iter().any(|m| {
+                m.from == KnowledgeBoundaryConcept::Control
+                    && m.to == c
+                    && m.kind == KnowledgeBoundaryRelationKind::Releases
+            })
+        };
+
+        for (residency, concept) in [
+            (
+                Residency::Resident,
+                KnowledgeBoundaryConcept::ResidentSource,
+            ),
+            (Residency::Eager, KnowledgeBoundaryConcept::EagerSource),
+            (
+                Residency::Elective,
+                KnowledgeBoundaryConcept::ElectiveSource,
+            ),
+            (Residency::Derived, KnowledgeBoundaryConcept::DerivedSource),
+        ] {
+            assert_eq!(
+                residency.is_releasable(),
+                releasable_by_declaration(concept),
+                "{} disagrees with the ontology: is_releasable() says {}, but a \
+                 `Control --Releases--> {concept:?}` edge is {}declared",
+                residency.label(),
+                residency.is_releasable(),
+                if releasable_by_declaration(concept) {
+                    ""
+                } else {
+                    "not "
+                },
+            );
+        }
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn residency_labels_are_stable() {
+        // Wire labels the host reads; renaming one silently changes an
+        // affordance, so they are pinned here alongside `staging_label`'s.
+        assert_eq!(Residency::Resident.label(), "resident");
+        assert_eq!(Residency::Eager.label(), "eager");
+        assert_eq!(Residency::Elective.label(), "elective");
+        assert_eq!(Residency::Derived.label(), "derived");
+    }
+
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn an_unregistered_loaded_ontology_appears_in_the_catalog() {
@@ -332,7 +565,13 @@ mod tests {
         // uploaded `.prx`) is INCLUDED by its OntologyName — the catalog reflects
         // every loaded source, not only registered ones (it was silently dropped
         // before). Its presence is grounded in the LOAD, not a fabricated source.
-        let loaded = [LoadedRef::new("an-uploaded-prx", Staging::Async, 5, 3)];
+        let loaded = [LoadedRef::new(
+            "an-uploaded-prx",
+            Staging::Async,
+            Residency::Elective,
+            5,
+            3,
+        )];
         let catalog = source_catalog(&loaded);
 
         let entry = catalog

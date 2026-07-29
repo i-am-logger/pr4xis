@@ -1,18 +1,34 @@
 //! Worker RPC contract: every `call('TYPE')` site in the chat UI must
-//! have a matching `case 'TYPE':` branch in the worker.
+//! have a matching `case 'TYPE':` branch in the worker, and vice versa.
 //!
 //! This is the regression coverage for the `available_ontologies` bug —
 //! the wasm exposed the method, the UI called it, but the worker's
 //! switch had no case so the worker fell through to its
 //! `unknown message type` default at runtime.
 //!
-//! The contract reads the two source files directly (no browser, no
+//! The one worker (`docs/worker.js`) serves ONE single-page app,
+//! `docs/chat/index.html`, which boots ONE `Pr4xis` instance per page load
+//! from its ONE `createEngine` call. That app carries the generic chat +
+//! self-model/source-loader tool (the Chat and Engine tabs) and the ACL
+//! Caregiver AI Challenge judge-facing surface (the Caregiver tab — a
+//! persistent sidebar over Overview / Track 1 Case / Track 2 Case / Ask /
+//! Evidence Lab / Method, hash-routed under `#caregiver`). The shell's
+//! inline module owns that single boot and hands the SAME engine object to
+//! the caregiver controller (`docs/chat/dashboard.js`) via
+//! `mountCaregiver(engine)`; both reach the worker only through the shared
+//! renderer (`docs/chat/chat-ui.js`, `createEngine`/`sendChat`/…). A worker
+//! case is "called" if ANY worker-consumer UI file calls it, so the
+//! contract reads all of them and unions their `call('TYPE')` sites —
+//! otherwise a caregiver-tab-only RPC (e.g. the Smart-40 console's
+//! `chat_batch`) would read as an orphan case.
+//!
+//! The contract reads the source files directly (no browser, no
 //! wasm-bindgen-test) so the gate runs as a vanilla `cargo test`
 //! integration test in every CI job.
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -22,22 +38,46 @@ fn workspace_root() -> PathBuf {
         .expect("workspace root must be reachable from crates/web/")
 }
 
+/// The UI source files that invoke the worker via `call('TYPE')` — the ONE
+/// app (`index.html`, whose inline module owns the app's single
+/// `createEngine`/boot call), the caregiver tab's controller
+/// (`dashboard.js`, which boots nothing and receives the shared engine via
+/// `mountCaregiver`), and the shared renderer both import (`chat-ui.js`). A
+/// file that is not present yet contributes nothing; the contract unions
+/// the call sites of whichever files exist.
+const WORKER_CONSUMER_UI_FILES: [&str; 3] = [
+    "docs/chat/index.html",
+    "docs/chat/dashboard.js",
+    "docs/chat/chat-ui.js",
+];
+
+/// Every literal `call('TYPE')` RPC type invoked across all worker-consumer UI
+/// files — the union, since the single worker serves every page.
+fn ui_call_types(root: &Path) -> HashSet<String> {
+    let mut out = HashSet::new();
+    for rel in WORKER_CONSUMER_UI_FILES {
+        if let Ok(src) = fs::read_to_string(root.join(rel)) {
+            out.extend(literal_call_types(&src));
+        }
+    }
+    out
+}
+
 #[test]
 fn worker_routes_every_rpc_type_used_by_chat_ui() {
     let root = workspace_root();
-    let ui = fs::read_to_string(root.join("docs/chat/index.html"))
-        .expect("docs/chat/index.html must exist");
     let worker =
         fs::read_to_string(root.join("docs/worker.js")).expect("docs/worker.js must exist");
 
-    let ui_types = literal_call_types(&ui);
+    let ui_types = ui_call_types(&root);
     let worker_cases = case_clauses(&worker);
 
     let missing: Vec<&String> = ui_types.difference(&worker_cases).collect();
     assert!(
         missing.is_empty(),
         "docs/worker.js is missing `case 'TYPE':` branches for these RPC \
-         types invoked from docs/chat/index.html: {missing:?}.\n\n\
+         types invoked from a worker-consumer UI file ({WORKER_CONSUMER_UI_FILES:?}): \
+         {missing:?}.\n\n\
          Add a matching `case 'TYPE': ... break;` clause in the worker's \
          `switch (type)` block so the call doesn't fall through to the \
          `unknown message type` default at runtime."
@@ -47,12 +87,10 @@ fn worker_routes_every_rpc_type_used_by_chat_ui() {
 #[test]
 fn every_worker_case_is_actually_called_by_the_chat_ui() {
     let root = workspace_root();
-    let ui = fs::read_to_string(root.join("docs/chat/index.html"))
-        .expect("docs/chat/index.html must exist");
     let worker =
         fs::read_to_string(root.join("docs/worker.js")).expect("docs/worker.js must exist");
 
-    let ui_types = literal_call_types(&ui);
+    let ui_types = ui_call_types(&root);
     let worker_cases = case_clauses(&worker);
 
     // Two RPC types are dispatched via a variable (`const rpc = kind === 'prx'
@@ -70,9 +108,10 @@ fn every_worker_case_is_actually_called_by_the_chat_ui() {
         .collect();
     assert!(
         orphans.is_empty(),
-        "docs/worker.js has `case 'TYPE':` branches with no caller in \
-         docs/chat/index.html: {orphans:?}. Either the UI lost a call \
-         site or the case is dead — delete it or wire the UI back up."
+        "docs/worker.js has `case 'TYPE':` branches with no caller in any \
+         worker-consumer UI file ({WORKER_CONSUMER_UI_FILES:?}): {orphans:?}. \
+         Either a page lost a call site or the case is dead — wire a \
+         `call('TYPE', …)` in the page that uses it, or delete the case."
     );
 }
 

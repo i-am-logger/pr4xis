@@ -66,6 +66,16 @@ use alloc::{
 
 use pr4xis_runtime::address::ContentAddress;
 
+// The registry envelope codec (`encode_registry` / `decode_registry`) and the
+// baked root const are the shared [`prx_envelope`](super::prx_envelope) module —
+// the SAME framing every other `.prx` uses, shared byte-for-byte with the build
+// script. Re-exported so `registry_prx::{encode_registry, decode_registry,
+// PRAXIS_REGISTRY_ROOT_HEX}` stays the manifest codec's path for the crate's
+// other consumers (and its tests). Only the domain-typed gate
+// (`load_registry_manifest`, `registry_archive_address`), which reaches the
+// kernel `ContentAddress` primitive, lives here.
+pub use super::prx_envelope::{PRAXIS_REGISTRY_ROOT_HEX, decode_registry, encode_registry};
+
 /// The committed registry MANIFEST `.prx` — the projected
 /// `praxis.toml` + `praxis.lock`, embedded at build time at a FIXED crate-local
 /// path (NOT a workspace-relative one), so the PUBLISHED crate — unpacked under
@@ -75,90 +85,6 @@ pub const PRAXIS_REGISTRY_PRX: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/data/registry/praxis-registry.prx"
 ));
-
-/// The trusted content address (Merkle-style digest) of [`PRAXIS_REGISTRY_PRX`] —
-/// the registry root, the ONE content-address that lives in Rust. The fail-closed
-/// [`load_registry_manifest`] gate admits the embedded bytes only if they
-/// re-derive to this value, so a tampered or stale manifest `.prx` is refused,
-/// never silently mis-loaded. Regenerated (with the `.prx` itself) by
-/// `cargo test -p pr4xis-domains -- --ignored regenerate_praxis_registry_prx`.
-pub const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "873a0b972c8768b6b87d8cf663e1a30716280cce5d30cef36e623f1f0aca886b";
-
-/// Append `bytes` length-prefixed (LEB128 varint length + raw bytes) — the SAME
-/// framing as [`raw_source_prx::encode_raw_source`](super::raw_source_prx), so
-/// the manifest envelope is portable across toolchains/targets (wasm32 included)
-/// and its content address is stable.
-fn put_blob(out: &mut Vec<u8>, bytes: &[u8]) {
-    let mut n = bytes.len() as u64;
-    loop {
-        let b = (n & 0x7f) as u8;
-        n >>= 7;
-        if n == 0 {
-            out.push(b);
-            break;
-        }
-        out.push(b | 0x80);
-    }
-    out.extend_from_slice(bytes);
-}
-
-/// Read one length-prefixed blob, fully bounds-checked — a truncated envelope is
-/// an `Err`, never a panic (the panic-proof reader the gate relies on).
-fn get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], String> {
-    let mut len: u64 = 0;
-    let mut shift = 0u32;
-    loop {
-        let b = *buf
-            .get(*pos)
-            .ok_or_else(|| "registry .prx varint runs past end of buffer".to_string())?;
-        *pos += 1;
-        len |= u64::from(b & 0x7f) << shift;
-        if b & 0x80 == 0 {
-            break;
-        }
-        shift += 7;
-        if shift >= 64 {
-            return Err("registry .prx varint length overflow".to_string());
-        }
-    }
-    let len = len as usize;
-    let end = pos
-        .checked_add(len)
-        .filter(|&e| e <= buf.len())
-        .ok_or_else(|| "registry .prx blob runs past end of buffer".to_string())?;
-    let b = &buf[*pos..end];
-    *pos = end;
-    Ok(b)
-}
-
-/// Encode the registry manifest into the portable succinct envelope:
-/// `put_blob(praxis.toml bytes) put_blob(praxis.lock bytes)`. Dependency-free
-/// LEB128 framing — the content address taken over these bytes is the registry
-/// root [`PRAXIS_REGISTRY_ROOT_HEX`] pins.
-#[must_use]
-pub fn encode_registry(toml: &[u8], lock: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(toml.len() + lock.len() + 16);
-    put_blob(&mut out, toml);
-    put_blob(&mut out, lock);
-    out
-}
-
-/// Decode a registry envelope back into `(praxis.toml text, praxis.lock text)` —
-/// the exact inverse of [`encode_registry`]. Fail-closed on a truncated /
-/// malformed envelope or non-UTF-8 payload.
-pub fn decode_registry(buf: &[u8]) -> Result<(String, String), String> {
-    let mut pos = 0usize;
-    let toml = get_blob(buf, &mut pos)?;
-    let lock = get_blob(buf, &mut pos)?;
-    let toml = core::str::from_utf8(toml)
-        .map_err(|e| format!("registry .prx praxis.toml payload is not UTF-8: {e}"))?
-        .to_string();
-    let lock = core::str::from_utf8(lock)
-        .map_err(|e| format!("registry .prx praxis.lock payload is not UTF-8: {e}"))?
-        .to_string();
-    Ok((toml, lock))
-}
 
 /// The content address of a registry `.prx` — the digest of its succinct bytes as
 /// 64-char lowercase hex (the value baked into [`PRAXIS_REGISTRY_ROOT_HEX`]).
@@ -315,35 +241,11 @@ mod tests {
         );
     }
 
-    /// DRIFT GUARD: `build.rs`'s baked `PRAXIS_REGISTRY_ROOT_HEX` MUST equal this
-    /// runtime anchor. They are two independent copies of the same blake3 root of
-    /// the committed `praxis-registry.prx`. The in-workspace build reads the root
-    /// from `praxis.lock`, so build.rs's copy is exercised ONLY by the isolated
-    /// `cargo publish --verify` — a drift there is invisible to every ordinary
-    /// build and TEST, so it stayed hidden until release, wedging the v0.26.0 and
-    /// v0.27.0 publishes of `pr4xis-domains`. This test runs in the ordinary suite
-    /// and fails the instant the two constants diverge, so the drift can never
-    /// reach a release again.
-    #[pr4xis::praxis_value(Deterministic)]
-    #[test]
-    fn build_side_registry_root_hex_matches_runtime_anchor() {
-        let build_rs = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/build.rs"))
-            .expect("read build.rs");
-        let after = build_rs
-            .split("const PRAXIS_REGISTRY_ROOT_HEX: &str =")
-            .nth(1)
-            .expect("build.rs declares PRAXIS_REGISTRY_ROOT_HEX");
-        let baked = after
-            .split('"')
-            .nth(1)
-            .expect("build.rs const carries a string literal");
-        assert_eq!(
-            baked, PRAXIS_REGISTRY_ROOT_HEX,
-            "build.rs baked registry root has DRIFTED from the runtime anchor — the \
-             isolated `cargo publish --verify` will reject the committed .prx and wedge \
-             the release. Sync build.rs to {PRAXIS_REGISTRY_ROOT_HEX}."
-        );
-    }
+    // (The former `build_side_registry_root_hex_matches_runtime_anchor` drift
+    // guard is GONE: build.rs no longer carries its own `PRAXIS_REGISTRY_ROOT_HEX`
+    // copy — it `#[path]`-includes the shared `prx_envelope` module, whose single
+    // `PRAXIS_REGISTRY_ROOT_HEX` this module re-exports. There is one definition,
+    // so the build/runtime twin the guard policed can no longer exist.)
 
     // ENCODE/DECODE ROUND-TRIP (the manifest ⇄ `.prx` GetPut law): forall
     // toml/lock byte payloads, `decode(encode(t, l)) == (t, l)` and the content

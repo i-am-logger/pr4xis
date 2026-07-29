@@ -5,6 +5,12 @@ edition = "2024"
 publish = false
 description = "Heavy-corpus producer/round-trip tests for praxis. These parse the multi-hundred-MB USC titles / WordNet corpora that are too large to re-parse per test. Run under `cargo test` (NOT nextest): all `#[test]`s in one test binary are threads in ONE process, so a `LazyLock` fixture parses each giant ONCE and every assertion shares it — the parse-once-immutable principle the .prx itself embodies. Excluded from the default workspace so this heavy lane never runs under `cargo test --workspace` / nextest; CI invokes it explicitly via `--manifest-path`."
 
+[build-dependencies]
+# build.rs reads the caregiver corpus fixture + its classification snapshot
+# and emits one `#[test]` per question — mechanical Rust source generation
+# from committed JSON, never hand-typed question literals.
+serde_json = "1"
+
 [dependencies]
 # The fixtures parse USLM/WN-LMF with the domains readers and validate with the
 # `uslm::axioms` structural validators (exposed by `test-internals`). The
@@ -16,11 +22,22 @@ pr4xis-domains = { path = "../domains", features = ["test-internals", "codegen",
 # Direct access to the build-time codegen parse (`parse_uslm_str` /
 # `parse_wordnet_xml`) the runtime/codegen-agreement tests compare against.
 pr4xis = { path = "../pr4xis", features = ["codegen"] }
+# The chat engine — the corpus-scale chat-capability suite drives its generated
+# probe cases (`capability::{probe_cases, check, evaluate}`) through
+# `process_with_reasoner` over the real WordNet + USC corpus.
+pr4xis-chat = { path = "../chat" }
+# `ContentAddress` — the one content-addressing primitive; the byte-exact
+# reconstruct gates compute their hashes through it. Also: `RuntimeOntology`,
+# used by the caregiver-corpus lexicon composition (`src/caregiver.rs`), a
+# library module now, not just a test.
+pr4xis-runtime = { path = "../pr4xis-runtime" }
+# Deserializes the harvested caregiver-question test fixture + its
+# classification snapshot (`src/caregiver.rs`, a library module now). Version
+# matches pr4xis-domains.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dev-dependencies]
 # Test-local `gz_len` helper in the WordNet movers (gzip size of an encoding).
 # Version matches pr4xis-domains.
 flate2 = "1"
-# `ContentAddress` — the one content-addressing primitive; the byte-exact
-# reconstruct gates compute their hashes through it.
-pr4xis-runtime = { path = "../pr4xis-runtime" }

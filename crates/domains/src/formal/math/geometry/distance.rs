@@ -5,12 +5,12 @@ use crate::formal::math::geometry::point::{Point2, Point3};
 /// Satisfies the metric space axioms: non-negativity, identity of
 /// indiscernibles, symmetry, triangle inequality.
 pub fn euclidean_2d(a: &Point2, b: &Point2) -> f64 {
-    a.distance_to(b)
+    a.distance_to(b).value
 }
 
 /// Euclidean distance in R³ (L2 norm).
 pub fn euclidean_3d(a: &Point3, b: &Point3) -> f64 {
-    a.distance_to(b)
+    a.distance_to(b).value
 }
 
 /// Manhattan distance in R² (L1 norm).

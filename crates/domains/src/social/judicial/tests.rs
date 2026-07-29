@@ -2511,6 +2511,7 @@ fn test_evidence_type_variants() {
         EvidenceType::Narrative,
         EvidenceType::Count,
         EvidenceType::Text,
+        EvidenceType::Boolean,
     ];
     // All distinct
     for i in 0..types.len() {

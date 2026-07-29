@@ -28,6 +28,18 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
+// The ONE `.prx` envelope codec — LEB128 framing, the raw-source + registry
+// envelope grammars, the DEFLATE decompression-bomb guard, and the blake3
+// content-address gate helpers — shared byte-for-byte with the runtime load path
+// (`applied::data_provisioning::{raw_source_prx, registry_prx}`). `#[path]`-
+// included (NOT a separate crate) so the build script and the lib compile the
+// SAME source: the two envelope decoders are literally one decoder now, not a
+// hand-kept mirror. The build script uses a subset (decode + blake3 gate; not the
+// encoders), hence `allow(dead_code)`.
+#[path = "src/applied/data_provisioning/prx_envelope.rs"]
+#[allow(dead_code)]
+mod prx_envelope;
+
 // ---------------------------------------------------------------------------
 // praxis.toml parsing — minimal, build-time only
 // ---------------------------------------------------------------------------
@@ -83,87 +95,31 @@ struct RawLockFile {
 // the committed `.prx` envelope and gate it against the SAME
 // `[compact_archive_signatures]` pin before the bytes reach codegen.
 //
-// This is ONE build-side decoder shared by all three writers (not three), the
-// build-script mirror of `raw_source_prx::load_raw_source_prx_gated`: the
-// envelope framing is the same dependency-free LEB128 layout
-// (`varint(format_version = 2) put_blob(name) put_blob(version)
-// varint(encoding) varint(decoded_len) put_blob(payload)`, where `encoding` is
-// the `PayloadEncoding` wire tag — 0 Identity, 1 raw RFC 1951 DEFLATE), and the
-// content address is `blake3` hex (matching
-// `pr4xis_runtime::address::ContentAddress::of`), which the build-dep `blake3`
-// re-derives here. DEFLATE payloads are inflated by the build-dep
-// `miniz_oxide`, mirroring the runtime `materialize_payload`.
+// The envelope decode + DEFLATE inflate + bomb guard is NOT restated here: it is
+// the shared `prx_envelope` module (`#[path]`-included above), the ONE decoder
+// the runtime also runs. `prx_envelope::blake3_gated_raw_source_text` verifies
+// the `blake3:`-tagged pin, decodes the envelope, and returns the source text.
+// This thin wrapper adds only the two build-side concerns that cannot live in
+// the `no_std` shared codec: reading the `.prx` off disk (with the graceful
+// `Ok(None)` "not on disk" skip a fresh checkout relies on) and looking the pin
+// up in the build-parsed `RawLockFile`.
 //
-// MIRROR-MUST-MATCH INVARIANT: this decoder and the runtime
-// `raw_source_prx::{parse_envelope, materialize_payload}` are TWO
-// implementations of ONE envelope grammar. Every refusal the runtime makes
-// (unsupported format version, unknown encoding tag, trailing bytes,
-// identity-length mismatch, bomb-guard, non-inflating / short / unconsumed
-// DEFLATE stream) must be made here too, in the SAME guard order, so a
-// malformed envelope produces the same verdict and the same error identity
-// at build time and at load time. Any change to the runtime decoder MUST be
-// mirrored here in the same commit. Known deliberate asymmetry: a pin that
-// is MISSING is a graceful `Ok(None)` skip at runtime (`load_raw_source` —
-// absence is legal on a fresh checkout; the accessor panics later by name)
-// but a hard `Err` here, because at build time the `.prx` is already on
-// disk, so an unpinned committed artifact is a configuration defect.
+// Known deliberate asymmetry vs the runtime `load_raw_source`: a MISSING pin is
+// a graceful `Ok(None)` skip at runtime (absence is legal on a fresh checkout;
+// the accessor panics later by name) but a hard `Err` here, because at build
+// time the `.prx` is already on disk, so an unpinned committed artifact is a
+// configuration defect. (The runtime gate discharges its claim through the
+// multi-algorithm `raw_hash::verify` path; the build script carries only the
+// `blake3` hash dep, so `blake3_gated_raw_source_text` refuses any non-`blake3:`
+// pin BY NAME — same single-source guard, one place.)
 
-/// The raw-source envelope format version this build script reads — MUST equal
-/// `raw_source_prx::RAW_SOURCE_ENVELOPE_FORMAT_VERSION` (the runtime codec).
-const RAW_SOURCE_ENVELOPE_FORMAT_VERSION: u64 = 2;
-
-/// DEFLATE's maximum expansion factor (Gailly & Adler, *zlib Technical
-/// Details*, <https://zlib.net/zlib_tech.html>: ≤ 258 bytes out per ~2 bits in
-/// ⇒ ~1032:1) — mirrors `raw_source_prx::DEFLATE_MAX_EXPANSION`, the
-/// decompression-bomb guard on the declared decoded length.
-const DEFLATE_MAX_EXPANSION: u64 = 1032;
-
-/// Read one LEB128 varint from `buf` at `*pos`, advancing `*pos`. Fully
-/// bounds-checked — a truncated envelope is an `Err`, never a panic
-/// (mirrors `raw_source_prx::get_varint`).
-fn prx_get_varint(buf: &[u8], pos: &mut usize) -> Result<u64, String> {
-    let mut n: u64 = 0;
-    let mut shift = 0u32;
-    loop {
-        let b = *buf
-            .get(*pos)
-            .ok_or_else(|| "committed .prx varint runs past end of buffer".to_string())?;
-        *pos += 1;
-        n |= u64::from(b & 0x7f) << shift;
-        if b & 0x80 == 0 {
-            return Ok(n);
-        }
-        shift += 7;
-        if shift >= 64 {
-            return Err("committed .prx varint length overflow".to_string());
-        }
-    }
-}
-
-/// Read one LEB128 length-prefixed blob from `buf` at `*pos`, advancing `*pos`.
-/// Fully bounds-checked — a truncated envelope is an `Err`, never a panic
-/// (mirrors `raw_source_prx::get_blob`).
-fn prx_get_blob<'a>(buf: &'a [u8], pos: &mut usize) -> Result<&'a [u8], String> {
-    let len = prx_get_varint(buf, pos)? as usize;
-    let end = pos
-        .checked_add(len)
-        .filter(|&e| e <= buf.len())
-        .ok_or_else(|| "committed .prx blob runs past end of buffer".to_string())?;
-    let b = &buf[*pos..end];
-    *pos = end;
-    Ok(b)
-}
-
-/// Decode a committed raw-source `.prx` envelope into its source bytes, AFTER
-/// verifying the envelope's `blake3` content address equals the trusted
-/// `[compact_archive_signatures]` pin for `"{name}@{version}"`. Fail-closed: a
-/// missing pin, an address mismatch, or a malformed envelope is an `Err` and
-/// NO bytes are returned — the build-side twin of the runtime fail-closed gate.
-///
-/// Returns `Ok(None)` only when the committed `.prx` is **not on disk** (a fresh
-/// checkout that hasn't run `pr4xis compile` — the same graceful skip the
-/// runtime loader and the existing writers' "source not on disk" branch take,
-/// which makes the writer fall through to its commented stub).
+/// Decode a committed raw-source `.prx` into its source text, gated against the
+/// trusted `[compact_archive_signatures]` pin for `"{name}@{version}"`. Reads the
+/// `.prx` off disk (graceful `Ok(None)` when it is not there — a fresh checkout
+/// that hasn't run `pr4xis compile`), looks the pin up, and delegates the whole
+/// blake3-gate + envelope decode + UTF-8 to the shared
+/// [`prx_envelope::blake3_gated_raw_source_text`]. Fail-closed: a missing pin, an
+/// address mismatch, or a malformed envelope is an `Err`, no bytes returned.
 fn decode_committed_prx_gated(
     prx_path: &std::path::Path,
     name: &str,
@@ -178,120 +134,7 @@ fn decode_committed_prx_gated(
         .compact_archive_signatures
         .get(&key)
         .ok_or_else(|| format!("no praxis.lock [compact_archive_signatures] pin for `{key}`"))?;
-    // Pin-algorithm handling — build-side mirror of `registry::LockDigest::parse`:
-    // the algorithm comes from the pin's TAG, never from the artifact. The
-    // runtime gate (`raw_hash::verify`) also accepts `sha256:` / `sha512:` and
-    // treats an untagged pin as SHA-256; this build script carries only the
-    // `blake3` hash build-dep, so any other (or absent) tag is refused BY NAME
-    // here — fail-closed with an actionable message, never a silent
-    // always-mismatch of a non-blake3 pin against a blake3 recomputation.
-    let expected_hex = pin.strip_prefix("blake3:").ok_or_else(|| {
-        format!(
-            "committed .prx pin for `{key}` is not a `blake3:`-tagged digest (`{pin}`): \
-             the build-side mirror verifies only blake3 pins — extend \
-             decode_committed_prx_gated (and its hash build-deps) before pinning a \
-             raw source with another algorithm"
-        )
-    })?;
-    let found_hex = blake3::hash(&prx).to_hex().to_string();
-    if found_hex != expected_hex {
-        return Err(format!(
-            "committed .prx for `{key}` hash mismatch: praxis.lock pins {expected_hex}, \
-             archive carries {found_hex} — refusing to feed codegen"
-        ));
-    }
-    let mut pos = 0usize;
-    let format_version = prx_get_varint(&prx, &mut pos)?;
-    if format_version != RAW_SOURCE_ENVELOPE_FORMAT_VERSION {
-        return Err(format!(
-            "committed .prx for `{key}` carries unsupported envelope format version \
-             {format_version} (this build reads {RAW_SOURCE_ENVELOPE_FORMAT_VERSION})"
-        ));
-    }
-    let _name = prx_get_blob(&prx, &mut pos)?;
-    let _version = prx_get_blob(&prx, &mut pos)?;
-    let encoding_tag = prx_get_varint(&prx, &mut pos)?;
-    // Mirror of `parse_envelope`'s guard ORDER: an unknown encoding tag is
-    // refused immediately after it is read — before the declared length, the
-    // payload blob, or the trailing-bytes check are looked at — so a
-    // doubly-malformed envelope yields the same error identity in both
-    // decoders.
-    if !matches!(encoding_tag, 0 | 1) {
-        return Err(format!(
-            "committed .prx for `{key}` carries unknown payload-encoding wire tag {encoding_tag}"
-        ));
-    }
-    let decoded_len = prx_get_varint(&prx, &mut pos)?;
-    let payload = prx_get_blob(&prx, &mut pos)?;
-    if pos != prx.len() {
-        return Err(format!(
-            "committed .prx for `{key}` carries trailing bytes after the payload blob"
-        ));
-    }
-    // Mirror of `raw_source_prx::materialize_payload`: 0 = Identity (payload IS
-    // the source bytes), 1 = raw RFC 1951 DEFLATE of the source bytes.
-    let blob: Vec<u8> = match encoding_tag {
-        0 => {
-            if decoded_len != payload.len() as u64 {
-                return Err(format!(
-                    "committed .prx for `{key}`: identity payload length {} ≠ declared \
-                     decoded length {decoded_len}",
-                    payload.len()
-                ));
-            }
-            payload.to_vec()
-        }
-        1 => {
-            if decoded_len > (payload.len() as u64).saturating_mul(DEFLATE_MAX_EXPANSION) {
-                return Err(format!(
-                    "committed .prx for `{key}`: declared decoded length {decoded_len} \
-                     exceeds the RFC 1951 maximum expansion of the payload"
-                ));
-            }
-            // Mirror of the runtime `materialize_payload` canonicality guard:
-            // the stateful core inflate reports consumed input, and a blob the
-            // inflater does not consume in full (a garbage tail hidden after
-            // the RFC 1951 final block) is refused, exactly as at load time.
-            let mut out = vec![0u8; decoded_len as usize];
-            let mut state = miniz_oxide::inflate::core::DecompressorOxide::new();
-            let (status, consumed, produced) = miniz_oxide::inflate::core::decompress(
-                &mut state,
-                payload,
-                &mut out,
-                0,
-                miniz_oxide::inflate::core::inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
-            );
-            if status != miniz_oxide::inflate::TINFLStatus::Done {
-                return Err(format!(
-                    "committed .prx for `{key}`: DEFLATE payload does not inflate: {status:?}"
-                ));
-            }
-            if consumed != payload.len() {
-                return Err(format!(
-                    "committed .prx for `{key}`: DEFLATE stream ended with {} unconsumed \
-                     byte(s) inside the payload blob — non-canonical envelope refused",
-                    payload.len() - consumed
-                ));
-            }
-            if produced as u64 != decoded_len {
-                return Err(format!(
-                    "committed .prx for `{key}`: DEFLATE payload inflated to {produced} \
-                     byte(s), declared decoded length is {decoded_len}"
-                ));
-            }
-            out
-        }
-        other => {
-            // Logically unreachable — the tag was refused above — kept for
-            // match totality over `u64` (clippy::unreachable is denied).
-            return Err(format!(
-                "committed .prx for `{key}` carries unknown payload-encoding wire tag {other}"
-            ));
-        }
-    };
-    let text = String::from_utf8(blob)
-        .map_err(|e| format!("committed .prx for `{key}` payload is not UTF-8: {e}"))?;
-    Ok(Some(text))
+    prx_envelope::blake3_gated_raw_source_text(&prx, pin, &key).map(Some)
 }
 
 /// The committed `.prx` path beside a raw source path — swap the final extension
@@ -301,58 +144,13 @@ fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
     raw_path.with_extension("prx")
 }
 
-/// The trusted content address (blake3 hex) of the committed registry MANIFEST
-/// `.prx` — the registry root. The build-side mirror of the runtime
-/// `registry_prx::PRAXIS_REGISTRY_ROOT_HEX` baked const (the two MUST stay in
-/// lockstep; both are regenerated by
-/// `cargo test -p pr4xis-domains -- --ignored regenerate_praxis_registry_prx`).
-/// The registry `.prx` is decoded precisely WHEN the workspace `praxis.lock` is
-/// absent, so it cannot chain its pin from the lock it populates — it gates
-/// against this BAKED root instead, exactly as the runtime
-/// `load_registry_manifest` does.
-// MUST equal `registry_prx::PRAXIS_REGISTRY_ROOT_HEX` (the runtime trust anchor)
-// — this is the blake3 of the committed `praxis-registry.prx`. The two are
-// regenerated together by `regenerate_praxis_registry_prx`; `build_side_registry_root_hex_matches_runtime_anchor`
-// (registry_prx.rs tests) fails if they drift. (Previously stale: the in-workspace
-// build reads the root from `praxis.lock`, so this constant is only exercised by
-// the isolated `cargo publish --verify`, which is why the drift reached CI.)
-const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "873a0b972c8768b6b87d8cf663e1a30716280cce5d30cef36e623f1f0aca886b";
-
-/// Decode the committed registry MANIFEST `.prx`
-/// (`crates/domains/data/registry/praxis-registry.prx`) into its
-/// `(praxis.toml text, praxis.lock text)` — the build-side twin of the runtime
-/// `registry_prx::decode_registry`. Two LEB128 length-prefixed blobs:
-/// `put_blob(toml) put_blob(lock)`. Fail-closed on a truncated / malformed
-/// envelope. Used when the workspace-root `praxis.toml` / `praxis.lock` are
-/// ABSENT — the published crate unpacked under `target/package/` with no
-/// workspace root — so the build reads the SAME committed `.prx` the runtime
-/// registry loads, never an embedded raw-TOML snapshot.
-///
-/// CONTENT-ADDRESS GATED: the envelope's `blake3` digest must equal the BAKED
-/// [`PRAXIS_REGISTRY_ROOT_HEX`] root before any bytes are decoded — the
-/// build-side twin of the runtime `load_registry_manifest` baked-root gate. A
-/// tampered or stale registry `.prx` is REFUSED (`Err`), never fed to codegen.
-/// Unlike `decode_committed_prx_gated` (which chains from the workspace lock),
-/// this gate's anchor is the baked root, because this path runs precisely when
-/// that lock is unavailable.
-fn decode_registry_prx(prx: &[u8]) -> Result<(String, String), String> {
-    let found_hex = blake3::hash(prx).to_hex().to_string();
-    if found_hex != PRAXIS_REGISTRY_ROOT_HEX {
-        return Err(format!(
-            "registry .prx root mismatch: baked PRAXIS_REGISTRY_ROOT_HEX is \
-             {PRAXIS_REGISTRY_ROOT_HEX}, archive carries {found_hex} — refusing to feed codegen"
-        ));
-    }
-    let mut pos = 0usize;
-    let toml = prx_get_blob(prx, &mut pos)?;
-    let lock = prx_get_blob(prx, &mut pos)?;
-    let toml = String::from_utf8(toml.to_vec())
-        .map_err(|e| format!("registry .prx praxis.toml payload is not UTF-8: {e}"))?;
-    let lock = String::from_utf8(lock.to_vec())
-        .map_err(|e| format!("registry .prx praxis.lock payload is not UTF-8: {e}"))?;
-    Ok((toml, lock))
-}
+// The committed registry MANIFEST `.prx` is decoded when the workspace-root
+// `praxis.toml` / `praxis.lock` are ABSENT (the published crate unpacked under
+// `target/package/`), gated against the BAKED root before any bytes are decoded —
+// the SAME `prx_envelope::PRAXIS_REGISTRY_ROOT_HEX` the runtime
+// `load_registry_manifest` uses (there is no longer a build/runtime twin to
+// drift). `prx_envelope::blake3_gated_registry` performs the gate + decode; see
+// its call in `main` below.
 
 // ---------------------------------------------------------------------------
 // Build entry point
@@ -412,7 +210,7 @@ fn main() {
                     registry_prx_path.display()
                 )
             });
-            decode_registry_prx(&prx).unwrap_or_else(|e| {
+            prx_envelope::blake3_gated_registry(&prx).unwrap_or_else(|e| {
                 panic!(
                     "committed registry .prx `{}` is malformed: {e}",
                     registry_prx_path.display()
@@ -443,30 +241,14 @@ fn main() {
     // The writers below run unconditionally; each writes a stub when
     // its source isn't registered in the manifest.
 
-    let mut sorted_names: Vec<_> = manifest.sources.keys().cloned().collect();
-    sorted_names.sort();
-
-    // Per-source dispatch (currently a no-op): UsCodeTitle sources are
-    // aggregated by `write_usc_corpus_codegen`; XSD sources have their
-    // own writers below; Language is handled by the wasm crate's
-    // build.rs. New ContentTypes that need per-source codegen add an
-    // arm in `dispatch_codegen` and a writer.
-    for name in &sorted_names {
-        let src = &manifest.sources[name];
-        let ct = content_type_for_kind(&src.kind);
-        dispatch_codegen(name, src, ct, &workspace_root, &out_dir);
-    }
-
-    // After per-title codegen, emit a single aggregate
-    // `CodegenData<UsCode>` static spanning every registered
-    // UsCodeTitle whose XML is on disk. Mirrors the cli/wasm
-    // build.rs `write_usc_corpus_codegen` block — duplicated here
-    // so pr4xis-domains tests can materialise a real ~2770-section
-    // corpus without depending on the cli's OUT_DIR. The runtime
-    // module at `social::software::markup::xml::uslm::corpus`
-    // exposes a cached `from_codegen_output()` test helper that
-    // `include!`s this file.
-    write_usc_corpus_codegen(&workspace_root, &manifest, &sorted_names, &out_dir);
+    // Emit the (now-empty) `CodegenData<UsCode>` stub at
+    // `$OUT_DIR/usc_corpus_codegen.rs` so the runtime `include!` in
+    // `social::software::markup::xml::uslm::corpus` always resolves.
+    // Build-time USC codegen was retired (M4.δ.7.a); the corpus loads at
+    // runtime. (The former per-source `dispatch_codegen` hook was a no-op
+    // feeding a drifted `content_type_for_kind` copy of the cited
+    // `canonical_encoding` authority — both deleted.)
+    write_usc_corpus_codegen(&out_dir);
 
     // (Removed: write_uslm_schema_codegen + write_xhtml_schema_codegen.
     // Both depended on Sebastian Bergmann's xsd-parser crate to emit
@@ -771,48 +553,15 @@ fn write_xml_grammar_codegen(
     }
 }
 
-/// Walk every registered USC title's expected XML path, collect
-/// the ones that exist on disk, and emit a `CodegenData<UsCode>`
-/// static at `$OUT_DIR/usc_corpus_codegen.rs`. If no titles are
-/// on disk, write an empty stub so the `include!` site always
-/// resolves.
-fn write_usc_corpus_codegen(
-    workspace_root: &std::path::Path,
-    manifest: &RawManifest,
-    sorted_names: &[String],
-    out_dir: &std::path::Path,
-) {
-    // M4.δ.7.a: build-time USC corpus codegen has been retired. The
-    // runtime constructor `UsCode::from_uslm_titles_owned` in
-    // `social/software/markup/xml/uslm/corpus/mod.rs` reads + parses
-    // the registered title XMLs at first call to `loaded()`, mirroring
-    // the WordNet pattern (`English::cached`). This eliminates the
-    // ~85 MB aggregate Rust source that was hitting rustc's compile-
-    // time memory ceiling, and unblocks arbitrary-sized titles
-    // (Title 42 at 113 MB, etc.).
-    //
-    // We still emit a stub `usc_corpus_codegen.rs` because the runtime
-    // `corpus/mod.rs` module includes it (the include is kept as a
-    // soft compatibility boundary so `UsCode::sample()` and the
-    // codegen-data-shape tests still see an empty `CODEGEN_DATA` /
-    // `USC_SECTION_AUX`). A follow-up commit can delete the include
-    // and the stub once those tests migrate to runtime sample fixtures.
-    //
-    // The `cargo:rerun-if-changed=` directives are still emitted so a
-    // future rebuild picks up XML changes — even though the runtime
-    // path doesn't use them, downstream tooling (incremental cargo,
-    // rust-analyzer) benefits from accurate dependency tracking.
-    for name in sorted_names {
-        let src = &manifest.sources[name];
-        if src.kind != "UsCodeTitle" {
-            continue;
-        }
-        let xml_path = expected_usc_title_path(workspace_root, name, &src.version);
-        if xml_path.exists() {
-            println!("cargo:rerun-if-changed={}", xml_path.display());
-        }
-    }
-
+/// Emit the (now-empty) `CodegenData<UsCode>` stub at
+/// `$OUT_DIR/usc_corpus_codegen.rs`. Build-time USC corpus codegen was
+/// retired (M4.δ.7.a) — `UsCode::loaded()` reads + parses the registered
+/// title XMLs at runtime (the WordNet `English::cached` pattern). The stub
+/// is still emitted because the runtime `corpus/mod.rs` module `include!`s
+/// it (a soft compatibility boundary so `UsCode::sample()` and the
+/// codegen-data-shape tests still see an empty `CODEGEN_DATA` /
+/// `USC_SECTION_AUX`).
+fn write_usc_corpus_codegen(out_dir: &std::path::Path) {
     let out_path = out_dir.join("usc_corpus_codegen.rs");
     let stub = "// Empty stub — M4.δ.7.a retired build-time USC corpus codegen \
                 in favor of runtime XML loading via `UsCode::loaded()`. \
@@ -832,45 +581,13 @@ fn write_usc_corpus_codegen(
     );
 }
 
-/// Route a registered source to its codegen path based on its
-/// canonical content type. Currently every active path is handled
-/// outside this function (UsCodeTitle by `write_usc_corpus_codegen`,
-/// XSD by the XSD writers, Language by the wasm crate's build.rs,
-/// AdobeGlyphList via `include_str!`), so this is effectively a
-/// no-op left as the dispatch hook for future per-source writers.
-fn dispatch_codegen(
-    _name: &str,
-    _src: &RawSource,
-    _ct: Option<&'static str>,
-    _workspace_root: &std::path::Path,
-    _out_dir: &std::path::Path,
-) {
-}
-
-/// Kind → ContentType mapping (duplicates `canonical_encoding`).
-/// Kept as a `&'static str` so build.rs doesn't drag in the
-/// pr4xis-domains ContentType enum.
-fn content_type_for_kind(kind: &str) -> Option<&'static str> {
-    Some(match kind {
-        "Language" => "XmlLmf",
-        "UsCodeTitle" => "UslmXml",
-        "ProceduralRule" | "CaseLaw" => "Pdf",
-        "LegalLexicon" => "Json",
-        "TypographicGlyphSet" => "AdobeGlyphList",
-        // XmlSchemaDefinition / ConceptualSpec sources are routed by
-        // their per-source writers (`write_xml_namespace_schema_codegen`,
-        // `write_xml_infoset_codegen`, etc.), not by `dispatch_codegen`.
-        // Abstract / non-leaf concepts also fall through.
-        _ => return None,
-    })
-}
-
-/// Resolve the expected on-disk USLM XML path for a registered
-/// USC title. Mirrors the runtime `RegistryEntry::local_path()`
-/// for the `UsCodeTitle` kind (`legal/uscode/<name>/<name>-<version>.xml`).
-fn expected_usc_title_path(workspace_root: &std::path::Path, name: &str, version: &str) -> PathBuf {
-    workspace_root
-        .join("crates/domains/data/legal/uscode")
-        .join(name)
-        .join(format!("{name}-{version}.xml"))
-}
+// Items 2 & 4 (audit-6): `dispatch_codegen` (an empty no-op hook),
+// `content_type_for_kind` (a drifted `&'static str` copy of the cited
+// `canonical_encoding` authority — it mapped `LegalLexicon => "Json"` where
+// the authority says `XmlLmfLexicon`), and `expected_usc_title_path` (a
+// hand mirror of `RegistryEntry::local_path`, used only to emit a
+// `rerun-if-changed` for the retired build-time USC codegen) were all
+// deleted. Item 3 (the envelope decode + content-address gate that this build
+// script mirrored) is now the shared `prx_envelope` module, `#[path]`-included
+// at the top of this file — one decoder for both build time and load time, no
+// hand-kept mirror left.
