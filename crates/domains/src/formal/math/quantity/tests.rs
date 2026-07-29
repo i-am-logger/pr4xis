@@ -208,8 +208,10 @@ mod proptest_proofs {
             let units = [
                 unit::METER, unit::KILOMETER, unit::METER_PER_SECOND, unit::KNOT,
                 unit::DEGREE, unit::RADIAN, unit::ARCSECOND, unit::HERTZ,
+                unit::NAT, unit::SHANNON,
                 unit::MILLIVOLT, unit::PICOSIEMENS, unit::RAYL, unit::NANOMETER,
                 unit::MILLISECOND, unit::MINUTE, unit::PASCAL, unit::KELVIN, unit::CELSIUS,
+                unit::RECIPROCAL_METER,
             ];
             for u in units {
                 let back = u.from_si(u.to_si(val));

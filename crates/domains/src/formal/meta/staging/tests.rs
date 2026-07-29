@@ -5,8 +5,9 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::{
-    EachProjectionRaisesStagingByOne, FutamuraChainIsComplete, StagingCategory, StagingConcept,
-    StagingLevel, StagingOntology, StagingRelationKind, Temporality, TemporalityTag,
+    EachProjectionRaisesStagingByOne, FutamuraChainIsComplete, FutamuraStagingLevel,
+    StagingCategory, StagingConcept, StagingLevel, StagingOntology, StagingRelationKind,
+    Temporality, TemporalityTag,
 };
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Arrow, Category, FinitelyGenerated};
@@ -119,7 +120,7 @@ fn dynamic_input_is_dynamic() {
 fn cogen_is_at_staging_level_three() {
     assert_eq!(
         StagingLevel.get(&StagingConcept::CompilerGenerator),
-        Some(3)
+        Some(FutamuraStagingLevel::ThirdProjection)
     );
 }
 
@@ -186,22 +187,30 @@ proptest! {
         prop_assert_eq!(v.is_some(), core);
     }
 
-    /// Every program-or-input concept has a staging level in [0, 3].
+    /// Every program-or-input concept has a staging level in [0, 3] —
+    /// bounded above by the third (final) Futamura projection.
     #[test]
     fn prop_staging_level_bounded(c in arb_stage_concept()) {
         if let Some(level) = StagingLevel.get(&c) {
-            prop_assert!(level <= 3);
+            prop_assert!(level <= FutamuraStagingLevel::ThirdProjection);
         }
     }
 
     /// Each Futamura projection along the ladder raises the level by the
-    /// expected delta exactly.
+    /// expected delta exactly — `expected` applications of `successor()`
+    /// from `pre` land exactly on `post`.
     #[test]
     fn prop_futamura_ladder_deltas_are_exact(pair in arb_futamura_ladder_pair()) {
         let (pre, post, expected) = pair;
         let pre_level = StagingLevel.get(&pre).unwrap();
         let post_level = StagingLevel.get(&post).unwrap();
-        prop_assert_eq!(post_level, pre_level + expected);
+        let mut stepped = pre_level;
+        for _ in 0..expected {
+            stepped = stepped
+                .successor()
+                .expect("ladder step stays within the Futamura projection range");
+        }
+        prop_assert_eq!(stepped, post_level);
     }
 
     #[test]

@@ -216,6 +216,11 @@ mod tests {
             svo::wh_determiner(),
             svo::wh_adverb(),
             svo::question_copula_pp(),
+            svo::bare_transitive_verb(),
+            svo::wh_what_object(),
+            svo::does_support(),
+            svo::infinitive_to(),
+            svo::catenative_infinitival_predicate(),
         ];
         for cat in categories {
             let rendered = cat.notation();

@@ -16,6 +16,9 @@
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 pr4xis::ontology! {
     name: "Terrain",
     source: "Goldstein (1987) Terrain Aided Navigation",
@@ -67,12 +70,16 @@ pub enum CurvatureSign {
 impl CurvatureSign {
     /// The `{-1, 0, +1}` sign under Goldstein's (1987) second-derivative
     /// convention: convex = −1, planar = 0, concave = +1.
-    pub fn sign(&self) -> i8 {
-        match self {
-            CurvatureSign::Convex => -1,
-            CurvatureSign::Planar => 0,
-            CurvatureSign::Concave => 1,
-        }
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — a sign
+    /// indicator is a pure number, not a bare `i8`.
+    pub fn sign(&self) -> Quantity {
+        let s = match self {
+            CurvatureSign::Convex => -1.0,
+            CurvatureSign::Planar => 0.0,
+            CurvatureSign::Concave => 1.0,
+        };
+        Quantity::from_unit(s, &unit::UNITLESS)
     }
 }
 
@@ -123,8 +130,8 @@ pub struct PeakCurvatureNegative;
 impl Axiom for PeakCurvatureNegative {
     fn verify(&self) -> Verdict {
         if let Some((k1, k2)) = CurvatureSignature.get(&TerrainConcept::Peak)
-            && k1.sign() < 0
-            && k2.sign() < 0
+            && k1.sign().value < 0.0
+            && k2.sign().value < 0.0
         {
             return Ok(Box::new(SimpleProof::new(self.meta())));
         }
@@ -152,8 +159,8 @@ pub struct ValleyCurvaturePositive;
 impl Axiom for ValleyCurvaturePositive {
     fn verify(&self) -> Verdict {
         if let Some((k1, k2)) = CurvatureSignature.get(&TerrainConcept::Valley)
-            && k1.sign() > 0
-            && k2.sign() > 0
+            && k1.sign().value > 0.0
+            && k2.sign().value > 0.0
         {
             return Ok(Box::new(SimpleProof::new(self.meta())));
         }
@@ -181,9 +188,9 @@ pub struct SaddleCurvaturesOpposite;
 impl Axiom for SaddleCurvaturesOpposite {
     fn verify(&self) -> Verdict {
         if let Some((k1, k2)) = CurvatureSignature.get(&TerrainConcept::Saddle)
-            && k1.sign() != 0
-            && k2.sign() != 0
-            && k1.sign() != k2.sign()
+            && k1.sign().value != 0.0
+            && k2.sign().value != 0.0
+            && k1.sign().value != k2.sign().value
         {
             return Ok(Box::new(SimpleProof::new(self.meta())));
         }
@@ -311,8 +318,8 @@ mod tests {
         fn prop_curvature_signs_bounded(c in arb_concept()) {
             // Each typed CurvatureSign maps into the {-1, 0, 1} sign convention.
             let (k1, k2) = CurvatureSignature.get(&c).unwrap();
-            prop_assert!((-1..=1).contains(&k1.sign()));
-            prop_assert!((-1..=1).contains(&k2.sign()));
+            prop_assert!((-1.0..=1.0).contains(&k1.sign().value));
+            prop_assert!((-1.0..=1.0).contains(&k2.sign().value));
         }
 
         #[test]

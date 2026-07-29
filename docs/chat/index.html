@@ -4,36 +4,86 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pr4xis — Axiomatic Intelligence</title>
+  <meta name="description" content="pr4xis is an ontology-driven, axiomatic reasoning engine: a deterministic, verifiable alternative to statistical LLMs. Knowledge is represented as typed ontologies connected by category-theory functors, with every claim carrying a proof path back to its axioms.">
+  <meta property="og:title" content="pr4xis — Axiomatic Intelligence">
+  <meta property="og:description" content="A deterministic, verifiable alternative to statistical LLMs. Knowledge as typed ontologies connected by category-theory functors — every claim traces to a proof.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pr4xis.dev">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="pr4xis — Axiomatic Intelligence">
+  <meta name="twitter:description" content="A deterministic, verifiable alternative to statistical LLMs. Knowledge as typed ontologies connected by category-theory functors — every claim traces to a proof.">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "pr4xis",
+    "alternateName": "praxis",
+    "description": "An ontology-driven, axiomatic reasoning engine: knowledge is represented as ontologies (typed concepts and the proven relationships between them), connected across domains by category-theory functors, and every claim carries a proof path back to the axioms it rests on.",
+    "url": "https://pr4xis.dev",
+    "codeRepository": "https://github.com/i-am-logger/pr4xis",
+    "programmingLanguage": "Rust",
+    "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "applicationCategory": "Neurosymbolic AI reasoning engine",
+    "keywords": "ontology, category theory, axiomatic reasoning, knowledge representation, neurosymbolic, formal methods, automated reasoning, knowledge graph",
+    "author": {
+      "@type": "Person",
+      "name": "Ido Samuelson",
+      "url": "https://github.com/i-am-logger"
+    }
+  }
+  </script>
+  <!-- Shared design tokens + component classes (.alert/.why-panel/.trace-rows/
+       .accordion/… plus the whole app-shell/sidebar/view/track-workspace system
+       the Caregiver tab is built from) used by the ONE shared chat renderer
+       (chat-ui.js). tokens.css is the palette's single gated source
+       (crates/web/tests/palette_wcag.rs); this page's own chrome is expressed
+       in the SAME tokens, so the whole app sits inside the audited palette and
+       both themes work on every tab.
+
+       It is linked BEFORE the page's own <style>, so the rules below win on
+       the few properties that overlap — which is why every rule that collides
+       with a class the Caregiver tab uses is scoped to `:where(#chat-tab,
+       #about)`. `:where()` contributes ZERO specificity, so the generic Chat
+       and Engine tabs keep the exact cascade they had as a standalone page,
+       while the Caregiver tab resolves to the token versions. -->
+  <link rel="stylesheet" href="./tokens.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* Keep the generic tool tabs' compact controls. Scoped so the Caregiver
+       tab keeps the token tap-target floor (WCAG 2.5.8) on its .chip /
+       .pass-badge / .copy-btn / .verify-card controls; `:where()` keeps the
+       specificity at (0,0,1) exactly as before, so the .btn/.chip the shared
+       renderer emits still keep their own more-specific min-height here too. */
+    :where(#chat-tab, #about) button,
+    :where(#chat-tab, #about) input,
+    :where(#chat-tab, #about) select { min-height: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
+      background: var(--bg);
+      color: var(--text);
       height: 100vh;
       display: flex;
       flex-direction: column;
     }
     header {
       padding: 1.5rem 2rem;
-      border-bottom: 1px solid #21262d;
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 1rem;
     }
     header img { height: 40px; }
-    header h1 { color: #58a6ff; font-size: 1.4em; font-weight: 600; }
-    header span { color: #8b949e; font-size: 0.85em; }
-    #status {
-      padding: 0.3rem 0.8rem;
-      border-radius: 12px;
-      font-size: 0.75em;
-      font-weight: 600;
-      margin-left: auto;
+    header h1 { color: var(--link); font-size: 1.4em; font-weight: 600; }
+    header span { color: var(--muted); font-size: 0.85em; }
+    header a { text-decoration: none; font-size: 0.85em; }
+    /* The theme toggle and the status pill are app-wide, so they live in the
+       app header rather than inside any one tab. */
+    header .topbar-actions { margin-left: auto; }
+    header .theme-toggle {
+      background: transparent; border: 1px solid var(--border-strong); color: var(--text);
+      border-radius: var(--radius-sm); padding: 0.3rem 0.7rem; font-size: 0.8em; cursor: pointer;
     }
-    .loading { background: #d29922; color: #0d1117; }
-    .ready { background: #3fb950; color: #0d1117; }
-    .error { background: #f85149; color: #0d1117; }
+    header .theme-toggle:hover { border-color: var(--link); color: var(--link); }
 
     #chat {
       flex: 1;
@@ -43,7 +93,7 @@
       flex-direction: column;
       gap: 0.5rem;
     }
-    .message {
+    :where(#chat-tab, #about) .message {
       max-width: 80%;
       padding: 0.8rem 1.2rem;
       border-radius: 12px;
@@ -51,154 +101,255 @@
       white-space: pre-wrap;
       font-size: 0.95em;
     }
-    .user { align-self: flex-end; background: #1f6feb; color: #fff; margin-top: 0.5rem; }
-    .user::before { content: '→ '; opacity: 0.6; }
-    .system { align-self: flex-start; background: #0d1f0d; border: 1px solid #238636; color: #e6edf3; }
-    .system::before { content: '← '; opacity: 0.6; }
-    .system.fallback { background: #161b22; border-color: #58a6ff; color: #79c0ff; font-style: italic; }
-    .system.abstained { background: #1c1812; border-color: #d29922; color: #e3b341; }
-    .info { align-self: center; color: #8b949e; font-size: 0.8em; font-style: italic; }
+    :where(#chat-tab, #about) .user { align-self: flex-end; background: var(--link-border); color: #fff; margin-top: 0.5rem; }
+    :where(#chat-tab, #about) .user::before { content: '→ '; opacity: 0.6; }
+    :where(#chat-tab, #about) .system { align-self: flex-start; background: var(--success-bg); border: 1px solid var(--success-border); color: var(--text-bright); }
+    :where(#chat-tab, #about) .system::before { content: '← '; opacity: 0.6; }
+    :where(#chat-tab, #about) .system.fallback { background: var(--surface); border-color: var(--link); color: var(--link-fg); font-style: italic; }
+    :where(#chat-tab, #about) .system.abstained { background: var(--warning-bg); border-color: var(--warning-fg); color: var(--warning-fg); }
+    :where(#chat-tab, #about) .info { align-self: center; color: var(--muted); font-size: 0.8em; font-style: italic; }
 
-    /* Abstention affordance: when the engine can't answer, it names what to load. */
+    /* Abstention affordance: when the engine can't answer, it names what to load.
+       tokens.css carries no rule for these, so they stay unscoped — the shared
+       renderer emits them into the Caregiver tab's chat log too. */
     .abstain-actions { display: flex; align-items: center; gap: 0.4em; flex-wrap: wrap; margin-top: 0.5em; font-size: 0.85em; }
-    .abstain-actions .terms { color: #8b949e; }
+    .abstain-actions .terms { color: var(--muted); }
     .abstain-load {
-      background: none; border: 1px solid #d29922; color: #e3b341; border-radius: 6px;
+      background: none; border: 1px solid var(--warning-fg); color: var(--warning-fg); border-radius: 6px;
       padding: 0.2rem 0.7rem; font-size: 0.95em; cursor: pointer;
     }
-    .abstain-load:hover { background: #d2992222; }
+    .abstain-load:hover { background: var(--warning-bg); }
 
     /* Trace: attached below each response, pulls down like accordion */
     .trace-toggle {
-      align-self: flex-start; background: none; border: none; color: #484f58;
+      align-self: flex-start; background: none; border: none; color: var(--dim);
       font-size: 0.7em; cursor: pointer; padding: 0.2rem 0; margin-left: 0.5rem;
     }
-    .trace-toggle:hover { color: #7ee787; }
-    .trace-toggle.open { color: #7ee787; }
+    .trace-toggle:hover { color: var(--success-fg); }
+    .trace-toggle.open { color: var(--success-fg); }
     .trace-panel {
-      max-width: 100%; display: none; border-top: 1px solid #21262d; margin-top: 0.5em;
-      font-family: monospace; font-size: 0.72em; color: #8b949e;
+      max-width: 100%; display: none; border-top: 1px solid var(--border); margin-top: 0.5em;
+      font-family: monospace; font-size: 0.72em; color: var(--muted);
       white-space: pre-wrap; word-break: break-all; padding: 0.5rem 0;
     }
     .trace-panel.open { display: block; }
-    .trace-panel .step { color: #8b949e; margin-left: 0.5em; }
-    .trace-panel .step::before { content: '├─ '; color: #30363d; }
-    .trace-panel .step:last-child::before { content: '└─ '; color: #30363d; }
+    .trace-panel .step { color: var(--muted); margin-left: 0.5em; }
+    .trace-panel .step::before { content: '├─ '; color: var(--border); }
+    .trace-panel .step:last-child::before { content: '└─ '; color: var(--border); }
 
-    #input-area { padding: 1rem 2rem; border-top: 1px solid #21262d; display: flex; gap: 0.8rem; }
-    #input {
-      flex: 1; padding: 0.7rem 1rem; background: #161b22; border: 1px solid #30363d;
-      border-radius: 8px; color: #c9d1d9; font-size: 1em; font-family: inherit; outline: none;
+    #chat-tab.active { overflow-y: hidden; }
+    #input-area { padding: 1rem 2rem; border-top: 1px solid var(--border); display: flex; gap: 0.8rem; flex-shrink: 0; }
+
+    /* Prominent link-through to the Caregiver tab of this same app. */
+    .chat-cta {
+      display: block; text-decoration: none; flex-shrink: 0;
+      margin: 1rem 2rem 0; padding: 0.8rem 1.1rem;
+      background: var(--link-bg); border: 1px solid var(--link-border); border-radius: 10px;
     }
-    #input:focus { border-color: #58a6ff; }
-    #input::placeholder { color: #484f58; }
+    .chat-cta:hover { border-color: var(--link); }
+    .chat-cta .chat-cta-title { display: block; color: var(--link-fg); font-weight: 600; font-size: 0.95em; }
+    .chat-cta .chat-cta-sub { display: block; color: var(--muted); font-size: 0.82em; margin-top: 0.2rem; }
+    #input {
+      flex: 1; padding: 0.7rem 1rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 1em; font-family: inherit; outline: none;
+    }
+    #input:focus { border-color: var(--link); }
+    #input::placeholder { color: var(--dim); }
 
     /* Tab bar */
-    .tabs { display: flex; border-bottom: 1px solid #21262d; }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
     .tab {
       padding: 0.6rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent;
-      color: #8b949e; font-size: 0.9em; cursor: pointer; font-weight: 600;
+      color: var(--muted); font-size: 0.9em; cursor: pointer; font-weight: 600;
     }
-    .tab:hover { color: #c9d1d9; }
-    .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--link); border-bottom-color: var(--link); }
     .tab-content { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
     .tab-content.active { display: flex; }
 
+    /* `.limit-tag`: ONLY ever applied live, by the chat response handler,
+       to a real `abstained` outcome from the engine — never pre-labeled on
+       a button before it's been asked (that would announce the outcome in
+       advance, which is staged, not honest). */
+    .limit-tag {
+      flex-shrink: 0; color: var(--warning-fg); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.02em;
+      border: 1px solid var(--warning-border); border-radius: 4px; padding: 0.05rem 0.4rem;
+    }
     /* pr4xis self-model page */
     #about { padding: 2rem 3rem; gap: 1rem; overflow-y: auto; }
     @media (max-width: 768px) { #about { padding: 1rem; } }
     .dash-summary {
-      display: flex; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid #21262d;
+      display: flex; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--border);
     }
     .dash-stat { text-align: center; min-width: 90px; }
-    .dash-stat .value { font-size: 2em; font-weight: 700; color: #58a6ff; }
-    .dash-stat .label { font-size: 0.7em; color: #8b949e; text-transform: uppercase; }
+    .dash-stat .value { font-size: 2em; font-weight: 700; color: var(--link); }
+    .dash-stat .label { font-size: 0.7em; color: var(--muted); text-transform: uppercase; }
     .section-title {
-      font-size: 0.8em; font-weight: 700; color: #7ee787; text-transform: uppercase;
+      font-size: 0.8em; font-weight: 700; color: var(--success-fg); text-transform: uppercase;
       letter-spacing: 0.06em; margin: 1.2rem 0 0.6rem;
     }
     .filter-box {
-      width: 100%; padding: 0.5rem 1rem; background: #161b22; border: 1px solid #30363d;
-      border-radius: 8px; color: #c9d1d9; font-size: 0.9em; outline: none; margin-bottom: 0.6rem;
+      width: 100%; padding: 0.5rem 1rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 0.9em; outline: none; margin-bottom: 0.6rem;
     }
-    .filter-box:focus { border-color: #58a6ff; }
+    .filter-box:focus { border-color: var(--link); }
 
     /* Flat source catalog — a responsive grid of cards, no nesting */
+    /* `min(280px, 100%)`, not a bare 280px. A fixed minmax min pins the track
+       at 280px, so any container narrower than that overflows — and since
+       #about sets overflow-y:auto, overflow-x computes to auto and the Engine
+       tab gains a two-dimensional scroll. It fails at the normative 320px
+       WCAG 1.4.10 width, not merely at some hypothetical edge: the content box
+       is 288px there, and a classic scrollbar takes it to ~273px. tokens.css
+       already states this rule for the whole app and every grid in that file
+       obeys it; this was the one grid in the page that did not. */
     .source-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 0.6rem;
     }
     .source-card {
-      background: #161b22; border: 1px solid #21262d; border-radius: 10px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
       padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.35rem;
     }
-    .source-card.loaded { border-color: #238636; }
-    .source-card.available { opacity: 0.62; }
-    .source-card .row { display: flex; align-items: center; gap: 0.5rem; }
-    .source-card .name { font-weight: 600; color: #c9d1d9; font-size: 0.92em; }
-    .source-card .kind { color: #8b949e; font-size: 0.72em; font-family: monospace; }
-    .source-card .cite { color: #6e7681; font-size: 0.7em; font-style: italic; line-height: 1.35; }
-    .source-card .counts { color: #8b949e; font-size: 0.72em; }
-    .badge {
+    .source-card.loaded { border-color: var(--success-border); }
+    /* Dashed border, NOT opacity. `opacity` on the card composites the button's
+       own background and its label against the page, and measured that drops
+       the Load button from 4.63:1 to 3.36:1 in dark and 6.72:1 to 2.99:1 in
+       light — small text, so 4.5:1 applies and both fail. The inversion was the
+       damning part: `available` cards carry the only actionable control on the
+       panel and were the ones dimmed, including the very button `goLoadSource`
+       focuses after an abstention. Rule to hold: never put `opacity` on an
+       ancestor of an interactive control or of text bound by SC 1.4.3. */
+    .source-card.available { border-style: dashed; }
+    /* WRAPS. The load/unload buttons live in this row alongside the source
+       name, and flex items default to `min-width: auto` — they refuse to
+       shrink below their content. Without wrapping, a long source name
+       ("IL HHAeXchange General EVV FAQ PDF (hhaexchange.com)") plus a kind
+       badge plus two buttons overflowed the 280px card, and since the card
+       does not clip, the buttons rendered OUTSIDE its rectangle. `flex-wrap`
+       lets the buttons drop to their own line; `min-width: 0` on the name
+       lets a long name wrap rather than forcing the row wide in the first
+       place. Both are needed — wrapping alone still overflows on a single
+       unbreakable token. */
+    .source-card .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .source-card .name { font-weight: 600; color: var(--text); font-size: 0.92em; min-width: 0; overflow-wrap: anywhere; }
+    .source-card .kind { color: var(--muted); font-size: 0.72em; font-family: monospace; }
+    .source-card .cite { color: var(--muted); font-size: 0.7em; font-style: italic; line-height: 1.35; }
+    .source-card .counts { color: var(--muted); font-size: 0.72em; }
+    :where(#chat-tab, #about) .badge {
       display: inline-block; padding: 0.12rem 0.5rem; border-radius: 10px;
       font-size: 0.62em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
     }
-    .badge-loaded { background: #23863633; color: #3fb950; border: 1px solid #238636; }
-    .badge-available { background: #6e768122; color: #8b949e; border: 1px solid #30363d; }
-    .badge-staging { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb33; }
+    .badge-loaded { background: var(--success-bg); color: var(--success-fg); border: 1px solid var(--success-border); }
+    .badge-available { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+    .badge-staging { background: var(--link-bg); color: var(--link); border: 1px solid var(--link-border); }
     .load-btn {
-      margin-left: auto; padding: 0.3rem 0.9rem; background: #1f6feb; color: #fff; border: none;
+      margin-left: auto; padding: 0.3rem 0.9rem; background: var(--link-border); color: #fff; border: none;
       border-radius: 8px; font-size: 0.75em; font-weight: 600; cursor: pointer;
       transition: background 0.15s;
     }
-    .load-btn:hover { background: #388bfd; }
-    .load-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    /* Only the FIRST button in a row gets the auto margin. Flexbox distributes
+       free space equally among multiple auto margins (§8.1), so a card with two
+       buttons — every USC title (fast + raw) and every OWL vocabulary — rendered
+       [gap][btn1][gap][btn2] with the first stranded in mid-row rather than the
+       pair sitting together at the end. */
+    .source-card .row .load-btn + .load-btn { margin-left: 0; }
+    .load-btn:hover { background: var(--link); }
+    .load-btn:disabled { background: var(--border); color: var(--dim); cursor: not-allowed; }
+    /* The slower of two routes to the same target (raw XML next to a compact
+       archive, .owl source next to a hash-validated .prx) is offered as a
+       secondary action — same affordance, lower emphasis, still AA-legible. */
+    .load-btn.secondary { background: transparent; color: var(--link); border: 1px solid var(--border-strong); }
+    .load-btn.secondary:hover { background: var(--surface-2); color: var(--link-fg); }
+    /* A decline sent the reader here and the archive is over the auto-load
+       size, so the page stopped and handed them the choice. Ringed rather than
+       recoloured: it must read as "waiting for you", not as an error, and the
+       ring reuses the focus token so the emphasis matches where focus already
+       is. Motion is opt-in — a caregiver reading under pressure does not need
+       a pulsing button, and prefers-reduced-motion is honoured elsewhere on
+       this page for the same reason. */
+    .load-btn-awaiting {
+      outline: 2px solid var(--base0A);
+      outline-offset: 2px;
+    }
 
     /* Two-phase load progress (download → materialize) */
-    .progress { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
-    .progress-head {
+    :where(#chat-tab, #about) .progress { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    :where(#chat-tab, #about) .progress-head {
       display: flex; justify-content: space-between; align-items: baseline;
-      font-size: 0.68em; color: #8b949e;
+      font-size: 0.68em; color: var(--muted);
     }
-    .progress-phase { font-weight: 600; color: #58a6ff; }
-    .progress-track {
-      height: 6px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; overflow: hidden;
+    :where(#chat-tab, #about) .progress-phase { font-weight: 600; color: var(--link); }
+    :where(#chat-tab, #about) .progress-track {
+      height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
     }
     /* Determinate (download): smooth gradient fill that grows by % */
-    .progress-fill {
+    :where(#chat-tab, #about) .progress-fill {
       height: 100%; width: 0%; border-radius: 6px;
-      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      background: linear-gradient(90deg, var(--link-border), var(--link));
       transition: width 0.18s ease-out;
     }
     /* Indeterminate (parsing): a sweep that slides while the parser runs */
-    .progress-fill.indeterminate {
-      width: 40%; background: linear-gradient(90deg, transparent, #58a6ff, transparent);
+    :where(#chat-tab, #about) .progress-fill.indeterminate {
+      width: 40%; background: linear-gradient(90deg, transparent, var(--link), transparent);
       animation: sweep 1.1s ease-in-out infinite;
     }
     @keyframes sweep {
       0% { margin-left: -40%; } 100% { margin-left: 100%; }
     }
-    .progress.done .progress-fill {
-      background: linear-gradient(90deg, #238636, #3fb950); width: 100% !important;
+    :where(#chat-tab, #about) .progress.done .progress-fill {
+      background: linear-gradient(90deg, var(--success-border), var(--success-fg)); width: 100% !important;
       animation: none; margin-left: 0;
     }
-    .progress-err { color: #f85149; }
+    /* Unscoped on purpose: tokens.css carries no `.progress-err`, and the
+       Caregiver tab's `#boot` uses it for the engine-failed state. */
+    .progress-err { color: var(--danger-fg); }
 
     /* Substrate ontologies — flat filterable list, no DOLCE/domain tree */
     .ont-card {
-      background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
       padding: 0.55rem 0.9rem; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
     }
-    .ont-card .name { font-weight: 600; color: #c9d1d9; font-size: 0.85em; }
-    .ont-card .domain { color: #484f58; font-size: 0.68em; font-family: monospace; }
-    .ont-card .counts { color: #8b949e; font-size: 0.7em; margin-left: auto; }
+    .ont-card .name { font-weight: 600; color: var(--text); font-size: 0.85em; }
+    .ont-card .domain { color: var(--dim); font-size: 0.68em; font-family: monospace; }
+    .ont-card .counts { color: var(--muted); font-size: 0.7em; margin-left: auto; }
     .ont-list { display: flex; flex-direction: column; gap: 0.3rem; }
 
     #send {
-      padding: 0.7rem 1.5rem; background: #238636; color: #fff; border: none; border-radius: 8px;
+      padding: 0.7rem 1.5rem; background: var(--success-border); color: #fff; border: none; border-radius: 8px;
       font-size: 1em; cursor: pointer; font-weight: 600;
     }
-    #send:hover { background: #2ea043; }
-    #send:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    #send:hover { filter: brightness(1.12); }
+    #send:disabled { background: var(--border); color: var(--dim); cursor: not-allowed; filter: none; }
+
+    /* =====================================================================
+     * CAREGIVER TAB
+     * The six rules below travelled verbatim with the markup from the page
+     * this tab replaces — dashboard.js and the Caregiver markup depend on
+     * them, and none of them exists in tokens.css.
+     * ===================================================================== */
+    .status-pill { flex: none; }
+    .lens-note { color: var(--muted); font-size: var(--fs-small); }
+    .track-badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: var(--fs-small); font-weight: 700; }
+    .track-badge.t1 { color: var(--link-fg); background: var(--link-bg); border: 1px solid var(--link-border); }
+    .track-badge.t2 { color: var(--info-fg); background: var(--info-bg); border: 1px solid var(--info-border); }
+    .evidence-tabs { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .evidence-tab { padding: 0.4rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted); font-size: var(--fs-meta); font-weight: 600; cursor: pointer; min-height: 0; }
+    .evidence-tab.active { color: var(--link-fg); border-color: var(--link-border); background: var(--link-bg); }
+    .corpus-chip { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.8rem; }
+
+    /* Layout reconciliation: the caregiver shell was written to own the whole
+       viewport; here it is a `.tab-content` that already scrolls, so the
+       100vh assumptions have to go or you get a second scrollbar and a
+       sidebar whose foot (#sf-status) is clipped. */
+    #caregiver-tab .app-shell { min-height: 0; flex: 1; }
+    #caregiver-tab .view { max-width: 90rem; }
+    /* Desktop only. Below 62rem tokens.css turns `.sidebar` into a
+       position:fixed drawer that MUST keep its own full height and its own
+       scroll, so the override stops at exactly that breakpoint — otherwise
+       #sf-status is unreachable at 375px. */
+    @media (min-width: 62.01rem) {
+      #caregiver-tab .sidebar { height: auto; overflow: visible; }
+    }
   </style>
 </head>
 <body>
@@ -206,239 +357,768 @@
     <img src="./praxis-logo-dark.jpg" alt="Pr4xis" onerror="this.style.display='none'">
     <h1>Pr4xis</h1>
     <span>Axiomatic intelligence — runs entirely in your browser</span>
-    <div id="status" class="loading">Loading...</div>
+    <a href="/docs/">Docs</a>
+    <div class="topbar-actions">
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark theme">◐ Theme</button>
+      <div id="status" class="status-pill loading" role="status">Loading…</div>
+    </div>
   </header>
 
+  <!-- The hash is the single source of truth for what is visible: `data-tab`
+       names the panel, `data-route` names the hash the click navigates to, and
+       ONLY the router in the module below ever writes `.active`. -->
   <div class="tabs">
-    <button class="tab active" data-tab="about">pr4xis</button>
-    <button class="tab" data-tab="chat-tab">Chat</button>
+    <button class="tab active" data-tab="chat-tab" data-route="chat">Chat</button>
+    <button class="tab" data-tab="caregiver-tab" data-route="caregiver">Caregiver</button>
+    <button class="tab" data-tab="about" data-route="engine">Engine</button>
   </div>
 
-  <div id="chat-tab" class="tab-content">
+  <div id="chat-tab" class="tab-content active">
+    <a class="chat-cta" href="#caregiver">
+      <span class="chat-cta-title">ACL Caregiver AI Challenge — Track 1 &amp; Track 2 →</span>
+      <span class="chat-cta-sub">Pick up a real family-caregiver or HCBS/EVV compliance question from either track's working set and run it here in Chat, or open the Engine Evidence Lab to watch the published evidence reproduce live in your own browser.</span>
+    </a>
+    <!-- The same scope-and-maturity statement the Caregiver tab carries. This
+         is the DEFAULT tab, so a visitor who never navigates must still meet
+         it before they ask anything — which is exactly what the submitted
+         narratives claim the demonstrator does. -->
+    <div class="scope-strip" role="note">
+      <strong>A working research prototype — TRL 3, running live in this tab.</strong>
+      It answers from authorities it has been loaded with and cites them, and
+      declines the rest rather than guessing. It is not a clinical tool, not
+      legal advice, and not a case-management system.
+      <!-- The transfer note belongs HERE too, not only on the Caregiver tab.
+           The eager loads fire from initialize(), before any routing, and
+           Title 42 is ~35 MB — so the default visitor was paying for a
+           transfer whose disclosure sat inside a `display:none` tab they had
+           no reason to open. Saying it after the bytes have moved is not
+           disclosure. -->
+      <span class="scope-transfer">The engine downloads once — about 22&nbsp;MB,
+      near 19&nbsp;MB compressed over the wire — and your browser then caches it.
+      While it answers, it also fetches the law it reasons over in the
+      background: six citation and provenance vocabularies (under 1&nbsp;MB
+      together) and Title&nbsp;42 of the U.S. Code, about 35&nbsp;MB. Ask
+      throughout — more becomes answerable as each arrives, the source panel
+      shows what has landed, and you can put any of it back down. After that it
+      answers with no network at all, and nothing you type leaves this device.</span>
+    </div>
     <div id="chat">
       <div class="message info">Loading…</div>
     </div>
+    <div id="input-area">
+      <input type="text" id="input" placeholder="Ask a question — e.g. is a dog a mammal?" disabled>
+      <button id="send" disabled>Send</button>
+    </div>
   </div>
 
-  <div id="about" class="tab-content active">
+  <!-- ======================================================================
+       CAREGIVER TAB — the ACL Caregiver AI Challenge surface, routed under
+       #caregiver. Controlled by dashboard.js, which the module below mounts
+       with the ONE shared engine.
+       ====================================================================== -->
+  <div id="caregiver-tab" class="tab-content">
+    <div class="sidebar-scrim" id="sidebar-scrim"></div>
+    <div class="app-shell">
+      <!-- ==================== SIDEBAR ==================== -->
+      <nav class="sidebar" id="sidebar" aria-label="Caregiver sections">
+        <div class="sidebar-brand">
+          <img src="./praxis-logo-dark.jpg" alt="" onerror="this.style.display='none'">
+          <div class="sb-text">
+            <div class="sb-name">pr4xis</div>
+            <div class="sb-tagline">Caregiver AI Challenge</div>
+          </div>
+          <button class="sidebar-close" id="sidebar-close" aria-label="Close menu">✕</button>
+        </div>
+        <div class="sidebar-nav">
+          <a class="sidebar-link" data-route="overview" href="#caregiver"><span class="ic">🏠</span> Overview</a>
+          <div class="sidebar-group-label">Tracks</div>
+          <a class="sidebar-link" data-route="tracks/1" href="#caregiver/tracks/1"><span class="ic">👪</span> Track 1 — Family Caregiver</a>
+          <a class="sidebar-link" data-route="tracks/2" href="#caregiver/tracks/2"><span class="ic">🧾</span> Track 2 — HCBS/EVV</a>
+          <a class="sidebar-link" data-route="ask" href="#caregiver/ask"><span class="ic">📋</span> Questions to try</a>
+          <div class="sidebar-group-label">Transparency</div>
+          <a class="sidebar-link" data-route="evidence" href="#caregiver/evidence"><span class="ic">📊</span> Engine Evidence Lab</a>
+          <a class="sidebar-link" data-route="method" href="#caregiver/method"><span class="ic">📄</span> Method &amp; judging map</a>
+        </div>
+        <div class="sidebar-foot">
+          <div><strong>Runs in this tab</strong></div>
+          <div class="sf-trl">No server · no account · no GPU</div>
+          <div id="sf-status">Starting engine…</div>
+        </div>
+      </nav>
+
+      <!-- ==================== MAIN ==================== -->
+      <div class="main">
+        <header class="topbar">
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Open menu">☰</button>
+          <div class="tb-title">
+            <h1 id="tb-title">Overview</h1>
+            <div class="tb-sub" id="tb-sub">pr4xis Caregiver Answer Engine &amp; HCBS/EVV Compliance Navigator</div>
+          </div>
+          <div class="spacer"></div>
+        </header>
+
+        <!-- Scope and maturity, stated on EVERY caregiver view rather than
+             only the first one, because the published deep links land here:
+             a reviewer following #caregiver/tracks/2 must meet the same
+             statement as a reviewer who started at the Overview. -->
+        <div class="scope-strip" role="note">
+          <strong>A working research prototype — TRL 3, running live in this tab.</strong>
+          It answers questions about what U.S. federal caregiving and HCBS
+          rules <em>say</em>, from loaded authorities it cites, and declines
+          the rest. It is not a clinical tool, not legal advice, and not a
+          case-management system. Everything below is computed here, now —
+          including the count of what it does not yet answer.
+        </div>
+
+        <!-- ==================== OVERVIEW ==================== -->
+        <main class="view" id="view-overview" data-view="overview">
+          <div class="view-head">
+            <span class="lens-note">pr4xis · ACL Caregiver AI Challenge, Track 1 &amp; Track 2</span>
+            <h2>Every answer arrives with the provision it came from</h2>
+            <p class="view-lede">A reasoning engine that answers family-caregiver and HCBS/EVV workforce-compliance questions from loaded statute and regulation, and shows you the governing provision on every one, so you can open it and check. Where no loaded authority governs a question, it names what it could not ground, so the question reaches a person already sharpened. Everything below runs live, in this browser, against the real evaluation corpus.</p>
+          </div>
+
+          <div class="summary-box" role="region" aria-labelledby="sixty-seconds-head">
+            <div id="sixty-seconds-head" class="summary-box-heading">What you can check in the next sixty seconds</div>
+            <ul>
+              <li>It cannot compose a citation it was never given: there is no generative stage, so an answer exists only where a loaded, cited provision does. Hand it an invented statute and watch it decline.</li>
+              <li>Deterministic — no sampling, no stochastic inference. Ask the same question twice and the two answers are identical, today and next quarter.</li>
+              <li>The whole engine runs in this browser tab via WebAssembly. No server, no account, no GPU, and no question you type ever leaves this device.</li>
+              <li>Every number on this page is computed here, now, or shows the exact test command that re-derives it.</li>
+            </ul>
+          </div>
+
+          <div class="progress" id="boot" style="max-width:32rem;">
+            <div class="progress-head"><span class="progress-phase" id="boot-phase">Starting worker…</span><span class="note" id="boot-detail"></span></div>
+            <div class="progress-track"><div class="progress-fill indeterminate" id="boot-fill"></div></div>
+            <!-- Said before the download starts rather than discovered during
+                 it. The whole engine arrives once and the device answers on
+                 its own afterwards; on a metered connection that is the
+                 reader's call, so the page gives them what they need to make
+                 it. The live figures below come from the transfer itself. -->
+            <div class="note" style="margin-top:0.5rem;">The engine downloads once — about 22&nbsp;MB, near 19&nbsp;MB over the wire compressed — and is then cached by your browser. Once it is answering, it also fetches the statutory text it reasons over in the background: six citation and provenance vocabularies (under 1&nbsp;MB together) and Title&nbsp;42 of the U.S. Code, about 35&nbsp;MB, which carries Medicare, Medicaid, the Older Americans Act and the HCBS waiver authorities. You can ask questions throughout; more becomes answerable as each arrives, and the source panel shows exactly what has landed. After that it answers with no network at all, and no question you type leaves this device.</div>
+          </div>
+
+          <div class="tiles" id="hero-tiles">
+            <div class="tile"><div class="value na" id="t-concepts">—</div><div class="label">concepts loaded</div></div>
+            <div class="tile"><div class="value na" id="t-ontologies">—</div><div class="label">ontologies loaded</div></div>
+            <div class="tile"><div class="value na" id="t-corpus">—</div>
+              <div class="label"><span class="rm-stage">Bank</span> real questions collected so far — the bank grows as more are collected</div></div>
+            <div class="tile"><div class="value na" id="t-snapshot">—</div>
+              <div class="label"><span class="rm-stage">Done</span> answered today from a governing provision, citation attached — a floor a committed test holds</div></div>
+            <div class="tile"><div class="value" id="t-ledger">0 · 0 · 0</div><div class="label">this session: answered · abstained · conditional</div></div>
+          </div>
+
+          <div class="view-head"><h3>Jump straight in</h3></div>
+          <div class="overview-cards">
+            <a class="overview-card" href="#caregiver/tracks/1">
+              <div class="card"><span class="track-badge t1">Track 1</span><span class="card-title">Family Caregiver questions</span><span class="note">Real questions this track is built from — what a benefit means, whether you're eligible, what you need to provide. Copy one and run it in Chat.</span></div>
+            </a>
+            <a class="overview-card" href="#caregiver/tracks/2">
+              <div class="card"><span class="track-badge t2">Track 2</span><span class="card-title">HCBS/EVV Compliance questions</span><span class="note">Real workforce compliance questions — EVV applicability, critical-incident reporting, each answered against the federal rule. Copy one and run it in Chat.</span></div>
+            </a>
+            <a class="overview-card" href="#caregiver/ask">
+              <div class="card"><span class="card-title">Questions to try</span><span class="note">Clearly-labelled samples from the real evaluation corpus — what it answers today, and what it declines. Copy any of them into Chat.</span></div>
+            </a>
+            <a class="overview-card" href="#caregiver/evidence">
+              <div class="card"><span class="card-title">Engine Evidence Lab</span><span class="note">The program ladder, the named gaps, and the published Smart 40 re-run against the live engine — every figure computed here, now, for Track 1, Track 2, or overall.</span></div>
+            </a>
+          </div>
+
+          <nav class="rubric-anchors" aria-label="Judge's quick links">
+            <span class="ra-label">Judge's map:</span>
+            <a href="#caregiver/method">Responsiveness to Need</a>
+            <a href="#caregiver/method">User-Centered</a>
+            <a href="#caregiver/method">Implementation</a>
+            <a href="#caregiver/method">Usability &amp; Integration</a>
+            <a href="#caregiver/method">AI Principles (P1–P7)</a>
+            <a href="#caregiver/method">Partnerships</a>
+          </nav>
+        </main>
+
+        <!-- ==================== TRACK WORKSPACES (generic 4-column layout) ==================== -->
+        <!-- Both track views are read-only. They show what this track's slice
+             holds and what the engine grounds in it today; questions are copied
+             from here and answered in the Chat tab. -->
+        <main class="view" id="view-track1" data-view="track1">
+          <div class="view-head">
+            <span class="track-badge t1">Track 1 — pr4xis Caregiver Answer Engine</span>
+            <h2>What a family caregiver can ask today</h2>
+            <p class="view-lede">This track's slice of the evaluation instrument, and what the engine grounds in it right now. Copy any question and paste it into the <strong>Chat</strong> tab to see it answered live, with the provision attached.</p>
+          </div>
+          <section class="card rm" id="track1-roadmap" aria-label="Track 1 program: the bank, what is answered today, and what is next"></section>
+          <div class="pop-zone pop-answerable">
+            <div class="pop-zone-head">✅ Grounded questions in this track</div>
+            <div class="pop-zone-what">Drawn at random from the Track 1 rows the engine answers today. Each returns a definition the engine already holds, with what grounded it shown; the two purpose-built lexicons carry the authority that defines the term inline.</div>
+            <div id="track1-questions" class="chip-group" aria-live="polite"></div>
+            <div class="console-controls"><button class="btn btn-ghost" id="track1-more" type="button">↻ Draw 3 more</button></div>
+          </div>
+        </main>
+
+        <main class="view" id="view-track2" data-view="track2">
+          <div class="view-head">
+            <span class="track-badge t2">Track 2 — pr4xis HCBS/EVV Compliance Navigator</span>
+            <h2>What a compliance staffer can ask today</h2>
+            <p class="view-lede">This track's slice of the evaluation instrument, and what the engine grounds in it right now. Copy any question and paste it into the <strong>Chat</strong> tab to see it answered live, cited to the federal rule.</p>
+          </div>
+          <section class="card rm" id="track2-roadmap" aria-label="Track 2 program: the bank, what is answered today, and what is next"></section>
+          <div class="pop-zone pop-answerable">
+            <div class="pop-zone-head">✅ Grounded questions in this track</div>
+            <div class="pop-zone-what">Drawn at random from the Track 2 rows the engine answers today. Each returns a definition or rule carried from the provision that governs it.</div>
+            <div id="track2-questions" class="chip-group" aria-live="polite"></div>
+            <div class="console-controls"><button class="btn btn-ghost" id="track2-more" type="button">↻ Draw 3 more</button></div>
+          </div>
+        </main>
+        <main class="view" id="view-chat" data-view="chat">
+          <div class="view-head">
+            <h2>Questions to try</h2>
+            <p class="view-lede">Copy any question below, open the <strong>Chat</strong> tab, and paste it. The same engine answers it live in this browser.</p>
+          </div>
+
+          <div class="pop-zone pop-answerable">
+            <div class="pop-zone-head">✅ Questions it answers today</div>
+            <div class="pop-zone-what">Drawn uniformly at random from the rows the engine grounds right now. Each one returns an answer the engine already holds, showing what grounded it; definitions from the two purpose-built lexicons carry the provision they were authored from, so you can open it and check. Draw again for a different three.</div>
+            <div id="pop-answerable-chips" class="chip-group" aria-live="polite"></div>
+            <div class="console-controls"><button class="btn btn-ghost" id="pop-answerable-more">↻ Draw 3 more</button></div>
+          </div>
+          <div class="pop-zone pop-adversarial">
+            <div class="pop-zone-head">🛑 Questions built to trick it</div>
+            <div class="pop-zone-what">Invented statutes, fabricated program names, false premises. There is no generative stage, so there is nothing to compose an authority out of — copy any of these into Chat and it comes back declined. Draw again for a different three.</div>
+            <div id="pop-adversarial-chips" class="chip-group" aria-live="polite"></div>
+            <div class="console-controls"><button class="btn btn-ghost" id="pop-adversarial-more">↻ Draw 3 more</button></div>
+          </div>
+        </main>
+
+        <!-- ==================== EVIDENCE LAB ==================== -->
+        <main class="view" id="view-evidence" data-view="evidence">
+          <div class="view-head">
+            <h2>Engine Evidence Lab</h2>
+            <p class="view-lede">Transparency into how the engine performs across the real evaluation corpus — Track 1, Track 2, or combined. Every number below is computed live from the corpus fetched by this page load; nothing is hardcoded.</p>
+          </div>
+          <div class="topbar-actions" style="justify-content:space-between; flex-wrap:wrap;">
+            <div class="evidence-tabs" id="evidence-tabs">
+              <button class="evidence-tab active" data-sub="overall" type="button">Overall</button>
+              <button class="evidence-tab" data-sub="track1" type="button">Track 1</button>
+              <button class="evidence-tab" data-sub="track2" type="button">Track 2</button>
+            </div>
+            <span class="corpus-chip" id="corpus-version-chip">corpus: —</span>
+          </div>
+
+          <div class="tiles" id="evidence-kpis"></div>
+
+          <section class="card rm" id="evidence-roadmap" aria-label="The program: the bank, what is answered today, and what is next"></section>
+
+          <div class="card">
+            <span class="card-title">Honesty &amp; safety</span>
+            <p class="note">Each check runs live, in this browser, against the real engine — click "Verify live" to re-derive it yourself.</p>
+            <div class="honesty-list" id="honesty-list"></div>
+          </div>
+
+          <div class="card">
+            <span class="card-title">What we are building next <span class="note">— each one named, tracked, and under a committed CI bound</span></span>
+            <p class="note">Every number below is a real, named, reproducible list of specific questions — not an estimate. Closing these is live, ongoing work (see the repository's own commit history for the loop), not a static disclaimer.</p>
+            <p class="note" style="margin-top:var(--sp-3);">A few real examples, drawn once per visit to this tab from the committed corpus snapshot:</p>
+            <div class="gap-tabs" id="gap-tabs">
+              <button class="gap-tab active" data-label="all" type="button">All</button>
+              <button class="gap-tab" data-label="MissingTerm" type="button">Missing terms</button>
+              <button class="gap-tab" data-label="UnparsedKnownTerm" type="button">Parsing gaps</button>
+              <button class="gap-tab" data-label="PossibleMisroute" type="button">Misroutes</button>
+            </div>
+            <div class="gap-feed" id="gap-feed"></div>
+          </div>
+
+          <div class="card">
+            <span class="card-title">Sample pipeline trace</span>
+            <p class="note">The real typed trace from the last question you ran in the Chat tab.</p>
+            <div id="pipeline-trace-sample"><div class="proof-empty">Ask a question in the Chat tab to populate this.</div></div>
+          </div>
+
+          <div class="card" id="smart40-card">
+            <span class="card-title">Smart-40 Validation Protocol <span class="note">(as submitted to ACL)</span></span>
+            <p class="note" id="smart40-composition">Loading the published protocol…</p>
+            <p class="note" id="smart40-disclosure"></p>
+            <div class="console-controls">
+              <button class="btn" id="run-all-40" disabled>Run all 40 in my browser</button>
+              <span class="agreement" id="smart40-agreement"></span>
+            </div>
+            <div id="smart40-engine-note" class="note"></div>
+            <div class="scroll-x"><ol class="task-list" id="smart40-rows" start="1"></ol></div>
+          </div>
+        </main>
+
+        <!-- ==================== METHOD & JUDGING MAP ==================== -->
+        <main class="view" id="view-method" data-view="method">
+          <div class="view-head">
+            <h2>Method, evidence, and the judging map</h2>
+            <p class="view-lede">How the ACL rubric's six categories, and the seven AI Principles within category five, map onto real evidence in this system — for a time-pressured reviewer.</p>
+          </div>
+
+          <div class="crosswalk" id="crosswalk"></div>
+
+          <!-- The compile-time ontologies the pipeline reasons THROUGH. These
+               are a different population from the runtime-loaded vocabularies
+               the source catalog lists, which is why they were previously
+               invisible: a reader saw the loaded .prx files and no
+               compositional-semantics stack at all. Read live from the same
+               PipelineStep constants the per-answer trace emits. -->
+          <div class="card">
+            <span class="card-title">The reasoning pipeline</span>
+            <p class="note">Every turn runs through these ontologies in order. They are compiled into the engine rather than loaded at runtime, which is why they do not appear in the source catalog — that lists the vocabularies you can load and unload. Read here from the same constants the per-answer trace reports.</p>
+            <div id="pipeline-ontologies" class="summary-list"></div>
+          </div>
+
+          <div class="card">
+            <span class="card-title">Model card</span>
+            <div class="summary-list">
+              <div class="sl-row"><div class="sl-key">What it is</div><div class="sl-val">A neurosymbolic reasoning engine. Knowledge is typed ontologies connected by category-theory functors. Every turn ends in one of four typed outcomes: an answer carrying the authority it was built from, a cited rule together with the one fact it still needs, that rule resolved once the fact arrives, or a decline. A term outside the two purpose-built lexicons answers from a general-vocabulary sense, labelled as such and tracked as a named defect in the Track 1 appendix.</div></div>
+              <div class="sl-row"><div class="sl-key">Intended use</div><div class="sl-val">Answering caregiving and HCBS/EVV compliance questions from loaded, cited definitions. Not medical, legal, or benefits advice.</div></div>
+              <div class="sl-row"><div class="sl-key">Out of scope</div><div class="sl-val">No scheduling, recruitment, training automation, or EMR/EHR data exchange.</div></div>
+              <div class="sl-row"><div class="sl-key">Determinism</div><div class="sl-val">No sampling, no stochastic inference — identical input yields identical output. Every metric on this page is reproducible from a named test.</div></div>
+              <div class="sl-row"><div class="sl-key">Failure mode</div><div class="sl-val">When no cited definition is loaded, it declines rather than fabricating an answer, and names the surface it could not ground wherever an unresolved surface exists to name.</div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-title">AI facts label</span>
+            <div class="facts-grid">
+              <div class="fact"><div class="fk">Runs on</div><div class="fv">Your device — WebAssembly, no server, no account.</div></div>
+              <div class="fact"><div class="fk">Data sent off-device</div><div class="fv">None. Questions never leave the browser.</div></div>
+              <div class="fact"><div class="fk">Training data</div><div class="fv">Not a trained model. Loads authoritative statute/regulation text and cited definition lexicons.</div></div>
+              <div class="fact"><div class="fk">Sources</div><div class="fv">USC/CFR, CMS guidance, state EVV FAQs, WordNet — each answer names the ontologies it reasoned over.</div></div>
+              <div class="fact"><div class="fk">Confidence display</div><div class="fv">Categorical outcomes only (answered / abstained / conditional). No misleading confidence percentages.</div></div>
+              <div class="fact"><div class="fk">Human oversight</div><div class="fv">Conditional rules ask for the missing fact instead of guessing, and every answer in the Chat tab carries a “Download this decision record (JSON)” link — the typed outcome, the governing rule and its citation, and the full reasoning trace, written in your browser as a file your compliance function keeps.</div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-title">Full Phase 1 evidence</span>
+            <div class="evidence-row" id="evidence-links">
+              <a class="btn btn-secondary" href="/caregiver-challenge/track1-phase1-narrative.pdf">Track 1 narrative (PDF)</a>
+              <a class="btn btn-secondary" href="/caregiver-challenge/track1-phase1-appendix.pdf">Track 1 appendix (PDF)</a>
+              <a class="btn btn-secondary" href="/caregiver-challenge/track2-phase1-narrative.pdf">Track 2 narrative (PDF)</a>
+              <a class="btn btn-secondary" href="/caregiver-challenge/track2-phase1-appendix.pdf">Track 2 appendix (PDF)</a>
+              <a class="btn btn-secondary" href="/caregiver-challenge/smart40-validation-log.pdf">Smart-40 validation log (PDF)</a>
+            </div>
+          </div>
+
+          <div class="card" id="wcag-panel">
+            <span class="card-title">The engine audits its own page</span>
+            <p class="note">This page's palette, checked at view time by the engine's own cited colour ontology — computed from the page's actual rendered tokens rather than asserted. This is a contrast check over the palette, not a full Section 508 conformance review.</p>
+            <div id="wcag-list" class="wcag-list"></div>
+          </div>
+
+          <footer class="band" style="border-top:1px solid var(--border);">
+            <p class="note">Every command below is read verbatim from the artifact that emits the data it re-derives.</p>
+            <div id="reproduce-cmds" class="tiles" style="grid-template-columns:1fr;"></div>
+            <p class="note">
+              <a href="https://github.com/i-am-logger/pr4xis" target="_blank" rel="noopener">github.com/i-am-logger/pr4xis</a>
+              · <span id="state-fingerprint">state fingerprint · —</span>
+            </p>
+          </footer>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <div id="about" class="tab-content">
     <div class="message info">Loading self-model…</div>
   </div>
 
-  <div id="input-area" style="display:none">
-    <input type="text" id="input" placeholder="Ask something... (try: is a dog a mammal?)" disabled>
-    <button id="send" disabled>Send</button>
-  </div>
-
   <script type="module">
-    // pr4xis runs entirely in a Web Worker, so downloading + parsing a
-    // large statute never freezes the UI. The main thread is pure
-    // presentation; every engine call is an async message.
-    const worker = new Worker('./worker.js', { type: 'module' });
-    let nextRpcId = 1;
-    const pending = new Map();
-    worker.onmessage = (e) => {
-      const m = e.data;
-      const p = pending.get(m.id);
-      if (!p) {
-        // A reply whose id matches no pending call (a foreign/devtools
-        // postMessage, or a worker fail() on a malformed inbound message)
-        // must be SURFACED, never silently dropped.
-        console.error('worker reply with no pending call:', m);
-        return;
-      }
-      if (m.status === 'progress') { if (p.onProgress) p.onProgress(m); return; }
-      pending.delete(m.id);
-      if (m.status === 'ok') p.resolve(m.payload);
-      else p.reject(new Error(m.payload));
-    };
-    worker.onerror = (e) => console.error('worker error:', e.message || e);
-    function call(type, args, onProgress) {
-      const id = nextRpcId++;
-      return new Promise((resolve, reject) => {
-        pending.set(id, { resolve, reject, onProgress });
-        worker.postMessage({ id, type, args: args || {} });
-      });
-    }
+    // pr4xis runs entirely in a Web Worker, so downloading + parsing a large
+    // statute never freezes the UI. The main thread is pure presentation;
+    // every engine call is an async message.
+    //
+    // ONE app, ONE engine. This module owns the engine boot, the hash router,
+    // the theme, the generic Chat tab and the Engine tab's self-model
+    // dashboard. Everything behind #caregiver lives in dashboard.js, which is
+    // mounted here with the SAME engine object — the engine is constructed in
+    // exactly ONE place in the whole app, so the 22 MB WebAssembly binary is
+    // instantiated once no matter which tab you land on. Chat rendering —
+    // outcome cards, the Why? plain-language layer, and the typed-trace
+    // accordion — is the ONE shared renderer both surfaces import
+    // (docs/chat/chat-ui.js), so they can never drift.
+    import { createEngine, sendChat } from './chat-ui.js';
+    import {
+      mountCaregiver, caregiverEngineReady, caregiverEngineError,
+      caregiverThemeChanged, showCaregiverView, caregiverTallyOutcome,
+    } from './dashboard.js';
+
+    const engine = createEngine('./worker.js');   // THE ONLY createEngine CALL IN THE APP
+    const call = engine.call;   // the dashboard + source-loader code below calls RPCs directly
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');
     const send = document.getElementById('send');
     const status = document.getElementById('status');
 
-    let pr4xisMeta = { concept_count: 0, word_count: 0 };
+    // ==================== ROUTER ====================
+    // The hash is the single source of truth for what is visible. This is the
+    // ONLY code in the app that writes `.active` on a `.tab`, a `.tab-content`
+    // or (via showCaregiverView) a `.view` / `.sidebar-link`.
+    //
+    //   #                              -> Chat tab
+    //   #chat                          -> Chat tab
+    //   #engine                        -> Engine tab
+    //   #caregiver                     -> Caregiver tab, Overview
+    //   #caregiver/tracks/1|2          -> Caregiver tab, that track's Case workspace
+    //   #caregiver/ask                 -> Caregiver tab, free-form Q&A
+    //   #caregiver/evidence[/overall|track1|track2]
+    //                                  -> Caregiver tab, Engine Evidence Lab
+    //   #caregiver/method              -> Caregiver tab, Method & judging map
+    //
+    // Naming rule: the caregiver prefix is `caregiver`, sub-routes are
+    // lowercase single words, and a numbered workspace is `<plural-noun>/<n>`.
+    // The caregiver's own Q&A is `ask`, not `chat`, so it can never be
+    // confused with the app's top-level `#chat`.
+    const CHAT_TITLE = 'Pr4xis — Axiomatic Intelligence';
+    const ROUTES = {
+      '':                           { tab: 'chat-tab',      title: CHAT_TITLE },
+      'chat':                       { tab: 'chat-tab',      title: CHAT_TITLE },
+      'engine':                     { tab: 'about',         title: 'Engine — pr4xis' },
+      'caregiver':                  { tab: 'caregiver-tab', sub: 'overview', title: 'Overview — pr4xis' },
+      'caregiver/tracks/1':         { tab: 'caregiver-tab', sub: 'tracks/1', title: 'Track 1 — Family Caregiver — pr4xis' },
+      'caregiver/tracks/2':         { tab: 'caregiver-tab', sub: 'tracks/2', title: 'Track 2 — HCBS/EVV Compliance — pr4xis' },
+      'caregiver/ask':              { tab: 'caregiver-tab', sub: 'ask',      title: 'Questions to try — pr4xis' },
+      'caregiver/evidence':         { tab: 'caregiver-tab', sub: 'evidence', evidenceSub: 'overall', title: 'Engine Evidence Lab — pr4xis' },
+      'caregiver/evidence/overall': { tab: 'caregiver-tab', sub: 'evidence', evidenceSub: 'overall', title: 'Engine Evidence Lab — pr4xis' },
+      'caregiver/evidence/track1':  { tab: 'caregiver-tab', sub: 'evidence', evidenceSub: 'track1', title: 'Engine Evidence Lab — pr4xis' },
+      'caregiver/evidence/track2':  { tab: 'caregiver-tab', sub: 'evidence', evidenceSub: 'track2', title: 'Engine Evidence Lab — pr4xis' },
+      'caregiver/method':           { tab: 'caregiver-tab', sub: 'method',   title: 'Method & judging map — pr4xis' },
+    };
+    // The caregiver views used to be their own page with bare hashes, and
+    // `#track1` / `#track2` were printed verbatim into submitted PDFs. They are
+    // replaced (not pushed) so the stale URL leaves the history stack, and any
+    // `?q=` rides along untouched. `#chat` is deliberately NOT redirected: it
+    // was only ever an internal sidebar link, and `chat` is the already-live
+    // name of this app's primary tab.
+    const LEGACY = {
+      'track1': 'caregiver/tracks/1',
+      'track2': 'caregiver/tracks/2',
+      'overview': 'caregiver',
+      'evidence': 'caregiver/evidence',
+      'method': 'caregiver/method',
+    };
 
-    function addMessage(text, cls) {
+    function parseRoute() {
+      const raw = (location.hash || '').replace(/^#/, '');
+      const qi = raw.indexOf('?');
+      const route = qi === -1 ? raw : raw.slice(0, qi);
+      const qs = qi === -1 ? '' : raw.slice(qi + 1);
+      if (Object.prototype.hasOwnProperty.call(LEGACY, route)) {
+        location.replace('#' + LEGACY[route] + (qs ? '?' + qs : ''));
+        return null;                       // caller re-parses the replaced hash
+      }
+      const q = new URLSearchParams(qs).get('q');
+      let entry = ROUTES[route];
+      if (!entry) {
+        // An unknown sub-route under a known prefix falls back to that
+        // prefix's default; an unknown top-level route falls back to Chat.
+        // Neither rewrites the hash, and neither shows error copy.
+        if (route === 'caregiver' || route.startsWith('caregiver/')) {
+          entry = route.startsWith('caregiver/evidence/') ? ROUTES['caregiver/evidence'] : ROUTES['caregiver'];
+        } else {
+          entry = ROUTES[''];
+        }
+      }
+      return { route, q, ...entry };
+    }
+
+    // `navigate()` applies synchronously and the browser then fires
+    // `hashchange`, so applyRoute runs twice per navigation. Without this
+    // guard a `?q=` deep link would send the same question to the engine
+    // twice.
+    let lastApplied = null;
+    function applyRoute(opts = {}) {
+      // A legacy hash was just replaced. Re-read it ONCE — bounded, not
+      // recursive: no LEGACY target is itself a LEGACY key, so the second
+      // parse always resolves. (The replace also fires `hashchange`, which
+      // the no-op guard below then absorbs.)
+      const r = parseRoute() || parseRoute();
+      if (!r) return;
+      const key = r.route + (r.q ? '?q=' + r.q : '');
+      if (!opts.force && key === lastApplied) return;
+      lastApplied = key;
+
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === r.tab));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === r.tab));
+      document.title = r.title;
+
+      // The caregiver mobile drawer lives inside #caregiver-tab, so it is not
+      // rendered while another tab is active; clearing it here also means
+      // returning to the tab can never land on an already-open drawer.
+      for (const id of ['sidebar', 'sidebar-scrim']) {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('open');
+      }
+
+      if (r.tab === 'caregiver-tab') {
+        showCaregiverView(r.sub, { q: r.q || undefined, evidenceSub: r.evidenceSub });
+      }
+    }
+    function navigate(hash) {
+      location.hash = hash;
+      applyRoute();
+    }
+
+    // ==================== THEME ====================
+    // The theme is app-wide, so the shell owns the toggle. This one string is
+    // the app's entire persistence — no accounts, no server, no saved cases.
+    function initTheme() {
+      const saved = localStorage.getItem('pr4xis-theme');
+      if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+      document.getElementById('theme-toggle').addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme');
+        const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+        const now = cur ? (cur === 'dark' ? 'light' : 'dark') : (prefersDark ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', now);
+        localStorage.setItem('pr4xis-theme', now);
+        caregiverThemeChanged();
+      });
+    }
+
+    // `target` defaults to the main chat log; it stays a parameter so the
+    // renderer can be reused for any additional log without a parallel copy.
+    function addMessage(text, cls, target = chat) {
       const div = document.createElement('div');
       div.className = `message ${cls}`;
       div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+      target.appendChild(div);
+      target.scrollTop = target.scrollHeight;
       return div;
     }
 
-    // Generic pipeline trace: render each step in order, colored by its
-    // status field. No hardcoded ontology names — the trace is whatever
-    // the engine reports.
-    function addTraceAccordion(trace) {
-      const btn = document.createElement('button');
-      btn.className = 'trace-toggle';
-      btn.textContent = '▶ pipeline';
+    // Route a source-load request from an abstention's "Load a source →"
+    // button (emitted by the shared renderer when the engine abstains and
+    // names unresolved terms) to the Engine tab's source catalog, pre-filtered
+    // to the first unresolved term. `navigate` applies the route
+    // synchronously, so the scrollIntoView below runs against a shown element.
+    // An unresolved surface arrives from the engine as `{surface, source_id?}`
+    // — the term the reader can read, and the source that would resolve it
+    // where the engine can say which. Reading `source_id` is the whole of the
+    // routing logic here.
+    //
+    // This replaces a regular expression over the citation form plus a
+    // hand-built `usc_title_${n}`. Both were facts the engine already owned
+    // (`UsCodeTitleId::source_name` is documented as the single point where
+    // that convention lives), and having a second copy in the client is how
+    // they drift. It also could not see "title 42 of the United States Code"
+    // at all, and would happily route to a title this deployment does not
+    // carry, because it derived the name from whatever digits it found.
+    const surfaceOf = (u) => (u && typeof u === 'object' ? (u.surface ?? '') : String(u ?? ''));
+    const sourceIdOf = (u) => (u && typeof u === 'object' ? (u.source_id ?? null) : null);
 
-      const panel = document.createElement('div');
-      panel.className = 'trace-panel';
+    function goLoadSource(unresolved) {
+      navigate('#engine');
+      const f = document.getElementById('src-filter');
+      if (!f) return;
+      const term = surfaceOf(unresolved);
+      const titleName = sourceIdOf(unresolved);
 
-      for (const part of trace.split(' | ')) {
-        const fields = part.split(':');
-        const row = document.createElement('div');
-        row.className = 'step';
-        if (fields.length >= 4) {
-          const st = fields[0].trim();
-          const ontology = fields[1].trim();
-          const action = fields[2].trim();
-          const detail = fields.slice(3).join(':').trim();
-          const color = st === 'warn' ? '#d29922' : st === 'err' ? '#f85149' : '#8b949e';
-          const mk = (t, weight) => { const s = document.createElement('span'); s.style.color = color; if (weight) s.style.fontWeight = weight; s.textContent = t; return s; };
-          row.appendChild(mk(ontology, '600'));
-          row.appendChild(mk(` → ${action}: `));
-          row.appendChild(mk(detail));
-        } else {
-          row.textContent = part;
+      // The citation identifies exactly one title, so take the reader straight
+      // to it. Prefer the pre-projected archive (root-verified, no client-side
+      // XML parse) and fall back to the raw document.
+      //
+      // Whether to START the download is a size decision, not a convenience
+      // one. These titles run from under a megabyte to Title 42's 36 MB, and
+      // beginning a 36 MB transfer because someone asked a question would
+      // spend a metered connection's data without asking — on a page that
+      // states its download cost up front precisely so the reader decides.
+      // So: small titles load immediately; a large one is presented, focused,
+      // with its size on the button, and waits for a click.
+      if (titleName) {
+        f.value = titleName;
+        f.dispatchEvent(new Event('input'));
+        const btn = document.querySelector(`[data-load-fast="${titleName}"]`)
+                 || document.querySelector(`[data-load="${titleName}"]`);
+        if (btn) {
+          btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // The size travels on the button itself (`data-bytes`, written when
+          // the catalog renders). The catalog's own lookup maps are scoped to
+          // the render function, and reaching for them from here would be a
+          // ReferenceError at exactly the moment a caregiver followed a
+          // decline — so the DOM carries the fact instead.
+          // An UNKNOWN size is not a small one. `|| 0` used to turn "the
+          // catalog carried no size" into "free", which is the wrong default
+          // for a decision that spends someone's data — so a missing or zero
+          // count takes the same branch as an over-budget source: presented,
+          // focused, waiting on a click. Every button this looks up currently
+          // carries `data-bytes` from the manifest, so nothing reaches it
+          // today; it goes live the moment a manifest records 0 or a new load
+          // route is wired in, and the wrong default would then be silent.
+          const bytes = Number(btn.dataset.bytes);
+          // `>=`, matching the engine's own contract: `two_class_break` returns
+          // the LOWER BOUND of the upper class, so the source sitting exactly on
+          // the break belongs to the expensive side. With `>` the single most
+          // expensive title — the one the break is drawn to separate — fell
+          // through and auto-downloaded.
+          if (!Number.isFinite(bytes) || bytes <= 0 || bytes >= AUTO_LOAD_MAX_BYTES) {
+            btn.focus();
+            btn.classList.add('load-btn-awaiting');
+            return;
+          }
+          btn.click();
+          return;
         }
-        panel.appendChild(row);
+        // Already loaded, or this title is not served by this deploy: leave the
+        // catalog filtered to it so the state is visible either way.
+        f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
       }
 
-      btn.addEventListener('click', () => {
-        const isOpen = panel.classList.toggle('open');
-        btn.classList.toggle('open', isOpen);
-        btn.textContent = isOpen ? '▼ pipeline' : '▶ pipeline';
-        if (isOpen) requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
-      });
-
-      return { btn, panel };
+      f.value = term;
+      f.dispatchEvent(new Event('input'));
+      // don't strand the user on an empty grid if the term matched no source
+      const grid = f.parentElement.querySelector('.source-grid');
+      const anyVisible = grid && [...grid.children].some(c => c.style.display !== 'none');
+      if (!anyVisible) { f.value = ''; f.dispatchEvent(new Event('input')); }
+      f.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     async function initialize() {
       try {
-        pr4xisMeta = await call('init');
-        status.textContent = `${pr4xisMeta.concept_count.toLocaleString()} concepts`;
-        status.className = 'ready';
+        const meta = await call('init');                    // the ONE init
+        const self = JSON.parse(await call('self_describe'));
+        status.textContent = `${meta.concept_count.toLocaleString()} concepts`;
+        status.className = 'status-pill ready';
         addMessage(
           `pr4xis — axiomatic intelligence\n` +
-          `  ${pr4xisMeta.concept_count.toLocaleString()} concepts, ${pr4xisMeta.word_count.toLocaleString()} words\n` +
+          `  ${meta.concept_count.toLocaleString()} concepts, ${meta.word_count.toLocaleString()} words\n` +
           `  running in a Web Worker — no server, UI stays responsive`,
           'info'
         );
+        // Awaited, unlike the eager loads below: this decides whether a later
+        // abstention may spend the reader's data without asking, and until it
+        // has an answer the budget is 0 (ask about everything). Cheap — it
+        // reads two already-built manifests.
+        await loadAutoLoadBudget();
         await renderDashboard();
         input.disabled = false;
         send.disabled = false;
-        input.focus();
+        caregiverEngineReady(meta, self);   // caregiver run controls come alive
+        if (document.getElementById('chat-tab').classList.contains('active')) input.focus();
+        // AFTER ready, and deliberately not awaited: the engine is already
+        // usable, every control is live, and this only adds reach. It is
+        // outside the boot try/catch on purpose — a failed fetch here must
+        // never land in the handler below, which blanks the About tab and
+        // reports an engine error. The page stays fully working if every one
+        // of these fails; the reader just has fewer sources loaded, which is
+        // exactly the state the page shipped in before.
+        loadEagerResidents();
       } catch (e) {
-        status.textContent = 'Error';
-        status.className = 'error';
+        status.textContent = 'Engine error';
+        status.className = 'status-pill error';
         status.title = String(e);
         const errMsg = `Failed to load: ${e}\n\n${e.stack || ''}`;
         addMessage(errMsg, 'info');
         document.getElementById('about').innerHTML =
-          `<div class="message info" style="white-space:pre-wrap;color:#f85149;">${errMsg}</div>`;
+          `<div class="message info" style="white-space:pre-wrap;color:var(--danger-fg);">${errMsg}</div>`;
         console.error('pr4xis init error:', e);
+        caregiverEngineError(e);
       }
+    }
+
+    // One turn through the engine, rendered by the ONE shared renderer
+    // (chat-ui.js): the outcome card, the low-emphasis Why? plain-language
+    // layer (shown when the wire carries `why`), and the typed-trace accordion
+    // (from `trace_structured`, falling back to the flattened string) — the
+    // same rendering the Caregiver tab uses. The abstention "Load a source →"
+    // affordance routes to this page's own source catalog via goLoadSource.
+    async function askEngine(text) {
+      text = (text || '').trim();
+      if (!text) return null;
+      // The Caregiver tab publishes a session ledger and a sample pipeline
+      // trace, but it runs nothing itself: the Chat tab owns the engine, so
+      // the shell hands every result it observes back to that module.
+      const result = await sendChat(engine, text, chat, {
+        onAbstainLoad: goLoadSource,
+        // A `Conditional` names the fact the rule turns on. Answering it is
+        // the next turn of the SAME stateful session, which is what lets the
+        // engine reach `RuleResolved`; the button just supplies the turn.
+        onSlotAnswer: ans => askEngine(ans),
+      });
+      caregiverTallyOutcome(result);
+      return result;
     }
 
     async function handleSend() {
       const text = input.value.trim();
       if (!text) return;
-      addMessage(text, 'user');
       input.value = '';
-      const t0 = performance.now();
-      let raw;
-      try {
-        raw = await call('chat', { input: text });
-      } catch (e) {
-        addMessage(`error: ${e}`, 'info');
-        return;
-      }
-      const elapsed = performance.now() - t0;
-      try {
-        const result = JSON.parse(raw);
-        const dur = elapsed < 1 ? `${(elapsed * 1000).toFixed(0)}µs` : `${elapsed.toFixed(1)}ms`;
-        const msgDiv = addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
-        if (result.trace) {
-          const { btn, panel } = addTraceAccordion(result.trace);
-          msgDiv.appendChild(btn);
-          msgDiv.appendChild(panel);
-        }
-        // Abstention (doc §4.1): the engine couldn't answer and NAMES the
-        // surfaces it doesn't know — turn that into "load it?" rather than a
-        // dead end. The typed outcome crosses the wire; we don't sniff the text.
-        if (result.outcome === 'abstained' && Array.isArray(result.unresolved) && result.unresolved.length) {
-          msgDiv.classList.add('abstained');
-          const terms = result.unresolved;
-          const actions = document.createElement('div');
-          actions.className = 'abstain-actions';
-          const label = document.createElement('span');
-          label.className = 'terms';
-          label.textContent = `not loaded: ${terms.join(', ')}`;
-          const loadBtn = document.createElement('button');
-          loadBtn.className = 'abstain-load';
-          loadBtn.textContent = 'load a source →';
-          loadBtn.addEventListener('click', () => {
-            document.querySelector('.tab[data-tab="about"]')?.click();
-            const f = document.getElementById('src-filter');
-            if (f) {
-              f.value = terms[0];
-              f.dispatchEvent(new Event('input'));
-              // don't strand the user on an empty grid if the term matched no source
-              const grid = f.parentElement.querySelector('.source-grid');
-              const anyVisible = grid && [...grid.children].some(c => c.style.display !== 'none');
-              if (!anyVisible) { f.value = ''; f.dispatchEvent(new Event('input')); }
-              f.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          });
-          actions.appendChild(label);
-          actions.appendChild(loadBtn);
-          msgDiv.appendChild(actions);
-        }
-
-        const statsEl = document.createElement('div');
-        statsEl.style.cssText = 'margin-top:0.5em; font-size:0.7em; color:#484f58; border-top:1px solid #21262d; padding-top:0.3em;';
-        // The ontologies the answer REASONED OVER — projected straight from the
-        // engine's reasoned_over() (the compiled pipeline + any LOADED .prx the
-        // answer drew on). Loaded ones are marked ✦, so the list GENERALISES as you
-        // load more — no hardcoded pipeline (U6/U7). Defensive over the older flat
-        // string shape.
-        const onts = Array.isArray(result.ontologies) ? result.ontologies : [];
-        const names = onts
-          .map(o => (o && typeof o === 'object') ? (o.kind === 'loaded' ? `${o.ontology} ✦` : o.ontology) : o)
-          .join(', ');
-        statsEl.textContent = `${onts.length} ontologies${names ? ` · ${names}` : ''} · ${dur} · in-browser`;
-        msgDiv.appendChild(statsEl);
-      } catch {
-        addMessage(raw, 'system');
-      }
+      await askEngine(text);
       input.focus();
     }
 
-    // Tab switching
-    const inputArea = document.getElementById('input-area');
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab).classList.add('active');
-        inputArea.style.display = tab.dataset.tab === 'chat-tab' ? '' : 'none';
-      });
-    });
-
     const fmtMB = b => (b / (1024 * 1024)).toFixed(b < 1024 * 1024 ? 2 : 1) + ' MB';
+
+    // The largest transfer this page will start on the reader's behalf without
+    // being asked — ASKED OF THE ENGINE, not declared here.
+    //
+    // This was a literal, with a comment deriving it from where the shipped
+    // catalog splits (Titles 1–5 at 0.05–4.57 MiB against Titles 49, 15 and 42
+    // at 5.99, 10.63 and 34.86 MiB, so the line sat in the 4.57→5.99 gap). The
+    // derivation was right and computed nowhere: staging one 5.5 MB title would
+    // have left the number untouched and the explanation false. The engine now
+    // computes the same break from the sizes it actually stages, so it moves
+    // with the catalog. Anything at or above it is scrolled to and focused with
+    // its size on the button, so the reader spends their own data deliberately.
+    //
+    // Until the answer arrives — and if an older cached wasm cannot answer —
+    // this is 0, which asks about EVERY load. Erring toward asking costs a
+    // click; erring the other way costs someone's data.
+    let AUTO_LOAD_MAX_BYTES = 0;
+    async function loadAutoLoadBudget() {
+      try {
+        const b = JSON.parse(await call('auto_load_budget'));
+        if (typeof b.bytes === 'number' && b.bytes > 0) AUTO_LOAD_MAX_BYTES = b.bytes;
+      } catch { /* stays 0 — ask about everything */ }
+    }
 
     // Download a source's authoritative USLM XML (streaming, with a real
     // progress bar), then parse it into a live UsCode (Nelson-Narens
     // control: Available → Loaded). Two visible phases: Downloading →
+    // Loading is a deliberate act; so is undoing it. A reader who loaded a
+    // large title to settle one citation can put it back down.
+    //
+    // ONE builder, used by every grid that can show a loaded card. It lived
+    // inline in the Sources loop, and that loop excludes OntologyVocabulary
+    // rows — so a loaded biro/c4o/cito/doco/olia/prov_o card carried no button
+    // at all, not even a disabled one. The engine always supported it:
+    // `Pr4xis::unload` is keyed by name over the loaded set, and worker.js
+    // routes it generically. It was purely a missing affordance, in the grid
+    // where a reviewer is most likely to be experimenting.
+    function unloadButton(name) {
+      const off = document.createElement('button');
+      off.className = 'load-btn secondary';
+      off.dataset.unload = name;              // stable hook for the Rust E2E
+      off.textContent = 'Unload';
+      off.title = 'Drop this ontology and re-ground what remains';
+      off.addEventListener('click', async () => {
+        off.disabled = true;
+        off.textContent = 'Unloading…';
+        try {
+          await call('unload', { id: name });
+          await renderDashboard();            // re-observe: the source is Available again
+        } catch (e) {
+          off.disabled = false;
+          off.textContent = 'Unload';
+          off.title = String(e);
+        }
+      });
+      return off;
+    }
+
     // Materializing.
     async function loadSource(name, url, totalHint, card, topRow) {
-      const btn = topRow.querySelector('.load-btn');
-      if (btn) btn.remove();
+      // ALL of them, matching the archive and OWL paths below. `querySelector`
+      // took the FIRST `.load-btn` — which on a USC card is "Load (fast)", not
+      // the "Load raw XML" the reader actually clicked. The pressed button
+      // survived and stayed clickable, so a second click began a concurrent
+      // duplicate download of the same multi-megabyte title, and a failure
+      // appended a third button beside it. Unload shares the class but is
+      // gated on `loaded`, and the load buttons on `!loaded`, so they never
+      // coexist and this cannot remove an Unload.
+      for (const b of topRow.querySelectorAll('.load-btn')) b.remove();
 
       const prog = document.createElement('div');
       prog.className = 'progress';
@@ -488,6 +1168,146 @@
         retry.className = 'load-btn';
         retry.textContent = 'Retry';
         retry.addEventListener('click', () => { prog.remove(); loadSource(name, url, totalHint, card, topRow); });
+        topRow.appendChild(retry);
+      }
+    }
+
+    // Fetch the sources this deployment declares resident, after the engine is
+    // already up.
+    //
+    // The NAMES come from the engine (`eager_resident`), never from a list in
+    // this file — the residency policy is declared once in typed Rust with its
+    // reasoning attached, and a build-time gate holds every name to a real
+    // catalog entry. Here we only resolve name → route, using the catalogs the
+    // page already fetched.
+    //
+    // Why this exists: the demonstrator booted holding its two lexicons and
+    // nothing else, so a reviewer's first statutory question met an abstention
+    // the engine had the machinery to answer and simply had not been given the
+    // text for. Loading on arrival is the difference between "it declines" and
+    // "it answers", and that difference is the whole exhibit.
+    //
+    // Every failure is swallowed on purpose. These are additive: the engine
+    // answered before them and answers after them. A source that fails to
+    // arrive leaves the page in exactly the state it used to ship in, with the
+    // card still offering a manual Load — never a broken page, and never an
+    // error banner for a capability the reader never asked for.
+    async function loadEagerResidents() {
+      // The settled marker is set on EVERY exit path, including the ones that
+      // load nothing — "nothing more is arriving" is exactly what it means, and
+      // it is as true after a failure as after a success. Anything waiting on
+      // the catalog to stop moving (a reader, the end-to-end suite) would
+      // otherwise wait out its whole timeout for a page that had already
+      // finished, which is the same shape a genuinely broken page has.
+      try {
+        await loadEagerResidentsInner();
+      } finally {
+        document.body.dataset.eagerResidency = 'settled';
+      }
+    }
+
+    async function loadEagerResidentsInner() {
+      // Ask the engine for the catalogs directly. `renderDashboard` builds its
+      // own lookup maps as function-LOCAL consts, so reaching for them here
+      // would be a ReferenceError — the identical mistake that shipped in
+      // `goLoadSource`'s size gate and is now covered by a dataset-key check
+      // in dom-contract.test.mjs. Fetching them here also means this does not
+      // depend on a render having happened first.
+      let names = [], archives = [], ontologies = [], sources = [];
+      try {
+        names = (JSON.parse(await call('eager_resident')).names) || [];
+        archives = JSON.parse(await call('available_usc_archives')).archives || [];
+        ontologies = JSON.parse(await call('available_ontologies')).ontologies || [];
+        sources = JSON.parse(await call('available_sources')).sources || [];
+      } catch { return; }              // an older engine build has no such export
+      const byName = (xs) => new Map(xs.map((x) => [x.name, x]));
+      const arch = byName(archives), onts = byName(ontologies), srcs = byName(sources);
+      for (const name of names) {
+        try {
+          if (arch.has(name)) {
+            const meta = arch.get(name);
+            await call('load', {
+              name, encoding: 'rkyv-archive', url: meta.url,
+              rootHex: meta.root, totalHint: meta.bytes,
+            });
+          } else if (onts.has(name)) {
+            const meta = onts.get(name);
+            await call('load', {
+              name: meta.name, encoding: 'owl-prx-gz',
+              version: meta.version, url: meta.prx_url,
+            });
+          } else if (srcs.has(name)) {
+            const meta = srcs.get(name);
+            await call('load', {
+              name, encoding: 'uslm-title', url: meta.url, totalHint: meta.bytes,
+            });
+          }
+        } catch { /* additive only — see above */ }
+      }
+      // Re-observe once at the end rather than per source: the catalog, the
+      // hero tiles and the caregiver ledger all read the engine's own state,
+      // so one pass reflects everything that actually arrived.
+      try { await renderDashboard(); } catch { /* the page is still usable */ }
+    }
+
+    // Load a USC title's pre-projected `rkyv` archive (task #21, the
+    // zero-copy on-demand path): stream the `.rprx` from `url`, then load it
+    // under the `rkyv-archive` encoding with `rootHex` as the trusted Merkle
+    // root — `materialize_bytes` bytecheck-validates and re-derives the root
+    // from the NETWORK-fetched bytes, refusing on mismatch. No client-side
+    // USLM XML parse and no owned DAG-CBOR decode/re-encode pass: the
+    // "Materializing" phase is a bytecheck validate + root re-derivation
+    // straight over the same bytes that stay resident afterward.
+    async function loadUscArchive(name, meta, card, topRow) {
+      for (const b of topRow.querySelectorAll('.load-btn')) b.remove();
+
+      const prog = document.createElement('div');
+      prog.className = 'progress';
+      prog.innerHTML =
+        '<div class="progress-head"><span class="progress-phase">Downloading…</span>' +
+        '<span class="progress-detail"></span></div>' +
+        '<div class="progress-track"><div class="progress-fill"></div></div>';
+      card.appendChild(prog);
+      const phase = prog.querySelector('.progress-phase');
+      const detail = prog.querySelector('.progress-detail');
+      const fill = prog.querySelector('.progress-fill');
+
+      try {
+        await call('load', { name, encoding: 'rkyv-archive', url: meta.url, rootHex: meta.root, totalHint: meta.bytes }, (m) => {
+          if (m.phase === 'download') {
+            const total = m.total || meta.bytes || 0;
+            if (total) {
+              const pct = Math.min(100, Math.round((m.received / total) * 100));
+              fill.style.width = pct + '%';
+              detail.textContent = `${fmtMB(m.received)} / ${fmtMB(total)} · ${pct}%`;
+            } else {
+              detail.textContent = fmtMB(m.received);
+            }
+          } else if (m.phase === 'parse') {
+            phase.textContent = 'Materializing…';
+            detail.textContent = `${fmtMB(m.received)} · verifying root (no XML parse)`;
+            fill.classList.add('indeterminate');
+            fill.style.width = '';
+          }
+        });
+
+        prog.classList.add('done');
+        phase.textContent = 'Loaded';
+        detail.textContent = '';
+        await new Promise(r => setTimeout(r, 280));
+        await renderDashboard();
+      } catch (e) {
+        // Fail-closed: a tampered/stale `.rprx` re-derives to the wrong root
+        // and is refused here, surfaced verbatim.
+        prog.classList.add('progress-err');
+        phase.textContent = 'Refused';
+        detail.classList.add('progress-err');
+        detail.textContent = String(e).slice(0, 140);
+        console.error('load (rkyv-archive) failed:', e);
+        const retry = document.createElement('button');
+        retry.className = 'load-btn';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => { prog.remove(); loadUscArchive(name, meta, card, topRow); });
         topRow.appendChild(retry);
       }
     }
@@ -577,11 +1397,11 @@
       try {
         // The SAME one `load` message — no separate embedded RPC. No URL means
         // no download: the demo bytes ship in the wasm, and an absent payload
-        // resolves them by name. The content-addressed encoding + baked root
+        // resolves them by name. The rkyv-archive encoding + baked root
         // drive the fail-closed Merkle-root re-derivation.
         const loaded = JSON.parse(await call('load', {
           name: demo.name,
-          encoding: 'content-addressed-archive',
+          encoding: 'rkyv-archive',
           rootHex: demo.root,
         }));
         const loadedName = loaded.name;
@@ -596,7 +1416,7 @@
         phase.textContent = 'Refused';
         detail.classList.add('progress-err');
         detail.textContent = String(e).slice(0, 140);
-        console.error('load (embedded content-addressed-archive) failed:', e);
+        console.error('load (embedded rkyv-archive) failed:', e);
         topRow.appendChild(btn);
       }
     }
@@ -606,21 +1426,26 @@
     // from what the runtime reports — no source-specific knowledge here.
     async function renderDashboard() {
       const dash = document.getElementById('about');
-      let data, sources_avail, ontologies_avail;
+      let data, sources_avail, ontologies_avail, usc_archives_avail;
       try {
         data = JSON.parse(await call('self_describe'));
         sources_avail = JSON.parse(await call('available_sources')).sources || [];
         ontologies_avail = JSON.parse(await call('available_ontologies')).ontologies || [];
+        usc_archives_avail = JSON.parse(await call('available_usc_archives')).archives || [];
       } catch (e) {
         const err = document.createElement('div');
         err.className = 'message info';
-        err.style.color = '#f85149';
+        err.style.color = 'var(--danger-fg)';
         err.textContent = `self_describe parse error: ${e}`;
         dash.replaceChildren(err);
         return;
       }
       const sourceByName = new Map(sources_avail.map(a => [a.name, a]));
       const ontologyByName = new Map(ontologies_avail.map(o => [o.name, o]));
+      // USC titles with a pre-projected, zero-copy-loadable compact archive
+      // (task #21) — an ADDITIONAL, faster route alongside the raw-XML
+      // `sourceByName` entry every staged title already has.
+      const uscArchiveByName = new Map(usc_archives_avail.map(a => [a.name, a]));
       // Sources catalog: USC titles etc. OWL vocabularies appear in the
       // catalog too (registered SourceTaxonomy=OntologyVocabulary) — they
       // get their own dual-load section below, so suppress them here to
@@ -644,7 +1469,7 @@
         el.className = 'counts';
         // textContent, not innerHTML: `parts` carries loaded-source relation kinds.
         const answersLabel = document.createElement('span');
-        answersLabel.style.color = '#7ee787';
+        answersLabel.style.color = 'var(--success-fg)';
         answersLabel.textContent = 'answers:';
         el.appendChild(answersLabel);
         el.appendChild(document.createTextNode(' ' + parts.join(' · ')));
@@ -659,9 +1484,9 @@
       hero.innerHTML =
         '<img src="./praxis-logo-dark.jpg" alt="pr4xis" style="height:64px; border-radius:8px;" onerror="this.style.display=\'none\'">' +
         '<div>' +
-          '<div style="font-size:1.8em; font-weight:700; color:#58a6ff;">pr4xis</div>' +
-          `<div style="color:#8b949e; font-size:0.9em;">Axiomatic intelligence — self-model · ${data.awareness || ''} — running entirely in your browser</div>` +
-          '<a href="https://github.com/i-am-logger/pr4xis" target="_blank" rel="noopener" style="color:#58a6ff; font-size:0.8em; text-decoration:none;">github.com/i-am-logger/pr4xis</a>' +
+          '<div style="font-size:1.8em; font-weight:700; color:var(--link);">pr4xis</div>' +
+          `<div style="color:var(--muted); font-size:0.9em;">Axiomatic intelligence — self-model · ${data.awareness || ''} — running entirely in your browser</div>` +
+          '<a href="https://github.com/i-am-logger/pr4xis" target="_blank" rel="noopener" style="color:var(--link); font-size:0.8em; text-decoration:none;">github.com/i-am-logger/pr4xis</a>' +
         '</div>';
       dash.appendChild(hero);
 
@@ -713,7 +1538,7 @@
           // textContent, not innerHTML: `ev.ontology` is a loaded-source name.
           const verbSpan = document.createElement('span');
           verbSpan.className = 'name';
-          verbSpan.style.color = isReplace ? '#d29922' : '#3fb950';
+          verbSpan.style.color = isReplace ? 'var(--warning-fg)' : 'var(--success-fg)';
           verbSpan.textContent = verb;
           const nameSpan = document.createElement('span');
           nameSpan.className = 'name';
@@ -835,19 +1660,59 @@
         badge.className = `badge ${loaded ? 'badge-loaded' : 'badge-available'}`;
         badge.textContent = s.availability;
         top.appendChild(badge);
-        if (loaded && s.staging) {
+        // Residency is the badge, because it answers the question a reader
+        // actually has — is this here because I asked for it? "resident" ships
+        // in the box, "eager" this deployment prefetched, "elective" the reader
+        // loaded, "derived" the engine composed from what was already loaded
+        // (and so cannot be put down on its own). Staging (where the bytes came
+        // from) rides along as the title.
+        if (loaded && (s.residency || s.staging)) {
           const sb = document.createElement('span');
           sb.className = 'badge badge-staging';
-          sb.textContent = s.staging;
+          sb.textContent = s.residency || s.staging;
+          if (s.staging) sb.title = `arrived as ${s.staging}`;
           top.appendChild(sb);
+        }
+        // Loading is a deliberate act; so is undoing it. A reader who loaded a
+        // large title to settle one citation can put it back down.
+        //
+        // The engine decides, not the page: `releasable` is computed from the
+        // source's RESIDENCY (how it came to be loaded), which is the property
+        // that actually governs this. Reading `staging` here instead was a real
+        // defect — staging says only where the bytes came from, so the resident
+        // bases that ship in the box looked identical to a fetched title and
+        // got an unload button whose load act the reader had never performed
+        // and the page could not offer back.
+        if (loaded && s.releasable) top.appendChild(unloadButton(s.name));
+        // Fast route first (task #21): a pre-projected, content-addressed
+        // archive — no client-side XML parse. Offered alongside, never
+        // instead of, the raw-XML route below (transparency + an honest
+        // fallback for a title with no compact archive yet).
+        if (!loaded && uscArchiveByName.has(s.name)) {
+          const archiveMeta = uscArchiveByName.get(s.name);
+          const fastBtn = document.createElement('button');
+          fastBtn.className = 'load-btn';
+          fastBtn.dataset.loadFast = s.name;
+          fastBtn.dataset.bytes = String(archiveMeta.bytes);
+          // Size in the label, not only the tooltip, for anything the page
+          // will not start on its own: a reader deciding whether to spend the
+          // data should not have to hover to learn how much it is.
+          fastBtn.textContent = archiveMeta.bytes >= AUTO_LOAD_MAX_BYTES
+            ? `Load (fast) · ${fmtMB(archiveMeta.bytes)}`
+            : 'Load (fast)';
+          fastBtn.title = `pre-projected rkyv archive · ${fmtMB(archiveMeta.bytes)} · root ${archiveMeta.root.slice(0, 12)}…`;
+          fastBtn.addEventListener('click', () => loadUscArchive(s.name, archiveMeta, card, top));
+          top.appendChild(fastBtn);
         }
         // Load action only where the authoritative document is served.
         if (!loaded && sourceByName.has(s.name)) {
           const meta = sourceByName.get(s.name);
           const btn = document.createElement('button');
           btn.className = 'load-btn';
+          if (uscArchiveByName.has(s.name)) btn.classList.add('secondary');
           btn.dataset.load = s.name; // stable hook for the Rust E2E
-          btn.textContent = 'Load';
+          btn.dataset.bytes = String(meta.bytes); // read by goLoadSource's size gate
+          btn.textContent = uscArchiveByName.has(s.name) ? 'Load raw XML' : 'Load';
           btn.addEventListener('click', () => loadSource(s.name, meta.url, meta.bytes, card, top));
           top.appendChild(btn);
         }
@@ -926,6 +1791,12 @@
             sb.textContent = s.staging;
             top.appendChild(sb);
           }
+          // Same Unload the Sources grid offers, on the same engine-computed
+          // `releasable`. Deliberately NOT gated on `ontologyByName.has(name)`:
+          // unload keys on the loaded ontology, not on whether a download route
+          // is still published, so a vocabulary remains removable even if its
+          // source were withdrawn.
+          if (loaded && s.releasable) top.appendChild(unloadButton(s.name));
           // Dual-load action: only where a `.prx.gz` is published AND a
           // .owl source is staged (i.e. the vocab appears in
           // available_ontologies). Otherwise no Load — the catalog row
@@ -941,8 +1812,7 @@
             top.appendChild(prxBtn);
 
             const srcBtn = document.createElement('button');
-            srcBtn.className = 'load-btn';
-            srcBtn.style.background = '#6e7681';
+            srcBtn.className = 'load-btn secondary';
             srcBtn.dataset.loadSource = s.name;
             srcBtn.textContent = 'Load source';
             srcBtn.title = meta.source_url;
@@ -1012,9 +1882,22 @@
       }
     }
 
-    send.addEventListener('click', handleSend);
+    send.addEventListener('click', () => handleSend());
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSend(); });
 
+    // ==================== BOOT ====================
+    // Order matters. mountCaregiver wires every caregiver control and starts
+    // the artifact fetches synchronously, so applyRoute can paint a cold deep
+    // link (#caregiver/tracks/2, #caregiver/evidence) against real markup
+    // before the engine has finished loading; the run controls stay disabled
+    // until caregiverEngineReady enables them.
+    initTheme();
+    mountCaregiver(engine);
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => navigate('#' + tab.dataset.route));
+    });
+    window.addEventListener('hashchange', () => applyRoute());
+    applyRoute({ force: true });           // FIRST paint honours a deep link
     initialize();
   </script>
 </body>

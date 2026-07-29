@@ -79,3 +79,50 @@ slow-timeout = { period = "30s", terminate-after = 2 }
 [[profile.ci.overrides]]
 filter = 'test(sox_1514a) | test(statute_understanding)'
 slow-timeout = { period = "30s", terminate-after = 2 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# `agid_is_the_oracle_for_the_plural_noun_rule_route` — an exhaustive oracle
+# sweep over the full AGID inflection dictionary (`agid-infl.txt`, already on
+# disk, no network fetch at runtime), checking every "N" (noun) headword's
+# plural-formation rule against the loaded pluralization engine. Confirmed by
+# direct measurement, twice: 29.044s in complete isolation (zero contention,
+# `-E 'test(agid_is_the_oracle_for_the_plural_noun_rule_route)'` alone) — a
+# genuinely, consistently slow test sitting right at the strict 30s cap's
+# edge, not a resource-contention artifact (ruled out explicitly, unlike the
+# sox_1514a/statute_understanding override above, which IS contention-only
+# per its own comment). Same relaxed-cap treatment for the same underlying
+# reason: legitimately exhaustive per-headword work over a large real corpus.
+[[profile.default.overrides]]
+filter = 'test(agid_is_the_oracle_for_the_plural_noun_rule_route)'
+slow-timeout = { period = "45s", terminate-after = 2 }
+
+[[profile.ci.overrides]]
+filter = 'test(agid_is_the_oracle_for_the_plural_noun_rule_route)'
+slow-timeout = { period = "45s", terminate-after = 2 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# `ontology_base_is_consistent` — the whole-base consistency proof. Its cost is
+# a function of how many ontologies the workspace registers, so it grows with
+# the codebase by construction; every ontology added anywhere makes this one
+# test do more work.
+#
+# Measured, both numbers: 11.87s in complete isolation on a many-core
+# workstation (`-E 'test(ontology_base_is_consistent)'` alone), against 30.49s
+# on a CI runner inside the full 8,835-test suite — where it exceeded the strict
+# 30s cap and was killed. So it is BOTH genuinely slow (unlike the
+# sox_1514a/statute_understanding override above, which is contention-only) and
+# contention-sensitive (unlike agid, which is ~29s isolated). Neither existing
+# override's reasoning covers it, hence its own.
+#
+# `period` stays at 30s deliberately rather than being raised to hide the cost:
+# the SLOW marker still fires at the point CI currently reaches, so a real
+# regression stays visible in the log. `terminate-after = 3` lifts the hard cap
+# to 90s — 3x the observed CI worst case — so a slow runner cannot fail the
+# suite for a test that is merely doing its job.
+[[profile.default.overrides]]
+filter = 'test(ontology_base_is_consistent)'
+slow-timeout = { period = "30s", terminate-after = 3 }
+
+[[profile.ci.overrides]]
+filter = 'test(ontology_base_is_consistent)'
+slow-timeout = { period = "30s", terminate-after = 3 }

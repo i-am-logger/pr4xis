@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(command grep *)",
+      "Bash(command find *)",
+      "Bash(journalctl *)",
+      "Bash(bash scripts/constitution-gate.sh *)",
+      "Bash(command cat *)",
+      "Bash(command ls *)",
+      "Bash(nix eval *)"
+    ]
+  }
+}

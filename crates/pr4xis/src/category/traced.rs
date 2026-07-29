@@ -243,6 +243,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn traced_compose_accumulates_records() {
         let f = TracedMorphism::traced(
@@ -272,6 +273,7 @@ mod tests {
         assert_eq!(h.log[1].operation, "step2");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn traced_identity_has_no_trace() {
         let id = TracedCategory::<TestCat>::identity(&TestObj::A);
@@ -280,6 +282,7 @@ mod tests {
         assert!(id.log.is_empty());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn traced_compose_with_identity_preserves_trace() {
         let f = TracedMorphism::traced(
@@ -298,6 +301,7 @@ mod tests {
         assert_eq!(h.log[0].detail, "found");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn trace_records_have_status() {
         let mut f = TracedMorphism::traced(
@@ -316,6 +320,7 @@ mod tests {
         assert_eq!(f.log[1].status, TraceRecordStatus::Warning);
     }
 
+    #[crate::praxis_value(Honest, Deterministic)]
     #[test]
     fn compose_incompatible_returns_none() {
         let f = TracedMorphism::traced(
@@ -341,6 +346,7 @@ mod tests {
 
     // --- Writer monad law verification for TracedCategory ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn writer_monad_left_identity() {
         // pure(m) >>= f = f(m)
@@ -354,6 +360,7 @@ mod tests {
         assert_eq!(result.log.len(), 1);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn writer_monad_right_identity() {
         // m >>= pure = m
@@ -373,6 +380,7 @@ mod tests {
 
     // --- Algebraic integration tests ---
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn trace_to_cofree_tree() {
         let records = vec![
@@ -396,6 +404,7 @@ mod tests {
         assert_eq!(tree.tail[0].extract().ontology, "Grammar");
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn fold_trace_counts_steps() {
         let records = vec![
@@ -428,6 +437,7 @@ mod tests {
         assert_eq!(total, 3);
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn fold_trace_collects_ontologies() {
         let records = vec![

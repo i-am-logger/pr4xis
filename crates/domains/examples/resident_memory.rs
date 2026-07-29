@@ -234,7 +234,10 @@ fn main() {
     let english: &'static English = Box::leak(Box::new(english));
     let after_english = read_memory();
     report(
-        &format!("5. embedded English ({} concepts)", english.concept_count()),
+        &format!(
+            "5. embedded English ({} concepts)",
+            english.concept_count().value
+        ),
         after_english,
         before_english,
     );
@@ -296,7 +299,7 @@ fn main() {
     let control = compose(false);
     let after_control = read_memory();
     report("6a. control reasoner", after_control, before_control);
-    let control_index_entries = control.english_atom_count();
+    let control_index_entries = control.english_atom_count().value;
     drop(control);
 
     // WITH (6b): the menagerie carrying the declared into-English functor, built
@@ -322,7 +325,7 @@ fn main() {
             .loaded()
             .iter()
             .any(|o| o.id().as_str() == "english_wordnet"),
-        into_english.english_atom_count(),
+        into_english.english_atom_count().value,
         control_index_entries,
     );
 

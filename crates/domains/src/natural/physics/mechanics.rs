@@ -10,6 +10,9 @@ use pr4xis::engine::{Action, Engine, Precondition, Situation};
 use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 pub const G: f64 = 6.674e-11;
 pub const EARTH_G: f64 = 9.81;
 
@@ -43,11 +46,16 @@ impl Particle {
         })
     }
 
-    pub fn momentum(&self) -> f64 {
-        self.mass * self.velocity
+    /// Momentum p = mv. Newton (1687), Definitio II.
+    pub fn momentum(&self) -> Quantity {
+        Quantity::new(self.mass * self.velocity, Dimension::MOMENTUM)
     }
-    pub fn kinetic_energy(&self) -> f64 {
-        0.5 * self.mass * self.velocity * self.velocity
+    /// Kinetic energy KE = ½mv².
+    pub fn kinetic_energy(&self) -> Quantity {
+        Quantity::new(
+            0.5 * self.mass * self.velocity * self.velocity,
+            Dimension::ENERGY,
+        )
     }
 }
 
@@ -144,8 +152,13 @@ pub fn new_particle_with_velocity(
     ))
 }
 
-pub fn gravity(m1: f64, m2: f64, r: f64) -> f64 {
-    G * m1 * m2 / (r * r)
+/// Newton's law of universal gravitation: F = Gm1m2/r² — the gravitational
+/// FORCE between two masses (both masses appear in the formula, so despite
+/// the function's name this is Dimension::FORCE, not an acceleration; an
+/// acceleration would divide out one mass, e.g. g = Gm/r²). Newton (1687),
+/// Book III, Proposition VII.
+pub fn gravity(m1: f64, m2: f64, r: f64) -> Quantity {
+    Quantity::new(G * m1 * m2 / (r * r), Dimension::FORCE)
 }
 
 #[cfg(test)]
@@ -208,7 +221,7 @@ mod tests {
         fn prop_ke_nonneg(mass in 0.1..100.0f64, force in -1000.0..1000.0f64, dt in 0.01..10.0f64) {
             let e = new_particle(mass).unwrap()
                 .next(MechanicsAction::ApplyForce { force, duration: dt }).unwrap();
-            prop_assert!(e.situation().kinetic_energy() >= 0.0);
+            prop_assert!(e.situation().kinetic_energy().value >= 0.0);
         }
 
         #[test]
@@ -220,8 +233,8 @@ mod tests {
 
         #[test]
         fn prop_gravity_symmetric(m1 in 1.0..1e10f64, m2 in 1.0..1e10f64, r in 1.0..1e6f64) {
-            let f12 = gravity(m1, m2, r);
-            let f21 = gravity(m2, m1, r);
+            let f12 = gravity(m1, m2, r).value;
+            let f21 = gravity(m2, m1, r).value;
             let scale = f12.abs().max(1e-30);
             prop_assert!((f12 - f21).abs() / scale < 1e-10);
         }

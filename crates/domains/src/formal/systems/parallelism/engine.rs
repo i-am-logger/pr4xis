@@ -26,6 +26,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::formal::math::quantity::unit;
 use crate::formal::math::quantity::value::Quantity;
 
 // ---------------------------------------------------------------------------
@@ -116,9 +117,10 @@ pub struct ComputationDag {
 }
 
 impl ComputationDag {
-    /// Work `T1` — the number of strands (CLRS Ch. 27: serial time).
-    pub fn work(&self) -> usize {
-        self.strands.len()
+    /// Work `T1` — the number of strands (CLRS Ch. 27: serial time). A
+    /// dimensionless count of unit-time strands.
+    pub fn work(&self) -> Quantity {
+        Quantity::from_unit(self.strands.len() as f64, &unit::UNITLESS)
     }
 }
 
@@ -186,7 +188,7 @@ fn build_fib_node(n: u64, strands: &mut Vec<Strand>) -> NodeHandle {
 /// Span `T∞` — the number of strands on a longest path (CLRS Ch. 27:
 /// the critical-path length). Computed by a single forward pass, valid
 /// because the strand vector is in topological order.
-pub fn span(dag: &ComputationDag) -> usize {
+pub fn span(dag: &ComputationDag) -> Quantity {
     let mut depth = vec![0usize; dag.strands.len()];
     let mut best = 0usize;
     for (i, strand) in dag.strands.iter().enumerate() {
@@ -194,7 +196,7 @@ pub fn span(dag: &ComputationDag) -> usize {
         depth[i] = pred_depth + 1;
         best = best.max(depth[i]);
     }
-    best
+    Quantity::from_unit(best as f64, &unit::UNITLESS)
 }
 
 // ---------------------------------------------------------------------------
@@ -323,9 +325,10 @@ pub struct Schedule {
 }
 
 impl Schedule {
-    /// The makespan `T_p` — the number of unit-time steps.
-    pub fn makespan(&self) -> usize {
-        self.steps.len()
+    /// The makespan `T_p` — the number of unit-time steps. A
+    /// dimensionless count.
+    pub fn makespan(&self) -> Quantity {
+        Quantity::from_unit(self.steps.len() as f64, &unit::UNITLESS)
     }
 
     /// The greatest number of strands executed simultaneously in any

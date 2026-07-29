@@ -27,6 +27,9 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::positive_definite;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::duration::Duration;
+use crate::formal::math::temporal::instant::Instant;
+use crate::formal::math::temporal::time_system::TimeSystem;
 
 use crate::applied::sensor_fusion::fusion::engine::{FusionAction, FusionState, apply_fusion};
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
@@ -165,13 +168,13 @@ impl Axiom for PredictIncreasesUncertainty {
             let after_state = apply_fusion(
                 &fusion_state,
                 &FusionAction::Predict {
-                    dt: 1.0,
+                    dt: Duration::from_seconds(1.0),
                     transition: f,
                     process_noise: q,
                 },
             )
             .unwrap();
-            if after_state.estimate.uncertainty() < before - 1e-10 {
+            if after_state.estimate.uncertainty().value < before.value - 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -220,7 +223,7 @@ impl Axiom for UpdateReducesUncertainty {
                 },
             )
             .unwrap();
-            if after_state.estimate.uncertainty() > before + 1e-10 {
+            if after_state.estimate.uncertainty().value > before.value + 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -286,16 +289,20 @@ fn run_sequence(initial: &StateEstimate, actions: &[FusionAction]) -> FusionStat
 }
 
 fn determinism_test_cases() -> Vec<(StateEstimate, Vec<FusionAction>)> {
-    let s1 = StateEstimate::new(Vector::new(vec![0.0]), Matrix::new(1, 1, vec![10.0]), 0.0);
+    let s1 = StateEstimate::new(
+        Vector::new(vec![0.0]),
+        Matrix::new(1, 1, vec![10.0]),
+        Instant::new(0.0, TimeSystem::GPS),
+    );
     let s2 = StateEstimate::new(
         Vector::new(vec![1.0, 2.0]),
         Matrix::new(2, 2, vec![5.0, 1.0, 1.0, 5.0]),
-        0.0,
+        Instant::new(0.0, TimeSystem::GPS),
     );
 
     let actions_1d: Vec<FusionAction> = vec![
         FusionAction::Predict {
-            dt: 1.0,
+            dt: Duration::from_seconds(1.0),
             transition: Matrix::identity(1),
             process_noise: Matrix::new(1, 1, vec![0.1]),
         },
@@ -305,7 +312,7 @@ fn determinism_test_cases() -> Vec<(StateEstimate, Vec<FusionAction>)> {
             measurement_noise: Matrix::new(1, 1, vec![1.0]),
         },
         FusionAction::Predict {
-            dt: 0.5,
+            dt: Duration::from_seconds(0.5),
             transition: Matrix::identity(1),
             process_noise: Matrix::new(1, 1, vec![0.05]),
         },
@@ -318,7 +325,7 @@ fn determinism_test_cases() -> Vec<(StateEstimate, Vec<FusionAction>)> {
 
     let actions_2d: Vec<FusionAction> = vec![
         FusionAction::Predict {
-            dt: 1.0,
+            dt: Duration::from_seconds(1.0),
             transition: Matrix::identity(2),
             process_noise: Matrix::new(2, 2, vec![0.1, 0.0, 0.0, 0.1]),
         },

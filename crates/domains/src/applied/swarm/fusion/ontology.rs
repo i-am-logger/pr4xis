@@ -141,12 +141,13 @@ impl Axiom for CiFusionConsistentAcrossPeers {
         let mut consistent = true;
         let mut strict_somewhere = false;
         for omega in OMEGA_GRID {
-            let Some(fused) = ci_fused_scalar_variance(omega) else {
+            let Some(fused) = ci_fused_scalar_variance(omega).map(|q| q.value) else {
                 return verdict_from(self, false);
             };
             for rho in CORRELATION_GRID {
                 let realised =
-                    ci_realised_error_variance(CI_VARIANCE_A, CI_VARIANCE_B, rho, omega, fused);
+                    ci_realised_error_variance(CI_VARIANCE_A, CI_VARIANCE_B, rho, omega, fused)
+                        .value;
                 consistent &= fused + NUMERICAL_SLACK >= realised;
                 strict_somewhere |= fused > realised + NUMERICAL_SLACK;
             }
@@ -199,8 +200,8 @@ impl Axiom for NaiveInformationFusionOverconfidentUnderCycles {
         // Overconfidence: the correct covariance strictly dominates the
         // naive one in the PSD ordering (difference PSD, trace positive).
         let difference = central_estimate.covariance.sub(&naive_estimate.covariance);
-        let strictly_smaller =
-            positive_definite::is_positive_semidefinite(&difference) && difference.trace() > 0.0;
+        let strictly_smaller = positive_definite::is_positive_semidefinite(&difference)
+            && difference.trace().value > 0.0;
 
         // The mechanism, verified exactly: the surplus information is
         // the origin peer's own contribution, counted a second time.

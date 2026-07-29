@@ -161,6 +161,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn kleisli_total_lifts_morphism() {
         let m = Morph {
@@ -173,12 +174,14 @@ mod tests {
         assert_eq!(k.target, Obj::B);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn kleisli_zero_is_partial() {
         let k = KleisliMorphism::<Cat>::zero(Obj::A, Obj::C);
         assert!(!k.is_total());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn kleisli_identity() {
         let id = KleisliMorphism::<Cat>::identity(&Obj::A);
@@ -187,6 +190,7 @@ mod tests {
         assert_eq!(id.target, Obj::A);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn kleisli_compose_total() {
         let f = KleisliMorphism::<Cat>::total(Morph {
@@ -203,6 +207,7 @@ mod tests {
         assert_eq!(h.target, Obj::C);
     }
 
+    #[crate::praxis_value(Honest, Deterministic)]
     #[test]
     fn kleisli_compose_incompatible() {
         let f = KleisliMorphism::<Cat>::total(Morph {
@@ -217,6 +222,7 @@ mod tests {
         assert!(!h.is_total()); // B ≠ C
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn kleisli_left_identity() {
         let f = KleisliMorphism::<Cat>::total(Morph {
@@ -229,6 +235,7 @@ mod tests {
         assert_eq!(h.arrow, f.arrow);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn kleisli_right_identity() {
         let f = KleisliMorphism::<Cat>::total(Morph {

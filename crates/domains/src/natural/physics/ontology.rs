@@ -100,7 +100,7 @@ pub struct MaxwellDerivesC;
 impl Axiom for MaxwellDerivesC {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
-        let c = super::maxwell::speed_of_light();
+        let c = super::maxwell::speed_of_light().value;
         if (c - 2.998e8).abs() < 1e6 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

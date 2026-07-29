@@ -4,6 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::probability::mahalanobis;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Data association: matching detections to tracks.
 ///
@@ -20,7 +21,7 @@ use crate::formal::math::probability::mahalanobis;
 pub fn nearest_neighbor(
     track_predictions: &[(Vector, Matrix)], // (predicted measurement, innovation covariance S)
     detections: &[Vector],
-    gate_threshold: f64,
+    gate_threshold: Quantity,
 ) -> Vec<(usize, usize)> {
     let mut associations = Vec::new();
     let mut used_detections = vec![false; detections.len()];
@@ -34,10 +35,10 @@ pub fn nearest_neighbor(
                 continue;
             }
             if let Some(d2) = mahalanobis::mahalanobis_squared(z, z_pred, s)
-                && d2 < gate_threshold
-                && d2 < best_dist
+                && d2.value < gate_threshold.value
+                && d2.value < best_dist
             {
-                best_dist = d2;
+                best_dist = d2.value;
                 best_det = Some(d_idx);
             }
         }

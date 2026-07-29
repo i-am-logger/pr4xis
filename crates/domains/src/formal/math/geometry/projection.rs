@@ -36,5 +36,5 @@ pub fn project_point_onto_plane(p: &Point3, plane: &Plane) -> Point3 {
 /// Distance from a point to its projection on a line.
 pub fn point_line_distance(p: &Point3, line: &Line3) -> f64 {
     let proj = project_point_onto_line(p, line);
-    p.distance_to(&proj)
+    p.distance_to(&proj).value
 }

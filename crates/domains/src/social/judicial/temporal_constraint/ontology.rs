@@ -8,6 +8,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 pr4xis::ontology! {
     name: "TemporalConstraint",
     source: "Pustejovsky, Castaño, Ingria, Saurí, Gaizauskas, Setzer, Katz (2003) TimeML: Robust Specification of Event and Temporal Expressions in Text, AAAI Spring Symposium on Reasoning about Time; ISO 24617-1:2012 SemAF Part 1: Time and events; ISO 8601:2019 Date and time representations; Federal Rules of Civil Procedure, Rule 6 (Computing Time); 5 U.S.C. § 5546",
@@ -58,10 +61,11 @@ pr4xis::ontology! {
 // callers reasoning about deadline stringency.
 // ---------------------------------------------------------------------------
 
-/// Average days-per-unit for ordering purposes. BusinessDay uses a
-/// fractional approximation (5 business days ≈ 7 calendar days) — a
-/// caller doing exact computation should resolve against the actual
-/// calendar.
+/// Average days-per-unit for ordering purposes, as a dimension-typed
+/// [`Quantity`] (SI seconds internally, rendered via [`unit::DAY`]).
+/// BusinessDay uses a fractional approximation (5 business days ≈ 7
+/// calendar days) — a caller doing exact computation should resolve
+/// against the actual calendar.
 ///
 /// Returns `None` for the abstract root and for `Immediate` (which has
 /// zero-duration semantics and shouldn't be ordered with positive
@@ -71,16 +75,17 @@ pub struct ApproximateDays;
 
 impl Quality for ApproximateDays {
     type Individual = TemporalConstraintConcept;
-    type Value = u32;
+    type Value = Quantity;
 
-    fn get(&self, c: &TemporalConstraintConcept) -> Option<u32> {
+    fn get(&self, c: &TemporalConstraintConcept) -> Option<Quantity> {
         use TemporalConstraintConcept as T;
         match c {
-            T::Day => Some(1),
-            T::BusinessDay => Some(2), // 5 business days ≈ 7 calendar days, rounded up per-unit
-            T::Week => Some(7),
-            T::Month => Some(30),
-            T::Year => Some(365),
+            T::Day => Some(Quantity::from_unit(1.0, &unit::DAY)),
+            // 5 business days ≈ 7 calendar days, rounded up per-unit
+            T::BusinessDay => Some(Quantity::from_unit(2.0, &unit::DAY)),
+            T::Week => Some(Quantity::from_unit(7.0, &unit::DAY)),
+            T::Month => Some(Quantity::from_unit(30.0, &unit::DAY)),
+            T::Year => Some(Quantity::from_unit(365.0, &unit::DAY)),
             T::Immediate | T::TemporalConstraint => None,
         }
     }
@@ -138,15 +143,17 @@ impl Axiom for GranularityOrdering {
             TemporalConstraintConcept::Month,
             TemporalConstraintConcept::Year,
         ];
-        let mut prev: u32 = 0;
+        let mut prev: Option<Quantity> = None;
         for c in leaves {
             let Some(v) = q.get(&c) else {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             };
-            if v <= prev {
+            if let Some(p) = &prev
+                && v <= *p
+            {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
-            prev = v;
+            prev = Some(v);
         }
         Ok(Box::new(SimpleProof::new(self.meta())))
     }

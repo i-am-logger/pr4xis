@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Dense matrix over R stored in row-major order.
 ///
@@ -170,10 +172,16 @@ impl Matrix {
     }
 
     /// Trace: tr(A) = Σ a_{ii}. Only for square matrices.
-    pub fn trace(&self) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+    /// `f64` — `Matrix` is an abstract linear-algebra primitive (Horn &
+    /// Johnson, *Matrix Analysis*) with no inherent physical unit at this
+    /// generic layer, the same treatment as `Vector::dot`/`Vector::norm`.
+    pub fn trace(&self) -> Quantity {
         assert!(self.is_square());
         let n = self.rows;
-        (0..n).map(|i| self.get(i, i)).sum()
+        let sum: f64 = (0..n).map(|i| self.get(i, i)).sum();
+        Quantity::from_unit(sum, &unit::UNITLESS)
     }
 
     /// Is symmetric? A = A^T within tolerance.
@@ -192,8 +200,12 @@ impl Matrix {
     }
 
     /// Frobenius norm: ||A||_F = sqrt(Σ a_{ij}²).
-    pub fn frobenius_norm(&self) -> f64 {
-        self.data.iter().map(|x| x * x).sum::<f64>().sqrt()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same
+    /// reasoning as [`Matrix::trace`].
+    pub fn frobenius_norm(&self) -> Quantity {
+        let sum: f64 = self.data.iter().map(|x| x * x).sum();
+        Quantity::from_unit(sum.sqrt(), &unit::UNITLESS)
     }
 
     /// Extract column as Vector.

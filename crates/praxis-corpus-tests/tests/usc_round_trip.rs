@@ -16,7 +16,8 @@
 //! naming `pr4xis update usc_title_1` — tests do not skip.
 
 use pr4xis_domains::formal::meta::well_behaved_lens::{
-    CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
+    AchievedFidelity, CompletenessReport, DecompileKind, RoundTripFidelity as Tier,
+    completeness_meter,
 };
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
     build_usc_envelope, usc_envelope_from_bytes, usc_envelope_to_bytes, usc_reconstruct_source,
@@ -131,7 +132,7 @@ fn usc_title1_graph_faithful_prx_round_trip_over_real_corpus() {
     // cross-check), never silently fall to the floor.
     assert_eq!(
         t1_row.achieved,
-        Some(Tier::ByteExactGraphFaithful),
+        AchievedFidelity::Proven(Tier::ByteExactGraphFaithful),
         "with the title on disk the harness must MEASURE graph-faithful (achieved == declared)"
     );
     // Every OTHER title's declared tier is the source-agnostic concern of the

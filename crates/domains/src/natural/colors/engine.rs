@@ -52,8 +52,8 @@ impl Precondition<ColorAction> for ContrastCheck {
             "WCAG 2.1 (2018) §1.4.3 Contrast (Minimum); ISO 9241-303:2011 luminance contrast",
         );
         let result = apply_color(color, action).unwrap_or(*color);
-        let contrast_black = result.contrast_ratio(Rgb::BLACK);
-        let contrast_white = result.contrast_ratio(Rgb::WHITE);
+        let contrast_black = result.contrast_ratio(Rgb::BLACK).value;
+        let contrast_white = result.contrast_ratio(Rgb::WHITE).value;
         let best_contrast = contrast_black.max(contrast_white);
 
         if best_contrast < 2.0 {

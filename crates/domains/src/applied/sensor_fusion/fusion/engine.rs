@@ -5,6 +5,7 @@ use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenan
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::positive_definite;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::duration::Duration;
 
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 
@@ -50,7 +51,7 @@ pub enum FusionAction {
     /// Time update (prediction): propagate state forward by dt.
     /// F = state transition matrix, Q = process noise covariance.
     Predict {
-        dt: f64,
+        dt: Duration,
         transition: Matrix,
         process_noise: Matrix,
     },
@@ -83,7 +84,7 @@ impl Precondition<FusionAction> for PositiveTimeStep {
             "prediction time step must be non-negative",
         );
         if let FusionAction::Predict { dt, .. } = action
-            && *dt < 0.0
+            && dt.is_negative()
         {
             return Err(Box::new(SimpleCounterexample::new(meta)));
         }
@@ -197,7 +198,7 @@ pub(crate) fn apply_fusion(
                 estimate: StateEstimate {
                     state: x_pred,
                     covariance: p_pred,
-                    epoch: situation.estimate.epoch + dt,
+                    epoch: situation.estimate.epoch.advance(dt),
                     step: situation.estimate.step + 1,
                 },
                 sensors_active: situation.sensors_active,
@@ -251,7 +252,7 @@ pub(crate) fn apply_fusion(
                 estimate: StateEstimate {
                     state: x_new,
                     covariance: p_new,
-                    epoch: situation.estimate.epoch,
+                    epoch: situation.estimate.epoch.clone(),
                     step: situation.estimate.step + 1,
                 },
                 sensors_active: situation.sensors_active,

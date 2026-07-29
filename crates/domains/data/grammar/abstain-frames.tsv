@@ -1,0 +1,20 @@
+# Honest-abstention realization frames — Reiter & Dale (2000) *Building Natural
+# Language Generation Systems* (CUP), the realization stage: a communicative goal
+# is realized by filling a stored linguistic template, NOT by concatenating an
+# inline literal in code. These frames cover the FIFTH epistemic cell —
+# vocabulary KNOWN, proposition OPEN — where both queried concepts resolve to
+# loaded vocabulary but the relation between them is neither derivable nor
+# disprovable from the loaded closure. Reiter (1978) closed-world assumption: the
+# system names the boundary of its own knowledge, asserting neither a Yes, a No,
+# nor a (false) vocabulary gap.
+#
+# Format: `frame_id<TAB>template`. The realizer
+# (pragmatics::realize::realize_abstain) fills two typed slots it composes from
+# the grammar in that module — never authored here:
+#   {known}  the "both X and Y" nominal, each concept surface carrying its
+#            determiner (select_determiner); e.g. "a cat and a dog".
+#   {claim}  the relation sentence realized over the pair via sentence_relation
+#            (the loaded connective, or the is-a copula default); e.g. "a cat is
+#            a dog" — embedded UNDER "cannot confirm", so it asserts nothing.
+frame_id	template
+unproven_relation	I know both {known}, but I cannot confirm from what I have loaded that {claim}.

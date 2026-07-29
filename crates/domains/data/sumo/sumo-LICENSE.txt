@@ -1,0 +1,95 @@
+SUMO WordNetMappings — Data License
+=============================
+
+Source: https://github.com/ontologyportal/sumo (branch `master`,
+         commit 152b9abc440477073b5e4e573983b730a619da7b)
+Files: WordNetMappings/WordNetMappings30-{noun,verb,adj,adv}.txt
+Webpage: https://www.ontologyportal.org
+Retrieved: 2026-07-14
+
+## Data license: GNU General Public License (GPL)
+
+The SUMO repository's root README.txt states, verbatim:
+
+    This code is copyrighted by Articulate Software (c) 2004-.
+    Infosys 2017-2020. It is released under the GNU Public License
+    <http://www.gnu.org/copyleft/gpl.html>. Users of this code also
+    consent, by use of this code, to provide credit in any writings,
+    briefings, publications, presentations, or other representations
+    of any software which incorporates, builds on, or uses this code.
+
+Each WordNetMappings30-*.txt file additionally carries its own header
+notice:
+
+    The WordNet license (copied below) applies to the original
+    WordNet content. The mappings from SUMO to WordNet are
+    copyrighted by Teknowledge and Articulate Software 2002-2007.
+    They are released under the GNU Public License
+    <http://www.gnu.org/copyleft/gpl.html>. Users of this code also
+    consent, by use of this material, to credit Teknowledge and
+    Articulate Software in any writings, briefings, publications,
+    presentations, or other representations of any code or other
+    product which incorporates, builds on, or uses this material.
+
+Neither notice specifies a GPL version (the linked gnu.org page is the
+generic GPL landing page, which has pointed at different revisions over
+the notice's 2002–2020 lifetime) — this is the SOURCE's own ambiguity,
+not one introduced here; treat as GPL without an asserted version number.
+
+Each raw file also embeds the Princeton WordNet 3.0 license (the
+underlying `data.noun`/`data.verb`/`data.adj`/`data.adv` content SUMO
+annotates) — see https://wordnet.princeton.edu/license-and-commercial-use
+for that separate, permissive, BSD-style license. Only the SUMO
+ANNOTATION layer (the `&%<term><suffix>` tokens, i.e. the actual synset
+↔ SUMO-term correspondence this project loads) is GPL; the underlying
+WordNet gloss/pointer data these annotations sit inside is not extracted
+or shipped by this project's regen at all (see below).
+
+Citation (requested by the source notice above):
+
+    Niles, I. & Pease, A. (2001). "Towards a Standard Upper Ontology."
+    Proceedings of the 2nd International Conference on Formal Ontology
+    in Information Systems (FOIS 2001), pp. 2-9.
+
+    Niles, I. & Pease, A. (2003). "Linking Lexicons and Ontologies:
+    Mapping WordNet to the Suggested Upper Merged Ontology."
+    Proceedings of the IEEE International Conference on Information
+    and Knowledge Engineering (IKE 2003), pp. 412-416.
+
+## GPL is NOT superseded by this repository's own license
+
+This repository's own original content (`LICENSE`, repo root) is
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+— a DIFFERENT, more restrictive license (adds a NonCommercial clause
+GPL does not impose) that cannot lawfully narrow a GPL grant. This file,
+`crates/domains/data/sumo/sumo-wordnetmappings-30.tsv` (and its `.prx`),
+therefore remains under GPL terms specifically — it is bundled
+third-party data, not relicensed to this repository's CC BY-NC-SA 4.0.
+Any downstream use of this specific file must honor GPL, independent of
+how the rest of this repository is licensed.
+
+## Provenance of the extracted subset shipped in this repository
+
+`crates/domains/data/sumo/sumo-wordnetmappings-30.tsv` is NOT a copy of
+the raw WordNetMappings30-*.txt files (~22 MB across the four files,
+each a full annotated Princeton WordNet 3.0 `data.*` record per line —
+synset offset, lexicographer file number, part of speech, member words,
+pointers, and gloss, none of which this project needs). It is a
+mechanical extraction + offline resolution: for each `&%<term><suffix>`
+annotation on each data line, the synset's WordNet SENSE KEY is
+reconstructed from that line's own member-word/lex_id/lex_filenum/
+ss_type fields and resolved to this project's loaded Open English
+WordNet 2025 `ConceptId`; only `concept_value<TAB>term<TAB>relation_code`
+rows survive. No WordNet gloss, pointer, or member-word text is
+retained. See `regenerate.rs`'s module doc for the exact extraction and
+its citations.
+
+## Fetched from
+
+https://raw.githubusercontent.com/ontologyportal/sumo/master/WordNetMappings/WordNetMappings30-noun.txt
+https://raw.githubusercontent.com/ontologyportal/sumo/master/WordNetMappings/WordNetMappings30-verb.txt
+https://raw.githubusercontent.com/ontologyportal/sumo/master/WordNetMappings/WordNetMappings30-adj.txt
+https://raw.githubusercontent.com/ontologyportal/sumo/master/WordNetMappings/WordNetMappings30-adv.txt
+pinned to commit 152b9abc440477073b5e4e573983b730a619da7b (no tagged
+release exists for these files; the repository has no release-branch
+convention for the WordNetMappings subdirectory specifically).

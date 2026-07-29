@@ -150,6 +150,12 @@ pub enum EvidenceType {
     Narrative,
     Count,
     Text,
+    /// A yes/no threshold fact — e.g. 42 U.S.C. § 1396p(c)(1)(A)'s "did you
+    /// dispose of assets for less than fair market value on or after the
+    /// look-back date". Added when deriving the FIRST real (not hand-built
+    /// test fixture) `EvidenceRequirement` from on-disk USC text surfaced
+    /// this variant was genuinely missing, not a hypothetical gap.
+    Boolean,
 }
 
 /// An evidence requirement for a legal term. Field name / description

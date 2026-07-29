@@ -259,7 +259,7 @@ impl Axiom for DetNormalization {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for n in 1..=5 {
             let i = Matrix::identity(n);
-            if (determinant::det(&i) - 1.0).abs() > 1e-15 {
+            if (determinant::det(&i).value - 1.0).abs() > 1e-15 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -291,8 +291,8 @@ impl Axiom for DetMultiplicativity {
                 if a.rows != b.rows {
                     continue;
                 }
-                let lhs = determinant::det(&a.multiply(b));
-                let rhs = determinant::det(a) * determinant::det(b);
+                let lhs = determinant::det(&a.multiply(b)).value;
+                let rhs = determinant::det(a).value * determinant::det(b).value;
                 if (lhs - rhs).abs() > 1e-6 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
@@ -321,8 +321,8 @@ impl Axiom for DetTranspose {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for m in &canonical_square_matrices() {
-            let d = determinant::det(m);
-            let dt = determinant::det(&m.transpose());
+            let d = determinant::det(m).value;
+            let dt = determinant::det(&m.transpose()).value;
             if (d - dt).abs() > 1e-10 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
@@ -350,7 +350,7 @@ impl Axiom for TraceEigenvalueSum {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for m in &canonical_symmetric_matrices() {
-            let tr = m.trace();
+            let tr = m.trace().value;
             let evs = eigenvalue::eigenvalues_symmetric(m);
             let ev_sum: f64 = evs.iter().sum();
             if (tr - ev_sum).abs() > 1e-6 {
@@ -380,7 +380,7 @@ impl Axiom for DetEigenvalueProduct {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for m in &canonical_symmetric_matrices() {
-            let d = determinant::det(m);
+            let d = determinant::det(m).value;
             let evs = eigenvalue::eigenvalues_symmetric(m);
             let ev_prod: f64 = evs.iter().product();
             if (d - ev_prod).abs() > 1e-4 {

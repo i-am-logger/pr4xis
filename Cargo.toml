@@ -1,5 +1,24 @@
 [workspace]
 resolver = "3"
+
+# pr4xis-wasm IS a member. It was excluded on the theory that "its lib builds
+# for the wasm32 target", but that is not a build constraint: the crate compiles
+# and lints clean on the HOST target too (verified: `cargo clippy
+# --manifest-path crates/wasm/Cargo.toml --release --all-targets -- -D warnings`
+# exits 0 with no `--target` flag). The exclusion's only real effect was that a
+# plain `cargo clippy --workspace` / `cargo test --workspace` silently SKIPPED
+# it, so a defect here could only ever be caught by remembering the extra
+# `--manifest-path` invocation — which is exactly how something falls through a
+# gap. Membership makes the default workspace commands cover it. Its wasm32
+# browser tests still run separately via `wasm-pack test` (dev-test-wasm), and
+# its native `mod acceptance` tests are host-target `#[test]`s gated to
+# non-wasm32, so they now run under `cargo test --workspace` too.
+#
+# This note lives ABOVE the array on purpose. CI's publish-invariant gate parses
+# `members` by stripping punctuation from each line and treating whatever is
+# left as a directory, so a comment INSIDE the brackets becomes a garbage path,
+# `awk` fails to open it, and `bash -e` kills the step before it prints anything
+# — a green-looking config that fails a gate with no message. Keep prose out.
 members = [
     "crates/pr4xis-derive",
     "crates/pr4xis",
@@ -9,14 +28,9 @@ members = [
     "crates/cli",
     "crates/chat",
     "crates/web",
+    "crates/wasm",
 ]
-# pr4xis-wasm excluded from default workspace (its lib builds for the
-# wasm32 target). Its NATIVE `mod acceptance` tests (host-target
-# #[test]s gated to non-wasm32) therefore do NOT run under
-# `cargo test --workspace`; CI + dev-ci run them explicitly via
-# `cargo test --manifest-path crates/wasm/Cargo.toml`. The wasm32
-# browser tests run separately via `wasm-pack test` (dev-test-wasm).
-# pr4xis-e2e excluded too — it drives a real browser via WebDriver and
+# pr4xis-e2e excluded — it drives a real browser via WebDriver and
 # needs a running web server + geckodriver, so it must not run under
 # `cargo test --workspace`. CI invokes it explicitly (see ci.yml `e2e`).
 # praxis-corpus-tests excluded so the default nextest run never re-parses the
@@ -25,7 +39,7 @@ members = [
 # stops that feature from unifying into the normal workspace build. It runs
 # under `cargo test` (one process → a LazyLock fixture parses each giant once),
 # invoked explicitly via `--manifest-path crates/praxis-corpus-tests/Cargo.toml`.
-exclude = ["crates/wasm", "crates/e2e", "crates/praxis-corpus-tests"]
+exclude = ["crates/e2e", "crates/praxis-corpus-tests"]
 
 # Single workspace version — every member inherits it via
 # `version.workspace = true`, so all praxis crates move in lockstep

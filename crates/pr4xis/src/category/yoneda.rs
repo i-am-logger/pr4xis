@@ -220,6 +220,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn yoneda_embed_collects_outgoing() {
         let y = Yoneda::<Graph>::embed(&Node::A);
@@ -227,6 +228,7 @@ mod tests {
         assert_eq!(y.degree(), 2);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn coyoneda_embed_collects_incoming() {
         let cy = CoYoneda::<Graph>::embed(&Node::C);
@@ -234,6 +236,7 @@ mod tests {
         assert_eq!(cy.degree(), 2);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn yoneda_profile_total_degree() {
         let p = YonedaProfile::<Graph>::of(&Node::B);
@@ -242,12 +245,14 @@ mod tests {
         assert_eq!(p.total_degree(), 4);
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn full_yoneda_covers_all_objects() {
         let profiles = full_yoneda::<Graph>();
         assert_eq!(profiles.len(), 3); // A, B, C
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn yoneda_identity_principle() {
         // Yoneda lemma: an object IS its morphisms.

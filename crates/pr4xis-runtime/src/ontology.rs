@@ -84,6 +84,8 @@ use pr4xis::category::reach::{Cached, ReachSubstrate, ReachView};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use std::sync::OnceLock;
+
 use crate::address::ContentAddress;
 use crate::apply::apply;
 use crate::archive::Archive;
@@ -269,15 +271,37 @@ pub struct MaterializedClosure {
     /// `ConceptRef` order (the isomorphism the tie-break pins rely on).
     vertices: Vec<ConceptRef>,
     /// `kind → CSR adjacency over vertex ids`. An entry exists for EVERY
-    /// declared transitive kind (an edge-less kind holds the empty CSR), so
-    /// [`populated_kinds`](Self::populated_kinds) filters the truly non-empty.
-    /// Per `(kind, source)` row, targets are deduped and self-loops dropped
-    /// (a `source == target` generator carries nothing beyond the implicit
-    /// reflexive arrow), matching the former eager fold's handling.
+    /// declared transitive kind (an edge-less kind holds the empty CSR) AND
+    /// for every NON-transitive kind that actually generated an edge
+    /// (Opposition and any other kind outside [`Self::transitive`] — an
+    /// edge-less non-transitive kind gets no entry, since there is no
+    /// declared-but-empty set to track for it the way there is for
+    /// transitive kinds). [`populated_kinds`](Self::populated_kinds) filters
+    /// the truly non-empty. Per `(kind, source)` row, targets are deduped and
+    /// self-loops dropped (a `source == target` generator carries nothing
+    /// beyond the implicit reflexive arrow), matching the former eager
+    /// fold's handling.
     adjacency: BTreeMap<ConceptRef, KindCsr>,
+    /// The DECLARED transitive-kind vocabulary this closure was folded
+    /// against (Subsumption, Parthood, …) — [`reaches`](Self::reaches) /
+    /// [`reachable_from`](Self::reachable_from) / [`chain`](Self::chain)
+    /// dispatch on membership here: a kind IN this set answers through the
+    /// BFS-graded reachability engine (multi-hop, memoized); a kind whose
+    /// [`adjacency`](Self::adjacency) entry exists but is NOT in this set
+    /// (Opposition, and any other non-transitive relation a functor
+    /// relabels edges into) answers through a single DIRECT edge check —
+    /// never chained, since "opposite of an opposite" is not a coherent
+    /// closure (Casati & Varzi 1999's disjointness reading of Opposition;
+    /// contrast [`Parthood`](crate::ontology::opposition_relation_kind),
+    /// which IS transitive and so IS in this set). A kind in neither set nor
+    /// adjacency has no generating edges at all — honest `false`/empty,
+    /// exactly as before this field existed.
+    transitive: BTreeSet<ConceptRef>,
     /// The engine's memo — nested per kind (`kind → source id → image`),
     /// storing exactly the kernel's canonical `(hops, u32::Ord)`-ordered
     /// output over vertex ids (≡ `(hops, ConceptRef::Ord)` via the table).
+    /// Only ever populated for a TRANSITIVE kind — the direct single-edge
+    /// path for a non-transitive kind never touches the memo.
     memo: Cached<ConceptRef, u32>,
 }
 
@@ -309,10 +333,13 @@ impl KindCsr {
 
 impl PartialEq for MaterializedClosure {
     /// Identity is the per-kind generator SET (the table + CSR are canonical:
-    /// sorted, deduped); the memoized images are a derived cache and are
-    /// ignored.
+    /// sorted, deduped) PLUS which kinds are transitive (it changes how a
+    /// query over the SAME edges answers); the memoized images are a derived
+    /// cache and are ignored.
     fn eq(&self, other: &Self) -> bool {
-        self.vertices == other.vertices && self.adjacency == other.adjacency
+        self.vertices == other.vertices
+            && self.adjacency == other.adjacency
+            && self.transitive == other.transitive
     }
 }
 
@@ -428,6 +455,10 @@ impl MaterializedClosure {
         Self {
             vertices,
             adjacency,
+            // Set by the caller ([`fold`](Self::fold) / [`union`](Self::union))
+            // after this returns — `build` itself is transitivity-agnostic, it
+            // just lays out whatever `kinds`/`edges` it is given.
+            transitive: BTreeSet::new(),
             memo: Cached::default(),
         }
     }
@@ -460,31 +491,47 @@ impl MaterializedClosure {
     ///
     /// `transitive` is the LOADED transitive-kind vocabulary (the kinds OWL-RL
     /// marks `Transitive`); one adjacency per kind in it — never a hardcoded
-    /// array. An entry exists for every kind (even edge-less), matching the
-    /// eager form so `populated_kinds` reports identically; an edge whose kind
-    /// is not in the set contributes nothing (a non-transitive kind has no
-    /// closure).
+    /// array — plus an entry for every kind (even edge-less), matching the
+    /// eager form so `populated_kinds` reports identically for transitive
+    /// kinds. An edge whose kind is NOT in `transitive` is not dropped: it
+    /// still generates a CSR row (so [`reaches`](Self::reaches) can answer a
+    /// DIRECT single-edge check for it — Opposition and any other
+    /// non-transitive relation), it is just excluded from the BFS-graded
+    /// engine's kind set (a non-transitive kind has no multi-hop closure).
     pub fn fold(edges: &[RuntimeEdge], transitive: &BTreeSet<ConceptRef>) -> Self {
         let triples: Vec<(&ConceptRef, &ConceptRef, &ConceptRef)> = edges
             .iter()
-            .filter(|e| transitive.contains(&e.kind))
             .map(|e| (&e.kind, &e.source, &e.target))
             .collect();
-        Self::build(transitive.clone(), &triples)
+        let mut kinds = transitive.clone();
+        kinds.extend(edges.iter().map(|e| e.kind.clone()));
+        let mut closure = Self::build(kinds, &triples);
+        closure.transitive = transitive.clone();
+        closure
     }
 
     /// The reachable set from `source` along `kind` — the STRICT reachable set
     /// (descendants of `source`; the reflexive `source → source` arrow is
-    /// implicit and not included, matching the prior behavior). Computed by a
-    /// bounded, memoized BFS on first ask, an O(1) cache hit after. Empty set if
-    /// `source` has no outgoing edges of `kind`.
+    /// implicit and not included, matching the prior behavior). For a
+    /// TRANSITIVE kind, computed by a bounded, memoized BFS on first ask, an
+    /// O(1) cache hit after. For a kind outside `Self::transitive`
+    /// (Opposition, …), this is exactly the direct generating edges — one CSR
+    /// row read, never chained (see the field doc on `transitive`). Empty set
+    /// if `source` has no outgoing edges of `kind`.
     pub fn reachable_from(&self, source: &ConceptRef, kind: ConceptRef) -> BTreeSet<ConceptRef> {
-        if !self.adjacency.contains_key(&kind) {
+        let Some(csr) = self.adjacency.get(&kind) else {
             return BTreeSet::new();
-        }
+        };
         let Some(source_id) = self.id_of(source) else {
             return BTreeSet::new();
         };
+        if !self.transitive.contains(&kind) {
+            return csr
+                .targets_of(source_id)
+                .iter()
+                .map(|&v| self.concept_of(v).clone())
+                .collect();
+        }
         self.view(&kind)
             .strict_image(&source_id)
             .into_iter()
@@ -492,19 +539,29 @@ impl MaterializedClosure {
             .collect()
     }
 
-    /// Does `source` reach `target` along `kind`? — membership in `source`'s
-    /// (memoized) strict image. (Strict reachability: a vertex does not reach
-    /// itself here, matching [`reachable_from`](Self::reachable_from); the
-    /// reflexive `is-a` case is the caller's `child == ancestor` short-circuit.)
-    /// An endpoint absent from the vertex table has no generating edges, so
-    /// the answer is `false` without a walk — exactly what the walk would say.
+    /// Does `source` reach `target` along `kind`? For a TRANSITIVE kind,
+    /// membership in `source`'s (memoized) strict image (multi-hop BFS).
+    /// (Strict reachability: a vertex does not reach itself here, matching
+    /// [`reachable_from`](Self::reachable_from); the reflexive `is-a` case is
+    /// the caller's `child == ancestor` short-circuit.) For a kind outside
+    /// `Self::transitive` (Opposition, …), a SINGLE direct-edge check —
+    /// never chained, so a real antonym pair answers true without treating
+    /// "opposite of an opposite" as reachable. An endpoint absent from the
+    /// vertex table has no generating edges, so the answer is `false` without
+    /// a walk — exactly what the walk would say.
     pub fn reaches(&self, source: &ConceptRef, target: &ConceptRef, kind: ConceptRef) -> bool {
-        if !self.adjacency.contains_key(&kind) || source == target {
+        if source == target {
             return false;
         }
+        let Some(csr) = self.adjacency.get(&kind) else {
+            return false;
+        };
         let (Some(source_id), Some(target_id)) = (self.id_of(source), self.id_of(target)) else {
             return false;
         };
+        if !self.transitive.contains(&kind) {
+            return csr.targets_of(source_id).contains(&target_id);
+        }
         self.view(&kind).reaches(&source_id, &target_id)
     }
 
@@ -529,7 +586,11 @@ impl MaterializedClosure {
     /// `image(c, Parthood)` the wholes `c` is transitively part of. A bounded,
     /// memoized per-vertex BFS, not a bulk-saturated lookup.
     pub fn image(&self, c: &ConceptRef, kind: &ConceptRef) -> Vec<(ConceptRef, u32)> {
-        if !self.adjacency.contains_key(kind) {
+        // A multi-hop "image with hop count" has no coherent meaning for a
+        // kind outside `transitive` (Opposition, …) — see the field doc on
+        // `transitive` and `reaches`'s single-edge branch. Honest empty,
+        // exactly the pre-existing answer for an undeclared kind.
+        if !self.adjacency.contains_key(kind) || !self.transitive.contains(kind) {
             return Vec::new();
         }
         let Some(c_id) = self.id_of(c) else {
@@ -558,7 +619,11 @@ impl MaterializedClosure {
     /// RELATION-PARAMETRIC: the nearest common hypernym for Subsumption, the
     /// nearest common whole for Parthood.
     pub fn meet(&self, a: &ConceptRef, b: &ConceptRef, kind: &ConceptRef) -> Option<ConceptRef> {
-        if !self.adjacency.contains_key(kind) {
+        // "Nearest shared ancestor" has no coherent meaning for a kind
+        // outside `transitive` (Opposition, …) — see the field doc on
+        // `transitive`. Honest `None`, exactly the pre-existing answer for
+        // an undeclared kind.
+        if !self.adjacency.contains_key(kind) || !self.transitive.contains(kind) {
             return None;
         }
         // An endpoint absent from the table has no edges: `b`'s strict image
@@ -589,7 +654,11 @@ impl MaterializedClosure {
         ancestor: &ConceptRef,
         kind: &ConceptRef,
     ) -> Option<Vec<ConceptRef>> {
-        if !self.adjacency.contains_key(kind) {
+        // An ordered multi-hop path has no coherent meaning for a kind
+        // outside `transitive` (Opposition, …) — see the field doc on
+        // `transitive`. Honest `None`, exactly the pre-existing answer for
+        // an undeclared kind.
+        if !self.adjacency.contains_key(kind) || !self.transitive.contains(kind) {
             return None;
         }
         // The engine's chain: reflexive ancestors of `child` that still reach
@@ -642,7 +711,12 @@ impl MaterializedClosure {
             .collect();
         let triples: Vec<(&ConceptRef, &ConceptRef, &ConceptRef)> =
             self.edge_refs().chain(other.edge_refs()).collect();
-        let rebuilt = Self::build(kinds, &triples);
+        let mut rebuilt = Self::build(kinds, &triples);
+        // The transitive-kind vocabulary is a GLOBAL authority
+        // (`declared_transitive_kinds`), so both sides agree in practice;
+        // unioned defensively rather than assumed, so a kind either side
+        // declares transitive stays BFS-graded after the merge.
+        rebuilt.transitive = self.transitive.union(&other.transitive).cloned().collect();
         *self = rebuilt;
     }
 }
@@ -1117,7 +1191,7 @@ fn analyze(
     // macro reads its own copy of the SAME cache, so the compile-time and runtime
     // reachability range over identical kinds. Reachability is then evaluated
     // lazily per queried vertex (see [`MaterializedClosure`]).
-    let closure = MaterializedClosure::fold(&edges, &declared_transitive_kinds());
+    let closure = MaterializedClosure::fold(&edges, declared_transitive_kinds());
 
     // 5. The name→node index: archive-node indices sorted by node name (ties by
     // archive order, so duplicate-named nodes are visited exactly as the full
@@ -1166,28 +1240,47 @@ pub fn apply_then_materialize(
 }
 
 /// The transitive relation-kind vocabulary the kernel's [`materialize`] folds the
-/// closure over — READ from `relations_transitive_kinds.txt`, a distilled,
-/// drift-guarded cache of the Relations ontology's `(R, Transitive, HasProperty)`
-/// declarations (the ONE source of truth that [`transitive_kinds`] reads off a
-/// loaded archive).
+/// closure over — DERIVED once, at first use, from the loaded `morphism_kinds.prx`
+/// (the `domains` Relations ontology, which the kernel already embeds + loads for
+/// [`default_kind_vocab`](crate::recursive_address::load_relation_kinds)). A kind
+/// is transitive iff Relations asserts `Transitive(R)` — the
+/// `("HasProperty", Local("Transitive"))` edge, OWL `TransitiveProperty` — read
+/// straight off the decoded archive, never a restated allowlist. This is exactly
+/// [`transitive_kinds`]'s policy applied to the loaded authority; the two agree by
+/// construction (same `.prx`, same predicate), which the `domains` drift test pins.
 ///
-/// This is the runtime half of "one declaration, two readers"; the build-time
-/// half is the `ontology!` macro (`pr4xis-derive`), which reads its OWN copy of
-/// the same cache. The kernel cannot dep `domains` to load Relations directly, so
-/// it reads this committed projection — loaded data, never a hardcoded allowlist
-/// (the former 3-kind bootstrap). The cache is regenerated by, and drift-guarded
-/// against, `emit::<RelationsCategory>()` + [`transitive_kinds`] in the `domains`
-/// test suite; a hand-edit or a stale cache fails that test. Because both tiers
-/// read the same cache, the compile-time and runtime closures fold identical kinds
-/// — no divergence.
-fn declared_transitive_kinds() -> BTreeSet<ConceptRef> {
-    const RELATIONS_TRANSITIVE_KINDS_SRC: &str = include_str!("relations_transitive_kinds.txt");
-    RELATIONS_TRANSITIVE_KINDS_SRC
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(relations_kind)
-        .collect()
+/// # Why read the OWNED archive, not [`materialize`] it
+///
+/// [`load_relation_kinds`](crate::recursive_address::load_relation_kinds) returns
+/// the *decoded* archive with NO closure fold; reading it directly avoids
+/// re-entering this `OnceLock` — materializing Relations would fold the closure at
+/// [`materialize`]'s step 4, which calls back here. The closure over Relations' own
+/// edges is not needed to enumerate its transitive kinds; only the raw
+/// `HasProperty` edges are.
+///
+/// # The remaining compile-time half
+///
+/// The `ontology!` macro (`pr4xis-derive`) needs the same set at EXPANSION time to
+/// generate same-kind transitive-composition arms, and a proc-macro can neither do
+/// IO nor pull in the `.prx` decoder without adding a codec dependency to every
+/// downstream compile — so it keeps one drift-guarded distilled projection
+/// (`relations_transitive_kinds.txt`, the single sanctioned proc-macro exception).
+/// The runtime no longer restates it.
+fn declared_transitive_kinds() -> &'static BTreeSet<ConceptRef> {
+    static TRANSITIVE_KINDS: OnceLock<BTreeSet<ConceptRef>> = OnceLock::new();
+    TRANSITIVE_KINDS.get_or_init(|| {
+        crate::recursive_address::load_relation_kinds()
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.edges.iter().any(|(rel, target)| {
+                    rel.as_str() == HAS_PROPERTY_REL
+                        && matches!(target, EdgeTarget::Local(name) if name.as_str() == TRANSITIVE_CONCEPT)
+                })
+            })
+            .map(|node| relations_kind(node.name.clone()))
+            .collect()
+    })
 }
 
 /// The relation-kind wire name carrying a relation's OWL-style properties — the
@@ -1248,6 +1341,7 @@ mod tests {
     /// the `apply → materialize` tail the owl / usc / english bridges now share. The
     /// in-crate regression gate for the kernel loader (the bridge tests are the
     /// integration proof that behaviour is preserved end-to-end).
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn apply_then_materialize_is_its_two_steps() {
         let synset = |name: &str, hyper: Option<&str>, gloss: &str| Definition {
@@ -1310,6 +1404,7 @@ mod tests {
         materialize(archive, OntologyName::new_static("Org")).expect("Org materializes")
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn employer_reaches_agent_via_the_subsumption_closure() {
         let onto = org();
@@ -1326,6 +1421,7 @@ mod tests {
         assert!(descendants.contains(&onto.concept("Person")));
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn is_a_returns_a_verdict_carrying_the_claim() {
         let onto = org();
@@ -1349,6 +1445,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn content_address_identity_equality() {
         // Same archive → same root → equal RuntimeOntologies (content-address
@@ -1372,6 +1469,7 @@ mod tests {
         assert_ne!(a, other);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn materialize_bytes_matches_materialize_over_the_same_archive() {
         // The buffer-first loader is query-identical to the owned-archive loader:
@@ -1401,6 +1499,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn materialize_bytes_rejects_a_corrupted_buffer() {
         // A truncated cache buffer fails closed before it is ever queried.
@@ -1417,6 +1516,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Explainable)]
     #[test]
     fn referential_closure_counterexample_on_a_dangling_edge() {
         // Hand-built archive: an edge whose target node is not declared.
@@ -1440,6 +1540,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn transitive_kinds_reads_the_loaded_owl_transitive_property() {
         // The runtime mirror of `RelationProperty::get`: a relation kind is
@@ -1505,6 +1606,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn lexical_lookup_returns_a_nodes_gloss() {
         // This test isolates the `lexical()` reader: build a minimal archive
@@ -1530,6 +1632,7 @@ mod tests {
         assert_eq!(onto.lexical(&onto.concept("Nobody")), None);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn closure_refold_is_idempotent_on_a_prefolded_input() {
         // emit() already emits the closure's transitive edges as generators;
@@ -1548,7 +1651,7 @@ mod tests {
                 .iter()
                 .flat_map(|n| onto.morphisms_from(&onto.concept(n.name.to_string())))
                 .collect::<Vec<_>>(),
-            &declared_transitive_kinds(),
+            declared_transitive_kinds(),
         );
         assert_eq!(
             refolded.reachable_from(&employer, subsumption_kind()),
@@ -1570,6 +1673,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn union_merges_generators_and_recomputes_across_the_seam() {
         // The N-ontology composite hook (no production caller yet). Two closures
@@ -1603,6 +1707,7 @@ mod tests {
         assert_eq!(img.iter().find(|(v, _)| v == &cc).map(|(_, d)| *d), Some(2));
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn lazy_matches_eager_on_a_diamond_and_a_cycle() {
         // The two cases the synthetic memory probe never exercises — a

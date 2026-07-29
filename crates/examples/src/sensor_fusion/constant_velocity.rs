@@ -15,6 +15,9 @@
 mod tests {
 
     use pr4xis_domains::formal::math::linear_algebra::positive_definite;
+    use pr4xis_domains::formal::math::quantity::unit;
+    use pr4xis_domains::formal::math::quantity::value::Quantity;
+    use pr4xis_domains::formal::math::temporal::duration::Duration;
 
     use pr4xis_domains::applied::tracking::single_target::engine::*;
 
@@ -23,11 +26,17 @@ mod tests {
         let true_pos = 0.0;
         let true_vel = 5.0; // 5 m/s
 
-        let mut engine = new_cv_tracker_1d(0.0, 0.0, 100.0, 0.1, 4.0);
+        let mut engine = new_cv_tracker_1d(
+            Quantity::from_unit(0.0, &unit::METER),
+            Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+            100.0,
+            0.1,
+            4.0,
+        );
 
         let mut prev_uncertainty = f64::INFINITY;
         for i in 0..50 {
-            let dt = 1.0;
+            let dt = Duration::from_seconds(1.0);
             let t = (i + 1) as f64;
             let true_position = true_pos + true_vel * t;
 
@@ -42,7 +51,7 @@ mod tests {
             ));
 
             // Uncertainty generally decreases (steady state after a few steps)
-            let uncertainty = engine.situation().estimate.uncertainty();
+            let uncertainty = engine.situation().estimate.uncertainty().value;
             if i > 5 {
                 assert!(
                     uncertainty < prev_uncertainty + 1.0,
@@ -82,10 +91,18 @@ mod tests {
                 true_vel in -20.0..20.0_f64,
                 initial_guess in -50.0..50.0_f64,
             ) {
-                let mut engine = new_cv_tracker_1d(initial_guess, 0.0, 100.0, 0.1, 4.0);
+                let mut engine = new_cv_tracker_1d(
+                    Quantity::from_unit(initial_guess, &unit::METER),
+                    Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                    100.0,
+                    0.1,
+                    4.0,
+                );
                 for i in 0..30 {
                     let t = (i + 1) as f64;
-                    engine = engine.next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    engine = engine
+                        .next(cv_predict_1d(Duration::from_seconds(1.0), 0.1))
+                        .unwrap();
                     engine = engine
                         .next(cv_update_position_1d(true_vel * t, 4.0))
                         .unwrap();
@@ -99,9 +116,17 @@ mod tests {
             fn covariance_stays_psd_for_any_measurements(
                 measurements in proptest::collection::vec(-100.0..100.0_f64, 5..30),
             ) {
-                let mut engine = new_cv_tracker_1d(0.0, 0.0, 100.0, 0.1, 4.0);
+                let mut engine = new_cv_tracker_1d(
+                    Quantity::from_unit(0.0, &unit::METER),
+                    Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                    100.0,
+                    0.1,
+                    4.0,
+                );
                 for z in &measurements {
-                    engine = engine.next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    engine = engine
+                        .next(cv_predict_1d(Duration::from_seconds(1.0), 0.1))
+                        .unwrap();
                     engine = engine.next(cv_update_position_1d(*z, 4.0)).unwrap();
                     prop_assert!(positive_definite::is_positive_semidefinite(
                         &engine.situation().estimate.covariance
@@ -114,12 +139,28 @@ mod tests {
                 true_vel in -20.0..20.0_f64,
                 initial in -50.0..50.0_f64,
             ) {
-                let mut e1 = new_cv_tracker_1d(initial, 0.0, 100.0, 0.1, 4.0);
-                let mut e2 = new_cv_tracker_1d(initial, 0.0, 100.0, 0.1, 4.0);
+                let mut e1 = new_cv_tracker_1d(
+                    Quantity::from_unit(initial, &unit::METER),
+                    Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                    100.0,
+                    0.1,
+                    4.0,
+                );
+                let mut e2 = new_cv_tracker_1d(
+                    Quantity::from_unit(initial, &unit::METER),
+                    Quantity::from_unit(0.0, &unit::METER_PER_SECOND),
+                    100.0,
+                    0.1,
+                    4.0,
+                );
                 for i in 0..10 {
                     let z = true_vel * (i + 1) as f64;
-                    e1 = e1.next(cv_predict_1d(1.0, 0.1)).unwrap();
-                    e2 = e2.next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    e1 = e1
+                        .next(cv_predict_1d(Duration::from_seconds(1.0), 0.1))
+                        .unwrap();
+                    e2 = e2
+                        .next(cv_predict_1d(Duration::from_seconds(1.0), 0.1))
+                        .unwrap();
                     e1 = e1.next(cv_update_position_1d(z, 4.0)).unwrap();
                     e2 = e2.next(cv_update_position_1d(z, 4.0)).unwrap();
                 }

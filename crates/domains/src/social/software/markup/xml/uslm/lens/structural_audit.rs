@@ -71,6 +71,8 @@ use alloc::{
 
 use alloc::collections::BTreeMap;
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::software::markup::xml::ontology::{XmlDocument, XmlElement, XmlNode};
 
 use super::super::corpus::{
@@ -115,23 +117,28 @@ impl ElementHistogram {
         self.counts.iter()
     }
 
-    /// Count for one element name.
+    /// Count for one element name, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
     #[must_use]
-    pub fn get(&self, namespace: Option<&str>, local: &str) -> usize {
+    pub fn get(&self, namespace: Option<&str>, local: &str) -> Quantity {
         let key = (namespace.map(ToString::to_string), local.to_string());
-        self.counts.get(&key).copied().unwrap_or(0)
+        let count = self.counts.get(&key).copied().unwrap_or(0);
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
-    /// Sum of all counts.
+    /// Sum of all counts, as a dimensionless [`Quantity`] (`unit::UNITLESS`)
+    /// -- a count, not a physical quantity.
     #[must_use]
-    pub fn total(&self) -> usize {
-        self.counts.values().sum()
+    pub fn total(&self) -> Quantity {
+        let total: usize = self.counts.values().sum();
+        Quantity::from_unit(total as f64, &unit::UNITLESS)
     }
 
-    /// Distinct element-name count.
+    /// Distinct element-name count, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
     #[must_use]
-    pub fn distinct(&self) -> usize {
-        self.counts.len()
+    pub fn distinct(&self) -> Quantity {
+        Quantity::from_unit(self.counts.len() as f64, &unit::UNITLESS)
     }
 }
 
@@ -164,10 +171,13 @@ impl StructuralAudit {
         self.gaps.iter().filter(|g| g.gap > 0)
     }
 
-    /// Total dropped element count across every element name.
+    /// Total dropped element count across every element name, as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) -- a count, not a
+    /// physical quantity.
     #[must_use]
-    pub fn total_dropped(&self) -> i64 {
-        self.dropped_elements().map(|g| g.gap).sum()
+    pub fn total_dropped(&self) -> Quantity {
+        let total: i64 = self.dropped_elements().map(|g| g.gap).sum();
+        Quantity::from_unit(total as f64, &unit::UNITLESS)
     }
 }
 
@@ -676,8 +686,8 @@ pub fn audit_structural_content(xml_bytes: &[u8]) -> Result<StructuralAudit, Aud
     }
     let mut gaps = Vec::with_capacity(keys.len());
     for (ns, local) in keys {
-        let r = raw.get(ns.as_deref(), &local);
-        let t = typed.get(ns.as_deref(), &local);
+        let r = raw.get(ns.as_deref(), &local).value as usize;
+        let t = typed.get(ns.as_deref(), &local).value as usize;
         gaps.push(GapRow {
             namespace: ns,
             local,
@@ -749,11 +759,11 @@ pub fn render_audit(name: &str, audit: &StructuralAudit) -> String {
     let mut out = String::new();
     out.push_str(&format!(
         "=== uslm structural audit: {name} ===\n  raw distinct names = {}\n  raw total elements = {}\n  typed distinct names = {}\n  typed total elements = {}\n  total dropped (raw - typed, where raw > typed) = {}\n",
-        audit.raw.distinct(),
-        audit.raw.total(),
-        audit.typed.distinct(),
-        audit.typed.total(),
-        audit.total_dropped(),
+        audit.raw.distinct().value,
+        audit.raw.total().value,
+        audit.typed.distinct().value,
+        audit.typed.total().value,
+        audit.total_dropped().value,
     ));
     out.push_str("  per-element diff:\n");
     for g in &audit.gaps {

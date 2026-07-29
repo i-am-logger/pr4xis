@@ -4,6 +4,15 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::ontology::*;
 use super::reader;
 use super::reader::LmfReadError;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
+/// A dimensionless UNITLESS quantity, for comparing against
+/// [`WordNet::synset_count`] and [`WordNet::entry_count`]'s typed return
+/// values in these tests.
+fn q(n: u32) -> Quantity {
+    Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+}
 
 const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <LexicalResource>
@@ -75,8 +84,8 @@ const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 #[test]
 fn read_sample_lmf() {
     let wn = reader::read_wordnet(SAMPLE_LMF).unwrap();
-    assert_eq!(wn.synset_count(), 7);
-    assert_eq!(wn.entry_count(), 6);
+    assert_eq!(wn.synset_count(), q(7));
+    assert_eq!(wn.entry_count(), q(6));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -289,8 +298,8 @@ fn error_structure_on_no_lexicon_element() {
 fn lexicon_with_zero_synsets_and_entries_parses() {
     let xml = r##"<LexicalResource><Lexicon id="empty" language="en"/></LexicalResource>"##;
     let wn = reader::read_wordnet(xml).expect("empty lexicon must parse");
-    assert_eq!(wn.synset_count(), 0);
-    assert_eq!(wn.entry_count(), 0);
+    assert_eq!(wn.synset_count(), q(0));
+    assert_eq!(wn.entry_count(), q(0));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -298,7 +307,7 @@ fn lexicon_with_zero_synsets_and_entries_parses() {
 fn synset_with_no_relations_parses() {
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><Synset id="s1" partOfSpeech="n"><Definition>x</Definition></Synset></Lexicon></LexicalResource>"##;
     let wn = reader::read_wordnet(xml).unwrap();
-    assert_eq!(wn.synset_count(), 1);
+    assert_eq!(wn.synset_count(), q(1));
     let s = &wn.synsets[0];
     assert!(s.relations.is_empty());
 }
@@ -310,7 +319,7 @@ fn entry_with_no_senses_parses() {
     // the parser doesn't choke.
     let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e1"><Lemma writtenForm="orphan" partOfSpeech="n"/></LexicalEntry></Lexicon></LexicalResource>"##;
     let wn = reader::read_wordnet(xml).unwrap();
-    assert_eq!(wn.entry_count(), 1);
+    assert_eq!(wn.entry_count(), q(1));
     assert!(wn.entries[0].senses.is_empty());
 }
 
@@ -552,8 +561,8 @@ proptest! {
     ) {
         let xml = render_arb_lmf(&synsets, &entries);
         let wn = reader::read_wordnet(&xml).unwrap();
-        prop_assert_eq!(wn.synset_count(), synsets.len());
-        prop_assert_eq!(wn.entry_count(), entries.len());
+        prop_assert_eq!(wn.synset_count().value, synsets.len() as f64);
+        prop_assert_eq!(wn.entry_count().value, entries.len() as f64);
     }
 
     /// Property — every emitted relType round-trips into the

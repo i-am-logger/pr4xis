@@ -48,6 +48,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 - `ontology.rs` -- `KinematicQuantity` entity, category, `DerivativeOrder`/`SiUnit` qualities, 8 axioms, tests
 - `position.rs` -- `TimedPosition` (geometry + time)
 - `velocity.rs` -- `Velocity` vector, speed, addition, `acceleration_to`
+- `angular_velocity.rs` -- `AngularVelocity` vector (rad/s), the rotational analog of `Velocity`, used by `applied::space::attitude` for body-frame rotation rate
 - `acceleration.rs` -- `Acceleration` vector, gravity constant
 - `trajectory.rs` -- `KinematicState` (position + velocity + acceleration) and propagation
 - `motion_model.rs` -- `MotionModelType` (Static, ConstantVelocity, ConstantAcceleration) and `propagate`

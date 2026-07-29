@@ -189,19 +189,19 @@ mod proptest_proofs {
 
         #[test]
         fn entropy_non_negative(dist in arb_distribution(4)) {
-            let h = entropy::shannon_entropy(&dist.probabilities);
+            let h = entropy::shannon_entropy(&dist.probabilities).value;
             prop_assert!(h >= -1e-10);
         }
 
         #[test]
         fn kl_self_is_zero(dist in arb_distribution(4)) {
-            let kl = entropy::kl_divergence_discrete(&dist.probabilities, &dist.probabilities);
+            let kl = entropy::kl_divergence_discrete(&dist.probabilities, &dist.probabilities).value;
             prop_assert!(kl.abs() < 1e-10);
         }
 
         #[test]
         fn kl_is_non_negative(p in arb_distribution(4), q in arb_distribution(4)) {
-            let kl = entropy::kl_divergence_discrete(&p.probabilities, &q.probabilities);
+            let kl = entropy::kl_divergence_discrete(&p.probabilities, &q.probabilities).value;
             prop_assert!(kl >= -1e-10);
         }
 
@@ -212,7 +212,7 @@ mod proptest_proofs {
         ) {
             let mean = Vector::new(vec![mx, my]);
             let cov = Matrix::new(2, 2, vec![1.0, 0.0, 0.0, 1.0]);
-            let d2 = mahalanobis::mahalanobis_squared(&mean, &mean, &cov).unwrap();
+            let d2 = mahalanobis::mahalanobis_squared(&mean, &mean, &cov).unwrap().value;
             prop_assert!(d2.abs() < 1e-10);
         }
 
@@ -224,7 +224,7 @@ mod proptest_proofs {
             let x = Vector::new(vec![x1, x2]);
             let mean = Vector::new(vec![m1, m2]);
             let cov = Matrix::new(2, 2, vec![2.0, 0.5, 0.5, 3.0]); // PD
-            let d2 = mahalanobis::mahalanobis_squared(&x, &mean, &cov).unwrap();
+            let d2 = mahalanobis::mahalanobis_squared(&x, &mean, &cov).unwrap().value;
             prop_assert!(d2 >= -1e-10);
         }
     }

@@ -110,6 +110,7 @@ mod tests {
 
     // --- Monad laws ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn left_identity() {
         // bind(pure(a), f) = f(a)
@@ -123,6 +124,7 @@ mod tests {
         assert_eq!(left.run(10), right.run(10));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn right_identity() {
         // bind(m, pure) = m
@@ -135,6 +137,7 @@ mod tests {
         assert_eq!(state1, state2);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn associativity() {
         // bind(bind(m, f), g) = bind(m, |x| bind(f(x), g))
@@ -156,6 +159,7 @@ mod tests {
 
     // --- State operations ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn get_returns_state() {
         let (val, state) = State::<i32, i32>::get().run(42);
@@ -163,12 +167,14 @@ mod tests {
         assert_eq!(state, 42);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn put_replaces_state() {
         let (_, state) = State::<i32, ()>::put(99).run(0);
         assert_eq!(state, 99);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn modify_transforms_state() {
         let (_, state) = State::<i32, ()>::modify(|s| s + 10).run(32);
@@ -177,6 +183,7 @@ mod tests {
 
     // --- Practical: engine pattern ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn engine_as_state_monad() {
         // Engine: process input through pipeline, accumulate state
@@ -212,12 +219,14 @@ mod tests {
 
     // --- Property: composing get/put is identity ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn get_then_put_is_identity() {
         let (_, state) = State::<i32, i32>::get().bind(State::<i32, ()>::put).run(42);
         assert_eq!(state, 42);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn put_then_get_returns_new_state() {
         let (val, state) = State::<i32, ()>::put(99)

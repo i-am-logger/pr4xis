@@ -278,6 +278,7 @@ pub fn describe_all_arrows() -> Vec<Provenance> {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn registry_is_accessible() {
         // Core crate alone has no registrations — domains crate provides them.

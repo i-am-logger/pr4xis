@@ -31,6 +31,8 @@
 use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::value::Quantity;
+
 pr4xis::ontology! {
     name: "Control",
     source: "Wiener (1948) Cybernetics; Ashby (1956) An Introduction to Cybernetics; Conant & Ashby (1970) Every Good Regulator of a System Must Be a Model of that System, Int. J. Systems Science 1(2):89-97; Powers (1973) Behavior: The Control of Perception; Beer (1972) Brain of the Firm; von Foerster (1981) Observing Systems; Astrom & Murray (2008) Feedback Systems",
@@ -46,6 +48,7 @@ pr4xis::ontology! {
         Disturbance,
         Model,
         FeedbackLoop,
+        Variety,
     ],
 
     labels: {
@@ -69,6 +72,8 @@ pr4xis::ontology! {
             "Conant & Ashby (1970): the controller's internal representation of the plant - 'every good regulator must be a model of its system.'"),
         FeedbackLoop: ("en", "Feedback loop",
             "Wiener (1948): the return path from output back to input that closes the causal chain - the defining structural feature of cybernetic control."),
+        Variety: ("en", "Variety",
+            "Ashby (1956) Ch. 7-11: the number of distinguishable states a system can exhibit - the cardinality of its state/response set. The Law of Requisite Variety (Ch. 11): 'only variety can destroy variety' - a regulator can achieve perfect regulation against a disturbance only if the regulator's own variety is at least as large as the disturbance's."),
     },
 
     edges: [
@@ -87,6 +92,13 @@ pr4xis::ontology! {
         // The feedback loop closes the causal chain.
         (FeedbackLoop, Sensor, Closes),
         (FeedbackLoop, Controller, Closes),
+        // Ashby (1956) §10-11: the controller's whole job, stated
+        // directly rather than only implied by the Error/Plant edges.
+        (Controller, Disturbance, Regulates),
+        // The Law of Requisite Variety (Ashby 1956 Ch. 11): variety
+        // quantifies both sides of the regulation relationship.
+        (Variety, Controller, Quantifies),
+        (Variety, Disturbance, Quantifies),
     ],
 
     composed: [
@@ -95,6 +107,56 @@ pr4xis::ontology! {
         (Setpoint, Controller),
         (Disturbance, Error),
     ],
+}
+
+/// Ashby's "variety" (1956 Ch. 7): the number of distinguishable states
+/// a system can exhibit, as a dimensionless [`Quantity`] (a count) —
+/// never a bare `usize`, so it composes with the rest of this crate's
+/// typed arithmetic rather than leaking a primitive at the boundary.
+pub fn variety(distinct_states: usize) -> Quantity {
+    Quantity::dimensionless(distinct_states as f64)
+}
+
+/// Whether perfect regulation is achievable — Ashby's Law of Requisite
+/// Variety (1956 Ch. 11), as a typed verdict rather than a bare `bool`
+/// so "can this regulator succeed" stays a queryable/explainable fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegulationOutcome {
+    /// The regulator's variety is at least the disturbance's: an
+    /// injective disturbance-to-response matching exists in the worst
+    /// case, so perfect regulation is achievable.
+    Achievable,
+    /// The regulator's variety is less than the disturbance's: by the
+    /// pigeonhole principle, at least one disturbance has no distinct
+    /// canceling response in the worst case, so perfect regulation is
+    /// impossible.
+    Unachievable,
+}
+
+impl RegulationOutcome {
+    pub fn is_achievable(self) -> bool {
+        matches!(self, RegulationOutcome::Achievable)
+    }
+}
+
+/// Whether a regulator of `regulator_variety` can, in the worst case,
+/// achieve perfect regulation against a disturbance of
+/// `disturbance_variety` — Ashby's Law of Requisite Variety (1956
+/// Ch. 11). The worst case is a disturbance set with no two members
+/// cancelable by the same response (each of the disturbance's distinct
+/// states demands its own distinct regulator response); an injective
+/// matching from disturbances to responses then exists iff the
+/// regulator has at least as many responses as the disturbance has
+/// states — the pigeonhole argument the theorem rests on.
+pub fn satisfies_requisite_variety(
+    regulator_variety: &Quantity,
+    disturbance_variety: &Quantity,
+) -> RegulationOutcome {
+    if regulator_variety.value >= disturbance_variety.value {
+        RegulationOutcome::Achievable
+    } else {
+        RegulationOutcome::Unachievable
+    }
 }
 
 /// Types of control systems — the taxonomy. Wiener (1948); Ashby (1956);
@@ -144,12 +206,63 @@ impl Quality for OnFeedbackLoop {
     }
 }
 
+/// Ashby's Law of Requisite Variety (1956 Ch. 11): a regulator can
+/// achieve perfect regulation against a disturbance only if its own
+/// variety is at least as large as the disturbance's. Proven as the
+/// pigeonhole argument the theorem rests on, in both directions:
+/// sufficiency (regulator variety >= disturbance variety implies an
+/// injective disturbance-to-response matching exists) and necessity
+/// (regulator variety < disturbance variety implies no such matching
+/// can exist — some disturbance is left without a distinct response).
+pub struct RequisiteVarietyLaw;
+
+impl Axiom for RequisiteVarietyLaw {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+
+        // Sufficiency: regulator variety >= disturbance variety.
+        for (regulator_n, disturbance_n) in [(5usize, 5usize), (10, 3), (1, 1), (7, 7), (100, 1)] {
+            let outcome =
+                satisfies_requisite_variety(&variety(regulator_n), &variety(disturbance_n));
+            let injective_matching_exists = regulator_n >= disturbance_n;
+            if outcome.is_achievable() != injective_matching_exists {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
+        // Necessity: regulator variety < disturbance variety must
+        // report regulation as UNACHIEVABLE in the worst case.
+        for (regulator_n, disturbance_n) in [(2usize, 5usize), (1, 2), (3, 4), (0, 1)] {
+            if satisfies_requisite_variety(&variety(regulator_n), &variety(disturbance_n))
+                .is_achievable()
+            {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "RequisiteVarietyLaw",
+        "a regulator can achieve perfect regulation against a disturbance iff its variety is at least as large as the disturbance's variety",
+        "Ashby (1956) An Introduction to Cybernetics, Ch. 11 (The Law of Requisite Variety)"
+    );
+}
+
+pr4xis::register_axiom!(
+    RequisiteVarietyLaw,
+    "Ashby (1956) An Introduction to Cybernetics, Ch. 11 (The Law of Requisite Variety)"
+);
+
 impl Ontology for ControlOntology {
     type Cat = ControlCategory;
     type Qual = OnFeedbackLoop;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
-        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(RequisiteVarietyLaw));
+        axioms
     }
 }
 
@@ -175,8 +288,14 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn ten_concepts() {
-        assert_eq!(ControlConcept::variants().len(), 10);
+    fn eleven_concepts() {
+        assert_eq!(ControlConcept::variants().len(), 11);
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn requisite_variety_law_holds() {
+        assert!(RequisiteVarietyLaw.verify().is_ok());
     }
 
     #[pr4xis::praxis_value(Verifiable)]

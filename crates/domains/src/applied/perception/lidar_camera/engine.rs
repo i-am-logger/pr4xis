@@ -4,14 +4,13 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use crate::applied::perception::lidar_camera::calibration::{
     CameraIntrinsics, ExtrinsicCalibration,
 };
+use crate::formal::math::geometry::point::Point3;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 
 /// A 3D LiDAR point with intensity.
 #[derive(Debug, Clone)]
 pub struct LidarPoint {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub position: Point3,
     pub intensity: f64,
 }
 
@@ -44,7 +43,11 @@ pub fn project_lidar_points(
     points
         .iter()
         .filter_map(|p| {
-            let cam_pt = extrinsic.transform_point(&Vector::new(vec![p.x, p.y, p.z]));
+            let cam_pt = extrinsic.transform_point(&Vector::new(vec![
+                p.position.x,
+                p.position.y,
+                p.position.z,
+            ]));
             let depth = cam_pt.get(2);
             intrinsic.project(&cam_pt).map(|uv| ProjectedPoint {
                 u: uv.get(0),

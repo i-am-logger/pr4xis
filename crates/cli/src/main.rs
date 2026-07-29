@@ -7,6 +7,9 @@ use pr4xis_chat as chat;
 
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
 use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
+use pr4xis_domains::applied::data_provisioning::usc_title_lexicon::{
+    loaded_titles, usc_title_lexicon,
+};
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
 use pr4xis_domains::cognitive::linguistics::english::{English, english_load_owned};
 use pr4xis_domains::cognitive::linguistics::language::Language;
@@ -14,7 +17,8 @@ use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
 use pr4xis_domains::social::software::markup::xml::lmf;
 use pr4xis_domains::social::software::markup::xml::owl::prx::EmittedArtifact;
-use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::usc_runtime_ontology_from_cached_defines;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::load_usc_defines_overlay_from_disk;
 
 /// pr4xis — axiomatic intelligence via ontology.
 #[derive(Parser, Debug)]
@@ -34,6 +38,9 @@ enum Command {
         /// Accepts, in resolution order:
         ///   - a built-in demo ontology name — `dependability` (Avizienis et al.
         ///     2004 fault taxonomy) or `legal-sources` — compiled in-process;
+        ///   - a registered definitional chat lexicon by its registered source
+        ///     name, materialised through the generic WN-LMF bridge (these are
+        ///     also auto-loaded at startup by taxonomy kind);
         ///   - a registered OWL vocabulary name (e.g. `cito`, `doco`),
         ///     materialised from its committed compact `.prx.gz` (run
         ///     `pr4xis compile --compact` first if absent);
@@ -116,6 +123,18 @@ enum Command {
         /// in ~seconds, without re-emitting the toolchain-coupled envelopes.
         #[arg(long)]
         compact: bool,
+        /// ALSO emit (and verify/pin) the compact U.S. Code DEFINES-overlay
+        /// archives — the "the term X means Y" statutory-definition extraction
+        /// (task #6), one sparse `(provision URN, term)` list per title, pinned
+        /// into `[compact_defines_signatures]`. NOT part of the default or
+        /// `--compact` runs (and never run in CI): it loads English + VerbNet
+        /// and runs the full tokenize/chart/Montague pipeline over every
+        /// lexical-prose provision in every registered title — HOURS, not
+        /// seconds (~26–40ms/node measured, ~296,000 lexical-prose nodes across
+        /// all 9 currently-registered titles). A deliberate, rare maintainer
+        /// step, paired with `--lock` to commit the result.
+        #[arg(long)]
+        defines: bool,
     },
     /// Decompile a compiled `.prx` archive back to its exact source bytes —
     /// the inverse of `compile`, the `.prx → source` leg of the universal
@@ -176,8 +195,9 @@ fn main() {
             lock,
             update,
             compact,
+            defines,
         } => {
-            if let Err(e) = run_compile(lock, update, compact) {
+            if let Err(e) = run_compile(lock, update, compact, defines) {
                 eprintln!("pr4xis compile: {e}");
                 std::process::exit(1);
             }
@@ -361,7 +381,7 @@ fn canonical_form_of(
 // `pr4xis compile` — emit verifiable `.prx` archives (the parse-once cache)
 // --------------------------------------------------------------------------
 
-fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
+fn run_compile(lock: bool, update: bool, compact: bool, defines: bool) -> anyhow::Result<()> {
     use pr4xis_domains::social::software::markup::xml::lmf::prx::{
         emit_all_compact_english_prx_gz, emit_all_english_store_bundles_gz,
         emit_all_wordnet_prx_gz, english_compact_prx_cache_dir, english_store_bundle_cache_dir,
@@ -371,8 +391,8 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
         owl_compact_prx_cache_dir, owl_prx_cache_dir,
     };
     use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
-        emit_all_compact_usc_prx_gz, emit_all_usc_prx_gz, usc_compact_prx_cache_dir,
-        usc_prx_cache_dir,
+        emit_all_compact_usc_defines_prx_gz, emit_all_compact_usc_prx_gz, emit_all_usc_prx_gz,
+        usc_compact_defines_prx_cache_dir, usc_compact_prx_cache_dir, usc_prx_cache_dir,
     };
     let workspace_root = workspace_root()?;
 
@@ -475,6 +495,26 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
             }),
     );
 
+    // The DEFINES-overlay compact archives → `.prx-cache/usc-defines-compact/` —
+    // task #6's expensive build-time NLP-grounding cache (sparse `(provision_urn,
+    // term)` pairs, see `usc_runtime_ontology_with_defines`'s own doc for the
+    // measured ~3.3-hour full-corpus cost). Opt-in ONLY via `--defines`: never
+    // run as part of the default or `--compact` paths. Pins into
+    // `[compact_defines_signatures]`, a lock space separate from
+    // `[compact_archive_signatures]` so a defines-grammar change never forces a
+    // spurious re-lock of unrelated structural pins.
+    let mut defines_artifacts: Vec<EmittedArtifact> = Vec::new();
+    if defines {
+        use pr4xis_domains::cognitive::linguistics::verbnet::store::verbnet_classes_loaded;
+        let lang = english_load_owned();
+        let verbnet = verbnet_classes_loaded();
+        let usc_defines_dir = usc_compact_defines_prx_cache_dir(&workspace_root);
+        defines_artifacts.extend(
+            emit_all_compact_usc_defines_prx_gz(&usc_defines_dir, &lang, verbnet)
+                .map_err(|e| anyhow::anyhow!("emit USC defines overlay: {e}"))?,
+        );
+    }
+
     if !compact {
         // The rkyv envelopes (the `decompile`/distribution artifacts) + WordNet.
         // Heavy and, for USC/WordNet, toolchain-coupled; skipped by `--compact`.
@@ -499,6 +539,7 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
         .iter()
         .chain(&compact_artifacts)
         .chain(&store_bundle_artifacts)
+        .chain(&defines_artifacts)
     {
         total_bytes += a.byte_len;
         println!(
@@ -507,14 +548,23 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
         );
     }
     println!(
-        "{} archive(s) ({} compact, {} store bundle(s)), {total_bytes} bytes total → {}",
-        artifacts.len() + compact_artifacts.len() + store_bundle_artifacts.len(),
+        "{} archive(s) ({} compact, {} store bundle(s), {} defines overlay(s)), {total_bytes} \
+         bytes total → {}",
+        artifacts.len()
+            + compact_artifacts.len()
+            + store_bundle_artifacts.len()
+            + defines_artifacts.len(),
         compact_artifacts.len(),
         store_bundle_artifacts.len(),
+        defines_artifacts.len(),
         workspace_root.join(".prx-cache").display()
     );
 
-    if artifacts.is_empty() && compact_artifacts.is_empty() && store_bundle_artifacts.is_empty() {
+    if artifacts.is_empty()
+        && compact_artifacts.is_empty()
+        && store_bundle_artifacts.is_empty()
+        && defines_artifacts.is_empty()
+    {
         eprintln!("  [warn]    no registered source on disk — run `pr4xis update` first");
     }
     if lock {
@@ -522,13 +572,103 @@ fn run_compile(lock: bool, update: bool, compact: bool) -> anyhow::Result<()> {
         apply_archive_signature_lock(&artifacts, &workspace_root)?;
         apply_compact_archive_signature_lock(&compact_artifacts, &workspace_root)?;
         apply_store_bundle_signature_lock(&store_bundle_artifacts, &workspace_root)?;
+        apply_corpus_parse_signature_lock(&compact_artifacts, &workspace_root)?;
+        apply_compact_defines_signature_lock(&defines_artifacts, &workspace_root)?;
+        apply_defines_grammar_signature_lock(&defines_artifacts, &workspace_root)?;
+        // Every `apply_*_lock` call above may have rewritten `praxis.lock`, but
+        // the runtime never reads that text file directly — `data_sources()` /
+        // `lock_*` accessors all read the BAKED `praxis-registry.prx` (embedded
+        // in the binary for a zero-TOML-parse startup path), gated by the
+        // hardcoded `PRAXIS_REGISTRY_ROOT_HEX` drift check
+        // (`prx_envelope::load_registry_manifest`). Previously this required a
+        // separate manual step (`cargo test … regenerate_praxis_registry_prx`,
+        // then hand-editing the printed hash into `prx_envelope.rs`) every time
+        // `praxis.lock` changed — real, repeated tedium this session surfaced
+        // directly. Folding it into `compile --lock` itself means one command
+        // does the whole cycle; the drift-detection safety property is
+        // unchanged, only how the trusted hash gets there.
+        rebake_registry(&workspace_root)?;
     } else {
         // Default VERIFY mode (CI-safe): each emitted archive's content address
         // must match its committed pin, else drift fails closed. An unpinned
         // source is reported (it just gets no fast path), never a failure.
-        verify_archives_against_lock(&artifacts, &compact_artifacts, &store_bundle_artifacts)?;
+        verify_archives_against_lock(
+            &artifacts,
+            &compact_artifacts,
+            &store_bundle_artifacts,
+            &defines_artifacts,
+        )?;
     }
     Ok(())
+}
+
+/// Re-emit `data/registry/praxis-registry.prx` from the just-rewritten
+/// `praxis.toml` + `praxis.lock`, and — only if the content address actually
+/// changed — rewrite the `PRAXIS_REGISTRY_ROOT_HEX` constant in
+/// `prx_envelope.rs` to match. This is the automated replacement for the
+/// previous two-step-by-hand cycle
+/// (`cargo test -p pr4xis-domains -- --ignored regenerate_praxis_registry_prx`
+/// printing a hash, then a human pasting it into source): every `compile
+/// --lock` invocation now leaves the baked registry and its trusted root
+/// mutually consistent by construction, the same integrity property the old
+/// manual cycle existed to protect, without the manual step.
+fn rebake_registry(workspace_root: &Path) -> anyhow::Result<()> {
+    use pr4xis_domains::applied::data_provisioning::prx_envelope::encode_registry;
+    use pr4xis_domains::applied::data_provisioning::registry_prx::registry_archive_address;
+
+    let toml = std::fs::read(workspace_root.join("praxis.toml"))
+        .map_err(|e| anyhow::anyhow!("read praxis.toml for registry rebake: {e}"))?;
+    let lock = std::fs::read(workspace_root.join("praxis.lock"))
+        .map_err(|e| anyhow::anyhow!("read praxis.lock for registry rebake: {e}"))?;
+    let prx = encode_registry(&toml, &lock);
+    let prx_path = workspace_root.join("crates/domains/data/registry/praxis-registry.prx");
+    std::fs::write(&prx_path, &prx)
+        .map_err(|e| anyhow::anyhow!("write {}: {e}", prx_path.display()))?;
+    let root_hex = registry_archive_address(&prx);
+
+    let envelope_path =
+        workspace_root.join("crates/domains/src/applied/data_provisioning/prx_envelope.rs");
+    let src = std::fs::read_to_string(&envelope_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", envelope_path.display()))?;
+    let updated = rewrite_registry_root_hex_const(&src, &root_hex).ok_or_else(|| {
+        anyhow::anyhow!(
+            "could not find `PRAXIS_REGISTRY_ROOT_HEX` string literal in {} to rewrite",
+            envelope_path.display()
+        )
+    })?;
+    if updated == src {
+        println!("registry re-baked ({} bytes); root unchanged.", prx.len());
+    } else {
+        std::fs::write(&envelope_path, updated)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", envelope_path.display()))?;
+        println!(
+            "registry re-baked ({} bytes); PRAXIS_REGISTRY_ROOT_HEX updated to {root_hex}",
+            prx.len()
+        );
+    }
+    Ok(())
+}
+
+/// Replace the quoted hex literal that immediately follows
+/// `PRAXIS_REGISTRY_ROOT_HEX: &str =` with `new_hex`. Returns `None` if that
+/// exact anchor isn't found (fail closed — never silently no-op on a source
+/// layout the caller didn't expect). Whitespace/line-wrapping around the `=`
+/// is tolerated (the constant is currently wrapped across two lines); only
+/// the quoted literal itself is replaced, so formatting elsewhere in the
+/// file is untouched.
+fn rewrite_registry_root_hex_const(src: &str, new_hex: &str) -> Option<String> {
+    let anchor = "PRAXIS_REGISTRY_ROOT_HEX: &str =";
+    let anchor_pos = src.find(anchor)?;
+    let after_anchor = &src[anchor_pos + anchor.len()..];
+    let quote_start = after_anchor.find('"')?;
+    let quote_body_start = anchor_pos + anchor.len() + quote_start + 1;
+    let quote_end_rel = src[quote_body_start..].find('"')?;
+    let quote_body_end = quote_body_start + quote_end_rel;
+    let mut out = String::with_capacity(src.len());
+    out.push_str(&src[..quote_body_start]);
+    out.push_str(new_hex);
+    out.push_str(&src[quote_body_end..]);
+    Some(out)
 }
 
 /// Registered, pinned, COMPILABLE sources whose source file is not on disk —
@@ -572,10 +712,11 @@ fn verify_archives_against_lock(
     envelopes: &[EmittedArtifact],
     compact: &[EmittedArtifact],
     store_bundles: &[EmittedArtifact],
+    defines: &[EmittedArtifact],
 ) -> anyhow::Result<()> {
     use pr4xis_domains::applied::data_provisioning::registry::{
         LockDigest, lock_archive_signature, lock_compact_archive_signature,
-        lock_store_bundle_signature,
+        lock_compact_defines_signature, lock_store_bundle_signature,
     };
     let mut drift: Vec<String> = Vec::new();
     let mut unpinned = 0usize;
@@ -610,6 +751,13 @@ fn verify_archives_against_lock(
             "[store_bundle_signatures]",
         );
     }
+    for a in defines {
+        check(
+            a,
+            lock_compact_defines_signature(&a.name, &a.version),
+            "[compact_defines_signatures]",
+        );
+    }
     if !drift.is_empty() {
         anyhow::bail!(
             "praxis.lock pin drift ({} archive(s)) — re-run `pr4xis compile --lock` after \
@@ -618,7 +766,7 @@ fn verify_archives_against_lock(
             drift.join("\n  "),
         );
     }
-    let total = envelopes.len() + compact.len() + store_bundles.len();
+    let total = envelopes.len() + compact.len() + store_bundles.len() + defines.len();
     println!(
         "verified {} archive(s) against praxis.lock pins ({unpinned} unpinned, no fast path).",
         total - unpinned,
@@ -734,6 +882,139 @@ fn apply_compact_archive_signature_lock(
         println!("praxis.lock [compact_archive_signatures] updated.");
     } else {
         println!("praxis.lock [compact_archive_signatures] unchanged.");
+    }
+    Ok(())
+}
+
+/// Write each compiled DEFINES-overlay archive's content address into the
+/// `[compact_defines_signatures]` section of `praxis.lock`. The write-side
+/// companion to the defines-overlay load gate
+/// (`load_compact_usc_defines_prx_gz_gated`); same portability class as
+/// [`apply_compact_archive_signature_lock`], SEPARATE section because the
+/// overlay pins the expensive NLP-grammar extraction result, not the
+/// structural corpus. Mirrors [`apply_compact_archive_signature_lock`].
+fn apply_compact_defines_signature_lock(
+    artifacts: &[EmittedArtifact],
+    workspace_root: &Path,
+) -> anyhow::Result<()> {
+    if artifacts.is_empty() {
+        return Ok(());
+    }
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let mut text = original.clone();
+    for a in artifacts {
+        let key = format!("{}@{}", a.name, a.version);
+        text = pr4xis_domains::applied::data_provisioning::lockfile::set_compact_defines_signature(
+            &text,
+            &key,
+            &a.archive_address,
+        )
+        .map_err(|e| {
+            anyhow::anyhow!("praxis.lock [compact_defines_signatures] rewrite for {key}: {e}")
+        })?;
+    }
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock [compact_defines_signatures] updated.");
+    } else {
+        println!("praxis.lock [compact_defines_signatures] unchanged.");
+    }
+    Ok(())
+}
+
+/// Write the CODE grammar-closure content address (the fingerprint of
+/// `DEFINES_GRAMMAR_CLOSURE_FILES` on disk) into the `[grammar_signatures]`
+/// `"defines_overlay"` entry of `praxis.lock`. The write-side companion to
+/// the two defines-grammar freshness checks
+/// (`defines_grammar_signature::defines_grammar_signature_matches_current_source`,
+/// and the runtime gate in `load_usc_defines_overlay_from_disk`).
+///
+/// Gated on `defines_artifacts` being non-empty — the SAME condition that
+/// gates [`apply_compact_defines_signature_lock`] — DELIBERATELY, not merely
+/// mirroring it: the grammar fingerprint must be refreshed in EXACT lockstep
+/// with the overlay it fingerprints, in the SAME `--defines --lock` run that
+/// (re)emitted `[compact_defines_signatures]`. A grammar fingerprint
+/// refreshed on some OTHER, unrelated `--lock` run (one that never
+/// re-extracted the overlay) would go stale relative to the very thing it is
+/// supposed to attest to, silently defeating the freshness checks it exists
+/// to feed.
+/// Write the CODE parse-closure content address (the fingerprint of
+/// `CORPUS_PARSE_CLOSURE_FILES` on disk) into the `[grammar_signatures]`
+/// `"corpus_parse"` entry of `praxis.lock`. The write-side companion to
+/// [`apply_defines_grammar_signature_lock`] — the SAME mechanism, one level
+/// earlier: this fingerprints the base-corpus parse
+/// (`leaf_readers.rs`/`runtime_types.rs`/the XML reader) the COMPACT
+/// archives below are derived from, checked at runtime by
+/// `corpus_parse_signature::corpus_parse_signature_matches_current_source`
+/// and the staleness gate in
+/// `social::software::markup::xml::uslm::corpus::loaded`. Before this
+/// function existed, NOTHING wrote this pin — it was set once by hand and
+/// then silently went stale the next time any `CORPUS_PARSE_CLOSURE_FILES`
+/// member changed, exactly the "cache regenerated but nothing re-pins the
+/// closure it was regenerated FROM" gap `corpus_parse_signature` itself was
+/// built to catch on the READ side.
+///
+/// Gated on `compact_artifacts` being non-empty — the SAME condition
+/// [`apply_compact_archive_signature_lock`] gates on, for the identical
+/// lockstep reason `apply_defines_grammar_signature_lock`'s own doc
+/// explains: refreshed only in the SAME `--compact --lock` run that
+/// (re)emitted `[compact_archive_signatures]`, never on an unrelated
+/// `--lock` run that didn't re-parse the corpus.
+fn apply_corpus_parse_signature_lock(
+    compact_artifacts: &[EmittedArtifact],
+    workspace_root: &Path,
+) -> anyhow::Result<()> {
+    if compact_artifacts.is_empty() {
+        return Ok(());
+    }
+    let address = pr4xis_domains::applied::data_provisioning::corpus_parse_signature::corpus_parse_closure_address(workspace_root)
+        .map_err(|e| anyhow::anyhow!("compute corpus-parse closure address: {e}"))?;
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let text = pr4xis_domains::applied::data_provisioning::lockfile::set_grammar_signature(
+        &original,
+        pr4xis_domains::applied::data_provisioning::corpus_parse_signature::CORPUS_PARSE_CLOSURE_NAME,
+        &address,
+    )
+    .map_err(|e| anyhow::anyhow!("praxis.lock [grammar_signatures] rewrite: {e}"))?;
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock [grammar_signatures] updated.");
+    } else {
+        println!("praxis.lock [grammar_signatures] unchanged.");
+    }
+    Ok(())
+}
+
+fn apply_defines_grammar_signature_lock(
+    defines_artifacts: &[EmittedArtifact],
+    workspace_root: &Path,
+) -> anyhow::Result<()> {
+    if defines_artifacts.is_empty() {
+        return Ok(());
+    }
+    let address = pr4xis_domains::applied::data_provisioning::defines_grammar_signature::defines_grammar_closure_address(workspace_root)
+        .map_err(|e| anyhow::anyhow!("compute defines-grammar closure address: {e}"))?;
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let text = pr4xis_domains::applied::data_provisioning::lockfile::set_grammar_signature(
+        &original,
+        pr4xis_domains::applied::data_provisioning::defines_grammar_signature::DEFINES_OVERLAY_CLOSURE_NAME,
+        &address,
+    )
+    .map_err(|e| anyhow::anyhow!("praxis.lock [grammar_signatures] rewrite: {e}"))?;
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock [grammar_signatures] updated.");
+    } else {
+        println!("praxis.lock [grammar_signatures] unchanged.");
     }
     Ok(())
 }
@@ -945,6 +1226,9 @@ fn print_outcome(outcome: &FetchOutcome) {
         FetchOutcome::VerificationFailed { name, path, reason } => {
             eprintln!("  [FAIL]    {name}: {} — {}", path.display(), reason);
         }
+        FetchOutcome::RefusedNotFetchable { name, reason } => {
+            eprintln!("  [refused] {name}: {reason}");
+        }
         FetchOutcome::MissingAndCheckOnly { name, path } => {
             eprintln!("  [missing] {name}: {}", path.display());
         }
@@ -1043,18 +1327,73 @@ fn run_chat(load_specs: &[String]) {
     // USLM XML otherwise. A title absent on disk is skipped, so on a fresh
     // checkout the USC contributes nothing — run `pr4xis update` then
     // `pr4xis compile --compact` to provision it.
+    //
+    // Defines-grounding rides the SAME cheap startup path: any titles with a
+    // committed `pr4xis compile --defines --lock` overlay contribute their
+    // sparse `(provision_urn, term)` pairs (a fast disk read + content-address
+    // check, no re-grounding), merged in at materialize time. A title with no
+    // overlay pin yet contributes nothing here — the corpus behaves exactly
+    // as it did before task #6, never blocking startup on the ~3.3-hour
+    // full-corpus grounding pass (see `usc_runtime_ontology_with_defines`'s
+    // own doc for why that pass is never run live).
     let usc = pr4xis_domains::social::software::markup::xml::uslm::corpus::loaded();
-    if usc.section_count() > 0 {
-        match usc_runtime_ontology(usc, OntologyName::new("usc")) {
+    if usc.section_count().value > 0.0 {
+        let overlay = workspace_root()
+            .map(|root| load_usc_defines_overlay_from_disk(&root))
+            .unwrap_or_default();
+        match usc_runtime_ontology_from_cached_defines(usc, OntologyName::new("usc"), &overlay) {
             Ok(onto) => {
-                loaded_names.push(format!("usc ({} sections)", usc.section_count()));
+                loaded_names.push(format!("usc ({} sections)", usc.section_count().value));
                 loaded.push(onto);
             }
             Err(e) => eprintln!("  [warn] U.S. Code corpus unavailable: {e}"),
         }
+
+        // A U.S. Code title is 17,713 SECTIONS and no name of its own: nothing
+        // in the corpus is the concept "title 42", so "what is title 42" had no
+        // English atom to resolve against and fell through to the bare numeral.
+        // This contributes one definitional entry per HELD title — surfaces from
+        // the title's own published citation forms, gloss from its own
+        // registered description — through the same WN-LMF bridge every other
+        // definitional lexicon rides. Derived from the materialized corpus, so
+        // a title this checkout does not hold stays unanswerable.
+        match usc_title_lexicon(&loaded_titles(usc)) {
+            Some(Ok(onto)) => {
+                loaded_names.push(onto.id().as_str().to_string());
+                loaded.push(onto);
+            }
+            Some(Err(e)) => eprintln!("  [warn] U.S. Code title lexicon unavailable: {e}"),
+            // No held title carries a registered gloss — nothing to say, so
+            // nothing is contributed. Silent by design, not a fault.
+            None => {}
+        }
     }
 
-    // Each `--load` spec: a built-in demo, a registered OWL vocab, or an .owl file.
+    // The registered definitional chat lexicons — registry-driven BY TAXONOMY
+    // KIND (`chat_lexicons::definitional_lexicon_runtime_ontology` answers
+    // `Some` exactly for the definitional-lexicon kinds): every such source
+    // materializes through the ONE generic WN-LMF bridge and joins the loaded
+    // set exactly like a USC title. No lexicon is named here — registering a
+    // new definitional lexicon makes it resident with zero CLI changes.
+    {
+        use pr4xis_domains::applied::data_provisioning::chat_lexicons::definitional_lexicon_runtime_ontology;
+        use pr4xis_domains::applied::data_provisioning::registry::data_sources;
+        for entry in data_sources() {
+            let Some(result) = definitional_lexicon_runtime_ontology(entry) else {
+                continue;
+            };
+            match result {
+                Ok(onto) => {
+                    loaded_names.push(onto.id().as_str().to_string());
+                    loaded.push(onto);
+                }
+                Err(e) => eprintln!("  [warn] lexicon {} unavailable: {e}", entry.name),
+            }
+        }
+    }
+
+    // Each `--load` spec: a built-in demo, a registered lexicon or OWL vocab,
+    // or an .owl file.
     for spec in load_specs {
         match load_chat_ontology(spec) {
             Ok(onto) => {
@@ -1089,8 +1428,8 @@ fn run_chat(load_specs: &[String]) {
     println!("pr4xis — axiomatic intelligence");
     println!(
         "  {} concepts, {} words",
-        language.concept_count(),
-        language.word_count(),
+        language.concept_count().value,
+        language.word_count().value,
     );
     println!(
         "  loaded ontologies: {}",
@@ -1104,6 +1443,10 @@ fn run_chat(load_specs: &[String]) {
     println!();
 
     let mut engine = engine::dialogue_engine();
+    // Multi-turn slot-filling (task #17): one session for the REPL's whole
+    // process lifetime, so a `ChatOutcome::Conditional` prompt's pending
+    // rule survives to the next line of input.
+    let mut session = chat::ChatSession::new();
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
@@ -1146,9 +1489,15 @@ fn run_chat(load_specs: &[String]) {
         // through the composed reasoner: it grounds the LegalSources base plus
         // every `--load`ed ontology into English, so a loaded concept answers and
         // an unloaded one abstains — the same behavior the wasm runtime has.
-        let (response_text, user_act, _sys_act) = {
-            let r = chat::process_with_reasoner(language, &reasoner, &resolved_input);
-            (r.response, r.user_act, r.system_act)
+        let (response_text, why, definition_provenance, user_act, _sys_act) = {
+            let r = session.ask(language, &reasoner, &resolved_input);
+            (
+                r.response,
+                r.why,
+                r.definition_provenance,
+                r.user_act,
+                r.system_act,
+            )
         };
 
         // Extract referents for discourse tracking
@@ -1177,6 +1526,31 @@ fn run_chat(load_specs: &[String]) {
         };
 
         println!("{}", response_text);
+        // WHERE THE WORDING CAME FROM, on this surface too.
+        //
+        // A lexicon definition used to carry its authority as a "— 42 USC
+        // 300ii(7)" suffix inside the gloss text, so every surface got the
+        // citation for free by printing the answer. Moving it into structured
+        // `dcterms:source` made it inspectable — and silently dropped it here,
+        // because this path prints `response` alone. The browser renders the
+        // realized provenance; a reader at the terminal was left with a
+        // definition and no idea which document it was written from.
+        //
+        // The engine realizes both the label and the sentence (the frame is
+        // loaded from explain-frames.tsv), so this prints what it is handed and
+        // composes nothing.
+        // WHICH DOCUMENTS THE ENGINE OPENED. The provenance frame below tells
+        // the reader those "are listed separately" — and at the terminal they
+        // were listed nowhere, because this path printed the answer alone. A
+        // realized sentence that points at a list the surface never shows is a
+        // half-covered surface, not a wording problem: the engine composes both
+        // sentences, so this prints what it is handed.
+        if let Some(w) = &why {
+            println!("  {w}");
+        }
+        if let Some(p) = &definition_provenance {
+            println!("  {} — {}", p.label, p.detail);
+        }
         println!();
 
         engine = match engine.next(DialogueAction::SystemResponse {
@@ -1231,7 +1605,19 @@ fn load_chat_ontology(spec: &str) -> anyhow::Result<pr4xis_runtime::ontology::Ru
         _ => {}
     }
 
-    // 2. A registered OWL vocabulary by name (cito, doco, …), materialised from
+    // 2. A registered definitional chat lexicon by its registered name —
+    //    resolved through the registry (never a name table here) and
+    //    materialized through the ONE generic WN-LMF bridge, the SAME
+    //    residency dispatch `run_chat` auto-loads by kind. The tier exists so
+    //    `--load <name>` addresses a lexicon uniformly with the other tiers.
+    if let Some(result) =
+        pr4xis_domains::applied::data_provisioning::chat_lexicons::registered_lexicon_by_name(spec)
+    {
+        return result
+            .map_err(|e| anyhow::anyhow!("registered lexicon `{spec}` materialize failed: {e}"));
+    }
+
+    // 3. A registered OWL vocabulary by name (cito, doco, …), materialised from
     //    its committed compact `.prx.gz` through the SAME registry-driven loader
     //    every OWL-vocab consumer uses. Absent when the vocab has not been
     //    compiled (`pr4xis compile --compact`).
@@ -1240,7 +1626,7 @@ fn load_chat_ontology(spec: &str) -> anyhow::Result<pr4xis_runtime::ontology::Ru
             .map_err(|e| anyhow::anyhow!("OWL vocab `{spec}` materialize failed: {e}"));
     }
 
-    // 3. A filesystem path to a raw `.owl` file — parsed and grounded by its
+    // 4. A filesystem path to a raw `.owl` file — parsed and grounded by its
     //    `rdfs:label`s (the §9 OWL path). Lets a user point at any OWL vocabulary.
     let path = Path::new(spec);
     if path.exists()
@@ -1263,8 +1649,9 @@ fn load_chat_ontology(spec: &str) -> anyhow::Result<pr4xis_runtime::ontology::Ru
 
     anyhow::bail!(
         "unknown ontology `{spec}` — expected a built-in demo (`dependability`, \
-         `legal-sources`), a registered OWL vocab name (compiled via \
-         `pr4xis compile --compact`), or a path to a `.owl` file"
+         `legal-sources`), a registered lexicon name, a registered OWL vocab \
+         name (compiled via `pr4xis compile --compact`), or a path to a \
+         `.owl` file"
     )
 }
 
@@ -1304,8 +1691,8 @@ fn load_language(path: &str) -> Result<English, String> {
     let language = English::from_wordnet(&wn);
     eprintln!(
         "done ({} concepts, {} words)",
-        language.concept_count(),
-        language.word_count()
+        language.concept_count().value,
+        language.word_count().value
     );
     Ok(language)
 }

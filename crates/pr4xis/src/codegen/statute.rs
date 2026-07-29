@@ -293,6 +293,7 @@ mod tests {
         ]
     }"#;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn parses_terms_into_entities() {
         let doc: RawStatuteDoc = serde_json::from_str(SAMPLE_JSON).unwrap();
@@ -312,6 +313,7 @@ mod tests {
         assert!(b.word_index.iter().any(|(w, _)| w == "discharge"));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn composes_relation_maps_to_mereology() {
         let doc: RawStatuteDoc = serde_json::from_str(SAMPLE_JSON).unwrap();
@@ -325,6 +327,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn contradicts_relation_maps_to_opposition() {
         let doc: RawStatuteDoc = serde_json::from_str(SAMPLE_JSON).unwrap();
@@ -337,6 +340,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn relation_count_aggregates() {
         let doc: RawStatuteDoc = serde_json::from_str(SAMPLE_JSON).unwrap();
@@ -345,6 +349,7 @@ mod tests {
         assert_eq!(b.relation_count(), 4);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn unknown_fields_are_ignored() {
         // Real-world statute JSONs may carry additional fields like

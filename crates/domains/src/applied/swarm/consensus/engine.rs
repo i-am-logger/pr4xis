@@ -25,6 +25,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // ---------------------------------------------------------------------------
 // Identities and trust states
 // ---------------------------------------------------------------------------
@@ -76,9 +79,9 @@ impl SwarmTopology {
         Self { adjacency }
     }
 
-    /// Number of peers `|V|`.
-    pub fn peer_count(&self) -> usize {
-        self.adjacency.len()
+    /// Number of peers `|V|`, a dimensionless [`Quantity`] (`unit::UNITLESS`).
+    pub fn peer_count(&self) -> Quantity {
+        Quantity::from_unit(self.adjacency.len() as f64, &unit::UNITLESS)
     }
 
     /// Whether `{a, b}` is an edge of the graph.
@@ -103,25 +106,29 @@ impl SwarmTopology {
         }
     }
 
-    /// The degree `|N_i|` of a peer.
-    pub fn degree(&self, p: PeerId) -> usize {
-        self.neighbors(p).len()
+    /// The degree `|N_i|` of a peer, a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`).
+    pub fn degree(&self, p: PeerId) -> Quantity {
+        Quantity::from_unit(self.neighbors(p).len() as f64, &unit::UNITLESS)
     }
 
     /// The maximum degree `Delta_max` — the quantity the OSFM (2007)
     /// sec II step-size stability bound `eps < 1/Delta_max` is stated in.
-    pub fn max_degree(&self) -> usize {
-        (0..self.peer_count())
-            .map(|i| self.degree(PeerId(i)))
+    /// A dimensionless [`Quantity`] (`unit::UNITLESS`).
+    pub fn max_degree(&self) -> Quantity {
+        let peer_count = self.peer_count().value as usize;
+        let max = (0..peer_count)
+            .map(|i| self.degree(PeerId(i)).value as usize)
             .max()
-            .unwrap_or(0)
+            .unwrap_or(0);
+        Quantity::from_unit(max as f64, &unit::UNITLESS)
     }
 
     /// Graph connectivity by breadth-first reachability — the structural
     /// side of Fiedler (1973)'s spectral characterization (`lambda_2 > 0`
     /// iff connected).
     pub fn is_connected(&self) -> bool {
-        let n = self.peer_count();
+        let n = self.peer_count().value as usize;
         if n == 0 {
             return true;
         }
@@ -244,18 +251,24 @@ pub fn disconnected_two_plus_one() -> SwarmTopology {
 /// OSFM (2007) sec II stability interval `(0, 1/Delta_max)`. The degree
 /// is clamped to at least one so an edgeless graph yields a finite
 /// (and trivially stable) step.
-pub fn stable_step_size(topology: &SwarmTopology) -> f64 {
-    let delta_max = topology.max_degree().max(1);
-    STEP_SIZE_INTERVAL_MIDPOINT / delta_max as f64
+pub fn stable_step_size(topology: &SwarmTopology) -> Quantity {
+    let delta_max = (topology.max_degree().value as usize).max(1);
+    Quantity::from_unit(
+        STEP_SIZE_INTERVAL_MIDPOINT / delta_max as f64,
+        &unit::UNITLESS,
+    )
 }
 
 /// The arithmetic mean of the peer values — the agreement value of
-/// average consensus (OSFM 2007 sec II). Zero for an empty slice.
-pub fn average(values: &[f64]) -> f64 {
-    if values.is_empty() {
-        return 0.0;
-    }
-    values.iter().sum::<f64>() / values.len() as f64
+/// average consensus (OSFM 2007 sec II). Zero for an empty slice. A
+/// dimensionless [`Quantity`] (`unit::UNITLESS`) at this generic layer.
+pub fn average(values: &[f64]) -> Quantity {
+    let mean = if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    };
+    Quantity::from_unit(mean, &unit::UNITLESS)
 }
 
 /// One synchronous average-consensus step
@@ -285,9 +298,10 @@ pub fn average_consensus_step(
 /// `delta = x - Ave(x) * 1`. Zero exactly at agreement; on a connected
 /// graph it decays under the stable step, on a disconnected graph the
 /// per-component averages differ and it stays bounded away from zero.
-pub fn disagreement(values: &[f64]) -> f64 {
-    let alpha = average(values);
-    values.iter().map(|x| (x - alpha) * (x - alpha)).sum()
+pub fn disagreement(values: &[f64]) -> Quantity {
+    let alpha = average(values).value;
+    let sum: f64 = values.iter().map(|x| (x - alpha) * (x - alpha)).sum();
+    Quantity::from_unit(sum, &unit::UNITLESS)
 }
 
 // ---------------------------------------------------------------------------
@@ -365,12 +379,14 @@ pub fn push_sum_round(
 /// Gehrke (2003): exchanges move mass between peers but never create or
 /// destroy it, so this ratio is constant across rounds (and equals the
 /// initial average under unit initial weights).
-pub fn ratio_invariant(state: &PushSumState) -> f64 {
+pub fn ratio_invariant(state: &PushSumState) -> Quantity {
     let total_w: f64 = state.w.iter().sum();
-    if total_w == 0.0 {
-        return 0.0;
-    }
-    state.s.iter().sum::<f64>() / total_w
+    let ratio = if total_w == 0.0 {
+        0.0
+    } else {
+        state.s.iter().sum::<f64>() / total_w
+    };
+    Quantity::from_unit(ratio, &unit::UNITLESS)
 }
 
 /// Each peer's running estimate `s_i / w_i` — Kempe, Dobra & Gehrke

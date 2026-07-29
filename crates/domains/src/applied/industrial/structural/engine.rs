@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Structural health monitoring data processing.
 ///
 /// Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
@@ -85,10 +88,14 @@ pub fn classify_severity(strain_ratio: f64) -> DamageSeverity {
 }
 
 /// Compute RMS strain from a time series.
-pub fn rms_strain(readings: &[StrainReading]) -> f64 {
+///
+/// Strain (deformation / original length) is dimensionless by definition
+/// in mechanics, so this returns a dimensionless [`Quantity`]
+/// (`unit::UNITLESS`), never a bare `f64`.
+pub fn rms_strain(readings: &[StrainReading]) -> Quantity {
     if readings.is_empty() {
-        return 0.0;
+        return Quantity::from_unit(0.0, &unit::UNITLESS);
     }
     let sum_sq: f64 = readings.iter().map(|r| r.microstrain * r.microstrain).sum();
-    (sum_sq / readings.len() as f64).sqrt()
+    Quantity::from_unit((sum_sq / readings.len() as f64).sqrt(), &unit::UNITLESS)
 }

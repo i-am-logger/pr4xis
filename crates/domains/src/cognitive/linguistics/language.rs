@@ -7,6 +7,7 @@ use super::lexicon::pos::*;
 use super::morphology::MorphologicalRule;
 use super::orthography::WritingSystem;
 use crate::cognitive::linguistics::lambek::pregroup::{self, PregroupType};
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::software::markup::xml::lmf::ontology as lmf;
 
 // The Language trait — the SINGLE interface for all lexical access.
@@ -65,10 +66,46 @@ pub trait Language {
     fn known_words(&self) -> Vec<&str>;
 
     /// Number of concepts (meanings) in this language's lexicon.
-    fn concept_count(&self) -> usize;
+    fn concept_count(&self) -> Quantity;
 
     /// Number of unique words.
-    fn word_count(&self) -> usize;
+    fn word_count(&self) -> Quantity;
+
+    /// Is `word` (as spelled, INCLUDING any trailing period) a form the
+    /// lexicon actually holds? The tokenizer's `flush_word`
+    /// (`lambek::tokenize`) consults this to decide whether a trailing
+    /// period is ordinary sentence punctuation to strip, or part of an
+    /// abbreviation's DEFINING spelling (`"O.K."`, `"Ph.D."` — WordNet
+    /// lemmas that are themselves period-bearing) that must survive to reach
+    /// lexicon lookup. Default `false`: an implementor with no such
+    /// distinction (or no case-folded index) keeps the tokenizer's
+    /// unconditional strip-trailing-punctuation behavior.
+    fn is_known_surface(&self, _word: &str) -> bool {
+        false
+    }
+
+    /// The largest whitespace-separated word count among any multi-word
+    /// surface THIS language's own lexicon recognizes via
+    /// [`is_known_surface`](Self::is_known_surface) — e.g. a WordNet
+    /// multi-word lemma like "old age" (2) or "give someone a piece of
+    /// one's mind" (6). The bound `tokenize::multiword_surface_spans`
+    /// searches up to when deciding whether a span is an already-known
+    /// surface (so `correct_unknown_word_surfaces`'s per-word noisy-channel
+    /// correction never mangles one word of it) — mirrors
+    /// [`LexicalReasoner::max_surface_words`](crate::cognitive::linguistics::english::ontology::LexicalReasoner::max_surface_words)'s
+    /// identical rationale for a COMPOSED reasoner's REGISTERED domain
+    /// surfaces; this is the language-lexicon-only half of the same bound.
+    ///
+    /// Default `1` (no multi-word surface known — a degenerate, single-word
+    /// window), matching [`is_known_surface`](Self::is_known_surface)'s own
+    /// default-`false`: an implementor with no multi-word lexicon entries
+    /// need not override this. `English` overrides it with the REAL maximum
+    /// measured over its own loaded `word_index` at construction (never a
+    /// hand-picked constant, and never recomputed per query — see
+    /// `English`'s own `max_multiword_surface_words` field doc).
+    fn max_known_surface_words(&self) -> usize {
+        1
+    }
 }
 
 /// Map WordNet's LmfPos to ALL possible lexical entries.
@@ -98,6 +135,7 @@ pub fn lmf_pos_to_lexical_entries(
                         person: Person::Third,
                         tense: Tense::Present,
                         transitivity: Transitivity::Intransitive,
+                        olia_class: None,
                     }),
                     LexicalEntry::Verb(Verb {
                         text: word.into(),
@@ -106,6 +144,7 @@ pub fn lmf_pos_to_lexical_entries(
                         person: Person::Third,
                         tense: Tense::Present,
                         transitivity: Transitivity::Transitive,
+                        olia_class: None,
                     }),
                 ]
             } else {
@@ -120,6 +159,7 @@ pub fn lmf_pos_to_lexical_entries(
                             person: Person::Third,
                             tense: Tense::Present,
                             transitivity: t,
+                            olia_class: None,
                         })
                     })
                     .collect()
@@ -135,6 +175,7 @@ pub fn lmf_pos_to_lexical_entries(
         lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb {
             text: word.into(),
             olia_class: None,
+            role: None,
         })],
         lmf::LmfPos::Determiner | lmf::LmfPos::Numeral => {
             vec![LexicalEntry::Determiner(Determiner {
@@ -142,6 +183,7 @@ pub fn lmf_pos_to_lexical_entries(
                 kind: DeterminerKind::Indefinite,
                 number: None,
                 olia_class: None,
+                referent_role: None,
             })]
         }
         lmf::LmfPos::Pronoun => vec![LexicalEntry::Pronoun(Pronoun {
@@ -150,14 +192,21 @@ pub fn lmf_pos_to_lexical_entries(
             number: Number::Singular,
             person: Person::Third,
             olia_class: None,
+            referent_role: None,
         })],
         lmf::LmfPos::Preposition => {
             vec![LexicalEntry::Preposition(Preposition { text: word.into() })]
         }
         lmf::LmfPos::Conjunction => {
-            vec![LexicalEntry::Conjunction(Conjunction { text: word.into() })]
+            vec![LexicalEntry::Conjunction(Conjunction {
+                text: word.into(),
+                olia_class: None,
+            })]
         }
-        lmf::LmfPos::Particle => vec![LexicalEntry::Particle(Particle { text: word.into() })],
+        lmf::LmfPos::Particle => vec![LexicalEntry::Particle(Particle {
+            text: word.into(),
+            olia_class: None,
+        })],
         lmf::LmfPos::Copula => vec![LexicalEntry::Copula(Copula {
             text: word.into(),
             number: Number::Singular,
@@ -174,6 +223,7 @@ pub fn lmf_pos_to_lexical_entries(
         lmf::LmfPos::Interjection => vec![LexicalEntry::Interjection(Interjection {
             text: word.into(),
             kind: InterjectionKind::Expressive,
+            polarity: None,
         })],
         lmf::LmfPos::Other => vec![LexicalEntry::Noun(Noun {
             text: word.into(),
@@ -396,11 +446,13 @@ fn function_words_from_lmf(
                 // of the feature), not a scattered `synset_id.contains(...)`
                 // dispatch — the codec lowering, like the OLiA fragment resolver.
                 let kind = determiner_kind_from_synset(synset_id);
+                let referent_role = wh_referent_role_from_synset(synset_id);
                 LexicalEntry::Determiner(Determiner {
                     text: word.clone(),
                     kind,
                     number: None,
                     olia_class: olia_class.clone(),
+                    referent_role,
                 })
             }
             lmf::LmfPos::Copula => LexicalEntry::Copula(Copula {
@@ -415,19 +467,15 @@ fn function_words_from_lmf(
                 tense: None,
             }),
             lmf::LmfPos::Pronoun => {
-                // Interrogative-ness is the loaded OLiA class, not a synset
-                // substring test.
-                let kind = if olia_class.as_deref() == Some("InterrogativePronoun") {
-                    PronounKind::Interrogative
-                } else {
-                    PronounKind::Personal
-                };
+                let kind = pronoun_kind_from_synset(synset_id, olia_class.as_deref());
+                let referent_role = wh_referent_role_from_synset(synset_id);
                 LexicalEntry::Pronoun(Pronoun {
                     text: word.clone(),
                     number: Number::Singular,
                     person: Person::Third,
                     kind,
                     olia_class: olia_class.clone(),
+                    referent_role,
                 })
             }
             // Interrogative adverbs (where/when/why/how) are closed-class
@@ -436,21 +484,28 @@ fn function_words_from_lmf(
             lmf::LmfPos::Adverb => LexicalEntry::Adverb(Adverb {
                 text: word.clone(),
                 olia_class: olia_class.clone(),
+                role: wh_adverb_role_from_synset(synset_id),
             }),
             lmf::LmfPos::Preposition => {
                 LexicalEntry::Preposition(Preposition { text: word.clone() })
             }
-            lmf::LmfPos::Conjunction => {
-                LexicalEntry::Conjunction(Conjunction { text: word.clone() })
-            }
-            lmf::LmfPos::Particle => LexicalEntry::Particle(Particle { text: word.clone() }),
+            lmf::LmfPos::Conjunction => LexicalEntry::Conjunction(Conjunction {
+                text: word.clone(),
+                olia_class: olia_class.clone(),
+            }),
+            lmf::LmfPos::Particle => LexicalEntry::Particle(Particle {
+                text: word.clone(),
+                olia_class: olia_class.clone(),
+            }),
             lmf::LmfPos::Interjection => {
                 // Interjection kind decoded ONCE from the loaded synset (the
                 // codec lowering), not scattered `synset_id.contains(...)`.
                 let kind = interjection_kind_from_synset(synset_id);
+                let polarity = response_polarity_from_synset(synset_id);
                 LexicalEntry::Interjection(Interjection {
                     text: word.clone(),
                     kind,
+                    polarity,
                 })
             }
             _ => continue, // Skip non-function-word POS
@@ -496,10 +551,83 @@ fn interjection_kind_from_synset(synset_id: &str) -> InterjectionKind {
         "fw-greeting" => InterjectionKind::Greeting,
         "fw-farewell" => InterjectionKind::Farewell,
         "fw-politeness" => InterjectionKind::Politeness,
-        "fw-response" => InterjectionKind::Response,
+        "fw-response-affirmative" | "fw-response-negative" => InterjectionKind::Response,
         "fw-conative" => InterjectionKind::Conative,
         // fw-expressive and any unknown → Expressive.
         _ => InterjectionKind::Expressive,
+    }
+}
+
+/// Decode a pronoun's [`PronounKind`] from its loaded synset id / OLiA class —
+/// the ONE codec lowering on the pronoun-feature axis, the sibling of
+/// [`determiner_kind_from_synset`]. `fw-possessive-pron` is Huddleston &
+/// Pullum 2002 Ch. 5 §10's genitive pronoun class (`PronounKind::Possessive`'s
+/// own citation); `fw-relative-pron` is the same chapter's relative-pronoun
+/// class. Interrogative-ness is the loaded `InterrogativePronoun` OLiA
+/// fragment (checked first: "who"/"which" carry both an interrogative AND a
+/// relative reading in the source, and the interrogative use is the one that
+/// must never be mistaken for a content word). An unknown synset fails to the
+/// unmarked default (Personal).
+fn pronoun_kind_from_synset(synset_id: &str, olia_class: Option<&str>) -> PronounKind {
+    if olia_class == Some("InterrogativePronoun") {
+        return PronounKind::Interrogative;
+    }
+    match synset_id {
+        "fw-possessive-pron" => PronounKind::Possessive,
+        "fw-relative-pron" => PronounKind::Relative,
+        "fw-demonstrative-pron" => PronounKind::Demonstrative,
+        "fw-reflexive-pron" => PronounKind::Reflexive,
+        "fw-indefinite-pron" => PronounKind::Indefinite,
+        // fw-personal-pron and any unknown → Personal.
+        _ => PronounKind::Personal,
+    }
+}
+
+/// Decode a Response interjection's [`Polarity`] from its loaded synset id —
+/// orthogonal to [`interjection_kind_from_synset`] (which classifies the
+/// pragmatic FUNCTION; this classifies affirmative/negative). `None` for
+/// every non-response synset.
+fn response_polarity_from_synset(synset_id: &str) -> Option<Polarity> {
+    match synset_id {
+        "fw-response-affirmative" => Some(Polarity::Affirmative),
+        "fw-response-negative" => Some(Polarity::Negative),
+        _ => None,
+    }
+}
+
+/// Decode an interrogative pronoun/determiner's [`WhReferentRole`] from its
+/// loaded synset id — the codec lowering on the "expected answer type" axis,
+/// the sibling of [`determiner_kind_from_synset`]/[`pronoun_kind_from_synset`].
+/// Cysouw (2004) §3.2 table (9): who/whom/whose → PERSON, what → THING,
+/// which → SELECTION — see [`WhReferentRole`]'s own doc for the full
+/// citation. `None` for every non-interrogative synset (an ordinary
+/// determiner/pronoun carries no expected-answer-type feature at all).
+fn wh_referent_role_from_synset(synset_id: &str) -> Option<WhReferentRole> {
+    match synset_id {
+        "fw-interrogative-pron-person" | "fw-interrogative-det-person" => {
+            Some(WhReferentRole::Person)
+        }
+        "fw-interrogative-pron-thing" | "fw-interrogative-det-thing" => Some(WhReferentRole::Thing),
+        "fw-interrogative-pron-selection" | "fw-interrogative-det-selection" => {
+            Some(WhReferentRole::Selection)
+        }
+        _ => None,
+    }
+}
+
+/// Decode an interrogative adverb's [`WhAdverbRole`] from its loaded synset
+/// id — the codec lowering on the semantic-role axis, the sibling of
+/// [`wh_referent_role_from_synset`]. Cysouw (2004) §3.2 table (9): how →
+/// MANNER, why → REASON, where → PLACE, when → TIME — see [`WhAdverbRole`]'s
+/// own doc for the full citation. `None` for every non-interrogative synset
+/// (an ordinary adverb carries no wh-role feature at all).
+fn wh_adverb_role_from_synset(synset_id: &str) -> Option<WhAdverbRole> {
+    match synset_id {
+        "fw-interrogative-adv-manner" => Some(WhAdverbRole::Manner),
+        "fw-interrogative-adv-reason" => Some(WhAdverbRole::Reason),
+        "fw-interrogative-adv-place" => Some(WhAdverbRole::Place),
+        "fw-interrogative-adv-time" => Some(WhAdverbRole::Time),
+        _ => None,
     }
 }
 
@@ -553,7 +681,11 @@ mod feature_decoders {
             InterjectionKind::Politeness
         );
         assert_eq!(
-            interjection_kind_from_synset("fw-response"),
+            interjection_kind_from_synset("fw-response-affirmative"),
+            InterjectionKind::Response
+        );
+        assert_eq!(
+            interjection_kind_from_synset("fw-response-negative"),
             InterjectionKind::Response
         );
         assert_eq!(
@@ -563,6 +695,76 @@ mod feature_decoders {
         assert_eq!(
             interjection_kind_from_synset("fw-expressive"),
             InterjectionKind::Expressive
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn response_polarity_decodes_from_the_loaded_synset() {
+        assert_eq!(
+            response_polarity_from_synset("fw-response-affirmative"),
+            Some(Polarity::Affirmative)
+        );
+        assert_eq!(
+            response_polarity_from_synset("fw-response-negative"),
+            Some(Polarity::Negative)
+        );
+        // Every non-response synset — including other interjection kinds —
+        // carries no polarity.
+        for synset in [
+            "fw-greeting",
+            "fw-farewell",
+            "fw-politeness",
+            "fw-conative",
+            "fw-expressive",
+            "unknown-synset",
+        ] {
+            assert_eq!(response_polarity_from_synset(synset), None);
+        }
+    }
+
+    /// End-to-end over the REAL loaded `english_function_words` source
+    /// (never a hand-picked synset string): every response interjection's
+    /// `Interjection::polarity` must be `Some`, matching its real-world
+    /// affirmative/negative reading; every other loaded interjection must
+    /// carry `None`.
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn every_loaded_response_interjection_carries_a_real_polarity() {
+        let words = build_english_function_words();
+        let mut affirmative_probed = 0usize;
+        let mut negative_probed = 0usize;
+        let mut non_response_probed = 0usize;
+
+        for (surface, entries) in &words {
+            for entry in entries {
+                let LexicalEntry::Interjection(i) = entry else {
+                    continue;
+                };
+                match i.kind {
+                    InterjectionKind::Response => match i.polarity {
+                        Some(Polarity::Affirmative) => affirmative_probed += 1,
+                        Some(Polarity::Negative) => negative_probed += 1,
+                        None => {
+                            panic!("loaded response interjection {surface:?} must carry a polarity")
+                        }
+                    },
+                    _ => {
+                        non_response_probed += 1;
+                        assert_eq!(
+                            i.polarity, None,
+                            "non-response interjection {surface:?} must not carry a polarity"
+                        );
+                    }
+                }
+            }
+        }
+
+        assert!(affirmative_probed > 0, "no affirmative response probed");
+        assert!(negative_probed > 0, "no negative response probed");
+        assert!(
+            non_response_probed > 0,
+            "no non-response interjection probed"
         );
     }
 }
@@ -676,6 +878,7 @@ pub fn from_codegen(
         mereology_parts,
         relations,
         0, // sense_count: codegen assigns no senses (all sense-level relations empty)
+        HashMap::<SenseId, ConceptId>::new(), // sense_concept: no senses assigned, see above
         synset_to_concept,
         function_words,
         HashMap::new(), // verb_transitivity (chart parser resolves in context)

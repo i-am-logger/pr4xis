@@ -6,8 +6,10 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
 use super::engine::{mackenzie_sound_speed, range_from_travel_time};
+use crate::formal::math::quantity::unit;
 use crate::formal::math::quantity::unit::METER;
 use crate::formal::math::quantity::value::{Quantity, QuantityRange};
+use crate::formal::math::temporal::duration::Duration;
 
 pr4xis::ontology! {
     name: "Acoustic",
@@ -85,7 +87,12 @@ impl Axiom for SoundSpeedPositive {
         for &t in &temperatures {
             for &s in &salinities {
                 for &d in &depths {
-                    let c = mackenzie_sound_speed(t, s, d);
+                    let c = mackenzie_sound_speed(
+                        Quantity::from_unit(t, &unit::CELSIUS),
+                        Quantity::from_unit(s, &unit::PSU),
+                        Quantity::from_unit(d, &METER),
+                    )
+                    .value;
                     if c <= 0.0 || c.is_nan() {
                         return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
@@ -119,7 +126,11 @@ impl Axiom for RangeNonNegative {
         let sound_speeds = [1400.0, 1500.0, 1540.0, 1600.0];
         for &t in &travel_times {
             for &c in &sound_speeds {
-                let range = range_from_travel_time(t, c);
+                let range = range_from_travel_time(
+                    Duration::from_seconds(t),
+                    Quantity::from_unit(c, &unit::METER_PER_SECOND),
+                )
+                .value;
                 if range < 0.0 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }

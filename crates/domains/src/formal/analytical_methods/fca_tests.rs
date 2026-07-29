@@ -15,7 +15,15 @@ use super::{
     BitSet, ConceptLatticeIsComplete, DoubleDerivationIsClosure, EnumeratedConceptsAreClosed,
     FormalConcept, FormalContext, GaloisConnectionLaw,
 };
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::ontology::Axiom;
+
+/// Test helper: a dimensionless count `Quantity`, matching [`BitSet::count`]'s
+/// return shape.
+fn q(n: u32) -> Quantity {
+    Quantity::from_unit(n as f64, &unit::UNITLESS)
+}
 
 // =============================================================================
 // Layer 1 — structural laws on a hand-verified small context.
@@ -46,7 +54,7 @@ fn bitset_basic_operations() {
     assert!(bs.contains(3));
     assert!(bs.contains(9));
     assert!(!bs.contains(1));
-    assert_eq!(bs.count(), 3);
+    assert_eq!(bs.count(), q(3));
     assert_eq!(bs.to_vec(), vec![0, 3, 9]);
 }
 
@@ -86,7 +94,7 @@ fn galois_extent_to_intent_works() {
 
     // Empty extent → all attributes (vacuous universal).
     let intent = ctx.extent_to_intent(&[]);
-    assert_eq!(intent.count(), 4);
+    assert_eq!(intent.count(), q(4));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -167,7 +175,11 @@ fn lattice_has_expected_size_on_canonical_context() {
     assert_eq!(lat.len(), 3, "expected 3 concepts; got {}", lat.len());
     // Concepts must be unique by intent.
     let mut intents: Vec<_> = lat.concepts.iter().map(|c| c.intent.clone()).collect();
-    intents.sort_by_key(|b| b.count());
+    intents.sort_by(|a, b| {
+        a.count()
+            .partial_cmp(&b.count())
+            .expect("both counts are dimensionless, always comparable")
+    });
     intents.dedup();
     assert_eq!(intents.len(), lat.len(), "duplicate intents in lattice");
 }

@@ -884,6 +884,7 @@ impl Vocabulary {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_name_from_static_is_borrowed() {
         let name = OntologyName::new_static("Biology");
@@ -891,6 +892,7 @@ mod tests {
         assert!(matches!(name.0, Cow::Borrowed(_)));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_name_from_owned_is_owned() {
         let name = OntologyName::new(String::from("Runtime"));
@@ -898,6 +900,7 @@ mod tests {
         assert!(matches!(name.0, Cow::Owned(_)));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn citation_parses_single_entry() {
         let c = Citation::parse_static("Shannon (1948)");
@@ -906,6 +909,7 @@ mod tests {
         assert_eq!(c.entries()[0].year, Some(1948));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn citation_parses_multiple_entries() {
         let c = Citation::parse_static("Shannon (1948); Jakobson (1960); Wiener (1948)");
@@ -915,6 +919,7 @@ mod tests {
         assert_eq!(c.entries()[2].authors, "Wiener");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn citation_parses_et_al() {
         let c = Citation::parse_static("McCrae et al. (2012, 2017)");
@@ -923,6 +928,7 @@ mod tests {
         // Year can't be parsed from "2012, 2017" — ok, year stays None
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn citation_empty_string() {
         let c = Citation::parse_static("");
@@ -930,18 +936,21 @@ mod tests {
         assert_eq!(c.entries().len(), 0);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn citation_roundtrips_through_display() {
         let c = Citation::parse_static("Shannon (1948); Jakobson (1960)");
         assert_eq!(format!("{c}"), "Shannon (1948); Jakobson (1960)");
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn module_path_domain_strips_prefixes() {
         let p = ModulePath::new_static("pr4xis_domains::formal::math::ontology");
         assert_eq!(p.domain(), "formal.math");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn wrappers_accept_static_str_and_string() {
         let _: OntologyName = "literal".into();

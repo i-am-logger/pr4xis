@@ -58,7 +58,7 @@ impl Axiom for InnovationZeroAtPrediction {
         let r = Matrix::identity(2);
         let z = h.predict(&x);
         let inn = Innovation::compute(&z, &x, &p, &h, &r);
-        if inn.residual.norm() < 1e-12 {
+        if inn.residual.norm().value < 1e-12 {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

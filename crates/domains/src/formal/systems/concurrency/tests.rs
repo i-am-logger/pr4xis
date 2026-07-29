@@ -91,7 +91,7 @@ proptest! {
         let states = explore(&mutex_initial());
         let state = &states[pick.index(states.len())];
         let taken = state.semaphore == BinarySemaphore::Taken;
-        prop_assert_eq!(taken, state.critical_occupancy() > 0);
+        prop_assert_eq!(taken, state.critical_occupancy().value > 0.0);
     }
 }
 

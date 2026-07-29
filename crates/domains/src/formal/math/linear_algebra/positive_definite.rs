@@ -43,7 +43,7 @@ pub fn is_positive_definite(m: &Matrix) -> bool {
 /// Compute the quadratic form x^T A x.
 pub fn quadratic_form(m: &Matrix, x: &Vector) -> f64 {
     let ax = m.multiply_vector(x);
-    x.dot(&ax)
+    x.dot(&ax).value
 }
 
 /// Symmetrize a matrix: A_sym = (A + A^T) / 2.

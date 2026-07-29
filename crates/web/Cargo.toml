@@ -15,3 +15,15 @@ workspace = true
 
 [dependencies]
 tiny_http = "0.12"
+
+[dev-dependencies]
+# The palette WCAG gate (tests/palette_wcag.rs) parses docs/chat/tokens.css into
+# the theming ontology's `Palette` and asserts its contrast axioms — so a palette
+# regression fails `cargo test`. `prx` matches the workspace-unified feature the
+# wasm crate already turns on for pr4xis-domains (its `regenerate` module is
+# std-gated but needs flate2, which lives behind `prx`), so a bare
+# `-p pr4xis-web` build resolves the same as the workspace build.
+pr4xis-domains = { path = "../domains", features = ["prx"] }
+# The `Axiom` trait (`.verify()`) and `FinitelyGenerated` (`ColorSlot::variants`)
+# the gate calls live in the kernel crate.
+pr4xis = { path = "../pr4xis" }

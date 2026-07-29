@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Hypothesis testing framework.
 ///
 /// Neyman, J. & Pearson, E.S. (1933). "On the Problem of the Most Efficient Tests."
@@ -36,21 +39,31 @@ pub fn test_decision(p_value: f64, significance_level: f64) -> TestDecision {
 ///
 /// where x̄ is the sample mean, μ₀ is the hypothesized mean,
 /// σ is the known population standard deviation, and n is the sample size.
-pub fn z_statistic(sample_mean: f64, hypothesized_mean: f64, std_dev: f64, n: usize) -> f64 {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `f64` — a z-statistic is a standardized score (Neyman & Pearson 1933).
+pub fn z_statistic(sample_mean: f64, hypothesized_mean: f64, std_dev: f64, n: usize) -> Quantity {
     if n == 0 || std_dev <= 0.0 {
-        return 0.0;
+        return Quantity::from_unit(0.0, &unit::UNITLESS);
     }
-    (sample_mean - hypothesized_mean) / (std_dev / (n as f64).sqrt())
+    Quantity::from_unit(
+        (sample_mean - hypothesized_mean) / (std_dev / (n as f64).sqrt()),
+        &unit::UNITLESS,
+    )
 }
 
 /// Approximate two-sided p-value from a z-statistic using the standard normal.
 ///
 /// Uses the complementary error function approximation.
-pub fn two_sided_p_value(z: f64) -> f64 {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `f64` — a p-value is a probability, dimensionless by definition
+/// (Kolmogorov 1933).
+pub fn two_sided_p_value(z: f64) -> Quantity {
     // Standard normal CDF approximation using erfc
     // P(Z > |z|) = erfc(|z|/√2) / 2
     // Two-sided p = 2 * P(Z > |z|) = erfc(|z|/√2)
-    erfc(z.abs() / core::f64::consts::SQRT_2)
+    Quantity::from_unit(erfc(z.abs() / core::f64::consts::SQRT_2), &unit::UNITLESS)
 }
 
 /// Complementary error function approximation (Abramowitz & Stegun 7.1.26).

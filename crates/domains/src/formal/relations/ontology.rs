@@ -8,14 +8,15 @@
 //! properties (symmetric, antisymmetric, transitive, …) they satisfy
 //! by definition.
 //!
-//! Four literature lineages supply the content:
+//! Six literature lineages supply the content:
 //!
 //! 1. **Applied-ontology tradition** — Smith et al. (2005) *Relations
 //!    in biomedical ontologies* (OBO Relation Ontology), Genome Biology
-//!    6:R46, and SKOS / SKOS-XL (W3C 2009). Source of the ten relation
-//!    types themselves (`is_a` / `part_of` / `causally_related_to` /
+//!    6:R46, and SKOS / SKOS-XL (W3C 2009). Source of eleven of the
+//!    thirteen relation types (`is_a` / `part_of` / `causally_related_to` /
 //!    `related_to` / `precedes` / `broader` / `narrower` / `related` /
-//!    `exactMatch` / `depends_on`).
+//!    `exactMatch` / `depends_on` / `member_of`); the twelfth (`cites`)
+//!    comes from lineage 5 and the thirteenth (`replaces`) from lineage 6.
 //!
 //! 2. **Formal relation algebra** — Tarski (1941) *On the calculus of
 //!    relations* (J. Symbolic Logic 6), for the algebraic names of the
@@ -30,6 +31,16 @@
 //! 4. **Upper ontology alignment** — Masolo et al. (2003) *DOLCE*
 //!    (WonderWeb D18), for how binary relations sit in a foundational
 //!    ontology alongside Endurants, Perdurants, Qualities.
+//!
+//! 5. **Citation typing** — Peroni & Shotton (2012) *FaBiO and CiTO*
+//!    (J. Web Semantics 17), for `cito:cites` — the directed
+//!    cross-reference one document (here, a statute provision) asserts
+//!    to another.
+//!
+//! 6. **Resource-versioning vocabulary** — DCMI Metadata Terms (Dublin
+//!    Core, 2020), for `dcterms:replaces`/`dcterms:isReplacedBy` — the
+//!    directed supersession relation between a replaced resource and its
+//!    replacement.
 //!
 //! ## Why this is a full ontology and not a Rust enum
 //!
@@ -49,7 +60,7 @@
 //!
 //! Source: Smith et al. (2005) Genome Biology 6:R46; SKOS (W3C 2009);
 //! Tarski (1941) Calculus of Relations; Russell & Whitehead Principia
-//! (1910–13); Masolo et al. (2003) DOLCE.
+//! (1910–13); Masolo et al. (2003) DOLCE; Peroni & Shotton (2012) CiTO.
 
 #[allow(unused_imports)]
 use alloc::{
@@ -64,7 +75,7 @@ pr4xis::ontology! {
     source: "Smith et al. (2005) Genome Biology 6:R46 (OBO-RO); SKOS (W3C 2009); Tarski (1941) J. Symbolic Logic 6; Russell & Whitehead Principia Mathematica (1910–13); Masolo et al. (2003) DOLCE WonderWeb D18",
 
     concepts: [
-        // === Binary relation types (10) — what a kinded edge can mean ===
+        // === Binary relation types (13) — what a kinded edge can mean ===
         Subsumption,
         Parthood,
         Causation,
@@ -75,6 +86,9 @@ pr4xis::ontology! {
         Specialisation,
         Dependence,
         Association,
+        MemberOf,
+        Cites,
+        Supersession,
 
         // === Structural properties (7) — what a relation type satisfies ===
         // These are Qualities-of-Relations, not relations themselves.
@@ -113,6 +127,12 @@ pr4xis::ontology! {
             "Simons (1987) Parts: A Study in Ontology; OBO-RO `depends_on`. Ontological dependence — A cannot exist without B. Asymmetric, irreflexive."),
         Association: ("en", "Association (related-to)",
             "SKOS `related`. Uncommitted fallback when no stronger relation applies. Symmetric by default but carries no other structural claim."),
+        MemberOf: ("en", "Member-of",
+            "Smith et al. OBO-RO `member_of`; SKOS `skos:member` (inverse direction). The relation between an individual and the classification it belongs to (e.g. a verb and its VerbNet syntactic-semantic class) — distinct from Subsumption (a class-of-classes relation: a subclass IS a more specific class) and from Parthood (a whole-part relation: a member is not a physical part of its class). Irreflexive, not symmetric, not transitive at this kind alone (composing with the classification's own Subsumption-kinded subclass hierarchy is what licenses \"member of an ancestor class\", not iterating MemberOf itself)."),
+        Cites: ("en", "Cites (cross-reference)",
+            "Peroni & Shotton (2012) CiTO `cito:cites` — the citing entity references the cited entity. The relation a bare document cross-reference (a USLM `<ref href=\"…\">` from one statute provision to another) asserts: a pointer, NOT incorporation-by-reference (which carries binding force — that is a stronger, phrase-licensed relation, distinct from a plain hyperlink). Irreflexive (a provision does not cite itself), not symmetric (A cites B ⇏ B cites A), not transitive (A cites B, B cites C ⇏ A cites C) — a citation is a single directed edge, resolved (same-document, cross-document, or dangling) by a dedicated grounding lens, never by iterating the kind."),
+        Supersession: ("en", "Supersession (replaces / supplants)",
+            "DCMI Metadata Terms (Dublin Core, 2020) `dcterms:replaces` (\"a related resource that is supplanted, displaced, or superseded by the described resource\") and its declared inverse `dcterms:isReplacedBy` (\"a related resource that supplants, displaces, or supersedes the described resource\") — a genuine, citable, directional RDF relation, the same standard-vocabulary-as-relation-kind-authority pattern Parthood (OBO-RO) and Equivalence (SKOS) already use. Directional (A superseding B does not make B supersede A) and irreflexive (a resource does not supersede itself); NOT transitive at this kind alone (A supersedes B, B supersedes C does not by itself license A supersedes C — the same non-iteration discipline `Cites`/`MemberOf` already document)."),
 
         // --- Structural properties ---
         Symmetric: ("en", "Symmetric",
@@ -132,13 +152,13 @@ pr4xis::ontology! {
 
         // --- Abstract parents ---
         RelationType: ("en", "Relation type",
-            "Abstract parent of the ten canonical binary relation types. Anything kinded as a RelationType has a direction, a source, and a target."),
+            "Abstract parent of the eleven canonical binary relation types. Anything kinded as a RelationType has a direction, a source, and a target."),
         StructuralProperty: ("en", "Structural property",
             "Abstract parent of the seven algebraic properties (symmetric, transitive, etc.) that classify a relation. From Tarski (1941) relation algebra."),
     },
 
     is_a: [
-        // All ten relation types are RelationTypes.
+        // All thirteen relation types are RelationTypes.
         (Subsumption, RelationType),
         (Parthood, RelationType),
         (Causation, RelationType),
@@ -149,6 +169,9 @@ pr4xis::ontology! {
         (Specialisation, RelationType),
         (Dependence, RelationType),
         (Association, RelationType),
+        (MemberOf, RelationType),
+        (Cites, RelationType),
+        (Supersession, RelationType),
 
         // All seven structural properties are StructuralProperties.
         (Symmetric, StructuralProperty),
@@ -211,6 +234,9 @@ pr4xis::ontology! {
         (Dependence, Transitive, HasProperty),
         (Dependence, Antisymmetric, HasProperty),
         (Association, Symmetric, HasProperty),
+        (MemberOf, Irreflexive, HasProperty),
+        (Cites, Irreflexive, HasProperty),
+        (Supersession, Irreflexive, HasProperty),
     ],
 
 }
@@ -301,6 +327,56 @@ pub fn antisymmetric_relation_kinds() -> BTreeSet<ConceptRef> {
 pub fn opposition_relation_kind() -> ConceptRef {
     use pr4xis::category::Concept;
     relations_kind(RelationsConcept::Opposition.name())
+}
+
+/// The `Parthood` relation kind (OBO-RO `part_of`; Casati & Varzi 1999) —
+/// antisymmetric and transitive (see [`ParthoodIsTransitive`]), so unlike
+/// [`opposition_relation_kind`] a reasoner over this kind answers through a
+/// multi-hop reachability engine, not a single-edge check.
+pub fn parthood_relation_kind() -> ConceptRef {
+    use pr4xis::category::Concept;
+    relations_kind(RelationsConcept::Parthood.name())
+}
+
+/// The `Similarity` relation kind (Tversky 1977 features of similarity) —
+/// symmetric, non-transitive, componential rather than hierarchical.
+pub fn similarity_relation_kind() -> ConceptRef {
+    use pr4xis::category::Concept;
+    relations_kind(RelationsConcept::Similarity.name())
+}
+
+/// The `Equivalence` relation kind (SKOS `exactMatch`) — symmetric,
+/// reflexive, transitive; forms a groupoid.
+pub fn equivalence_relation_kind() -> ConceptRef {
+    use pr4xis::category::Concept;
+    relations_kind(RelationsConcept::Equivalence.name())
+}
+
+/// The `Member-of` relation kind (Smith et al. OBO-RO `member_of`; SKOS
+/// `skos:member` inverse) — irreflexive, not symmetric, not transitive at
+/// this kind alone (see [`RelationsConcept::MemberOf`]'s own label for the
+/// full citation). Also the reasoner-side vocabulary for Searle (1995),
+/// *The Construction of Social Reality*, Free Press's institutional
+/// "X counts as Y in context C" formula and Jones & Sergot (1996), "A
+/// Formal Characterisation of Institutionalised Power", *Logic Journal of
+/// the IGPL* 4(3):427-443's conditional counts-as operator — an
+/// individual's institutional classification is exactly the
+/// individual-to-classification relation `MemberOf` already grounds, not a
+/// distinct kind.
+pub fn member_of_relation_kind() -> ConceptRef {
+    use pr4xis::category::Concept;
+    relations_kind(RelationsConcept::MemberOf.name())
+}
+
+/// The `Supersession` relation kind (DCMI Metadata Terms `dcterms:replaces`/
+/// `dcterms:isReplacedBy` — see [`RelationsConcept::Supersession`]'s own
+/// label for the full citation) — directional and irreflexive; a reasoner
+/// checks a single edge (non-transitive at this kind alone), never a
+/// closure, the same discipline [`opposition_relation_kind`] documents for
+/// its own non-transitive kind.
+pub fn supersession_relation_kind() -> ConceptRef {
+    use pr4xis::category::Concept;
+    relations_kind(RelationsConcept::Supersession.name())
 }
 
 /// The transitivity license for a relation kind — the *rule* that authorizes a
@@ -478,6 +554,46 @@ impl Axiom for CausationIsAsymmetric {
     );
 }
 
+/// OBO-RO — MemberOf is irreflexive: nothing is a member of itself.
+pub struct MemberOfIsIrreflexive;
+
+impl Axiom for MemberOfIsIrreflexive {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(RelationsConcept::MemberOf, RelationsConcept::Irreflexive) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "MemberOfIsIrreflexive",
+        "RelationProperty catalog declares MemberOf as Irreflexive (Tarski 1941): \u{ac}(A R A) for any A — a classification is not a member of itself",
+        "Smith et al. (2005) Genome Biology 6:R46 OBO-RO `member_of`; Tarski (1941) J. Symbolic Logic 6"
+    );
+}
+
+/// CiTO / Tarski — Cites is irreflexive: a provision does not cite itself.
+pub struct CitesIsIrreflexive;
+
+impl Axiom for CitesIsIrreflexive {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(RelationsConcept::Cites, RelationsConcept::Irreflexive) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "CitesIsIrreflexive",
+        "RelationProperty catalog declares Cites as Irreflexive (Tarski 1941): \u{ac}(A R A) for any A — a provision does not cite itself (CiTO `cito:cites` between distinct bibliographic entities)",
+        "Peroni & Shotton (2012) FaBiO and CiTO, J. Web Semantics 17 `cito:cites`; Tarski (1941) J. Symbolic Logic 6"
+    );
+}
+
 /// Noonan / Varzi — Parthood is distinct from Subsumption.
 pub struct ParthoodIsDistinctFromSubsumption;
 
@@ -532,10 +648,10 @@ impl Axiom for SubsumptionSpecialisationAreInverses {
     );
 }
 
-/// OBO-RO + SKOS — ten canonical binary relation types.
-pub struct TenCanonicalRelationTypes;
+/// OBO-RO + SKOS + CiTO + DCMI — thirteen canonical binary relation types.
+pub struct ThirteenCanonicalRelationTypes;
 
-impl Axiom for TenCanonicalRelationTypes {
+impl Axiom for ThirteenCanonicalRelationTypes {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let expected = [
@@ -549,6 +665,9 @@ impl Axiom for TenCanonicalRelationTypes {
             RelationsConcept::Specialisation,
             RelationsConcept::Dependence,
             RelationsConcept::Association,
+            RelationsConcept::MemberOf,
+            RelationsConcept::Cites,
+            RelationsConcept::Supersession,
         ];
         let actual = direct_children_of(RelationsConcept::RelationType);
         let ok = actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c));
@@ -560,9 +679,9 @@ impl Axiom for TenCanonicalRelationTypes {
     }
 
     pr4xis::axiom_meta!(
-        "TenCanonicalRelationTypes",
-        "direct children of RelationType are exactly the ten OBO-RO + SKOS binary relation types: Subsumption, Parthood, Causation, Opposition, Similarity, Precedence, Equivalence, Specialisation, Dependence, Association",
-        "Smith et al. (2005) Genome Biology 6:R46 OBO-RO; SKOS (W3C 2009)"
+        "ThirteenCanonicalRelationTypes",
+        "direct children of RelationType are exactly the thirteen OBO-RO + SKOS + CiTO + DCMI binary relation types: Subsumption, Parthood, Causation, Opposition, Similarity, Precedence, Equivalence, Specialisation, Dependence, Association, MemberOf, Cites, Supersession",
+        "Smith et al. (2005) Genome Biology 6:R46 OBO-RO; SKOS (W3C 2009); Peroni & Shotton (2012) CiTO; DCMI Metadata Terms (Dublin Core, 2020)"
     );
 }
 
@@ -608,9 +727,11 @@ impl Ontology for RelationsOntology {
         axioms.push(Box::new(SubsumptionIsTransitive));
         axioms.push(Box::new(ParthoodIsTransitive));
         axioms.push(Box::new(CausationIsAsymmetric));
+        axioms.push(Box::new(MemberOfIsIrreflexive));
+        axioms.push(Box::new(CitesIsIrreflexive));
         axioms.push(Box::new(ParthoodIsDistinctFromSubsumption));
         axioms.push(Box::new(SubsumptionSpecialisationAreInverses));
-        axioms.push(Box::new(TenCanonicalRelationTypes));
+        axioms.push(Box::new(ThirteenCanonicalRelationTypes));
         axioms.push(Box::new(SevenStructuralProperties));
         axioms
     }
@@ -650,6 +771,8 @@ mod tests {
             R::Specialisation,
             R::Dependence,
             R::Association,
+            R::MemberOf,
+            R::Cites,
         ] {
             let props = role.get(&rt);
             assert!(
@@ -662,8 +785,8 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn ten_relation_types_axiom_holds() {
-        assert!(TenCanonicalRelationTypes.verify().is_ok());
+    fn thirteen_relation_types_axiom_holds() {
+        assert!(ThirteenCanonicalRelationTypes.verify().is_ok());
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -698,6 +821,18 @@ mod tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
+    fn member_of_is_irreflexive_holds() {
+        assert!(MemberOfIsIrreflexive.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn cites_is_irreflexive_holds() {
+        assert!(CitesIsIrreflexive.verify().is_ok());
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
     fn transitivity_license_reads_the_property_and_citation_as_data() {
         // The licensing rule surfaced for a multi-hop answer is READ from this
         // ontology: Subsumption's transitivity carries the `Transitive` property
@@ -723,12 +858,14 @@ mod tests {
         );
     }
 
-    /// Regenerate the committed `relations_transitive_kinds.txt` caches that the
-    /// `ontology!` macro (`pr4xis-derive`) and the kernel (`pr4xis-runtime`) read.
-    /// `#[ignore]`d (it WRITES, asserting nothing) — the relation-kind analogue of
-    /// `regenerate_english_function_words_prx`. Run by hand when a
-    /// `(R, Transitive, HasProperty)` edge is added/removed above:
+    /// Regenerate the committed `relations_transitive_kinds.txt` that the `ontology!`
+    /// macro (`pr4xis-derive`) reads at expansion — the SINGLE sanctioned proc-macro
+    /// projection of this ontology's `(R, Transitive, HasProperty)` edges. `#[ignore]`d
+    /// (it WRITES, asserting nothing). Run by hand when a `Transitive` edge is
+    /// added/removed above:
     /// `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`.
+    /// (The runtime no longer keeps a copy — it derives the set from the loaded
+    /// `morphism_kinds.prx`, regenerated by `regenerate_morphism_kinds_prx`.)
     #[pr4xis::praxis_value(Deterministic)]
     #[test]
     #[ignore]
@@ -745,27 +882,26 @@ mod tests {
             .collect();
         names.sort();
         let body = format!("{}\n", names.join("\n"));
-        for path in [
+        std::fs::write(
             concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../pr4xis-derive/src/relations_transitive_kinds.txt"
             ),
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../pr4xis-runtime/src/relations_transitive_kinds.txt"
-            ),
-        ] {
-            std::fs::write(path, &body).expect("write relations_transitive_kinds.txt");
-        }
+            &body,
+        )
+        .expect("write relations_transitive_kinds.txt");
     }
 
     /// Drift guard (normal suite) for the committed `relations_transitive_kinds.txt`
-    /// caches — the build-time (`pr4xis-derive`) and runtime (`pr4xis-runtime`)
-    /// halves of "one declaration, two readers". The authoritative declaration is
-    /// THIS ontology's `(R, Transitive, HasProperty)` edges; each committed cache
-    /// must equal `transitive_kinds()` read off the emitted+materialized Relations
-    /// archive. If anyone adds/removes a `Transitive` edge without regenerating, or
-    /// hand-edits a cache, this FAILS — closing the rule-7 second-declaration gap.
+    /// that `pr4xis-derive` reads at expansion — the SINGLE sanctioned proc-macro
+    /// projection of this ontology's `(R, Transitive, HasProperty)` edges. It must
+    /// equal `transitive_kinds()` read off the emitted+materialized Relations
+    /// archive; a `Transitive` edge added/removed without regenerating, or a
+    /// hand-edit, FAILS here. The runtime's copy was REMOVED — the kernel derives the
+    /// set from the loaded `morphism_kinds.prx`, guarded by
+    /// `morphism_kinds_prx_matches_the_relations_ontology` (loaded == fresh emit ⟹
+    /// the runtime's transitive projection equals this same authority; the runtime's
+    /// own reachability tests exercise the derivation live).
     #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn relations_transitive_kinds_cache_matches_the_relations_ontology() {
@@ -780,28 +916,18 @@ mod tests {
             .map(|c| c.name.clone())
             .collect();
 
-        for (krate, committed) in [
-            (
-                "pr4xis-derive",
-                include_str!("../../../../pr4xis-derive/src/relations_transitive_kinds.txt"),
-            ),
-            (
-                "pr4xis-runtime",
-                include_str!("../../../../pr4xis-runtime/src/relations_transitive_kinds.txt"),
-            ),
-        ] {
-            let cached: alloc::collections::BTreeSet<String> = committed
+        let cached: alloc::collections::BTreeSet<String> =
+            include_str!("../../../../pr4xis-derive/src/relations_transitive_kinds.txt")
                 .lines()
                 .map(str::trim)
                 .filter(|l| !l.is_empty())
                 .map(String::from)
                 .collect();
-            assert_eq!(
-                cached, declared,
-                "{krate}'s relations_transitive_kinds.txt is STALE — regenerate with \
-                 `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`"
-            );
-        }
+        assert_eq!(
+            cached, declared,
+            "pr4xis-derive's relations_transitive_kinds.txt is STALE — regenerate with \
+             `cargo test -p pr4xis-domains -- --ignored regenerate_relations_transitive_kinds_cache`"
+        );
     }
 
     /// Regenerate the committed `morphism_kinds.prx` — the FULL relation-kind

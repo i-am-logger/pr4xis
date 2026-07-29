@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Geodetic coordinates on an ellipsoid.
 ///
 /// The natural coordinate system for positions on or near Earth's surface.
@@ -59,14 +62,15 @@ impl Geodetic {
         Self { lat, lon, alt }
     }
 
-    /// Latitude in degrees.
-    pub fn lat_deg(&self) -> f64 {
-        self.lat.to_degrees()
+    /// Latitude in degrees. A real angle, carried as `Quantity` with unit
+    /// `DEGREE` (Torge & Muller 2012, Ch. 5).
+    pub fn lat_deg(&self) -> Quantity {
+        Quantity::from_unit(self.lat.to_degrees(), &unit::DEGREE)
     }
 
-    /// Longitude in degrees.
-    pub fn lon_deg(&self) -> f64 {
-        self.lon.to_degrees()
+    /// Longitude in degrees. Same reasoning as [`Geodetic::lat_deg`].
+    pub fn lon_deg(&self) -> Quantity {
+        Quantity::from_unit(self.lon.to_degrees(), &unit::DEGREE)
     }
 }
 
@@ -80,9 +84,13 @@ impl Ned {
         }
     }
 
-    /// Horizontal distance (north-east plane).
-    pub fn horizontal_distance(&self) -> f64 {
-        (self.north * self.north + self.east * self.east).sqrt()
+    /// Horizontal distance (north-east plane). A real physical distance,
+    /// carried as `Quantity` with unit `METER` (Groves 2013, §2.4).
+    pub fn horizontal_distance(&self) -> Quantity {
+        Quantity::from_unit(
+            (self.north * self.north + self.east * self.east).sqrt(),
+            &unit::METER,
+        )
     }
 }
 

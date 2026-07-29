@@ -26,7 +26,7 @@ Composition closes the transitive edges: Word is composed of Bits (via Bytes), R
 
 | Quality | Type | Description |
 |---|---|---|
-| BitSize | usize | Number of bits per unit (Bit=1, TruthValue=1, Byte=8, Word=32 or 64, etc.) |
+| BitSize | Quantity | Storage width per unit (`BIT_STORAGE` unit, ISO/IEC 80000-13 item 13-9.a): Bit=1, TruthValue=1, Byte=8 |
 | IsAtomic | bool | True for Bit, TruthValue, Sequence (no internal structure) |
 
 ## Axioms

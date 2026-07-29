@@ -8,7 +8,10 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::SECOND;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
     name: "InsGnssState",
@@ -32,21 +35,45 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: typical duration of each state.
+/// Quality: typical duration of each state, a [`QuantityRange`] in seconds,
+/// NOT a prose string.
+///
+/// `None` for the abstract `State` ("varies", implementation-dependent) and
+/// for `NavigationMode`: steady-state full navigation has no typical
+/// duration ceiling at all — it persists indefinitely as long as INS and
+/// GNSS stay locked, unlike the other (transient) states, which do have a
+/// bounded typical duration. `Coasting` and `GnssReacquired` had no explicit
+/// digits in the original description ("seconds to minutes", "seconds"); the
+/// ranges below are an order-of-magnitude reading of that prose (lower bound
+/// = 1 s, the finest unit named; upper bounds anchored to the neighboring
+/// order named — "minutes" capped at `Initializing`'s own cited 10-minute
+/// figure, "seconds" capped just under a minute). `Initializing` alone has
+/// an explicit numeric figure in Groves (2013) Section 14.2.
 #[derive(Debug, Clone)]
 pub struct StateDuration;
 
 impl Quality for StateDuration {
     type Individual = InsGnssStateConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, s: &InsGnssStateConcept) -> Option<&'static str> {
+    fn get(&self, s: &InsGnssStateConcept) -> Option<QuantityRange> {
+        let secs = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &SECOND),
+            max: Quantity::from_unit(hi, &SECOND),
+        };
         Some(match s {
-            InsGnssStateConcept::State => "varies",
-            InsGnssStateConcept::NavigationMode => "indefinite (steady state)",
-            InsGnssStateConcept::Coasting => "seconds to minutes",
-            InsGnssStateConcept::GnssReacquired => "seconds (transient)",
-            InsGnssStateConcept::Initializing => "1-10 minutes (alignment)",
+            InsGnssStateConcept::State => return None,
+            // Steady state — no typical duration ceiling, unlike the
+            // transient states below.
+            InsGnssStateConcept::NavigationMode => return None,
+            // "seconds to minutes": order-of-magnitude, capped at the
+            // 10-minute figure Initializing cites below.
+            InsGnssStateConcept::Coasting => secs(1.0, 600.0),
+            // "seconds (transient)": order-of-magnitude, sub-minute.
+            InsGnssStateConcept::GnssReacquired => secs(1.0, 59.0),
+            // 1-10 minutes (alignment).
+            InsGnssStateConcept::Initializing => secs(60.0, 600.0),
         })
     }
 }

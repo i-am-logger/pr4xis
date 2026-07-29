@@ -7,6 +7,10 @@ use crate::applied::navigation::ins_gnss::coupling::{
     CouplingMode, PosVelCoupling, coasting_position_error, scalar_kalman_gain,
 };
 use crate::applied::navigation::ins_gnss::ontology::{CouplingLevel, InsGnssState};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
+use crate::natural::physics::kinematics::acceleration::Acceleration;
 
 /// INS/GNSS integration situation.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,14 +19,14 @@ pub struct InsGnssSituation {
     pub state: InsGnssState,
     /// Active coupling mode.
     pub coupling: CouplingLevel,
-    /// Position error estimate (1-sigma, meters).
-    pub position_error: f64,
-    /// Velocity error estimate (1-sigma, m/s).
-    pub velocity_error: f64,
-    /// Time since last GNSS update (seconds).
-    pub time_since_gnss: f64,
-    /// Accelerometer bias estimate (m/s^2).
-    pub accel_bias: f64,
+    /// Position error estimate (1-sigma).
+    pub position_error: Quantity,
+    /// Velocity error estimate (1-sigma).
+    pub velocity_error: Quantity,
+    /// Time since last GNSS update.
+    pub time_since_gnss: Duration,
+    /// Accelerometer bias estimate.
+    pub accel_bias: Acceleration,
     /// Step counter.
     pub step: usize,
 }
@@ -34,8 +38,8 @@ impl Situation for InsGnssSituation {}
 pub enum InsGnssAction {
     /// INS mechanization step (propagate state).
     InsPropagation {
-        /// Time step (seconds).
-        dt: f64,
+        /// Time step.
+        dt: Duration,
     },
     /// GNSS measurement update.
     GnssUpdate {
@@ -64,18 +68,25 @@ pub fn apply_ins_gnss(
 ) -> Result<InsGnssSituation, String> {
     match action {
         InsGnssAction::InsPropagation { dt } => {
-            if *dt < 0.0 {
+            if dt.is_negative() {
                 return Err("dt must be non-negative".into());
             }
+            let bias_magnitude = situation.accel_bias.magnitude();
             // During coasting, position error grows quadratically due to accel bias
-            let additional_error = coasting_position_error(situation.accel_bias, *dt);
+            let additional_error = coasting_position_error(bias_magnitude.value, dt.seconds());
             Ok(InsGnssSituation {
                 state: situation.state,
                 coupling: situation.coupling,
-                position_error: situation.position_error + additional_error,
-                velocity_error: situation.velocity_error + situation.accel_bias.abs() * dt,
-                time_since_gnss: situation.time_since_gnss + dt,
-                accel_bias: situation.accel_bias,
+                position_error: Quantity::from_unit(
+                    situation.position_error.value + additional_error.value,
+                    &unit::METER,
+                ),
+                velocity_error: Quantity::from_unit(
+                    situation.velocity_error.value + bias_magnitude.value * dt.seconds(),
+                    &unit::METER_PER_SECOND,
+                ),
+                time_since_gnss: situation.time_since_gnss.add(dt),
+                accel_bias: situation.accel_bias.clone(),
                 step: situation.step + 1,
             })
         }
@@ -92,43 +103,43 @@ pub fn apply_ins_gnss(
             }
             // Scalar Kalman update on position variance; the velocity error is
             // corrected through the pos–vel coupling by the SAME gain.
-            let prior_var = situation.position_error * situation.position_error;
+            let prior_var = situation.position_error.value * situation.position_error.value;
             let meas_var = measurement_noise * measurement_noise;
             let k = scalar_kalman_gain(prior_var, meas_var);
-            let post_var = (1.0 - k) * prior_var;
+            let post_var = (1.0 - k.value) * prior_var;
             Ok(InsGnssSituation {
                 state: InsGnssState::NavigationMode,
                 coupling: situation.coupling,
-                position_error: post_var.sqrt(),
+                position_error: Quantity::from_unit(post_var.sqrt(), &unit::METER),
                 velocity_error: PosVelCoupling::nominal()
-                    .velocity_error_after_fix(situation.velocity_error, k),
-                time_since_gnss: 0.0,
-                accel_bias: situation.accel_bias,
+                    .velocity_error_after_fix(situation.velocity_error.value, k.value),
+                time_since_gnss: Duration::zero(),
+                accel_bias: situation.accel_bias.clone(),
                 step: situation.step + 1,
             })
         }
         InsGnssAction::GnssOutage => Ok(InsGnssSituation {
             state: InsGnssState::Coasting,
             coupling: situation.coupling,
-            position_error: situation.position_error,
-            velocity_error: situation.velocity_error,
-            time_since_gnss: situation.time_since_gnss,
-            accel_bias: situation.accel_bias,
+            position_error: situation.position_error.clone(),
+            velocity_error: situation.velocity_error.clone(),
+            time_since_gnss: situation.time_since_gnss.clone(),
+            accel_bias: situation.accel_bias.clone(),
             step: situation.step + 1,
         }),
         InsGnssAction::GnssReacquisition { measurement_noise } => {
-            let prior_var = situation.position_error * situation.position_error;
+            let prior_var = situation.position_error.value * situation.position_error.value;
             let meas_var = measurement_noise * measurement_noise;
             let k = scalar_kalman_gain(prior_var, meas_var);
-            let post_var = (1.0 - k) * prior_var;
+            let post_var = (1.0 - k.value) * prior_var;
             Ok(InsGnssSituation {
                 state: InsGnssState::GnssReacquired,
                 coupling: situation.coupling,
-                position_error: post_var.sqrt(),
+                position_error: Quantity::from_unit(post_var.sqrt(), &unit::METER),
                 velocity_error: PosVelCoupling::reacquisition()
-                    .velocity_error_after_fix(situation.velocity_error, k),
-                time_since_gnss: 0.0,
-                accel_bias: situation.accel_bias,
+                    .velocity_error_after_fix(situation.velocity_error.value, k.value),
+                time_since_gnss: Duration::zero(),
+                accel_bias: situation.accel_bias.clone(),
                 step: situation.step + 1,
             })
         }

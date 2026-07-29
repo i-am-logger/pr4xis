@@ -6,6 +6,10 @@ use crate::applied::navigation::ins_gnss::coupling::*;
 use crate::applied::navigation::ins_gnss::engine::*;
 use crate::applied::navigation::ins_gnss::ontology::*;
 use crate::applied::navigation::ins_gnss::state::InsGnssStateCategory;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
+use crate::natural::physics::kinematics::acceleration::Acceleration;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -84,7 +88,7 @@ fn coasting_error_grows_quadratically() {
     let e1 = coasting_position_error(bias, 10.0);
     let e2 = coasting_position_error(bias, 20.0);
     // At 2x time, error should be 4x
-    let ratio = e2 / e1;
+    let ratio = e2.value / e1.value;
     assert!((ratio - 4.0).abs() < 0.01, "ratio = {}", ratio);
 }
 
@@ -94,7 +98,12 @@ fn kalman_update_reduces_variance() {
     let prior = 100.0; // 10m 1-sigma
     let noise = 25.0; // 5m 1-sigma
     let post = scalar_kalman_update(prior, noise);
-    assert!(post < prior, "post={} should be < prior={}", post, prior);
+    assert!(
+        post.value < prior,
+        "post={} should be < prior={}",
+        post.value,
+        prior
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -107,13 +116,19 @@ fn ins_propagation_increases_error() {
     let sit = InsGnssSituation {
         state: InsGnssState::Coasting,
         coupling: CouplingLevel::LooselyCoupled,
-        position_error: 5.0,
-        velocity_error: 0.1,
-        time_since_gnss: 10.0,
-        accel_bias: 0.01,
+        position_error: Quantity::from_unit(5.0, &unit::METER),
+        velocity_error: Quantity::from_unit(0.1, &unit::METER_PER_SECOND),
+        time_since_gnss: Duration::from_seconds(10.0),
+        accel_bias: Acceleration::new(0.01, 0.0, 0.0),
         step: 0,
     };
-    let next = apply_ins_gnss(&sit, &InsGnssAction::InsPropagation { dt: 1.0 }).unwrap();
+    let next = apply_ins_gnss(
+        &sit,
+        &InsGnssAction::InsPropagation {
+            dt: Duration::from_seconds(1.0),
+        },
+    )
+    .unwrap();
     assert!(next.position_error > sit.position_error);
     assert!(next.time_since_gnss > sit.time_since_gnss);
 }
@@ -124,10 +139,10 @@ fn gnss_update_reduces_position_error() {
     let sit = InsGnssSituation {
         state: InsGnssState::Coasting,
         coupling: CouplingLevel::LooselyCoupled,
-        position_error: 50.0,
-        velocity_error: 1.0,
-        time_since_gnss: 30.0,
-        accel_bias: 0.01,
+        position_error: Quantity::from_unit(50.0, &unit::METER),
+        velocity_error: Quantity::from_unit(1.0, &unit::METER_PER_SECOND),
+        time_since_gnss: Duration::from_seconds(30.0),
+        accel_bias: Acceleration::new(0.01, 0.0, 0.0),
         step: 0,
     };
     let next = apply_ins_gnss(
@@ -139,7 +154,7 @@ fn gnss_update_reduces_position_error() {
     )
     .unwrap();
     assert!(next.position_error < sit.position_error);
-    assert_eq!(next.time_since_gnss, 0.0);
+    assert_eq!(next.time_since_gnss, Duration::zero());
     assert_eq!(next.state, InsGnssState::NavigationMode);
 }
 
@@ -149,10 +164,10 @@ fn loosely_coupled_rejects_insufficient_satellites() {
     let sit = InsGnssSituation {
         state: InsGnssState::NavigationMode,
         coupling: CouplingLevel::LooselyCoupled,
-        position_error: 5.0,
-        velocity_error: 0.1,
-        time_since_gnss: 0.0,
-        accel_bias: 0.01,
+        position_error: Quantity::from_unit(5.0, &unit::METER),
+        velocity_error: Quantity::from_unit(0.1, &unit::METER_PER_SECOND),
+        time_since_gnss: Duration::zero(),
+        accel_bias: Acceleration::new(0.01, 0.0, 0.0),
         step: 0,
     };
     let result = apply_ins_gnss(
@@ -184,7 +199,7 @@ mod proptest_proofs {
             let t2 = t1 + dt;
             let e1 = coasting_position_error(bias, t1);
             let e2 = coasting_position_error(bias, t2);
-            prop_assert!(e2 >= e1, "error should grow with time: e1={}, e2={}", e1, e2);
+            prop_assert!(e2 >= e1, "error should grow with time: e1={:?}, e2={:?}", e1, e2);
         }
 
         #[test]
@@ -193,9 +208,9 @@ mod proptest_proofs {
             noise in 0.1..10000.0_f64,
         ) {
             let post = scalar_kalman_update(prior, noise);
-            prop_assert!(post <= prior + 1e-10,
-                "post={} should be <= prior={}", post, prior);
-            prop_assert!(post >= 0.0, "post={} should be non-negative", post);
+            prop_assert!(post.value <= prior + 1e-10,
+                "post={} should be <= prior={}", post.value, prior);
+            prop_assert!(post.value >= 0.0, "post={} should be non-negative", post.value);
         }
 
         #[test]
@@ -207,15 +222,15 @@ mod proptest_proofs {
             let sit = InsGnssSituation {
                 state: InsGnssState::Coasting,
                 coupling: CouplingLevel::LooselyCoupled,
-                position_error: initial_error,
-                velocity_error: 0.1,
-                time_since_gnss: 10.0,
-                accel_bias: bias,
+                position_error: Quantity::from_unit(initial_error, &unit::METER),
+                velocity_error: Quantity::from_unit(0.1, &unit::METER_PER_SECOND),
+                time_since_gnss: Duration::from_seconds(10.0),
+                accel_bias: Acceleration::new(bias, 0.0, 0.0),
                 step: 0,
             };
-            let next = apply_ins_gnss(&sit, &InsGnssAction::InsPropagation { dt }).unwrap();
+            let next = apply_ins_gnss(&sit, &InsGnssAction::InsPropagation { dt: Duration::from_seconds(dt) }).unwrap();
             prop_assert!(next.position_error >= sit.position_error,
-                "error should not decrease during propagation: {} vs {}",
+                "error should not decrease during propagation: {:?} vs {:?}",
                 next.position_error, sit.position_error);
         }
 
@@ -227,10 +242,10 @@ mod proptest_proofs {
             let sit = InsGnssSituation {
                 state: InsGnssState::Coasting,
                 coupling: CouplingLevel::LooselyCoupled,
-                position_error: initial_error,
-                velocity_error: 1.0,
-                time_since_gnss: 30.0,
-                accel_bias: 0.01,
+                position_error: Quantity::from_unit(initial_error, &unit::METER),
+                velocity_error: Quantity::from_unit(1.0, &unit::METER_PER_SECOND),
+                time_since_gnss: Duration::from_seconds(30.0),
+                accel_bias: Acceleration::new(0.01, 0.0, 0.0),
                 step: 0,
             };
             let next = apply_ins_gnss(
@@ -241,7 +256,7 @@ mod proptest_proofs {
                 },
             ).unwrap();
             prop_assert!(next.position_error < sit.position_error,
-                "GNSS should reduce error: {} vs {}", next.position_error, sit.position_error);
+                "GNSS should reduce error: {:?} vs {:?}", next.position_error, sit.position_error);
         }
     }
 

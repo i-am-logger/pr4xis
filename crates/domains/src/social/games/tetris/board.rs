@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::piece::Piece;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 pub const WIDTH: usize = 10;
 pub const HEIGHT: usize = 20;
@@ -56,8 +58,10 @@ impl Board {
         Ok(())
     }
 
-    /// Clear any full lines. Returns number of lines cleared.
-    pub fn clear_lines(&mut self) -> u32 {
+    /// Clear any full lines. Returns the count of lines cleared as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) -- a count, not a
+    /// physical quantity.
+    pub fn clear_lines(&mut self) -> Quantity {
         let mut cleared = 0u32;
         let mut new_cells = [[false; WIDTH]; HEIGHT];
         let mut write_row = 0;
@@ -73,7 +77,7 @@ impl Board {
 
         self.cells = new_cells;
         self.lines_cleared += cleared;
-        cleared
+        Quantity::from_unit(cleared as f64, &unit::UNITLESS)
     }
 
     /// Check if a row is completely filled.
@@ -81,13 +85,16 @@ impl Board {
         row < HEIGHT && self.cells[row].iter().all(|&c| c)
     }
 
-    /// Count total filled cells.
-    pub fn filled_count(&self) -> usize {
-        self.cells
+    /// Count total filled cells, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn filled_count(&self) -> Quantity {
+        let count = self
+            .cells
             .iter()
             .flat_map(|row| row.iter())
             .filter(|&&c| c)
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 }
 

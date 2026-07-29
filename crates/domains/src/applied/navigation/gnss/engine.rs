@@ -150,7 +150,7 @@ fn least_squares_fix(measurements: &[GnssMeasurement]) -> Result<GnssSolution, S
             x[2] += dx.get(2);
             x[3] += dx.get(3);
 
-            if dx.norm() < 1e-6 {
+            if dx.norm().value < 1e-6 {
                 break;
             }
         } else {

@@ -30,10 +30,35 @@
 
 # ── Open class (content words; keyed via PosTag → pos_to_olia_fragments[0]) ──
 Noun	N
+# Nominal premodifier — the SECOND Noun row (same-key multi-row: a bare
+# common noun functioning attributively, "consultation" in "consultation
+# services", "program" in "PCA program"). Hockenmaier & Steedman (2005),
+# CCGbank User's Manual, MS-CIS-05-09, §3.6.1: "Other prenominal modifiers
+# are functions from nouns to nouns, e.g. Dutch |- N/N"; §3.6.2 "Compound
+# nouns": compound nouns have no internal structure in the Treebank and are
+# translated into strictly right-branching trees, EVERY non-head noun in the
+# chain assigned N/N directly (worked example: "consumer: N/N", "retailing:
+# N/N" in "this consumer electronics and appliances retailing chain") -- the
+# IDENTICAL category CCGbank's own §3.4 assigns an attributive adjective
+# (already the Adjective class's FIRST row above), not a separate
+# type-changing unary rule (CCGbank's unary rules, §3.8, are scoped to
+# S-level clausal adjuncts, not nominal premodification). Already priced in
+# ccg-supertag-costs.tsv (the N/N row pools the CCGbank corpus frequency
+# across every word class bearing this category, adjective or noun alike).
+Noun	N/N
 Verb	NP\S	Intransitive
 Verb	(NP\S)/NP	Transitive
 Verb	((NP\S)/NP)/NP	Ditransitive
 Adjective	N/N
+# Predicative adjective — the SECOND Adjective row (same-key multi-row: "a
+# class with several rows yields several readings — the chart explores them").
+# Hockenmaier & Steedman 2007 §3.4: "Predicative adjectives have the category
+# S[adj]\NP" (repo notation NP\S[adj]); already priced in
+# ccg-supertag-costs.tsv (S[adj]\NP row). Replaces the destructive
+# copula-adjacency token rewrite, which fired only when the adjective reading
+# was the entry's FIRST row — a verb-first homonym ("shy", "backed") never
+# received it and "what is shy" parsed degenerately.
+Adjective	NP\S[adj]
 Adverb	(NP\S)\(NP\S)
 Pronoun	NP
 
@@ -46,6 +71,21 @@ Preposition	(NP\NP)/NP
 InterrogativePronoun	S[wq]/(NP\S)
 InterrogativeDeterminer	S[wq]/(NP\S)/N
 InterrogativeAdverb	S[wq]/(S[q]/PP)
+
+# ── Gerund-participial -ing form (OLiA `ing`, the EAGLES Gerund–Participle
+# merger class — subClassOf both Gerund and Participle in the Reference Model;
+# the loaded counterpart of CGEL's finding that the gerund/participle
+# distinction cannot be sustained, Huddleston & Pullum 2002 pp. 1220–1222).
+# The GERUNDIAL-NOMINAL reading: OLiA #Gerund's own definition is a deverbal
+# noun "used as the subject of a sentence, an object"; CCGbank Manual App.
+# B.4.1 p. 99: "Sentential subjects S-NOM-SBJ are treated like NPs" (S-NOM =
+# the Treebank's nominalized/gerund clause tag); Clark & Curran 2007 App.
+# pp. 542-543 carry the corpus-attested S[ng]\NP => NP type-change to NP-hood.
+# Carried as the direct NP reading because the S[ng]\NP-route's unary count is
+# NOT published (Manual Table 4.3 stops at the top 20) — the faithful-but-
+# unpriceable analysis is documented here, not silently skipped. Participial
+# (adjunct) -ing rows are a tracked follow-up, omitted rather than loaded inert. ──
+ing	NP
 
 # ── Relative pro-forms (OLiA Relative*; who/which/that — CCGbank §relative).
 # Subject relative `(NP\NP)/(NP\S)` reduces by plain application ("the dog that
@@ -64,3 +104,28 @@ AuxiliaryVerb	NP\S
 Conjunction	N
 Interjection	N
 Particle	(NP\S)\(NP\S)
+
+# ── SubordinatingConjunction ─────────────────────────────────────────────────
+# A concrete (non-schematic) fixed-atom row, unlike the generic Conjunction
+# placeholder above: "since"/"because"/"although"/etc. always combine with a
+# FULL embedded clause on the right first (S/S)/S, then the resulting
+# left-adjoining modifier (S/S) combines with the main clause on ITS right --
+# "Since P, Q" = ((Since:  (S/S)/S) (P: S)): S/S, applied to (Q: S) -> S.
+# Huddleston & Pullum (2002) Ch.11 §2 (adverbial clauses); this is the SAME
+# combinatory shape CCGbank assigns sentence-initial subordinators.
+SubordinatingConjunction	S/S/S
+
+# ── InfinitiveParticle (passive-infinitival ECM/control — "required TO use
+# EVV") ────────────────────────────────────────────────────────────────────
+# A concrete (non-schematic) fixed-atom row, unlike the generic Particle
+# placeholder above: the infinitive-marker "to" (OLiA `InfinitiveParticle`,
+# subClassOf VerbalParticle ⊑ Particle, DCR datcat DC-1896 — a genuinely
+# loaded OLiA Reference-Model class, `data/ontologies/olia-2026-04-09.owl`)
+# takes a bare-infinitival VP `(NP\S[b])` on the right and yields a
+# to-infinitival VP `(NP\S[to])`. Hockenmaier & Steedman (2005), *CCGbank
+# User's Manual*, MS-CIS-05-09, §3.5.2 (the feature inventory): "the
+# infinitival particle to has the category (S[to]\NP)/(S[b]\NP), since it
+# takes a bare infinitive (S[b]\NP) as its argument and yields a
+# to-infinitival verb phrase (S[to]\NP)" (repo notation: (NP\S[to])/(NP\S[b])
+# — this grammar writes NP\S where CCGbank writes S\NP).
+InfinitiveParticle	(NP\S[to])/(NP\S[b])

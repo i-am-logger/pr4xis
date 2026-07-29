@@ -12,7 +12,7 @@
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
-use crate::formal::math::quantity::unit::DEGREE;
+use crate::formal::math::quantity::unit::{DEGREE, FLOP};
 use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
@@ -77,21 +77,30 @@ impl Quality for AttitudeAccuracy {
     }
 }
 
-/// Quality: Computational cost (relative FLOPS per update).
+/// Quality: computational cost — approximate floating-point operation count
+/// per filter update, a [`Quantity`] in [`FLOP`]s (a COUNT, not a rate — see
+/// `Dimension::OPERATION_COUNT`), NOT a prose string.
+///
+/// `None` for the abstract `Filter` (cost is implementation-dependent). The
+/// figures are order-of-magnitude estimates from Madgwick's (2010)
+/// comparative study, the same source `AttitudeAccuracy` above draws its
+/// ranges from; `ExtendedKalmanFilter`'s is a lower bound ("500+", highest
+/// cost of the four).
 #[derive(Debug, Clone)]
 pub struct ComputationalCost;
 
 impl Quality for ComputationalCost {
     type Individual = AhrsConcept;
-    type Value = &'static str;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, filter: &AhrsConcept) -> Option<&'static str> {
+    fn get(&self, filter: &AhrsConcept) -> Option<Quantity> {
         Some(match filter {
-            AhrsConcept::Filter => "varies",
-            AhrsConcept::ComplementaryFilter => "~20 FLOPS (lowest)",
-            AhrsConcept::MahonyFilter => "~50 FLOPS",
-            AhrsConcept::MadgwickFilter => "~100 FLOPS",
-            AhrsConcept::ExtendedKalmanFilter => "~500+ FLOPS (highest)",
+            AhrsConcept::Filter => return None,
+            AhrsConcept::ComplementaryFilter => Quantity::from_unit(20.0, &FLOP),
+            AhrsConcept::MahonyFilter => Quantity::from_unit(50.0, &FLOP),
+            AhrsConcept::MadgwickFilter => Quantity::from_unit(100.0, &FLOP),
+            AhrsConcept::ExtendedKalmanFilter => Quantity::from_unit(500.0, &FLOP),
         })
     }
 }

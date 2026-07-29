@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Dense vector over R (column vector).
 ///
 /// Satisfies the 8 vector space axioms (Axler, *Linear Algebra Done Right*):
@@ -76,18 +79,30 @@ impl Vector {
     }
 
     /// Inner product (dot product).
-    pub fn dot(&self, other: &Self) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+    /// `f64` — `Vector` is an abstract linear-algebra primitive (Axler,
+    /// *Linear Algebra Done Right*) with no inherent physical unit at this
+    /// generic layer, the same treatment as `Point3::distance_to`.
+    pub fn dot(&self, other: &Self) -> Quantity {
         assert_eq!(self.dim(), other.dim());
-        self.data.iter().zip(&other.data).map(|(a, b)| a * b).sum()
+        let sum: f64 = self.data.iter().zip(&other.data).map(|(a, b)| a * b).sum();
+        Quantity::from_unit(sum, &unit::UNITLESS)
     }
 
     /// Euclidean norm (L2).
-    pub fn norm(&self) -> f64 {
-        self.dot(self).sqrt()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same
+    /// reasoning as [`Vector::dot`].
+    pub fn norm(&self) -> Quantity {
+        Quantity::from_unit(self.dot(self).value.sqrt(), &unit::UNITLESS)
     }
 
     /// Squared norm.
-    pub fn norm_squared(&self) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same
+    /// reasoning as [`Vector::dot`] and [`Vector::norm`].
+    pub fn norm_squared(&self) -> Quantity {
         self.dot(self)
     }
 

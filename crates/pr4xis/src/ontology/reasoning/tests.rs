@@ -345,6 +345,7 @@ impl Functor for EMGravAnalogy {
 // Taxonomy tests
 // =============================================================================
 
+#[crate::praxis_value(Deterministic)]
 #[test]
 fn taxonomy_category_laws() {
     assert_category_laws::<TaxonomyCategory<AnimalTaxonomy>>();
@@ -355,6 +356,7 @@ fn taxonomy_category_laws() {
 // types were deleted; equivalent coverage lives in
 // `reasoning::structural` tests (NoCyclesOnKind, AntisymmetricOnKind).
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_direct_is_a() {
     assert!(taxonomy::is_a::<AnimalTaxonomy>(
@@ -363,6 +365,7 @@ fn taxonomy_direct_is_a() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_transitive_is_a() {
     // Dog is-a Animal (via Dog -> Mammal -> Animal)
@@ -377,11 +380,13 @@ fn taxonomy_transitive_is_a() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_reflexive() {
     assert!(taxonomy::is_a::<AnimalTaxonomy>(&Animal::Dog, &Animal::Dog));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_not_is_a() {
     // Dog is NOT a Bird
@@ -396,6 +401,7 @@ fn taxonomy_not_is_a() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_ancestors() {
     let ancestors = taxonomy::ancestors::<AnimalTaxonomy>(&Animal::Dog);
@@ -406,6 +412,7 @@ fn taxonomy_ancestors() {
     assert!(!ancestors.contains(&Animal::Bird));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_descendants() {
     let desc = taxonomy::descendants::<AnimalTaxonomy>(&Animal::Mammal);
@@ -415,12 +422,14 @@ fn taxonomy_descendants() {
     assert!(!desc.contains(&Animal::Mammal)); // not self
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_root_has_no_ancestors() {
     let ancestors = taxonomy::ancestors::<AnimalTaxonomy>(&Animal::LivingThing);
     assert!(ancestors.is_empty());
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_leaf_has_no_descendants() {
     let desc = taxonomy::descendants::<AnimalTaxonomy>(&Animal::Dog);
@@ -429,6 +438,7 @@ fn taxonomy_leaf_has_no_descendants() {
 
 // ---- Quality inheritance ----
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_quality_inheritance_from_root() {
     // IsAlive is only defined on LivingThing, but Dog inherits it
@@ -436,6 +446,7 @@ fn taxonomy_quality_inheritance_from_root() {
     assert_eq!(result, Some(true));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn taxonomy_quality_inheritance_nearest() {
     // Locomotion is defined on Mammal ("walk") and Bird ("fly")
@@ -448,6 +459,7 @@ fn taxonomy_quality_inheritance_nearest() {
     assert_eq!(result, Some("fly"));
 }
 
+#[crate::praxis_value(Honest)]
 #[test]
 fn taxonomy_quality_no_inheritance_for_unrelated() {
     // LivingThing has no Locomotion quality (and no ancestors to inherit from)
@@ -459,6 +471,7 @@ fn taxonomy_quality_no_inheritance_for_unrelated() {
 // Mereology tests
 // =============================================================================
 
+#[crate::praxis_value(Deterministic)]
 #[test]
 fn mereology_category_laws() {
     assert_category_laws::<MereologyCategory<CarMereology>>();
@@ -467,6 +480,7 @@ fn mereology_category_laws() {
 // `mereology_no_cycles` / `mereology_weak_supplementation` removed —
 // superseded by `NoCyclesOnKind[Parthood]` in `reasoning::structural`.
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn mereology_direct_parts() {
     let parts = mereology::parts_of::<CarMereology>(&CarPart::Car);
@@ -476,6 +490,7 @@ fn mereology_direct_parts() {
     assert!(parts.contains(&CarPart::Chassis));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn mereology_transitive_parts() {
     // Car has-a Piston (via Car -> Engine -> Piston)
@@ -484,6 +499,7 @@ fn mereology_transitive_parts() {
     assert!(parts.contains(&CarPart::Crankshaft));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn mereology_whole_of() {
     // Piston is part of Engine and (transitively) Car
@@ -492,12 +508,14 @@ fn mereology_whole_of() {
     assert!(wholes.contains(&CarPart::Car));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn mereology_leaf_has_no_parts() {
     let parts = mereology::parts_of::<CarMereology>(&CarPart::Wheel);
     assert!(parts.is_empty());
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn mereology_root_is_not_part_of_anything() {
     let wholes = mereology::whole_of::<CarMereology>(&CarPart::Car);
@@ -508,6 +526,7 @@ fn mereology_root_is_not_part_of_anything() {
 // Causation tests
 // =============================================================================
 
+#[crate::praxis_value(Deterministic)]
 #[test]
 fn causation_category_laws() {
     assert_category_laws::<CausalCategory<HeatCausal>>();
@@ -517,12 +536,14 @@ fn causation_category_laws() {
 // superseded by `AsymmetricOnKind[Causation]` / `IrreflexiveOnKind[Causation]`
 // in `reasoning::structural`.
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn causation_direct_effects() {
     let effects = causation::effects_of::<HeatCausal>(&HeatState::Heating);
     assert!(effects.contains(&HeatState::Boiling));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn causation_transitive_effects() {
     // Heating causes Steam (via Heating -> Boiling -> Steam)
@@ -531,6 +552,7 @@ fn causation_transitive_effects() {
     assert!(effects.contains(&HeatState::Condensation));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn causation_reverse_causes() {
     // What causes Condensation?
@@ -540,6 +562,7 @@ fn causation_reverse_causes() {
     assert!(causes.contains(&HeatState::Heating));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn causation_no_reverse() {
     // Boiling does NOT cause Heating
@@ -547,6 +570,7 @@ fn causation_no_reverse() {
     assert!(!effects.contains(&HeatState::Heating));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn causation_end_has_no_effects() {
     let effects = causation::effects_of::<HeatCausal>(&HeatState::Condensation);
@@ -557,11 +581,13 @@ fn causation_end_has_no_effects() {
 // Analogy tests
 // =============================================================================
 
+#[crate::praxis_value(Extensible)]
 #[test]
 fn analogy_validates() {
     Analogy::<EMGravAnalogy>::validate().unwrap();
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn analogy_translates_objects() {
     assert_eq!(
@@ -578,6 +604,7 @@ fn analogy_translates_objects() {
     );
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn analogy_translates_morphisms() {
     let em_relation = EMRelation {
@@ -589,6 +616,7 @@ fn analogy_translates_morphisms() {
     assert_eq!(grav_relation.to, GravConcept::GravField);
 }
 
+#[crate::praxis_value(Extensible)]
 #[test]
 fn analogy_preserves_identity() {
     for obj in EMConcept::variants() {
@@ -771,6 +799,20 @@ mod prop {
             }
         }
     }
+    crate::register_praxis_value!(prop_taxonomy_reflexive, Verifiable);
+    crate::register_praxis_value!(prop_taxonomy_transitive, Verifiable);
+    crate::register_praxis_value!(prop_taxonomy_antisymmetric, Verifiable);
+    crate::register_praxis_value!(prop_ancestors_exclude_self, Verifiable);
+    crate::register_praxis_value!(prop_descendants_exclude_self, Verifiable);
+    crate::register_praxis_value!(prop_parts_exclude_self, Verifiable);
+    crate::register_praxis_value!(prop_effects_exclude_self, Verifiable);
+    crate::register_praxis_value!(prop_causation_asymmetric, Verifiable);
+    crate::register_praxis_value!(prop_is_alive_inherited, Verifiable);
+    crate::register_praxis_value!(prop_equivalence_reflexive, Verifiable);
+    crate::register_praxis_value!(prop_equivalence_symmetric, Verifiable);
+    crate::register_praxis_value!(prop_equivalence_transitive, Verifiable);
+    crate::register_praxis_value!(prop_opposition_symmetric, Verifiable);
+    crate::register_praxis_value!(prop_opposites_not_equivalent, Verifiable);
 }
 
 // =============================================================================
@@ -948,11 +990,13 @@ impl ContextDef for WordContext {
 // Equivalence tests
 // =============================================================================
 
+#[crate::praxis_value(Deterministic)]
 #[test]
 fn equivalence_category_laws() {
     assert_category_laws::<EquivalenceCategory<WordSynonyms>>();
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn equivalence_direct() {
     assert!(equivalence::are_equivalent::<WordSynonyms>(
@@ -961,6 +1005,7 @@ fn equivalence_direct() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn equivalence_transitive() {
     // Big ≡ Huge (via Big ≡ Large ≡ Huge)
@@ -970,6 +1015,7 @@ fn equivalence_transitive() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn equivalence_symmetric() {
     assert!(equivalence::are_equivalent::<WordSynonyms>(
@@ -978,6 +1024,7 @@ fn equivalence_symmetric() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn equivalence_not_equivalent() {
     assert!(!equivalence::are_equivalent::<WordSynonyms>(
@@ -986,6 +1033,7 @@ fn equivalence_not_equivalent() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn equivalence_class_big() {
     let class = equivalence::equivalence_class::<WordSynonyms>(&Word::Big);
@@ -995,6 +1043,7 @@ fn equivalence_class_big() {
     assert_eq!(class.len(), 3);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn equivalence_all_classes() {
     let classes = equivalence::all_classes::<WordSynonyms>();
@@ -1009,6 +1058,7 @@ fn equivalence_all_classes() {
 // Opposition tests
 // =============================================================================
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn opposition_direct() {
     assert!(opposition::are_opposed::<WordAntonyms>(
@@ -1021,6 +1071,7 @@ fn opposition_direct() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn opposition_symmetric() {
     assert!(opposition::are_opposed::<WordAntonyms>(
@@ -1029,6 +1080,7 @@ fn opposition_symmetric() {
     ));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn opposition_not_opposed() {
     assert!(!opposition::are_opposed::<WordAntonyms>(
@@ -1041,6 +1093,7 @@ fn opposition_not_opposed() {
 // `opposition_exclusive_with_equivalence` removed — superseded by
 // OnKind axioms in `reasoning::structural`.
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn opposition_not_transitive() {
     // Big opposes Small, Small opposes Big — but Big does NOT oppose Big
@@ -1059,18 +1112,21 @@ fn opposition_not_transitive() {
 // Context tests
 // =============================================================================
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn context_resolve_bank_money() {
     let result = context::resolve::<WordContext>(&AmbiguousWord::Bank, &ContextSignal::Money);
     assert_eq!(result, Some(Meaning::FinancialInstitution));
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn context_resolve_bank_river() {
     let result = context::resolve::<WordContext>(&AmbiguousWord::Bank, &ContextSignal::River);
     assert_eq!(result, Some(Meaning::Riverbank));
 }
 
+#[crate::praxis_value(Honest)]
 #[test]
 fn context_resolve_no_signal() {
     // Bank + Sports → None (no resolution defined)
@@ -1078,12 +1134,14 @@ fn context_resolve_no_signal() {
     assert_eq!(result, None);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn context_interpretations() {
     let interps = context::interpretations::<WordContext>(&AmbiguousWord::Bank);
     assert_eq!(interps.len(), 2);
 }
 
+#[crate::praxis_value(Verifiable)]
 #[test]
 fn context_ambiguous_entities() {
     let ambiguous = context::ambiguous_entities::<WordContext>();

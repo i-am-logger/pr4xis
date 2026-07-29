@@ -10,6 +10,8 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::judicial::citation::{
     PinpointCite, PinpointSegment, ontology::PinpointCitationConcept,
 };
@@ -59,14 +61,19 @@ pub enum LabelKind {
 
 impl LabelKind {
     /// Canonical depth (1-indexed, matches Bluebook nesting depth).
-    pub fn depth(&self) -> usize {
-        match self {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — a depth count, the same typing discipline as
+    /// `formal::mereology::counting::ontology::cardinality`.
+    pub fn depth(&self) -> Quantity {
+        let d: u32 = match self {
             Self::LowercaseLetter => 1,
             Self::ArabicNumeral => 2,
             Self::UppercaseLetter => 3,
             Self::LowercaseRoman => 4,
             Self::UppercaseRoman => 5,
-        }
+        };
+        Quantity::from_unit(d as f64, &unit::UNITLESS)
     }
 
     /// The [`PinpointCitationConcept`] this kind maps to.
@@ -336,7 +343,10 @@ fn build_tree(
                 label: marker.label.clone(),
             }
         })?;
-        let new_depth = kind.depth();
+        // Boundary → raw usize conversion: `depth()` returns a typed
+        // Quantity at its public boundary, but the stack-frame depth
+        // bookkeeping below is internal numeric-kernel arithmetic.
+        let new_depth = kind.depth().value as usize;
 
         // Pop the stack until the top has depth `new_depth - 1`.
         // Each pop attaches the popped node as a child of the new
@@ -444,8 +454,13 @@ pub fn parse_statute_text(
 
 impl ClauseTree {
     /// Total node count, including the root.
-    pub fn node_count(&self) -> usize {
-        self.root.subtree_size()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — see [`LabelKind::depth`]'s note. The recursive tally
+    /// (`ClauseNode::subtree_size`) stays raw `usize`; only the returned
+    /// total is wrapped.
+    pub fn node_count(&self) -> Quantity {
+        Quantity::from_unit(self.root.subtree_size() as f64, &unit::UNITLESS)
     }
 
     /// Iterate every node in document (depth-first pre-order).
@@ -459,8 +474,13 @@ impl ClauseTree {
     }
 
     /// Maximum depth in the tree (root = 0, top-level subsections = 1, …).
-    pub fn max_depth(&self) -> usize {
-        self.root.max_depth_in_subtree(0)
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — see
+    /// [`Self::node_count`]'s note. The recursive max
+    /// (`ClauseNode::max_depth_in_subtree`) stays raw `usize`; only the
+    /// returned maximum is wrapped.
+    pub fn max_depth(&self) -> Quantity {
+        Quantity::from_unit(self.root.max_depth_in_subtree(0) as f64, &unit::UNITLESS)
     }
 }
 

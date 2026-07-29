@@ -54,8 +54,8 @@ use std::path::PathBuf;
 
 use pr4xis_domains::applied::data_provisioning::registry::data_sources;
 use pr4xis_domains::formal::meta::well_behaved_lens::{
-    DecompileKind, RoundTripFidelity, completeness_meter, declared_matches_achieved, decompile,
-    floor_source_count,
+    AchievedFidelity, DecompileKind, RoundTripFidelity, completeness_meter,
+    declared_matches_achieved, decompile, floor_source_count,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_wordnet_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::prx::emit_prx_gz as emit_owl_prx_gz;
@@ -305,7 +305,7 @@ fn completeness_meter_declared_tier_matches_achieved() {
                 // must name its gap (the per-source byte-exact writer).
                 assert_ne!(
                     r.achieved,
-                    Some(RoundTripFidelity::ByteExactGraphFaithful),
+                    AchievedFidelity::Proven(RoundTripFidelity::ByteExactGraphFaithful),
                     "{}: a floor source achieved graph-faithfulness without declaring it",
                     r.source
                 );
@@ -321,7 +321,7 @@ fn completeness_meter_declared_tier_matches_achieved() {
     }
 
     // The floor count is the remaining gap; it does not block this test's green.
-    let floor = floor_source_count(&meter);
+    let floor = floor_source_count(&meter).value as usize;
     eprintln!(
         "completeness meter: {} rows, {floor} on the stored-complement floor (the remaining gap)",
         meter.len()

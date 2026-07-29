@@ -72,7 +72,13 @@ impl Dispatch {
                     .iter()
                     .enumerate()
                     .filter(|(_, e)| e.can_accept(req.passenger_weight))
-                    .min_by_key(|(_, e)| e.distance_to(req.floor));
+                    .min_by(|(_, a), (_, b)| {
+                        a.distance_to(req.floor)
+                            .partial_cmp(&b.distance_to(req.floor))
+                            .expect(
+                                "floor distances are always comparable (same UNITLESS dimension)",
+                            )
+                    });
 
                 if let Some((id, _)) = fallback {
                     assignments.push((id, req));
@@ -85,7 +91,7 @@ impl Dispatch {
 
     /// Score an elevator for a request. Lower = better.
     fn score(elevator: &Elevator, request: &Request) -> usize {
-        let distance = elevator.distance_to(request.floor);
+        let distance = elevator.distance_to(request.floor).value as usize;
 
         // Bonus for same direction (divide distance by 2)
         let direction_bonus = match elevator.direction {

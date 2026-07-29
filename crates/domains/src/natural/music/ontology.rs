@@ -2,7 +2,6 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::interval::Interval;
-use super::note::Note;
 use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 
@@ -17,16 +16,52 @@ impl FinitelyGenerated for PitchClass {
     }
 }
 
+/// The 12 pitch-class names of Western equal temperament, spelled with
+/// sharps (integer pitch-class notation 0=C..11=B) — a closed taxonomy,
+/// not a formatted string.
+///
+/// Source: Forte, A. (1973) *The Structure of Atonal Music*, Yale
+/// University Press — the pitch-class integer notation (0=C, 1=C♯, ...,
+/// 11=B) this enum mirrors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PitchName {
+    C,
+    CSharp,
+    D,
+    DSharp,
+    E,
+    F,
+    FSharp,
+    G,
+    GSharp,
+    A,
+    ASharp,
+    B,
+}
+
 /// Quality: note name for a pitch class.
 #[derive(Debug, Clone)]
 pub struct NoteName;
 
 impl Quality for NoteName {
     type Individual = PitchClass;
-    type Value = String;
+    type Value = PitchName;
 
-    fn get(&self, pc: &PitchClass) -> Option<String> {
-        Some(Note((pc.0 % 12) + 60).name().to_string()) // octave 4; %12 keeps the add in range
+    fn get(&self, pc: &PitchClass) -> Option<PitchName> {
+        Some(match pc.0 % 12 {
+            0 => PitchName::C,
+            1 => PitchName::CSharp,
+            2 => PitchName::D,
+            3 => PitchName::DSharp,
+            4 => PitchName::E,
+            5 => PitchName::F,
+            6 => PitchName::FSharp,
+            7 => PitchName::G,
+            8 => PitchName::GSharp,
+            9 => PitchName::A,
+            10 => PitchName::ASharp,
+            _ => PitchName::B,
+        })
     }
 }
 
@@ -70,8 +105,8 @@ mod tests {
     #[test]
     fn test_note_name_quality() {
         let quality = NoteName;
-        assert_eq!(quality.get(&PitchClass(0)), Some("C".to_string()));
-        assert_eq!(quality.get(&PitchClass(9)), Some("A".to_string()));
+        assert_eq!(quality.get(&PitchClass(0)), Some(PitchName::C));
+        assert_eq!(quality.get(&PitchClass(9)), Some(PitchName::A));
     }
 
     #[pr4xis::praxis_value(Verifiable)]

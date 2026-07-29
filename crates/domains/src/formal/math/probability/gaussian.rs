@@ -105,7 +105,7 @@ impl GaussianND {
         let diff = x.sub(&self.mean);
         let p_inv_diff = decomposition::solve_spd(&self.covariance, &diff.data)?;
         let mahal_sq: f64 = diff.data.iter().zip(&p_inv_diff).map(|(a, b)| a * b).sum();
-        let log_det = determinant::det(&self.covariance).ln();
+        let log_det = determinant::det(&self.covariance).value.ln();
         Some(-0.5 * (n * (2.0 * PI).ln() + log_det + mahal_sq))
     }
 

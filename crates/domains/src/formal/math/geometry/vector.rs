@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Geometric vector in 2D Euclidean space.
 ///
 /// Satisfies vector space axioms (associativity, commutativity,
@@ -29,18 +32,25 @@ impl Vec2 {
     }
 
     /// Euclidean norm (L2).
-    pub fn norm(&self) -> f64 {
-        (self.x * self.x + self.y * self.y).sqrt()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) -- `Vec2` is an abstract
+    /// linear-algebra primitive (Axler, *Linear Algebra Done Right*) with no inherent physical
+    /// unit at this generic layer, the same treatment as `Point3::distance_to`.
+    pub fn norm(&self) -> Quantity {
+        Quantity::from_unit((self.x * self.x + self.y * self.y).sqrt(), &unit::UNITLESS)
     }
 
     /// Squared norm.
-    pub fn norm_squared(&self) -> f64 {
-        self.x * self.x + self.y * self.y
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same reasoning as
+    /// [`Vec2::norm`].
+    pub fn norm_squared(&self) -> Quantity {
+        Quantity::from_unit(self.x * self.x + self.y * self.y, &unit::UNITLESS)
     }
 
     /// Unit vector. Returns None for zero vector.
     pub fn normalize(&self) -> Option<Self> {
-        let n = self.norm();
+        let n = self.norm().value;
         if n < 1e-15 {
             None
         } else {
@@ -96,7 +106,7 @@ impl Vec2 {
 
     /// Angle between vectors in [0, π].
     pub fn angle_to(&self, other: &Self) -> f64 {
-        let d = self.dot(other) / (self.norm() * other.norm());
+        let d = self.dot(other) / (self.norm().value * other.norm().value);
         d.clamp(-1.0, 1.0).acos()
     }
 
@@ -132,19 +142,32 @@ impl Vec3 {
         Self::new(0.0, 0.0, 1.0)
     }
 
-    /// Euclidean norm.
-    pub fn norm(&self) -> f64 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    /// Euclidean norm (L2).
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) -- `Vec3` is an abstract
+    /// linear-algebra primitive (Axler, *Linear Algebra Done Right*) with no inherent physical
+    /// unit at this generic layer, the same treatment as `Point3::distance_to`.
+    pub fn norm(&self) -> Quantity {
+        Quantity::from_unit(
+            (self.x * self.x + self.y * self.y + self.z * self.z).sqrt(),
+            &unit::UNITLESS,
+        )
     }
 
     /// Squared norm.
-    pub fn norm_squared(&self) -> f64 {
-        self.x * self.x + self.y * self.y + self.z * self.z
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same reasoning as
+    /// [`Vec3::norm`].
+    pub fn norm_squared(&self) -> Quantity {
+        Quantity::from_unit(
+            self.x * self.x + self.y * self.y + self.z * self.z,
+            &unit::UNITLESS,
+        )
     }
 
     /// Unit vector. Returns None for zero vector.
     pub fn normalize(&self) -> Option<Self> {
-        let n = self.norm();
+        let n = self.norm().value;
         if n < 1e-15 {
             None
         } else {
@@ -209,7 +232,7 @@ impl Vec3 {
 
     /// Angle between vectors in [0, π].
     pub fn angle_to(&self, other: &Self) -> f64 {
-        let d = self.dot(other) / (self.norm() * other.norm());
+        let d = self.dot(other) / (self.norm().value * other.norm().value);
         d.clamp(-1.0, 1.0).acos()
     }
 
@@ -220,7 +243,7 @@ impl Vec3 {
 
     /// Parallel test (cross product ≈ zero).
     pub fn is_parallel_to(&self, other: &Self) -> bool {
-        self.cross(other).norm() < 1e-10
+        self.cross(other).norm().value < 1e-10
     }
 
     /// Perpendicular test (dot product ≈ zero).

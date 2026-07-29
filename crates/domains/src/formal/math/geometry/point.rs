@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// A point in 2D Euclidean space.
 ///
 /// Hilbert's primitive notion: points are undefined objects
@@ -29,18 +32,18 @@ impl Point2 {
     }
 
     /// Euclidean distance (metric axiom d(a,b)).
-    pub fn distance_to(&self, other: &Self) -> f64 {
+    pub fn distance_to(&self, other: &Self) -> Quantity {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
-        (dx * dx + dy * dy).sqrt()
+        Quantity::from_unit((dx * dx + dy * dy).sqrt(), &unit::UNITLESS)
     }
 
     /// Hilbert's betweenness: is b between self and c?
     /// A * B * C iff d(A,B) + d(B,C) = d(A,C) and B != A and B != C.
     pub fn is_between(&self, b: &Self, c: &Self) -> bool {
-        let ab = self.distance_to(b);
-        let bc = b.distance_to(c);
-        let ac = self.distance_to(c);
+        let ab = self.distance_to(b).value;
+        let bc = b.distance_to(c).value;
+        let ac = self.distance_to(c).value;
         (ab + bc - ac).abs() < 1e-10 && ab > 1e-15 && bc > 1e-15
     }
 
@@ -90,18 +93,25 @@ impl Point3 {
     }
 
     /// Euclidean distance.
-    pub fn distance_to(&self, other: &Self) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+    /// `f64` — `Point3` is an abstract Euclidean-space primitive (Hilbert
+    /// 1899) with no inherent physical unit at this generic layer, the same
+    /// treatment as `formal::mereology::counting::ontology::cardinality`.
+    /// Callers in a physical domain (e.g. navigation) interpret the value
+    /// in whatever concrete unit their own context declares.
+    pub fn distance_to(&self, other: &Self) -> Quantity {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
         let dz = self.z - other.z;
-        (dx * dx + dy * dy + dz * dz).sqrt()
+        Quantity::from_unit((dx * dx + dy * dy + dz * dz).sqrt(), &unit::UNITLESS)
     }
 
     /// Betweenness: is b between self and c?
     pub fn is_between(&self, b: &Self, c: &Self) -> bool {
-        let ab = self.distance_to(b);
-        let bc = b.distance_to(c);
-        let ac = self.distance_to(c);
+        let ab = self.distance_to(b).value;
+        let bc = b.distance_to(c).value;
+        let ac = self.distance_to(c).value;
         (ab + bc - ac).abs() < 1e-10 && ab > 1e-15 && bc > 1e-15
     }
 
@@ -136,7 +146,7 @@ impl Point3 {
     pub fn collinear(a: &Self, b: &Self, c: &Self) -> bool {
         let ab = a.vector_to(b);
         let ac = a.vector_to(c);
-        ab.cross(&ac).norm() < 1e-10
+        ab.cross(&ac).norm().value < 1e-10
     }
 
     /// Coplanarity: four points in the same plane (scalar triple product = 0).

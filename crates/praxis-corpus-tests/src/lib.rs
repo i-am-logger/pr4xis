@@ -20,6 +20,10 @@ use std::path::PathBuf;
 
 use pr4xis_domains::social::software::markup::xml::lmf::WordNet;
 
+pub mod adversarial;
+pub mod caregiver;
+pub mod dialogue;
+
 /// Hard-fail accessor for an absent corpus — the SINGLE source of truth for
 /// "the corpus must be on disk".
 ///

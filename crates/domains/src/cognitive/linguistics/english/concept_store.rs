@@ -63,6 +63,10 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use pr4xis_runtime::lens::archive_lens::ArchivedArchiveView;
+
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::software::markup::xml::lmf::ontology::LmfPos;
 
 use super::ontology::{Concept, ConceptId};
@@ -125,7 +129,77 @@ pub enum ConceptView<'a> {
         lemma: &'a str,
         /// The loaded gloss (the node's `lexical`), when it carries one.
         gloss: Option<&'a str>,
+        /// The documentary resources the GLOSS was authored from — the node's
+        /// `dcterms:source` edges, resolved against the same archive. Distinct
+        /// in kind from `gloss`: this says where the words came from, not what
+        /// they mean.
+        sources: DefinitionSources<'a>,
     },
+}
+
+/// The cited documentary resources one loaded concept's definition was derived
+/// from — its `dcterms:source`
+/// ([`DEFINITION_SOURCE_REL`](pr4xis_runtime::definition::DEFINITION_SOURCE_REL))
+/// edge targets, held as ARCHIVE POSITIONS so the view stays `Copy` and the
+/// citation bytes are borrowed from the owning `.prx` buffer, never re-owned.
+///
+/// A definition may cite several resources (a term defined by one statute and
+/// one regulation), so this is a sequence, not a scalar — the multi-source case
+/// is N graph edges, never one delimited string a reader would have to re-split.
+/// Every other [`ConceptView`] arm carries [`DefinitionSources::NONE`]: WordNet
+/// glosses cite no external document, and inventing one would be exactly the
+/// spurious-provenance failure this channel exists to prevent.
+#[derive(Clone, Copy)]
+pub struct DefinitionSources<'a> {
+    /// The owning ontology's archive view — `None` for the empty set, so no
+    /// borrow is needed to say "this definition cites nothing".
+    archive: Option<&'a ArchivedArchiveView>,
+    /// Positions of this concept's source atoms in `archive.nodes`, minted by
+    /// the [`ComposedReasoner`](crate::cognitive::linguistics::composed) from
+    /// the SAME archive it hands in — so every position resolves.
+    positions: &'a [u32],
+}
+
+impl<'a> DefinitionSources<'a> {
+    /// The empty set — a definition that cites no documentary resource.
+    pub const NONE: Self = Self {
+        archive: None,
+        positions: &[],
+    };
+
+    /// Bind `positions` (node indices) against the `archive` they index into.
+    /// Crate-internal: only the composed reasoner, which minted the positions,
+    /// may construct a non-empty set.
+    pub(crate) fn new(archive: &'a ArchivedArchiveView, positions: &'a [u32]) -> Self {
+        Self {
+            archive: Some(archive),
+            positions,
+        }
+    }
+
+    /// Whether this definition cites no documentary resource at all.
+    pub fn is_empty(&self) -> bool {
+        self.positions.is_empty()
+    }
+
+    /// Each cited resource's citation, as authored (`"42 USC 300ii(7)"`).
+    pub fn iter(&self) -> impl Iterator<Item = &'a str> + 'a {
+        let archive = self.archive;
+        self.positions.iter().filter_map(move |&pos| {
+            archive
+                .and_then(|a| a.nodes.get(pos as usize))
+                .map(|n| n.name.as_str())
+        })
+    }
+}
+
+impl core::fmt::Debug for DefinitionSources<'_> {
+    /// Read through [`iter`](Self::iter) so the empty and the bound forms print
+    /// identically as the citation list they denote (the archive view itself
+    /// has no useful `Debug`).
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
 }
 
 impl<'a> ConceptView<'a> {
@@ -137,6 +211,16 @@ impl<'a> ConceptView<'a> {
             ConceptView::Archived { id, .. } => *id,
             ConceptView::Loaded { id, .. } => *id,
         }
+    }
+
+    /// Whether this concept comes from a domain-specific LOADED lexicon (the
+    /// caregiving/HCBS/USC `.prx` sources a [`ComposedReasoner`](crate::cognitive::linguistics::composed)
+    /// layers over English) rather than the general-purpose WordNet substrate
+    /// (`Owned`/`Archived`). Terminology/LSP lexicography treats the
+    /// specialized sense as the primary reading in-domain (Cabré 1999), so a
+    /// definitional answer over a special-domain corpus ranks these first.
+    pub fn is_domain_loaded(&self) -> bool {
+        matches!(self, ConceptView::Loaded { .. })
     }
 
     /// The concept's original WordNet synset id string (e.g. `"oewn-02084071-n"`).
@@ -191,6 +275,23 @@ impl<'a> ConceptView<'a> {
             ConceptView::Loaded { .. } => ConceptStrs::inline(None),
         }
     }
+
+    /// The documentary resources this concept's DEFINITION was authored from —
+    /// its `dcterms:source` edges, borrowed from the owning archive.
+    ///
+    /// Empty for the WordNet substrate (`Owned`/`Archived`): a WordNet gloss is
+    /// lexicographic prose, derived from no external document, and minting a
+    /// citation for it would be precisely the fabricated provenance this channel
+    /// exists to make impossible. Non-empty exactly where a loaded lexicon
+    /// AUTHORED its gloss from a cited statute, regulation or agency text.
+    pub fn definition_sources(&self) -> DefinitionSources<'a> {
+        match self {
+            ConceptView::Owned(_) => DefinitionSources::NONE,
+            #[cfg(all(feature = "prx", target_endian = "little"))]
+            ConceptView::Archived { .. } => DefinitionSources::NONE,
+            ConceptView::Loaded { sources, .. } => *sources,
+        }
+    }
 }
 
 impl core::fmt::Debug for ConceptView<'_> {
@@ -205,6 +306,7 @@ impl core::fmt::Debug for ConceptView<'_> {
             .field("lemmas", &self.lemmas().collect::<Vec<_>>())
             .field("definitions", &self.definitions().collect::<Vec<_>>())
             .field("examples", &self.examples().collect::<Vec<_>>())
+            .field("definition_sources", &self.definition_sources())
             .finish()
     }
 }
@@ -296,8 +398,8 @@ mod owned {
         }
 
         /// Number of records.
-        pub fn len(&self) -> usize {
-            self.concepts.len()
+        pub fn len(&self) -> Quantity {
+            Quantity::from_unit(self.concepts.len() as f64, &unit::UNITLESS)
         }
 
         /// Whether the store holds no records.
@@ -561,8 +663,8 @@ mod archived {
         }
 
         /// Number of records.
-        pub fn len(&self) -> usize {
-            self.len
+        pub fn len(&self) -> Quantity {
+            Quantity::from_unit(self.len as f64, &unit::UNITLESS)
         }
 
         /// Whether the store holds no records.
@@ -666,7 +768,7 @@ mod cast_tests {
     #[test]
     fn archived_get_reads_the_known_records() {
         let store = ConceptStore::build(fixture());
-        assert_eq!(store.len(), 2);
+        assert_eq!(store.len().value, 2.0);
         assert!(!store.is_empty());
 
         let c0 = store.get(cid(0)).expect("id 0 is in range");
@@ -704,7 +806,7 @@ mod cast_tests {
         assert_eq!(archived.is_empty(), owned.is_empty());
         // Every record reads field-identically through the archived cast and the
         // owned record …
-        for i in 0..archived.len() as u64 {
+        for i in 0..archived.len().value as u64 {
             let a = archived.get(cid(i)).expect("in range");
             let o = owned.get(cid(i)).expect("in range");
             assert_views_identical(a, o);

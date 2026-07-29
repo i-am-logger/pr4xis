@@ -286,6 +286,7 @@ mod tests {
 
     // --- Deduction tests ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_deduction_valid() {
         // Modus ponens: if positive, and positive→positive, then positive
@@ -299,6 +300,7 @@ mod tests {
         assert!(matches!(result, DeductionResult::Valid { .. }));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn test_deduction_inapplicable() {
         let d = Deduction::new(
@@ -312,6 +314,7 @@ mod tests {
         assert!(matches!(result, DeductionResult::Inapplicable { .. }));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn test_deduction_unsound() {
         // "If positive then even" — unsound for 3 (positive but odd)
@@ -325,6 +328,7 @@ mod tests {
         assert!(matches!(result, DeductionResult::Unsound { .. }));
     }
 
+    #[crate::praxis_value(Verifiable, Honest)]
     #[test]
     fn test_deduction_multiple_premises() {
         // If positive AND even, then less than 100
@@ -340,6 +344,7 @@ mod tests {
 
     // --- Induction tests ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_induction_supported() {
         let ind = Induction::new("all positive", Box::new(IsPositive));
@@ -350,6 +355,7 @@ mod tests {
         assert!(result.counterexamples.is_empty());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_induction_refuted() {
         let ind = Induction::new("all even", Box::new(IsEven));
@@ -359,6 +365,7 @@ mod tests {
         assert_eq!(result.counterexamples.len(), 1);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_induction_empty() {
         let ind = Induction::new("no evidence", Box::new(IsPositive));
@@ -370,6 +377,7 @@ mod tests {
 
     // --- Abduction tests ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_abduction_explained() {
         // Observation: n is positive
@@ -389,6 +397,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_abduction_partial() {
         let abd = Abduction::new(
@@ -406,6 +415,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn test_abduction_unexplained() {
         let abd = Abduction::new(
@@ -418,6 +428,7 @@ mod tests {
         assert!(matches!(result, AbductionResult::Unexplained { .. }));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn test_abduction_no_observation() {
         let abd = Abduction::new(
@@ -494,4 +505,9 @@ mod tests {
             }
         }
     }
+    crate::register_praxis_value!(prop_deduction_tautology, Verifiable);
+    crate::register_praxis_value!(prop_induction_positive_instances, Verifiable);
+    crate::register_praxis_value!(prop_induction_counterexample_count, Verifiable);
+    crate::register_praxis_value!(prop_abduction_no_observation, Honest);
+    crate::register_praxis_value!(prop_abduction_consistent_bounded, Verifiable);
 }

@@ -257,6 +257,7 @@ mod tests {
         &s[6..s.find('>').unwrap()]
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn extracts_double_quoted_attribute() {
         let open = "<prod id=\"NT-Char\" num=\"2\">";
@@ -267,6 +268,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn extracts_single_quoted_attribute() {
         // Some spec productions use single-quoted ids (line 2465's
@@ -278,6 +280,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn loads_two_production_fixture() {
         // Synthetic fixture mirroring two real spec productions.
@@ -299,6 +302,7 @@ mod tests {
         assert_eq!(p2.number, "2");
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn reports_rhs_parse_errors() {
         let spec = "<prod id=\"NT-Bad\" num=\"99\">

@@ -242,11 +242,13 @@ mod tests {
     use super::*;
     use crate::category::laws::assert_category_laws;
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<ProofTheoryCategory>();
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_validates() {
         for law in crate::category::laws::category_law_axioms::<ProofTheoryCategory>() {

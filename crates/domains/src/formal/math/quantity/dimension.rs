@@ -115,6 +115,17 @@ impl Dimension {
     };
     /// Angle: dimensionless (radian is L/L)
     pub const ANGLE: Self = Self::DIMENSIONLESS;
+    /// Information: dimensionless (ISO/IEC 80000-13:2008 item 13-24
+    /// "information content", unit entries 13-24.a/.b/.c — the shannon,
+    /// hartley and nat are dimensionless units of information content,
+    /// exactly as the radian is a dimensionless unit of angle; Shannon 1948).
+    pub const INFORMATION: Self = Self::DIMENSIONLESS;
+    /// Data size: dimensionless (ISO/IEC 80000-13:2008 item 13-9 "storage
+    /// capacity"/"storage size", unit entry 13-9.a — the bit, octet and
+    /// byte are dimensionless traditional units of storage width, a
+    /// DIFFERENT quantity from [`Dimension::INFORMATION`]'s probabilistic
+    /// information content despite sharing the "bit" name).
+    pub const DATA_SIZE: Self = Self::DIMENSIONLESS;
     /// Angular velocity: T⁻¹ (rad/s)
     pub const ANGULAR_VELOCITY: Self = Self {
         time: -1,
@@ -168,6 +179,80 @@ impl Dimension {
         time: -2,
         ..Self::DIMENSIONLESS
     };
+    /// Momentum: L·M·T⁻¹ (kg·m/s). BIPM SI Brochure (2019), Table 3
+    /// (momentum = mass × velocity).
+    pub const MOMENTUM: Self = Self {
+        length: 1,
+        mass: 1,
+        time: -1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Power: L²·M·T⁻³ (W = J/s). BIPM SI Brochure (2019), Table 4
+    /// (power = energy / time).
+    pub const POWER: Self = Self {
+        length: 2,
+        mass: 1,
+        time: -3,
+        ..Self::DIMENSIONLESS
+    };
+    /// Angular momentum: L²·M·T⁻¹ (kg·m²/s = J·s). BIPM SI Brochure (2019),
+    /// Table 3 (angular momentum = position × momentum).
+    pub const ANGULAR_MOMENTUM: Self = Self {
+        length: 2,
+        mass: 1,
+        time: -1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Standard gravitational parameter μ = G·M: L³·T⁻² (m³/s²). BIPM SI
+    /// Brochure (2019) gives G the dimension L³·M⁻¹·T⁻²; μ = G·M cancels the
+    /// mass factor. Vallado (2013), *Fundamentals of Astrodynamics and
+    /// Applications* 4th ed., §1.4 (two-body gravitational parameter).
+    pub const GRAVITATIONAL_PARAMETER: Self = Self {
+        length: 3,
+        time: -2,
+        ..Self::DIMENSIONLESS
+    };
+    /// Specific orbital energy: L²·T⁻² (J/kg = energy per unit mass).
+    /// BIPM SI Brochure (2019) Table 4 gives energy the dimension
+    /// M·L²·T⁻²; dividing by mass cancels M. Vallado (2013) §2.3
+    /// (vis-viva equation, specific mechanical energy ε = v²/2 − μ/r).
+    pub const SPECIFIC_ENERGY: Self = Self {
+        length: 2,
+        time: -2,
+        ..Self::DIMENSIONLESS
+    };
+    /// Level of a quantity: dimensionless (ITU-R Recommendation V.574-5
+    /// (08/2015) "Use of the decibel and the neper in telecommunications" —
+    /// the decibel is a dimensionless logarithmic ratio, the same
+    /// identity-dimension idiom as [`Dimension::ANGLE`]/
+    /// [`Dimension::INFORMATION`]).
+    pub const LEVEL: Self = Self::DIMENSIONLESS;
+    /// Operation count: dimensionless (Golub & Van Loan (2013), *Matrix
+    /// Computations* 4th ed., Section 1.2 "flop counting" — algorithm cost
+    /// is conventionally reported as a COUNT of floating-point operations,
+    /// a DIFFERENT quantity from a computational *rate* despite sharing the
+    /// "flop(s)" name — the same naming trap [`Dimension::DATA_SIZE`]
+    /// documents against [`Dimension::INFORMATION`]).
+    pub const OPERATION_COUNT: Self = Self::DIMENSIONLESS;
+    /// Curvature: L⁻¹ (m⁻¹) — the reciprocal of the local radius of
+    /// curvature of a curve or surface. do Carmo, M.P. (1976), *Differential
+    /// Geometry of Curves and Surfaces*, Prentice-Hall, §1-5/§3-2 (curvature
+    /// κ = 1/R; principal curvatures of a surface). The dimension of the
+    /// principal-curvature signs Goldstein (1987) §3 classifies terrain
+    /// features by.
+    pub const CURVATURE: Self = Self {
+        length: -1,
+        ..Self::DIMENSIONLESS
+    };
+    /// Practical salinity: dimensionless (UNESCO (1981), "Background Papers
+    /// and Supporting Data on the Practical Salinity Scale 1978," UNESCO
+    /// Technical Papers in Marine Science No. 37 — practical salinity S is
+    /// defined on the Practical Salinity Scale 1978 (PSS-78) as a function
+    /// of the conductivity RATIO of the sample to a standard KCl solution,
+    /// so it carries no physical dimension despite the traditional "‰"/PSU
+    /// notation — the same identity-dimension idiom as [`Dimension::ANGLE`]/
+    /// [`Dimension::INFORMATION`]).
+    pub const SALINITY: Self = Self::DIMENSIONLESS;
 
     /// Group operation: multiply dimensions (add exponents).
     ///

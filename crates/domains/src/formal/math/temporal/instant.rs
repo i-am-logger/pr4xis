@@ -20,7 +20,7 @@ pub struct Instant {
 }
 
 impl Instant {
-    pub fn new(seconds: f64, system: TimeSystem) -> Self {
+    pub const fn new(seconds: f64, system: TimeSystem) -> Self {
         Self { seconds, system }
     }
 

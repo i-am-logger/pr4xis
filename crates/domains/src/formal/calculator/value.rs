@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use core::fmt;
 
 /// Angle mode for trigonometric functions.
@@ -51,7 +53,7 @@ impl Value {
         if den == 0 {
             return Err(CalcError::DivisionByZero);
         }
-        let g = gcd(num.unsigned_abs(), den.unsigned_abs()) as i64;
+        let g = gcd(num.unsigned_abs(), den.unsigned_abs()).value as i64;
         let sign = if den < 0 { -1 } else { 1 };
         // Apply the sign with checked multiplies: `i64::MIN` cannot be negated in
         // i64 (reachable via `1 / i64::MIN`), so fall back to float rather than
@@ -159,17 +161,27 @@ impl fmt::Display for Value {
 }
 
 /// Greatest common divisor (Euclidean algorithm).
-pub fn gcd(mut a: u64, mut b: u64) -> u64 {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `u64` — a GCD is an exact integer fact about two integers, the same
+/// shape as `formal::mereology::counting::ontology::cardinality`. The
+/// Euclidean-algorithm loop stays raw `u64`; only the returned result at
+/// the function boundary is wrapped.
+pub fn gcd(mut a: u64, mut b: u64) -> Quantity {
     while b != 0 {
         let t = b;
         b = a % b;
         a = t;
     }
-    a.max(1)
+    Quantity::from_unit(a.max(1) as f64, &unit::UNITLESS)
 }
 
 /// Least common multiple.
-pub fn lcm(a: u64, b: u64) -> u64 {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same reasoning
+/// as [`gcd`].
+pub fn lcm(a: u64, b: u64) -> Quantity {
     // Saturate rather than overflow-panic when the LCM exceeds u64.
-    (a / gcd(a, b)).saturating_mul(b)
+    let result = (a / gcd(a, b).value as u64).saturating_mul(b);
+    Quantity::from_unit(result as f64, &unit::UNITLESS)
 }

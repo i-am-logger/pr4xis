@@ -15,16 +15,9 @@ pub fn standard_gravity() -> Quantity {
 
 /// Earth gravitational parameter (IAU): 3.986004418e14 m³/s².
 ///
-/// Dimension: L³·T⁻².
+/// Dimension: L³·T⁻² ([`Dimension::GRAVITATIONAL_PARAMETER`]).
 pub fn mu_earth() -> Quantity {
-    Quantity::new(
-        3.986004418e14,
-        Dimension {
-            length: 3,
-            time: -2,
-            ..Dimension::DIMENSIONLESS
-        },
-    )
+    Quantity::new(3.986004418e14, Dimension::GRAVITATIONAL_PARAMETER)
 }
 
 /// Speed of light in vacuum (exact, SI 2019): 299_792_458.0 m/s.

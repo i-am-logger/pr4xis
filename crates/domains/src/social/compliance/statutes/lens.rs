@@ -504,10 +504,13 @@ fn resolve_source_path(name: &str, version: &str) -> Option<std::path::PathBuf> 
 /// constant complement; Foster et al. 2007 §3 composition preserves
 /// well-behavedness).
 ///
-/// `SourceNotOnDisk` is a soft pass — committers without
-/// `pr4xis update`-ed corpora don't break the build (mirrors
-/// `RoundTripHarnessAllVerified`). Any *real* lens-law violation or
-/// projection failure on present bytes fails the axiom.
+/// Corpus absence FAILS the axiom, fail-closed — NOT a soft pass: a `verify()`
+/// that returns `Ok` while reading nothing is a false-green (the corpus crate's
+/// `require()` contract — "tests do not skip"). The corpus-test `#[test]`
+/// `require()`-gates on the title's presence, so absence hard-fails there with the
+/// `pr4xis update usc_title_18` hint before this runs; the `Err` here is the honest
+/// fallback if `verify()` is ever called directly. Any real lens-law violation or
+/// projection failure on present bytes also fails it.
 pub struct BytesToStatuteOnRealTitle18;
 
 impl Axiom for BytesToStatuteOnRealTitle18 {
@@ -519,11 +522,12 @@ impl Axiom for BytesToStatuteOnRealTitle18 {
         let bytes = match std::fs::read(&path) {
             Ok(b) => b,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // Soft pass: no `pr4xis update` yet. The byte-anchored
-                // harness's `RoundTripHarnessAllVerified` already
-                // separately reports this; this axiom intentionally
-                // does not duplicate the failure surface.
-                return Ok(Box::new(SimpleProof::new(self.meta())));
+                // Corpus absent (no `pr4xis update` yet) — FAIL CLOSED, never a
+                // soft pass. An axiom that returns Ok while reading nothing is a
+                // false-green; the corpus-test #[test] require()-gates on presence
+                // and hard-fails with the `pr4xis update` hint, so this Err is the
+                // honest fallback if verify() is called directly.
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
             Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
         };

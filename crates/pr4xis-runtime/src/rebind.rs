@@ -99,6 +99,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn binds_when_name_and_address_agree() {
         let n = node("Employer", "Agent");
@@ -110,12 +111,14 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn stays_free_when_unknown() {
         let n = node("Employer", "Agent");
         assert!(!rebind_node(&n, &Known(HashMap::new())).unwrap().is_bound());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn stays_free_on_address_disagreement_even_with_same_name() {
         // The G5 fix at rebind time: same NAME, different DEFINITION (hence a
@@ -127,6 +130,7 @@ mod tests {
         assert!(!rebind_node(&loaded, &Known(known)).unwrap().is_bound());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn partial_rebind_keeps_unknowns_free() {
         let a = node("Employer", "Agent");

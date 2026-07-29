@@ -60,7 +60,7 @@
 //!
 //! - the private `from_buf` fast path — reachable only through `build`, whose
 //!   buffer comes from the in-process `pack` (valid by construction);
-//! - [`ArchivedCsrDict::from_untrusted_buf`] — the ONLY public entry for bytes
+//! - `ArchivedCsrDict::from_untrusted_buf` — the ONLY public entry for bytes
 //!   this process did not pack (a wire payload, a file, an embedded blob).
 //!   Every header field is bounds-checked with overflow-checked arithmetic,
 //!   both CSR offset arrays are verified as exact monotone partitions, keys
@@ -511,7 +511,7 @@ mod archived {
     use rkyv::util::AlignedVec;
 
     /// Why an UNTRUSTED packed-dict buffer was refused by
-    /// [`ArchivedCsrDict::from_untrusted_buf`] — fail-closed, every variant
+    /// `ArchivedCsrDict::from_untrusted_buf` — fail-closed, every variant
     /// names the violated structural invariant. Mirrors the
     /// `raw_source_prx::RawSourcePrxError` discipline: a forged header can
     /// produce an `Err`, never a panic and never an allocation sized from an
@@ -1177,7 +1177,7 @@ mod archived {
 
         /// The VALIDATING construction path for a family buffer this process
         /// did not pack (a wire payload, a file, an embedded blob) — the family
-        /// sibling of [`ArchivedCsrDict::from_untrusted_buf`], with the same
+        /// sibling of `ArchivedCsrDict::from_untrusted_buf`, with the same
         /// fail-closed discipline. `cols` is the declared per-column
         /// `(row_count, edge_count)` table (from the frame header), in
         /// [`LabelKind`] layout order.

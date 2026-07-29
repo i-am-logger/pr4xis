@@ -12,6 +12,8 @@
 #[allow(unused_imports)]
 use alloc::{string::String, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance;
 
 /// USLM hierarchy kinds between Title and Section.
@@ -132,15 +134,18 @@ impl ContainerKind {
 
     /// Canonical USLM nesting depth: Subtitle (0) → Part (1) →
     /// Subpart (2) → Chapter (3) → Subchapter (4). Used to assert
-    /// strict-nesting invariants in tests.
-    pub fn nesting_depth(self) -> usize {
-        match self {
+    /// strict-nesting invariants in tests. Returned as a dimensionless
+    /// [`Quantity`] (`unit::UNITLESS`) -- a depth count, not a physical
+    /// quantity.
+    pub fn nesting_depth(self) -> Quantity {
+        let depth = match self {
             Self::Subtitle => 0,
             Self::Part => 1,
             Self::Subpart => 2,
             Self::Chapter => 3,
             Self::Subchapter => 4,
-        }
+        };
+        Quantity::from_unit(depth as f64, &unit::UNITLESS)
     }
 }
 
@@ -238,9 +243,10 @@ impl SubdivisionKind {
 
     /// The depth of this kind in USLM's nesting order, 0-indexed
     /// from the closest §-child level. A Subsection is depth 0; a
-    /// Subitem is depth 6.
-    pub fn nesting_depth(self) -> usize {
-        match self {
+    /// Subitem is depth 6. Returned as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a depth count, not a physical quantity.
+    pub fn nesting_depth(self) -> Quantity {
+        let depth = match self {
             Self::Subsection => 0,
             Self::Paragraph => 1,
             Self::Subparagraph => 2,
@@ -248,7 +254,8 @@ impl SubdivisionKind {
             Self::Subclause => 4,
             Self::Item => 5,
             Self::Subitem => 6,
-        }
+        };
+        Quantity::from_unit(depth as f64, &unit::UNITLESS)
     }
 }
 

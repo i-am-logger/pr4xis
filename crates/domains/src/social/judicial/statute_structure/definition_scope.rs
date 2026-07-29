@@ -44,6 +44,8 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 use crate::cognitive::linguistics::lemon::lexicon::{ConceptRef, Lexicon};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::meta::identifier_format::Identifier;
 use crate::social::judicial::citation::PinpointCite;
 use crate::social::judicial::ontology::{LegalRelation, RelationType};
@@ -81,13 +83,18 @@ impl DefinitionScope {
     /// (Scalia & Garner §28). An `Enacted` scope's specificity rises with its
     /// depth, always above the Dictionary-Act default, which is above ordinary
     /// meaning.
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `u32` — a specificity rank, the same typing discipline as
+    /// `formal::mereology::counting::ontology::cardinality`.
     #[must_use]
-    pub fn specificity(&self) -> u32 {
-        match self {
+    pub fn specificity(&self) -> Quantity {
+        let rank: u32 = match self {
             DefinitionScope::Enacted(cite) => 2 + cite.segments.len() as u32,
             DefinitionScope::DictionaryAct => 1,
             DefinitionScope::OrdinaryMeaning => 0,
-        }
+        };
+        Quantity::from_unit(rank as f64, &unit::UNITLESS)
     }
 
     /// Lex-specialis precedence: `self` displaces `other` for a term they both
@@ -165,7 +172,12 @@ where
     candidates
         .iter()
         .filter(|d| d.scope.governs(use_cite) && !contextual_defeater(d))
-        .max_by_key(|d| d.scope.specificity())
+        .max_by(|a, b| {
+            a.scope
+                .specificity()
+                .partial_cmp(&b.scope.specificity())
+                .expect("specificity is UNITLESS, always comparable")
+        })
 }
 
 /// The definitional layer a statute contributes — the terms it defines, each
@@ -207,7 +219,12 @@ impl DefinitionLexicon {
         self.definitions
             .iter()
             .filter(|d| d.term == term && d.scope.governs(use_cite) && !defeater(d))
-            .max_by_key(|d| d.scope.specificity())
+            .max_by(|a, b| {
+                a.scope
+                    .specificity()
+                    .partial_cmp(&b.scope.specificity())
+                    .expect("specificity is UNITLESS, always comparable")
+            })
             .map(|d| &d.defines)
     }
 

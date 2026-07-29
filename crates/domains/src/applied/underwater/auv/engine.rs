@@ -2,6 +2,11 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::formal::math::angle::Angle;
+use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
+use crate::natural::physics::kinematics::velocity::Velocity;
 
 /// AUV navigation state and dead reckoning.
 ///
@@ -9,12 +14,10 @@ use crate::formal::math::angle::Angle;
 /// AUV navigation state (2D + depth).
 #[derive(Debug, Clone)]
 pub struct AuvState {
-    /// North position (meters).
-    pub north: f64,
-    /// East position (meters).
-    pub east: f64,
-    /// Depth (meters, positive downward).
-    pub depth: f64,
+    /// Position: `x` = north (m), `y` = east (m), `z` = depth (m, positive
+    /// downward) — the underwater analogue of
+    /// [`crate::applied::navigation::imu::strapdown::NavState::position`].
+    pub position: Point3,
     /// Heading (angle, radians from north clockwise).
     pub heading: Angle,
 }
@@ -22,12 +25,9 @@ pub struct AuvState {
 /// DVL velocity measurement in body frame.
 #[derive(Debug, Clone)]
 pub struct DvlMeasurement {
-    /// Forward velocity (m/s).
-    pub forward: f64,
-    /// Starboard velocity (m/s).
-    pub starboard: f64,
-    /// Downward velocity (m/s).
-    pub downward: f64,
+    /// Body-frame velocity: `vx` = forward, `vy` = starboard, `vz` = downward
+    /// (m/s).
+    pub velocity: Velocity,
     /// Whether bottom lock is achieved.
     pub bottom_lock: bool,
 }
@@ -35,37 +35,49 @@ pub struct DvlMeasurement {
 /// Depth sensor measurement.
 #[derive(Debug, Clone)]
 pub struct DepthMeasurement {
-    /// Measured depth in meters.
-    pub depth: f64,
+    /// Measured depth. Tagged `Dimension::LENGTH` (`unit::METER`).
+    pub depth: Quantity,
 }
 
 /// Dead reckoning: propagate AUV state using DVL and compass.
-pub fn dead_reckon(state: &AuvState, dvl: &DvlMeasurement, heading: f64, dt: f64) -> AuvState {
+pub fn dead_reckon(
+    state: &AuvState,
+    dvl: &DvlMeasurement,
+    heading: Angle,
+    dt: Duration,
+) -> AuvState {
     let cos_h = heading.cos();
     let sin_h = heading.sin();
+    let dt_s = dt.seconds();
     // Transform body-frame velocity to world frame
-    let v_north = dvl.forward * cos_h - dvl.starboard * sin_h;
-    let v_east = dvl.forward * sin_h + dvl.starboard * cos_h;
+    let v_north = dvl.velocity.vx * cos_h - dvl.velocity.vy * sin_h;
+    let v_east = dvl.velocity.vx * sin_h + dvl.velocity.vy * cos_h;
 
     AuvState {
-        north: state.north + v_north * dt,
-        east: state.east + v_east * dt,
-        depth: state.depth + dvl.downward * dt,
-        heading: Angle::from_radians(heading),
+        position: Point3::new(
+            state.position.x + v_north * dt_s,
+            state.position.y + v_east * dt_s,
+            state.position.z + dvl.velocity.vz * dt_s,
+        ),
+        heading,
     }
 }
 
 /// Compute distance traveled between two states.
-pub fn distance_2d(a: &AuvState, b: &AuvState) -> f64 {
-    let dn = b.north - a.north;
-    let de = b.east - a.east;
-    (dn * dn + de * de).sqrt()
+///
+/// Returns a [`Quantity`] tagged `Dimension::LENGTH` (`unit::METER`).
+pub fn distance_2d(a: &AuvState, b: &AuvState) -> Quantity {
+    let dn = b.position.x - a.position.x;
+    let de = b.position.y - a.position.y;
+    Quantity::from_unit((dn * dn + de * de).sqrt(), &unit::METER)
 }
 
 /// Compute 3D distance between two states.
-pub fn distance_3d(a: &AuvState, b: &AuvState) -> f64 {
-    let dn = b.north - a.north;
-    let de = b.east - a.east;
-    let dd = b.depth - a.depth;
-    (dn * dn + de * de + dd * dd).sqrt()
+///
+/// Returns a [`Quantity`] tagged `Dimension::LENGTH` (`unit::METER`).
+pub fn distance_3d(a: &AuvState, b: &AuvState) -> Quantity {
+    let dn = b.position.x - a.position.x;
+    let de = b.position.y - a.position.y;
+    let dd = b.position.z - a.position.z;
+    Quantity::from_unit((dn * dn + de * de + dd * dd).sqrt(), &unit::METER)
 }

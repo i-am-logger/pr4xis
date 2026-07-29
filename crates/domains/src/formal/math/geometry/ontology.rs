@@ -214,7 +214,7 @@ impl Axiom for MetricNonNegativity {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for a in &canonical_points_3d() {
             for b in &canonical_points_3d() {
-                if a.distance_to(b) < -1e-15 {
+                if a.distance_to(b).value < -1e-15 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
@@ -243,11 +243,11 @@ impl Axiom for MetricIdentity {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let pts = canonical_points_3d();
         for a in &pts {
-            if a.distance_to(a) > 1e-15 {
+            if a.distance_to(a).value > 1e-15 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
             for b in &pts {
-                if a != b && a.distance_to(b) < 1e-15 {
+                if a != b && a.distance_to(b).value < 1e-15 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
@@ -276,7 +276,7 @@ impl Axiom for MetricSymmetry {
         let pts = canonical_points_3d();
         for a in &pts {
             for b in &pts {
-                if (a.distance_to(b) - b.distance_to(a)).abs() > 1e-15 {
+                if (a.distance_to(b).value - b.distance_to(a).value).abs() > 1e-15 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
@@ -308,7 +308,9 @@ impl Axiom for TriangleInequality {
         for a in &pts {
             for b in &pts {
                 for c in &pts {
-                    if a.distance_to(c) > a.distance_to(b) + b.distance_to(c) + 1e-10 {
+                    if a.distance_to(c).value
+                        > a.distance_to(b).value + b.distance_to(c).value + 1e-10
+                    {
                         return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
                 }
@@ -586,7 +588,7 @@ impl Axiom for ProjectionIdempotent {
         let vecs = canonical_vectors_3d();
         for a in &vecs {
             for b in &vecs {
-                if b.norm() < 1e-15 {
+                if b.norm().value < 1e-15 {
                     continue;
                 }
                 let p1 = projection::project_vector_onto_vector(a, b);

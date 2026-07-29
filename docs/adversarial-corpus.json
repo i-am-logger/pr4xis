@@ -1,0 +1,645 @@
+{
+  "questions": [
+    {
+      "q": "What does 42 U.S.C. § 1397zzz require for respite care providers?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 CFR § 999.1, how many hours of training does a DSP need?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What is defined in 42 U.S.C. § 1396p(z)(9)?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Does 42 U.S.C. § 3099x cover transportation benefits for caregivers?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does the Older Americans Act define at 42 U.S.C. § 3030s-99?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 89 FR 99999, what is the Access Rule threshold?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 CFR § 441.999 say about person-centered service plans?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Does 42 U.S.C. § 1395x(z)(200) define home health aide?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What is required by 42 U.S.C. § 3002(qq)?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 CFR § 438.999 say about network adequacy for HCBS?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 U.S.C. § 1396n(c)(99), what is the waiver renewal cycle?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 U.S.C. § 300ii-99 require of EVV systems?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 U.S.C. § 1396a(a)(99) require of a state Medicaid plan?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 CFR § 441.500 add to the HCBS assurances checklist?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 U.S.C. § 1396r-5(z), how is the spousal resource allowance calculated?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 U.S.C. § 1395i(kk) say about the hospital insurance trust fund and caregivers?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 20 CFR § 404.2099, who can be denied representative payee status?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 20 CFR § 404.2035(z)(5) say about payee accounting requirements?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 29 CFR § 825.999, how long can intermittent FMLA leave be extended?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Does 26 U.S.C. § 21(z) allow a full refund of caregiving expenses?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 45 CFR § 92.999 say about HCBS provider discrimination complaints?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 CFR § 483.999, what staffing ratio must a nursing facility maintain?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 CFR § 482.99 say about discharge appeal rights?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 CFR § 418.999, what documentation does a hospice recertification require?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 CFR § 410.999 say about home health aide visit limits?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 CFR § 414.999, how is the home health payment rate calculated?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Does Cal. Welf. & Inst. Code § 4685.99 set a statewide waiver enrollment cap?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does Fla. Admin. Code R. 59G-4.999 require of a Florida home health provider?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 U.S.C. § 1395x(dd)(99), what counts as a hospice bereavement service?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 U.S.C. § 3057z-1 say about the OAA nutrition-services grant formula?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 U.S.C. § 1396d(z)(50), is a home-delivered meal a covered medical assistance service?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Does 89 FR 12345 set the effective date for the 80/20 Access Rule?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 CFR § 440.167(z), can a spouse ever be a paid legally responsible individual?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 U.S.C. § 1320a-99 say about HCBS provider fraud penalties?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 CFR § 441.302(z)(9), what must a state's HCBS quality assurance plan include?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 20 CFR § 416.999 say about SSI representative payee reporting?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 U.S.C. § 3025z, must every state agency on aging maintain a caregiver ombudsman?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Does 26 U.S.C. § 125(z) let a caregiver run HCBS co-pays through a cafeteria plan?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What does 42 CFR § 447.999 say about the HCBS provider payment floor?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "Under 42 U.S.C. § 1396u-99, what oversight applies to Medicaid managed-care HCBS carve-outs?",
+      "category": "fabricated_citation"
+    },
+    {
+      "q": "What is the Medicaid Universal Respite Credit?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What does DSPQ stand for?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is 'compassion leave waiver' a real HCBS benefit?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Federal Caregiver Equity Allowance?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What does IADL-Plus mean?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there a national Family Respite Trust Fund?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the EVV Universal Exemption Certificate?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is a Medicaid Reciprocal Care Passport?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What does the term 'tier-9 caregiver certification' mean?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is adult day algorithm scheduling a CMS requirement?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Direct Support Professional National Reciprocity Board?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the HCBS Universal Portability Waiver?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Direct Care Federal Wage Floor?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Caregiver Tax Parity Credit?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Medicaid Cross-State Continuity Program?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there a National Respite Reciprocity Compact between states?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the EVV Grace Period Extension Program?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Family Caregiver Federal Stipend?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What does IDD Lifetime Benefit Lock mean?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is HCBS Fast-Track Waiver Conversion?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is a DSP Portable Certification Passport?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there a Medicaid Look-Back Amnesty Program?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is a Hospice Extended Benefit Rider?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there a federal Caregiver Emergency Relief Fund?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the SNF Discharge Protection Guarantee?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there a Representative Payee National Registry?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the POA Federal Certification Standard?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Adult Day Services Block Grant?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the HCBS Waiver Universal Enrollment Window?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Caregiver Social Security Credit Program?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Medicaid Spend-Down Waiver Exemption?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the National Guardian Reciprocity Act?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the FMLA Extended Caregiver Provision?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there an Access Rule Small Provider Exemption Fund?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Direct Support Professional Loan Forgiveness Program?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Medicaid HCBS Universal Case Rate?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the Caregiver Respite Federal Match Program?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is a Hospice Election Grace Waiver?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "What is the EVV Rural Provider Waiver Category?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Is there a National Family Caregiver Registry?",
+      "category": "fabricated_term"
+    },
+    {
+      "q": "Since Medicaid HCBS waivers require weekly in-person case manager visits, how do I schedule mine?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that EVV was banned nationwide in 2024, why do agencies still use it?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because respite care is only available to military veterans, am I eligible as a civilian caregiver?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since the 80/20 Access Rule requires 100% of payment go to direct care workers, how is that enforced?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that DSPs are legally required to hold a nursing license, how do I get one?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since adult day services are classified as inpatient hospital care, does my hospital insurance cover it?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because the National Family Caregiver Support Program was repealed in 2023, where can family caregivers get help now?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that IADLs are only assessed once at intake and never reassessed, why does my care plan keep changing?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since Medicaid HCBS waivers automatically transfer between states when a caregiver moves, what paperwork is left?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since guardianship requires the guardian to be a blood relative of the ward, can a close friend serve instead?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that respite care is always fully paid by federal funds with no cost to the family, why was I billed a co-pay?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because electing hospice means giving up all other Medicare coverage entirely, will my mother's diabetes treatment stop?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since a power of attorney automatically converts into a court guardianship once the principal turns 65, do I need to file anything?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that a Medicaid spend-down must be paid in a single lump sum, how am I supposed to come up with that much money at once?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because family caregivers can never be paid under a Medicaid HCBS waiver, how do people get compensated for caring for a spouse?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that a nursing facility stay is always covered fully by Medicare with no time limit, will my mother's stay be paid for indefinitely?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that a level of care determination is a one-time evaluation never subject to reassessment, why does my mother need to be re-evaluated every year?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since adult guardianship automatically expires after five years everywhere, do I need to renew my father's guardianship now?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that every HCBS waiver has identical income limits nationwide, why does my neighbor in another state qualify at a different income level?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since the Access Rule applies only to nursing homes, does it affect my mother's home care agency at all?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because EVV only applies to Medicare home health, not Medicaid, why is my Medicaid agency requiring it?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that respite care is capped at 24 hours per year under federal law, how do I request additional hours?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since federal law never requires a background check for a Direct Support Professional, can an agency hire without screening applicants?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because home health aides are prohibited from providing any personal care services under federal law, why does mine help with bathing?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that hospice care requires a life expectancy of exactly 30 days to qualify, does my mother's diagnosis meet that standard?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since personal care services are only available to Medicaid recipients who live alone, does my mother lose eligibility now that I've moved in to help?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because the look-back period is ten years, do I need to disclose gifts I made a decade ago?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since guardianship and conservatorship are legally identical terms used the same way in every state, why do the forms look so different?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since a conservatorship never needs to be renewed or reviewed once granted, do I need to do anything now that a year has passed?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because Medicaid HCBS waivers guarantee immediate enrollment with no waiting list, why has my application been pending for eight months?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that senior centers only serve congregate meals to attendees who qualify as low-income, do I need to prove my mother's income before she can attend?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because DSPs are classified as independent contractors under federal law, why did I receive a W-2 instead of a 1099?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that adult day services are covered under Medicare Part A as inpatient care, will my mother's stay be reimbursed?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since one Medicaid application automatically covers both nursing home care and an HCBS waiver at the same time, why do I need to file separate paperwork?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Because case management is a one-time intake service under HCBS waivers, why does my care manager keep scheduling follow-up calls?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that all family caregivers automatically qualify for Medicaid payment nationwide, how do I sign up?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since Medicaid never covers home modifications under any waiver, how do people afford wheelchair ramps?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that supported decision-making is legally the same thing as guardianship, does using it strip someone of their decision-making rights the same way?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Since a home health aide is legally the same role as a Direct Support Professional, do the same training rules apply?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "Given that self-determination programs were created by the CARES Act in 2020, are they a temporary pandemic-era benefit?",
+      "category": "false_presupposition"
+    },
+    {
+      "q": "What is the ADL-waiver reciprocity threshold under the IDD compliance matrix?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Does the DSP-EVV crossover exemption apply to respite hours?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the HCBS asset-transfer look-back multiplier?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is the Older Americans Act nutrition-services waiver bundle available in every state?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What does the Access Rule direct-care compliance index measure?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is the person-centered service plan renewal escalation tier set by CMS or by the state?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the network-adequacy respite differential under managed HCBS?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Does the DSP wage pass-through variance apply to overtime hours?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the spend-down eligibility escalation window?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "How is the HCBS provider network continuity index calculated?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What representative payee compliance tier applies to a first-time payee?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Does the FMLA intermittent leave reciprocity clause apply across state lines?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the hospice election revocation penalty period?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "How does the discharge planning appeal escalation matrix work?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the Medicaid managed care capitation variance for HCBS enrollees?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is there a legally-responsible-individual wage differential under Medicaid?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What does the POA scope-of-authority compliance index measure?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the guardianship reciprocity threshold between states?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the adult day services network adequacy variance?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the spousal impoverishment allowance escalation tier?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is there an SNF coverage continuity waiver for interstate transfers?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the Access Rule compensation audit cycle?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What does the EVV data-element compliance matrix require of providers?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the Medicaid asset-protection reciprocity window?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the respite care federal match differential?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is there a hospice bereavement benefit continuity clause?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the representative payee misuse escalation protocol?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the FMLA certification renewal variance?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the person-centered plan compliance escalation tier?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the tax credit reciprocity threshold for caregivers who move states?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the HCBS waiver capacity variance index?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What does the discharge readiness compliance matrix evaluate?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is there a nursing facility level-of-care reciprocity clause between states?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the Medicaid trust exemption escalation window?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What does the DSP wage floor compliance index measure?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the civil-rights compliance escalation tier for HCBS providers?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "Is there a background-check reciprocity compact for DSPs who work in multiple states?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What does the hospice FAST-stage compliance matrix require of a facility?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the self-determination budget-authority variance?",
+      "category": "domain_mimicry"
+    },
+    {
+      "q": "What is the state Medicaid provider network continuity index?",
+      "category": "domain_mimicry"
+    }
+  ],
+  "regenerated_by": "cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release --test adversarial_questions_generated -- --ignored regenerate_adversarial_snapshot --nocapture"
+}

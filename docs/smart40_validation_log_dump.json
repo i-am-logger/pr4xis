@@ -1,0 +1,282 @@
+[
+  {
+    "category": "Standard",
+    "question": "What is dementia?",
+    "source": "caregiver_question_corpus.json[331] track=track1_family topicCategory=dementia-basics",
+    "outcome": "Answered",
+    "response": "dementia:\n  1. mental deterioration of organic or functional origin"
+  },
+  {
+    "category": "Standard",
+    "question": "What is Alzheimer's disease?",
+    "source": "caregiver_question_corpus.json[1279] track=track1_family topicCategory=idd-dementia",
+    "outcome": "Answered",
+    "response": "alzheimer's disease:\n  1. The most common form of dementia — a brain disorder that slowly destroys a person's memory and thinking skills, characterized by a loss of cognitive functioning (thinking, remembering, and reasoning) and behavioral abilities to such an extent that it interferes with a person's daily life and activities; caused by changes in the brain including abnormal buildups of proteins known as amyloid plaques and tau tangles, with symptoms typically first appearing in the mid-60s — NIA, What Is Alzheimer's Disease?"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is Vascular Dementia?",
+    "source": "caregiver_question_corpus.json[4493] track=track1_family topicCategory=dementia-education",
+    "outcome": "Answered",
+    "response": "vascular dementia:\n  1. A form of dementia caused by conditions that damage blood vessels in the brain or interrupt the flow of blood and oxygen to the brain — NIA, What Is Dementia? Symptoms, Types, and Diagnosis"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is Frontotemporal Dementia?",
+    "source": "caregiver_question_corpus.json[4495] track=track1_family topicCategory=dementia-education",
+    "outcome": "Answered",
+    "response": "frontotemporal dementia:\n  1. A rare form of dementia that tends to occur in people younger than 60; it is associated with abnormal amounts or forms of the proteins tau and TDP-43 — NIA, What Is Dementia? Symptoms, Types, and Diagnosis"
+  },
+  {
+    "category": "Standard",
+    "question": "What is a Medicaid waiver?",
+    "source": "caregiver_question_corpus.json[326] track=track1_family topicCategory=medicaid-waiver",
+    "outcome": "Answered",
+    "response": "medicaid waiver:\n  1. A general term for several distinct federal authorities under which the Centers for Medicare and Medicaid Services (CMS) permits a state to waive certain otherwise-mandatory federal Medicaid requirements (such as statewideness, comparability of services, or freedom of choice of provider) so the state can operate a more targeted or flexible program. The two waiver authorities most relevant to home-and-community-based caregiving are 1915(b) waivers (Social Security Act § 1915(b), 42 USC 1396n(b)), which let a state waive freedom-of-choice requirements to deliver services through a managed-care delivery system, and 1915(c) Home and Community-Based Services waivers (§ 1915(c), 42 USC 1396n(c)), which let a state cover home and community-based services, otherwise unavailable under the ordinary Medicaid state plan, for individuals who would otherwise require an institutional level of care. A state may also combine a 1915(b) and a 1915(c) waiver (\"1915(b)/(c) combination waiver\") to deliver HCBS through managed care. Separately, and under different statutory authority, section 1115 demonstration waivers (Social Security Act § 1115, 42 USC 1315) let CMS approve broader, experimental state pilot programs that would otherwise violate Medicaid's federal requirements, evaluated for research and demonstration purposes rather than tied to a specific service category. Related Medicaid HCBS options that expand a state's own state plan rather than waiving federal requirements -- for example, the 1915(i) HCBS state plan option and the 1915(k) Community First Choice option -- are not, strictly, \"waivers\" in this sense, since they do not require CMS to waive a statutory requirement -- 42 USC 1396n(b), (c); 42 USC 1315; Medicaid.gov, \"Home & Community Based Services Authorities\" (distinguishing waiver authorities from state plan options)."
+  },
+  {
+    "category": "Standard",
+    "question": "What is self-direction?",
+    "source": "caregiver_question_corpus.json[339] track=both topicCategory=self-direction",
+    "outcome": "Answered",
+    "response": "self-direction:\n  1. personal independence\n  2. The opportunity for participants or their representatives to exercise choice and control over the budget, planning, and purchase of self-directed personal assistance services, including the amount, duration, scope, provider, and location of service provision, with participant decision-making authority that includes recruiting, hiring and discharging, scheduling, and supervising workers; under the Community First Choice rule, a consumer controlled method of selecting and providing services and supports that allows the individual maximum control, with the individual acting as the employer of record or having a significant and meaningful role in the management of an agency provider — 42 CFR 441.450(b)-(c); 42 CFR 441.505\n  3. The opportunity for participants or their representatives to exercise choice and control over the budget, planning, and purchase of self-directed personal assistance services, including the amount, duration, scope, provider, and location of service provision, with participant decision-making authority that includes recruiting, hiring and discharging, scheduling, and supervising workers; under the Community First Choice rule, a consumer controlled method of selecting and providing services and supports that allows the individual maximum control, with the individual acting as the employer of record or having a significant and meaningful role in the management of an agency provider — 42 CFR 441.450(b)-(c); 42 CFR 441.505"
+  },
+  {
+    "category": "Standard",
+    "question": "What is the Self-Determination Program?",
+    "source": "caregiver_question_corpus.json[2818] track=track1_family topicCategory=self_direction",
+    "outcome": "Answered",
+    "response": "self-determination program:\n  1. California's voluntary, statewide alternative to regional-center-directed services within the Lanterman Act developmental-services system: an eligible regional-center consumer -- or, when appropriate, the consumer's parent, legal guardian or conservator, or authorized representative -- plans, arranges, and directs an individually tailored array of services and supports within a fixed individual budget, through a person-centered planning process supported by an independent facilitator and financial management services, rather than having the regional center authorize services; a participant may leave the program at any time to resume traditional regional-center-authorized services. The program operates under its own, freestanding federal Medicaid Home and Community-Based Services waiver (CMS/DDS waiver control number CA.1166.R01.00), approved by CMS in 2018 as a capped pilot and implemented statewide for all eligible consumers effective July 1, 2021 -- a distinct waiver from California's original developmental-disabilities waiver (CA.0336.R05.00), and not a Community First Choice (§1915(k)) program -- Cal. Welf. & Inst. Code § 4685.8(a), (c)(5); 42 USC § 1396n(c); CMS/Medicaid.gov, HCBS Waiver CA.1166.R01.00 (\"CA Self-Determination Program for Individuals with Developmental Disabilities\")"
+  },
+  {
+    "category": "Standard",
+    "question": "What is respite care?",
+    "source": "caregiver_question_corpus.json[337] track=track1_family topicCategory=respite",
+    "outcome": "Answered",
+    "response": "respite care:\n  1. Planned or emergency care provided to a child or adult with a special need in order to provide temporary relief to the family caregiver of that child or adult — 42 USC 300ii(7)\n  2. Planned or emergency care provided to a child or adult with a special need in order to provide temporary relief to the family caregiver of that child or adult — 42 USC 300ii(7)"
+  },
+  {
+    "category": "Standard",
+    "question": "What is respite?",
+    "source": "caregiver_question_corpus.json[3203] track=track1_family topicCategory=respite",
+    "outcome": "Answered",
+    "response": "respite:\n  1. a pause from doing something (as work)\n  2. the act of reprieving; postponing or remitting punishment\n  3. postpone the punishment of a convicted criminal, such as an execution\n  4. an interruption in the intensity or amount of something\n  5. a (temporary) relief from harm or discomfort\n  6. a pause for relaxation\n  7. Planned or emergency care provided to a child or adult with a special need in order to provide temporary relief to the family caregiver of that child or adult — 42 USC 300ii(7)\n  8. Planned or emergency care provided to a child or adult with a special need in order to provide temporary relief to the family caregiver of that child or adult — 42 USC 300ii(7)\n  9. hurt the feelings of\n  10. malevolence by virtue of being malicious or spiteful or nasty\n  11. feeling a need to see others suffer"
+  },
+  {
+    "category": "Standard",
+    "question": "What are respite care and home health services?",
+    "source": "caregiver_question_corpus.json[1344] track=both topicCategory=respite",
+    "outcome": "Answered",
+    "response": "respite care:\n  1. Planned or emergency care provided to a child or adult with a special need in order to provide temporary relief to the family caregiver of that child or adult — 42 USC 300ii(7)\n  2. Planned or emergency care provided to a child or adult with a special need in order to provide temporary relief to the family caregiver of that child or adult — 42 USC 300ii(7)"
+  },
+  {
+    "category": "Standard",
+    "question": "What is a Power of Attorney?",
+    "source": "caregiver_question_corpus.json[4517] track=track1_family topicCategory=legal-poa",
+    "outcome": "Answered",
+    "response": "power of attorney:\n  1. a legal instrument authorizing someone to act as the grantor's agent\n  2. A writing or other record by which an individual (the principal) grants authority to another person (the agent) to act in the principal's place, whether or not the document itself uses the phrase \"power of attorney\"; the power is effective when executed unless the instrument itself provides for a future effective date or contingency. A power of attorney is a private appointment instrument the principal executes without any court proceeding -- categorically distinct from a guardianship, under which a court adjudicates the respondent's inability to meet essential needs (not a status of \"incapacity\" -- the 2017 Uniform Guardianship, Conservatorship, and Other Protective Arrangements Act deliberately moved away from that term) through a petition, notice, and hearing, and appoints a substitute decision-maker by judicial order -- Uniform Power of Attorney Act (2006) §§ 102(7), 109(a); Uniform Guardianship, Conservatorship, and Other Protective Arrangements Act (2017) § 301(a)\n  3. Power of attorney"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is a Financial Power of Attorney?",
+    "source": "caregiver_question_corpus.json[4555] track=track1_family topicCategory=legal-poa",
+    "outcome": "Answered",
+    "response": "financial power of attorney:\n  1. A power of attorney granting an agent authority over the principal's property, business, and financial affairs, as opposed to health-care decisions, which the Uniform Power of Attorney Act expressly excludes from its own scope. A grant of \"general authority\" as to a named subject (e.g., real property, banks and financial institutions, taxes) incorporates a statutorily-enumerated bundle of specific powers for that subject unless the instrument narrows or excludes them -- general real-property authority lets the agent buy, sell, lease, mortgage, and otherwise deal with real property; general banking authority lets the agent open and close accounts, borrow money, and negotiate commercial paper; general tax authority lets the agent prepare and file returns and contest deficiencies. A short list of especially consequential acts -- making gifts, creating or amending a trust, changing beneficiary designations, delegating authority -- requires an express, specific grant and is never included merely by granting \"general\" authority. Making, amending, or revoking the principal's will is categorically non-delegable; the Uniform Power of Attorney Act itself is silent on wills (the word \"will\" does not appear anywhere in its text in this sense), but California, for example, expressly bars a power of attorney from authorizing an agent to make, publish, declare, amend, or revoke the principal's will -- Uniform Power of Attorney Act (2006) §§ 102(7), 103(2), 201(a), (c), 204, 208, 216 (real-property, banking, and tax authority bundles); Cal. Prob. Code § 4265 (will non-delegability)"
+  },
+  {
+    "category": "Standard",
+    "question": "Conservator",
+    "source": "caregiver_question_corpus.json[2252] track=track1_family topicCategory=general",
+    "outcome": "Answered",
+    "response": "conservator:\n  1. someone appointed by a court to assume responsibility for the interests of a minor or incompetent person\n  2. the custodian of a collection (as a museum or library)\n  3. In a growing minority of U.S. States -- roughly a dozen that have enacted the Uniform Guardianship, Conservatorship, and Other Protective Arrangements Act or its 1997 predecessor -- a person appointed by a court to make decisions with respect to the property or financial affairs of an individual, the separate, property-focused counterpart office to \"guardian\" (personal affairs). California is a documented outlier: it has not adopted UGCOPAA, and instead uses \"conservator\" as the umbrella term for both the personal-care and financial-management roles for adults, reserving \"guardian\" for minors -- splitting the function internally instead, as \"conservator of the person,\" \"conservator of the estate,\" or \"conservator of the person and estate,\" for the protected adult (the \"conservatee\"). Pennsylvania is a further variant: it has no \"conservator\" office at all, and covers the identical property-management function as a sub-type of guardian instead (\"guardian... of... estate\"). Because the term's scope inverts by jurisdiction -- non-overlapping with guardian in UGCOPAA States, an age-based rather than function-based split from guardian in California, and absent altogether in Pennsylvania -- no single cross-jurisdiction relationship between \"conservator\" and \"guardian\" holds universally -- Uniform Guardianship, Conservatorship, and Other Protective Arrangements Act (2017) §§ 102(5), (9); Cal. Prob. Code §§ 1500, 1800, 1800.3(a), 1801(a)-(c); 20 Pa. Cons. Stat. § 5511"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is Medicaid, and Who Is Eligible?",
+    "source": "caregiver_question_corpus.json[4597] track=both topicCategory=medicaid",
+    "outcome": "Answered",
+    "response": "medicaid:\n  1. The medical assistance program authorized to enable each State to furnish medical assistance on behalf of families with dependent children and of aged, blind, or disabled individuals whose income and resources are insufficient to meet the costs of necessary medical services, and rehabilitation and other services to help such families and individuals attain or retain capability for independence or self-care — 42 USC 1396-1 (Social Security Act Title XIX)\n  2. Medicaid cap increase — /us/usc/t42/s1308/g/9/B/i"
+  },
+  {
+    "category": "Standard",
+    "question": "Medicaid.",
+    "source": "caregiver_question_corpus.json[2266] track=track1_family topicCategory=general",
+    "outcome": "Answered",
+    "response": "medicaid:\n  1. The medical assistance program authorized to enable each State to furnish medical assistance on behalf of families with dependent children and of aged, blind, or disabled individuals whose income and resources are insufficient to meet the costs of necessary medical services, and rehabilitation and other services to help such families and individuals attain or retain capability for independence or self-care — 42 USC 1396-1 (Social Security Act Title XIX)\n  2. Medicaid cap increase — /us/usc/t42/s1308/g/9/B/i"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is Medicare Part A?",
+    "source": "caregiver_question_corpus.json[4599] track=track1_family topicCategory=medicare",
+    "outcome": "Answered",
+    "response": "medicare part a:\n  1. The hospital insurance benefits program under Part A of title XVIII of the Social Security Act, providing insurance against the costs of inpatient hospital services, post-hospital extended care services, home health services, and hospice care — 42 USC 1395c"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is Medicare Part C?",
+    "source": "caregiver_question_corpus.json[4600] track=track1_family topicCategory=medicare",
+    "outcome": "Answered",
+    "response": "medicare part c:\n  1. Medicare Advantage (Part C) is the alternative to Original Medicare through which a Medicare+Choice eligible individual may elect to receive Medicare benefits (other than qualified prescription drug benefits) by enrolling in a Medicare+Choice plan, of which there are three types: coordinated care plans, which provide health care services including health maintenance organization plans and regional or local preferred provider organization plans; Medicare+Choice medical savings account (MSA) plans, paired with a contribution into a Medicare+Choice MSA; and Medicare+Choice private fee-for-service plans — 42 USC 1395w-21(a)"
+  },
+  {
+    "category": "Standard",
+    "question": "What Is a Medicare Advantage Plan?",
+    "source": "caregiver_question_corpus.json[4596] track=track1_family topicCategory=medicare",
+    "outcome": "Answered",
+    "response": "medicare advantage plan:\n  1. Medicare Advantage (Part C) is the alternative to Original Medicare through which a Medicare+Choice eligible individual may elect to receive Medicare benefits (other than qualified prescription drug benefits) by enrolling in a Medicare+Choice plan, of which there are three types: coordinated care plans, which provide health care services including health maintenance organization plans and regional or local preferred provider organization plans; Medicare+Choice medical savings account (MSA) plans, paired with a contribution into a Medicare+Choice MSA; and Medicare+Choice private fee-for-service plans — 42 USC 1395w-21(a)"
+  },
+  {
+    "category": "Standard",
+    "question": "What is the difference between Original Medicare and Medicare Advantage?",
+    "source": "caregiver_question_corpus.json[1004] track=track1_family topicCategory=plan_choice",
+    "outcome": "Answered",
+    "response": "original medicare:\n  1. Original Medicare is the Medicare fee-for-service program under parts A and B, through which a Medicare+Choice (Medicare Advantage) eligible individual — an individual entitled to benefits under Part A and enrolled under Part B — may elect to receive Medicare benefits, as the alternative to enrolling in a Medicare+Choice (Medicare Advantage) plan — 42 USC 1395w-21(a)(1)\n\nmedicare advantage:\n  1. Medicare Advantage (Part C) is the alternative to Original Medicare through which a Medicare+Choice eligible individual may elect to receive Medicare benefits (other than qualified prescription drug benefits) by enrolling in a Medicare+Choice plan, of which there are three types: coordinated care plans, which provide health care services including health maintenance organization plans and regional or local preferred provider organization plans; Medicare+Choice medical savings account (MSA) plans, paired with a contribution into a Medicare+Choice MSA; and Medicare+Choice private fee-for-service plans — 42 USC 1395w-21(a)"
+  },
+  {
+    "category": "Standard",
+    "question": "What's Medicare Supplement Insurance (Medigap)?",
+    "source": "caregiver_question_corpus.json[552] track=track1_family topicCategory=medigap",
+    "outcome": "Answered",
+    "response": "medicare supplement insurance:\n  1. A Medicare supplemental policy (Medigap policy) is a health insurance policy or other health benefit plan that a private entity offers to a Medicare beneficiary and that is primarily designed, or is advertised, marketed, or otherwise purported, to provide payment for expenses incurred for services and items that are not reimbursed under the Medicare program because of deductibles, coinsurance, or other limitations under Medicare; such policies must meet or exceed the NAIC Model Standards, which is how their benefits are standardized nationally into lettered plans — 42 CFR 403.205(a); 42 USC 1395ss(c)(1)"
+  },
+  {
+    "category": "Standard",
+    "question": "What is Electronic Visit Verification (EVV)?",
+    "source": "caregiver_question_corpus.json[553] track=track2_workforce topicCategory=evv_basics",
+    "outcome": "Answered",
+    "response": "electronic visit verification:\n  1. With respect to personal care services or home health care services, a system under which visits conducted as part of such services are electronically verified with respect to the type of service performed, the individual receiving the service, the date of the service, the location of service delivery, the individual providing the service, and the time the service begins and ends — 42 USC 1396b(l)(5)(A)"
+  },
+  {
+    "category": "Standard",
+    "question": "What is EVV?",
+    "source": "caregiver_question_corpus.json[637] track=both topicCategory=evv_basics",
+    "outcome": "Answered",
+    "response": "evv:\n  1. With respect to personal care services or home health care services, a system under which visits conducted as part of such services are electronically verified with respect to the type of service performed, the individual receiving the service, the date of the service, the location of service delivery, the individual providing the service, and the time the service begins and ends — 42 USC 1396b(l)(5)(A)\n  2. A Medicaid service within the scope of the electronic visit verification requirement: a personal care service or a home health care service requiring an in-home visit by a provider under a State plan or waiver, for which a State must require the use of an electronic visit verification system or forfeit a portion of the Federal medical assistance percentage; only these two service categories are reached by 42 USC 1396b(l), and the requirement applies equally whether the service is furnished through a fee-for-service or a managed care delivery system, and even where the service is bundled into, or billed under, a differently-named service, so long as the underlying service meets the personal-care-service or home-health-care-service definition; there is no separate federal list of covered services by name — the test is definitional, not a named list — 42 USC 1396b(l)(1), (5)(B), (5)(C); CMS, Frequently Asked Questions: Section 12006 of the 21st Century Cures Act EVV Systems for PCS and HHCS (May 2018) (bundled/alternate-titled-service and managed-care/fee-for-service-parity guidance)"
+  },
+  {
+    "category": "Standard",
+    "question": "Which home health care services require EVV?",
+    "source": "caregiver_question_corpus.json[842] track=track2_workforce topicCategory=evv_scope_services",
+    "outcome": "Answered",
+    "response": "Yes. a home health care services is an evv.\nhome health care services: For purposes of the electronic visit verification requirement, services described in section 1396d(a)(7) of title 42 provided under a State Medicaid plan (or under a waiver of the plan) — 42 USC 1396b(l)(5)(B)\ncures act covered service: A Medicaid service within the scope of the electronic visit verification requirement: a personal care service or a home health care service requiring an in-home visit by a provider under a State plan or waiver, for which a State must require the use of an electronic visit verification system or forfeit a portion of the Federal medical assistance percentage; only these two service categories are reached by 42 USC 1396b(l), and the requirement applies equally whether the service is furnished through a fee-for-service or a managed care delivery system, and even where the service is bundled into, or billed under, a differently-named service, so long as the underlying service meets the personal-care-service or home-health-care-service definition; there is no separate federal list of covered services by name — the test is definitional, not a named list — 42 USC 1396b(l)(1), (5)(B), (5)(C); CMS, Frequently Asked Questions: Section 12006 of the 21st Century Cures Act EVV Systems for PCS and HHCS (May 2018) (bundled/alternate-titled-service and managed-care/fee-for-service-parity guidance)\ntypes of home health care services: long-term home health"
+  },
+  {
+    "category": "Standard",
+    "question": "Is telephony an acceptable method of EVV?",
+    "source": "caregiver_question_corpus.json[888] track=track2_workforce topicCategory=evv_telephony",
+    "outcome": "Answered",
+    "response": "Yes. a telephony is an acceptable method of evv.\ntelephony: An electronic visit verification capture method in which the caregiver places a telephone call to record the start and end of a visit and verify the location of service delivery, using a landline telephone, a fixed Voice-over-Internet-Protocol phone tied to the recipient's address, or (paired with a fixed in-home device for location) a cell phone — New York State Dept. of Health EVV FAQs (self-attributing this capture-method category to CMS guidance)\nacceptable method of evv: A technology used to electronically capture and verify the six required data elements of an electronic visit verification visit; the 21st Century Cures Act bars requiring the use of any particular or uniform system, so a State may adopt any method that verifies those elements, subject to CMS's own auditability requirements — commonly a mobile application, telephony, or a fixed in-home device — 21st Century Cures Act sec. 12006(c)(2), Pub. L. 114-255"
+  },
+  {
+    "category": "Standard",
+    "question": "Is a fixed object device (FOB) an acceptable method of EVV?",
+    "source": "caregiver_question_corpus.json[889] track=track2_workforce topicCategory=evv_technology_devices",
+    "outcome": "Answered",
+    "response": "Yes. a fixed object device is an acceptable method of evv.\nfixed object device: An electronic visit verification capture method using a stationary hardware device installed in the service recipient's home that generates a unique time-stamped code to verify the caregiver's presence at check-in and check-out, used independently or paired with a phone-based method that cannot itself confirm a fixed address; \"fixed object device\" (FOB), \"fixed visit verification device\" (FVV) and \"alternative device\" are vendor and state terms for this device category — New York State Dept. of Health EVV FAQs (self-attributing this capture-method category to CMS guidance); CMS, Frequently Asked Questions: Section 12006 of the 21st Century Cures Act EVV Systems for PCS and HHCS (May 2018) (CMS's own use of \"fobs\" as an EVV implementation tool, in its enhanced-federal-match guidance)\nacceptable method of evv: A technology used to electronically capture and verify the six required data elements of an electronic visit verification visit; the 21st Century Cures Act bars requiring the use of any particular or uniform system, so a State may adopt any method that verifies those elements, subject to CMS's own auditability requirements — commonly a mobile application, telephony, or a fixed in-home device — 21st Century Cures Act sec. 12006(c)(2), Pub. L. 114-255"
+  },
+  {
+    "category": "Standard",
+    "question": "Is Hospice included in EVV?",
+    "source": "caregiver_question_corpus.json[3960] track=track2_workforce topicCategory=evv_basics",
+    "outcome": "Answered",
+    "response": "No, a hospice is not an evv."
+  },
+  {
+    "category": "Standard",
+    "question": "What is a criminal history screening?",
+    "source": "caregiver_question_corpus.json[3287] track=track2_workforce topicCategory=background_checks",
+    "outcome": "Answered",
+    "response": "criminal history screening:\n  1. The individual-employee-level criminal background screening a long-term-care facility or provider (including a home health agency, hospice, or personal-care-services provider) performs on a prospective \"direct patient access employee\" -- any individual who has, or may have, one-on-one contact with a patient or resident through employment or contract with the facility or provider -- before that individual works directly with patients or residents. This is distinct from the separate, provider/business-enrollment-level screening under 42 CFR 455.434 (which reaches the provider entity and its high-risk owners, not individual direct-care employees). The federal touchstone for this individual-level screening is the National Background Check Program, established by § 6201 of the Affordable Care Act (Pub. L. 111-148) and codified at 42 U.S.C. § 1320a-7l: a voluntary CMS grant program, not a universal federal mandate, that funded a subset of states (roughly half) to develop a standardized state screening procedure combining a fingerprint-based check through the FBI's Integrated Automated Fingerprint Identification System with a search of state-based abuse and neglect registries and databases, including the abuse and neglect registry of any other state where the prospective employee previously resided. Outside a state that adopted an NBCP-style program, the specific criminal-history-screening procedure, disqualifying-offense list, and fingerprinting requirement for individual direct-care workers are set by that state's own law rather than by a single uniform federal rule -- 42 U.S.C. § 1320a-7l(a)(1), (a)(3)(A), (a)(6)(D)."
+  },
+  {
+    "category": "Standard",
+    "question": "What is the difference between a PCCA, a home health aide (HHA), and a PCA?",
+    "source": "caregiver_question_corpus.json[3514] track=both topicCategory=scope_of_practice",
+    "outcome": "Answered",
+    "response": "difference (1): the quality of being unlike or dissimilar\n  a difference (1) is a quality → attribute → abstract entity → entity\ndifference (2): a disagreement or argument about something important\n  a difference (2) is a disagreement → speech act → act → event → abstract entity → entity\ndifference (3): a variation that deviates from the standard or norm\n  a difference (3) is a fluctuation → alteration → happening → event → abstract entity → entity\ndifference (4): the number that remains after subtraction; the number that when added to the subtrahend gives the minuend\n  a difference (4) is a number → definite quantity → amount → abstract entity → entity\ndifference (5): a significant change\n  a difference (5) is a change → relation → abstract entity → entity\npcca: A Montana Medicaid State Plan service, not a waiver service, under which a trained parent, guardian, other family member, or kinship or foster care provider may be paid to deliver physician-ordered care to a Montana Healthcare Programs member under age 21 with medically complex needs; PCCA services complement, rather than replace, other Medicaid services such as private duty nursing and personal care services, and Montana was the first State to offer this service under a Medicaid State Plan. A State-specific illustration of the same paid-family-caregiving-for-a-medically-complex-child policy problem the §1915(c) extraordinary care exception addresses, but authorized under Montana's own State law and State Plan rather than CMS's 1915(c) extraordinary-care guidance — Mont. Code Ann. § 37-2-603; Montana DPHHS, Pediatric Complex Care Assistant Services\npca: A direct care worker paid to provide personal care services — hands-on assistance with activities of daily living and instrumental activities of daily living — to a person in their home or community; listed by name, without further elaboration, as a direct-care-worker category at 42 CFR 441.302(k)(1)(ii)(D)\n  a pca is a dcw"
+  },
+  {
+    "category": "Stress",
+    "question": "whats dementia",
+    "source": "messy variant of caregiver_question_corpus.json[331] (\"What is dementia?\")",
+    "outcome": "Abstained { unresolved: [] }",
+    "response": "I know the words \"dementia\" but could not understand the sentence structure."
+  },
+  {
+    "category": "Stress",
+    "question": "what's a power of  attorny ",
+    "source": "messy variant of caregiver_question_corpus.json[4517] (\"What is a Power of Attorney?\")",
+    "outcome": "Abstained { unresolved: [] }",
+    "response": "I understood some of the input but could not form a complete interpretation."
+  },
+  {
+    "category": "Stress",
+    "question": "whats electronic visit verification evv",
+    "source": "messy variant of caregiver_question_corpus.json[553] (\"What is Electronic Visit Verification (EVV)?\")",
+    "outcome": "Abstained { unresolved: [] }",
+    "response": "I know the words \"evv\" but could not understand the sentence structure."
+  },
+  {
+    "category": "Stress",
+    "question": "wat is repsite care",
+    "source": "messy variant of caregiver_question_corpus.json[337] (\"What is respite care?\")",
+    "outcome": "Abstained { unresolved: [\"wat\"] }",
+    "response": "I do not know the word \"wat\"."
+  },
+  {
+    "category": "Boundary",
+    "question": "What does 42 U.S.C. § 1397zzz require for respite care providers?",
+    "source": "adversarial_question_corpus.json[0] category=fabricated_citation",
+    "outcome": "Abstained { unresolved: [\"42 u.s.c § 1397zzz require\"] }",
+    "response": "I do not know the words \"does\", \"42 u.s.c § 1397zzz require\"."
+  },
+  {
+    "category": "Boundary",
+    "question": "What is the Medicaid Universal Respite Credit?",
+    "source": "adversarial_question_corpus.json[40] category=fabricated_term",
+    "outcome": "Abstained { unresolved: [\"universal respite credit\"] }",
+    "response": "I do not have enough information to answer."
+  },
+  {
+    "category": "Boundary",
+    "question": "Since Medicaid HCBS waivers require weekly in-person case manager visits, how do I schedule mine?",
+    "source": "adversarial_question_corpus.json[80] category=false_presupposition",
+    "outcome": "Abstained { unresolved: [] }",
+    "response": "I found 2 concepts but could not parse the sentence.\nDid you mean: is a waivers a manager?"
+  },
+  {
+    "category": "Boundary",
+    "question": "What is the ADL-waiver reciprocity threshold under the IDD compliance matrix?",
+    "source": "adversarial_question_corpus.json[120] category=domain_mimicry",
+    "outcome": "Abstained { unresolved: [\"adl-waiver\", \"reciprocity threshold\"] }",
+    "response": "I do not have enough information to answer."
+  },
+  {
+    "category": "Uncertainty",
+    "question": "is a widget eligible for the assets",
+    "source": "chat/src/capability.rs full_production_pipeline_resolves_a_real_conditional_rule (run live via caregiver::setup_reasoner)",
+    "outcome": "Conditional { rule: ConditionalRule { term: LegalTerm { id: Identifier { format: Curie, value: \"usc42:1396p_c_1_a_asset_transfer_penalty\" }, name: SourceTextRef { text: \"Medicaid asset-transfer penalty period\", context_uri: None }, definition: SourceTextRef { text: \"if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer\", context_uri: None }, source_text: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A)\", context_uri: None }), subsection: Some(PinpointCite { segments: [PinpointSegment { level: Subsection, label: \"(c)(1)(A)\" }] }), required_evidence: [EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }], obligations: [], deadlines: [], rights: [], remedies: [], burdens: [], exceptions: [] }, source_kind: UsFederalStatute, elements: [AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }] }, missing: NonEmpty { head: AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }, tail: [] } }",
+    "response": "Medicaid asset-transfer penalty period (42 U.S.C. § 1396p(c)(1)(A)): if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer Whether this applies to you depends on whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date, which I don't have — tell me that and I can check."
+  },
+  {
+    "category": "Uncertainty",
+    "question": "is a house eligible for the assets",
+    "source": "live variant of \"is a widget eligible for the assets\" (real asset noun substituted)",
+    "outcome": "Conditional { rule: ConditionalRule { term: LegalTerm { id: Identifier { format: Curie, value: \"usc42:1396p_c_1_a_asset_transfer_penalty\" }, name: SourceTextRef { text: \"Medicaid asset-transfer penalty period\", context_uri: None }, definition: SourceTextRef { text: \"if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer\", context_uri: None }, source_text: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A)\", context_uri: None }), subsection: Some(PinpointCite { segments: [PinpointSegment { level: Subsection, label: \"(c)(1)(A)\" }] }), required_evidence: [EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }], obligations: [], deadlines: [], rights: [], remedies: [], burdens: [], exceptions: [] }, source_kind: UsFederalStatute, elements: [AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }] }, missing: NonEmpty { head: AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }, tail: [] } }",
+    "response": "Medicaid asset-transfer penalty period (42 U.S.C. § 1396p(c)(1)(A)): if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer Whether this applies to you depends on whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date, which I don't have — tell me that and I can check."
+  },
+  {
+    "category": "Uncertainty",
+    "question": "is a car eligible for the assets",
+    "source": "live variant of \"is a widget eligible for the assets\" (real asset noun substituted)",
+    "outcome": "Conditional { rule: ConditionalRule { term: LegalTerm { id: Identifier { format: Curie, value: \"usc42:1396p_c_1_a_asset_transfer_penalty\" }, name: SourceTextRef { text: \"Medicaid asset-transfer penalty period\", context_uri: None }, definition: SourceTextRef { text: \"if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer\", context_uri: None }, source_text: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A)\", context_uri: None }), subsection: Some(PinpointCite { segments: [PinpointSegment { level: Subsection, label: \"(c)(1)(A)\" }] }), required_evidence: [EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }], obligations: [], deadlines: [], rights: [], remedies: [], burdens: [], exceptions: [] }, source_kind: UsFederalStatute, elements: [AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }] }, missing: NonEmpty { head: AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }, tail: [] } }",
+    "response": "Medicaid asset-transfer penalty period (42 U.S.C. § 1396p(c)(1)(A)): if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer Whether this applies to you depends on whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date, which I don't have — tell me that and I can check."
+  },
+  {
+    "category": "Uncertainty",
+    "question": "is a savings account eligible for the assets",
+    "source": "live variant of \"is a widget eligible for the assets\" (real asset noun substituted)",
+    "outcome": "Conditional { rule: ConditionalRule { term: LegalTerm { id: Identifier { format: Curie, value: \"usc42:1396p_c_1_a_asset_transfer_penalty\" }, name: SourceTextRef { text: \"Medicaid asset-transfer penalty period\", context_uri: None }, definition: SourceTextRef { text: \"if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer\", context_uri: None }, source_text: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A)\", context_uri: None }), subsection: Some(PinpointCite { segments: [PinpointSegment { level: Subsection, label: \"(c)(1)(A)\" }] }), required_evidence: [EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }], obligations: [], deadlines: [], rights: [], remedies: [], burdens: [], exceptions: [] }, source_kind: UsFederalStatute, elements: [AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }] }, missing: NonEmpty { head: AppliedElement { requirement: EvidenceRequirement { field: SourceTextRef { text: \"whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date\", context_uri: None }, field_type: Boolean, required: Required, description: Some(SourceTextRef { text: \"42 U.S.C. § 1396p(c)(1)(A) — the transfer trigger; (c)(1)(B) defines the look-back date itself\", context_uri: None }) }, state: Unfilled }, tail: [] } }",
+    "response": "Medicaid asset-transfer penalty period (42 U.S.C. § 1396p(c)(1)(A)): if an institutionalized individual (or spouse) disposes of assets for less than fair market value on or after the applicable look-back date, the individual is ineligible for nursing-facility and related Medicaid services for a period computed from that transfer Whether this applies to you depends on whether you (or your spouse) disposed of assets for less than fair market value on or after the look-back date, which I don't have — tell me that and I can check."
+  }
+]

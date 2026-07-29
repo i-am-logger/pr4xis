@@ -38,6 +38,79 @@ self.onmessage = async (e) => {
       case 'chat':
         reply(id, pr4xis.chat(args.input));
         break;
+      case 'chat_batch': {
+        // Stateless batch (the Smart-40 console / live-slice path). A JS loop
+        // over the STATEFUL chat() is unsafe — a Conditional turn's pending
+        // rule would consume the next question — so batching goes through the
+        // dedicated stateless export. `chat_batch(questions: string[])` takes a
+        // JS array and returns Presentation JSON `{"results":[…]}`, each row
+        // identical in shape to a single chat() turn. Guarded so an older
+        // cached wasm fails honestly instead of falling through at runtime.
+        if (typeof pr4xis.chat_batch !== 'function') { fail(id, 'unsupported:chat_batch'); break; }
+        const questions = Array.isArray(args.questions) ? args.questions : [];
+        // Chunk so the UI gets determinate progress. chat_batch is stateless,
+        // so calling it per sub-array is equivalent to one call over the whole.
+        const CHUNK = 5;
+        const out = [];
+        for (let i = 0; i < questions.length; i += CHUNK) {
+          const parsed = JSON.parse(pr4xis.chat_batch(questions.slice(i, i + CHUNK)));
+          const rows = Array.isArray(parsed) ? parsed : (parsed.results || []);
+          for (const r of rows) out.push(r);
+          self.postMessage({ id, status: 'progress', phase: 'batch', completed: Math.min(i + CHUNK, questions.length), total: questions.length });
+        }
+        reply(id, JSON.stringify({ results: out }));
+        break;
+      }
+      case 'reset_session':
+        // Clear any pending Conditional slot-fill so a batch run — or a fresh
+        // interactive turn — starts from a clean session. Guarded for older wasm.
+        if (typeof pr4xis.reset_session !== 'function') { fail(id, 'unsupported:reset_session'); break; }
+        pr4xis.reset_session();
+        reply(id, null);
+        break;
+      case 'pipeline_ontologies':
+        // The compile-time ontologies the pipeline reasons THROUGH — a
+        // different population from the runtime-loaded vocabularies
+        // `self_describe` reports. Guarded for an older wasm.
+        if (typeof pr4xis.pipeline_ontologies !== 'function') { fail(id, 'unsupported:pipeline_ontologies'); break; }
+        reply(id, pr4xis.pipeline_ontologies());
+        break;
+      case 'auto_load_budget':
+        // The largest transfer the page may start unasked, computed by the
+        // engine from the sizes it stages (a two-class natural break, Jenks
+        // 1967) rather than declared in the page. Guarded for an older wasm;
+        // the page treats an unsupported reply as "ask about everything",
+        // which is the conservative reading.
+        if (typeof pr4xis.auto_load_budget !== 'function') { fail(id, 'unsupported:auto_load_budget'); break; }
+        reply(id, pr4xis.auto_load_budget());
+        break;
+      case 'eager_resident':
+        // The names this deployment fetches at startup — the third residency
+        // state beside the embedded manifest's resident and one-click entries.
+        // Guarded for an older wasm; the page treats an unsupported reply as
+        // "load nothing eagerly", which is the behaviour it shipped with.
+        if (typeof pr4xis.eager_resident !== 'function') { fail(id, 'unsupported:eager_resident'); break; }
+        reply(id, pr4xis.eager_resident());
+        break;
+      case 'unload':
+        // The inverse of `load`: drop one runtime ontology by id and re-ground
+        // what remains. Guarded for an older wasm that predates the export, so
+        // a stale deploy degrades to "unsupported" rather than throwing.
+        if (typeof pr4xis.unload !== 'function') { fail(id, 'unsupported:unload'); break; }
+        reply(id, pr4xis.unload(args.id));
+        break;
+      case 'verify_palette': {
+        // The engine audits the page's OWN rendered colour tokens against its
+        // cited contrast axioms. Signature is TWO parallel arrays
+        // `verify_palette(slot_keys: string[], hexes: string[])` — pass the
+        // token object's keys and values (never a JSON string). Non-slot alias
+        // keys / unparseable hexes are skipped engine-side. Guarded so an older
+        // cached wasm replies 'unsupported' rather than falling through.
+        if (typeof pr4xis.verify_palette !== 'function') { fail(id, 'unsupported:verify_palette'); break; }
+        const vars = args.vars || {};
+        reply(id, pr4xis.verify_palette(Object.keys(vars), Object.values(vars)));
+        break;
+      }
       case 'self_describe':
         reply(id, pr4xis.self_describe());
         break;
@@ -46,6 +119,9 @@ self.onmessage = async (e) => {
         break;
       case 'available_ontologies':
         reply(id, pr4xis.available_ontologies());
+        break;
+      case 'available_usc_archives':
+        reply(id, pr4xis.available_usc_archives());
         break;
       case 'embedded_demo_prx':
         reply(id, pr4xis.embedded_demo_prx());

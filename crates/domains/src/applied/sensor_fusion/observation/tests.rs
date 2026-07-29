@@ -62,7 +62,7 @@ fn likelihood_positive_at_mean() {
     let z = Vector::new(vec![0.0, 0.0]);
     let inn = Innovation::compute(&z, &x, &p, &h, &r);
     let l = likelihood::likelihood(&inn);
-    assert!(l > 0.0);
+    assert!(l.value > 0.0);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -106,7 +106,7 @@ fn gate_as_hypothesis_test_agrees_with_validation_gate() {
     let gate = ValidationGate::new(2, 0.95);
     let nis_close = gate.nis(&inn_close).unwrap();
     let accept_gate = gate.accept(&inn_close);
-    let decision_close = gate_as_hypothesis_test(nis_close, 2, 0.05);
+    let decision_close = gate_as_hypothesis_test(nis_close.value, 2, 0.05);
 
     // Gate accepts => hypothesis test fails to reject H0
     assert!(accept_gate);
@@ -117,7 +117,7 @@ fn gate_as_hypothesis_test_agrees_with_validation_gate() {
     let inn_far = Innovation::compute(&z_far, &x, &p, &h, &r);
     let nis_far = gate.nis(&inn_far).unwrap();
     let accept_gate_far = gate.accept(&inn_far);
-    let decision_far = gate_as_hypothesis_test(nis_far, 2, 0.05);
+    let decision_far = gate_as_hypothesis_test(nis_far.value, 2, 0.05);
 
     assert!(!accept_gate_far);
     assert_eq!(decision_far, TestDecision::RejectNull);
@@ -146,7 +146,7 @@ mod proptest_proofs {
             let gate = ValidationGate::new(2, 0.95);
             let accepted = gate.accept(&inn);
             if let Some(nis) = gate.nis(&inn) {
-                let decision = gate_as_hypothesis_test(nis, 2, 0.05);
+                let decision = gate_as_hypothesis_test(nis.value, 2, 0.05);
                 // accept => FailToReject, reject => RejectNull
                 if accepted {
                     prop_assert_eq!(decision, TestDecision::FailToReject);
@@ -181,7 +181,7 @@ mod proptest_proofs {
             let r = Matrix::identity(2);
             let z = h.predict(&x);
             let inn = Innovation::compute(&z, &x, &p, &h, &r);
-            prop_assert!(inn.residual.norm() < 1e-10);
+            prop_assert!(inn.residual.norm().value < 1e-10);
         }
 
         #[test]
@@ -211,7 +211,7 @@ mod proptest_proofs {
             let z = Vector::new(vec![z1, z2]);
             let inn = Innovation::compute(&z, &x, &p, &h, &r);
             let l = likelihood::likelihood(&inn);
-            prop_assert!(l >= 0.0);
+            prop_assert!(l.value >= 0.0);
         }
 
         #[test]
@@ -227,7 +227,7 @@ mod proptest_proofs {
             let inn = Innovation::compute(&z, &x, &p, &h, &r);
             let gate = ValidationGate::new(2, 0.95);
             if let Some(nis) = gate.nis(&inn) {
-                prop_assert!(nis >= -1e-10);
+                prop_assert!(nis.value >= -1e-10);
             }
         }
     }

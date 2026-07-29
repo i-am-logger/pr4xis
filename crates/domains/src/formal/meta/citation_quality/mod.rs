@@ -50,7 +50,7 @@ pub use assessment::{
 };
 pub use ontology::{
     CitationQualityConcept, CitationQualityOntology, SEVERITY_BLOCKING, SEVERITY_INFO,
-    SEVERITY_WARNING, Severity, SeverityPartitionsDimensions,
+    SEVERITY_WARNING, Severity, SeverityLevel, SeverityPartitionsDimensions,
     SoundGateIsExactlyExistenceAndClaimSupport, dimensions, is_dimension, is_sound_gate,
 };
 pub use record_lens::CitationAssessment;

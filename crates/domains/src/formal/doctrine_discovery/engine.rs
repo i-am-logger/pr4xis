@@ -15,6 +15,8 @@ use pr4xis::ontology::Axiom;
 
 use crate::formal::analytical_methods::fca::BitSet;
 use crate::formal::analytical_methods::{ConceptLatticeFibration, FormalContext};
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::rule_algebra::{Implication, RuleSet};
 
 // =============================================================================
@@ -74,10 +76,11 @@ pub struct DoctrineDiscovery<O, A> {
 }
 
 impl<O, A: Clone + Ord> DoctrineDiscovery<O, A> {
-    /// Number of formal concepts discovered (= doctrine clusters).
+    /// Number of formal concepts discovered (= doctrine clusters). A
+    /// dimensionless count.
     #[must_use]
-    pub fn cluster_count(&self) -> usize {
-        self.fibration.lattice.len()
+    pub fn cluster_count(&self) -> Quantity {
+        Quantity::from_unit(self.fibration.lattice.len() as f64, &unit::UNITLESS)
     }
 
     /// Number of implications in the canonical basis.
@@ -120,7 +123,7 @@ where
         let mut x = BitSet::empty(m_count);
         x.set(mi);
         let close = ctx.intent_closure(&x);
-        if close.count() <= 1 {
+        if close.count().value <= 1.0 {
             // Trivial closure (singleton remains a singleton — no
             // co-occurring attributes). Skip.
             continue;
@@ -177,7 +180,7 @@ impl Axiom for DiscoveredClustersMatchLattice {
         let ctx = ganter_wille_context();
         let lat_size = ctx.build_lattice().len();
         let disc = discover(&ctx);
-        if disc.cluster_count() == lat_size {
+        if disc.cluster_count().value as usize == lat_size {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(Box::new(SimpleCounterexample::new(self.meta())))

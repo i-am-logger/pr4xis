@@ -46,6 +46,8 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use crate::cognitive::linguistics::lexicon::pos::LexicalEntry;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// The zero-copy, `prx`-gated function-word store (little-endian targets).
 #[cfg(all(feature = "prx", target_endian = "little"))]
@@ -67,7 +69,7 @@ pub use owned::FunctionWordStore;
 impl FunctionWordStore {
     /// Is the lexicon empty (no function words)?
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.len().value == 0.0
     }
 }
 
@@ -120,8 +122,8 @@ mod owned {
         }
 
         /// Number of distinct function words.
-        pub fn len(&self) -> usize {
-            self.map.len()
+        pub fn len(&self) -> Quantity {
+            Quantity::from_unit(self.map.len() as f64, &unit::UNITLESS)
         }
     }
 }
@@ -142,7 +144,8 @@ mod archived {
     use crate::cognitive::linguistics::lexicon::pos::{
         Adjective, Adverb, Auxiliary, Conjunction, Copula, Countability, Determiner,
         DeterminerKind, Interjection, InterjectionKind, Noun, NounKind, Number, Numeral, Particle,
-        Person, Preposition, Pronoun, PronounKind, Tense, Transitivity, Verb,
+        Person, Polarity, Preposition, Pronoun, PronounKind, Tense, Transitivity, Verb,
+        WhAdverbRole, WhReferentRole,
     };
 
     const _: () = assert!(cfg!(target_endian = "little"));
@@ -179,6 +182,7 @@ mod archived {
         pub kind: DeterminerKind,
         pub number: Option<Number>,
         pub olia_class: Option<String>,
+        pub referent_role: Option<WhReferentRole>,
     }
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct AdjectiveRecord {
@@ -188,6 +192,7 @@ mod archived {
     pub struct AdverbRecord {
         pub text: String,
         pub olia_class: Option<String>,
+        pub role: Option<WhAdverbRole>,
     }
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct PrepositionRecord {
@@ -196,6 +201,7 @@ mod archived {
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct ConjunctionRecord {
         pub text: String,
+        pub olia_class: Option<String>,
     }
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct PronounRecord {
@@ -204,6 +210,7 @@ mod archived {
         pub person: Person,
         pub kind: PronounKind,
         pub olia_class: Option<String>,
+        pub referent_role: Option<WhReferentRole>,
     }
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct CopulaRecord {
@@ -222,10 +229,12 @@ mod archived {
     pub struct InterjectionRecord {
         pub text: String,
         pub kind: InterjectionKind,
+        pub polarity: Option<Polarity>,
     }
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct ParticleRecord {
         pub text: String,
+        pub olia_class: Option<String>,
     }
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
     pub struct NumeralRecord {
@@ -285,6 +294,7 @@ mod archived {
                     kind: d.kind,
                     number: d.number,
                     olia_class: d.olia_class.clone(),
+                    referent_role: d.referent_role,
                 }),
                 LexicalEntry::Adjective(a) => LexicalEntryRecord::Adjective(AdjectiveRecord {
                     text: a.text.clone(),
@@ -292,6 +302,7 @@ mod archived {
                 LexicalEntry::Adverb(a) => LexicalEntryRecord::Adverb(AdverbRecord {
                     text: a.text.clone(),
                     olia_class: a.olia_class.clone(),
+                    role: a.role,
                 }),
                 LexicalEntry::Preposition(p) => {
                     LexicalEntryRecord::Preposition(PrepositionRecord {
@@ -301,6 +312,7 @@ mod archived {
                 LexicalEntry::Conjunction(c) => {
                     LexicalEntryRecord::Conjunction(ConjunctionRecord {
                         text: c.text.clone(),
+                        olia_class: c.olia_class.clone(),
                     })
                 }
                 LexicalEntry::Pronoun(p) => LexicalEntryRecord::Pronoun(PronounRecord {
@@ -309,6 +321,7 @@ mod archived {
                     person: p.person,
                     kind: p.kind,
                     olia_class: p.olia_class.clone(),
+                    referent_role: p.referent_role,
                 }),
                 LexicalEntry::Copula(c) => LexicalEntryRecord::Copula(CopulaRecord {
                     text: c.text.clone(),
@@ -325,10 +338,12 @@ mod archived {
                     LexicalEntryRecord::Interjection(InterjectionRecord {
                         text: i.text.clone(),
                         kind: i.kind,
+                        polarity: i.polarity,
                     })
                 }
                 LexicalEntry::Particle(p) => LexicalEntryRecord::Particle(ParticleRecord {
                     text: p.text.clone(),
+                    olia_class: p.olia_class.clone(),
                 }),
                 LexicalEntry::Numeral(n) => LexicalEntryRecord::Numeral(NumeralRecord {
                     text: n.text.clone(),
@@ -366,6 +381,7 @@ mod archived {
                     kind: d.kind,
                     number: d.number,
                     olia_class: d.olia_class,
+                    referent_role: d.referent_role,
                 }),
                 LexicalEntry::Adjective(a) => {
                     LexicalEntryRecord::Adjective(AdjectiveRecord { text: a.text })
@@ -373,12 +389,16 @@ mod archived {
                 LexicalEntry::Adverb(a) => LexicalEntryRecord::Adverb(AdverbRecord {
                     text: a.text,
                     olia_class: a.olia_class,
+                    role: a.role,
                 }),
                 LexicalEntry::Preposition(p) => {
                     LexicalEntryRecord::Preposition(PrepositionRecord { text: p.text })
                 }
                 LexicalEntry::Conjunction(c) => {
-                    LexicalEntryRecord::Conjunction(ConjunctionRecord { text: c.text })
+                    LexicalEntryRecord::Conjunction(ConjunctionRecord {
+                        text: c.text,
+                        olia_class: c.olia_class,
+                    })
                 }
                 LexicalEntry::Pronoun(p) => LexicalEntryRecord::Pronoun(PronounRecord {
                     text: p.text,
@@ -386,6 +406,7 @@ mod archived {
                     person: p.person,
                     kind: p.kind,
                     olia_class: p.olia_class,
+                    referent_role: p.referent_role,
                 }),
                 LexicalEntry::Copula(c) => LexicalEntryRecord::Copula(CopulaRecord {
                     text: c.text,
@@ -402,11 +423,13 @@ mod archived {
                     LexicalEntryRecord::Interjection(InterjectionRecord {
                         text: i.text,
                         kind: i.kind,
+                        polarity: i.polarity,
                     })
                 }
-                LexicalEntry::Particle(p) => {
-                    LexicalEntryRecord::Particle(ParticleRecord { text: p.text })
-                }
+                LexicalEntry::Particle(p) => LexicalEntryRecord::Particle(ParticleRecord {
+                    text: p.text,
+                    olia_class: p.olia_class,
+                }),
                 LexicalEntry::Numeral(n) => {
                     LexicalEntryRecord::Numeral(NumeralRecord { text: n.text })
                 }
@@ -433,12 +456,16 @@ mod archived {
                     person: v.person,
                     tense: v.tense,
                     transitivity: v.transitivity,
+                    // The archived record predates form-level marking; a
+                    // stored function-word verb is a base form.
+                    olia_class: None,
                 }),
                 LexicalEntryRecord::Determiner(d) => LexicalEntry::Determiner(Determiner {
                     text: d.text,
                     kind: d.kind,
                     number: d.number,
                     olia_class: d.olia_class,
+                    referent_role: d.referent_role,
                 }),
                 LexicalEntryRecord::Adjective(a) => {
                     LexicalEntry::Adjective(Adjective { text: a.text })
@@ -446,19 +473,22 @@ mod archived {
                 LexicalEntryRecord::Adverb(a) => LexicalEntry::Adverb(Adverb {
                     text: a.text,
                     olia_class: a.olia_class,
+                    role: a.role,
                 }),
                 LexicalEntryRecord::Preposition(p) => {
                     LexicalEntry::Preposition(Preposition { text: p.text })
                 }
-                LexicalEntryRecord::Conjunction(c) => {
-                    LexicalEntry::Conjunction(Conjunction { text: c.text })
-                }
+                LexicalEntryRecord::Conjunction(c) => LexicalEntry::Conjunction(Conjunction {
+                    text: c.text,
+                    olia_class: c.olia_class,
+                }),
                 LexicalEntryRecord::Pronoun(p) => LexicalEntry::Pronoun(Pronoun {
                     text: p.text,
                     number: p.number,
                     person: p.person,
                     kind: p.kind,
                     olia_class: p.olia_class,
+                    referent_role: p.referent_role,
                 }),
                 LexicalEntryRecord::Copula(c) => LexicalEntry::Copula(Copula {
                     text: c.text,
@@ -474,10 +504,12 @@ mod archived {
                 LexicalEntryRecord::Interjection(i) => LexicalEntry::Interjection(Interjection {
                     text: i.text,
                     kind: i.kind,
+                    polarity: i.polarity,
                 }),
-                LexicalEntryRecord::Particle(p) => {
-                    LexicalEntry::Particle(Particle { text: p.text })
-                }
+                LexicalEntryRecord::Particle(p) => LexicalEntry::Particle(Particle {
+                    text: p.text,
+                    olia_class: p.olia_class,
+                }),
                 LexicalEntryRecord::Numeral(n) => LexicalEntry::Numeral(Numeral { text: n.text }),
             }
         }
@@ -660,8 +692,8 @@ mod archived {
         }
 
         /// Number of distinct function words.
-        pub fn len(&self) -> usize {
-            self.len
+        pub fn len(&self) -> Quantity {
+            Quantity::from_unit(self.len as f64, &unit::UNITLESS)
         }
     }
 }
@@ -679,7 +711,7 @@ mod cast_tests {
     use super::owned::FunctionWordStore as OwnedStore; // the owned fallback
     use super::{HashMap, LexicalEntry};
     use crate::cognitive::linguistics::lexicon::pos::{
-        Determiner, DeterminerKind, Number, Person, Pronoun, PronounKind,
+        Determiner, DeterminerKind, Number, Person, Pronoun, PronounKind, WhReferentRole,
     };
     use alloc::string::String;
     use alloc::vec::Vec;
@@ -698,6 +730,7 @@ mod cast_tests {
                 person: Person::Third,
                 kind: PronounKind::Interrogative,
                 olia_class: None,
+                referent_role: Some(WhReferentRole::Person),
             })],
         );
         map.insert(
@@ -707,6 +740,7 @@ mod cast_tests {
                 kind: DeterminerKind::Definite,
                 number: None,
                 olia_class: None,
+                referent_role: None,
             })],
         );
         map.insert(
@@ -718,12 +752,14 @@ mod cast_tests {
                     person: Person::Third,
                     kind: PronounKind::Interrogative,
                     olia_class: Some(String::from("InterrogativePronoun")),
+                    referent_role: Some(WhReferentRole::Thing),
                 }),
                 LexicalEntry::Determiner(Determiner {
                     text: String::from("what"),
                     kind: DeterminerKind::Indefinite,
                     number: None,
                     olia_class: Some(String::from("InterrogativeDeterminer")),
+                    referent_role: Some(WhReferentRole::Thing),
                 }),
             ],
         );
@@ -734,7 +770,7 @@ mod cast_tests {
     #[test]
     fn archived_reads_match_the_known_map() {
         let store = FunctionWordStore::build(fixture());
-        assert_eq!(store.len(), 3);
+        assert_eq!(store.len().value, 3.0);
 
         // Single reading — first == all[0].
         assert_eq!(store.first("the"), Some(fixture()["the"][0].clone()));

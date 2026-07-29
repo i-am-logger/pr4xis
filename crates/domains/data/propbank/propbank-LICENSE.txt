@@ -1,0 +1,50 @@
+PropBank -- Data License
+=========================
+
+Source: https://github.com/propbank/propbank-frames/blob/main/LICENSE
+Retrieved: 2026-07-13
+
+## Data license: Creative Commons Attribution-ShareAlike 4.0 International
+
+The frame-file data in PropBank is licensed under the Creative Commons
+Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0):
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Confirmed 2026-07-13 via `gh api repos/propbank/propbank-frames` —
+`license.spdx_id: "CC-BY-SA-4.0"` — directly against the source repository,
+and against the repository's own `LICENSE` file (the standard Creative
+Commons Attribution-ShareAlike 4.0 International public license text).
+
+The code (the `scripts/` directory) and data (the `frames/` directory) in
+propbank-frames are different works. This praxis source carries only DATA
+derived from PropBank (a verbatim archive of the `frames/*.xml` frame files
+-- see `crates/domains/src/cognitive/linguistics/propbank/regenerate.rs`),
+never any propbank-frames code, so only the data license applies.
+
+Suggested attribution:
+
+    This work includes data from PropBank (propbank/propbank-frames),
+    licensed under the Creative Commons Attribution-ShareAlike 4.0
+    International license (CC BY-SA 4.0) from
+    https://creativecommons.org/licenses/by-sa/4.0/. See Palmer, M.,
+    Gildea, D. & Kingsbury, P. (2005) "The Proposition Bank: An Annotated
+    Corpus of Semantic Roles", Computational Linguistics 31(1):71-106, and
+    Bonial, C., Bonn, J., Conger, K., Hwang, J. & Palmer, M. (2014)
+    "PropBank: Semantics of New Predicate Types", LREC 2014.
+
+## Provenance of the archived subset shipped in this repository
+
+`crates/domains/data/propbank/propbank-3.4.0.propbank` is a deterministic
+directory archive (see `decoders::file_collection`) of every real frame
+`.xml` file under the official `frames/` directory at tag `v3.4.0`
+(commit `4087fa9ab5c40907c34ff91a56acc2cab1670145`), excluding the three
+non-frame entries the directory also carries (`.gitignore`, `README.txt`,
+`frameset.dtd`) -- 7,565 of 7,568 tree entries, verified 2026-07-13 via
+`gh api repos/propbank/propbank-frames/git/trees/<sha>:frames`. Every
+archived file's bytes are carried verbatim (no field extraction, no
+reweighting, no editorial interpretation of the source data) -- see
+`regenerate.rs`'s module doc for the exact archiving step and its
+literature/URL citations.
+
+Per the ShareAlike term, this derived archive is distributed under the
+same CC-BY-SA 4.0 license as the original.

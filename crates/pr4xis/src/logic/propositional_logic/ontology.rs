@@ -259,17 +259,20 @@ mod tests {
     use crate::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<PropositionalLogicCategory>();
     }
 
+    #[crate::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn ontology_validates() {
         PropositionalLogicOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn eight_connectives_are_connectives() {
         let connectives = [
@@ -296,6 +299,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn classical_theorems_are_tautologies() {
         let theorems = [
@@ -320,6 +324,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn tautology_opposes_contradiction() {
         let opp: Vec<_> = PropositionalLogicCategory::morphisms()
@@ -337,6 +342,7 @@ mod tests {
         )));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn every_concept_has_tradition() {
         let q = PropositionalTradition;
@@ -387,4 +393,8 @@ mod tests {
             }
         }
     }
+    crate::register_praxis_value!(prop_tradition_total, Verifiable);
+    crate::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    crate::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    crate::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
 }

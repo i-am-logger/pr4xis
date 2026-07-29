@@ -18,7 +18,6 @@
 //!   relative luminance, contrast ratio.
 
 use super::rgb::Rgb;
-use crate::formal::math::quantity::unit::UNITLESS;
 use crate::formal::math::quantity::value::Quantity;
 use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
 
@@ -92,7 +91,7 @@ impl Quality for Luminance {
     const KIND: QualityKind = QualityKind::Physical;
 
     fn get(&self, c: &ColorConcept) -> Option<Quantity> {
-        Some(Quantity::from_unit(c.rgb().luminance(), &UNITLESS))
+        Some(c.rgb().luminance())
     }
 }
 

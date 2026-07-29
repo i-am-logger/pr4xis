@@ -108,7 +108,7 @@ mod tests {
         // its sub-properties and their cito:isCitedBy inverses). The
         // load-bearing exact-shape assertions live with the owl tests;
         // this test only proves the decoder dispatch wiring works.
-        assert!(ont.property_count() > 30);
+        assert!(ont.property_count().value > 30.0);
     }
 
     #[pr4xis::praxis_value(Honest)]

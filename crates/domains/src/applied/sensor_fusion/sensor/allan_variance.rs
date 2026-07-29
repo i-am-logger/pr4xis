@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Allan variance noise characterization — rich type carrying the full noise profile.
 ///
 /// Each noise type has a characteristic slope on a log-log plot
@@ -84,23 +87,26 @@ impl AllanVarianceProfile {
     ///
     /// where Q=quantization, N=white_noise, B=bias_instability,
     /// K=random_walk, R=rate_ramp.
-    pub fn variance_at(&self, tau: f64) -> f64 {
+    pub fn variance_at(&self, tau: f64) -> Quantity {
         let q2 = self.quantization * self.quantization;
         let n2 = self.white_noise * self.white_noise;
         let b2 = self.bias_instability * self.bias_instability;
         let k2 = self.random_walk * self.random_walk;
         let r2 = self.rate_ramp * self.rate_ramp;
 
-        3.0 * q2 / (tau * tau)
-            + n2 / tau
-            + b2 * 2.0 * 2.0_f64.ln() / core::f64::consts::PI
-            + k2 * tau / 3.0
-            + r2 * tau * tau / 2.0
+        Quantity::from_unit(
+            3.0 * q2 / (tau * tau)
+                + n2 / tau
+                + b2 * 2.0 * 2.0_f64.ln() / core::f64::consts::PI
+                + k2 * tau / 3.0
+                + r2 * tau * tau / 2.0,
+            &unit::UNITLESS,
+        )
     }
 
     /// Allan deviation at averaging time τ.
-    pub fn deviation_at(&self, tau: f64) -> f64 {
-        self.variance_at(tau).sqrt()
+    pub fn deviation_at(&self, tau: f64) -> Quantity {
+        Quantity::from_unit(self.variance_at(tau).value.sqrt(), &unit::UNITLESS)
     }
 
     /// Typical MEMS accelerometer noise profile.

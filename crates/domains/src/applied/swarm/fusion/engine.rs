@@ -38,6 +38,10 @@ use crate::applied::swarm::consensus::engine::{
 };
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::instant::Instant;
+use crate::formal::math::temporal::time_system::TimeSystem;
 
 // ---------------------------------------------------------------------------
 // Fixture parameters
@@ -55,7 +59,7 @@ pub const RING_PEER_COUNT: usize = 3;
 
 /// Fixture timestamp: the three local estimates are contemporaneous, so
 /// a single epoch labels every conversion back to covariance form.
-pub const FIXTURE_EPOCH: f64 = 0.0;
+pub const FIXTURE_EPOCH: Instant = Instant::new(0.0, TimeSystem::GPS);
 
 /// The three peers' local means — distinct planar positions so fusion
 /// actually mixes information (documented structural fixture values).
@@ -192,11 +196,14 @@ pub fn covariance_intersection(
 /// existing information → covariance conversion. `None` if the fused
 /// information matrix were singular (it is not on the grid: at every
 /// grid point at least one weight is positive).
-pub fn ci_fused_scalar_variance(omega: f64) -> Option<f64> {
+pub fn ci_fused_scalar_variance(omega: f64) -> Option<Quantity> {
     let (a, b) = ci_scalar_estimates()?;
     let fused = covariance_intersection(&a, &b, omega);
     let estimate = fused.to_estimate(FIXTURE_EPOCH)?;
-    Some(estimate.covariance.get(0, 0))
+    Some(Quantity::from_unit(
+        estimate.covariance.get(0, 0),
+        &unit::UNITLESS,
+    ))
 }
 
 /// The realised mean-square error of the scalar CI combiner when the
@@ -210,17 +217,21 @@ pub fn ci_fused_scalar_variance(omega: f64) -> Option<f64> {
 /// Julier & Uhlmann (1997): consistency means `P_CI >= P_actual` for
 /// every admissible `rho` — the estimator never claims more confidence
 /// than it can have.
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same reasoning
+/// as [`ci_fused_scalar_variance`] — the two are compared directly.
 pub fn ci_realised_error_variance(
     var_a: f64,
     var_b: f64,
     rho: f64,
     omega: f64,
     fused_variance: f64,
-) -> f64 {
+) -> Quantity {
     let cross = 2.0 * omega * (1.0 - omega) * rho / (var_a.sqrt() * var_b.sqrt());
-    fused_variance
+    let p_actual = fused_variance
         * fused_variance
-        * (omega * omega / var_a + (1.0 - omega) * (1.0 - omega) / var_b + cross)
+        * (omega * omega / var_a + (1.0 - omega) * (1.0 - omega) / var_b + cross);
+    Quantity::from_unit(p_actual, &unit::UNITLESS)
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +291,7 @@ pub fn consensus_on_information(
     if estimates.iter().any(|e| e.dim() != dim) {
         return None;
     }
-    let step = stable_step_size(topology);
+    let step = stable_step_size(topology).value;
     let scale = peer_count as f64;
 
     let mut fused: Vec<InformationEstimate> = estimates

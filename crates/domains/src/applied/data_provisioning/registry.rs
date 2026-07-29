@@ -214,6 +214,27 @@ pub fn lock_compact_archive_signature(name: &str, version: &str) -> Option<&'sta
     lock_compact_archive_signatures().get(&key)
 }
 
+/// The pinned DEFINES-overlay compact archive content addresses from
+/// `praxis.lock`. Keys are `"<name>@<version>"`; each value is the
+/// [`LockDigest`] of the overlay's uncompressed succinct bytes (its content
+/// address) — the sparse `(provision_urn, term)` pairs `defines_pointers`
+/// found grounding that source's prose. Same portability class as
+/// `[compact_archive_signatures]` (dependency-free bit-packing), pinned in a
+/// separate section because the overlay is the expensive NLP-grammar
+/// extraction result, not the structural corpus.
+pub fn lock_compact_defines_signatures() -> &'static HashMap<String, LockDigest> {
+    &lock_data().compact_defines_signatures
+}
+
+/// Look up the DEFINES-overlay compact archive content address for a
+/// specific source. Returns `None` if the source has no pinned overlay — the
+/// defines-overlay load gate then has nothing to validate against and the
+/// caller falls back to structural-only grounding (no DEFINES edges).
+pub fn lock_compact_defines_signature(name: &str, version: &str) -> Option<&'static LockDigest> {
+    let key = format!("{name}@{version}");
+    lock_compact_defines_signatures().get(&key)
+}
+
 /// The pinned English STORE-BUNDLE content addresses from `praxis.lock`.
 /// Keys are `"<name>@<version>"`; each value is the [`LockDigest`] of the
 /// bundle's uncompressed FRAMED bytes (the nine BUILT store buffers). The
@@ -250,6 +271,26 @@ pub fn lock_snapshot_signatures() -> &'static HashMap<String, LockDigest> {
 /// nothing to validate against and fails closed.
 pub fn lock_snapshot_signature(version: &str) -> Option<&'static LockDigest> {
     lock_snapshot_signatures().get(version)
+}
+
+/// The pinned grammar-closure content address(es) from `praxis.lock`. Keyed
+/// by a fixed CLOSURE NAME (today only `"defines_overlay"`), NOT
+/// `"<name>@<version>"` — see [`LockData::grammar_signatures`]'s field doc.
+pub fn lock_grammar_signatures() -> &'static HashMap<String, LockDigest> {
+    &lock_data().grammar_signatures
+}
+
+/// Look up the grammar-closure content address for a specific closure name
+/// (today only `"defines_overlay"`). Returns `None` if no fingerprint is
+/// pinned — the freshness checks
+/// (`defines_grammar_signature::defines_grammar_signature_matches_current_source`,
+/// and the runtime gate in
+/// `social::software::markup::xml::uslm::corpus::prx::load_usc_defines_overlay_from_disk`)
+/// then have nothing to compare against and skip (parse-time already
+/// enforces this can only happen when `[compact_defines_signatures]` is
+/// itself empty).
+pub fn lock_grammar_signature(closure_name: &str) -> Option<&'static LockDigest> {
+    lock_grammar_signatures().get(closure_name)
 }
 
 fn lock_data() -> &'static LockData {
@@ -300,6 +341,16 @@ struct RawSource {
     /// sources whose on-disk name isn't the `{name}-{version}` formula.
     #[serde(default)]
     local_path: Option<String>,
+    /// `false` marks a DERIVED/AUTHORED/BUNDLED source whose `url` is a
+    /// citation, not a fetchable endpoint — see
+    /// [`RegistryEntry::fetchable`](super::ontology::RegistryEntry::fetchable).
+    /// Absent means fetchable (the common case).
+    #[serde(default = "default_fetchable")]
+    fetchable: bool,
+}
+
+fn default_fetchable() -> bool {
+    true
 }
 
 /// Intermediate form: name + raw source. We keep names sorted at the
@@ -390,6 +441,7 @@ fn build_entry(
         url: raw.url,
         description: raw.description,
         local_path: raw.local_path,
+        fetchable: raw.fetchable,
         identity: CompositeIdentity(claims),
     })
 }
@@ -584,11 +636,14 @@ impl core::fmt::Display for LockDigest {
 ///   it addresses a different artifact (the compiled rkyv envelope, not
 ///   the raw source).
 ///
-/// Six of the seven digest spaces (`hashes`, `canonical_signatures`,
+/// Six of the eight digest spaces (`hashes`, `canonical_signatures`,
 /// `byte_exact_signatures`, `archive_signatures`, `compact_archive_signatures`,
-/// `store_bundle_signatures`) are keyed by `"<name>@<version>"`. The seventh,
-/// `snapshot_signatures`, is keyed by `GraphVersion` instead (see its field
-/// doc).
+/// `store_bundle_signatures`) are keyed by `"<name>@<version>"`. The other
+/// two are keyed differently, each for its own documented reason:
+/// `snapshot_signatures` by `GraphVersion` (see its field doc), and
+/// `grammar_signatures` by a fixed CLOSURE NAME (see its field doc) — the
+/// grammar fingerprint is one piece of code shared by every USC title, not
+/// a per-source pin.
 ///
 /// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
 #[derive(Debug, Default)]
@@ -605,6 +660,18 @@ pub struct LockData {
     /// checks; like `[archive_signatures]` it pins a compiled artifact (not the
     /// raw source) and requires a matching `[hashes]` entry.
     pub compact_archive_signatures: HashMap<String, LockDigest>,
+    /// Content address of a source's DEFINES-overlay compact archive
+    /// (`social::software::markup::xml::uslm::corpus::prx::emit_compact_usc_defines_prx_gz`)
+    /// — the sparse `(provision_urn, term)` pairs `defines_pointers` found
+    /// grounding that source's prose, keyed by `"<name>@<version>"`. Same
+    /// trust class as `[compact_archive_signatures]` (portable,
+    /// toolchain-independent succinct bytes, requires a matching `[hashes]`
+    /// entry) but a SEPARATE section: the overlay is the expensive NLP-grammar
+    /// extraction result, not the structural corpus, so it is pinned
+    /// independently to avoid forcing a spurious re-lock of unrelated
+    /// structural pins whenever the defines GRAMMAR (not the raw legal text)
+    /// changes.
+    pub compact_defines_signatures: HashMap<String, LockDigest>,
     /// Content address of the English STORE BUNDLE's uncompressed FRAMED bytes
     /// (`.stores.gz` — the nine BUILT store buffers, framed), keyed by
     /// `"<name>@<version>"`. The trust class is `[archive_signatures]`, NOT
@@ -627,6 +694,33 @@ pub struct LockData {
     /// operator pins a published snapshot (rkyv wire layout is
     /// toolchain-dependent, so nothing is committed in-repo; #271 pins none).
     pub snapshot_signatures: HashMap<String, LockDigest>,
+    /// Content address of the CODE dependency closure that produces
+    /// `[compact_defines_signatures]` pins — see
+    /// [`defines_grammar_signature::DEFINES_GRAMMAR_CLOSURE_FILES`](super::defines_grammar_signature::DEFINES_GRAMMAR_CLOSURE_FILES).
+    /// Keyed by a fixed CLOSURE NAME (today only `"defines_overlay"`), NOT
+    /// `"<name>@<version>"` — like `[snapshot_signatures]`, this artifact
+    /// has no upstream fetched source (it addresses Rust source, not
+    /// registered data), so — by the same deliberate asymmetry documented
+    /// on `snapshot_signatures` — an entry here does NOT require a matching
+    /// `[hashes]` pin.
+    ///
+    /// What IS required, in the OTHER direction (enforced at parse time
+    /// below): every `[compact_defines_signatures]` key requires a
+    /// `grammar_signatures["defines_overlay"]` entry to exist beside it — a
+    /// `compact_defines_signatures` pin with no recorded grammar
+    /// fingerprint is a configuration error, the same class of check
+    /// `compact_defines_signatures` itself applies against `[hashes]`. This
+    /// presence check is structural only (cheap, runs everywhere including
+    /// the published crate with no workspace access); it cannot check
+    /// FRESHNESS at parse time (that needs to re-read live `.rs` source,
+    /// which this layer deliberately never assumes — the same reason
+    /// [`PRAXIS_REGISTRY_ROOT_HEX`](super::prx_envelope::PRAXIS_REGISTRY_ROOT_HEX)
+    /// bootstraps from `include_bytes!` rather than re-reading `praxis.toml`
+    /// at runtime). Freshness is the separate, workspace-aware
+    /// `defines_grammar_signature::defines_grammar_signature_matches_current_source`
+    /// test, plus a runtime gate in
+    /// `social::software::markup::xml::uslm::corpus::prx::load_usc_defines_overlay_from_disk`.
+    pub grammar_signatures: HashMap<String, LockDigest>,
 }
 
 /// In-memory representation of a statute's structural extraction —
@@ -674,9 +768,13 @@ struct RawLockFile {
     #[serde(default)]
     compact_archive_signatures: HashMap<String, String>,
     #[serde(default)]
+    compact_defines_signatures: HashMap<String, String>,
+    #[serde(default)]
     store_bundle_signatures: HashMap<String, String>,
     #[serde(default)]
     snapshot_signatures: HashMap<String, String>,
+    #[serde(default)]
+    grammar_signatures: HashMap<String, String>,
 }
 
 /// Parse one section's raw string values into typed [`LockDigest`]s,
@@ -706,9 +804,12 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
     let archive_signatures = parse_section("archive_signatures", raw.archive_signatures)?;
     let compact_archive_signatures =
         parse_section("compact_archive_signatures", raw.compact_archive_signatures)?;
+    let compact_defines_signatures =
+        parse_section("compact_defines_signatures", raw.compact_defines_signatures)?;
     let store_bundle_signatures =
         parse_section("store_bundle_signatures", raw.store_bundle_signatures)?;
     let snapshot_signatures = parse_section("snapshot_signatures", raw.snapshot_signatures)?;
+    let grammar_signatures = parse_section("grammar_signatures", raw.grammar_signatures)?;
 
     // Every canonical_signatures key must also exist in [hashes] —
     // the signature is the lens-output of an already-pinned source.
@@ -774,6 +875,20 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
             ));
         }
     }
+    // A compact_defines_signature pins the content address of the DEFINES-
+    // overlay compact archive for an already-hashed source — same
+    // must-name-a-[hashes]-pinned-source contract as [compact_archive_signatures],
+    // but addresses the separate sparse (provision_urn, term) overlay, not the
+    // structural corpus.
+    for key in compact_defines_signatures.keys() {
+        if !hashes.contains_key(key) {
+            return Err(format!(
+                "praxis.lock: `[compact_defines_signatures.\"{key}\"]` has no matching \
+                 entry in `[hashes]` — the signature pins the DEFINES-overlay compact \
+                 archive of an already-hashed source"
+            ));
+        }
+    }
     // A store_bundle_signature pins the content address of the English STORE
     // BUNDLE (the nine BUILT store buffers, framed) for an already-hashed
     // source — the same must-name-a-[hashes]-pinned-source contract as
@@ -794,14 +909,40 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
     // (the slice's own content address) and has NO upstream fetched source, so
     // it must NOT require a matching [hashes] entry. (Its values still parse
     // through the same tagged grammar above.)
+    //
+    // A grammar_signature pins the content address of the CODE dependency
+    // closure that produces [compact_defines_signatures] — DELIBERATE
+    // ASYMMETRY vs the six name@version-keyed spaces (same shape as
+    // [snapshot_signatures]): keyed by a fixed CLOSURE NAME
+    // ("defines_overlay"), no upstream fetched source, so it does NOT
+    // require a matching [hashes] entry (its values still parse through the
+    // tagged grammar above). What IS required, in the OTHER direction: any
+    // [compact_defines_signatures] pin requires the grammar fingerprint
+    // that produced it to be recorded beside it — a compact_defines_signatures
+    // pin with no grammar_signatures["defines_overlay"] entry has nothing
+    // for the freshness check to compare against, which is a configuration
+    // error, not a legitimate unpinned state.
+    if !compact_defines_signatures.is_empty() && !grammar_signatures.contains_key("defines_overlay")
+    {
+        return Err(format!(
+            "praxis.lock: `[compact_defines_signatures]` has {} pin(s) but \
+             `[grammar_signatures].\"defines_overlay\"` is missing — every \
+             compact_defines_signatures pin requires the CODE grammar fingerprint that \
+             produced it to be recorded beside it (see \
+             `defines_grammar_signature::DEFINES_GRAMMAR_CLOSURE_FILES`)",
+            compact_defines_signatures.len()
+        ));
+    }
     Ok(LockData {
         hashes,
         canonical_signatures,
         byte_exact_signatures,
         archive_signatures,
         compact_archive_signatures,
+        compact_defines_signatures,
         store_bundle_signatures,
         snapshot_signatures,
+        grammar_signatures,
     })
 }
 
@@ -1127,6 +1268,67 @@ url     = "https://example.com/wordnet.xml.gz"
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn accepts_grammar_signature_without_hashes_entry() {
+        // DELIBERATE ASYMMETRY vs [archive_signatures] (same shape as
+        // [snapshot_signatures]): a grammar-closure fingerprint addresses
+        // Rust SOURCE, not a registered/fetched data source, so it parses
+        // with an EMPTY [hashes] section as long as
+        // [compact_defines_signatures] is also empty.
+        let text = r#"
+[hashes]
+
+[grammar_signatures]
+"defines_overlay" = "4444444444444444444444444444444444444444444444444444444444444444"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.grammar_signatures.len(), 1);
+        assert_eq!(
+            lock.grammar_signatures.get("defines_overlay").unwrap(),
+            &sha("4444444444444444444444444444444444444444444444444444444444444444")
+        );
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn rejects_compact_defines_signature_without_grammar_signature() {
+        // A compact_defines_signature pin with no recorded grammar
+        // fingerprint beside it has nothing for the freshness check to
+        // compare against — a configuration error, not a legitimate
+        // unpinned state.
+        let text = r#"
+[hashes]
+"usc_title_1@x" = "1111111111111111111111111111111111111111111111111111111111111111"
+
+[compact_defines_signatures]
+"usc_title_1@x" = "2222222222222222222222222222222222222222222222222222222222222222"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("grammar_signatures") && err.contains("defines_overlay"),
+            "got: {err}"
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn accepts_compact_defines_signature_with_grammar_signature_present() {
+        let text = r#"
+[hashes]
+"usc_title_1@x" = "1111111111111111111111111111111111111111111111111111111111111111"
+
+[compact_defines_signatures]
+"usc_title_1@x" = "2222222222222222222222222222222222222222222222222222222222222222"
+
+[grammar_signatures]
+"defines_overlay" = "3333333333333333333333333333333333333333333333333333333333333333"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.compact_defines_signatures.len(), 1);
+        assert_eq!(lock.grammar_signatures.len(), 1);
+    }
+
     #[pr4xis::praxis_value(Honest)]
     #[test]
     fn rejects_canonical_signature_without_matching_hash() {
@@ -1208,6 +1410,7 @@ url     = "https://example.com/wordnet.xml.gz"
                 url: "".into(),
                 description: None,
                 local_path: None,
+                fetchable: true,
             },
         };
         let lock = HashMap::new();
@@ -1232,6 +1435,7 @@ url     = "https://example.com/wordnet.xml.gz"
                 url: "".into(),
                 description: None,
                 local_path: None,
+                fetchable: true,
             },
         };
         let lock = HashMap::new();
@@ -1251,6 +1455,7 @@ url     = "https://example.com/wordnet.xml.gz"
                 url: "https://example.com/wn.xml.gz".into(),
                 description: Some("test".into()),
                 local_path: None,
+                fetchable: true,
             },
         };
         let mut lock = HashMap::new();

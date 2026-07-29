@@ -192,6 +192,35 @@ pub enum ContentType {
     /// `decoders::theme_collection`. Cite: Tinted Theming, Base16
     /// Styling Guidelines + Base24 spec, github.com/tinted-theming/home.
     ThemeCollection,
+    /// A VerbNet class-hierarchy COLLECTION — a directory of per-class XML
+    /// files (Kipper Schuler 2005; Levin 1993 syntactic-alternation verb
+    /// classes, each with `<MEMBER wn="...">` entries keyed by WordNet
+    /// sense-key and nested `<SUBCLASSES>`), archived into ONE deterministic
+    /// content-addressed blob — the SAME MANY-file-collection shape as
+    /// [`ThemeCollection`](ContentType::ThemeCollection), reusing its
+    /// generic `path → bytes` archive codec
+    /// (`decoders::file_collection`). Decoder:
+    /// `decoders::verbnet_class_collection`. Cite: Kipper, K., Korhonen, A.,
+    /// Ryant, N. & Palmer, M. (2008) "A Large-scale Classification of
+    /// English Verbs", Language Resources and Evaluation 42(1):21-40;
+    /// Levin, B. (1993) *English Verb Classes and Alternations*, University
+    /// of Chicago Press. Source: github.com/cu-clear/verbnet, tag `vn-3.3`.
+    VerbNetClassCollection,
+    /// A PropBank frameset COLLECTION — a directory of per-lemma XML files
+    /// (Palmer, Gildea & Kingsbury 2005; Bonial, Bonn, Conger, Hwang & Palmer
+    /// 2014), each a `frameset → predicate → roleset → aliases` tree,
+    /// archived into ONE deterministic content-addressed blob — the SAME
+    /// many-file-collection shape as
+    /// [`VerbNetClassCollection`](ContentType::VerbNetClassCollection),
+    /// reusing its generic `path → bytes` archive codec
+    /// (`decoders::file_collection`). Decoder:
+    /// `decoders::propbank_frameset_collection`. Cite: Palmer, M., Gildea,
+    /// D. & Kingsbury, P. (2005) "The Proposition Bank: An Annotated Corpus
+    /// of Semantic Roles", Computational Linguistics 31(1):71-106; Bonial,
+    /// C., Bonn, J., Conger, K., Hwang, J. & Palmer, M. (2014) "PropBank:
+    /// Semantics of New Predicate Types", LREC 2014. Source:
+    /// github.com/propbank/propbank-frames, tag `v3.4.0`.
+    PropBankFramesetCollection,
     /// LMF-shaped mathematical-operator vocabulary — an authored closed-class
     /// controlled vocabulary serialised in the WN-LMF `<LexicalEntry>` shape
     /// (`math-operators.xml`: one operator glyph per `<Lemma>`, its OpenMath STS
@@ -248,7 +277,29 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // (`bit_name<TAB>spec_atom<TAB>source`) and the OLiA→CCG lexical-category
         // projection (`olia_class<TAB>ccg_category[<TAB>valency]`). Decoder:
         // `decoders::plaintext_tsv` (the generic TSV → typed-record-stream codec).
-        C::WindowStateVocabulary | C::LexicalCategoryProjection => ContentType::Plaintext,
+        C::WindowStateVocabulary
+        | C::LexicalCategoryProjection
+        | C::RealizationFrameTable
+        | C::SupertagCostTable
+        | C::QuoteGlyphVocabulary
+        | C::DashPunctuationVocabulary
+        | C::EnglishGraphemeClasses
+        | C::CaseFoldingTable => ContentType::Plaintext,
+        // ConceptNet (Speer, Chin & Havasi 2017), WordNet-lemma-crosswalk-
+        // filtered to a `relation<TAB>start_lemma<TAB>end_lemma<TAB>weight`
+        // table — the same praxis-TSV convention, same generic decoder.
+        C::AssociativeConceptTable => ContentType::Plaintext,
+        // FrameNet (Baker, Fillmore & Lowe 1998), a third source alongside
+        // VerbNet/ConceptNet, same praxis-TSV convention, same generic
+        // decoder.
+        C::FrameSemanticTable => ContentType::Plaintext,
+        // SUMO WordNet↔SUMO mapping table (Niles & Pease 2001, 2003), a
+        // fourth source, mechanically extracted to a synset-offset/pos/term/
+        // relation-code TSV — same praxis-TSV convention, same generic decoder.
+        C::SumoWordNetMappingTable => ContentType::Plaintext,
+        // GeoNames countryInfo.txt (Country/Capital/Continent/neighbours),
+        // same praxis-TSV convention, same generic decoder.
+        C::GazetteerTable => ContentType::Plaintext,
         // The mathematical-operator vocabulary is a ControlledVocabulary leaf
         // authored in LMF-shaped XML (one operator glyph per `<LexicalEntry>`,
         // its OpenMath STS signature on the `<Sense>`). It is consumed as raw
@@ -263,6 +314,23 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // type, decoded by `decoders::theme_collection` back into the
         // `path → bytes` set the theming validator scans.
         C::ColorSchemeVocabulary => ContentType::ThemeCollection,
+        // VerbNet is a lexicon leaf shaped as a COLLECTION — a whole
+        // directory of per-class XML files (Kipper et al. 2008). Its
+        // canonical on-disk form + `.prx` is a single deterministic
+        // directory archive, reusing the SAME generic archive codec the
+        // color-scheme collection uses, decoded by
+        // `decoders::verbnet_class_collection` back into the class
+        // hierarchy the corroboration mechanism queries.
+        C::VerbClassLexicon => ContentType::VerbNetClassCollection,
+        // PropBank is a lexicon leaf shaped as a COLLECTION — a whole
+        // directory of per-lemma frame XML files (Palmer, Gildea & Kingsbury
+        // 2005). Its canonical on-disk form + `.prx` is a single
+        // deterministic directory archive, reusing the SAME generic archive
+        // codec VerbNet's collection uses, decoded by
+        // `decoders::propbank_frameset_collection` back into the frameset
+        // collection the corroboration mechanism's live cross-POS query
+        // parses.
+        C::PredicateArgumentLexicon => ContentType::PropBankFramesetCollection,
         // US federal statutes published by GPO ship as PDF on
         // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
         // preferred authenticated digital edition). The Statute /
@@ -292,6 +360,13 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // not the graph `.prx.gz` envelope; the byte-exact graph round-trip is
         // still witnessed by the registered `WordNetLmfLens` audit.
         C::LegalLexicon => ContentType::XmlLmfLexicon,
+        // The two Caregiver AI Challenge definitional lexicons
+        // (caregiving_lexicon, hcbs_compliance_lexicon) are authored in the
+        // SAME WN-LMF schema and are small and bounded — the identical
+        // feature-light RAW-bytes `.prx` path as LegalLexicon, same
+        // `read_wordnet` reader, same registered `WordNetLmfLens` byte-exact
+        // round-trip witness.
+        C::CaregivingLexicon | C::HcbsComplianceLexicon => ContentType::XmlLmfLexicon,
         // SchemaVocabularies ship as LMF XML — same shape as
         // LegalLexicons. The taxonomy slot remains for future
         // bundles in this family; the M4.η.4 deletion of
@@ -398,6 +473,19 @@ pub struct RegistryEntry {
     /// Rust table (audit 2026-06-12 D-8). When present it wins Layer 0
     /// in [`RegistryEntry::local_path`].
     pub local_path: Option<String>,
+    /// `true` (the default) when `url` is a real download endpoint the
+    /// fetcher may GET. `false` marks a DERIVED/AUTHORED/BUNDLED
+    /// source-of-truth whose `url` is a citation (a landing page, a spec)
+    /// rather than the raw artifact — a hand-authored or hand-regenerated
+    /// TSV/XML the repo git-tracks and ships as a committed content-
+    /// addressed `.prx`. `pr4xis update <name> --lock` (network mode)
+    /// refuses to touch such a source rather than silently overwriting
+    /// the hand-authored file with whatever `url` happens to serve (the
+    /// sharp edge that once wrote an ERA landing page over
+    /// `ccg-supertag-costs.tsv`). The correct re-pin flow after a hand
+    /// edit is `pr4xis update <name> --lock --offline` (the custody
+    /// re-pin, which never touches the network).
+    pub fetchable: bool,
     /// Identity claims, synthesized from manifest + lock at load time.
     pub identity: CompositeIdentity,
 }
@@ -546,6 +634,12 @@ fn path_extension(ct: ContentType) -> &'static str {
         // pointing at a real file (the `RegistryLocalPathsExist` invariant) and
         // the generalized raw-source emit reads it as one source.
         ContentType::ThemeCollection => "themes",
+        // Same reasoning as ThemeCollection: a single deterministic
+        // directory archive on disk (`<name>-<version>.verbnet`).
+        ContentType::VerbNetClassCollection => "verbnet",
+        // Same reasoning again: a single deterministic directory archive on
+        // disk (`<name>-<version>.propbank`).
+        ContentType::PropBankFramesetCollection => "propbank",
     }
 }
 
@@ -587,8 +681,11 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
         C::ControlledVocabulary
             | C::WindowStateVocabulary
             | C::LexicalCategoryProjection
+            | C::RealizationFrameTable
             | C::MathOperatorVocabulary
             | C::ColorSchemeVocabulary
+            | C::SupertagCostTable
+            | C::GazetteerTable
     ) {
         // ControlledVocabulary leaves are DERIVED/authored or FETCHED sources
         // that live beside the code that consumes them (the EWMH window-state
@@ -599,9 +696,12 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
         // is the family root, not the resolved path.
         match kind {
             C::WindowStateVocabulary => "hmi",
-            C::LexicalCategoryProjection => "grammar",
+            C::LexicalCategoryProjection | C::RealizationFrameTable | C::SupertagCostTable => {
+                "grammar"
+            }
             C::MathOperatorVocabulary => "operators",
             C::ColorSchemeVocabulary => "themes",
+            C::GazetteerTable => "geography",
             _ => "vocabularies",
         }
     } else if matches!(

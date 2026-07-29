@@ -3,19 +3,27 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::formal::math::angle::Angle;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
 
 /// EW geolocation algorithms.
 ///
 /// Source: Poisel (2012), *Electronic Warfare Target Location Methods*
 /// Wrap an angle to [-pi, pi].
-pub fn wrap_angle(angle: f64) -> f64 {
-    let mut a = angle % (2.0 * core::f64::consts::PI);
+///
+/// Returns a [`Quantity`] in [`unit::RADIAN`] (`Dimension::ANGLE`, which is
+/// dimensionless per BIPM SI Brochure (2019) §2.3.3 — radian is a ratio of
+/// two lengths) rather than a bare `f64`, so the wrapped bearing stays a
+/// citable ontological quantity through the geolocation pipeline.
+pub fn wrap_angle(angle: &Quantity) -> Quantity {
+    let mut a = angle.value % (2.0 * core::f64::consts::PI);
     if a > core::f64::consts::PI {
         a -= 2.0 * core::f64::consts::PI;
     } else if a < -core::f64::consts::PI {
         a += 2.0 * core::f64::consts::PI;
     }
-    a
+    Quantity::from_unit(a, &unit::RADIAN)
 }
 
 /// AOA measurement from a single sensor.
@@ -26,8 +34,8 @@ pub struct AoaMeasurement {
     pub sensor_pos: Vector,
     /// Measured bearing as an [`Angle`] (from north, clockwise).
     pub bearing: Angle,
-    /// Measurement uncertainty (radians, 1-sigma).
-    pub sigma: f64,
+    /// Measurement uncertainty (1-sigma), a [`Quantity`] in [`unit::RADIAN`].
+    pub sigma: Quantity,
 }
 
 /// Determinant magnitude below which two lines of bearing (LOBs) are treated
@@ -81,30 +89,48 @@ pub struct TdoaMeasurement {
     /// Position of sensor B as a 2D `(x, y)` vector in the local ground-plane
     /// (sensor-network) Cartesian frame.
     pub sensor_b: Vector,
-    /// Time difference of arrival (seconds): t_B - t_A.
-    pub tdoa: f64,
-    /// Speed of signal propagation (m/s).
-    pub signal_speed: f64,
+    /// Time difference of arrival: t_B - t_A, a [`Duration`] (may be negative).
+    pub tdoa: Duration,
+    /// Speed of signal propagation, a [`Quantity`] in [`unit::METER_PER_SECOND`].
+    pub signal_speed: Quantity,
 }
 
 impl TdoaMeasurement {
     /// Compute the range difference.
-    pub fn range_difference(&self) -> f64 {
-        self.tdoa * self.signal_speed
+    ///
+    /// `tdoa` (seconds) times `signal_speed` (m/s) is a real physical range
+    /// in meters, so this returns a [`Quantity`] in [`unit::METER`] rather
+    /// than a bare `f64`.
+    pub fn range_difference(&self) -> Quantity {
+        Quantity::from_unit(self.tdoa.seconds() * self.signal_speed.value, &unit::METER)
     }
 }
 
 /// Compute distance between two 2D points.
-pub fn distance_2d(a: &Vector, b: &Vector) -> f64 {
+///
+/// The sensor and emitter positions are real ground-plane coordinates in
+/// meters (see [`AoaMeasurement::sensor_pos`] / [`TdoaMeasurement`]), so the
+/// Euclidean distance between them is a real physical length: a [`Quantity`]
+/// in [`unit::METER`], not a bare `f64`.
+pub fn distance_2d(a: &Vector, b: &Vector) -> Quantity {
     let dx = b.get(0) - a.get(0);
     let dy = b.get(1) - a.get(1);
-    (dx * dx + dy * dy).sqrt()
+    Quantity::from_unit((dx * dx + dy * dy).sqrt(), &unit::METER)
 }
 
 /// Compute TDOA residual for a candidate emitter position.
-pub fn tdoa_residual(measurement: &TdoaMeasurement, emitter: &Vector) -> f64 {
+///
+/// Both the predicted range difference (from candidate-emitter geometry) and
+/// the measured range difference (from `tdoa * signal_speed`) are lengths in
+/// meters, so their difference is itself a [`Quantity`] in [`unit::METER`]
+/// (a range residual), not a bare `f64`.
+pub fn tdoa_residual(measurement: &TdoaMeasurement, emitter: &Vector) -> Quantity {
     let r_a = distance_2d(&measurement.sensor_a, emitter);
     let r_b = distance_2d(&measurement.sensor_b, emitter);
-    let predicted_range_diff = r_b - r_a;
-    predicted_range_diff - measurement.range_difference()
+    let predicted_range_diff = r_b
+        .sub(&r_a)
+        .expect("both r_a and r_b are METER-dimensioned distances");
+    predicted_range_diff
+        .sub(&measurement.range_difference())
+        .expect("predicted range diff and measured range diff are both METER-dimensioned")
 }

@@ -94,8 +94,8 @@ use pr4xis::codegen_data::CodegenData;
 use pr4xis_runtime::address::ContentAddress;
 
 use super::{
-    SubdivisionKind, UsCode, UsCodeSubdivision, UsCodeTitle, UscComposesEdge, UscSectionAux,
-    UscSubdivision,
+    SubdivisionKind, UsCode, UsCodeRef, UsCodeSubdivision, UsCodeTitle, UscComposesEdge,
+    UscSectionAux, UscSubdivision,
 };
 use crate::applied::data_provisioning::registry::LockDigest;
 use crate::formal::meta::artifact_identity::ontology::{
@@ -176,6 +176,12 @@ pub struct OwnedUscSubdivision {
     /// Nested subdivisions, in USLM document order.
     #[rkyv(omit_bounds)]
     pub children: Vec<OwnedUscSubdivision>,
+    /// `<ref href="…">` cross-references collected from THIS node's own
+    /// body surfaces, in USLM document order — the owned mirror of
+    /// [`UscSubdivision::refs`]. Each [`UsCodeRef`] `{ href, text }` is
+    /// carried VERBATIM (the `href` a USLM identifier URN that may point
+    /// outside the corpus), NOT recursive, so it needs no `omit_bounds`.
+    pub refs: Vec<UsCodeRef>,
 }
 
 /// Owned, rkyv-serializable mirror of the corpus
@@ -196,6 +202,11 @@ pub struct OwnedUscSectionAux {
     /// `Composes` edges `(child_urn, parent_urn)` across the whole tree,
     /// in the document-order DFS `subdivisions_to_static` emits.
     pub relations: Vec<(String, String)>,
+    /// `<ref href="…">` cross-references collected from the SECTION
+    /// root's own body surfaces, in USLM document order — the owned
+    /// mirror of [`UscSectionAux::refs`]. A subdivision's citations ride
+    /// its own [`OwnedUscSubdivision::refs`], not this list.
+    pub refs: Vec<UsCodeRef>,
 }
 
 impl OwnedUscSubdivision {
@@ -225,6 +236,7 @@ impl OwnedUscSubdivision {
             chapeau: self.chapeau.clone(),
             content: self.content.clone(),
             children: self.children.iter().map(Self::to_corpus).collect(),
+            refs: self.refs.clone(),
         }
     }
 }
@@ -258,6 +270,7 @@ fn to_aux_owned(aux: &[OwnedUscSectionAux]) -> Vec<UscSectionAux> {
                     to_urn: to.clone(),
                 })
                 .collect(),
+            refs: entry.refs.clone(),
         })
         .collect()
 }
@@ -684,10 +697,13 @@ pub(crate) fn title_to_owned(title: &UsCodeTitle) -> (OwnedCodegenData, Vec<Owne
         entity_kind.push("section".to_string());
         // PROSE heading — footnote annotation stripped via the typed tree, so
         // the archived `entity_labels` heading column MATCHES the XML path's
-        // `from_uslm_titles_owned` (`prose_text()`). The byte-exact source
-        // reconstruction regenerates from the typed `heading_mixed`, not this
-        // flat column, so U6 byte-exactness is unaffected.
-        entity_labels.push(section.heading_mixed.prose_text());
+        // `from_uslm_titles_owned` (`heading_prose_text()`, NOT the body-prose
+        // `prose_text()` — see `NonProseSubtreeKind`'s own doc for why a
+        // heading and `chapeau`/`content` need opposite answers on
+        // footnotes). The byte-exact source reconstruction regenerates from
+        // the typed `heading_mixed`, not this flat column, so U6
+        // byte-exactness is unaffected.
+        entity_labels.push(section.heading_mixed.heading_prose_text());
         // Reuse the EXACT corpus body-text projection (mod.rs) so the archive
         // matches `from_uslm_titles_owned`.
         entity_defs.push(super::section_body_text(section));
@@ -696,6 +712,7 @@ pub(crate) fn title_to_owned(title: &UsCodeTitle) -> (OwnedCodegenData, Vec<Owne
             urn: section.identifier.clone(),
             subdivisions,
             relations,
+            refs: section.refs.clone(),
         });
     }
     let data = OwnedCodegenData {
@@ -738,6 +755,7 @@ fn owned_subdivisions(
             chapeau: sub.chapeau.clone(),
             content: sub.content.clone(),
             children: child_subs,
+            refs: sub.refs.clone(),
         });
     }
     (result, edges)
@@ -921,6 +939,14 @@ struct AuxColumns {
     heading: Vec<Option<u32>>,
     chapeau: Vec<Option<u32>>,
     content: Vec<Option<u32>>,
+    /// Per-node citation count (one entry per node, parallel to
+    /// `child_count`); the flattened `ref_href` / `ref_text` dict-index
+    /// pairs are consumed `ref_count[i]` at a time in pre-order, the
+    /// same variable-length columnar shape `child_count` uses for the
+    /// tree itself.
+    ref_count: Vec<usize>,
+    ref_href: Vec<usize>,
+    ref_text: Vec<usize>,
 }
 
 impl AuxColumns {
@@ -936,6 +962,14 @@ impl AuxColumns {
             .push(node.chapeau.as_deref().map(|s| idx[s] as u32));
         self.content
             .push(node.content.as_deref().map(|s| idx[s] as u32));
+        // This node's citations, pushed BEFORE recursing into children so
+        // the flattened `ref_href`/`ref_text` order is the same pre-order
+        // walk `rebuild` replays.
+        self.ref_count.push(node.refs.len());
+        for r in &node.refs {
+            self.ref_href.push(idx[r.href.as_str()]);
+            self.ref_text.push(idx[r.text.as_str()]);
+        }
         for c in &node.children {
             self.push_tree(c, idx);
         }
@@ -953,7 +987,14 @@ struct AuxDecoder<'a> {
     heading: &'a [Option<u32>],
     chapeau: &'a [Option<u32>],
     content: &'a [Option<u32>],
+    ref_count: &'a [usize],
+    ref_href: &'a [usize],
+    ref_text: &'a [usize],
     cur: usize,
+    /// Running cursor into the flattened `ref_href`/`ref_text` arrays,
+    /// advanced `ref_count[i]` per node in the SAME pre-order `push_tree`
+    /// flattened them — so a node's citations line up with its subtree.
+    ref_cur: usize,
 }
 
 impl AuxDecoder<'_> {
@@ -967,6 +1008,14 @@ impl AuxDecoder<'_> {
         let heading = self.heading[i].map(|v| self.dict[v as usize].clone());
         let chapeau = self.chapeau[i].map(|v| self.dict[v as usize].clone());
         let content = self.content[i].map(|v| self.dict[v as usize].clone());
+        let rc = self.ref_count[i];
+        let mut refs = Vec::with_capacity(rc);
+        for _ in 0..rc {
+            let href = self.dict[self.ref_href[self.ref_cur]].clone();
+            let text = self.dict[self.ref_text[self.ref_cur]].clone();
+            self.ref_cur += 1;
+            refs.push(UsCodeRef { href, text });
+        }
         let mut children = Vec::with_capacity(cc);
         for _ in 0..cc {
             children.push(self.rebuild());
@@ -979,6 +1028,7 @@ impl AuxDecoder<'_> {
             chapeau,
             content,
             children,
+            refs,
         }
     }
 }
@@ -1018,6 +1068,10 @@ fn aux_to_succinct(out: &mut Vec<u8>, aux: &[OwnedUscSectionAux]) {
             if let Some(c) = &s.content {
                 all.push(c);
             }
+            for r in &s.refs {
+                all.push(r.href.as_str());
+                all.push(r.text.as_str());
+            }
             collect(&s.children, all);
         }
     }
@@ -1025,6 +1079,10 @@ fn aux_to_succinct(out: &mut Vec<u8>, aux: &[OwnedUscSectionAux]) {
     let mut all: Vec<&str> = Vec::new();
     for sec in aux {
         all.push(sec.urn.as_str());
+        for r in &sec.refs {
+            all.push(r.href.as_str());
+            all.push(r.text.as_str());
+        }
         collect(&sec.subdivisions, &mut all);
     }
     all.sort_unstable();
@@ -1036,10 +1094,21 @@ fn aux_to_succinct(out: &mut Vec<u8>, aux: &[OwnedUscSectionAux]) {
     put_varint(out, aux.len() as u64);
     let mut sec_urn = Vec::with_capacity(aux.len());
     let mut root_count = Vec::with_capacity(aux.len());
+    // Section-root citations: a per-section count column plus the two
+    // flattened dict-index arrays, the section-level twin of the node
+    // `ref_count`/`ref_href`/`ref_text` columns.
+    let mut sec_ref_count = Vec::with_capacity(aux.len());
+    let mut sec_ref_href: Vec<usize> = Vec::new();
+    let mut sec_ref_text: Vec<usize> = Vec::new();
     let mut cols = AuxColumns::default();
     for sec in aux {
         sec_urn.push(idx[sec.urn.as_str()]);
         root_count.push(sec.subdivisions.len());
+        sec_ref_count.push(sec.refs.len());
+        for r in &sec.refs {
+            sec_ref_href.push(idx[r.href.as_str()]);
+            sec_ref_text.push(idx[r.text.as_str()]);
+        }
         for node in &sec.subdivisions {
             cols.push_tree(node, &idx);
         }
@@ -1053,6 +1122,12 @@ fn aux_to_succinct(out: &mut Vec<u8>, aux: &[OwnedUscSectionAux]) {
     put_opt(out, &cols.heading);
     put_opt(out, &cols.chapeau);
     put_opt(out, &cols.content);
+    put_cv(out, &cols.ref_count);
+    put_cv(out, &cols.ref_href);
+    put_cv(out, &cols.ref_text);
+    put_cv(out, &sec_ref_count);
+    put_cv(out, &sec_ref_href);
+    put_cv(out, &sec_ref_text);
 }
 
 /// Decode the aux subdivision forest from `buf` at `pos` (inverse of
@@ -1070,6 +1145,12 @@ fn aux_from_succinct(buf: &[u8], pos: &mut usize) -> Vec<OwnedUscSectionAux> {
     let heading = get_opt(buf, pos);
     let chapeau = get_opt(buf, pos);
     let content = get_opt(buf, pos);
+    let ref_count = get_cv(buf, pos);
+    let ref_href = get_cv(buf, pos);
+    let ref_text = get_cv(buf, pos);
+    let sec_ref_count = get_cv(buf, pos);
+    let sec_ref_href = get_cv(buf, pos);
+    let sec_ref_text = get_cv(buf, pos);
 
     let mut dec = AuxDecoder {
         dict: &dict,
@@ -1080,8 +1161,16 @@ fn aux_from_succinct(buf: &[u8], pos: &mut usize) -> Vec<OwnedUscSectionAux> {
         heading: &heading,
         chapeau: &chapeau,
         content: &content,
+        ref_count: &ref_count,
+        ref_href: &ref_href,
+        ref_text: &ref_text,
         cur: 0,
+        ref_cur: 0,
     };
+    // Section-root citations are consumed by a running cursor into the
+    // flattened `sec_ref_*` arrays, `sec_ref_count[s]` per section — the
+    // section-level twin of the node `ref_cur` walk inside `rebuild`.
+    let mut sec_ref_cur = 0usize;
     let mut aux = Vec::with_capacity(n_sec);
     for s in 0..n_sec {
         let rc = root_count[s];
@@ -1091,10 +1180,19 @@ fn aux_from_succinct(buf: &[u8], pos: &mut usize) -> Vec<OwnedUscSectionAux> {
         }
         let urn_s = dec.dict[sec_urn[s]].clone();
         let relations = derive_compose_edges(&subdivisions, &urn_s);
+        let src = sec_ref_count[s];
+        let mut refs = Vec::with_capacity(src);
+        for _ in 0..src {
+            let href = dec.dict[sec_ref_href[sec_ref_cur]].clone();
+            let text = dec.dict[sec_ref_text[sec_ref_cur]].clone();
+            sec_ref_cur += 1;
+            refs.push(UsCodeRef { href, text });
+        }
         aux.push(OwnedUscSectionAux {
             urn: urn_s,
             subdivisions,
             relations,
+            refs,
         });
     }
     aux
@@ -1244,6 +1342,23 @@ pub fn usc_compact_prx_cache_dir(workspace_root: &std::path::Path) -> std::path:
     workspace_root.join(".prx-cache").join("usc-compact")
 }
 
+/// The compiled DEFINES-overlay-archive cache directory:
+/// `<workspace_root>/.prx-cache/usc-defines-compact`. `pr4xis compile --defines`
+/// writes one `{name}-{version}.defines.cprx.gz` here per registered title (a
+/// sibling of [`usc_compact_prx_cache_dir`], never colliding with it). Gitignored
+/// build output like every other compact family — because a full-corpus regen is
+/// measured at ~3.3 hours (see [`super::bridge::usc_runtime_ontology_with_defines`]'s
+/// doc), the emitted artifacts are meant to be manually copied into a committed
+/// directory after a `--lock` run, mirroring the OWL vocabulary precedent
+/// (`data/ontologies/*.prx.gz` as the committed twin of
+/// `.prx-cache/ontologies-compact/`) — never regenerated on a routine checkout or
+/// in CI.
+pub fn usc_compact_defines_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root
+        .join(".prx-cache")
+        .join("usc-defines-compact")
+}
+
 /// Emit a USC `.prx.gz` artifact for EVERY registered [`UsCodeTitle`] source
 /// on disk into `out_dir`, round-trip-validating each before returning it —
 /// the USC analogue of `owl::prx::emit_all_prx_gz`, the release-distribution
@@ -1363,10 +1478,327 @@ pub fn emit_all_compact_usc_prx_gz(
     Ok(emitted)
 }
 
+// =============================================================================
+// The DEFINES-overlay compact archive family (task #6) — the sparse
+// (provision URN, term) pairs `bridge::compute_defines_overlay` grounds,
+// cached SEPARATELY from the defines-free family above. See
+// `bridge::compute_defines_overlay`'s own doc for why this is a distinct
+// artifact rather than an extension of `compact_usc_to_succinct`: it caches
+// a tiny fraction of the archive, and conflating the two would force every
+// title's EXISTING `[compact_archive_signatures]` pin to shift whenever the
+// defines grammar changes something structurally unrelated.
+// =============================================================================
+
+/// Serialize a [`bridge::compute_defines_overlay`] pair list to succinct
+/// bytes: a varint count, then one `(urn blob, term blob)` per pair.
+fn defines_overlay_to_succinct(pairs: &[(String, String)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_varint(&mut out, pairs.len() as u64);
+    for (urn, term) in pairs {
+        put_blob(&mut out, urn.as_bytes());
+        put_blob(&mut out, term.as_bytes());
+    }
+    out
+}
+
+/// Inverse of [`defines_overlay_to_succinct`]. Fails closed (rather than
+/// panicking on malformed UTF-8) via `PrxError::Read`, matching this file's
+/// other decode legs.
+fn defines_overlay_from_succinct(buf: &[u8]) -> Result<Vec<(String, String)>, PrxError> {
+    let mut pos = 0usize;
+    let count = get_varint(buf, &mut pos) as usize;
+    let mut pairs = Vec::with_capacity(count);
+    for _ in 0..count {
+        let urn = core::str::from_utf8(get_blob(buf, &mut pos))
+            .map_err(|e| PrxError::Read(format!("defines overlay URN is not UTF-8: {e}")))?
+            .to_string();
+        let term = core::str::from_utf8(get_blob(buf, &mut pos))
+            .map_err(|e| PrxError::Read(format!("defines overlay term is not UTF-8: {e}")))?
+            .to_string();
+        pairs.push((urn, term));
+    }
+    Ok(pairs)
+}
+
+/// Emit the COMPACT defines-overlay `.prx.gz` for one title's raw USLM
+/// source: parse → [`bridge::compute_defines_overlay`](super::bridge::compute_defines_overlay)
+/// (EXPENSIVE — see its own doc) → succinct-code → gzip. Build-time-only.
+pub fn emit_compact_usc_defines_prx_gz(
+    source: &[u8],
+    lang: &crate::cognitive::linguistics::english::English,
+    verbnet: &crate::cognitive::linguistics::verbnet::ontology::VerbNet,
+) -> Result<Vec<u8>, PrxError> {
+    let text = core::str::from_utf8(source)
+        .map_err(|e| PrxError::Read(format!("USLM source is not UTF-8: {e}")))?;
+    let title = read_uslm_title(text).map_err(|e| PrxError::Read(format!("{e}")))?;
+    let usc = UsCode::from_uslm_titles_owned(alloc::vec![title]);
+    // The G7 mint domain is INERT for this cached artifact —
+    // `compute_defines_overlay`'s own doc: a minted pointer is filtered out
+    // before this format ever sees it (the format's own reconstruction is
+    // English-only) — so any valid, stable name serves; the exact value
+    // changes nothing this function persists.
+    let mint_domain = pr4xis::ontology::meta::OntologyName::new_static("usc_coinages");
+    let pairs = super::bridge::compute_defines_overlay(&usc, lang, verbnet, &mint_domain);
+    gzip(&defines_overlay_to_succinct(&pairs))
+}
+
+/// The content address of a compact defines-overlay `.prx.gz` — mirrors
+/// [`compact_prx_archive_address`] over the overlay bytes instead of the
+/// structural archive. The value pinned in `praxis.lock`
+/// `[compact_defines_signatures]`.
+pub fn compact_usc_defines_archive_address(cprx_gz: &[u8]) -> Result<String, PrxError> {
+    Ok(ContentAddress::of(&gunzip(cprx_gz)?).to_hex())
+}
+
+/// Load a compact defines-overlay `.prx.gz` (produced by
+/// [`emit_compact_usc_defines_prx_gz`]) through the fail-closed content-
+/// address gate — gunzip → verify → decode. Mirrors
+/// [`load_compact_usc_prx_gz_gated`]'s discipline exactly, over the sparse
+/// overlay artifact instead of the full structural archive. The runtime fast
+/// path — ms-level, no `defines_lens` re-run — pairs with
+/// [`bridge::usc_runtime_ontology_from_cached_defines`](super::bridge::usc_runtime_ontology_from_cached_defines)
+/// to reconstruct the fully grounded ontology.
+pub fn load_compact_usc_defines_prx_gz_gated(
+    cprx_gz: &[u8],
+    archive_pin: &LockDigest,
+    key: &str,
+) -> Result<Vec<(String, String)>, PrxError> {
+    let raw = gunzip(cprx_gz)?;
+    usc_verify_content_address(&raw, archive_pin, key)?;
+    defines_overlay_from_succinct(&raw)
+}
+
+/// Emit the compact defines-overlay `.prx.gz` for EVERY registered,
+/// on-disk USC title into `out_dir` — the `pr4xis compile` emit leg for
+/// this artifact family, the defines-overlay sibling of
+/// [`emit_all_compact_usc_prx_gz`]. EXPENSIVE (see `bridge::compute_
+/// defines_overlay`'s own doc: ~26–40ms per lexical-prose node, hours across
+/// the full loaded corpus) — a deliberate, infrequent maintainer step
+/// (`pr4xis compile --lock`), never part of the ordinary fast compile path.
+pub fn emit_all_compact_usc_defines_prx_gz(
+    out_dir: &std::path::Path,
+    lang: &crate::cognitive::linguistics::english::English,
+    verbnet: &crate::cognitive::linguistics::verbnet::ontology::VerbNet,
+) -> Result<Vec<EmittedArtifact>, PrxError> {
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| PrxError::Gzip(format!("create out_dir {}: {e}", out_dir.display())))?;
+    let root = workspace_root();
+    let mut emitted = Vec::new();
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let src_path = root.join(entry.local_path());
+        let Ok(source) = std::fs::read(&src_path) else {
+            continue;
+        };
+        let key = format!("{}@{}", entry.name, entry.version);
+        eprintln!(
+            "  [defines]  {key}: grounding started ({} bytes source)…",
+            source.len()
+        );
+        let started = std::time::Instant::now();
+        let cprx_gz = emit_compact_usc_defines_prx_gz(&source, lang, verbnet)?;
+        let archive_address = compact_usc_defines_archive_address(&cprx_gz)?;
+        let path = out_dir.join(format!("{}-{}.defines.cprx.gz", entry.name, entry.version));
+        std::fs::write(&path, &cprx_gz)
+            .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
+
+        // Round-trip-validate the written file through the fail-closed
+        // compact gate against the address this emit just produced.
+        let read_back = std::fs::read(&path)
+            .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
+        load_compact_usc_defines_prx_gz_gated(
+            &read_back,
+            &LockDigest::address(archive_address.clone()),
+            &key,
+        )?;
+        eprintln!(
+            "  [defines]  {key}: done in {:.1}s, {} bytes gz",
+            started.elapsed().as_secs_f64(),
+            cprx_gz.len(),
+        );
+
+        emitted.push(EmittedArtifact {
+            name: entry.name.clone(),
+            version: entry.version.clone(),
+            path,
+            byte_len: cprx_gz.len() as u64,
+            archive_address,
+        });
+    }
+    Ok(emitted)
+}
+
+/// Load and merge every registered [`UsCodeTitle`](crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::UsCodeTitle)'s
+/// on-disk, PINNED defines overlay into one combined pair list — the consumer
+/// side of [`emit_all_compact_usc_defines_prx_gz`]. Mirrors
+/// [`super::loaded`]'s own per-title compact-archive-then-fallback walk: a
+/// title with no `[compact_defines_signatures]` pin, or no cached file on
+/// disk, contributes nothing (the legitimate pre-`--defines` state — every
+/// title starts unpinned) — NOT an error, since defines-grounding is an
+/// additive, opt-in enrichment on top of the always-available structural
+/// corpus. A title that IS pinned but whose on-disk bytes fail the gate is a
+/// real integrity violation (a stale cache or tampering) and panics loud,
+/// exactly like the structural loader's own "pinned but bad" arm — silently
+/// degrading to "no definitions available" would mask the contract
+/// violation instead of surfacing it.
+pub fn load_usc_defines_overlay_from_disk(
+    workspace_root: &std::path::Path,
+) -> Vec<(String, String)> {
+    use crate::applied::data_provisioning::defines_grammar_signature::{
+        DEFINES_OVERLAY_CLOSURE_NAME, defines_grammar_closure_bytes,
+    };
+    use crate::applied::data_provisioning::registry::{
+        data_sources, lock_compact_defines_signature, lock_grammar_signature,
+    };
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    // GRAMMAR STALENESS GATE (once per process, not once per title — the
+    // fingerprint is global, shared by every USC title's overlay): the
+    // `[compact_defines_signatures]` pins below verify their OWN bytes
+    // faithfully, but say nothing about whether the grammar/parsing code
+    // that PRODUCED those bytes has since changed. A stale local
+    // `.defines.cprx.gz` cache passes that content-address gate cleanly
+    // (same stale run produced both the cache and its pin) while silently
+    // reflecting an OLD grammar — exactly the blind spot
+    // `defines_grammar_signature` exists to close. Panics loud, the same
+    // fail-closed stance as the per-title "pinned but bad" arm below: a
+    // silent degrade here would just relocate the exact staleness bug this
+    // check exists to surface.
+    if let Some(grammar_pin) = lock_grammar_signature(DEFINES_OVERLAY_CLOSURE_NAME) {
+        let fresh = defines_grammar_closure_bytes(workspace_root).unwrap_or_else(|e| {
+            panic!(
+                "load_usc_defines_overlay_from_disk(): could not read the defines-grammar \
+                 CODE closure to check it against the pinned fingerprint: {e}"
+            )
+        });
+        if !grammar_pin.verifies(&fresh) {
+            panic!(
+                "load_usc_defines_overlay_from_disk(): grammar/parsing source has changed \
+                 since the cached compact_defines_signatures overlay was computed — the \
+                 on-disk .defines.cprx.gz files are STALE relative to the current grammar, \
+                 even though their own content-address gate passes (same stale run produced \
+                 both). Re-run `pr4xis compile --defines --lock` to regenerate. This is a \
+                 SEPARATE integrity violation from the byte-mismatch panic below."
+            );
+        }
+    }
+
+    let dir = usc_compact_defines_prx_cache_dir(workspace_root);
+    let mut overlay = Vec::new();
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let Some(pin) = lock_compact_defines_signature(&entry.name, &entry.version) else {
+            continue;
+        };
+        let path = dir.join(format!("{}-{}.defines.cprx.gz", entry.name, entry.version));
+        // FAIL CLOSED, like the two arms below it.
+        //
+        // This read used to `continue` on error, which made the one case CI
+        // actually hit — pin committed, bytes absent — the only silent one. The
+        // overlay came out EMPTY, `USC_DEFINES_OVERLAY` was emitted as `&[]`,
+        // and the shipped wasm could not answer a single statutory definition
+        // while every local build answered 5,443 of them. Nothing reported a
+        // problem, because nothing had detected one.
+        //
+        // A committed pin is a claim that these bytes are part of the build.
+        // The bytes now live in the repo beside the pin (see `.gitignore` —
+        // `.prx-cache/usc-defines-compact/` is deliberately not ignored), so
+        // their absence is a broken checkout, not a normal condition.
+        let defines_gz = std::fs::read(&path).unwrap_or_else(|e| {
+            panic!(
+                "load_usc_defines_overlay_from_disk(): {} is pinned in \
+                 praxis.lock [compact_defines_signatures] but could not be \
+                 read: {e}. These overlays are committed; regenerate with \
+                 `pr4xis compile --defines --lock` if the pin changed.",
+                path.display()
+            )
+        });
+        let key = format!("{}@{}", entry.name, entry.version);
+        match load_compact_usc_defines_prx_gz_gated(&defines_gz, pin, &key) {
+            Ok(pairs) => overlay.extend(pairs),
+            Err(e) => panic!(
+                "load_usc_defines_overlay_from_disk(): {} is pinned but failed the \
+                 content gate: {e}",
+                path.display()
+            ),
+        }
+    }
+    overlay
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
+
+    // ---- DEFINES-overlay compact archive family (task #6) ----
+
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn defines_overlay_succinct_round_trips() {
+        let pairs = alloc::vec![
+            ("/us/usc/t42/s1396n".to_string(), "consumer".to_string()),
+            (
+                "/us/usc/t42/s1396n/k/7/A".to_string(),
+                "eligible individual".to_string()
+            ),
+        ];
+        let bytes = defines_overlay_to_succinct(&pairs);
+        let decoded = defines_overlay_from_succinct(&bytes).expect("valid succinct bytes decode");
+        assert_eq!(decoded, pairs);
+    }
+
+    #[pr4xis::praxis_value(Deterministic)]
+    #[test]
+    fn defines_overlay_succinct_round_trips_the_empty_case() {
+        let bytes = defines_overlay_to_succinct(&[]);
+        let decoded = defines_overlay_from_succinct(&bytes).expect("valid succinct bytes decode");
+        assert!(decoded.is_empty());
+    }
+
+    /// The runtime fast-load gate ([`load_compact_usc_defines_prx_gz_gated`])
+    /// verifies the installed bytes hash to the trusted pin — the SAME
+    /// content-addressed discipline [`load_compact_usc_prx_gz_gated`] proves
+    /// for the structural archive, exercised here directly over the codec
+    /// (no XML parse needed — this test proves the ENVELOPE, not the
+    /// extraction grammar, which `bridge::usc_runtime_ontology_with_defines_
+    /// grounds_a_real_definition` already covers).
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn defines_overlay_prx_gz_round_trips_through_the_gate() {
+        let pairs = alloc::vec![("/us/usc/t42/s1396n".to_string(), "consumer".to_string())];
+        let cprx_gz = gzip(&defines_overlay_to_succinct(&pairs)).expect("gzip succeeds");
+        let address =
+            compact_usc_defines_archive_address(&cprx_gz).expect("address derives from the bytes");
+        let loaded = load_compact_usc_defines_prx_gz_gated(
+            &cprx_gz,
+            &LockDigest::address(address),
+            "usc_defines_test",
+        )
+        .expect("the correctly-pinned archive loads");
+        assert_eq!(loaded, pairs);
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn defines_overlay_prx_gz_fails_closed_on_a_wrong_pin() {
+        let pairs = alloc::vec![("/us/usc/t42/s1396n".to_string(), "consumer".to_string())];
+        let cprx_gz = gzip(&defines_overlay_to_succinct(&pairs)).expect("gzip succeeds");
+        let wrong_pin = LockDigest::address("0".repeat(64));
+        let result =
+            load_compact_usc_defines_prx_gz_gated(&cprx_gz, &wrong_pin, "usc_defines_test");
+        assert!(
+            result.is_err(),
+            "a mismatched pin must refuse to load, not silently install"
+        );
+    }
 
     /// The kind lowering is lossless AND XSD-free: every [`SubdivisionKind`]
     /// round-trips `parse(tag(k)) == Some(k)`, so the owned mirror can lower
@@ -1421,8 +1853,22 @@ mod tests {
                         chapeau: None,
                         content: Some("by reason of lawful acts".into()),
                         children: alloc::vec![],
+                        // A leaf subparagraph carrying two citations exercises
+                        // the multi-ref, document-order flattened columns.
+                        refs: alloc::vec![
+                            UsCodeRef {
+                                href: "/us/usc/t18/s1513".into(),
+                                text: "section 1513".into(),
+                            },
+                            UsCodeRef {
+                                href: "/us/usc/t18/s1512".into(),
+                                text: "section 1512 of this title".into(),
+                            },
+                        ],
                     }],
+                    refs: alloc::vec![],
                 }],
+                refs: alloc::vec![],
             }],
             relations: alloc::vec![
                 ("/us/usc/t18/s1514A/a".into(), "/us/usc/t18/s1514A".into()),
@@ -1435,6 +1881,12 @@ mod tests {
                     "/us/usc/t18/s1514A/a/1".into()
                 ),
             ],
+            // A section-root citation, distinct from the subparagraph's —
+            // exercises the section-level `sec_ref_*` columns.
+            refs: alloc::vec![UsCodeRef {
+                href: "/us/usc/t15/s78j".into(),
+                text: "section 78j of title 15".into(),
+            }],
         }
     }
 
@@ -1465,6 +1917,18 @@ mod tests {
         let a1a = &a1.children[0];
         assert_eq!(a1a.kind, SubdivisionKind::Subparagraph);
         assert_eq!(a1a.content.as_deref(), Some("by reason of lawful acts"));
+
+        // Citations survive the Owned→corpus rebuild, scoped per node and
+        // in document order: the section root carries its own single ref,
+        // the leaf subparagraph its two, and the branch nodes none.
+        assert_eq!(s.refs.len(), 1, "section-root carries its own citation");
+        assert_eq!(s.refs[0].href, "/us/usc/t15/s78j");
+        assert!(a.refs.is_empty(), "the branch subsection cites nothing");
+        assert!(a1.refs.is_empty(), "the branch paragraph cites nothing");
+        assert_eq!(a1a.refs.len(), 2, "the leaf subparagraph carries two");
+        assert_eq!(a1a.refs[0].href, "/us/usc/t18/s1513");
+        assert_eq!(a1a.refs[0].text, "section 1513");
+        assert_eq!(a1a.refs[1].href, "/us/usc/t18/s1512");
 
         // Relations are child → parent, document-order DFS.
         assert_eq!(s.relations[0].from_urn, "/us/usc/t18/s1514A/a");
@@ -1564,11 +2028,11 @@ mod tests {
         let gz = gzip(&bytes).expect("gzip");
 
         let usc = load_usc_prx_gz(&gz, &archive_pin, &source_pin).expect("must load + validate");
-        assert_eq!(usc.section_count(), 1);
+        assert_eq!(usc.section_count().value, 1.0);
         let s = &usc.all_sections()[0];
         assert_eq!(
-            s.subdivision_count(),
-            3,
+            s.subdivision_count().value,
+            3.0,
             "a, a/1, a/1/A survive the archive"
         );
         assert_eq!(s.relations.len(), 3);
@@ -1710,7 +2174,7 @@ mod tests {
         let source_pin = LockDigest::address(ContentAddress::of(src).to_hex());
 
         let usc = load_usc_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
-        assert_eq!(usc.section_count(), 1);
+        assert_eq!(usc.section_count().value, 1.0);
 
         let urn =
             Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, "/us/usc/t18/s1514A");
@@ -1720,7 +2184,11 @@ mod tests {
             "Civil action to protect against retaliation in fraud cases"
         );
         // Subdivision depth preserved through the archive (from_codegen_with_aux).
-        assert_eq!(s.subdivision_count(), 2, "subsection a + paragraph a/1");
+        assert_eq!(
+            s.subdivision_count().value,
+            2.0,
+            "subsection a + paragraph a/1"
+        );
         assert_eq!(s.subdivisions.len(), 1);
         assert_eq!(s.subdivisions[0].num, "a");
         assert_eq!(s.subdivisions[0].kind, SubdivisionKind::Subsection);
@@ -1759,7 +2227,7 @@ mod tests {
         // (2) the compact .prx.gz materializes to the same corpus as the envelope.
         let prx_gz = emit_compact_usc_prx_gz(src).expect("emit compact");
         let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
-        assert_eq!(usc.section_count(), 1);
+        assert_eq!(usc.section_count().value, 1.0);
         let urn =
             Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, "/us/usc/t18/s1514A");
         let s = usc.section_by_urn(&urn).expect("section present by URN");
@@ -1767,7 +2235,11 @@ mod tests {
             s.heading,
             "Civil action to protect against retaliation in fraud cases"
         );
-        assert_eq!(s.subdivision_count(), 2, "subsection a + paragraph a/1");
+        assert_eq!(
+            s.subdivision_count().value,
+            2.0,
+            "subsection a + paragraph a/1"
+        );
         assert_eq!(s.subdivisions[0].num, "a");
         assert_eq!(s.subdivisions[0].kind, SubdivisionKind::Subsection);
         assert_eq!(s.subdivisions[0].children[0].num, "1");
@@ -1781,6 +2253,106 @@ mod tests {
             prx_gz.len(),
             source_dl
         );
+    }
+
+    /// Real USLM with cross-references at BOTH scopes: a `<ref>` inside the
+    /// section's own `<chapeau>` (a SECTION-scoped citation, per
+    /// `leaf_readers::read_section`, which collects only the section's own
+    /// `ref`/`chapeau`/`content`/`heading` children) and a `<ref>` inside a
+    /// subsection's `<content>` (a SUBDIVISION-scoped one). Mirrors the shape
+    /// of a real §1513 cross-reference to 18 U.S.C. 1512 / 15 U.S.C. 78j.
+    const SAMPLE_USC_TITLE_WITH_REFS: &str = r##"<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <meta>
+    <dc:title>Title 18</dc:title>
+    <dc:type>USCTitle</dc:type>
+    <dc:publisher>OLRC</dc:publisher>
+  </meta>
+  <main>
+    <title identifier="/us/usc/t18">
+      <num value="18">Title 18</num>
+      <heading>CRIMES AND CRIMINAL PROCEDURE</heading>
+      <section identifier="/us/usc/t18/s1513">
+        <num value="1513">§ 1513.</num>
+        <heading>Retaliating against a witness, victim, or an informant</heading>
+        <chapeau>Whoever knowingly takes any action harmful to any person, in violation of <ref href="/us/usc/t18/s1512">section 1512 of this title</ref>, shall—</chapeau>
+        <subsection identifier="/us/usc/t18/s1513/a">
+          <num value="a">(a)</num>
+          <content>be subject to the penalties described in <ref href="/us/usc/t15/s78j">section 78j of title 15</ref>.</content>
+        </subsection>
+      </section>
+    </title>
+  </main>
+</uscDoc>
+"##;
+
+    /// Cross-references survive the FULL substrate: parse → per-node scoped
+    /// `UscSection::refs` / `UscSubdivision::refs` → the owned archive mirror
+    /// → the compact succinct codec (byte-lossless) → back to the corpus type,
+    /// on BOTH the XML-parse and archive-load paths. The `href` URN
+    /// (`/us/usc/t15/s78j`) may name a provision OUTSIDE this title; it is
+    /// carried verbatim as a raw citation surface, not resolved here.
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
+    #[test]
+    fn refs_survive_parse_and_compact_round_trip() {
+        let s1513 =
+            Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, "/us/usc/t18/s1513");
+
+        // (0) XML-parse path (`from_uslm_titles_owned` → `subdivisions_owned`)
+        //     scopes each citation to the smallest provision that contains it.
+        let title = read_uslm_title(SAMPLE_USC_TITLE_WITH_REFS).expect("parse title with refs");
+        let parsed = UsCode::from_uslm_titles_owned(alloc::vec![title]);
+        let ps = parsed
+            .section_by_urn(&s1513)
+            .expect("parsed section by URN");
+        assert_eq!(ps.refs.len(), 1, "the chapeau <ref> is section-scoped");
+        assert_eq!(ps.refs[0].href, "/us/usc/t18/s1512");
+        assert_eq!(ps.refs[0].text, "section 1512 of this title");
+        assert_eq!(ps.subdivisions.len(), 1);
+        assert_eq!(
+            ps.subdivisions[0].refs.len(),
+            1,
+            "the content <ref> is subdivision-scoped, not aggregated to the §"
+        );
+        assert_eq!(ps.subdivisions[0].refs[0].href, "/us/usc/t15/s78j");
+        assert!(
+            ps.refs.iter().all(|r| r.href != "/us/usc/t15/s78j"),
+            "a subdivision citation must not leak onto the section"
+        );
+
+        // (1) the owned archive mirror carries them at the same scope, and the
+        //     compact succinct codec is byte-lossless INCLUDING refs.
+        let title = read_uslm_title(SAMPLE_USC_TITLE_WITH_REFS).expect("re-parse");
+        let (data, aux) = title_to_owned(&title);
+        assert_eq!(aux[0].refs.len(), 1, "owned section-root ref");
+        assert_eq!(
+            aux[0].subdivisions[0].refs.len(),
+            1,
+            "owned subdivision ref"
+        );
+        let succ = compact_usc_to_succinct(&data, &aux);
+        let (data_back, aux_back) = compact_usc_from_succinct(&succ);
+        assert_eq!(data_back, data);
+        assert_eq!(
+            aux_back, aux,
+            "compact codec must carry section + subdivision refs losslessly"
+        );
+
+        // (2) archive-load path (`compact → to_aux_owned/to_corpus →
+        //     from_codegen_with_aux`) lands the refs on the corpus type too.
+        let src = SAMPLE_USC_TITLE_WITH_REFS.as_bytes();
+        let prx_gz = emit_compact_usc_prx_gz(src).expect("emit compact");
+        let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
+        let s = usc.section_by_urn(&s1513).expect("archive section by URN");
+        assert_eq!(s.refs.len(), 1, "UscSection::refs via the archive");
+        assert_eq!(s.refs[0].href, "/us/usc/t18/s1512");
+        assert_eq!(
+            s.subdivisions[0].refs.len(),
+            1,
+            "UscSubdivision::refs via the archive"
+        );
+        assert_eq!(s.subdivisions[0].refs[0].href, "/us/usc/t15/s78j");
+        assert_eq!(s.subdivisions[0].refs[0].text, "section 78j of title 15");
     }
 
     // COMPACTNESS GATE over every on-disk USC title within the CI budget — the
@@ -1840,7 +2412,7 @@ mod tests {
         // Genuine address → loads.
         let usc = load_compact_usc_prx_gz_gated(&cprx_gz, &LockDigest::address(addr.clone()), key)
             .expect("gated load");
-        assert_eq!(usc.section_count(), 1);
+        assert_eq!(usc.section_count().value, 1.0);
 
         // A wrong pin (one hex char flipped) → fail-closed HashMismatch.
         let mut bad = addr.clone().into_bytes();

@@ -14,6 +14,8 @@
 //! - **Thrun, Burgard & Fox (2005)** *Probabilistic Robotics*, Ch. 9 —
 //!   the canonical log-odds Bayesian update for occupancy grids.
 
+use crate::formal::math::quantity::unit::UNITLESS;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 use pr4xis::category::FinitelyGenerated;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -45,7 +47,9 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: the Bayesian occupancy-probability range for each cell state.
+/// Quality: the Bayesian occupancy-probability range for each cell state, as
+/// a dimensionless [`QuantityRange`] in [`UNITLESS`], NOT a bare `(f64,
+/// f64)` pair.
 ///
 /// Elfes (1989) §3 — the three states partition the unit interval into
 /// (0, 0.5), {0.5}, and (0.5, 1) for free / unknown / occupied
@@ -56,13 +60,17 @@ pub struct OccupancyProbability;
 
 impl Quality for OccupancyProbability {
     type Individual = OccupancyConcept;
-    type Value = (f64, f64); // (min, max) probability range
+    type Value = QuantityRange;
 
-    fn get(&self, state: &OccupancyConcept) -> Option<(f64, f64)> {
+    fn get(&self, state: &OccupancyConcept) -> Option<QuantityRange> {
+        let p = |lo: f64, hi: f64| QuantityRange {
+            min: Quantity::from_unit(lo, &UNITLESS),
+            max: Quantity::from_unit(hi, &UNITLESS),
+        };
         Some(match state {
-            OccupancyConcept::Free => (0.0, 0.5),
-            OccupancyConcept::Occupied => (0.5, 1.0),
-            OccupancyConcept::Unknown => (0.5, 0.5),
+            OccupancyConcept::Free => p(0.0, 0.5),
+            OccupancyConcept::Occupied => p(0.5, 1.0),
+            OccupancyConcept::Unknown => p(0.5, 0.5),
         })
     }
 }
@@ -94,8 +102,8 @@ impl Axiom for SaturationPreventsOverconfidence {
     fn verify(&self) -> Verdict {
         use crate::applied::perception::occupancy::engine::{LogOddsSaturation, OccupancyGrid};
         let sat = LogOddsSaturation::standard();
-        let p_max = OccupancyGrid::log_odds_to_probability(sat.max);
-        let p_min = OccupancyGrid::log_odds_to_probability(sat.min);
+        let p_max = OccupancyGrid::log_odds_to_probability(sat.max).value;
+        let p_min = OccupancyGrid::log_odds_to_probability(sat.min).value;
         // 0.0 / 0.5 / 1.0 are the definitional probability bounds (impossible /
         // neutral prior / certain), not tunable numbers.
         if sat.min < 0.0
@@ -131,9 +139,11 @@ pub struct ProbabilityBounded;
 
 impl Axiom for ProbabilityBounded {
     fn verify(&self) -> Verdict {
+        let zero = Quantity::from_unit(0.0, &UNITLESS);
+        let one = Quantity::from_unit(1.0, &UNITLESS);
         for s in OccupancyConcept::variants() {
-            if let Some((min, max)) = OccupancyProbability.get(&s) {
-                if !(min >= 0.0 && max <= 1.0 && min <= max) {
+            if let Some(r) = OccupancyProbability.get(&s) {
+                if !(r.min >= zero && r.max <= one && r.min <= r.max) {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             } else {
@@ -219,27 +229,30 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn free_probability_under_half() {
-        let (min, max) = OccupancyProbability.get(&OccupancyConcept::Free).unwrap();
-        assert!(min >= 0.0 && max <= 0.5);
+        let r = OccupancyProbability.get(&OccupancyConcept::Free).unwrap();
+        let half = Quantity::from_unit(0.5, &UNITLESS);
+        assert!(r.min >= Quantity::from_unit(0.0, &UNITLESS) && r.max <= half);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn occupied_probability_over_half() {
-        let (min, max) = OccupancyProbability
+        let r = OccupancyProbability
             .get(&OccupancyConcept::Occupied)
             .unwrap();
-        assert!(min >= 0.5 && max <= 1.0);
+        let half = Quantity::from_unit(0.5, &UNITLESS);
+        assert!(r.min >= half && r.max <= Quantity::from_unit(1.0, &UNITLESS));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn unknown_at_prior() {
-        let (min, max) = OccupancyProbability
+        let r = OccupancyProbability
             .get(&OccupancyConcept::Unknown)
             .unwrap();
-        assert_eq!(min, 0.5);
-        assert_eq!(max, 0.5);
+        let half = Quantity::from_unit(0.5, &UNITLESS);
+        assert_eq!(r.min, half);
+        assert_eq!(r.max, half);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -299,8 +312,10 @@ mod tests {
 
         #[test]
         fn prop_probability_in_unit_interval(c in arb_concept()) {
-            let (min, max) = OccupancyProbability.get(&c).unwrap();
-            prop_assert!(min >= 0.0 && max <= 1.0 && min <= max);
+            let r = OccupancyProbability.get(&c).unwrap();
+            let zero = Quantity::from_unit(0.0, &UNITLESS);
+            let one = Quantity::from_unit(1.0, &UNITLESS);
+            prop_assert!(r.min >= zero && r.max <= one && r.min <= r.max);
         }
 
         #[test]

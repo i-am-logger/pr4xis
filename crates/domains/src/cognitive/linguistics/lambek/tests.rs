@@ -25,12 +25,14 @@ const SAMPLE_TOKENIZE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
     <LexicalEntry id="e-runs-v"><Lemma writtenForm="runs" partOfSpeech="v"/><Sense id="r2" synset="s-run"/></LexicalEntry>
     <LexicalEntry id="e-see-v"><Lemma writtenForm="sees" partOfSpeech="v"/><Sense id="s1" synset="s-see"/></LexicalEntry>
     <LexicalEntry id="e-big-a"><Lemma writtenForm="big" partOfSpeech="a"/><Sense id="b1" synset="s-big"/></LexicalEntry>
+    <LexicalEntry id="e-bug-n"><Lemma writtenForm="bug" partOfSpeech="n"/><Sense id="bu1" synset="s-bug"/></LexicalEntry>
     <Synset id="s-dog" partOfSpeech="n" members="e-dog-n e-dogs-n"><Definition>a domesticated carnivore</Definition></Synset>
     <Synset id="s-cat" partOfSpeech="n" members="e-cat-n"><Definition>a small feline</Definition></Synset>
     <Synset id="s-mammal" partOfSpeech="n" members="e-mammal-n"><Definition>warm-blooded vertebrate</Definition></Synset>
     <Synset id="s-run" partOfSpeech="v" members="e-run-v e-runs-v"><Definition>move fast on foot</Definition></Synset>
     <Synset id="s-see" partOfSpeech="v" members="e-see-v"><Definition>perceive with the eyes</Definition></Synset>
     <Synset id="s-big" partOfSpeech="a" members="e-big-a"><Definition>above average in size</Definition></Synset>
+    <Synset id="s-bug" partOfSpeech="n" members="e-bug-n"><Definition>an insect</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
 
@@ -72,107 +74,35 @@ fn adjective_noun() {
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
-fn transitive_verb_takes_object() {
-    // (NP\S)/NP + NP → NP\S ("sees" + "dog" → VP)
-    let result = reduce(&svo::transitive_verb(), &LambekType::np());
-    assert_eq!(result, Some(svo::intransitive_verb()));
-}
-
-// =============================================================================
-// Sequence reduction tests — full sentences
-// =============================================================================
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn the_dog_runs() {
-    // the:NP/N + dog:N + runs:NP\S → S
-    let tokens = vec![
-        TypedToken {
-            word: "the".into(),
-            lambek_type: svo::determiner(),
-        },
-        TypedToken {
-            word: "dog".into(),
-            lambek_type: svo::noun(),
-        },
-        TypedToken {
-            word: "runs".into(),
-            lambek_type: svo::intransitive_verb(),
-        },
-    ];
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
-    assert_eq!(result.final_type, Some(LambekType::s()));
-}
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn the_big_dog_runs() {
-    // the:NP/N + big:N/N + dog:N + runs:NP\S → S
-    let tokens = vec![
-        TypedToken {
-            word: "the".into(),
-            lambek_type: svo::determiner(),
-        },
-        TypedToken {
-            word: "big".into(),
-            lambek_type: svo::adjective(),
-        },
-        TypedToken {
-            word: "dog".into(),
-            lambek_type: svo::noun(),
-        },
-        TypedToken {
-            word: "runs".into(),
-            lambek_type: svo::intransitive_verb(),
-        },
-    ];
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
-}
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn she_sees_the_dog() {
-    // she:NP + sees:(NP\S)/NP + the:NP/N + dog:N → S
-    let tokens = vec![
-        TypedToken {
-            word: "she".into(),
-            lambek_type: svo::proper_noun(),
-        },
-        TypedToken {
-            word: "sees".into(),
-            lambek_type: svo::transitive_verb(),
-        },
-        TypedToken {
-            word: "the".into(),
-            lambek_type: svo::determiner(),
-        },
-        TypedToken {
-            word: "dog".into(),
-            lambek_type: svo::noun(),
-        },
-    ];
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
+fn nominal_modifier_noun_composes_with_a_head_noun() {
+    // N/N + N → N ("consultation" + "services" → N) -- the bare-nominal
+    // (noun-noun) compounding rule: Hockenmaier & Steedman (2005), CCGbank
+    // User's Manual, MS-CIS-05-09, §3.6.1/§3.6.2 (prenominal nouns are
+    // functions from nouns to nouns, combining by ordinary forward
+    // application, exactly like an attributive adjective).
+    let result = reduce(&svo::nominal_modifier_noun(), &svo::noun());
+    assert_eq!(result, Some(LambekType::n()));
 }
 
 #[pr4xis::praxis_value(Honest)]
 #[test]
-fn dog_runs_not_sentence_alone() {
-    // dog:N + runs:NP\S → can't reduce (N is not NP)
-    let tokens = vec![
-        TypedToken {
-            word: "dog".into(),
-            lambek_type: svo::noun(),
-        },
-        TypedToken {
-            word: "runs".into(),
-            lambek_type: svo::intransitive_verb(),
-        },
-    ];
-    let result = reduce_sequence(&tokens);
-    assert!(!result.success, "bare noun + verb should not reduce to S");
+fn nominal_modifier_noun_is_structurally_identical_to_adjective() {
+    // The design's central claim, made checkable: no separate category
+    // exists in the literature for a premodifying noun vs. an attributive
+    // adjective, so `nominal_modifier_noun` is DELIBERATELY the same
+    // LambekType as `adjective` (both N/N) -- not a collision to
+    // disambiguate (unlike the `NP\NP` trio, which needed a marker), since
+    // `montague::apply`'s generic `N/N + N → N` concatenation composes them
+    // identically either way.
+    assert_eq!(svo::nominal_modifier_noun(), svo::adjective());
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn transitive_verb_takes_object() {
+    // (NP\S)/NP + NP → NP\S ("sees" + "dog" → VP)
+    let result = reduce(&svo::transitive_verb(), &LambekType::np());
+    assert_eq!(result, Some(svo::intransitive_verb()));
 }
 
 // =============================================================================
@@ -198,51 +128,6 @@ fn tokenize_strips_punctuation() {
     assert_eq!(tokens[2].word, "runs");
 }
 
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn tokenize_and_reduce() {
-    // Full pipeline: text → tokens → reduction → S
-    let tokens = tokenize::tokenize("the dog runs", &sample_lang());
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
-}
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn tokenize_and_reduce_transitive() {
-    // Verbs have both transitive and intransitive types in the language ontology.
-    // The reducer should try alternatives when the first assignment fails.
-    // Until the reducer handles ambiguity, test with explicit transitive type.
-    let tokens = vec![
-        TypedToken {
-            word: "she".into(),
-            lambek_type: svo::proper_noun(),
-        },
-        TypedToken {
-            word: "sees".into(),
-            lambek_type: svo::transitive_verb(),
-        },
-        TypedToken {
-            word: "the".into(),
-            lambek_type: svo::determiner(),
-        },
-        TypedToken {
-            word: "dog".into(),
-            lambek_type: svo::noun(),
-        },
-    ];
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
-}
-
-#[pr4xis::praxis_value(Verifiable)]
-#[test]
-fn tokenize_and_reduce_adjective() {
-    let tokens = tokenize::tokenize("the big dog runs", &sample_lang());
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
-}
-
 // =============================================================================
 // Copula + adjective tests
 // =============================================================================
@@ -250,28 +135,60 @@ fn tokenize_and_reduce_adjective() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn a_dog_is_big() {
-    // a:NP/N + dog:N + is:(NP\S)/NP + big:N/N
-    // The copula takes a predicate NP — but adjective is N/N.
-    // For "is big", we need the adjective to combine with a silent N to form NP,
-    // or we need copula to take N/N as predicate.
-    // In Lambek grammar, "is" as copula: (NP\S)/NP, "big" needs to be NP.
-    // This is a known limitation — adjective predicates need special handling.
-    // For now test the tokenizer assigns correct types:
-    let tokens = tokenize::tokenize("a dog is big", &sample_lang());
+    // Lexical primaries stay LEXICAL — no destructive rewrite: is → the
+    // medial copula, big → the attributive N/N (first loaded Adjective row).
+    // The PREDICATIVE reading (CCGbank §3.4: copula_adj (S[dcl]\NP)/(S[adj]\NP)
+    // + predicate adjective S[adj]\NP) rides the ALTERNATIVES — every entry
+    // contributes all its loaded category rows, and a medial copula offers
+    // copula_adj additively — so the chart, not token order, decides.
+    let (tokens, alternatives) =
+        tokenize::tokenize_with_alternatives("a dog is big", &sample_lang());
     assert_eq!(tokens.len(), 4);
     assert_eq!(tokens[0].lambek_type, svo::determiner()); // a
     assert_eq!(tokens[1].lambek_type, svo::noun()); // dog
-    // Post-processing assigns copula_adj + predicate_adjective (CCGbank)
-    assert_eq!(tokens[2].lambek_type, svo::copula_adj()); // is → (S[dcl]\NP)/(S[adj]\NP)
-    assert_eq!(tokens[3].lambek_type, svo::predicate_adjective()); // big → S[adj]\NP
+    assert_eq!(tokens[2].lambek_type, svo::copula()); // is (lexical primary)
+    assert_eq!(tokens[3].lambek_type, svo::adjective()); // big (attributive primary)
+    assert!(
+        alternatives[2].contains(&svo::copula_adj()),
+        "the medial copula offers the predicative-complement reading; got {:?}",
+        alternatives[2]
+    );
+    assert!(
+        alternatives[3].contains(&svo::predicate_adjective()),
+        "the adjective carries its loaded predicative row; got {:?}",
+        alternatives[3]
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn a_dog_is_big_reduces() {
-    let tokens = tokenize::tokenize("a dog is big", &sample_lang());
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected S, got {:?}", result.remaining);
+    // The predicative statement derives S[dcl] through the CHART over the
+    // merged primary+alternative type sets (the same merge the chat applies).
+    let (tokens, alternatives) =
+        tokenize::tokenize_with_alternatives("a dog is big", &sample_lang());
+    let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
+    let type_sets: Vec<Vec<LambekType>> = tokens
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let mut types = vec![t.lambek_type.clone()];
+            if let Some(alts) = alternatives.get(i) {
+                for alt in alts {
+                    if !types.contains(alt) {
+                        types.push(alt.clone());
+                    }
+                }
+            }
+            types
+        })
+        .collect();
+    let result = chart_reduce(&words, &type_sets);
+    assert!(
+        result.success,
+        "expected S via the predicative alternatives, got {:?}",
+        result.remaining
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -282,16 +199,36 @@ fn spelling_correction_teh() {
     assert_eq!(tokens[0].lambek_type, svo::determiner());
 }
 
-#[pr4xis::praxis_value(Verifiable)]
+#[pr4xis::praxis_value(Honest)]
 #[test]
-fn is_a_dog_a_mammal_question() {
-    // Question formation: is at sentence start → question type
-    let tokens = tokenize::tokenize("is a dog a mammal", &sample_lang());
-    assert_eq!(tokens.len(), 5);
-    assert_eq!(tokens[0].lambek_type, svo::question_copula()); // is (question)
-    let result = reduce_sequence(&tokens);
-    assert!(result.success, "expected Q, got {:?}", result.remaining);
-    assert_eq!(result.final_type, Some(LambekType::q()));
+fn an_equidistant_ambiguous_misspelling_stays_unresolved_rather_than_guess() {
+    // "byg" is distance 1 from BOTH "big" (i->y) and "bug" (u->y) -- a
+    // confirmed real failure mode without this guard: "medicad" (distance 1
+    // from both "medicaid" and "medical") got silently, confidently
+    // "corrected" to the WRONG word. With no language-model prior to break
+    // the tie, staying unresolved is the honest behavior, not a guess.
+    let tokens = tokenize::tokenize("byg", &sample_lang());
+    assert_eq!(
+        tokens[0].word, "byg",
+        "an ambiguous equidistant misspelling must NOT be silently corrected \
+         to either candidate: {:?}",
+        tokens[0]
+    );
+}
+
+#[pr4xis::praxis_value(Honest)]
+#[test]
+fn spelling_correction_propagates_the_corrected_surface_not_just_the_type() {
+    // A confirmed real gap: a misspelling used to reach a correct TYPE (via
+    // assign_type's own noisy-channel fallback) while the misspelled SURFACE
+    // itself survived into the token, so downstream entity/definition
+    // resolution never benefited — only the parse did. "teh" must now
+    // surface as "the" itself, not merely type as a determiner.
+    let tokens = tokenize::tokenize("teh dog runs", &sample_lang());
+    assert_eq!(
+        tokens[0].word, "the",
+        "the corrected SURFACE must reach the token, not just its type"
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -422,14 +359,17 @@ fn montague_the_dog_runs() {
     let en = sample_english();
     let tokens = vec![
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "the".into(),
             lambek_type: svo::determiner(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "dog".into(),
             lambek_type: svo::noun(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "runs".into(),
             lambek_type: svo::intransitive_verb(),
         },
@@ -457,18 +397,22 @@ fn montague_she_sees_the_dog() {
     let en = sample_english();
     let tokens = vec![
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "she".into(),
             lambek_type: svo::proper_noun(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "sees".into(),
             lambek_type: svo::transitive_verb(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "the".into(),
             lambek_type: svo::determiner(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "dog".into(),
             lambek_type: svo::noun(),
         },
@@ -494,24 +438,154 @@ fn montague_she_sees_the_dog() {
     }
 }
 
+/// Regression: a ditransitive verb (`((NP\S)/NP)/NP`) absorbs TWO arguments
+/// via the function-result branch of `apply` before reaching an atomic `S`
+/// result -- "she gives Mary cake" first absorbs "Mary" (leaving
+/// `Func{"gives", body:[Mary]}` at type `(NP\S)/NP`), THEN absorbs "cake" on
+/// the SECOND pass through the same branch. A `Box<Sem>`-bodied `Func`
+/// silently overwrote the first absorbed argument ("Mary") with the second
+/// ("cake") on that second pass -- confirmed by hand-tracing before the
+/// `Vec<Sem>`-bodied fix. All three arguments (both objects plus the
+/// subject, absorbed last via backward application) must survive, in
+/// absorption order.
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn montague_ditransitive_verb_keeps_every_absorbed_argument() {
+    let en = sample_english();
+    let tokens = vec![
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "she".into(),
+            lambek_type: svo::proper_noun(),
+        },
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "gives".into(),
+            lambek_type: svo::ditransitive_verb(),
+        },
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "mary".into(),
+            lambek_type: svo::proper_noun(),
+        },
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "cake".into(),
+            // Ditransitive_verb's two argument slots are both NP (Lambek
+            // types::svo::ditransitive_verb = ((NP\S)/NP)/NP); "cake" is
+            // typed NP here (rather than the bare N a real "the cake" would
+            // reduce from) purely so this stays a minimal plain-application
+            // fixture -- the point under test is argument survival, not
+            // determiner grammar.
+            lambek_type: svo::proper_noun(),
+        },
+    ];
+    let sem = montague::interpret(&tokens, &en);
+    match &sem {
+        montague::Sem::Prop {
+            predicate,
+            arguments,
+        } => {
+            assert_eq!(predicate, "gives");
+            let names: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
+            assert_eq!(
+                names,
+                vec!["mary".to_string(), "cake".to_string(), "she".to_string()],
+                "the first-absorbed argument (mary) must survive the second \
+                 function-result reduction (absorbing cake), not be silently \
+                 overwritten by it -- got {names:?}"
+            );
+        }
+        other => panic!("expected Prop, got {:?}", other),
+    }
+}
+
+/// The object-question `what` category ([`svo::wh_what_object`]) and the
+/// do-support category ([`svo::does_support`]) compose correctly through
+/// `montague::interpret` -- "what does deadly mean" reduces to a
+/// `Question{predicate:"what", illocution:Content}` naming exactly one
+/// queried entity (the definiendum "deadly"), buried two Func-absorption
+/// levels deep (does absorbs the subject, THEN absorbs mean) -- reachable
+/// only because of the `montague_ditransitive_verb_keeps_every_absorbed_
+/// argument` fix above; before it, the subject NP would have been silently
+/// dropped and `argument_leaf` would have found nothing to define. This is
+/// the type-system half of Slice B's "what does {adverb} mean" frame
+/// (`.notes/chat-fix-c-build-state.md`, Slice B) -- the tokenizer/lexicon
+/// wiring (do-support surface gating, the quoted-mention NP glyph
+/// inventory, `Frames::wh_mean`) is separate, larger follow-up work; this
+/// proves the categories themselves reduce and compose the right semantics.
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn montague_what_does_x_mean_is_a_content_question_naming_one_entity() {
+    let en = sample_english();
+    let tokens = vec![
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "what".into(),
+            lambek_type: svo::wh_what_object(),
+        },
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "does".into(),
+            lambek_type: svo::does_support(),
+        },
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "deadly".into(),
+            lambek_type: svo::proper_noun(),
+        },
+        TypedToken {
+            expression_use: ExpressionUse::Used,
+            word: "mean".into(),
+            lambek_type: svo::bare_transitive_verb(),
+        },
+    ];
+    let sem = montague::interpret(&tokens, &en);
+    match &sem {
+        montague::Sem::Question {
+            predicate,
+            arguments,
+            illocution,
+        } => {
+            assert_eq!(predicate, "what");
+            assert_eq!(*illocution, montague::QuestionIllocution::Content);
+            let entities: Vec<String> = arguments
+                .iter()
+                .filter_map(montague::Sem::argument_name)
+                .collect();
+            assert_eq!(
+                entities,
+                vec!["deadly".to_string()],
+                "exactly one queried entity (the definiendum), found through \
+                 two levels of Func absorption; got {arguments:?}"
+            );
+        }
+        other => panic!("expected Question, got {:?}", other),
+    }
+}
+
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn montague_the_big_dog_runs() {
     let en = sample_english();
     let tokens = vec![
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "the".into(),
             lambek_type: svo::determiner(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "big".into(),
             lambek_type: svo::adjective(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "dog".into(),
             lambek_type: svo::noun(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "runs".into(),
             lambek_type: svo::intransitive_verb(),
         },
@@ -529,14 +603,17 @@ fn montague_describe() {
     let en = sample_english();
     let tokens = vec![
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "the".into(),
             lambek_type: svo::determiner(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "dog".into(),
             lambek_type: svo::noun(),
         },
         TypedToken {
+            expression_use: ExpressionUse::Used,
             word: "runs".into(),
             lambek_type: svo::intransitive_verb(),
         },

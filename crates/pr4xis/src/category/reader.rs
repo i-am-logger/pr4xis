@@ -101,6 +101,7 @@ mod tests {
 
     // --- Monad laws ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn left_identity() {
         // bind(pure(a), f) = f(a)
@@ -114,6 +115,7 @@ mod tests {
         assert_eq!(left.run(&10), right.run(&10));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn right_identity() {
         // bind(m, pure) = m
@@ -123,6 +125,7 @@ mod tests {
         assert_eq!(m.run(&21), result.run(&21));
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn associativity() {
         // bind(bind(m, f), g) = bind(m, |x| bind(f(x), g))
@@ -145,18 +148,21 @@ mod tests {
 
     // --- Practical usage ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ask_returns_environment() {
         let r = Reader::<String, String>::ask();
         assert_eq!(r.run(&"hello".to_string()), "hello");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn map_transforms_output() {
         let r = Reader::new(|x: &i32| x + 1).map(|y| y * 2);
         assert_eq!(r.run(&20), 42);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn context_resolution_example() {
         // Simulates ContextDef: (entity, signal) → resolution

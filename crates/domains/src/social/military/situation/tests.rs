@@ -3,6 +3,8 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::compliance::classification::{Confidence, EntityType};
 use crate::social::military::situation::combat_identity::CombatIdentityConcept;
 use crate::social::military::situation::engine::*;
@@ -28,6 +30,11 @@ fn entity(
         velocity: Vector::new(vec![velocity[0], velocity[1]]),
         confidence,
     }
+}
+
+/// Build the dimensionless count `Quantity` `num_entities`/`num_relationships` return.
+fn count(n: u32) -> Quantity {
+    Quantity::from_unit(f64::from(n), &unit::UNITLESS)
 }
 
 /// A friendly aircraft tracked in the NED frame (the common test case).
@@ -74,7 +81,7 @@ fn situation_assessment_construction() {
     let mut sa = SituationAssessment::new();
     sa.add_entity(ned_aircraft(1, [0.0, 0.0], [100.0, 0.0]));
     sa.add_entity(ned_aircraft(2, [50.0, 0.0], [100.0, 0.0]));
-    assert_eq!(sa.num_entities(), 2);
+    assert_eq!(sa.num_entities(), count(2));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -147,7 +154,7 @@ fn assess_relationships_populates() {
     }
     sa.assess_relationships();
     // 3 entities in a common frame -> 3 pairs
-    assert_eq!(sa.num_relationships(), 3);
+    assert_eq!(sa.num_relationships(), count(3));
     assert_eq!(sa.current_level, SituationConcept::Relationship);
 }
 
@@ -189,7 +196,7 @@ mod proptest_proofs {
             sa.assess_relationships();
             // All entities share the NED frame, so every pair is defined.
             let expected = n * (n - 1) / 2;
-            prop_assert_eq!(sa.num_relationships(), expected);
+            prop_assert_eq!(sa.num_relationships(), count(expected as u32));
         }
     }
 

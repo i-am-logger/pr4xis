@@ -91,18 +91,21 @@ pub fn sequence<A: Clone + Debug>(items: Vec<Ap<A>>) -> Ap<Vec<A>> {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn pure_wraps_value() {
         let a = Ap::pure(42);
         assert_eq!(a.value, 42);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn map_applies_function() {
         let result = Ap::pure(21).map(|x| x * 2);
         assert_eq!(result.value, 42);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn map2_combines_independent() {
         let x = Ap::pure(3);
@@ -111,6 +114,7 @@ mod tests {
         assert_eq!(result.value, 7);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn sequence_collects_all() {
         let items = vec![Ap::pure(1), Ap::pure(2), Ap::pure(3)];
@@ -120,6 +124,7 @@ mod tests {
 
     // --- Applicative laws ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn identity_law() {
         // ap(id, v) = v
@@ -127,6 +132,7 @@ mod tests {
         assert_eq!(result.value, 42);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn homomorphism_law() {
         // ap(f, pure(x)) = pure(f(x))
@@ -139,6 +145,7 @@ mod tests {
 
     // --- Practical: parallel ontology queries ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_query_combination() {
         // Simulate querying taxonomy and mereology independently
@@ -180,5 +187,8 @@ mod tests {
                 prop_assert_eq!(result.value.len(), n);
             }
         }
+        crate::register_praxis_value!(prop_map_pure, Deterministic);
+        crate::register_praxis_value!(prop_map2_commutative, Verifiable);
+        crate::register_praxis_value!(prop_sequence_length, Verifiable);
     }
 }

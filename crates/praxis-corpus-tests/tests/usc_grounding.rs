@@ -14,6 +14,7 @@
 
 use std::rc::Rc;
 
+use pr4xis::ontology::Axiom;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_domains::applied::data_provisioning::registry::data_sources;
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;
@@ -23,17 +24,19 @@ use pr4xis_domains::cognitive::linguistics::english::bridge::{
     ENGLISH_ONTOLOGY, FORM_KIND, project_archive_with_forms,
 };
 use pr4xis_domains::cognitive::linguistics::english::english_loaded;
+use pr4xis_domains::cognitive::linguistics::verbnet::store::verbnet_classes_loaded;
+use pr4xis_domains::formal::meta::grounding_laws::LoadedUscSectionGroundsToLawByComposition;
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
-use pr4xis_domains::social::judicial::legal_sources::ontology::LegalSourcesCategory;
-use pr4xis_domains::social::judicial::statute_structure::grounding::denotes_lens;
+use pr4xis_domains::social::judicial::statute_structure::grounding::{
+    CITES_REL, DEFINES_REL, cites_lens, defines_lens, denotes_lens,
+};
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::bridge::{
-    COMPOSES_REL, project_archive, usc_runtime_ontology,
+    COMPOSES_REL, citation_index, project_archive, usc_runtime_ontology,
 };
 use pr4xis_domains::social::software::markup::xml::uslm::{UsCode, read_uslm_title};
 use pr4xis_runtime::definition::EdgeTarget;
-use pr4xis_runtime::emit::emit;
-use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology};
-use pr4xis_runtime::ontology::{materialize, relations_kind, subsumption_kind};
+use pr4xis_runtime::grounding::{AtomResolver, ConnectedOntologies, ConnectedOntology, ground};
+use pr4xis_runtime::ontology::relations_kind;
 use praxis_corpus_tests::{require, workspace_root};
 
 /// Load the first provisioned USC title as a `UsCode`, or `None` on a fresh
@@ -53,6 +56,19 @@ fn first_provisioned_title() -> Option<UsCode> {
         return Some(UsCode::from_uslm_titles_owned(vec![title]));
     }
     None
+}
+
+/// Load a specific provisioned USC title by number (e.g. `15` →
+/// `usc_title_15`), or `None` if that title isn't provisioned on this
+/// checkout — routed through [`require`] by callers (tests do not skip).
+fn provisioned_title(number: u32) -> Option<UsCode> {
+    let root = workspace_root();
+    let name = format!("usc_title_{number}");
+    let entry = data_sources().iter().find(|e| e.name == name)?;
+    let source = std::fs::read(root.join(entry.local_path())).ok()?;
+    let text = core::str::from_utf8(&source).expect("USLM source is UTF-8");
+    let title = read_uslm_title(text).expect("parse title");
+    Some(UsCode::from_uslm_titles_owned(vec![title]))
 }
 
 /// THE GATE: a real statute provision's prose grounds — over the generic substrate
@@ -113,6 +129,164 @@ fn a_real_statute_provision_grounds_into_an_english_form_atom() {
     );
 }
 
+/// THE CITES GATE: a real cross-title citation in a provisioned USC title
+/// resolves — over the generic substrate — into the real cited provision in a
+/// SEPARATE provisioned title's archive, via `cites_lens` + the generic
+/// `AtomResolver`. Titles 15 and 5 cross-cite heavily in the real corpus (Title
+/// 15 alone carries several hundred `href="/us/usc/t5/..."` citations), so this
+/// searches title 15's real citations for the first one whose target is ALSO a
+/// node title 5's own real projection declares — proving the whole pipeline
+/// (citation_index → cites_lens → ground → AtomResolver) end to end on real
+/// data, not a synthetic fixture.
+#[test]
+fn a_real_cross_title_citation_resolves_into_the_cited_titles_archive() {
+    let citing = require(provisioned_title(15), "usc_title_15");
+    let cited_title = require(provisioned_title(5), "usc_title_5");
+
+    let citing_archive = project_archive(&citing);
+    let cited_archive = project_archive(&cited_title);
+    let cited_names: std::collections::BTreeSet<&str> = cited_archive
+        .nodes
+        .iter()
+        .map(|n| n.name.as_str())
+        .collect();
+
+    let refs_by_urn = citation_index(&citing);
+    // A real citation from title 15 into title 5 whose target is a node title
+    // 5's own projection actually declares (some hrefs name a title/part/
+    // chapter grouping node `project_archive` never projects — this finds a
+    // real HIT among the real citations, not merely a real citation).
+    let (citing_urn, target_href) = refs_by_urn
+        .iter()
+        .flat_map(|(urn, refs)| refs.iter().map(move |r| (urn.as_str(), r.href.as_str())))
+        .find(|(_, href)| href.starts_with("/us/usc/t5/") && cited_names.contains(href))
+        .expect("title 15 has at least one real citation into a title-5 node its own projection declares");
+
+    let own_names: std::collections::BTreeSet<String> = citing_archive
+        .nodes
+        .iter()
+        .map(|n| n.name.clone())
+        .collect();
+    let mut peers = std::collections::BTreeMap::new();
+    let cited_root = cited_archive.root().unwrap();
+    peers.insert("usc_title_5".to_string(), cited_archive);
+
+    let grounded = ground(
+        &citing_archive,
+        cites_lens(&refs_by_urn, &own_names, &peers),
+    )
+    .expect("the cites lens grounds the real title");
+    let citing_node = grounded
+        .nodes
+        .iter()
+        .find(|n| n.name == citing_urn)
+        .expect("the citing node survives grounding");
+    let cites_edge = citing_node
+        .edges
+        .iter()
+        .find(|(k, t)| {
+            k == CITES_REL
+                && matches!(t, EdgeTarget::Grounded { ontology, .. } if ontology == "usc_title_5")
+        })
+        .map(|(_, t)| t.clone())
+        .expect("the real cross-title citation grounded into usc_title_5");
+
+    let manifest = ConnectedOntologies(vec![ConnectedOntology {
+        name: "usc_title_5".to_string(),
+        root: cited_root,
+        role: "cites".to_string(),
+    }]);
+    let resolver = AtomResolver::new(&manifest, &peers).expect("usc_title_5 pin agrees");
+    let resolved = resolver
+        .resolve(&cites_edge)
+        .expect("the real minted Cites edge resolves by content address");
+    assert_eq!(resolved.name, target_href);
+    eprintln!(
+        "USC CITES GATE: {citing_urn} cites {target_href} (real title 15 -> title 5 cross-reference, over the generic substrate)"
+    );
+}
+
+/// THE DEFINES GATE: a real "the term 'X' means Y" declarative in a
+/// provisioned USC title grounds — over the generic substrate — into the
+/// definiendum's real English `ontolex:Form` atom, via `defines_lens` + the
+/// generic `AtomResolver`. Targets the specific provision
+/// `/us/usc/t15/s6603/h/6/A`, whose real prose ("The term "consumer" means a
+/// natural person.") is byte-verified against
+/// `usc_title_15-pl-119-90.xml` and is simple enough for the shipped grammar
+/// (a single-word definiendum, close apposition, a determiner+adjective+noun
+/// object — no coordination, no PP chain, no parenthetical adjunct) to fully
+/// derive. Isolates that ONE real node rather than scanning the whole title
+/// (title 15 has tens of thousands of provisions; most of their prose is far
+/// outside this grammar's coverage and would each pay a full chart-parse
+/// before failing) — the node itself is still the real, unmodified
+/// projection of the real corpus, not a synthetic fixture.
+#[test]
+fn a_real_the_term_x_means_y_provision_grounds_a_defines_pointer() {
+    let usc = require(provisioned_title(15), "usc_title_15");
+    let english = english_loaded();
+    let verbnet = verbnet_classes_loaded();
+
+    let archive = project_archive(&usc);
+    let provision = archive
+        .nodes
+        .iter()
+        .find(|n| n.name == "/us/usc/t15/s6603/h/6/A")
+        .expect("the real title-15 consumer-definition provision projects");
+    let lexical = provision
+        .lexical
+        .as_deref()
+        .expect("the provision carries prose");
+    eprintln!("USC DEFINES GATE source prose: {lexical:?}");
+    assert!(
+        lexical.contains("consumer") && lexical.contains("means"),
+        "sanity: the targeted node is really the consumer definition; got {lexical:?}"
+    );
+
+    let single_node_archive = pr4xis_runtime::archive::Archive {
+        nodes: vec![provision.clone()],
+        connections: vec![],
+    };
+    let mint_domain = OntologyName::new_static("usc_t15_coinages");
+    let grounded = ground(
+        &single_node_archive,
+        defines_lens(
+            english,
+            english,
+            verbnet,
+            &std::collections::BTreeMap::new(),
+            &std::collections::BTreeMap::new(),
+            &mint_domain,
+        ),
+    )
+    .expect("the defines lens grounds the real provision");
+    let (kind, target) = grounded.nodes[0]
+        .edges
+        .iter()
+        .find(|(k, _)| k == DEFINES_REL)
+        .expect("the real provision's definiendum grounded");
+    assert_eq!(kind, DEFINES_REL);
+
+    let english_archive = project_archive_with_forms(english);
+    let english_root = english_archive.root().unwrap();
+    let mut peers = std::collections::BTreeMap::new();
+    peers.insert(ENGLISH_ONTOLOGY.to_string(), english_archive);
+    let manifest = ConnectedOntologies(vec![ConnectedOntology {
+        name: ENGLISH_ONTOLOGY.to_string(),
+        root: english_root,
+        role: "defines".to_string(),
+    }]);
+    let resolver = AtomResolver::new(&manifest, &peers).expect("english pin agrees");
+    let resolved = resolver
+        .resolve(target)
+        .expect("the real minted defines edge resolves by content address");
+    assert_eq!(resolved.kind, FORM_KIND);
+    assert_eq!(resolved.name, "consumer");
+    eprintln!(
+        "USC DEFINES GATE: /us/usc/t15/s6603/h/6/A defines the English Form {:?} (over the generic substrate)",
+        resolved.name
+    );
+}
+
 /// The Composes hierarchy projects as a real, referentially-closed Parthood
 /// mereology over a nested title (the unit test only had the flat `UsCode::sample`).
 #[test]
@@ -168,123 +342,17 @@ fn the_real_title_projects_a_parthood_mereology() {
 
 /// THE COMPLAINT'S GATE: a LOADED USC section reaches `legal_sources:Statute` and
 /// transitively `legal_sources:LegalSource` ("law") THROUGH the cross-ontology
-/// TYPE grounding — the same materialized closure "is a statute a law" reads —
-/// resolved by the generic `AtomResolver`. The conceptual layer ("is a statute a
-/// law") answered before; this ties a LOADED statute (a specific section) to it.
-///
-/// It CREDITS THE GROUNDING FUNCTOR, not a hardcode, three ways:
-///   1. the section reaches Statute → LegalSource ONLY because the USC→LegalSources
-///      functor minted the typing edge AND LegalSources is loaded to resolve it;
-///   2. the SAME section does NOT reach `Precedent` ("case law") — a sibling under
-///      LegalSource that Statute does not subsume — so the answer reads the real
-///      LegalSources closure, never a blanket yes;
-///   3. the base "is a statute a law" still answers (the conceptual layer intact).
+/// TYPE grounding, but NOT `Precedent` ("case law") — crediting the grounding
+/// functor + the loaded LegalSources closure, never a hardcode, for BOTH load
+/// orders. This is the `#[test]` driver for the registered, cited
+/// [`LoadedUscSectionGroundsToLawByComposition`] axiom (the raw differential now
+/// lives behind its `verify()`). `require()`-gates on a provisioned USC title,
+/// so an unprovisioned checkout hard-fails with the `pr4xis update usc` hint —
+/// tests do not skip.
 #[test]
 fn a_loaded_usc_section_reaches_statute_and_law_by_composition() {
-    let usc = require(first_provisioned_title(), "usc");
-
-    // The gate is asserted for BOTH load orders — LegalSources loaded BEFORE the
-    // USC corpus AND after it. Grounding is the general `ground_loaded_set` pass
-    // over the loaded set (the same step the CLI/wasm install runs), so a USC
-    // section grounds into `legal_sources:Statute` whether its base peer arrived
-    // first or last — the mint is a pure function of the loaded set, not its order.
-    for base_first in [true, false] {
-        // The USC corpus carries its grounding functor as DATA (usc_runtime_ontology
-        // materializes it ungrounded); LegalSources is the always-loaded base.
-        let usc_onto = usc_runtime_ontology(&usc, OntologyName::new_static("usc"))
-            .expect("the USC pipeline materializes");
-        let legal = materialize(
-            emit::<LegalSourcesCategory>(),
-            OntologyName::new_static("LegalSources"),
-        )
-        .expect("LegalSources materializes");
-
-        let mut set = if base_first {
-            vec![Rc::new(legal), Rc::new(usc_onto)]
-        } else {
-            vec![Rc::new(usc_onto), Rc::new(legal)]
-        };
-        // THE GENERAL GROUNDING STEP — mints the USC→LegalSources type edges from
-        // the functor USC carries as data, against the loaded LegalSources peer.
-        pr4xis_domains::formal::meta::grounding::ground_loaded_set(
-            &mut set,
-            English::sample_static(),
-        )
-        .expect("the USC→LegalSources single-level grounding succeeds");
-
-        let composed = ComposedReasoner::new(English::sample_static(), set);
-        let subsumption = subsumption_kind();
-
-        // The conceptual layer still answers: statute ⊑ … ⊑ law inside LegalSources.
-        let statute = composed.lookup("statute").to_vec();
-        let law = composed.lookup("law").to_vec();
-        assert!(
-            !statute.is_empty() && !law.is_empty(),
-            "the LegalSources surfaces 'statute' and 'law' resolve (base_first={base_first})"
-        );
-        assert!(
-            statute
-                .iter()
-                .any(|&s| law.iter().any(|&l| composed.reaches(s, l, &subsumption))),
-            "the base taxonomy holds: a statute is a law"
-        );
-
-        // A LOADED section — addressed by its URN surface (no hardcoded section
-        // number; the first provisioned section of the first title).
-        let section_urn = usc.all_sections()[0].urn.value().to_lowercase();
-        let section = composed.lookup(&section_urn).to_vec();
-        assert!(
-            !section.is_empty(),
-            "the loaded section {section_urn} resolves by its URN surface"
-        );
-
-        // THE FIX: the loaded section reaches legal_sources:Statute (its typing) …
-        let reaches_statute = section.iter().any(|&sec| {
-            statute
-                .iter()
-                .any(|&st| composed.reaches(sec, st, &subsumption))
-        });
-        assert!(
-            reaches_statute,
-            "a LOADED USC section reaches legal_sources:Statute through the grounding functor \
-             (base_first={base_first}) — the instance→type link"
-        );
-
-        // … and transitively legal_sources:LegalSource ("law"), the cross-ontology
-        // fold (section --instantiates--> Statute ⊑ LegalDocument ⊑ LegalSource).
-        let reaches_law = section
-            .iter()
-            .any(|&sec| law.iter().any(|&l| composed.reaches(sec, l, &subsumption)));
-        assert!(
-            reaches_law,
-            "a LOADED USC section reaches legal_sources:LegalSource ('law') by composition \
-             (base_first={base_first})"
-        );
-
-        // NOT a blanket yes: the section does NOT reach `Precedent` ("case law"), a
-        // sibling Statute does not subsume — the cross-ontology reaches reads the
-        // REAL LegalSources closure, crediting the functor + closure, not a hardcode.
-        let case_law = composed.lookup("case law").to_vec();
-        assert!(
-            !case_law.is_empty(),
-            "the LegalSources surface 'case law' (Precedent) resolves"
-        );
-        let reaches_precedent = section.iter().any(|&sec| {
-            case_law
-                .iter()
-                .any(|&p| composed.reaches(sec, p, &subsumption))
-        });
-        assert!(
-            !reaches_precedent,
-            "a section is NOT case law — the type grounding is discriminating (reads the \
-             closure), not a blanket cross-ontology yes (base_first={base_first})"
-        );
-
-        eprintln!(
-            "USC TYPE-GROUNDING GATE (base_first={base_first}): loaded section {section_urn} \
-             reaches legal_sources:Statute → LegalSource ('law'), but NOT Precedent ('case law')."
-        );
-    }
+    require(first_provisioned_title(), "usc");
+    assert!(LoadedUscSectionGroundsToLawByComposition.verify().is_ok());
 }
 
 /// The RESOLVE-SIDE contrast: the SAME grounded USC, composed WITHOUT the

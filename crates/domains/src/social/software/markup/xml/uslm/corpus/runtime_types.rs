@@ -902,44 +902,189 @@ impl UsCodeContentNode {
     }
 
     /// Append every descendant `#PCDATA` run that belongs to the element's
-    /// PROSE to `buf` (pre-order), SKIPPING editorial footnote annotation —
-    /// the typed `<note type="footnote">` the LRC nests inside a text-bearing
-    /// element (e.g. a `<heading>`) plus the superscript `<ref
-    /// class="footnoteRef">` marker that points at it.
+    /// BODY PROSE to `buf` (pre-order), SKIPPING an embedded XHTML `<table>`
+    /// (an LRC-authored data listing, e.g. a state/project-number/
+    /// housing-agency table nested inside a `<paragraph>`'s `<content>`, per
+    /// the USLM XML User Guide's XHTML table idiom for tabular statutory
+    /// data). Editorial footnote annotation is deliberately KEPT here — see
+    /// [`NonProseSubtreeKind`]'s own doc for the real, measured regression
+    /// excluding it caused on `chapeau`/`content` and why it was reverted;
+    /// see [`Self::push_heading_prose_text`] for the SIBLING projection that
+    /// DOES exclude footnotes, because a `<heading>` needs the opposite
+    /// answer.
     ///
     /// This is the discriminator the flat [`UsCodeMixed::plain_text`]
-    /// projection lacks: `plain_text` flattens the whole mixed tree, so the
-    /// footnote's own sentence ("Section catchline was not amended…") leaks
-    /// into the heading string and a reader of the prose sees the editor's
-    /// note as if it were part of the title. The typed model already
-    /// DISTINGUISHES these nodes (the footnote is a
-    /// [`Self::Generic`]`{ name: "note" }` carrying `type="footnote"`; the
-    /// marker is a [`Self::Ref`] carrying `class="footnoteRef"` — both per the
-    /// LRC USLM XML User Guide § "Notes" / XHTML footnote-reference idiom), so
-    /// the prose projection just declines to descend into them.
+    /// projection lacks: `plain_text` flattens the whole mixed tree, so a
+    /// table's row-by-row cell text (city names, project numbers, agency
+    /// names — none of it a grammatical sentence) leaks verbatim into the
+    /// paragraph's prose. The typed model already DISTINGUISHES a table (a
+    /// [`Self::Generic`]`{ name: "table" }`, per the LRC USLM XML User Guide
+    /// XHTML idiom), so the prose projection just declines to descend into
+    /// it.
     ///
-    /// CONSERVATIVE by construction: only those two annotation shapes are
-    /// skipped. A genuine `<ref href="…">` cross-reference in the prose is
-    /// kept (it has no `class="footnoteRef"`); a non-footnote `<note>` (e.g.
-    /// `type="uscNote"`) is kept (its `type` is not `"footnote"`); every other
-    /// node recurses exactly as [`Self::push_raw_text`] would.
+    /// Confirmed a REAL, measured defect this closes, not a hypothetical one:
+    /// 42 U.S.C. § 1586(a)(3) embeds a ~160-row historical housing-project
+    /// table directly inside its `<content>`, mid-sentence, right after
+    /// "...for the administration of the project:" — before this skip,
+    /// [`defines_pointers`](crate::social::judicial::statute_structure::grounding::defines_pointers)
+    /// received "State Project number Local public housing agency Alabama
+    /// 1041 Housing Authority of District of Birmingham. …" appended to the
+    /// paragraph's real prose, none of it a parseable declarative, all of it
+    /// still paying real tokenization cost before failing — see
+    /// `crates/praxis-corpus-tests/tests/scratch_probe.rs`'s
+    /// `probe_bisect_title42_pathological_candidates` for the direct
+    /// before/after measurement.
+    ///
+    /// CONSERVATIVE by construction: only `<table>` is skipped. A genuine
+    /// `<ref href="…">` cross-reference in the prose is kept; a `<note>` of
+    /// any `type` (footnote or otherwise) is kept; every other node recurses
+    /// exactly as [`Self::push_raw_text`] would.
     pub fn push_prose_text(&self, buf: &mut String) {
         match self {
             Self::Text(t) => buf.push_str(t),
-            // The editorial footnote the LRC embeds inside a text-bearing
-            // element: a `<note type="footnote">`. Skip its WHOLE subtree —
-            // its `<num>` marker and its sentence are annotation, not prose.
-            Self::Generic { name, .. }
-                if name == "note" && self.attr("type") == Some("footnote") => {}
-            // The superscript marker that points at that footnote: a `<ref
-            // class="footnoteRef">`. Skip its subtree (the bare marker digit).
-            Self::Ref { .. } if self.attr("class") == Some("footnoteRef") => {}
+            other
+                if NonProseSubtreeKind::classify(other)
+                    .is_some_and(NonProseSubtreeKind::excluded_from_body_prose) => {}
             other => {
                 for child in other.children() {
                     child.push_prose_text(buf);
                 }
             }
         }
+    }
+
+    /// Append every descendant `#PCDATA` run that belongs to the element's
+    /// HEADING PROSE to `buf` (pre-order), SKIPPING every
+    /// [`NonProseSubtreeKind`] — footnote, footnote-ref marker, AND table —
+    /// the SIBLING of [`Self::push_prose_text`] with the OPPOSITE answer on
+    /// footnotes.
+    ///
+    /// A section heading is a short title; an editorial footnote attached to
+    /// it ("Section catchline was not amended to conform to change made in
+    /// the text by Pub. L. 91–375.") is metadata ABOUT the title, never a
+    /// word IN the title. Confirmed a REAL, measured defect this closes:
+    /// 18 U.S.C. § 1303's heading "Postmaster or employee as lottery agent"
+    /// carries exactly this footnote — flattened via `plain_text` (the
+    /// pre-existing, still-unfixed wiring in `leaf_readers.rs::read_section`/
+    /// `read_subdivision`), the heading's own lemma-resolution audit
+    /// (`statute_understanding::corpus_wide_gap_audit_no_unresolved_lemmas`)
+    /// tries to resolve "catchline" as if it were a genuine heading word and
+    /// fails — the SAME editorial-footnote-leaking defect
+    /// [`Self::push_prose_text`]'s own doc cites for tables, just on the
+    /// OTHER node kind. `chapeau`/`content`, by contrast, measurably need
+    /// the footnote KEPT (see [`NonProseSubtreeKind`]'s doc) — the two
+    /// fields are not interchangeable, hence two functions, not one flag
+    /// threaded through a single call site.
+    pub fn push_heading_prose_text(&self, buf: &mut String) {
+        match self {
+            Self::Text(t) => buf.push_str(t),
+            other if NonProseSubtreeKind::classify(other).is_some() => {}
+            other => {
+                for child in other.children() {
+                    child.push_heading_prose_text(buf);
+                }
+            }
+        }
+    }
+}
+
+/// USLM element/attribute shapes [`UsCodeContentNode::push_prose_text`]
+/// excludes from PROSE — non-narrative data embedded inside an otherwise
+/// text-bearing element, never mistaken for part of the surrounding
+/// sentence. A closed, typed classification mirroring [`InlineKind::parse`]'s
+/// shape (`kinds.rs`) — a finite, USLM-spec-fixed vocabulary belongs in a
+/// named enum with a single classification function, not scattered
+/// `Self::Generic { name, .. } if name == "..."` comparisons at each call
+/// site. Lives here, not in `kinds.rs` alongside `InlineKind`, because
+/// classification needs attribute inspection, so it needs
+/// [`UsCodeContentNode::attr`] — `kinds.rs` is a dependency OF this module
+/// (`runtime_types.rs:18`), not the reverse, so a node-typed classifier
+/// cannot live there without a cycle.
+///
+/// `<note type="footnote">`/`<ref class="footnoteRef">` exclusion from BODY
+/// prose (`chapeau`/`content`, [`UsCodeContentNode::push_prose_text`]) was
+/// tried and REVERTED there: the corpus-wide `defines_pointers` ratchet
+/// (`crates/praxis-corpus-tests/tests/defines_pointers_corpus_ratchet.rs`)
+/// caught a real regression on Titles 15/42/49, and a direct A/B probe
+/// (`crates/praxis-corpus-tests/tests/scratch_probe.rs`,
+/// `probe_prose_text_vs_plain_text_defines_pointer_delta`) proved why,
+/// against ~2,927 real differing nodes across those three titles: an LRC
+/// editorial footnote is embedded INLINE inside `<content>`/`<chapeau>`
+/// (frequently mid-sentence — between the definiendum and "means", or
+/// glued into the term's own spelling), so excluding it changes the token
+/// stream `defines_pointers` sees, NET NEGATIVELY on the current grammar —
+/// e.g. 42 U.S.C. § 10802(1)'s "...caused, or may have caused, injury or
+/// death to a 11 So in original. Probably should be "an". individual with
+/// mental illness..." only reduces to a complete two-argument declarative
+/// WITH the footnote's numeral present (its removal exposes that the
+/// underlying congressional text is itself missing an article, a defect
+/// the footnote is documenting, not causing). A handful of cases go the
+/// other way (the footnote corrupts an otherwise-clean parse), but the
+/// measured net across real corpus text is negative in every one of
+/// Titles 15/42/49 — so, per that ratchet's monotonic-or-nothing
+/// discipline, footnote exclusion does not ship for BODY prose.
+///
+/// This is NOT the same conclusion for HEADING prose
+/// (`UsCodeContentNode::push_heading_prose_text`), which excludes
+/// footnotes UNCONDITIONALLY — see that function's own doc and
+/// [`excluded_from_body_prose`](Self::excluded_from_body_prose)'s doc for
+/// why a heading and a chapeau/content genuinely need opposite answers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NonProseSubtreeKind {
+    /// `<note type="footnote">` — an editorial footnote's own text (its
+    /// `<num>` marker and sentence are annotation, not prose, in EITHER a
+    /// heading or a chapeau/content — see this enum's own doc for why
+    /// heading and body prose nonetheless exclude it differently).
+    Footnote,
+    /// `<ref class="footnoteRef">` — the superscript marker pointing at
+    /// one (the bare marker digit).
+    FootnoteRef,
+    /// `<table>` — an embedded XHTML data table (the LRC USLM XML User
+    /// Guide's table idiom; the SAME typed `Generic{name: "table"}` shape
+    /// `collect_tables_in`/`UsCode.tables` already load elsewhere in this
+    /// file). Its `colgroup`/`thead`/`tbody`/`tr`/`td`/`th`/`span`
+    /// descendants all fall out of the prose walk with it, since they are
+    /// never reached independently of their `<table>` ancestor. Unlike
+    /// footnote exclusion from BODY prose, table exclusion has no known
+    /// false-positive/net-negative counter-evidence: real tabular row data
+    /// (city/agency/project-number listings) is never part of a
+    /// grammatical sentence, and the probe above found almost no overlap
+    /// between table content and any measured pointer-count delta.
+    Table,
+}
+
+impl NonProseSubtreeKind {
+    /// Classify a content node as a [`NonProseSubtreeKind`], or `None` if it
+    /// is ordinary prose content (including every OTHER `Generic`/`Ref`/
+    /// `Date`/`Inline`/`Para` shape not named above — this is a positive
+    /// classification list, not a default-exclude policy). Whether a
+    /// CLASSIFIED kind is actually excluded from a given projection is a
+    /// SEPARATE question — see [`Self::excluded_from_body_prose`] — since
+    /// `push_prose_text` (body) and `push_heading_prose_text` (heading)
+    /// disagree on footnotes.
+    pub fn classify(node: &UsCodeContentNode) -> Option<Self> {
+        match node {
+            UsCodeContentNode::Generic { name, .. }
+                if name == "note" && node.attr("type") == Some("footnote") =>
+            {
+                Some(Self::Footnote)
+            }
+            UsCodeContentNode::Ref { .. } if node.attr("class") == Some("footnoteRef") => {
+                Some(Self::FootnoteRef)
+            }
+            UsCodeContentNode::Generic { name, .. } if name == "table" => Some(Self::Table),
+            _ => None,
+        }
+    }
+
+    /// Whether this kind is excluded from BODY prose (`chapeau`/`content`,
+    /// [`UsCodeContentNode::push_prose_text`]) — only [`Self::Table`].
+    /// [`UsCodeContentNode::push_heading_prose_text`] excludes every kind
+    /// unconditionally instead of calling this — a heading has no
+    /// counter-evidence pulling the other way the way `chapeau`/`content`
+    /// do, so it needs no scoping method of its own.
+    pub fn excluded_from_body_prose(self) -> bool {
+        matches!(self, Self::Table)
     }
 }
 
@@ -980,31 +1125,59 @@ impl UsCodeMixed {
         buf
     }
 
-    /// Whitespace-collapsed, trimmed plain text — the DERIVED projection that
-    /// the legacy `heading` / `content` / `chapeau` `String` fields hold
-    /// (W3C XML 1.0 §2.10 White Space Handling).
+    /// Whitespace-collapsed, trimmed plain text — the un-filtered flatten of
+    /// the WHOLE mixed-content tree, byte-faithful residue and all (W3C XML
+    /// 1.0 §2.10 White Space Handling). No current `leaf_readers.rs` call
+    /// site uses this for a lexical-understanding-facing field — `heading`
+    /// derives from [`heading_prose_text`](Self::heading_prose_text),
+    /// `content`/`chapeau` from [`prose_text`](Self::prose_text) — kept as
+    /// the byte-faithful primitive `raw_text` sits behind, and for any
+    /// future caller that genuinely needs the untouched flatten.
     #[must_use]
     pub fn plain_text(&self) -> String {
         collapse_ws(&self.raw_text())
     }
 
-    /// Whitespace-collapsed, trimmed PROSE text — `plain_text` minus the
-    /// editorial footnote annotation the LRC nests inside the element (the
-    /// typed `<note type="footnote">` and its `<ref class="footnoteRef">`
-    /// marker). See [`UsCodeContentNode::push_prose_text`].
+    /// Whitespace-collapsed, trimmed BODY PROSE text — `plain_text` minus an
+    /// embedded XHTML `<table>`'s row/cell data (editorial footnote
+    /// annotation is KEPT — see [`NonProseSubtreeKind`]'s own doc for the
+    /// real, measured regression excluding it caused here, and
+    /// [`heading_prose_text`](Self::heading_prose_text) for the sibling
+    /// projection that excludes it). See
+    /// [`UsCodeContentNode::push_prose_text`] for the full citation and the
+    /// real, measured defect excluding tables closes.
     ///
-    /// The lexical-understanding pipeline reads THIS, not `plain_text`: a
-    /// heading's prose is its title, and the editor's footnote ("Section
-    /// catchline was not amended…") is metadata about the title, not a word IN
-    /// the title — so resolving the heading's lemmas against WordNet should
-    /// never see "catchline". `plain_text` is deliberately left untouched
-    /// (the byte-exact writer + the `heading` flat projection depend on it),
-    /// so this is a strictly-narrower SIBLING projection, not a replacement.
+    /// The lexical-understanding pipeline reads THIS (via `content`/
+    /// `chapeau`), not `plain_text`: a paragraph's prose is its sentence,
+    /// and a table's row data ("Alabama 1041 Housing Authority of District
+    /// of Birmingham.") is tabular data, not part of that sentence, so
+    /// `defines_pointers` should never see it. `plain_text` is deliberately
+    /// left untouched (the byte-exact writer reads
+    /// `content_mixed`/`chapeau_mixed`/`heading_mixed` directly, never the
+    /// flat `String` fields, so `plain_text`'s full fidelity is unneeded
+    /// there too — see `writer.rs`), so this is a strictly-narrower SIBLING
+    /// projection, not a replacement.
     #[must_use]
     pub fn prose_text(&self) -> String {
         let mut buf = String::new();
         for node in &self.nodes {
             node.push_prose_text(&mut buf);
+        }
+        collapse_ws(&buf)
+    }
+
+    /// Whitespace-collapsed, trimmed HEADING PROSE text — `plain_text` minus
+    /// EVERY [`NonProseSubtreeKind`] (footnote, footnote-ref marker, AND
+    /// table), the SIBLING of [`prose_text`](Self::prose_text) with the
+    /// OPPOSITE answer on footnotes. See
+    /// [`UsCodeContentNode::push_heading_prose_text`] for the full citation
+    /// and the real, measured defect this closes (18 U.S.C. § 1303's
+    /// "catchline" footnote leaking into heading lemma-resolution).
+    #[must_use]
+    pub fn heading_prose_text(&self) -> String {
+        let mut buf = String::new();
+        for node in &self.nodes {
+            node.push_heading_prose_text(&mut buf);
         }
         collapse_ws(&buf)
     }
@@ -1433,32 +1606,51 @@ mod prose_text_tests {
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
-    fn prose_text_excludes_footnote_note() {
+    fn prose_text_keeps_footnote_note() {
+        // Footnote exclusion was tried and REVERTED (see
+        // `NonProseSubtreeKind`'s own doc for the real corpus-ratchet
+        // regression this caused) — `prose_text` now matches `plain_text`
+        // for a footnote-only node: both flatten the footnote's sentence
+        // and its superscript marker digit into the running text.
         let prose = heading_with_footnote().prose_text();
-        assert_eq!(prose, "Postmaster or employee as lottery agent");
-        // Neither the footnote's sentence ("catchline") nor the superscript
-        // marker digit survives the prose projection.
-        assert!(
-            !prose.contains("catchline"),
-            "prose must not carry the footnote sentence: {prose:?}"
+        assert_eq!(
+            prose,
+            "Postmaster or employee as lottery agent 11 Section catchline \
+             was not amended to conform to change made in the text by Pub. L. 91–375."
         );
         assert!(
-            !prose.contains("Section catchline"),
-            "prose must not carry the footnote sentence: {prose:?}"
+            prose.contains("catchline"),
+            "prose must carry the footnote sentence (exclusion reverted): {prose:?}"
         );
-        // The `<ref class=footnoteRef>` marker leaf ("1") is also gone — the
-        // prose ends at "agent", not "agent 1".
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn heading_prose_text_excludes_footnote_note() {
+        // The SIBLING projection, same synthetic input as
+        // `prose_text_keeps_footnote_note` above, OPPOSITE answer: a
+        // heading's footnote is metadata about the title, never a word IN
+        // it — confirmed a real defect this closes:
+        // `corpus_wide_gap_audit_no_unresolved_lemmas` (statute_understanding.rs)
+        // tried to resolve "catchline" as a genuine heading word for real
+        // 18 U.S.C. § 1303 text before this existed.
+        let heading = heading_with_footnote().heading_prose_text();
+        assert_eq!(heading, "Postmaster or employee as lottery agent");
         assert!(
-            !prose.contains('1'),
-            "prose must not carry the footnoteRef marker digit: {prose:?}"
+            !heading.contains("catchline"),
+            "heading prose must not carry the footnote sentence: {heading:?}"
+        );
+        assert!(
+            !heading.contains('1'),
+            "heading prose must not carry the footnoteRef marker digit: {heading:?}"
         );
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn prose_text_keeps_genuine_href_ref() {
-        // A genuine `<ref href="…">` cross-reference in the prose (NOT a
-        // footnoteRef) is kept — only `class="footnoteRef"` is skipped.
+        // A genuine `<ref href="…">` cross-reference in the prose is kept —
+        // `prose_text` only ever skips a `<table>` (see `NonProseSubtreeKind`).
         let mixed = UsCodeMixed {
             nodes: vec![
                 text("Civil action — see "),
@@ -1504,6 +1696,91 @@ mod prose_text_tests {
             plain,
             "Postmaster or employee as lottery agent 11 Section catchline \
              was not amended to conform to change made in the text by Pub. L. 91–375."
+        );
+    }
+
+    /// A `<content>` shaped exactly like the REAL 42 U.S.C. § 1586(a)(3)
+    /// (`crates/domains/data/legal/uscode/usc_title_42/
+    /// usc_title_42-pl-119-90.xml`, the `<paragraph identifier="/us/usc/t42/
+    /// s1586/a/3">` element): ordinary prose ending in a colon, followed by
+    /// an embedded XHTML `<table>` of state/project-number/housing-agency
+    /// rows (here trimmed to 2 real rows, not the real table's ~50) — the
+    /// exact shape that fed table-row gibberish into `defines_pointers`
+    /// before `push_prose_text`'s table skip existed (see this session's
+    /// `crates/praxis-corpus-tests/tests/scratch_probe.rs`
+    /// `probe_bisect_title42_pathological_candidates` for the full
+    /// before/after measurement against the REAL, untrimmed table).
+    fn content_with_embedded_table() -> UsCodeMixed {
+        let row = |project: &str, agency: &str| UsCodeContentNode::Generic {
+            name: "tr".to_string(),
+            attrs: vec![],
+            children: vec![
+                UsCodeContentNode::Generic {
+                    name: "td".to_string(),
+                    attrs: vec![],
+                    children: vec![text(project)],
+                },
+                UsCodeContentNode::Generic {
+                    name: "td".to_string(),
+                    attrs: vec![],
+                    children: vec![text(agency)],
+                },
+            ],
+        };
+        UsCodeMixed {
+            nodes: vec![
+                text(
+                    " the public housing agency enters into an agreement with the \
+                     Secretary of Housing and Urban Development (in accordance with \
+                     subsection (c) of this section) or for the administration of \
+                     the project:",
+                ),
+                UsCodeContentNode::Generic {
+                    name: "table".to_string(),
+                    attrs: vec![attr("width", "50%")],
+                    children: vec![UsCodeContentNode::Generic {
+                        name: "tbody".to_string(),
+                        attrs: vec![],
+                        children: vec![
+                            row("1041", "Housing Authority of District of Birmingham."),
+                            row("1061", "Housing Authority of Greater Gadsden."),
+                        ],
+                    }],
+                },
+            ],
+        }
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn prose_text_excludes_embedded_table() {
+        let prose = content_with_embedded_table().prose_text();
+        assert_eq!(
+            prose,
+            "the public housing agency enters into an agreement with the \
+             Secretary of Housing and Urban Development (in accordance with \
+             subsection (c) of this section) or for the administration of \
+             the project:"
+        );
+        assert!(
+            !prose.contains("Birmingham") && !prose.contains("Gadsden"),
+            "prose must not carry the embedded table's row data: {prose:?}"
+        );
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn plain_text_still_includes_the_embedded_table() {
+        // `plain_text` is UNTOUCHED, mirroring `plain_text_still_includes_
+        // annotations` above — the byte-exact writer reads `content_mixed`
+        // directly (never the flat `content` string), so nothing depends on
+        // `plain_text` excluding the table; only the flat `content`/`chapeau`
+        // projections (now `prose_text`-derived, see `leaf_readers.rs`'s
+        // `read_section`/`read_subdivision`) need to.
+        let plain = content_with_embedded_table().plain_text();
+        assert!(
+            plain.contains("Birmingham") && plain.contains("Gadsden"),
+            "plain_text must still flatten the table's row data: {plain:?}"
         );
     }
 }

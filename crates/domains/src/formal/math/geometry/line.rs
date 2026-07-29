@@ -49,7 +49,7 @@ impl Line2 {
     /// Distance from a point to this line.
     pub fn distance_to_point(&self, p: &Point2) -> f64 {
         let v = self.point.vector_to(p);
-        v.cross(&self.direction).abs() / self.direction.norm()
+        v.cross(&self.direction).abs() / self.direction.norm().value
     }
 
     /// Are two lines parallel? (Hilbert IV.1 relates to this).
@@ -75,7 +75,7 @@ impl Line3 {
     /// Distance from a point to this line.
     pub fn distance_to_point(&self, p: &Point3) -> f64 {
         let v = self.point.vector_to(p);
-        v.cross(&self.direction).norm() / self.direction.norm()
+        v.cross(&self.direction).norm().value / self.direction.norm().value
     }
 
     /// Are two lines parallel?
@@ -91,7 +91,7 @@ impl Segment3 {
 
     /// Length of the segment (congruence: segments with equal length are congruent).
     pub fn length(&self) -> f64 {
-        self.start.distance_to(&self.end)
+        self.start.distance_to(&self.end).value
     }
 
     /// Midpoint.

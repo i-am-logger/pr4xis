@@ -78,7 +78,7 @@ proptest! {
             .covariance
             .get(0, 0);
         for rho in CORRELATION_GRID {
-            let realised = ci_realised_error_variance(var_a, var_b, rho, omega, fused);
+            let realised = ci_realised_error_variance(var_a, var_b, rho, omega, fused).value;
             prop_assert!(fused + NUMERICAL_SLACK >= realised);
         }
     }

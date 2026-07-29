@@ -48,7 +48,7 @@ Each sibling file wires a Situation/Action/Precondition engine for one branch, e
 - `relativity.rs` enforces v < c, rest mass invariance, and derives the Lorentz factor, time dilation, length contraction, and E = mc².
 - `quantum.rs` enforces Heisenberg's uncertainty Δx·Δp ≥ ℏ/2.
 
-The `kinematics/` subdirectory is a full ontology of its own (see [`kinematics/README.md`](kinematics/README.md)).
+The `kinematics/` subdirectory is a full ontology of its own (see [`kinematics/README.md`](kinematics/README.md)). The `qualitative/` subdirectory is likewise a full ontology of its own (see [`qualitative/README.md`](qualitative/README.md)) — the commonsense/process-theory complement to this branch's quantitative laws (Forbus 1984; Hayes 1979, 1985).
 
 ## Functors
 

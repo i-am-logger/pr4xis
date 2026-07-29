@@ -1,0 +1,56 @@
+# Plain-language OUTCOME-EXPLANATION realization frames ("Why?" layer) — Reiter &
+# Dale (2000) *Building Natural Language Generation Systems* (CUP), the
+# realization stage: a communicative goal is realized by filling a STORED
+# linguistic template, NOT by concatenating an inline literal in code. These
+# frames are the SECOND realization of the same turn — a plain-language gloss of
+# WHY the engine produced the outcome it did, sibling of the primary response
+# (abstain-frames.tsv / conditional-frames.tsv). Keyed by the existing
+# ResponseFrame (pragmatics::response) — no parallel outcome enum — so the "Why?"
+# panel and the answer share ONE communicative goal.
+#
+# Only the frames whose PRIMARY response does not already carry its own reason
+# get a row here. The self-explaining frames (UnprovenRelation, RuleAwaitingFact,
+# RuleApplies, RuleDoesNotApply, Comparison, PhaticReturn) get NO row by design:
+# their primary surface already states the reason ("I know both X and Y but
+# cannot confirm…", "{rule} ({cite}): {text} Whether this applies depends on
+# {missing}…"), so realize_why returns None and the renderer shows no Why? panel.
+#
+# Each explanation's content is filled from the ACTUAL outcome data of THIS turn
+# — the loaded sources reasoned over, the surfaces that did not resolve — never
+# from a static description of how the pipeline "works". Plain language, active
+# voice, ≤ one idea per sentence (CDC plain-language guidance): abstention is
+# designed safety behaviour, stated calmly, never as an error.
+#
+# Format: `frame_id<TAB>template`. Typed slots the realizer
+# (pragmatics::realize::realize_why) fills, never authored here:
+#   {sources}  the plain-language names of the loaded source(s) the answer
+#              reasoned over, projected through ontology-labels.tsv so a raw
+#              internal OntologyName (e.g. "caregiving_lexicon") never leaks —
+#              e.g. "the Family Caregiving lexicon and U.S. Code Title 42".
+#   {terms}    the surfaces the turn named but could not resolve to any loaded
+#              concept — the same "asked but not loaded" set the abstention's
+#              `unresolved` carries — e.g. "florb".
+#   {citations} the documentary resources a recited definition was AUTHORED
+#              from, read off the loaded lexicon's own `dcterms:source` edges —
+#              e.g. "42 USC 300ii(7)". A DIFFERENT channel from {sources}: it
+#              names where a gloss's wording came from, not what the engine
+#              opened to answer, which is why the two are realized in separate
+#              sentences and never joined into one list.
+#
+# The last two rows are NOT keyed by ResponseFrame. Definition provenance is a
+# second, orthogonal channel about the same turn (any frame that recites a
+# definition may carry it), so it gets its own row plus its own panel LABEL row
+# — the label is loaded here rather than typed into a renderer, for the same
+# reason every other surface is.
+#
+# Cite: Reiter & Dale (2000), realization + lexicalization stages; Reiter (1978)
+# closed-world assumption (the honest boundary of the system's own knowledge).
+frame_id	template
+assert_knowledge_grounded	The engine answered from {sources} — the loaded source it reasoned over to reach this.
+assert_knowledge_ungrounded	The engine answered from its built-in English language model. No document you loaded was needed to reach this.
+unknown_vocabulary	No loaded source defines {terms}, so the engine declined to answer rather than guess. Load a source that defines {terms} and it can answer.
+unknown_vocabulary_untermed	The engine could not connect part of this question to any loaded source, so it declined to answer rather than guess.
+suggest_interpretation	The engine recognized the words but could not form them into a question it can answer, so it asked you to rephrase instead of guessing.
+admit_limitation	Nothing in this question matched a concept the engine has loaded, so it has nothing to reason from and declined to answer.
+definition_authored_from	{sources} wrote this definition from {citations}. That is where the wording came from; the documents the engine opened to answer are listed separately.
+definition_authored_from_label	Definition authored from

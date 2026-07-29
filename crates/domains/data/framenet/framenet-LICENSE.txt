@@ -1,0 +1,59 @@
+FrameNet 1.7 — Data License
+=============================
+
+Source: https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/index.xml
+         (package id="framenet_v17", the NLTK redistribution's own metadata,
+         author Collin F. Baker)
+Webpage: https://framenet.icsi.berkeley.edu
+Retrieved: 2026-07-13
+
+## Data license: Creative Commons Attribution 3.0 Unported License
+
+FrameNet 1.7 (released by the Berkeley FrameNet Project, International
+Computer Science Institute) is licensed under the Creative Commons
+Attribution 3.0 Unported License: https://creativecommons.org/licenses/by/3.0/
+
+Confirmed via NLTK's own package index (the byte-reproducible mirror this
+source is fetched from):
+
+    <package id="framenet_v17" name="FrameNet 1.7" author="Collin F. Baker"
+      license="Creative Commons Attribution 3.0 Unported License"
+      webpage="http://framenet.icsi.berkeley.edu" ... />
+
+Note the PRIOR release (FrameNet 1.5) carried a more restrictive
+"non-commercial purposes only" license; 1.7 is the release actually used
+here, under the unrestricted CC-BY-3.0 terms above — do not conflate the two
+if this source is ever re-verified against the 1.5 metadata by mistake.
+
+Suggested attribution:
+
+    This work includes data from FrameNet 1.7, produced by the Berkeley
+    FrameNet Project, International Computer Science Institute (ICSI).
+    Available under the Creative Commons Attribution 3.0 Unported License
+    from https://framenet.icsi.berkeley.edu.
+
+## Provenance of the extracted subset shipped in this repository
+
+`crates/domains/data/framenet/framenet-1.7.tsv` is NOT the full FrameNet
+release (855,026,962 bytes uncompressed, dominated by the annotated-sentence
+corpus). It is a mechanical extraction: for each of the ~13,574 lexical-unit
+XML files, only the root `<lexUnit POS="..." name="..." frame="...">` start
+tag's three attributes (lemma, part of speech, evoked frame) are kept —
+never the embedded annotated-sentence corpus each file also carries; for
+`frRelation.xml`, only each `<frameRelation subFrameName="..."
+superFrameName="...">` pairing (never the nested frame-element-level
+mappings) is kept. A pure format-conversion, never a reweighting,
+re-ranking, or editorial interpretation of the source data. See
+`regenerate.rs`'s module doc for the exact extraction and its citations.
+
+Per CC-BY-3.0 (no ShareAlike requirement, unlike ConceptNet's CC-BY-SA-4.0),
+this derived extraction may be distributed under this project's own terms,
+provided the attribution above is preserved.
+
+## Fetched from (byte-verified)
+
+https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/corpora/framenet_v17.zip
+SHA256: 22f6aad6fb799ba4dbed0440714e1118442ad7d7345351de37428581284f471c
+MD5: aaef1cfdcf37000cf2a5c562407fbddb
+(matches NLTK's own published index.xml checksums exactly — confirmed by
+direct comparison after download, 2026-07-13.)

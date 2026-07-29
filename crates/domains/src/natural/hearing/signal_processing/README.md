@@ -82,7 +82,7 @@ graph LR
 
 | Quality | Type | Description |
 |---|---|---|
-| ComputationalComplexity | Complexity | FFT/IFFT N log N; DFT/Convolution/Correlation N^2 |
+| ComputationalComplexity | ComplexityClass | FFT/IFFT Linearithmic (N log N); DFT/Convolution/Correlation Quadratic (N^2) — reuses `formal::analytical_methods::ontology::ComplexityClass` |
 | SidelobeLevel | f64 (dB) | Rectangular -13, Hann -31.5, Hamming -42, Blackman -58 |
 | MainlobeBandwidth | f64 (bins) | Rectangular 1, Hann 2, Blackman 3 |
 

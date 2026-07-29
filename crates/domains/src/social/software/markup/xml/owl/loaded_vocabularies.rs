@@ -455,7 +455,7 @@ pub fn audit_loaded_vocabularies() -> VocabularyAuditReport {
         }
 
         // (2) Every subsumption edge has both endpoints in range.
-        let entity_count = vocab.entity_count();
+        let entity_count = vocab.entity_count().value as usize;
         for &(child, parent) in vocab.subsumption_edges() {
             if child >= entity_count || parent >= entity_count {
                 findings.push(VocabularyAuditFinding::EdgeEndpointOutOfRange {

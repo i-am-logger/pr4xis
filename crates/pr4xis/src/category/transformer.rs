@@ -203,6 +203,7 @@ impl<W: Monoid + 'static, S: 'static, A: 'static> TracedState<W, S, A> {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn writer_t_accumulates() {
         let result = WriterT::new(1, vec!["start"])
@@ -213,6 +214,7 @@ mod tests {
         assert_eq!(result.log, vec!["start", "incremented", "scaled"]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn state_t_threads_state() {
         let (result, final_state) = StateT::new(|s: i32| (s * 2, s + 1))
@@ -225,6 +227,7 @@ mod tests {
         assert_eq!(final_state, 16);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn reader_t_reads_env() {
         let computation =
@@ -233,6 +236,7 @@ mod tests {
         assert_eq!(computation.run(&10), 30); // 10*2 + 10
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn traced_state_pipeline() {
         // Simulate chat pipeline: state = token count, trace = step log
@@ -256,6 +260,7 @@ mod tests {
         assert_eq!(trace, vec!["tokenized", "parsed"]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn traced_state_tell() {
         let ((), state, trace) = TracedState::<Vec<&str>, i32, ()>::tell(vec!["logged"]).run(42);

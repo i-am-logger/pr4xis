@@ -16,4 +16,5 @@ pub mod optimization;
 pub mod recommendation;
 pub mod relations;
 pub mod rule_algebra;
+pub mod spatial;
 pub mod systems;

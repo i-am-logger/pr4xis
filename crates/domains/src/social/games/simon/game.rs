@@ -3,6 +3,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::color::SimonColor;
 use super::input::Input;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// The state of a Simon Says game.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,14 +74,16 @@ impl Game {
         &self.state
     }
 
-    /// Current round (1-indexed).
-    pub fn round(&self) -> usize {
-        self.round
+    /// Current round (1-indexed), as a dimensionless [`Quantity`] (`unit::UNITLESS`)
+    /// -- a round is a count, not a physical quantity.
+    pub fn round(&self) -> Quantity {
+        Quantity::from_unit(self.round as f64, &unit::UNITLESS)
     }
 
-    /// Sequence length for current round.
-    pub fn sequence_length(&self) -> usize {
-        self.sequence.len()
+    /// Sequence length for current round, as a dimensionless [`Quantity`]
+    /// (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn sequence_length(&self) -> Quantity {
+        Quantity::from_unit(self.sequence.len() as f64, &unit::UNITLESS)
     }
 
     /// Transition from Showing to Inputting.

@@ -7,6 +7,7 @@ Every published source this ontology stands on. Entries below are drawn from the
 - Åström & Murray 2008: *Feedback Systems* (Princeton University Press)
 - Ogata 2010: *Modern Control Engineering* (5th ed.)
 - Lyapunov 1892: *The General Problem of the Stability of Motion*
+- Bifet & Gavaldà 2007: *Learning from Time-Changing Data with Adaptive Windowing*, SDM
 
 ## Cross-references
 

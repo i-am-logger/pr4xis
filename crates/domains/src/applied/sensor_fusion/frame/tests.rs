@@ -8,6 +8,7 @@ use crate::applied::sensor_fusion::frame::ontology::*;
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
 use crate::applied::sensor_fusion::frame::transform::FrameTransform;
 
+use crate::formal::math::geometry::vector::Vec3;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
 
@@ -90,7 +91,7 @@ fn lever_arm_velocity_correction_orthogonal() {
     let la = LeverArm::new(
         ReferenceFrame::IMU,
         ReferenceFrame::GNSS,
-        Vector::new(vec![2.0, 0.0, 0.0]),
+        Vec3::new(2.0, 0.0, 0.0),
         ReferenceFrame::Body,
     );
     let omega = Vector::new(vec![0.0, 0.0, 0.5]); // 0.5 rad/s around Z
@@ -160,8 +161,8 @@ mod proptest_proofs {
             let b = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q, 0.9);
             let b_inv = b.inverse();
             let composed = b.compose(&b_inv).unwrap();
-            prop_assert!(composed.magnitude() < 1e-6,
-                "inverse should yield identity, got magnitude {}", composed.magnitude());
+            prop_assert!(composed.magnitude().value < 1e-6,
+                "inverse should yield identity, got magnitude {}", composed.magnitude().value);
         }
 
         /// Lever arm inverse-inverse is original offset.
@@ -174,13 +175,13 @@ mod proptest_proofs {
             let la = LeverArm::new(
                 ReferenceFrame::IMU,
                 ReferenceFrame::GNSS,
-                Vector::new(vec![x, y, z]),
+                Vec3::new(x, y, z),
                 ReferenceFrame::Body,
             );
             let la2 = la.inverse().inverse();
-            prop_assert!((la2.offset.get(0) - la.offset.get(0)).abs() < 1e-10);
-            prop_assert!((la2.offset.get(1) - la.offset.get(1)).abs() < 1e-10);
-            prop_assert!((la2.offset.get(2) - la.offset.get(2)).abs() < 1e-10);
+            prop_assert!((la2.offset.x - la.offset.x).abs() < 1e-10);
+            prop_assert!((la2.offset.y - la.offset.y).abs() < 1e-10);
+            prop_assert!((la2.offset.z - la.offset.z).abs() < 1e-10);
         }
     }
 

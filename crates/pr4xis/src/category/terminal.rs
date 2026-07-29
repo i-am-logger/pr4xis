@@ -128,6 +128,7 @@ mod tests {
 
     type LightToRed = TerminalFunctor<LightCat, RedTarget>;
 
+    #[crate::praxis_value(Extensible)]
     #[test]
     fn terminal_functor_onto_red_satisfies_laws() {
         assert_functor_laws::<LightToRed>();

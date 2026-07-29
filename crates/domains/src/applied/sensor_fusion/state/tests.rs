@@ -3,6 +3,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::instant::Instant;
+use crate::formal::math::temporal::time_system::TimeSystem;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Ontology;
@@ -11,6 +13,12 @@ use crate::applied::sensor_fusion::state::covariance;
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 use crate::applied::sensor_fusion::state::information::InformationEstimate;
 use crate::applied::sensor_fusion::state::ontology::*;
+
+/// Test-fixture epoch: an arbitrary GPS-time instant, matching the
+/// convention `FusionEpoch`'s own tests use for raw-seconds fixtures.
+fn epoch(seconds: f64) -> Instant {
+    Instant::new(seconds, TimeSystem::GPS)
+}
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
@@ -47,9 +55,9 @@ fn information_fusion_additive() {
 #[test]
 fn std_dev_is_sqrt_of_diagonal() {
     let p = Matrix::diagonal(&[4.0, 9.0, 16.0]);
-    assert!((covariance::std_dev(&p, 0) - 2.0).abs() < 1e-12);
-    assert!((covariance::std_dev(&p, 1) - 3.0).abs() < 1e-12);
-    assert!((covariance::std_dev(&p, 2) - 4.0).abs() < 1e-12);
+    assert!((covariance::std_dev(&p, 0).value - 2.0).abs() < 1e-12);
+    assert!((covariance::std_dev(&p, 1).value - 3.0).abs() < 1e-12);
+    assert!((covariance::std_dev(&p, 2).value - 4.0).abs() < 1e-12);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -57,18 +65,26 @@ fn std_dev_is_sqrt_of_diagonal() {
 fn diagonal_covariance_has_zero_correlation() {
     let p = Matrix::diagonal(&[4.0, 9.0]);
     let rho = covariance::correlation(&p, 0, 1);
-    assert!(rho.abs() < 1e-12);
+    assert!(rho.value.abs() < 1e-12);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn information_fusion_reduces_uncertainty() {
-    let e1 = StateEstimate::new(Vector::new(vec![10.0]), Matrix::new(1, 1, vec![4.0]), 0.0);
-    let e2 = StateEstimate::new(Vector::new(vec![12.0]), Matrix::new(1, 1, vec![9.0]), 0.0);
+    let e1 = StateEstimate::new(
+        Vector::new(vec![10.0]),
+        Matrix::new(1, 1, vec![4.0]),
+        epoch(0.0),
+    );
+    let e2 = StateEstimate::new(
+        Vector::new(vec![12.0]),
+        Matrix::new(1, 1, vec![9.0]),
+        epoch(0.0),
+    );
     let i1 = InformationEstimate::from_estimate(&e1).unwrap();
     let i2 = InformationEstimate::from_estimate(&e2).unwrap();
     let fused = i1.fuse(&i2);
-    let fused_est = fused.to_estimate(0.0).unwrap();
+    let fused_est = fused.to_estimate(epoch(0.0)).unwrap();
     // Fused covariance should be less than both
     assert!(fused_est.covariance.get(0, 0) < e1.covariance.get(0, 0));
     assert!(fused_est.covariance.get(0, 0) < e2.covariance.get(0, 0));
@@ -84,7 +100,7 @@ fn confidence_interval_contains_mean() {
     let est = StateEstimate::new(
         Vector::new(vec![5.0, 10.0]),
         Matrix::diagonal(&[4.0, 9.0]),
-        0.0,
+        epoch(0.0),
     );
     let ci0 = est.confidence_interval(0, 0.95).unwrap();
     let ci1 = est.confidence_interval(1, 0.95).unwrap();
@@ -97,7 +113,11 @@ fn confidence_interval_contains_mean() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn confidence_interval_widens_with_higher_level() {
-    let est = StateEstimate::new(Vector::new(vec![0.0]), Matrix::new(1, 1, vec![4.0]), 0.0);
+    let est = StateEstimate::new(
+        Vector::new(vec![0.0]),
+        Matrix::new(1, 1, vec![4.0]),
+        epoch(0.0),
+    );
     let ci_90 = est.confidence_interval(0, 0.90).unwrap();
     let ci_95 = est.confidence_interval(0, 0.95).unwrap();
     let ci_99 = est.confidence_interval(0, 0.99).unwrap();
@@ -127,7 +147,7 @@ fn state_estimate_new_valid_dimensions() {
     let est = StateEstimate::new(
         Vector::new(vec![1.0, 2.0]),
         Matrix::diagonal(&[1.0, 2.0]),
-        0.0,
+        epoch(0.0),
     );
     assert_eq!(est.dim(), 2);
 }
@@ -139,7 +159,11 @@ fn state_estimate_new_valid_dimensions() {
 #[pr4xis::praxis_value(Honest)]
 #[test]
 fn confidence_interval_out_of_bounds_returns_none() {
-    let est = StateEstimate::new(Vector::new(vec![5.0]), Matrix::new(1, 1, vec![4.0]), 0.0);
+    let est = StateEstimate::new(
+        Vector::new(vec![5.0]),
+        Matrix::new(1, 1, vec![4.0]),
+        epoch(0.0),
+    );
     // Index 0 is valid
     assert!(est.confidence_interval(0, 0.95).is_some());
     // Index 1 is out of bounds for a 1D state
@@ -168,7 +192,7 @@ mod proptest_proofs {
             let est = StateEstimate::new(
                 Vector::new(vec![x]),
                 Matrix::new(1, 1, vec![var]),
-                0.0,
+                epoch(0.0),
             );
             let ci = est.confidence_interval(0, 0.95).unwrap();
             prop_assert!(ci.contains(x),
@@ -184,7 +208,7 @@ mod proptest_proofs {
             let est = StateEstimate::new(
                 Vector::new(vec![x]),
                 Matrix::new(1, 1, vec![var]),
-                0.0,
+                epoch(0.0),
             );
             let ci_95 = est.confidence_interval(0, 0.95).unwrap();
             let ci_99 = est.confidence_interval(0, 0.99).unwrap();
@@ -209,8 +233,8 @@ mod proptest_proofs {
             v2 in 0.1..100.0_f64,
         ) {
             let p = Matrix::diagonal(&[v1, v2]);
-            let est = StateEstimate::new(Vector::new(vec![0.0, 0.0]), p.clone(), 0.0);
-            prop_assert!((est.uncertainty() - (v1 + v2)).abs() < 1e-10);
+            let est = StateEstimate::new(Vector::new(vec![0.0, 0.0]), p.clone(), epoch(0.0));
+            prop_assert!((est.uncertainty().value - (v1 + v2)).abs() < 1e-10);
         }
 
         #[test]
@@ -221,10 +245,10 @@ mod proptest_proofs {
             let est = StateEstimate::new(
                 Vector::new(vec![x1]),
                 Matrix::new(1, 1, vec![v1]),
-                0.0,
+                epoch(0.0),
             );
             let info = InformationEstimate::from_estimate(&est).unwrap();
-            let est2 = info.to_estimate(0.0).unwrap();
+            let est2 = info.to_estimate(epoch(0.0)).unwrap();
             prop_assert!((est.state.get(0) - est2.state.get(0)).abs() < 1e-8);
         }
     }
@@ -250,7 +274,11 @@ fn meta_axiom_state_estimate_new_produces_valid_estimate() {
     use crate::formal::math::linear_algebra::positive_definite;
 
     // 1D PSD covariance
-    let est = StateEstimate::new(Vector::new(vec![0.0]), Matrix::new(1, 1, vec![5.0]), 0.0);
+    let est = StateEstimate::new(
+        Vector::new(vec![0.0]),
+        Matrix::new(1, 1, vec![5.0]),
+        epoch(0.0),
+    );
     assert!(
         positive_definite::is_positive_semidefinite(&est.covariance),
         "1D covariance from new() must be PSD"
@@ -261,7 +289,7 @@ fn meta_axiom_state_estimate_new_produces_valid_estimate() {
     let est2 = StateEstimate::new(
         Vector::new(vec![1.0, 2.0]),
         Matrix::diagonal(&[3.0, 7.0]),
-        0.0,
+        epoch(0.0),
     );
     assert!(
         positive_definite::is_positive_semidefinite(&est2.covariance),
@@ -272,7 +300,7 @@ fn meta_axiom_state_estimate_new_produces_valid_estimate() {
     let est3 = StateEstimate::new(
         Vector::new(vec![0.0, 0.0]),
         Matrix::new(2, 2, vec![5.0, 1.0, 1.0, 5.0]),
-        0.0,
+        epoch(0.0),
     );
     assert!(
         positive_definite::is_positive_semidefinite(&est3.covariance),
@@ -287,9 +315,13 @@ fn meta_axiom_state_estimate_non_exhaustive_enforces_constructor() {
     // External crates cannot construct StateEstimate via struct literal;
     // they must use StateEstimate::new(). This test verifies the constructor
     // produces a correctly initialized object.
-    let est = StateEstimate::new(Vector::new(vec![42.0]), Matrix::new(1, 1, vec![1.0]), 99.0);
+    let est = StateEstimate::new(
+        Vector::new(vec![42.0]),
+        Matrix::new(1, 1, vec![1.0]),
+        epoch(99.0),
+    );
     assert_eq!(est.dim(), 1);
-    assert!((est.epoch - 99.0).abs() < 1e-15);
+    assert_eq!(est.epoch, epoch(99.0));
     assert_eq!(est.step, 0);
     assert!((est.state.get(0) - 42.0).abs() < 1e-15);
 }

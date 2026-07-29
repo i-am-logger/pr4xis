@@ -1,12 +1,12 @@
 pub mod character;
+pub mod dash_punctuation;
 pub mod numeral;
 pub mod punctuation;
-pub mod special;
 
 pub use character::{Character, Direction, Script, UnicodeCategory};
+pub use dash_punctuation::{DashGlyph, DashPunctuationVocabulary};
 pub use numeral::{Digit, NumeralSystem};
 pub use punctuation::{PunctuationFunction, PunctuationMark};
-pub use special::{SpecialSymbol, SymbolDomain};
 
 #[cfg(test)]
 mod tests;

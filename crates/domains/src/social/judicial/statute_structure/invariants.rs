@@ -8,6 +8,8 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::judicial::citation::{PinpointCite, ontology::PinpointCitationConcept};
 use crate::social::judicial::statute_structure::parser::{ClauseNode, ClauseTree, LabelKind};
 
@@ -48,7 +50,7 @@ pub fn check_subdivisions_in_canonical_order(tree: &ClauseTree) -> Result<(), Ve
 fn check_canonical_order_node(node: &ClauseNode, violations: &mut Vec<Violation>) {
     if node.children.len() >= 2 {
         let mut last_kind: Option<LabelKind> = None;
-        let mut last_value: Option<u32> = None;
+        let mut last_value: Option<Quantity> = None;
         for child in &node.children {
             let last_seg = child.id.segments.last();
             let Some(seg) = last_seg else { continue };
@@ -81,15 +83,18 @@ fn check_canonical_order_node(node: &ClauseNode, violations: &mut Vec<Violation>
             }
             // Ordering check.
             let value = label_to_ord(&seg.label, kind);
-            if let (Some(prev_val), Some(this_val)) = (last_value, value)
-                && this_val <= prev_val
+            if let (Some(prev_val), Some(this_val)) = (&last_value, &value)
+                && this_val
+                    .partial_cmp(prev_val)
+                    .expect("label ordinals are UNITLESS, always comparable")
+                    != core::cmp::Ordering::Greater
             {
                 violations.push(Violation {
                     invariant: "SubdivisionsInCanonicalOrder",
                     node: Some(child.id.clone()),
                     note: format!(
                         "label `({})` (ord {}) not strictly after previous (ord {})",
-                        seg.label, this_val, prev_val
+                        seg.label, this_val.value, prev_val.value
                     ),
                 });
             }
@@ -105,35 +110,52 @@ fn check_canonical_order_node(node: &ClauseNode, violations: &mut Vec<Violation>
 /// Map a label to its numeric ordinal value within its kind.
 /// `"a"` → 1, `"b"` → 2, `"1"` → 1, `"2"` → 2, `"i"` → 1, `"iv"` →
 /// 4, etc. Returns `None` for unparseable inputs.
-pub fn label_to_ord(label: &str, kind: LabelKind) -> Option<u32> {
-    match kind {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+/// `u32` — a decoded ordinal, the same typing discipline as
+/// `formal::mereology::counting::ontology::cardinality`. The decoding
+/// arithmetic itself stays raw `u32`; only the returned ordinal is
+/// wrapped at the function boundary.
+pub fn label_to_ord(label: &str, kind: LabelKind) -> Option<Quantity> {
+    let ord: u32 = match kind {
         LabelKind::LowercaseLetter => {
             if label.chars().count() == 1 {
                 let c = label.chars().next().unwrap();
                 if c.is_ascii_lowercase() {
-                    return Some(((c as u8) - b'a' + 1) as u32);
+                    ((c as u8) - b'a' + 1) as u32
+                } else {
+                    return None;
                 }
+            } else {
+                return None;
             }
-            None
         }
         LabelKind::UppercaseLetter => {
             if label.chars().count() == 1 {
                 let c = label.chars().next().unwrap();
                 if c.is_ascii_uppercase() {
-                    return Some(((c as u8) - b'A' + 1) as u32);
+                    ((c as u8) - b'A' + 1) as u32
+                } else {
+                    return None;
                 }
+            } else {
+                return None;
             }
-            None
         }
-        LabelKind::ArabicNumeral => label.parse::<u32>().ok(),
-        LabelKind::LowercaseRoman => roman_to_u32(label),
-        LabelKind::UppercaseRoman => roman_to_u32(&label.to_lowercase()),
-    }
+        LabelKind::ArabicNumeral => label.parse::<u32>().ok()?,
+        LabelKind::LowercaseRoman => return roman_to_u32(label),
+        LabelKind::UppercaseRoman => return roman_to_u32(&label.to_lowercase()),
+    };
+    Some(Quantity::from_unit(ord as f64, &unit::UNITLESS))
 }
 
 /// Parse a lowercase Roman numeral string to its u32 value. Supports
 /// the standard 1-3999 range; returns `None` on invalid forms.
-pub fn roman_to_u32(s: &str) -> Option<u32> {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — see
+/// [`label_to_ord`]'s note. The accumulation loop stays raw `u32`;
+/// only the final total is wrapped.
+pub fn roman_to_u32(s: &str) -> Option<Quantity> {
     let mut total: u32 = 0;
     let mut prev: u32 = 0;
     for c in s.chars().rev() {
@@ -154,7 +176,7 @@ pub fn roman_to_u32(s: &str) -> Option<u32> {
         }
         prev = value;
     }
-    Some(total)
+    Some(Quantity::from_unit(total as f64, &unit::UNITLESS))
 }
 
 // ─────────────────────────────────────────────────────────────────────

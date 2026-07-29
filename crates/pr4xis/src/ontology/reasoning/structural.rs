@@ -603,11 +603,13 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn no_cycles_holds_on_subsumption() {
         expect_proves(NoCyclesOnKind::<TestCat>::new(TestKind::Subsumption));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn no_cycles_refutes_on_cyclic_subsumption() {
         // The cyclic kind's closure carries `(A, A, Subsumption)` — the axiom
@@ -617,32 +619,38 @@ mod tests {
         ));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn antisymmetric_holds_on_subsumption() {
         expect_proves(AntisymmetricOnKind::<TestCat>::new(TestKind::Subsumption));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn symmetric_holds_on_opposition() {
         expect_proves(SymmetricOnKind::<TestCat>::new(TestKind::Opposition));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn irreflexive_holds_on_opposition() {
         expect_proves(IrreflexiveOnKind::<TestCat>::new(TestKind::Opposition));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn asymmetric_holds_on_causation() {
         expect_proves(AsymmetricOnKind::<TestCat>::new(TestKind::Causation));
     }
 
+    #[crate::praxis_value(Honest)]
     #[test]
     fn symmetric_fails_on_causation() {
         // Causation has (A, B) but not (B, A) — symmetric must refute.
         expect_refutes(SymmetricOnKind::<TestCat>::new(TestKind::Causation));
     }
 
+    #[crate::praxis_value(Explainable)]
     #[test]
     fn meta_carries_kind_identifier() {
         let ax = NoCyclesOnKind::<TestCat>::new(TestKind::Subsumption);

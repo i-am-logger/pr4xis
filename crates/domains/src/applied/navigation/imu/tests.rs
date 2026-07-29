@@ -7,6 +7,7 @@ use crate::applied::navigation::imu::strapdown::*;
 use crate::formal::math::geometry::point::Point3;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::rotation::quaternion::Quaternion;
+use crate::formal::math::temporal::duration::Duration;
 use crate::natural::physics::kinematics::velocity::Velocity;
 
 // ---------------------------------------------------------------------------
@@ -55,14 +56,14 @@ fn stationary_imu_maintains_position() {
     let sample = ImuSample {
         specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]), // cancels gravity
         angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
-        dt: 1.0,
+        dt: Duration::from_seconds(1.0),
     };
     let next = mechanize(&state, &sample);
     // Position should not change (stationary)
     assert!(
-        next.position.distance_to(&state.position) < 1e-6,
+        next.position.distance_to(&state.position).value < 1e-6,
         "stationary IMU should not move: distance={}",
-        next.position.distance_to(&state.position)
+        next.position.distance_to(&state.position).value
     );
 }
 
@@ -78,7 +79,7 @@ fn constant_velocity_propagation() {
     let sample = ImuSample {
         specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
         angular_rate: Vector::new(vec![0.0, 0.0, 0.0]),
-        dt: 1.0,
+        dt: Duration::from_seconds(1.0),
     };
     let next = mechanize(&state, &sample);
     // Should move ~10m north
@@ -101,7 +102,7 @@ fn gyro_rotates_attitude() {
     let sample = ImuSample {
         specific_force: Vector::new(vec![0.0, 0.0, -gravity_ned().get(2)]),
         angular_rate: Vector::new(vec![0.0, 0.0, 0.1]),
-        dt: 1.0,
+        dt: Duration::from_seconds(1.0),
     };
     let next = mechanize(&state, &sample);
     // Attitude should have changed (not identity anymore)
@@ -119,11 +120,11 @@ fn zero_dt_preserves_state() {
     let sample = ImuSample {
         specific_force: Vector::new(vec![1.0, 2.0, 3.0]),
         angular_rate: Vector::new(vec![0.1, 0.2, 0.3]),
-        dt: 0.0,
+        dt: Duration::from_seconds(0.0),
     };
     let next = mechanize(&state, &sample);
     assert!(
-        next.position.distance_to(&state.position) < 1e-12,
+        next.position.distance_to(&state.position).value < 1e-12,
         "zero dt should preserve position"
     );
 }
@@ -167,7 +168,7 @@ fn filtered_imu_has_lower_variance() {
                 true_accel.get(2) + noise * 0.3,
             ]),
             angular_rate: Vector::new(vec![noise * 0.01, noise * 0.02, noise * 0.005]),
-            dt,
+            dt: Duration::from_seconds(dt),
         };
         let filtered = filter_imu_sample(&sample, &mut accel_filter, &mut gyro_filter);
         raw_samples.push(sample);
@@ -229,7 +230,7 @@ mod proptest_proofs {
             .prop_map(|(fx, fy, fz, wx, wy, wz, dt)| ImuSample {
                 specific_force: Vector::new(vec![fx, fy, fz]),
                 angular_rate: Vector::new(vec![wx, wy, wz]),
-                dt,
+                dt: Duration::from_seconds(dt),
             })
     }
 
@@ -259,7 +260,7 @@ mod proptest_proofs {
             let sample = ImuSample {
                 specific_force: Vector::new(vec![fx, fy, fz]),
                 angular_rate: Vector::new(vec![wx, wy, wz]),
-                dt,
+                dt: Duration::from_seconds(dt),
             };
             let filtered = filter_imu_sample(&sample, &mut af, &mut gf);
             // First-order low-pass with zero initial: output = alpha * input
@@ -332,7 +333,7 @@ mod proptest_proofs {
                 attitude: Quaternion::identity(),
             };
             let next = mechanize(&state, &sample);
-            let norm = next.attitude.norm();
+            let norm = next.attitude.norm().value;
             prop_assert!((norm - 1.0).abs() < 1e-10,
                 "attitude quaternion norm = {} (should be 1.0)", norm);
         }

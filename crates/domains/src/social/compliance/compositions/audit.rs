@@ -34,6 +34,8 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::compliance::compositions::proof_framework::{
     CrossReferenceKind, ProofFramework,
 };
@@ -82,8 +84,13 @@ pub struct CompositionAuditReport {
 }
 
 impl CompositionAuditReport {
-    pub fn phrase_backed_count(&self) -> usize {
-        self.by_cross_ref
+    /// Count of cross-references grounded by an extracted phrase, as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) — a count, not a bare
+    /// `usize`, matching the `cardinality`/`damerau_levenshtein` precedent
+    /// (`formal::mereology::counting::ontology::cardinality`).
+    pub fn phrase_backed_count(&self) -> Quantity {
+        let count = self
+            .by_cross_ref
             .iter()
             .filter(|r| {
                 matches!(
@@ -91,14 +98,19 @@ impl CompositionAuditReport {
                     CrossRefClassification::PhraseBacked { .. }
                 )
             })
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
-    pub fn doctrinal_only_count(&self) -> usize {
-        self.by_cross_ref
+    /// Count of cross-references with no phrase grounding (doctrinal-only
+    /// synthesis) — see [`Self::phrase_backed_count`] for the typing note.
+    pub fn doctrinal_only_count(&self) -> Quantity {
+        let count = self
+            .by_cross_ref
             .iter()
             .filter(|r| r.classification == CrossRefClassification::DoctrinalOnly)
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 }
 
@@ -355,8 +367,14 @@ mod tests {
         let framework = sox_retaliation::framework();
         let extracts = extracts_for_sox_retaliation();
         let report = audit_composition_cross_refs(framework, &extracts);
-        assert_eq!(report.phrase_backed_count(), 2);
-        assert_eq!(report.doctrinal_only_count(), 1);
+        assert_eq!(
+            report.phrase_backed_count(),
+            Quantity::from_unit(2.0, &unit::UNITLESS)
+        );
+        assert_eq!(
+            report.doctrinal_only_count(),
+            Quantity::from_unit(1.0, &unit::UNITLESS)
+        );
     }
 
     // Sanity check: ensure the bundled statutes load (the audit's
@@ -378,8 +396,11 @@ mod tests {
         let report = audit_composition_cross_refs(framework, &extracts);
         eprintln!("\n=== sox_retaliation composition audit ===");
         eprintln!("Cross-references: {}", report.by_cross_ref.len());
-        eprintln!("  phrase-backed:    {}", report.phrase_backed_count());
-        eprintln!("  doctrinal-only:   {}", report.doctrinal_only_count());
+        eprintln!("  phrase-backed:    {}", report.phrase_backed_count().value);
+        eprintln!(
+            "  doctrinal-only:   {}",
+            report.doctrinal_only_count().value
+        );
         eprintln!("\nPer cross-reference:");
         for r in &report.by_cross_ref {
             let class = match &r.classification {

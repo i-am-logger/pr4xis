@@ -25,6 +25,8 @@
 use pr4xis::category::{Category, Endofunctor, FinitelyGenerated, Functor};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::natural::geodesy::conversion;
 use crate::natural::geodesy::coordinate::{Geodetic, Ned};
 use crate::natural::geodesy::ellipsoid;
@@ -58,21 +60,25 @@ pr4xis::ontology! {
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Quality: number of scalar components of a coordinate in this frame.
+/// Quality: number of scalar components of a coordinate in this frame. A
+/// dimensionless count, carried as `Quantity` with unit `UNITLESS` —
+/// see `formal::mereology::counting::ontology::cardinality`'s precedent
+/// for dimensionless counts.
 #[derive(Debug, Clone)]
 pub struct ComponentCount;
 
 impl Quality for ComponentCount {
     type Individual = GeodesyConcept;
-    type Value = usize;
+    type Value = Quantity;
 
-    fn get(&self, c: &GeodesyConcept) -> Option<usize> {
-        Some(match c {
+    fn get(&self, c: &GeodesyConcept) -> Option<Quantity> {
+        let count = match c {
             GeodesyConcept::Geodetic => 3, // lat, lon, alt
             GeodesyConcept::Ecef => 3,     // x, y, z
             GeodesyConcept::Ned => 3,      // north, east, down
             GeodesyConcept::Enu => 3,      // east, north, up
-        })
+        };
+        Some(Quantity::from_unit(count as f64, &unit::UNITLESS))
     }
 }
 
@@ -249,8 +255,8 @@ impl Axiom for GreatCircleSymmetry {
         let pts = canonical_geodetic_points();
         for a in &pts {
             for b in &pts {
-                let d_ab = conversion::great_circle_distance(a, b, &e);
-                let d_ba = conversion::great_circle_distance(b, a, &e);
+                let d_ab = conversion::great_circle_distance(a, b, &e).value;
+                let d_ba = conversion::great_circle_distance(b, a, &e).value;
                 if (d_ab - d_ba).abs() > 1e-6 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
@@ -276,7 +282,7 @@ impl Axiom for GreatCircleSelfZero {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let e = ellipsoid::wgs84();
         for p in &canonical_geodetic_points() {
-            if conversion::great_circle_distance(p, p, &e) > 1e-6 {
+            if conversion::great_circle_distance(p, p, &e).value > 1e-6 {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -303,9 +309,9 @@ impl Axiom for GreatCircleTriangleInequality {
         for a in &pts {
             for b in &pts {
                 for c in &pts {
-                    let ac = conversion::great_circle_distance(a, c, &e);
-                    let ab = conversion::great_circle_distance(a, b, &e);
-                    let bc = conversion::great_circle_distance(b, c, &e);
+                    let ac = conversion::great_circle_distance(a, c, &e).value;
+                    let ab = conversion::great_circle_distance(a, b, &e).value;
+                    let bc = conversion::great_circle_distance(b, c, &e).value;
                     if ac > ab + bc + 1.0 {
                         return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
@@ -335,11 +341,11 @@ impl Axiom for Wgs84Consistency {
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let e = ellipsoid::wgs84();
         let b_expected = 6_356_752.314_245_179; // canonical WGS84 semi-minor axis
-        let b_computed = e.b();
+        let b_computed = e.b().value;
         if (b_computed - b_expected).abs() > 0.001 {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
-        let e2 = e.e_squared();
+        let e2 = e.e_squared().value;
         if (e2 - 0.006_694_379_990_14).abs() > 1e-12 {
             return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
@@ -497,7 +503,7 @@ mod tests {
     fn component_count_total() {
         let q = ComponentCount;
         for c in GeodesyConcept::variants() {
-            assert_eq!(q.get(&c), Some(3));
+            assert_eq!(q.get(&c), Some(Quantity::from_unit(3.0, &unit::UNITLESS)));
         }
     }
 

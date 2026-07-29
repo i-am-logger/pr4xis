@@ -39,7 +39,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 ## Files
 
 - `ontology.rs` -- `AttitudeConcept` entity, `AttitudeCategory`, `SensorAccuracy` quality, 2 axioms, tests
-- `kinematics.rs` -- `Quaternion`, `quaternion_rate`, `propagate_attitude` (attitude kinematics on SO(3))
+- `kinematics.rs` -- `Quaternion` (re-export of `formal::math::rotation::quaternion::Quaternion`), `propagate_attitude` (attitude kinematics on SO(3))
 - `engine.rs` -- `AttitudeState` runtime type and `angle_between` helper
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

@@ -26,9 +26,11 @@
 //! See the per-file module docs for the migration plan.
 
 pub mod allomorphy;
+pub mod generation;
 pub mod irregular;
 pub mod rules;
 
 pub use allomorphy::english_allomorphy_rules;
+pub use generation::ing_form;
 pub use irregular::{english_irregulars, lookup_irregular};
 pub use rules::english_rules;

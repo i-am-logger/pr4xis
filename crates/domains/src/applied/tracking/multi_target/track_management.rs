@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// M-of-N confirmation logic.
 ///
 /// A tentative track is confirmed when it receives M detections
@@ -43,18 +46,24 @@ impl MofNLogic {
     }
 
     /// Count hits in the window.
-    pub fn hits(&self) -> usize {
-        self.history.iter().filter(|&&h| h).count()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), not a bare
+    /// `usize` — a hit count is a cardinality, same as
+    /// `formal::mereology::counting::ontology::cardinality`. The filtering
+    /// loop below is the numeric kernel; only the returned count is wrapped.
+    pub fn hits(&self) -> Quantity {
+        let count = self.history.iter().filter(|&&h| h).count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 
     /// Is the track confirmed?
     pub fn is_confirmed(&self) -> bool {
-        self.history.len() >= self.n && self.hits() >= self.m
+        self.history.len() >= self.n && self.hits().value >= self.m as f64
     }
 
     /// Should the track be deleted? (window full but not enough hits).
     pub fn should_delete(&self) -> bool {
-        self.history.len() >= self.n && self.hits() < self.m
+        self.history.len() >= self.n && self.hits().value < self.m as f64
     }
 }
 

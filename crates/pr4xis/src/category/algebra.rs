@@ -138,6 +138,7 @@ mod tests {
     use super::*;
     use crate::category::comonad::Cofree;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn algebra_sum_tree() {
         let sum = Algebra::new(|node: &i32, children: &[i32]| node + children.iter().sum::<i32>());
@@ -146,6 +147,7 @@ mod tests {
         assert_eq!(cata(&sum, &tree), 6);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn algebra_count_nodes() {
         let count =
@@ -161,6 +163,7 @@ mod tests {
         assert_eq!(cata(&count, &tree), 4);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn coalgebra_countdown() {
         let countdown = Coalgebra::new(|n: &i32| {
@@ -179,6 +182,7 @@ mod tests {
         assert_eq!(*tree.tail[0].tail[0].tail[0].extract(), 0);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn coalgebra_binary_tree() {
         // Unfold a complete binary tree of depth 2
@@ -197,6 +201,7 @@ mod tests {
         assert_eq!(tree.tail[0].tail[0].tail.len(), 0); // leaves
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn hylomorphism_factorial() {
         // Unfold: n → (n, [n-1]) until 0
@@ -221,6 +226,7 @@ mod tests {
         assert_eq!(hylo(&alg, &coalg, &1), 1);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn hylomorphism_fibonacci() {
         // Unfold: n → (n, [n-1, n-2]) for n > 1
@@ -249,6 +255,7 @@ mod tests {
 
     // --- Practical: taxonomy traversal as anamorphism ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn taxonomy_as_anamorphism() {
         // Unfold: given an entity, produce it + its children in taxonomy

@@ -2,6 +2,7 @@ pub mod feynman;
 pub mod fibonacci;
 pub mod functions;
 pub mod ontology;
+pub mod peano;
 pub mod primes;
 pub mod pythagorean;
 pub mod quadratic;

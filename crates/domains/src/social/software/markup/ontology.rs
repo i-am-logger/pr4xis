@@ -3,6 +3,9 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // Markup language ontology.
 //
 // A markup language structures content by annotating it with tags.
@@ -240,18 +243,26 @@ impl MarkupNode {
             .map(|(_, v)| v.as_str())
     }
 
-    /// Count all nodes in the tree (including self).
-    pub fn node_count(&self) -> usize {
-        1 + self.children.iter().map(|c| c.node_count()).sum::<usize>()
+    /// Count all nodes in the tree (including self), as a dimensionless
+    /// [`Quantity`] (`unit::UNITLESS`) -- a count, not a physical quantity.
+    pub fn node_count(&self) -> Quantity {
+        fn count(n: &MarkupNode) -> usize {
+            1 + n.children.iter().map(count).sum::<usize>()
+        }
+        Quantity::from_unit(count(self) as f64, &unit::UNITLESS)
     }
 
-    /// Tree depth.
-    pub fn depth(&self) -> usize {
-        if self.children.is_empty() {
-            0
-        } else {
-            1 + self.children.iter().map(|c| c.depth()).max().unwrap_or(0)
+    /// Tree depth, as a dimensionless [`Quantity`] (`unit::UNITLESS`) -- a
+    /// depth count, not a physical quantity.
+    pub fn depth(&self) -> Quantity {
+        fn depth_of(n: &MarkupNode) -> usize {
+            if n.children.is_empty() {
+                0
+            } else {
+                1 + n.children.iter().map(depth_of).max().unwrap_or(0)
+            }
         }
+        Quantity::from_unit(depth_of(self) as f64, &unit::UNITLESS)
     }
 
     /// Find all elements by name (recursive).

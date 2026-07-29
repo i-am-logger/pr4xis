@@ -11,6 +11,13 @@ let
   packageName = cargoToml.package.name;
   packageVersion = workspaceToml.workspace.package.version;
   packageDescription = cargoToml.package.description or "";
+  # The heavy-corpus suite's MUST-PASS list used to live here as a Nix string,
+  # which meant CI could not share it — a `${...}` interpolation cannot be
+  # pasted into YAML. ci.yml therefore ran the crate UNFILTERED while carrying
+  # a comment claiming it "mirrors the dev-ci step exactly", so every push
+  # failed on the two deliberately-red suites and `pages` never deployed. The
+  # list now lives in `scripts/heavy-corpus-tests.sh`, which both callers
+  # execute, and which fails loudly if a new test file is missing from it.
 in
 {
   # Set root explicitly for flake compatibility
@@ -36,6 +43,13 @@ in
     # broken host binaries.
     pkgs.ripgrep
     pkgs.fd
+    # The one JS runtime in the toolchain, and it is a TEST dependency only:
+    # docs/chat/*.js is the caregiver demonstrator, whose numbers a judge
+    # reads. `program-ladder.test.mjs` runs the real renderer against the real
+    # shipped corpus under a minimal DOM shim, so the figures on that page are
+    # gated the same way every other published number is. Nothing ships
+    # through node — the page is served as authored.
+    pkgs.nodejs-slim
     # Mutation testing — operational error-rate measurement
     # (Daubert prong 3). Each mutant alters one expression; if the
     # tests still pass, that's a blind spot in coverage.
@@ -58,6 +72,20 @@ in
     pkgs.firefox-bin
     pkgs.geckodriver
     pkgs.curl
+    # Caregiver AI Challenge narrative PDF pipeline (`dev-caregiver-pdf`):
+    # pandoc converts each docs/caregiver-challenge/*.md to Typst, typst
+    # typesets the PDF against docs/caregiver-challenge/pdf/main.typ —
+    # same two-stage pattern as ~/Code/github/logger/cybernetic-diet's book
+    # build, not a from-scratch pipeline. Headless-Firefox print-to-pdf was
+    # tried first and is not viable in this sandbox (its GPU compositor
+    # fails on every attempt); typst has no browser dependency.
+    pkgs.pandoc
+    pkgs.typst
+    # Liberation Serif/Sans are metric-compatible free substitutes for
+    # Times New Roman/Arial — one of the "widely available font face"
+    # examples the ACL Caregiver AI Challenge format spec names, without
+    # depending on a proprietary system font being installed.
+    pkgs.liberation_ttf
   ];
 
   # Development scripts.
@@ -76,8 +104,7 @@ in
     }
     echo "Running tests via nextest --release (mirrors CI)..."
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release
-    echo "Running heavy-corpus tests (cargo test — parse each giant once)..."
-    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release
+    bash scripts/heavy-corpus-tests.sh
     echo "Running doc tests --release (nextest excludes them)..."
     RUSTFLAGS="-D warnings" cargo test --doc --workspace --release
   '';
@@ -118,9 +145,18 @@ in
     echo "=== test (nextest --release, strict [profile.ci]) ==="
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
     echo "=== constitution completeness gate (untagged=0 phantom=0) ==="
-    bash scripts/constitution-gate.sh pr4xis-domains --enforce || { echo "FAILED: constitution gate"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis --enforce || { echo "FAILED: constitution gate (pr4xis)"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis-runtime --enforce || { echo "FAILED: constitution gate (pr4xis-runtime)"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis-chat --enforce || { echo "FAILED: constitution gate (pr4xis-chat)"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis-domains --enforce || { echo "FAILED: constitution gate (pr4xis-domains)"; exit 1; }
     echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
-    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/praxis-corpus-tests/Cargo.toml --release || { echo "FAILED: corpus tests"; exit 1; }
+    bash scripts/heavy-corpus-tests.sh || { echo "FAILED: corpus tests"; exit 1; }
+    echo "=== caregiver demonstrator: program-ladder renderer over the real corpus ==="
+    node docs/chat/program-ladder.test.mjs || { echo "FAILED: program-ladder renderer"; exit 1; }
+    echo "=== caregiver demonstrator: DOM contract (ids, imports, routes, parse) ==="
+    node docs/chat/dom-contract.test.mjs || { echo "FAILED: demonstrator DOM contract"; exit 1; }
+    echo "=== caregiver demonstrator: abstention → source-load size gate ==="
+    node docs/chat/abstain-load-gate.test.mjs || { echo "FAILED: abstain-load size gate"; exit 1; }
     echo "=== clippy (wasm, release) ==="
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --release --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== wasm native acceptance tests ==="
@@ -226,6 +262,78 @@ in
     echo "call sites)."
   '';
 
+  # Regenerates the ACL Caregiver AI Challenge narrative PDFs and gates on
+  # ACL's 15-page narrative-body limit (Cover Page is capped separately at 1
+  # page and excluded from this count) -- a real page-count regression
+  # guard, not just a build step: this exact class of problem (Track 2's
+  # narrative silently drifting over the limit after an edit) was caught by
+  # hand once already and is exactly what CI should catch automatically the
+  # next time. Exits non-zero if any *-phase1-narrative.md is over budget,
+  # so `dev-ci`/CI fail the same way any other gate here does.
+  scripts.dev-caregiver-pdf.exec = ''
+    set -euo pipefail
+    dir="docs/caregiver-challenge"
+    pdfdir="$dir/pdf"
+    mkdir -p "$pdfdir/build"
+    over_limit=0
+    for md in "$dir"/*.md; do
+      name="$(basename "''${md%.md}")"
+      echo "=== $name ==="
+      # ACL's Application Outline caps the cover-page abstract at 250 words
+      # ("Abstract (no more than 250 words)", acl.gov/caregiver-ai-application-outline).
+      # The page-count checks below CANNOT see this -- a 483-word abstract still
+      # rendered a 1-page cover -- so it needs its own assertion. Both narratives
+      # were over (483 and 361) until 2026-07-25; this is the guard that keeps
+      # them under.
+      if grep -q '^\*\*Abstract:\*\*' "$md"; then
+        abs_words="$(sed -n 's/^\*\*Abstract:\*\* //p' "$md" | wc -w)"
+        echo "  abstract: $abs_words words (ACL cap 250)"
+        if [[ $abs_words -gt 250 ]]; then
+          echo "  FAIL: abstract is $abs_words words, over ACL's 250-word cover-page limit."
+          over_limit=1
+        fi
+      fi
+      pandoc -f markdown+raw_tex --lua-filter="$pdfdir/pandoc-typst-fixups.lua" \
+        "$md" --to typst -o "$pdfdir/build/$name.typ"
+      cp "$pdfdir/build/$name.typ" "$pdfdir/build/fragment.typ"
+      # /Title PDF metadata (a standard 508/PDF-UA checker item) -- the
+      # document's own H1 title, passed per-file since main.typ is shared.
+      case "$name" in
+        track1-phase1-narrative) doctitle="pr4xis Caregiver Answer Engine - ACL Caregiver AI Challenge Track 1 Phase 1 Narrative" ;;
+        track2-phase1-narrative) doctitle="pr4xis HCBS/EVV Compliance Navigator - ACL Caregiver AI Challenge Track 2 Phase 1 Narrative" ;;
+        track1-phase1-appendix) doctitle="pr4xis Caregiver Answer Engine - ACL Caregiver AI Challenge Track 1 Appendix" ;;
+        track2-phase1-appendix) doctitle="pr4xis HCBS/EVV Compliance Navigator - ACL Caregiver AI Challenge Track 2 Appendix" ;;
+        smart40-validation-log) doctitle="Smart 40 Validation Log - ACL Caregiver AI Challenge Phase 1 Data Output Logs" ;;
+        *) doctitle="$name" ;;
+      esac
+      typst compile --pdf-standard ua-1 --input "build-date=$(date +%Y-%m-%d)" --input "doc-title=$doctitle" "$pdfdir/main.typ" "$pdfdir/build/$name.pdf"
+      pages="$(pdfinfo "$pdfdir/build/$name.pdf" | awk '/^Pages:/{print $2}')"
+      echo "  $pages total pages -> $pdfdir/build/$name.pdf"
+      if [[ "$name" == *-phase1-narrative ]]; then
+        narrative_pages=$((pages - 1))
+        if [[ $narrative_pages -gt 15 ]]; then
+          echo "  FAIL: narrative body is $narrative_pages pages, over ACL's 15-page limit (cover page excluded)."
+          over_limit=1
+        fi
+      fi
+      # Appendices have no separate cover page (content starts on page 1;
+      # main.typ's weak pagebreak on the first heading does not insert a
+      # blank leading page), capped at ACL's 10-page appendix limit.
+      if [[ "$name" == *-phase1-appendix ]]; then
+        if [[ $pages -gt 10 ]]; then
+          echo "  FAIL: appendix is $pages pages, over ACL's 10-page appendix limit."
+          over_limit=1
+        fi
+      fi
+    done
+    echo ""
+    echo "PDFs written to $pdfdir/build/ (gitignored -- reproducible from source + this script)."
+    if [[ $over_limit -ne 0 ]]; then
+      echo "One or more narratives exceed the 15-page limit -- see FAIL lines above."
+      exit 1
+    fi
+  '';
+
   scripts.dev-web.exec = ''
     echo "Building WASM..."
     dev-wasm
@@ -241,6 +349,7 @@ in
   # Environment variables
   env = {
     CARGO_TARGET_DIR = "./target";
+    TYPST_FONT_PATHS = "${pkgs.liberation_ttf}/share/fonts/truetype";
   };
 
   # Development shell setup

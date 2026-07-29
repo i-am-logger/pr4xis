@@ -5,6 +5,7 @@ use pr4xis::engine::{Action, Situation};
 
 use crate::formal::math::angle::Angle;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::duration::Duration;
 
 /// AHRS attitude estimate (Euler angles, dimension ANGLE).
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +45,7 @@ pub struct AhrsSituation {
     /// Step counter.
     pub step: usize,
     /// Total elapsed time.
-    pub total_time: f64,
+    pub total_time: Duration,
 }
 
 impl Situation for AhrsSituation {}
@@ -56,8 +57,8 @@ pub enum AhrsAction {
     GyroUpdate {
         /// Angular rates [roll_rate, pitch_rate, yaw_rate] in rad/s (Body frame).
         angular_rate: Vector,
-        /// Time step in seconds.
-        dt: f64,
+        /// Time step.
+        dt: Duration,
     },
     /// Accelerometer correction (determines roll and pitch).
     AccelCorrection {
@@ -84,20 +85,21 @@ impl Action for AhrsAction {
 pub fn apply_ahrs(situation: &AhrsSituation, action: &AhrsAction) -> Result<AhrsSituation, String> {
     match action {
         AhrsAction::GyroUpdate { angular_rate, dt } => {
-            if *dt < 0.0 {
+            if dt.is_negative() {
                 return Err("dt must be non-negative".into());
             }
+            let dt_secs = dt.seconds();
             // Integrate gyro: attitude += angular_rate * dt
             // Pure gyro integration — alpha blending is only applied in AccelCorrection/MagCorrection
-            let new_roll = situation.attitude.roll.radians() + angular_rate.get(0) * dt;
-            let new_pitch = situation.attitude.pitch.radians() + angular_rate.get(1) * dt;
-            let new_yaw = situation.attitude.yaw.radians() + angular_rate.get(2) * dt;
+            let new_roll = situation.attitude.roll.radians() + angular_rate.get(0) * dt_secs;
+            let new_pitch = situation.attitude.pitch.radians() + angular_rate.get(1) * dt_secs;
+            let new_yaw = situation.attitude.yaw.radians() + angular_rate.get(2) * dt_secs;
 
             Ok(AhrsSituation {
                 attitude: AttitudeEstimate::new(new_roll, new_pitch, new_yaw),
                 alpha: situation.alpha,
                 step: situation.step + 1,
-                total_time: situation.total_time + dt,
+                total_time: situation.total_time.add(dt),
             })
         }
         AhrsAction::AccelCorrection { accel } => {
@@ -129,7 +131,7 @@ pub fn apply_ahrs(situation: &AhrsSituation, action: &AhrsAction) -> Result<Ahrs
                 ),
                 alpha: situation.alpha,
                 step: situation.step + 1,
-                total_time: situation.total_time,
+                total_time: situation.total_time.clone(),
             })
         }
         AhrsAction::MagCorrection { mag } => {
@@ -155,7 +157,7 @@ pub fn apply_ahrs(situation: &AhrsSituation, action: &AhrsAction) -> Result<Ahrs
                 ),
                 alpha: situation.alpha,
                 step: situation.step + 1,
-                total_time: situation.total_time,
+                total_time: situation.total_time.clone(),
             })
         }
     }

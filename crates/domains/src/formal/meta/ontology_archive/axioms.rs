@@ -32,6 +32,7 @@ use crate::social::software::markup::xml::owl::prx::{
 // The USC second consumer (#271): the SAME archive axioms verify against its
 // aux-carrying envelope too. Imported up-layer here exactly as the OWL `prx`
 // types are above — these are realisation witnesses, not a parallel axiom set.
+use crate::social::software::markup::xml::uslm::corpus::UsCodeRef;
 use crate::social::software::markup::xml::uslm::corpus::prx::{
     OwnedUscSectionAux, OwnedUscSubdivision, UsCodePrxEnvelope, UscPrxMetadata, load_usc_prx_gz,
     usc_envelope_from_bytes, usc_envelope_to_bytes, usc_reconstruct_source,
@@ -112,6 +113,12 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
         chapeau: None,
         content: Some("by reason of lawful acts".to_string()),
         children: Vec::new(),
+        // A leaf citation, so the archive-ontology witness also exercises
+        // the `refs` round-trip through the full envelope gate.
+        refs: alloc::vec![UsCodeRef {
+            href: "/us/usc/t18/s1513".to_string(),
+            text: "section 1513".to_string(),
+        }],
     };
     let sub_a1 = OwnedUscSubdivision {
         urn: "/us/usc/t18/s1514A/a/1".to_string(),
@@ -121,6 +128,7 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
         chapeau: None,
         content: Some("No company may discriminate.".to_string()),
         children: alloc::vec![sub_a1a],
+        refs: Vec::new(),
     };
     let sub_a = OwnedUscSubdivision {
         urn: "/us/usc/t18/s1514A/a".to_string(),
@@ -130,6 +138,7 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
         chapeau: Some("In general—".to_string()),
         content: None,
         children: alloc::vec![sub_a1],
+        refs: Vec::new(),
     };
     let aux = alloc::vec![OwnedUscSectionAux {
         urn: "/us/usc/t18/s1514A".to_string(),
@@ -148,6 +157,7 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
                 "/us/usc/t18/s1514A/a/1".to_string()
             ),
         ],
+        refs: Vec::new(),
     }];
     UsCodePrxEnvelope {
         metadata: UscPrxMetadata {

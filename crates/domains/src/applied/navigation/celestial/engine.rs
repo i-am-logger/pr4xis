@@ -3,14 +3,15 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use pr4xis::engine::{Action, Situation};
 
+use crate::applied::navigation::celestial::body::CelestialBodyRef;
 use crate::formal::math::angle::Angle;
 use crate::formal::math::coordinate::GeodeticPosition;
 
 /// A celestial observation: measured altitude and azimuth of a body.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CelestialObservation {
-    /// Name or catalog ID of the celestial body.
-    pub body_name: String,
+    /// Which celestial body this observation was taken of.
+    pub body: CelestialBodyRef,
     /// Measured altitude above horizon — a typed [`Angle`].
     pub altitude_deg: Angle,
     /// Measured azimuth from north — a typed [`Angle`].

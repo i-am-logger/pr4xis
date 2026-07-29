@@ -116,6 +116,61 @@ pub enum DeterminerKind {
     Quantifier,
 }
 
+/// The "expected answer type" of an interrogative PRONOUN or DETERMINER —
+/// "who"/"whom"/"whose" ask about a PERSON, "what" asks about a THING, and
+/// "which" asks the hearer to SELECT from a contextually given set (neither
+/// strictly personal nor strictly nonpersonal — "which of you" and "which
+/// book" are both well-formed). Cross-linguistic typology of interrogative
+/// categories (Cysouw 2004, "Interrogative words: an exercise in lexical
+/// typology", handout, session on question formation in Bantu, ZAS Berlin,
+/// 13 Feb 2004, §3.2 table (9): "who/whom/whose → PERSON, what → THING,
+/// which → SELECTION"; building on Ultan 1978, "Some general characteristics
+/// of interrogative systems", in J. Greenberg (ed.) *Universals of Human
+/// Language* vol.4, Stanford UP, pp.211-248, the cross-linguistic source
+/// Cysouw's own table cites). This is the loaded feature the closed
+/// `wh_adverb`/`wh_manner_adverb`-style hand-authored checks this project
+/// otherwise avoids would have to fall back on; carried on both
+/// [`Pronoun::referent_role`] and [`Determiner::referent_role`] since English
+/// realizes the SAME lexical item ("what"/"which"/"whose") as either POS
+/// depending on whether it heads its own NP or modifies one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum WhReferentRole {
+    /// "who", "whom", "whose" — Cysouw (2004) §3.2 table (9) PERSON.
+    Person,
+    /// "what" — Cysouw (2004) §3.2 table (9) THING.
+    Thing,
+    /// "which" — Cysouw (2004) §3.2 table (9) SELECTION (choice from a
+    /// contextually restricted set, orthogonal to person-hood).
+    Selection,
+}
+
+/// The semantic role of an interrogative ADVERB — "how" asks about MANNER,
+/// "why" about REASON, "where" about PLACE, "when" about TIME. Same source
+/// as [`WhReferentRole`]: Cysouw (2004) §3.2 table (9); the loaded OLiA
+/// `InterrogativeAdverb` class (carried in [`Adverb::olia_class`]) covers all
+/// four uniformly, so this is the finer feature that distinguishes them —
+/// the SAME kind of codec-lowering [`DeterminerKind`]/[`PronounKind`] already
+/// perform on a different axis than their shared OLiA fragment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum WhAdverbRole {
+    /// "how" — Cysouw (2004) §3.2 table (9) MANNER.
+    Manner,
+    /// "why" — Cysouw (2004) §3.2 table (9) REASON.
+    Reason,
+    /// "where" — Cysouw (2004) §3.2 table (9) PLACE.
+    Place,
+    /// "when" — Cysouw (2004) §3.2 table (9) TIME.
+    Time,
+}
+
 /// A noun: "dog", "city", "water".
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Noun {
@@ -135,6 +190,15 @@ pub struct Verb {
     pub person: Person,
     pub tense: Tense,
     pub transitivity: Transitivity,
+    /// The loaded OLiA class fragment for a morphologically MARKED form of
+    /// this verb, if any — e.g. the EAGLES gerund-participle merger class
+    /// (`ing`) when the entry's `text` is the verb's -ing form (CGEL pp.
+    /// 1220–1222: the gerund/participle distinction "can't be sustained" —
+    /// OLiA's `ing` class IS that merger). Populated only by morphological
+    /// derivation ([`form_level_class`](super::olia)); `None` for a base
+    /// form. The OLiA→CCG functor projects it to the form's categories,
+    /// exactly as the Pronoun/Adverb/Determiner carriers below.
+    pub olia_class: Option<String>,
 }
 
 /// A determiner: "the", "a", "this", "every".
@@ -150,6 +214,11 @@ pub struct Determiner {
     /// OLiA→CCG functor projects to a category. `None` for an ordinary
     /// determiner. Decoded once from the LMF `Sense.subcat`.
     pub olia_class: Option<String>,
+    /// This determiner's [`WhReferentRole`] ("what"/"which"/"whose" ask
+    /// about a thing/selection/person respectively), if it is interrogative.
+    /// `None` for an ordinary (non-interrogative) determiner. Decoded once
+    /// from the LMF `Sense.synset`.
+    pub referent_role: Option<WhReferentRole>,
 }
 
 /// An adjective: "big", "red", "happy".
@@ -167,6 +236,10 @@ pub struct Adverb {
     /// adverb (`where`/`when`/`why`/`how`) is no longer dropped or mistyped.
     /// `None` for an ordinary adverb. Decoded once from the LMF `Sense.subcat`.
     pub olia_class: Option<String>,
+    /// This adverb's [`WhAdverbRole`] (manner/reason/place/time), if it is
+    /// interrogative. `None` for an ordinary (non-interrogative) adverb.
+    /// Decoded once from the LMF `Sense.synset`.
+    pub role: Option<WhAdverbRole>,
 }
 
 /// A preposition: "in", "on", "with".
@@ -175,10 +248,17 @@ pub struct Preposition {
     pub text: String,
 }
 
-/// A conjunction: "and", "but", "or".
+/// A conjunction: "and", "but", "or", "since", "because".
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Conjunction {
     pub text: String,
+    /// The loaded OLiA class fragment (e.g. `SubordinatingConjunction`), if
+    /// this conjunction carries one — the universal grammatical-class
+    /// identity the OLiA→CCG functor projects to a category, same pattern
+    /// as the Pronoun/Adverb/Determiner carriers. `None` for a plain
+    /// coordinating conjunction ("and", "or", "but"). Decoded once from the
+    /// LMF `Sense.subcat`.
+    pub olia_class: Option<String>,
 }
 
 /// Pronoun kind — from OLiA classification.
@@ -201,6 +281,15 @@ pub enum PronounKind {
     Reflexive,
     /// "someone", "anything" — refers to unspecified entities.
     Indefinite,
+    /// "mine", "yours", "his", "hers", "ours", "theirs" (independent) and
+    /// "my", "your", "his", "its", "our", "their" (dependent/genitive
+    /// determiner use) — Huddleston & Pullum 2002 Ch. 5 §10's genitive
+    /// pronoun class, kept distinct from `Personal`: the independent forms
+    /// ("mine" = "a gold mine", not just the possessive) are far more prone
+    /// to colliding with an unrelated open-class common noun than the
+    /// plain/oblique personal pronouns are, so callers gating entity-hood on
+    /// "is this a pronoun" must be able to exclude this class specifically.
+    Possessive,
 }
 
 /// A pronoun: "he", "she", "they", "what", "who".
@@ -215,6 +304,11 @@ pub struct Pronoun {
     /// OLiA→CCG functor projects to a category. `None` for an ordinary pronoun.
     /// Decoded once from the LMF `Sense.subcat`.
     pub olia_class: Option<String>,
+    /// This pronoun's [`WhReferentRole`] ("who"/"what"/"which" ask about a
+    /// person/thing/selection respectively), if it is interrogative. `None`
+    /// for an ordinary (non-interrogative) pronoun. Decoded once from the
+    /// LMF `Sense.synset`.
+    pub referent_role: Option<WhReferentRole>,
 }
 
 /// A copula: "is", "are", "was", "were".
@@ -237,8 +331,9 @@ pub struct Auxiliary {
 }
 
 /// Interjection communicative function, after Ameka 1992 ("Interjections: the
-/// universal yet neglected part of speech", J. Pragmatics 18(2):101-118,
-/// DOI 10.1016/0378-2166(92)90048-G), whose three top-level functions are
+/// universal yet neglected part of speech", J. Pragmatics 18(2/3):101-118,
+/// a combined double issue -- DOI 10.1016/0378-2166(92)90048-G), whose three
+/// top-level functions are
 /// EXPRESSIVE (symptoms of the speaker's state), CONATIVE (directed at an
 /// auditor — demanding attention/action), and PHATIC (establishing/maintaining
 /// contact — greetings, farewells, back-channel feedback). OLiA and H&P 2002
@@ -272,12 +367,30 @@ pub enum InterjectionKind {
     Conative,
 }
 
+/// A response interjection's affirmative/negative polarity (Holmberg 2016,
+/// *The Syntax of Yes and No*, Oxford University Press — polar response
+/// particles as their own grammatical category, cross-linguistically
+/// distinct from ordinary negation) — orthogonal to [`InterjectionKind`]
+/// (which classifies the pragmatic FUNCTION, Ameka 1992). Only ever
+/// meaningful when [`Interjection::kind`] is [`InterjectionKind::Response`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum Polarity {
+    Affirmative,
+    Negative,
+}
+
 /// An interjection: "oh", "wow", "hello", "goodbye".
 /// OLiA: Interjection.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Interjection {
     pub text: String,
     pub kind: InterjectionKind,
+    /// `Some` iff `kind == Response` — see [`Polarity`].
+    pub polarity: Option<Polarity>,
 }
 
 /// A particle: "not", "to" (infinitive marker).
@@ -285,6 +398,14 @@ pub struct Interjection {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Particle {
     pub text: String,
+    /// The loaded OLiA class fragment (e.g. `InfinitiveParticle`, the
+    /// subclass distinguishing "to" the infinitive marker from an ordinary
+    /// particle), if this particle carries one — the universal grammatical-
+    /// class identity the OLiA→CCG functor projects to a category, the same
+    /// pattern as the Pronoun/Adverb/Determiner/Conjunction carriers.
+    /// `None` for a particle with no finer subclass. Decoded once from the
+    /// LMF `Sense.subcat`.
+    pub olia_class: Option<String>,
 }
 
 /// A numeral: "one", "two", "first".
@@ -372,6 +493,15 @@ impl LexicalEntry {
         }
     }
 
+    /// This entry's response polarity ("yes"/"ok" → `Affirmative`, "no" →
+    /// `Negative`), or `None` for every non-Response entry. See [`Polarity`].
+    pub fn response_polarity(&self) -> Option<Polarity> {
+        match self {
+            Self::Interjection(i) => i.polarity,
+            _ => None,
+        }
+    }
+
     /// The loaded OLiA class fragment this entry carries, if any — the
     /// universal grammatical-class identity (e.g. `InterrogativeAdverb`) the
     /// OLiA→CCG functor projects to a category. Carried on the Pronoun /
@@ -381,6 +511,9 @@ impl LexicalEntry {
             Self::Pronoun(p) => p.olia_class.as_deref(),
             Self::Adverb(a) => a.olia_class.as_deref(),
             Self::Determiner(d) => d.olia_class.as_deref(),
+            Self::Verb(v) => v.olia_class.as_deref(),
+            Self::Conjunction(c) => c.olia_class.as_deref(),
+            Self::Particle(p) => p.olia_class.as_deref(),
             _ => None,
         }
     }
@@ -391,6 +524,28 @@ impl LexicalEntry {
     pub fn is_interrogative(&self) -> bool {
         self.olia_class()
             .is_some_and(|c| c.starts_with("Interrogative"))
+    }
+
+    /// This entry's [`WhReferentRole`] (person/thing/selection), if it is an
+    /// interrogative pronoun or determiner. `None` for every other entry —
+    /// carried on the Pronoun/Determiner carriers, decoded once from the LMF
+    /// `Sense.synset`.
+    pub fn wh_referent_role(&self) -> Option<WhReferentRole> {
+        match self {
+            Self::Pronoun(p) => p.referent_role,
+            Self::Determiner(d) => d.referent_role,
+            _ => None,
+        }
+    }
+
+    /// This entry's [`WhAdverbRole`] (manner/reason/place/time), if it is an
+    /// interrogative adverb. `None` for every other entry — carried on the
+    /// Adverb carrier, decoded once from the LMF `Sense.synset`.
+    pub fn wh_adverb_role(&self) -> Option<WhAdverbRole> {
+        match self {
+            Self::Adverb(a) => a.role,
+            _ => None,
+        }
     }
 
     pub fn pos_tag(&self) -> PosTag {

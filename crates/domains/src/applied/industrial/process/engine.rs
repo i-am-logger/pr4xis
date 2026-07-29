@@ -9,6 +9,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// which provides the canonical implementation with anti-windup. This module
 /// wraps it with a process-control-specific API (setpoint + measured value).
 use crate::formal::math::control_theory::pid as ct_pid;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// A process sensor reading with validation.
 #[derive(Debug, Clone)]
@@ -39,9 +41,18 @@ pub struct PidController {
 
 impl PidController {
     pub fn new(kp: f64, ki: f64, kd: f64, output_min: f64, output_max: f64) -> Self {
-        // dt=1.0 as placeholder; actual dt is supplied per update call.
-        let gains = ct_pid::PidGains::new(kp, ki, kd);
-        let inner = ct_pid::PidController::new(gains, 1.0).with_limits(output_min, output_max);
+        // dt=1.0 (dimensionless-seconds placeholder); actual dt is
+        // supplied per update call.
+        let gains = ct_pid::PidGains::new(
+            Quantity::dimensionless(kp),
+            Quantity::dimensionless(ki),
+            Quantity::dimensionless(kd),
+        );
+        let inner = ct_pid::PidController::new(gains, Quantity::from_unit(1.0, &unit::SECOND))
+            .with_limits(
+                Quantity::dimensionless(output_min),
+                Quantity::dimensionless(output_max),
+            );
         Self {
             inner,
             output_min,
@@ -54,11 +65,16 @@ impl PidController {
     /// setpoint: desired value
     /// measured: current measured value
     /// dt: time step in seconds
-    pub fn update(&mut self, setpoint: f64, measured: f64, dt: f64) -> f64 {
+    ///
+    /// Returns the dimensionless [`Quantity`] (`unit::UNITLESS`) that
+    /// `ct_pid::PidController::update` already produces — a generic PID
+    /// control law over abstract signal values with no inherent physical
+    /// unit at this layer (Ogunnaike & Ray 1994; Åström & Murray 2008).
+    pub fn update(&mut self, setpoint: f64, measured: f64, dt: f64) -> Quantity {
         let error = setpoint - measured;
         // Update the inner controller's dt for this step
-        self.inner.dt = dt;
-        self.inner.update(error)
+        self.inner.dt = Quantity::from_unit(dt, &unit::SECOND);
+        self.inner.update(Quantity::dimensionless(error))
     }
 
     /// Reset the controller state.
@@ -67,24 +83,38 @@ impl PidController {
     }
 
     /// Access the integral accumulator (for test inspection).
-    pub fn integral(&self) -> f64 {
-        self.inner.integral
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), matching
+    /// [`PidController::update`].
+    pub fn integral(&self) -> Quantity {
+        self.inner.integral.clone()
     }
 
     /// Access the previous error (for test inspection).
-    pub fn prev_error(&self) -> f64 {
-        self.inner.prev_error
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), matching
+    /// [`PidController::update`].
+    pub fn prev_error(&self) -> Quantity {
+        self.inner.prev_error.clone()
     }
 }
 
 /// Convert Celsius to Kelvin.
-pub fn celsius_to_kelvin(celsius: f64) -> f64 {
-    celsius + 273.15
+///
+/// Returns a [`Quantity`] tagged `Dimension::TEMPERATURE`. Kelvin is the SI
+/// base unit for temperature, so this is the same canonical representation
+/// [`kelvin_to_celsius`] would produce for the corresponding Kelvin reading.
+pub fn celsius_to_kelvin(celsius: f64) -> Quantity {
+    Quantity::from_unit(celsius, &unit::CELSIUS)
 }
 
 /// Convert Kelvin to Celsius.
-pub fn kelvin_to_celsius(kelvin: f64) -> f64 {
-    kelvin - 273.15
+///
+/// Returns a [`Quantity`] tagged `Dimension::TEMPERATURE`; call
+/// `.in_unit(&unit::CELSIUS)` on the result to read off the Celsius-scaled
+/// number.
+pub fn kelvin_to_celsius(kelvin: f64) -> Quantity {
+    Quantity::from_unit(kelvin, &unit::KELVIN)
 }
 
 /// Validate a temperature reading (must be above absolute zero in Kelvin).

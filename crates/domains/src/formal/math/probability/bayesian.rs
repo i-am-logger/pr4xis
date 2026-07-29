@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Bayes' theorem: P(A|B) = P(B|A) * P(A) / P(B).
 ///
 /// The foundation of all estimation theory.
@@ -9,9 +12,13 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// Source: Bayes, T. (1763). "An Essay towards solving a Problem
 ///         in the Doctrine of Chances." Philosophical Transactions.
 ///         Kolmogorov (1933). Axiom 3 + conditional probability definition.
-pub fn bayes(prior: f64, likelihood: f64, evidence: f64) -> f64 {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `f64` — a posterior probability is dimensionless by definition
+/// (Kolmogorov 1933).
+pub fn bayes(prior: f64, likelihood: f64, evidence: f64) -> Quantity {
     assert!(evidence > 0.0, "evidence P(B) must be positive");
-    likelihood * prior / evidence
+    Quantity::from_unit(likelihood * prior / evidence, &unit::UNITLESS)
 }
 
 /// Compute evidence (marginal likelihood) from prior and likelihood

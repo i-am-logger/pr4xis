@@ -10,6 +10,9 @@ use pr4xis::engine::{Action, Engine, Precondition, Situation};
 use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 pub const C: f64 = 299_792_458.0;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,28 +32,48 @@ impl Body {
         })
     }
 
-    pub fn lorentz_factor(&self) -> f64 {
+    /// Lorentz factor γ = 1/√(1 - β²). Dimensionless by definition
+    /// (Einstein 1905, §3).
+    pub fn lorentz_factor(&self) -> Quantity {
         let beta = self.velocity / C;
-        1.0 / (1.0 - beta * beta).sqrt()
+        Quantity::dimensionless(1.0 / (1.0 - beta * beta).sqrt())
     }
 
-    pub fn rest_energy(&self) -> f64 {
-        self.rest_mass * C * C
+    /// Rest energy E₀ = mc². Einstein (1905), §10.
+    pub fn rest_energy(&self) -> Quantity {
+        Quantity::new(self.rest_mass * C * C, Dimension::ENERGY)
     }
-    pub fn total_energy(&self) -> f64 {
-        self.lorentz_factor() * self.rest_mass * C * C
+    /// Total relativistic energy E = γmc². Einstein (1905), §10.
+    pub fn total_energy(&self) -> Quantity {
+        Quantity::new(
+            self.lorentz_factor().value * self.rest_mass * C * C,
+            Dimension::ENERGY,
+        )
     }
-    pub fn kinetic_energy(&self) -> f64 {
-        (self.lorentz_factor() - 1.0) * self.rest_mass * C * C
+    /// Relativistic kinetic energy KE = (γ-1)mc². Einstein (1905), §10.
+    pub fn kinetic_energy(&self) -> Quantity {
+        Quantity::new(
+            (self.lorentz_factor().value - 1.0) * self.rest_mass * C * C,
+            Dimension::ENERGY,
+        )
     }
-    pub fn momentum(&self) -> f64 {
-        self.lorentz_factor() * self.rest_mass * self.velocity
+    /// Relativistic momentum p = γmv. Einstein (1905), §10.
+    pub fn momentum(&self) -> Quantity {
+        Quantity::new(
+            self.lorentz_factor().value * self.rest_mass * self.velocity,
+            Dimension::MOMENTUM,
+        )
     }
-    pub fn time_dilation(&self, proper_time: f64) -> f64 {
-        proper_time * self.lorentz_factor()
+    /// Time dilation: Δt = γΔt₀. Einstein (1905), §4.
+    pub fn time_dilation(&self, proper_time: f64) -> Quantity {
+        Quantity::new(proper_time * self.lorentz_factor().value, Dimension::TIME)
     }
-    pub fn length_contraction(&self, proper_length: f64) -> f64 {
-        proper_length / self.lorentz_factor()
+    /// Length contraction: L = L₀/γ. Einstein (1905), §4.
+    pub fn length_contraction(&self, proper_length: f64) -> Quantity {
+        Quantity::new(
+            proper_length / self.lorentz_factor().value,
+            Dimension::LENGTH,
+        )
     }
 }
 
@@ -116,7 +139,7 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_emc2() {
-        assert!((Body::new(1.0).unwrap().rest_energy() - C * C).abs() < 1.0);
+        assert!((Body::new(1.0).unwrap().rest_energy().value - C * C).abs() < 1.0);
     }
 
     #[pr4xis::praxis_value(Honest)]
@@ -137,14 +160,14 @@ mod tests {
             .unwrap()
             .next(RelativityAction::SetVelocity { v: C * 0.5 })
             .unwrap();
-        assert!(e.situation().time_dilation(1.0) > 1.0);
+        assert!(e.situation().time_dilation(1.0).value > 1.0);
     }
 
     proptest! {
         #[test]
         fn prop_lorentz_gte_1(v in 0.0..(C * 0.99)) {
             let e = new_body(1.0).unwrap().next(RelativityAction::SetVelocity { v }).unwrap();
-            prop_assert!(e.situation().lorentz_factor() >= 1.0);
+            prop_assert!(e.situation().lorentz_factor().value >= 1.0);
         }
 
         #[test]
@@ -156,25 +179,25 @@ mod tests {
         #[test]
         fn prop_ke_nonneg(v in 0.0..(C * 0.99)) {
             let e = new_body(1.0).unwrap().next(RelativityAction::SetVelocity { v }).unwrap();
-            prop_assert!(e.situation().kinetic_energy() >= -1e-10);
+            prop_assert!(e.situation().kinetic_energy().value >= -1e-10);
         }
 
         #[test]
         fn prop_time_dilation_gte(v in 1.0..(C * 0.99)) {
             let e = new_body(1.0).unwrap().next(RelativityAction::SetVelocity { v }).unwrap();
-            prop_assert!(e.situation().time_dilation(1.0) >= 1.0);
+            prop_assert!(e.situation().time_dilation(1.0).value >= 1.0);
         }
 
         #[test]
         fn prop_length_contraction_lte(v in 1.0..(C * 0.99)) {
             let e = new_body(1.0).unwrap().next(RelativityAction::SetVelocity { v }).unwrap();
-            prop_assert!(e.situation().length_contraction(1.0) <= 1.0);
+            prop_assert!(e.situation().length_contraction(1.0).value <= 1.0);
         }
 
         #[test]
         fn prop_emc2_roundtrip(m in 0.001..1000.0f64) {
             let b = Body::new(m).unwrap();
-            let e = b.rest_energy();
+            let e = b.rest_energy().value;
             let m_back = e / (C * C);
             prop_assert!((m_back - m).abs() < 1e-6);
         }

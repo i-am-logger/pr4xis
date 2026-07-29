@@ -2,7 +2,10 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
+use crate::formal::math::angle::Angle;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::math::rotation::quaternion::Quaternion;
 
 /// Angular misalignment between sensor measurement axes.
@@ -87,14 +90,14 @@ impl Boresight {
     }
 
     /// Magnitude of the boresight error in radians.
-    pub fn magnitude(&self) -> f64 {
+    pub fn magnitude(&self) -> Quantity {
         let (_, angle) = self.misalignment.to_axis_angle();
-        angle
+        Quantity::from_unit(angle, &unit::RADIAN)
     }
 
-    /// Is this boresight within tolerance (radians)?
-    pub fn is_within_tolerance(&self, tolerance_rad: f64) -> bool {
-        self.magnitude() <= tolerance_rad
+    /// Is this boresight within tolerance?
+    pub fn is_within_tolerance(&self, tolerance: &Angle) -> bool {
+        self.magnitude().value <= tolerance.radians()
     }
 }
 
@@ -106,7 +109,7 @@ mod tests {
     #[test]
     fn identity_boresight_has_zero_magnitude() {
         let b = Boresight::identity(ReferenceFrame::IMU, ReferenceFrame::Body);
-        assert!(b.magnitude() < 1e-10);
+        assert!(b.magnitude().value < 1e-10);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -127,7 +130,7 @@ mod tests {
         let b = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q, 0.9);
         let b_inv = b.inverse();
         let composed = b.compose(&b_inv).unwrap();
-        assert!(composed.magnitude() < 1e-10);
+        assert!(composed.magnitude().value < 1e-10);
     }
 
     #[pr4xis::praxis_value(Honest)]
@@ -144,7 +147,7 @@ mod tests {
         let angle = 0.05; // ~2.86 degrees
         let q = Quaternion::from_axis_angle(&Vector::new(vec![1.0, 0.0, 0.0]), angle);
         let b = Boresight::new(ReferenceFrame::IMU, ReferenceFrame::Body, q, 0.8);
-        assert!((b.magnitude() - angle).abs() < 1e-10);
+        assert!((b.magnitude().value - angle).abs() < 1e-10);
     }
 
     #[pr4xis::praxis_value(Honest)]

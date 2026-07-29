@@ -228,7 +228,7 @@ impl Axiom for GnssFixNeverWorsensVelocity {
             [0.1_f64, 1.0, 10.0].iter().all(|&v| {
                 [0.0_f64, 0.3, 0.7, 1.0]
                     .iter()
-                    .all(|&k| c.velocity_error_after_fix(v, k) <= v + 1e-12)
+                    .all(|&k| c.velocity_error_after_fix(v, k).value <= v + 1e-12)
             })
         });
         if ok {

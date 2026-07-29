@@ -367,6 +367,7 @@ fn make_variant_ident(english_name: &str) -> String {
 mod tests {
     use super::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn scan_xsd_attribute_names_finds_lang_space_base_id() {
         let xsd = r#"<?xml version="1.0"?>
@@ -380,11 +381,13 @@ mod tests {
         assert_eq!(names, vec!["base", "id", "lang", "space"]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn scan_xsd_attribute_names_empty_on_empty_input() {
         assert!(scan_xsd_attribute_names("").is_empty());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn split_section_number_handles_dot_form() {
         assert_eq!(
@@ -396,6 +399,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn split_section_number_handles_no_trailing_dot() {
         assert_eq!(
@@ -404,6 +408,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn reduce_to_head_noun_drops_the_and_suffix() {
         assert_eq!(
@@ -421,6 +426,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn make_variant_ident_camel_cases_with_item_suffix() {
         assert_eq!(make_variant_ident("Document"), "DocumentItem");
@@ -434,6 +440,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Explainable, Verifiable)]
     #[test]
     fn scan_infoset_items_yields_eleven_in_section_order() {
         // Mirror the W3C-published rec's heading pattern. The actual

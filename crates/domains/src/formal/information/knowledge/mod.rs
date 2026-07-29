@@ -6,9 +6,10 @@ pub mod ontology;
 pub mod vocabulary;
 
 // Auto-registered via linkme distributed_slice — no central registry file.
-pub use catalog::{LoadedRef, SourceAvailability, SourceStatus, source_catalog};
+pub use catalog::{LoadedRef, Residency, SourceAvailability, SourceStatus, source_catalog};
 pub use instance::{
-    LoadEvent, LoadEventKind, SYSTEM_NAME, SelfModelInstance, is_self_referent, self_referents,
+    LoadEvent, LoadEventKind, SYSTEM_NAME, SelfModelInstance, capability_query_referents,
+    is_capability_query_referent, is_self_referent, self_referents,
 };
 pub use ontology::*;
 pub use pr4xis::ontology::describe_knowledge_base;

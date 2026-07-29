@@ -1,0 +1,37 @@
+# Rule-awaiting-fact realization frames — Reiter & Dale (2000) *Building
+# Natural Language Generation Systems* (CUP), the realization stage: a
+# communicative goal is realized by filling a stored linguistic template, NOT
+# by concatenating an inline literal in code. This frame covers a POSITIVE
+# capability, not an abstention: the rule governing the question is fully
+# known and cited (Sergot, Sadri, Kowalski, Kriwaczek, Hammond & Cory 1986,
+# "The British Nationality Act as a Logic Program", a statute reduced to
+# named, evaluable conditions), but evaluating it for THIS asker is blocked
+# on one or more private facts never supplied. Bobrow, Kaplan, Norman,
+# Thompson & Winograd (1977) "GUS, A Frame-Driven Dialog System", Artificial
+# Intelligence 8(2):155-173: a frame with an unfilled slot triggers a
+# question, not a guess or a refusal.
+#
+# Format: `frame_id<TAB>template`. The realizer
+# (pragmatics::realize::realize_rule_awaiting_fact) fills four slots from a
+# caller-built ConditionalPresentation (pre-extracted plain strings from the
+# typed judicial ConditionalRule/AppliedElement payload -- never composed in
+# this loaded table):
+#   {rule_name}      the LegalTerm's name, e.g. "Medicaid asset-transfer
+#                     penalty period".
+#   {citation}        the term's PinpointCite, Bluebook-formatted, e.g.
+#                     "42 U.S.C. § 1396p(c)(1)".
+#   {rule_text}        the term's definition/gloss.
+#   {missing_facts}    the blocking Required EvidenceRequirement field names,
+#                       joined "and".
+#
+# rule_applies / rule_does_not_apply (task #17, the multi-turn slot-filling
+# layer's terminal turn): once every Required element has a SlotState, Sergot
+# et al. (1986)'s reduction reaches a definite Applicability::Applies /
+# ::DoesNotApply. The realizer (realize_rule_applies/realize_rule_does_not_
+# apply) fills three slots from a caller-built RuleVerdictPresentation --
+# {rule_name}, {citation}, {rule_text}, same provenance as above, no
+# {missing_facts} (nothing is still outstanding).
+frame_id	template
+rule_awaiting_fact	{rule_name} ({citation}): {rule_text} Whether this applies to you depends on {missing_facts}, which I don't have — tell me that and I can check.
+rule_applies	{rule_name} ({citation}): {rule_text} Based on what you've told me, this applies to you.
+rule_does_not_apply	{rule_name} ({citation}): {rule_text} Based on what you've told me, this does not apply to you.

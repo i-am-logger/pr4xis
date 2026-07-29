@@ -2,6 +2,7 @@
 //!
 //! Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
 
+use crate::formal::math::quantity::dimension::Dimension;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -18,19 +19,22 @@ pr4xis::ontology! {
     },
 }
 
-/// Quality: what physical quantity each sensor measures.
+/// Quality: what physical quantity each sensor measures, as its SI
+/// [`Dimension`] — strain is dimensionless (length/length), acceleration is
+/// `L·T⁻²`, and crack length is `L` (BIPM SI Brochure 2019, Section 1;
+/// Farrar & Worden 2007 §2).
 #[derive(Debug, Clone)]
 pub struct SensorMeasurand;
 
 impl Quality for SensorMeasurand {
     type Individual = StructuralConcept;
-    type Value = &'static str;
+    type Value = Dimension;
 
-    fn get(&self, sensor: &StructuralConcept) -> Option<&'static str> {
+    fn get(&self, sensor: &StructuralConcept) -> Option<Dimension> {
         Some(match sensor {
-            StructuralConcept::StrainGauge => "strain (microstrain, dimensionless)",
-            StructuralConcept::Accelerometer => "acceleration (m/s^2)",
-            StructuralConcept::CrackSensor => "crack length (mm)",
+            StructuralConcept::StrainGauge => Dimension::DIMENSIONLESS,
+            StructuralConcept::Accelerometer => Dimension::ACCELERATION,
+            StructuralConcept::CrackSensor => Dimension::LENGTH,
         })
     }
 }

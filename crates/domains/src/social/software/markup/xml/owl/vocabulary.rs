@@ -80,6 +80,9 @@ use pr4xis::category::{Arrow, Category};
 use pr4xis::codegen_data::CodegenData;
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// The `entity_kind` tag for an OWL class entity — the W3C OWL 2
 /// metaclass name (`owl:Class`, §5.1). Must match the tag
 /// [`super::owl_vocabulary`] writes into the builder's `pos` field.
@@ -318,14 +321,18 @@ impl LoadedOwlVocabulary {
         }
     }
 
-    /// Number of loaded entities (classes + object properties).
-    pub fn entity_count(&self) -> usize {
-        self.entities.len()
+    /// Number of loaded entities (classes + object properties), as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) -- a count, not a
+    /// physical quantity.
+    pub fn entity_count(&self) -> Quantity {
+        Quantity::from_unit(self.entities.len() as f64, &unit::UNITLESS)
     }
 
-    /// Number of subsumption edges (`subClassOf` ∪ `subPropertyOf`).
-    pub fn subsumption_edge_count(&self) -> usize {
-        self.subsumption.len()
+    /// Number of subsumption edges (`subClassOf` ∪ `subPropertyOf`), as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) -- a count, not a
+    /// physical quantity.
+    pub fn subsumption_edge_count(&self) -> Quantity {
+        Quantity::from_unit(self.subsumption.len() as f64, &unit::UNITLESS)
     }
 
     /// The entity record at `index`, if any.
@@ -455,7 +462,7 @@ impl Concept for OwlEntity {}
 impl FinitelyGenerated for OwlEntity {
     fn variants() -> Vec<Self> {
         match OwlVocabularyCategory::active() {
-            Some(v) => (0..v.entity_count() as u32).map(OwlEntity).collect(),
+            Some(v) => (0..v.entity_count().value as u32).map(OwlEntity).collect(),
             None => Vec::new(),
         }
     }
@@ -770,9 +777,9 @@ mod tests {
         // CiTO declares dozens of citation-typing object properties plus
         // a few classes.
         assert!(
-            vocab.entity_count() > 30,
+            vocab.entity_count().value > 30.0,
             "expected >30 CiTO entities, got {}",
-            vocab.entity_count()
+            vocab.entity_count().value
         );
 
         // citesAsEvidence must be present as an ObjectProperty.
@@ -787,7 +794,7 @@ mod tests {
 
         // The subsumption taxonomy (subPropertyOf ∪ subClassOf) is rich.
         assert!(
-            vocab.subsumption_edge_count() > 0,
+            vocab.subsumption_edge_count().value > 0.0,
             "CiTO subsumption taxonomy must be non-empty"
         );
 
@@ -854,7 +861,7 @@ mod tests {
             "from_owl_ontology must reproduce the from_codegen corpus exactly"
         );
         // And the citation-typing taxonomy survives the direct path.
-        assert!(via_owl.entity_count() > 30, "real CiTO is rich");
+        assert!(via_owl.entity_count().value > 30.0, "real CiTO is rich");
         assert!(
             via_owl.is_a(CITES_AS_EVIDENCE_IRI, CITES_IRI),
             "citesAsEvidence is_a cites must hold on the direct path"
@@ -866,8 +873,8 @@ mod tests {
     fn classes_and_properties_partition_entities() {
         let vocab = cito_vocabulary();
         assert_eq!(
-            vocab.classes().len() + vocab.properties().len(),
-            vocab.entity_count(),
+            (vocab.classes().len() + vocab.properties().len()) as f64,
+            vocab.entity_count().value,
             "every entity is either a Class or an ObjectProperty"
         );
         // cites is an object property; it has a label and definition.
@@ -912,7 +919,11 @@ mod tests {
             .filter(|m| m.kind == OwlSubsumptionKind::Identity)
             .count();
         let v = OwlVocabularyCategory::active().unwrap();
-        assert_eq!(id_count, v.entity_count(), "one identity per entity");
+        assert_eq!(
+            id_count as f64,
+            v.entity_count().value,
+            "one identity per entity"
+        );
         assert!(
             ms.iter().any(|m| m.kind == OwlSubsumptionKind::Subsumption),
             "at least one subsumption morphism"
@@ -1074,10 +1085,13 @@ mod tests {
             let data = codegen_data_from_builder(&builder);
             let vocab = LoadedOwlVocabulary::from_codegen(&data);
 
-            prop_assert_eq!(vocab.entity_count(), s.classes.len() + s.properties.len());
             prop_assert_eq!(
-                vocab.subsumption_edge_count(),
-                s.class_edges.len() + s.prop_edges.len()
+                vocab.entity_count().value,
+                (s.classes.len() + s.properties.len()) as f64
+            );
+            prop_assert_eq!(
+                vocab.subsumption_edge_count().value,
+                (s.class_edges.len() + s.prop_edges.len()) as f64
             );
             // Every direct class edge survives as an is_a (direct ⇒ subsumes).
             for (c, p) in &s.class_edges {

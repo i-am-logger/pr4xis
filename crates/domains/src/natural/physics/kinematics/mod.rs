@@ -1,5 +1,6 @@
 //! The kinematics ontology — position, velocity, acceleration, jerk, trajectory as geometry + time on SE(3)
 pub mod acceleration;
+pub mod angular_velocity;
 pub mod motion_model;
 pub mod ontology;
 pub mod position;

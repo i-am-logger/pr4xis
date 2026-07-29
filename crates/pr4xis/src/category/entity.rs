@@ -160,6 +160,7 @@ mod tests {
         C,
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn derive_concept_produces_all_variants() {
         let v = TestConcept::variants();
@@ -169,6 +170,7 @@ mod tests {
         assert_eq!(v[2], TestConcept::C);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn derive_concept_single_variant() {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
@@ -178,6 +180,7 @@ mod tests {
         assert_eq!(Single::variants(), vec![Single::Only]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn derived_concept_is_finitely_generated() {
         // The derive macro emits BOTH Concept and FinitelyGenerated, so a

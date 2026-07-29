@@ -356,6 +356,7 @@ mod tests {
         (peers, manifest, atom)
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn resolves_a_grounded_atom_by_content_address() {
         let (peers, manifest, atom) = fixture();
@@ -370,6 +371,7 @@ mod tests {
         assert_eq!(node.lexical.as_deref(), Some("a domesticated canine"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ground_adds_lens_edges_that_then_resolve() {
         // The produce side: a content archive grounds via a lens (here, a node
@@ -408,6 +410,7 @@ mod tests {
         assert_eq!(resolved.name, "s-dog");
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn an_absent_atom_fails_closed() {
         let (peers, manifest, _) = fixture();
@@ -426,6 +429,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn an_undeclared_ontology_fails_closed() {
         let (peers, manifest, atom) = fixture();
@@ -441,6 +445,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn a_root_skew_refuses_to_build() {
         // The manifest pins a root that does NOT match the supplied archive — a
@@ -459,6 +464,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn a_missing_peer_archive_fails_closed() {
         let (_, manifest, _) = fixture();
@@ -471,6 +477,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn a_local_target_is_not_a_grounded_edge() {
         let (peers, manifest, _) = fixture();
@@ -481,6 +488,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn type_lens_kind_not_in_map_is_a_silent_noop() {
         // A node whose kind is NOT a functor key grounds nothing — Ok(empty), the
@@ -503,6 +511,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn type_lens_declared_but_absent_target_fails_closed() {
         // A node whose kind IS a functor key but whose mapped concept is absent

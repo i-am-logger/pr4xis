@@ -1,4 +1,6 @@
 use crate::formal::math::linear_algebra::matrix::Matrix;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Compute the determinant of a square matrix.
 ///
@@ -15,10 +17,16 @@ use crate::formal::math::linear_algebra::matrix::Matrix;
 /// - A invertible iff det(A) ≠ 0
 ///
 /// Source: Horn & Johnson, *Matrix Analysis* (2013), Chapter 0.
-pub fn det(m: &Matrix) -> f64 {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `f64` — the determinant of an abstract `Matrix` has no inherent physical
+/// unit at this generic layer, the same treatment as `Matrix::trace`. The
+/// LU-decomposition kernel (`det_lu`) below stays raw `f64`; only the
+/// returned result at the function boundary is wrapped.
+pub fn det(m: &Matrix) -> Quantity {
     assert!(m.is_square());
     let n = m.rows;
-    match n {
+    let value = match n {
         0 => 1.0,
         1 => m.get(0, 0),
         2 => m.get(0, 0) * m.get(1, 1) - m.get(0, 1) * m.get(1, 0),
@@ -28,7 +36,8 @@ pub fn det(m: &Matrix) -> f64 {
                 + m.get(0, 2) * (m.get(1, 0) * m.get(2, 1) - m.get(1, 1) * m.get(2, 0))
         }
         _ => det_lu(m),
-    }
+    };
+    Quantity::from_unit(value, &unit::UNITLESS)
 }
 
 /// Determinant via LU decomposition for n > 3.

@@ -1,9 +1,9 @@
 //! Cross-functor: Relations → Dialectics (issue #152).
 //!
-//! The Relations umbrella enumerates ten canonical binary relation
+//! The Relations umbrella enumerates thirteen canonical binary relation
 //! types — Subsumption, Parthood, Causation, Opposition, Similarity,
-//! Precedence, Equivalence, Specialisation, Dependence, Association
-//! — plus seven algebraic structural properties. Dialectics is the
+//! Precedence, Equivalence, Specialisation, Dependence, Association,
+//! MemberOf, Cites, Supersession — plus seven algebraic structural properties. Dialectics is the
 //! richer philosophical framework that extends one of those relations
 //! — Opposition — with Aristotelian + Hegelian + Priestian vocabulary.
 //!
@@ -27,6 +27,9 @@
 //! | `Dependence` | `Contradiction` | Ontological dependence creates internal tension between dependent and depended-on (Marx's internal contradiction) |
 //! | `Similarity` | `NonIdentity` | Similarity holds between non-identical things — Adorno's non-identity residue that Synthesis fails to absorb |
 //! | `Association` | `Endoxa` | Uncommitted "related-to" is the endoxa of relation-space: commonly-accepted connections without specific claims |
+//! | `MemberOf` | `DeterminateNegation` | Belonging to a classification (rather than being the classification's full generality) is a determinate negation, alongside Specialisation and Parthood |
+//! | `Cites` | `Endoxa` | A bare cross-reference (CiTO `cito:cites`) is a commonly-accepted connection between provisions without a transformative claim — the endoxa of citation-space, alongside Association |
+//! | `Supersession` | `Sublation` | A resource being replaced is preserved-in-its-successor, negated-as-the-current-version, elevated-into-the-replacement — the same Aufhebung structure already licensing Causation/Precedence's mapping |
 //! | `RelationType` | `DialecticalArgument` | The abstract parent maps to Aristotle's abstract reasoning-form |
 //! | `StructuralProperty` | `DialecticalArgument` | Algebraic properties are abstract reasoning-forms about relations |
 //! | `Symmetric` | `Contrary` | Symmetric relations mirror like Aristotelian contraries |
@@ -60,11 +63,11 @@ fn map_concept(c: &RelationsConcept) -> DialecticsConcept {
         R::Opposition => D::DialecticalMoment,
         R::Equivalence => D::Synthesis,
         R::Subsumption => D::DialecticalArgument,
-        R::Specialisation | R::Parthood => D::DeterminateNegation,
-        R::Causation | R::Precedence => D::Sublation,
+        R::Specialisation | R::Parthood | R::MemberOf => D::DeterminateNegation,
+        R::Causation | R::Precedence | R::Supersession => D::Sublation,
         R::Dependence => D::Contradiction,
         R::Similarity => D::NonIdentity,
-        R::Association => D::Endoxa,
+        R::Association | R::Cites => D::Endoxa,
         R::RelationType | R::StructuralProperty => D::DialecticalArgument,
 
         // Structural properties
@@ -79,7 +82,7 @@ fn map_concept(c: &RelationsConcept) -> DialecticsConcept {
 
 /// Cross-functor: Relations → Dialectics.
 ///
-/// The core ontological claim: the ten canonical binary relation types
+/// The core ontological claim: the thirteen canonical binary relation types
 /// (plus the seven structural properties of the Relations umbrella)
 /// all find their richer philosophical home in Dialectics's
 /// vocabulary. Opposition is the load-bearing bridge; the rest of the

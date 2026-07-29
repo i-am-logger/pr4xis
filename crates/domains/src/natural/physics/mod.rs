@@ -4,5 +4,6 @@ pub mod kinematics;
 pub mod maxwell;
 pub mod mechanics;
 pub mod ontology;
+pub mod qualitative;
 pub mod quantum;
 pub mod relativity;

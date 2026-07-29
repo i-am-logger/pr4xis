@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Acceleration vector: the second derivative of position with respect to time.
 ///
 /// a = dv/dt = d²x/dt² (meters per second squared).
@@ -39,8 +42,11 @@ impl Acceleration {
     }
 
     /// Magnitude: |a|.
-    pub fn magnitude(&self) -> f64 {
-        (self.ax * self.ax + self.ay * self.ay + self.az * self.az).sqrt()
+    pub fn magnitude(&self) -> Quantity {
+        Quantity::new(
+            (self.ax * self.ax + self.ay * self.ay + self.az * self.az).sqrt(),
+            Dimension::ACCELERATION,
+        )
     }
 
     /// Velocity change over duration dt: Δv = a * dt.

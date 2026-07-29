@@ -120,16 +120,19 @@ impl ContentAddress {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn address_is_deterministic() {
         assert_eq!(ContentAddress::of(b"praxis"), ContentAddress::of(b"praxis"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn different_bytes_yield_different_address() {
         assert_ne!(ContentAddress::of(b"a"), ContentAddress::of(b"b"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn hex_round_trips() {
         let a = ContentAddress::of(b"the ground");
@@ -138,6 +141,7 @@ mod tests {
         assert_eq!(ContentAddress::from_hex(&hex), Some(a));
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn from_hex_rejects_malformed() {
         assert_eq!(ContentAddress::from_hex("xyz"), None); // wrong length
@@ -145,6 +149,7 @@ mod tests {
         assert_eq!(ContentAddress::from_hex(&"a".repeat(63)), None); // off-by-one
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn matches_blake3_known_answer() {
         // Official BLAKE3 empty-input vector (BLAKE3 team test_vectors.json,

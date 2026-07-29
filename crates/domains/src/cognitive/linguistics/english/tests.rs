@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::*;
+use crate::cognitive::linguistics::language::Language;
 use crate::social::software::markup::xml::lmf;
 
 const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -76,7 +77,7 @@ fn sample_english() -> English {
 #[test]
 fn concept_count() {
     let en = sample_english();
-    assert_eq!(en.concept_count(), 6);
+    assert_eq!(en.concept_count().value, 6.0);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -267,7 +268,7 @@ fn dag_tie_break_is_by_conceptid_value() {
 #[test]
 fn big_opposes_small() {
     let en = sample_english();
-    assert!(en.opposition_count() > 0);
+    assert!(en.opposition_count().value > 0.0);
 }
 
 // =============================================================================
@@ -284,11 +285,11 @@ fn axiom_functor_is_deterministic() {
     let a = English::from_wordnet(&wn);
     let b = English::from_wordnet(&wn);
     assert_eq!(a.concept_count(), b.concept_count());
-    let mut a_ids: Vec<ConceptId> = (0..a.concept_count())
-        .map(|i| ConceptId::new(i as u64))
+    let mut a_ids: Vec<ConceptId> = (0..a.concept_count().value as u64)
+        .map(ConceptId::new)
         .collect();
-    let mut b_ids: Vec<ConceptId> = (0..b.concept_count())
-        .map(|i| ConceptId::new(i as u64))
+    let mut b_ids: Vec<ConceptId> = (0..b.concept_count().value as u64)
+        .map(ConceptId::new)
         .collect();
     a_ids.sort_by_key(|id| id.value());
     b_ids.sort_by_key(|id| id.value());
@@ -335,7 +336,7 @@ fn axiom_antonym_opposition_is_symmetric_when_source_records_both() {
     if !big.is_empty() && !small.is_empty() {
         // If big→small is recorded, small→big should be too (the
         // fixture has both directions explicitly).
-        let big_opposes_small = en.opposition_count() > 0;
+        let big_opposes_small = en.opposition_count().value > 0.0;
         assert!(big_opposes_small);
     }
 }
@@ -377,7 +378,7 @@ proptest! {
     fn prop_lookup_ids_in_range(seed in any::<u32>()) {
         let _ = seed;
         let en = sample_english();
-        let max = en.concept_count() as u64;
+        let max = en.concept_count().value as u64;
         for word in ["dog", "cat", "mammal", "animal", "big", "large", "small"] {
             for id in en.lookup(word) {
                 prop_assert!(
@@ -507,9 +508,9 @@ fn load_full_english() {
     let is_a_time = t3.elapsed();
 
     // Memory estimate: size of pre-computed structures
-    let concept_mem = en.concept_count() * std::mem::size_of::<Concept>();
-    let taxonomy_mem = en.taxonomy_count() * std::mem::size_of::<ConceptId>();
-    let word_index_mem = en.word_count() * 64; // rough estimate per entry
+    let concept_mem = en.concept_count().value as usize * std::mem::size_of::<Concept>();
+    let taxonomy_mem = en.taxonomy_count().value as usize * std::mem::size_of::<ConceptId>();
+    let word_index_mem = en.word_count().value as usize * 64; // rough estimate per entry
 
     eprintln!("=== English Ontology Performance ===");
     eprintln!("  XML parse:     {:?}", parse_time);
@@ -517,17 +518,17 @@ fn load_full_english() {
     eprintln!("  Total load:    {:?}", parse_time + build_time);
     eprintln!("  Word lookup:   {:?}", query_time);
     eprintln!("  is_a query:    {:?}", is_a_time);
-    eprintln!("  Concepts:      {}", en.concept_count());
-    eprintln!("  Words:         {}", en.word_count());
-    eprintln!("  Taxonomy:      {} relations", en.taxonomy_count());
-    eprintln!("  Opposition:    {} relations", en.opposition_count());
+    eprintln!("  Concepts:      {}", en.concept_count().value);
+    eprintln!("  Words:         {}", en.word_count().value);
+    eprintln!("  Taxonomy:      {} relations", en.taxonomy_count().value);
+    eprintln!("  Opposition:    {} relations", en.opposition_count().value);
     eprintln!("  Memory (concepts): ~{} KB", concept_mem / 1024);
     eprintln!("  Memory (taxonomy): ~{} KB", taxonomy_mem / 1024);
     eprintln!("  Memory (words):    ~{} KB", word_index_mem / 1024);
 
-    assert!(en.concept_count() > 100_000);
-    assert!(en.word_count() > 50_000);
-    assert!(en.taxonomy_count() > 80_000);
+    assert!(en.concept_count().value > 100_000.0);
+    assert!(en.word_count().value > 50_000.0);
+    assert!(en.taxonomy_count().value > 80_000.0);
 
     // Diagnose taxonomy: check "dog" senses and their parents
     let dog_ids = en.lookup("dog");
@@ -581,4 +582,239 @@ fn load_full_english() {
     if !found {
         eprintln!("  ❌ No dog sense is-a any mammal sense!");
     }
+}
+
+/// FIX-A memo-policy justification: measures the FULL WordNet's mereology
+/// (`mero_part`/`holo_part`) chain depth — the fact
+/// [`RelationStore::parts_reach`]'s `Uncached` per-query walk (mirroring
+/// [`TaxonomyStore`]'s own `Uncached` is-a ascent, justified by "max is-a
+/// depth 16") needs to be actually true of, not assumed of, the loaded
+/// corpus. A hand-rolled BFS is intentional HERE — this is a one-off
+/// diagnostic measurement over the loaded corpus, not the production
+/// reachability path (which goes through the shared
+/// [`pr4xis::category::reach`] engine).
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+#[ignore = "perf/structure measurement — parses the 89 MB WordNet XML; not a gate. Justifies \
+            RelationStore::parts_reach's Uncached memo policy the same way TaxonomyStore's \
+            module doc justifies its own (measured max is-a depth 16)."]
+fn full_corpus_mereology_chain_depth() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/wordnet/english-wordnet-2025.xml"
+    );
+    let xml = std::fs::read_to_string(path).expect(
+        "run `pr4xis update english_wordnet` to fetch the WordNet corpus; tests do not skip",
+    );
+    let wn = lmf::reader::read_wordnet(&xml).unwrap();
+    let en = English::from_wordnet(&wn);
+
+    // BFS from every concept along direct MereologyParts edges; track the
+    // longest shortest-path (the deepest whole → ... → leaf-part chain) and
+    // the largest single reflexive image (the widest per-query walk).
+    let mut max_depth = 0usize;
+    let mut max_image = 0usize;
+    let mut concepts_with_parts = 0usize;
+    for start in 0..en.concept_count().value as u64 {
+        let start = ConceptId::new(start);
+        if en.parts(start).is_empty() {
+            continue;
+        }
+        concepts_with_parts += 1;
+        let mut seen: std::collections::HashSet<ConceptId> = std::collections::HashSet::new();
+        seen.insert(start);
+        let mut frontier: Vec<ConceptId> = alloc::vec![start];
+        let mut depth = 0usize;
+        while !frontier.is_empty() {
+            let mut next = Vec::new();
+            for id in frontier {
+                for &part in en.parts(id) {
+                    if seen.insert(part) {
+                        next.push(part);
+                    }
+                }
+            }
+            if next.is_empty() {
+                break;
+            }
+            depth += 1;
+            frontier = next;
+        }
+        max_depth = max_depth.max(depth);
+        max_image = max_image.max(seen.len());
+    }
+
+    eprintln!("=== WordNet Mereology (MereologyParts) Structure ===");
+    eprintln!("  Concepts with a direct part edge: {concepts_with_parts}");
+    eprintln!("  Max whole→leaf-part chain depth:  {max_depth}");
+    eprintln!("  Largest single reflexive image:   {max_image}");
+
+    // A sanity floor, not a tight bound: mereology chains are real but not
+    // deep (unlike hypernymy's ~16), so a per-query Uncached walk stays cheap
+    // — this just guards against the measurement itself silently degenerating
+    // (e.g. an empty MereologyParts column reading back depth 0 everywhere).
+    assert!(
+        concepts_with_parts > 1_000,
+        "expected WordNet's meronymy to populate at least 1,000 concepts with direct parts"
+    );
+}
+
+// =============================================================================
+// Fold-on-miss case-folding index (Slice D)
+// =============================================================================
+
+const CASE_MARKED_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test-case" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-dog-n">
+      <Lemma writtenForm="dog" partOfSpeech="n"/>
+      <Sense id="dog-n-01" synset="s-dog"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-german-shepherd-n">
+      <Lemma writtenForm="German Shepherd" partOfSpeech="n"/>
+      <Sense id="german-shepherd-n-01" synset="s-german-shepherd"/>
+    </LexicalEntry>
+    <Synset id="s-dog" ili="i1" partOfSpeech="n" members="e-dog-n">
+      <Definition>a domesticated carnivore</Definition>
+    </Synset>
+    <Synset id="s-german-shepherd" ili="i2" partOfSpeech="n" members="e-german-shepherd-n">
+      <Definition>a large breed of dog developed in Germany</Definition>
+      <SynsetRelation relType="hypernym" target="s-dog"/>
+    </Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+fn case_marked_english() -> English {
+    let wn = lmf::reader::read_wordnet(CASE_MARKED_LMF).unwrap();
+    English::from_wordnet(&wn)
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn lookup_case_folded_recovers_a_capitalized_multiword_lemma() {
+    let en = case_marked_english();
+    // Exact-case lookup: the lowercased query misses (the WordIndex key is
+    // "German Shepherd", not "german shepherd").
+    assert!(en.lookup("german shepherd").is_empty());
+    // Case-FOLDED fallback recovers it.
+    let ids = en.lookup_case_folded("german shepherd");
+    assert_eq!(ids.len(), 1);
+    let c = en.concept(ids[0]).unwrap();
+    assert_eq!(
+        c.definitions().next().unwrap(),
+        "a large breed of dog developed in Germany"
+    );
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn lookup_case_folded_is_scoped_to_its_own_instance_not_a_global() {
+    // The SAME fold query against a DIFFERENT, smaller English instance
+    // (SAMPLE_LMF has no "German Shepherd" entry at all) must NOT leak the
+    // other fixture's data — proves the index is a per-instance field, not
+    // a process-wide cache tied to whichever `English` happened to load
+    // first.
+    let en = sample_english();
+    assert!(en.lookup_case_folded("german shepherd").is_empty());
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn lookup_case_folded_ascii_uppercase_query_reaches_an_already_lowercase_lemma() {
+    // "DOG" folds to "dog", which IS an ordinary exact key — the fold
+    // fallback's first (exact-on-folded-query) tier, no fold-index entry
+    // needed at all.
+    let en = sample_english();
+    let ids = en.lookup_case_folded("DOG");
+    assert_eq!(ids, en.lookup("dog"));
+}
+
+#[pr4xis::praxis_value(Honest)]
+#[test]
+fn lookup_case_folded_is_empty_when_nothing_matches() {
+    let en = case_marked_english();
+    assert!(en.lookup_case_folded("nonexistent word").is_empty());
+}
+
+// =============================================================================
+// Abbreviation-defining trailing period survives tokenization (task 2.7b)
+// =============================================================================
+//
+// The tokenizer's `flush_word` (`lambek::tokenize`) used to strip EVERY
+// trailing ASCII period as ordinary sentence punctuation, so WordNet's own
+// literal lemma `"O.K."` (a real `<Lemma writtenForm="O.K."/>`, not a display
+// variant of `"OK"`) never reached lexicon lookup: "is O.K. an
+// interlanguage?" tokenized "O.K." down to the fifth, non-existent spelling
+// "o.k" (period gone). `Language::is_known_surface` closes this: `flush_word`
+// tries restoring exactly one trailing period and asks the lexicon whether
+// THAT form is real before committing to the fully-stripped default.
+
+const ABBREVIATION_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test-abbr" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-ok-a">
+      <Lemma writtenForm="O.K." partOfSpeech="a"/>
+      <Sense id="ok-a-01" synset="s-ok"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-dog-n">
+      <Lemma writtenForm="dog" partOfSpeech="n"/>
+      <Sense id="dog-n-01" synset="s-dog"/>
+    </LexicalEntry>
+    <Synset id="s-ok" ili="i1" partOfSpeech="a"><Definition>acceptable</Definition></Synset>
+    <Synset id="s-dog" ili="i2" partOfSpeech="n"><Definition>a domesticated carnivore</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+fn abbreviation_english() -> English {
+    let wn = lmf::reader::read_wordnet(ABBREVIATION_LMF).unwrap();
+    English::from_wordnet(&wn)
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn is_known_surface_matches_a_period_bearing_lemma_exact_and_folded() {
+    let en = abbreviation_english();
+    // Exact case, exact spelling.
+    assert!(en.is_known_surface("O.K."));
+    // Lowercase — the case-folded fallback (`lookup_case_folded`) recovers it.
+    assert!(en.is_known_surface("o.k."));
+    // The period-stripped form is NOT itself a lexicon surface — restoring it
+    // is exactly the behavior under test, not a coincidental match.
+    assert!(!en.is_known_surface("o.k"));
+    assert!(!en.is_known_surface("nonexistent."));
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn tokenize_preserves_the_defining_period_of_a_known_abbreviation() {
+    use crate::cognitive::linguistics::lambek::tokenize::tokenize;
+    let en = abbreviation_english();
+
+    let tokens = tokenize("is O.K. a dog", &en);
+    let words: Vec<&str> = tokens.iter().map(|t| t.word.as_str()).collect();
+    assert_eq!(
+        words,
+        vec!["is", "o.k.", "a", "dog"],
+        "the trailing period on a known lemma survives, lowercased like every other token"
+    );
+}
+
+#[pr4xis::praxis_value(Verifiable)]
+#[test]
+fn tokenize_still_strips_ordinary_sentence_final_punctuation() {
+    use crate::cognitive::linguistics::lambek::tokenize::tokenize;
+    let en = abbreviation_english();
+
+    // A sentence-final "?" after the abbreviation: only the ordinary
+    // sentence-punctuation strips, the defining period still survives.
+    let tokens = tokenize("is O.K.?", &en);
+    let words: Vec<&str> = tokens.iter().map(|t| t.word.as_str()).collect();
+    assert_eq!(words, vec!["is", "o.k."]);
+
+    // An UNKNOWN period-bearing token is unaffected — full trim as before,
+    // since `is_known_surface` legitimately returns false for it.
+    let tokens = tokenize("dog?", &en);
+    assert_eq!(tokens[0].word, "dog");
+    let tokens = tokenize("10.", &en);
+    assert_eq!(tokens[0].word, "10");
 }

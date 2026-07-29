@@ -17,7 +17,10 @@
 //!   Automation* — has-a / is-a / equivalent relation conventions
 //!   adopted here (SUMO/BFO-compatible).
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::BIT_STORAGE;
+use crate::formal::math::quantity::value::Quantity;
 
 pr4xis::ontology! {
     name: "Info",
@@ -101,12 +104,18 @@ pub struct BitSize;
 
 impl Quality for BitSize {
     type Individual = InfoConcept;
-    type Value = usize;
+    type Value = Quantity;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, c: &InfoConcept) -> Option<usize> {
+    fn get(&self, c: &InfoConcept) -> Option<Quantity> {
+        // ISO/IEC 80000-13:2008 item 13-9.a "bit" — storage width, not
+        // Shannon information content (a different quantity, see
+        // `Dimension::DATA_SIZE`'s doc comment).
         match c {
-            InfoConcept::Bit | InfoConcept::TruthValue => Some(1),
-            InfoConcept::Byte => Some(8),
+            InfoConcept::Bit | InfoConcept::TruthValue => {
+                Some(Quantity::from_unit(1.0, &BIT_STORAGE))
+            }
+            InfoConcept::Byte => Some(Quantity::from_unit(8.0, &BIT_STORAGE)),
             _ => None,
         }
     }

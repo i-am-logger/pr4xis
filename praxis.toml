@@ -18,6 +18,15 @@
 #              names fail closed at startup.
 #   url      — fetch URL (HTTPS). The actual bytes are verified against
 #              `praxis.lock`'s pinned sha256 for this (name, version).
+#   fetchable — optional, defaults to true. Set `fetchable = false` for a
+#              DERIVED/AUTHORED/BUNDLED source whose `url` is a citation
+#              (a landing page, a spec) rather than a download endpoint —
+#              a hand-authored or hand-regenerated file this repo git-
+#              tracks and ships as a committed content-addressed `.prx`.
+#              `pr4xis update <name> --lock` (network mode) refuses such a
+#              source rather than overwriting the hand-authored file with
+#              whatever `url` happens to serve; re-pin after a hand edit
+#              with `pr4xis update <name> --lock --offline` instead.
 #
 # Everything else (decoder family, code-path convention, adjunctions to
 # other loaded sources) derives from `type` via the taxonomy:
@@ -238,6 +247,7 @@ version     = "2016"
 type        = "OoxmlSchemaArchive"
 url         = "https://ecma-international.org/wp-content/uploads/ECMA-376-1_5th_edition_december_2016.zip"
 local_path  = "markup-schemas/ooxml/ooxml_schema_strict-2016.zip"
+fetchable   = false
 description = "ECMA-376 5th edition (December 2016) Office Open XML schemas — the OfficeOpenXML-XMLSchema-Strict.zip bundle of 21 XSDs defining WordprocessingML (DOCX), SpreadsheetML (XLSX), PresentationML (PPTX) and DrawingML. Cite: ECMA International / ISO/IEC JTC 1/SC 34 (2016) Office Open XML File Formats Part 1, ECMA-376 5th edition / ISO/IEC 29500-1:2016, <https://ecma-international.org/wp-content/uploads/ECMA-376-1_5th_edition_december_2016.zip>. BUNDLED source-of-truth (not URL-fetchable by the single-`.xml`-member `unzip_single_xml` path — the published download is a ZIP-of-ZIPs): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
 
 # Library of Congress MODS 3.8 — Metadata Object Description Schema. The
@@ -345,19 +355,78 @@ version     = "2026"
 type        = "LegalLexicon"
 url         = "https://www.govinfo.gov/app/details/GPO-STYLEMANUAL-2016"
 local_path  = "legal-text/us_legal_lexicon.xml"
+fetchable   = false
 description = "U.S. Federal Legal-Text Closed-Class Lexicon — citation abbreviations (GPO Style Manual 2016 Ch. 9), month names + abbreviations (GPO §9.20), federal-agency acronyms (Federal Register Document Drafting Handbook 2017 §4.1), U.S. state / place names (ISO 3166-2:US + GPO §5.20), English productive compounds (Huddleston & Pullum 2002 Ch. 19 + Bauer 1983 §6), and legal terms-of-art (Black's Law Dictionary 11th ed. 2019). Bundled as crates/domains/data/legal-text/us_legal_lexicon.xml (LMF format)."
+
+# Family Caregiving Lexicon (Caregiver AI Challenge, Track 1) — the
+# chat-composable definitional lexicon for family-caregiving terms of
+# art. One synset per concept; each gloss's authorities ride that synset's
+# `dc:source` attribute (WN-LMF DTD line 113) STRUCTURALLY, never inside
+# the gloss text:
+#   - Statutorily-defined terms: glosses drawn verbatim (trimmed) from
+#     the LOADED usc_title_42@pl-119-90 corpus (42 USC 300ii, 1395i-3,
+#     1395n, 1395x, 1396n, 1396p, 1396r, 1396u-4, 3002, 3022, 3030s,
+#     3030s-1, 11225, 15002), verified against the on-disk XML.
+#   - Medicaid HCBS waiver / person-centered planning services:
+#     42 CFR 435, 438, 440, 441; CMS 1915(c) Waiver Technical Guide
+#     v3.6 (Jan. 2019), Appendix C.
+#   - Medicare home health / hospice: 42 CFR 409, 418, 484.
+#   - OAA in-home supportive services: 45 CFR 1321.3.
+#   - Dementia-care clinical terms: NIA health topic pages (nia.nih.gov);
+#     CMS State Operations Manual App. PP F-689 (elopement).
+#   - Guardianship / supported decision-making: ACL, Alternatives to
+#     Guardianship (acl.gov).
+#   - Functional-assessment terms: 26 USC 7702B(c)(2) (Title 26 is not
+#     a loaded USC title).
+# The bundled XML is the authored source-of-truth (fetchable = false);
+# the url anchors the description in the program's authoritative home.
+[sources.caregiving_lexicon]
+version     = "2026"
+type        = "CaregivingLexicon"
+url         = "https://acl.gov/programs/support-caregivers/national-family-caregiver-support-program"
+local_path  = "care/caregiving_lexicon.xml"
+fetchable   = false
+description = "Family Caregiving Lexicon (Caregiver AI Challenge Track 1) — statutory caregiving terms of art from the loaded Title 42 corpus (respite care 42 USC 300ii(7), family caregiver 42 USC 3022(3)/300ii(5), NFCSP 42 USC 3030s-1, hospice care 42 USC 1395x(dd), nursing facility 42 USC 1396r(a), developmental disability 42 USC 15002(8)(A), ...), bare program headwords medicaid/medicare (Social Security Act Titles XIX/XVIII, 42 USC 1396-1 / 1395c), Medicaid HCBS waiver service definitions (42 CFR 440.180, 440.167, 441.301-302, 441.505; CMS 1915(c) Technical Guide v3.6 App. C), Medicare home health / hospice regulatory definitions (42 CFR 409.42, 409.45, 484.60, 418.3), OAA in-home supportive services (45 CFR 1321.3), NIA dementia-care clinical vocabulary (nia.nih.gov), ACL guardianship alternatives (acl.gov), and 26 USC 7702B functional-assessment terms. Bundled as crates/domains/data/care/caregiving_lexicon.xml (WN-LMF)."
+
+# HCBS Workforce / Compliance Lexicon (Caregiver AI Challenge, Track 2)
+# — the chat-composable definitional lexicon for EVV / HCBS compliance
+# terms of art. Same authoring rules as caregiving_lexicon:
+#   - EVV statutory definitions + FMAP-reduction mandate: 42 USC
+#     1396b(l) (21st Century Cures Act sec. 12006), verified against the
+#     loaded usc_title_42@pl-119-90 corpus on disk.
+#   - HCBS waiver / person-centered planning / settings / payment
+#     adequacy / incident management: 42 CFR 440, 441; the 2024
+#     Ensuring Access to Medicaid Services final rule, 89 FR 40542
+#     (CMS-2442-F).
+#   - Billing / managed care: 42 CFR 447.45, 447.203, 438.2, 438.400,
+#     438.818; HealthCare.gov Glossary (prior authorization).
+#   - Program integrity: 42 CFR 455.2, 455.434; False Claims Act,
+#     31 USC 3729 (Title 31 is not a loaded USC title); FFP 42 CFR
+#     400.203.
+[sources.hcbs_compliance_lexicon]
+version     = "2026"
+type        = "HcbsComplianceLexicon"
+url         = "https://www.medicaid.gov/medicaid/home-community-based-services"
+local_path  = "care/hcbs_compliance_lexicon.xml"
+fetchable   = false
+description = "HCBS Workforce and Compliance Lexicon (Caregiver AI Challenge Track 2) — EVV statutory definitions and mandate from the loaded Title 42 corpus (42 USC 1396b(l), 21st Century Cures Act sec. 12006), Medicaid HCBS waiver / person-centered planning / settings-rule / payment-adequacy / incident-management terms (42 CFR 440.167-440.180, 441.301-441.312; 2024 Ensuring Access to Medicaid Services final rule, 89 FR 40542, CMS-2442-F), billing and managed-care terms (42 CFR 447.45, 447.203, 438.2, 438.400, 438.818; HealthCare.gov Glossary), and program-integrity terms (42 CFR 455.2, 455.434; False Claims Act 31 USC 3729; FFP 42 CFR 400.203). Bundled as crates/domains/data/care/hcbs_compliance_lexicon.xml (WN-LMF)."
 
 [sources.english_function_words]
 version     = "2026"
 type        = "ClosedClassLexicon"
 url         = "https://aclanthology.org/J93-2004/"
 local_path  = "function-words/english.xml"
-description = "English closed-class / function-word inventory (determiners, pronouns, prepositions, conjunctions, auxiliaries, copulas, particles, interjections, wh-/interrogative, relative & possessive pronouns) — the closed-class complement of the open-class english_wordnet (Quirk et al. 1985 §2.34). PRIMARY membership authority: Quirk, Greenbaum, Leech & Svartvik (1985) A Comprehensive Grammar of the English Language (Longman, ISBN 978-0-582-51734-9) — Ch.5 determiners, Ch.6 pronouns, Ch.9 §9.1-9.7 prepositions, Ch.13 coordination, Ch.14 subordination; converging with Huddleston & Pullum (2002) The Cambridge Grammar of the English Language (CUP, ISBN 978-0-521-43146-0) — Ch.3 auxiliaries/copula, Ch.5 determinatives/pronouns, Ch.6 interrogative adverbs, Ch.7 prepositions, Ch.12 relatives, Ch.15 coordination. Corroborating corpus: Biber et al. (1999) Longman Grammar of Spoken and Written English (ISBN 978-0-582-23725-4). Category vocabulary: OLiA Reference Model (see [sources.olia]; Chiarcos & Sukhareva 2015, doi:10.3233/SW-140167). Computational tagset: Penn Treebank closed-class tags (Santorini 1990, UPenn MS-CIS-90-47; Marcus et al. 1993, https://aclanthology.org/J93-2004/) and Universal Dependencies closed-class POS. Bundled as crates/domains/data/function-words/english.xml (LMF). NOTE: the inventory is hand-curated and citation-anchored, not yet machine-loaded from the cited grammars (tracked praxis-debt, audit 2026-06-12)."
+fetchable   = false
+description = "English closed-class / function-word inventory (determiners, pronouns, prepositions, conjunctions, auxiliaries, copulas, particles, interjections, wh-/interrogative, relative & possessive pronouns) — the closed-class complement of the open-class english_wordnet (Quirk et al. 1985 §2.34). PRIMARY membership authority: Quirk, Greenbaum, Leech & Svartvik (1985) A Comprehensive Grammar of the English Language (Longman, ISBN 978-0-582-51734-9) — Ch.5 determiners, Ch.6 pronouns, Ch.9 §9.1-9.7 prepositions, Ch.13 coordination, Ch.14 subordination; converging with Huddleston & Pullum (2002) The Cambridge Grammar of the English Language (CUP, ISBN 978-0-521-43146-0) — Ch.3 auxiliaries/copula, Ch.5 determinatives/pronouns, Ch.6 interrogative adverbs, Ch.7 prepositions, Ch.12 relatives, Ch.15 coordination. Corroborating corpus: Biber et al. (1999) Longman Grammar of Spoken and Written English (ISBN 978-0-582-23725-4). Category vocabulary: OLiA Reference Model (see [sources.olia]; Chiarcos & Sukhareva 2015, doi:10.3233/SW-140167). Computational tagset: Penn Treebank closed-class tags (Santorini 1990, UPenn MS-CIS-90-47; Marcus et al. 1993, https://aclanthology.org/J93-2004/) and Universal Dependencies closed-class POS. Interrogative referent-type (who/what/which -> person/thing/selection) and adverb-role (how/why/where/when -> manner/reason/place/time) features: Cysouw (2004) 'Interrogative words: an exercise in lexical typology', handout, ZAS Berlin, §3.2 table (9), building on Ultan (1978) in Greenberg (ed.) Universals of Human Language vol.4, Stanford UP, pp.211-248. Bundled as crates/domains/data/function-words/english.xml (LMF). NOTE: the inventory is hand-curated and citation-anchored, not yet machine-loaded from the cited grammars (tracked praxis-debt, audit 2026-06-12)."
 
 [sources.agid]
 version     = "2016.01.19"
 type        = "InflectionLexicon"
-url         = "http://wordlist.aspell.net/"
+# The canonical GitHub home of Atkinson's wordlist project (SCOWL/AGID) — the
+# raw infl.txt of AGID rev 2016.01.19 (3.37 MB). The former url (the
+# wordlist.aspell.net homepage) served an HTML landing page, not the database
+# — fixed 2026-07-11.
+url         = "https://raw.githubusercontent.com/en-wl/wordlist/master/agid/infl.txt"
 local_path  = "morphology/agid-infl.txt"
 description = "Automatically Generated Inflection Database (AGID) — Atkinson (2000-2016) Copyright Kevin Atkinson <kevina@gnu.org>, http://wordlist.aspell.net. A plain-text database mapping every inflected English word-form to its base lemma and inflection slot: `<word> <pos>[?]: <past> [<past participle>] <-ing> <-s>` for verbs, `<comparative> <superlative>` for adjectives/adverbs, `<plural>` for nouns. The authoritative source of English morphological EXCEPTIONS (irregular forms a productive rule cannot generate), read by the dual-route lemmatizer (Pinker 1991). The 3.3 MB source (crates/domains/data/morphology/agid-infl.txt) is FETCHED via `pr4xis update` and gitignored like the WordNet XML; committed are the format-spec/copyright record (agid-README.txt) and the derived irregular-forms slice (crates/domains/data/morphology/english-irregulars.tsv — the runtime data, regenerate via --ignored regenerate_english_irregulars_tsv when the AGID source changes)."
 
@@ -525,6 +594,7 @@ version     = "1.5"
 type        = "WindowStateVocabulary"
 url         = "https://specifications.freedesktop.org/wm-spec/1.5/ar01s05.html"
 local_path  = "hmi/ewmh-wm-state.tsv"
+fetchable   = false
 description = "EWMH (Extended Window Manager Hints) v1.5 §5 `_NET_WM_STATE` window-state atom set — the controlled vocabulary of window states a client adds/removes/toggles (freedesktop.org wm-spec; the 13 EWMH atoms _NET_WM_STATE_MODAL/_STICKY/_MAXIMIZED_VERT/…/_FOCUSED) plus two cited compositor extensions for the tiling layer EWMH does not name (bspwm(1) `pseudo_tiled`; Wayland xdg-shell/wlroots floating). One `bit_name<TAB>spec_atom<TAB>source` row per atom. AUTHORED-from-spec source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
 
 # OLiA grammatical-class → CCG lexical-category projection — DERIVED (authored as
@@ -535,7 +605,130 @@ version     = "2026"
 type        = "LexicalCategoryProjection"
 url         = "https://aclanthology.org/J07-3004/"
 local_path  = "grammar/olia-ccg-categories.tsv"
+fetchable   = false
 description = "OLiA Reference-Model grammatical class → CCGbank lexical-category projection — the universal lexical-category functor carried as loaded DATA. Each row pairs an OLiA Reference-Model class (Chiarcos & Sukhareva 2015, Semantic Web 6(4):379-386, doi:10.3233/SW-140167; see [sources.olia]) with its CCGbank category in standard notation (Hockenmaier & Steedman 2007, Computational Linguistics 33(3):355-396, https://aclanthology.org/J07-3004/ — the Combinatory Categorial Grammar lexical-category inventory), `olia_class<TAB>ccg_category[<TAB>valency_class]`. DERIVED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Honest-abstention realization frames — AUTHORED as the NLG realization-stage
+# template table, carried as DATA and interpreted (frame-as-data), never an
+# inline `format!` in the realizer.
+[sources.abstain_frames]
+version     = "2026"
+type        = "RealizationFrameTable"
+url         = "https://dl.acm.org/doi/book/10.5555/331700"
+local_path  = "grammar/abstain-frames.tsv"
+fetchable   = false
+description = "Natural-language-generation realization-frame table for honest abstention — each row pairs a frame id with a surface template carrying typed slots the realizer fills. Reiter & Dale (2000) Building Natural Language Generation Systems (Cambridge University Press, ISBN 9780521620369, https://dl.acm.org/doi/book/10.5555/331700), the realization stage: a communicative goal is realized by filling a STORED linguistic template, not by concatenating a literal in code. Covers the fifth epistemic cell (vocabulary KNOWN, proposition OPEN) — the honest-abstention surface (Reiter 1978 closed-world assumption) that names both queried concepts as known and the relation as unconfirmed, `frame_id<TAB>template`. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Rule-awaiting-fact realization frames — AUTHORED as the NLG realization-stage
+# template table, sibling of abstain_frames: a POSITIVE capability (a fully
+# known, fully cited rule whose applicability is blocked on a private fact),
+# not an abstention. Carried as DATA and interpreted, never an inline
+# `format!` in the realizer.
+[sources.conditional_frames]
+version     = "2026"
+type        = "RealizationFrameTable"
+url         = "https://dl.acm.org/doi/book/10.5555/331700"
+local_path  = "grammar/conditional-frames.tsv"
+fetchable   = false
+description = "Natural-language-generation realization-frame table for the rule-known/fact-missing capability — each row pairs a frame id with a surface template carrying typed slots the realizer fills. Reiter & Dale (2000) Building Natural Language Generation Systems (Cambridge University Press, ISBN 9780521620369, https://dl.acm.org/doi/book/10.5555/331700), the realization stage. Bobrow, Kaplan, Norman, Thompson & Winograd (1977) 'GUS, A Frame-Driven Dialog System', Artificial Intelligence 8(2):155-173: a frame with an unfilled slot triggers a question, not a guess or a refusal. `frame_id<TAB>template`. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Outcome-explanation realization frames (the "Why?" layer) — AUTHORED as the
+# NLG realization-stage template table, third sibling of abstain_frames /
+# conditional_frames: a plain-language gloss of WHY the engine reached an
+# outcome. Carried as DATA and interpreted (frame-as-data), never an inline
+# `format!` in the realizer.
+[sources.explain_frames]
+version     = "2026"
+type        = "RealizationFrameTable"
+url         = "https://dl.acm.org/doi/book/10.5555/331700"
+local_path  = "grammar/explain-frames.tsv"
+fetchable   = false
+description = "Natural-language-generation realization-frame table for the plain-language outcome-explanation ('Why?') layer — each row pairs a frame id (the existing ResponseFrame) with a surface template carrying typed slots the realizer fills ({sources}, {terms}). The SECOND realization of a turn: a plain-language gloss of WHY the engine reached its outcome, sibling of abstain_frames/conditional_frames. Reiter & Dale (2000) Building Natural Language Generation Systems (Cambridge University Press, ISBN 9780521620369, https://dl.acm.org/doi/book/10.5555/331700), the realization stage; Reiter (1978) closed-world assumption. Only the frames whose primary response does not already state its reason get a row (AssertKnowledge grounded/ungrounded, UnknownVocabulary, SuggestInterpretation, AdmitLimitation). `frame_id<TAB>template`. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Ontology-name → plain-English label projection — the LEXICALIZATION leg of the
+# realization stage: the "Why?" layer fills its {sources} slot with the loaded
+# ontologies a turn reasoned over, projected here to human-facing labels so a raw
+# internal OntologyName never leaks into a user-facing sentence. Carried as DATA
+# and interpreted, never an inline `match`.
+[sources.ontology_labels]
+version     = "2026"
+type        = "RealizationFrameTable"
+url         = "https://dl.acm.org/doi/book/10.5555/331700"
+local_path  = "grammar/ontology-labels.tsv"
+fetchable   = false
+description = "Ontology-name → plain-English label projection for the outcome-explanation ('Why?') layer — the lexicalization leg of the NLG realization stage (Reiter & Dale 2000, Building Natural Language Generation Systems, Cambridge University Press, ISBN 9780521620369, https://dl.acm.org/doi/book/10.5555/331700: lexicalization is choosing the surface words for a domain entity). Each row projects a registered OntologyName (praxis.toml [sources.*] key, or the embedded-base name LegalSources) to the human-facing label a reader recognizes, so a snake_case internal identifier never leaks into a user-facing sentence. A name absent from the table projects to the generic fallback 'your loaded documents', so the projection is total. `ontology_name<TAB>label`. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# CCG supertag/rule cost table — DERIVED from published CCGbank frequency
+# tables (transcribed counts + their negative logs), the derivation-ranking
+# floor of the weighted chart. Carried as DATA and interpreted by the
+# generic min-cost fold (`lambek::supertag_costs`), never a Rust `match` of
+# weights.
+[sources.ccg_supertag_costs]
+version     = "2026"
+type        = "SupertagCostTable"
+url         = "https://era.ed.ac.uk/handle/1842/320"
+local_path  = "grammar/ccg-supertag-costs.tsv"
+fetchable   = false
+description = "CCG supertag/rule cost table — published CCGbank frequencies as negative-log costs (nats) for the weighted chart (the weighted-CYK shape of Goodman 1999, Semiring Parsing; cost is the final component of the chart's derivation-preference key). Lexical-category unigram counts: Hockenmaier (2003) *Data and Models for Statistical Parsing with Combinatory Categorial Grammar*, PhD thesis, University of Edinburgh, Table 5.5 p. 176 (`#ref` column; section 00 gold standard, 45,422 tokens), <https://era.ed.ac.uk/handle/1842/320>; subject wh-question count from §5.12 p. 186. Type-changing (unary) rule counts: Hockenmaier & Steedman (2005) *CCGbank LDC2005T13 User's Manual*, MS-CIS-05-09, Univ. of Pennsylvania, Table 4.3 p. 86 (sections 02-21, 929,552 tokens), <https://hockenmaier.cs.illinois.edu/Papers/CCGbank/CCGbankManual.pdf>. Normalizers (§8 p. 387) + the hapax default (439 categories occur exactly once, §8.2 p. 389): Hockenmaier & Steedman (2007) CCGbank, Computational Linguistics 33(3):355-396, <https://aclanthology.org/J07-3004/>. Read-off published counts — NOT invented weights, NOT trained parameters. Kind-discriminated rows lex/unary/default; count and total columns verbatim from the sources, the cost column their derived -ln(count/total), machine-rechecked by the loader's oracle test. DERIVED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Quote-glyph vocabulary — the Unicode Pi/Pf quotation-mark glyph inventory
+# (+ the two ambiguous ASCII quote marks), AUTHORED from the UCD's own
+# DerivedGeneralCategory.txt. Consumed as raw bytes into a
+# `QuoteGlyphVocabulary` (Slice B's quoted-mention span recognizer).
+[sources.quote_glyphs]
+version     = "2026"
+type        = "QuoteGlyphVocabulary"
+url         = "https://www.unicode.org/reports/tr44/"
+local_path  = "grammar/quote-glyphs.tsv"
+fetchable   = false
+description = "Unicode quotation-mark glyph inventory — every code point in General_Category Pi (Initial_Punctuation, 12 members) and Pf (Final_Punctuation, 10 members), plus the two direction-ambiguous ASCII quote marks (U+0022, U+0027 — General_Category Po). Unicode Standard Annex #44 (Unicode Character Database), General_Category property, verified against Unicode 18.0.0 (2026) by direct inspection of DerivedGeneralCategory.txt; the ASCII pair cross-checked against the UCD's Quotation_Mark property listing in PropList.txt. Each Pi glyph's paired Pf counterpart, where the UCD pairs one, is loaded data (10 of 12 pair; U+201B/U+201F do not). AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Dash-punctuation glyph inventory — the Unicode General_Category=Pd
+# (Dash_Punctuation) code points, AUTHORED from the UCD's own
+# DerivedGeneralCategory.txt. Consumed as raw bytes into a
+# `DashPunctuationVocabulary`, fixing a confirmed tokenizer bug: `flush_word`
+# (lambek::tokenize) trimmed trailing/leading punctuation with a raw
+# `char::is_ascii_punctuation()` check, which never matches a non-ASCII
+# Unicode dash (e.g. the EM DASH U+2014 that ends "the term X means—" in real
+# U.S. Code legal prose), so the malformed token survived and missed lexicon
+# lookup.
+[sources.dash_punctuation]
+version     = "2026"
+type        = "DashPunctuationVocabulary"
+url         = "https://www.unicode.org/reports/tr44/"
+local_path  = "grammar/dash-punctuation.tsv"
+fetchable   = false
+description = "Unicode dash-punctuation glyph inventory — every code point in General_Category Pd (Dash_Punctuation, 25 members: HYPHEN-MINUS through YEZIDI HYPHENATION MARK). Unicode Standard Annex #44 (Unicode Character Database), General_Category property, verified against Unicode 18.0.0 (2026) via compart.com/en/unicode/category/Pd, cross-referenced against the primary UCD DerivedGeneralCategory.txt tabulation. Unlike the paired Pi/Pf quotation marks (QuoteGlyphVocabulary), Pd carries no pairing/nesting structure — every member plays the same Dash role, so the loaded table is a flat codepoint→name list. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# English orthographic grapheme classes — the vowel/consonant partition of the
+# 26 basic-Latin letters, plus `y` as the one genuinely dual letter. Replaces a
+# hardcoded `matches!(c, 'a'|'e'|'i'|'o'|'u')` that was DUPLICATED across
+# `morphology::english::{generation,irregular}`, with `y`'s dual status
+# scattered beside it as ad-hoc `|| c == 'y'` tests: the orthographic rules
+# built on it are cited, but the alphabet they range over was encoded rather
+# than loaded. NOT derivable from the UCD — Unicode classifies these code
+# points only as General_Category=Ll/Lu and says nothing about vowel-hood,
+# which is a language-specific orthographic fact.
+[sources.english_grapheme_classes]
+version     = "1994"
+type        = "EnglishGraphemeClasses"
+url         = "https://www.routledge.com/A-Survey-of-English-Spelling/Carney/p/book/9780415092708"
+local_path  = "grammar/english-grapheme-classes.tsv"
+fetchable   = false
+description = "English orthographic grapheme classes — the 26 basic-Latin letters partitioned into vowel letters (a e i o u), consonant letters, and the one dual letter (y). Carney, Edward (1994), A Survey of English Spelling (London: Routledge), Ch.1 — the standard descriptive survey of English orthography, which sets out the letter inventory and treats <y> as dual-function. Cross-grounded by Quirk, Greenbaum, Leech & Svartvik (1985), A Comprehensive Grammar of the English Language (London: Longman) §3.21, whose orthographic plural rule is stated over exactly this partition and depends on <y> patterning as a vowel in \"boy\" -> \"boys\". <y> is carried as class Dual rather than forced into one bucket because the two consuming rules need different readings — syllable-peak counting treats it as a vowel (\"rhythm\"), the consonant-before-final-<y> test treats it as not-a-consonant (\"boy\") — which the loaded vocabulary exposes as two named queries instead of a lossy boolean. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
+
+# Unicode simple case-folding table — FILTERED from CaseFolding.txt to status
+# C (common) + S (simple) rows (single-codepoint-to-single-codepoint folds;
+# status F full-folding and status T Turkic-locale rows excluded). Consumed
+# as raw bytes into a `CaseFoldingTable` (Slice D's fold-on-miss lexicon
+# lookup).
+[sources.case_folding]
+version     = "2026"
+type        = "CaseFoldingTable"
+url         = "https://www.unicode.org/reports/tr44/"
+local_path  = "orthography/case-folding.tsv"
+fetchable   = false
+description = "Unicode simple case-folding table — every codepoint whose CaseFolding.txt status is C (common) or S (simple-only), mapped to its single-codepoint fold target; status F (full folding, string-growing) and status T (Turkic-locale dotted/dotless I) excluded. Unicode Standard Annex #44 (Unicode Character Database), CaseFolding.txt, verified against Unicode 18.0.0 (2026-02-03) by direct inspection of the primary data file. AUTHORED source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
 
 # Mathematical-operator vocabulary — AUTHORED as LMF-shaped XML from the OpenMath
 # arith1/relation1 Content Dictionaries + ISO 80000-2 glyphs. Consumed as raw
@@ -546,6 +739,7 @@ version     = "2019"
 type        = "MathOperatorVocabulary"
 url         = "https://openmath.org/cd/arith1.xhtml"
 local_path  = "operators/math-operators.xml"
+fetchable   = false
 description = "Mathematical-operator closed-class vocabulary — each operator glyph bound to one OpenMath symbol with its STS signature (role, arity, result sort). AUTHORED from the OpenMath Content Dictionaries arith1 (arithmetic) + relation1 (relations), <https://openmath.org/cd/arith1.xhtml>, <https://openmath.org/cd/relation1.xhtml>; OpenMath Standard 2.0 (Kohlhase & Rabe, eds., 2019) §2.1.4 (Role), §4.3 (STS signatures); glyphs per ISO 80000-2:2019 (Quantities and units — Part 2: Mathematics). LMF-shaped XML (same `<LexicalEntry>` reader as WordNet/function-words), parsed to an OperatorVocabulary by cognitive::linguistics::lambek::operators. DERIVED/authored source-of-truth (not URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
 
 # Base16/Base24 color-scheme COLLECTION — the Tinted Theming `tinted-schemes`
@@ -565,6 +759,103 @@ url         = "https://github.com/i-am-logger/tinted-schemes.git"
 local_path  = "themes/tinted-schemes-2025.themes"
 description = "Base16/Base24 named color-scheme collection — the Tinted Theming `tinted-schemes` corpus (one YAML palette per named scheme; base00..base0F for Base16, base00..base17 for Base24). Provenance: the i-am-logger/tinted-schemes fork (a community dataset fork). BUNDLED source-of-truth — a git-clone-and-archive is NOT byte-reproducible against the pin (the fork moves; archive ordering differs), unlike the single-file HTTP sources, so the deterministic `.themes` archive (`theme_collection::archive_directory` over the `base16/` + `base24/` trees) is git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, and present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-cloning the moving fork (re-sync the fork deliberately via `pr4xis update tinted_schemes --lock`). Shipped as the committed content-addressed `.prx`. The substrate the theming validator scans to certify the praxis luminance-monotonicity + WCAG-AA-contrast axioms over real-world palettes. Cite: Tinted Theming, Base16 Styling Guidelines + Base24 specification, <https://github.com/tinted-theming/home>; W3C WCAG 2.1 §1.4.3."
 
+# VerbNet class-hierarchy COLLECTION — a directory of per-class XML files
+# classifying English verbs into nested syntactic-semantic classes (Levin
+# 1993 alternations), each `<MEMBER>` keyed by WordNet sense-key. A FETCHED,
+# TAGGED source: cu-clear/verbnet tag `vn-3.3` (the last GitHub-tagged
+# release; VerbNet 3.4's class files exist only on an untagged branch head,
+# not used here) is the fetch endpoint; `pr4xis update` clones it and
+# `verbnet_class_collection::archive_directory` flattens the `verbnet3.3/`
+# class directory into ONE deterministic archive at the `local_path` below
+# (one blob, 332 classes), which then rides the generalized raw-source `.prx`
+# path under the `VerbClassLexicon` leaf. BUNDLED source-of-truth — same
+# reasoning as tinted_schemes: `git archive` from a fixed tag IS
+# content-deterministic (confirmed: two independent `git archive vn-3.3`
+# runs produced byte-identical output), but GitHub's own tarball-generation
+# endpoint is not guaranteed to be, so the checkout is archived locally
+# rather than pinning a fetched tarball's hash directly. The raw checkout is
+# gitignored after archiving; only the committed content-addressed `.prx`
+# ships. Independent of WordNet's own gloss/hypernym construction — the
+# classification derives from Levin's syntactic-alternation diagnostics, not
+# lexicographic definition — the source the corroboration mechanism
+# (`formal::relations` `MemberOf` kind) consults for a genuinely separate
+# signal on verb-sense relatedness.
+[sources.verbnet]
+version     = "3.3"
+type        = "VerbClassLexicon"
+url         = "https://github.com/cu-clear/verbnet.git"
+local_path  = "verbnet/verbnet-3.3.verbnet"
+description = "VerbNet 3.3 class hierarchy — Kipper, Korhonen, Ryant & Palmer (2008) A Large-scale Classification of English Verbs, Language Resources and Evaluation 42(1):21-40; Levin (1993) English Verb Classes and Alternations, University of Chicago Press. 332 per-class XML files (`verbnet3.3/`), each declaring `<MEMBER name=\"...\" wn=\"...\">` entries keyed by WordNet sense-key and nested `<SUBCLASSES>`. Provenance: cu-clear/verbnet, tag `vn-3.3` (2020-07-09), the last tagged release (the class files themselves are unchanged by later untagged commits for the classes this project consults). BUNDLED source-of-truth — a git-clone-and-archive is not guaranteed byte-reproducible against the pin (GitHub's tarball packaging can drift even for a fixed tag), so the deterministic `.verbnet` archive (`verbnet_class_collection::archive_directory` over the `verbnet3.3/` class directory) is git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, and present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-cloning (re-sync deliberately via `pr4xis update verbnet --lock`). Shipped as the committed content-addressed `.prx`."
+
+# ConceptNet 5.7.0 (Speer, Chin & Havasi 2017) — a THIRD, independent
+# corroboration signal for the two-entity relation path's lone-hit gate,
+# alongside VerbNet. See `formal::relations` `Association` (the relation kind
+# every ConceptNet edge maps onto, generically — SKOS `related`, no fine-
+# grained per-relation-type mapping) and `cognitive::linguistics::conceptnet`.
+[sources.conceptnet]
+version     = "5.7.0"
+type        = "AssociativeConceptTable"
+url         = "https://s3.amazonaws.com/conceptnet/downloads/2019/edges/conceptnet-assertions-5.7.0.csv.gz"
+local_path  = "conceptnet/conceptnet-5.7.0.assoc"
+description = "ConceptNet 5.7.0 commonsense association graph — Speer, R., Chin, J. & Havasi, C. (2017) ConceptNet 5.5: An Open Multilingual Graph of General Knowledge, Proceedings of AAAI 2017. Data licensed CC BY-SA 4.0 (see `conceptnet-LICENSE.txt`). No official English-only or WordNet-linked subset is distributed by the ConceptNet project, and the full assertions CSV (34,074,917 rows, 497,963,447 bytes gzip, verified 2026-07-13) is far too large to bundle whole — so, like VerbNet, this is a BUNDLED source-of-truth: a deterministic, MECHANICAL filter (`cognitive::linguistics::conceptnet::regenerate::regenerate_conceptnet_archive`) keeps only the 932,948 assertions whose start AND end concepts both resolve to a lemma the loaded Open English WordNet 2025 carries — a pure format-conversion (raw relation/start/end/weight fields unchanged), never a reweighting or relation-type curation. Rows: `relation<TAB>start_lemma<TAB>end_lemma<TAB>weight`. Rides the generic `ContentType::Plaintext` raw-source path (no dedicated decoder — same codec as CaseFoldingTable/InflectionLexicon). Git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-fetching the 475 MB upstream (re-sync deliberately via `pr4xis update conceptnet --lock`, which requires the external fetch+decompress prep step documented in `regenerate.rs`'s module doc — no generic `pr4xis update` primitive covers 'download, decompress, then run a WordNet-crosswalk filter'). Shipped as the committed content-addressed `.prx`."
+
+# FrameNet 1.7 (Baker, Fillmore & Lowe 1998) — a THIRD independent
+# corroboration signal for the two-entity relation path's lone-hit gate,
+# alongside VerbNet and ConceptNet. See `formal::relations` `Association`
+# (the relation kind every FrameNet frame-relation edge maps onto,
+# generically — SKOS `related`, no fine-grained per-relation-type mapping)
+# and `cognitive::linguistics::framenet`.
+[sources.framenet]
+version     = "1.7"
+type        = "FrameSemanticTable"
+url         = "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/corpora/framenet_v17.zip"
+local_path  = "framenet/framenet-1.7.tsv"
+description = "FrameNet 1.7 lexical-unit + frame-relation graph — Baker, C. F., Fillmore, C. J. & Lowe, J. B. (1998) The Berkeley FrameNet Project, Proceedings of COLING-ACL 1998; Ruppenhofer, J., Ellsworth, M., Petruck, M. R. L., Johnson, C. R. & Scheffczyk, J. (2016) FrameNet II: Extended Theory and Practice, ICSI. Data licensed CC BY 3.0 Unported (see `framenet-LICENSE.txt`; confirmed via the NLTK redistribution's own package index, author Collin F. Baker). No official small subset is distributed either — the `lu/` directory alone is ~13,574 files / ~84 MB compressed inside the official release (NLTK-mirrored `framenet_v17.zip`, SHA256 `22f6aad6fb799ba4dbed0440714e1118442ad7d7345351de37428581284f471c`, MD5 `aaef1cfdcf37000cf2a5c562407fbddb`, verified 2026-07-13) — so, like ConceptNet, this is a BUNDLED source-of-truth: a deterministic, MECHANICAL extraction (`cognitive::linguistics::framenet::regenerate::regenerate_framenet_archive`) keeps only each lexical unit's root `<lexUnit POS=\"...\" name=\"...\" frame=\"...\">` start-tag attributes (13,336 open-class rows survive; 208 closed-class + 28 malformed are dropped) plus every `frRelation.xml` `<frameRelation subFrameName=\"...\" superFrameName=\"...\">` pairing (2,070 rows) — never the embedded annotated-sentence corpus each LU file also carries, nor the frame-element-level relation mappings. A pure format-conversion, never a reweighting or relation-type curation. Rows: type-tagged `LU<TAB>lemma<TAB>pos<TAB>frame` / `REL<TAB>relation<TAB>sub_frame<TAB>super_frame`. Rides the generic `ContentType::Plaintext` raw-source path (no dedicated decoder — same codec as CaseFoldingTable/AssociativeConceptTable). Git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-fetching the 99 MB upstream (re-sync deliberately via `pr4xis update framenet --lock`, which requires the external fetch prep step documented in `regenerate.rs`'s module doc — no generic `pr4xis update` primitive covers 'download, then extract+filter a ZIP archive'). Shipped as the committed content-addressed `.prx`."
+
+# SUMO WordNet↔SUMO mappings (Niles & Pease 2001, 2003) — a FOURTH independent
+# corroboration signal for the two-entity relation path's lone-hit gate,
+# alongside VerbNet, ConceptNet, and FrameNet. Unlike the other three, SUMO
+# carries a NATIVE WordNet reference (each annotated line IS a WN 3.0 synset
+# record), so `cognitive::linguistics::sumo` resolves synset identity
+# (`oewn-<offset>-<pos>`) LIVE at query time — no precomputed crosswalk.
+[sources.sumo]
+version     = "2026.07.14"
+type        = "SumoWordNetMappingTable"
+url         = "https://github.com/ontologyportal/sumo/tree/master/WordNetMappings"
+local_path  = "sumo/sumo-wordnetmappings-30.tsv"
+fetchable   = false
+description = "SUMO WordNet↔SUMO mapping table — Niles, I. & Pease, A. (2001) Towards a Standard Upper Ontology, Proceedings of FOIS 2001, pp. 2-9; Niles, I. & Pease, A. (2003) Linking Lexicons and Ontologies: Mapping WordNet to the Suggested Upper Merged Ontology, Proceedings of IEEE IKE 2003, pp. 412-416. For each Princeton WordNet 3.0 synset, the SUMO upper-ontology term(s) it maps to, each tagged with the relation the source's own legend defines by suffix: `=` equivalence, `+` subsumption, `@` instance, and the complements `:`/`[`/`]` (the synset is explicitly NOT that class). The source `WordNetMappings30-{noun,verb,adj,adv}.txt` files are annotated COPIES of the WordNet 3.0 `data.*` files (each data line a full WNDB record with `&%<term><suffix>` tokens appended), ~22 MB across the four files, so — like FrameNet/ConceptNet — this is a BUNDLED source-of-truth: a deterministic, MECHANICAL extraction+resolution (`cognitive::linguistics::sumo::regenerate::regenerate_sumo_archive`). SUMO's PWN-3.0 synset offsets do NOT match Open English WordNet 2025 (only ~385 of 82,115 noun offsets collide), so — exactly like VerbNet — the regen parses the OEWN XML once, offline, and resolves each synset to a `ConceptId` VALUE (stable across load paths) via the version-stable WordNet SENSE KEY reconstructed from the WNDB member words + `lex_filenum`, baking that value into the committed table so the runtime store needs no WordNet lookup. Verified 2026-07-14 against ontologyportal/sumo `master` commit 152b9abc440477073b5e4e573983b730a619da7b: 116,007 annotated synsets resolve to 91,088 (90,478 via sense key, 610 via offset; 24,919 dropped as unmapped), yielding 91,218 rows over 90,490 distinct concepts. Rows: `concept_value<TAB>term<TAB>relation_code<TAB>oewn_synset_id` — the 4th column (added 2026-07-14) is the real, external OEWN synset id the row's `concept_value` resolves to (carried on every row, not just `EQ`), consumed by `cognitive::linguistics::sumo::sssom` to mint an SSSOM `skos:exactMatch` mapping set over the `EQ` rows (SSSOM: Matentzoglu et al. 2022, Database (Oxford) baac035). Rides the generic `ContentType::Plaintext` raw-source path (no dedicated decoder — same codec as CaseFoldingTable/AssociativeConceptTable/FrameSemanticTable). The SUMO repo publishes no tagged release for these files, so the fetch is pinned by the recorded `master` commit SHA above rather than a git tag; DERIVED/bundled source-of-truth (not a single URL-fetchable file, hence `fetchable = false`): git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-fetching (re-sync deliberately via the external fetch step in `regenerate.rs`'s module doc). Data licensed GNU General Public License (GPL) — a THIRD-PARTY license, distinct from and not superseded by this repository's own CC BY-NC-SA 4.0 license (see LICENSE); this file is bundled and redistributed under its own GPL terms (see `sumo-LICENSE.txt`). Shipped as the committed content-addressed `.prx`."
+
+# PropBank predicate argument-structure frames (Palmer, Gildea & Kingsbury
+# 2005; Bonial, Bonn, Conger, Hwang & Palmer 2014) — a FIFTH, independent
+# corroboration signal for the two-entity relation path's lone-hit gate,
+# alongside VerbNet, ConceptNet, FrameNet, and SUMO. Unlike SUMO's native
+# WordNet synset reference, PropBank's `<alias>` entries carry NO WordNet
+# link at all — FrameNet's precedent, not SUMO's: `cognitive::linguistics::
+# propbank` resolves lemma+POS LIVE at query time, never a precomputed
+# crosswalk. The signal itself is cross-POS roleset aliasing (a verb sense
+# and a noun sense sharing one argument-structure frame's `<roleset>`), never
+# a nested class hierarchy the way VerbNet's `<SUBCLASSES>` is.
+[sources.propbank]
+version     = "3.4.0"
+type        = "PredicateArgumentLexicon"
+url         = "https://github.com/propbank/propbank-frames.git"
+local_path  = "propbank/propbank-3.4.0.propbank"
+description = "PropBank 3.4.0 predicate argument-structure frames — Palmer, M., Gildea, D. & Kingsbury, P. (2005) The Proposition Bank: An Annotated Corpus of Semantic Roles, Computational Linguistics 31(1):71-106; Bonial, C., Bonn, J., Conger, K., Hwang, J. & Palmer, M. (2014) PropBank: Semantics of New Predicate Types, LREC 2014. 7,565 per-lemma XML files (`frames/`), each declaring `<frameset><predicate lemma=\"...\"><roleset id=\"...\"><aliases><alias pos=\"...\">...</alias>` entries — the cross-POS argument-structure signal `cognitive::linguistics::propbank` builds `PropBankStore::shares_roleset` from. Provenance: propbank/propbank-frames, tag `v3.4.0`, commit `4087fa9ab5c40907c34ff91a56acc2cab1670145` (independently verified via `gh api repos/propbank/propbank-frames/tags`). BUNDLED source-of-truth — a git-clone-and-archive is not guaranteed byte-reproducible against the pin (GitHub's tarball packaging can drift even for a fixed tag), so the deterministic `.propbank` archive (`propbank_frameset_collection::archive_directory` over the `frames/` directory, excluding the three non-frame entries `.gitignore`/`README.txt`/`frameset.dtd` — 7,565 of 7,568 tree entries, verified via `gh api repos/propbank/propbank-frames/git/trees/<sha>:frames`) is git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, and present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-cloning (re-sync deliberately via `pr4xis update propbank --lock`). No native WordNet sense-key or synset reference exists in the source data (confirmed 2026-07-13: zero machine-readable `wn=`/`wordnet` links found across sample lemma files outside free-text `<note>` prose, and the DTD's `rolelink`/`lexlink` cross-resource vocabulary observed in the data is `{AMR, FrameNet, PropBank, VerbNet}`, never `WordNet`), so — unlike VerbNet's/SUMO's precomputed sense-key crosswalk — `PropBankStore` resolves lemma+POS LIVE against the loaded WordNet at query time, FrameNet's own precedent. Data licensed Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0, see `propbank-LICENSE.txt`; confirmed via `gh api repos/propbank/propbank-frames` `license.spdx_id: \"CC-BY-SA-4.0\"`). Shipped as the committed content-addressed `.prx`."
+
+# GeoNames countryInfo.txt — the real-world gazetteer `natural::geography`
+# loads Country/Capital/Region/`borders` facts from, replacing the prior
+# hand-curated 3-country fixture. Unlike VerbNet/ConceptNet/FrameNet/PropBank
+# (many-file collections needing a directory-archive codec), this is a
+# SINGLE ~31 KB plain-text HTTP-fetchable file — the simplest BUNDLED case,
+# same praxis-TSV convention/decoder as the other ControlledVocabulary leaves.
+[sources.geonames_countryinfo]
+version     = "2026-07-21"
+type        = "GazetteerTable"
+url         = "http://download.geonames.org/export/dump/countryInfo.txt"
+local_path  = "geography/geonames-countryinfo-2026-07-21.geonames"
+description = "GeoNames countryInfo.txt — the ISO 3166-1 country/territory gazetteer (Country/Capital/Continent/neighbours), fetched live from download.geonames.org/export/dump/countryInfo.txt on 2026-07-21. ~50 leading `#`-prefixed header comment lines (including a commented `#ISO<TAB>ISO3<TAB>...` column-header line) followed by 252 tab-separated data rows: `ISO<TAB>ISO3<TAB>ISO-Numeric<TAB>fips<TAB>Country<TAB>Capital<TAB>Area(in sq km)<TAB>Population<TAB>Continent<TAB>tld<TAB>CurrencyCode<TAB>CurrencyName<TAB>Phone<TAB>PostalCodeFormat<TAB>PostalCodeRegex<TAB>Languages<TAB>geonameid<TAB>neighbours<TAB>EquivalentFipsCode`. `Country`+`Capital` ground `natural::geography`'s `EveryCountryHasExactlyOneCapital` (some territories — Antarctica, Bouvet Island, Heard Island & McDonald Islands, Tokelau, the U.S. Minor Outlying Islands, Bonaire/Saint Eustatius/Saba — carry an empty `Capital`, loaded as `Option::None`, never a blank string). `Continent` (2-letter code EU/AS/AF/NA/SA/OC/AN) grounds `RegionContainmentIsRcc8ProperPart`. `neighbours` (comma-separated ISO codes, empty for islands) grounds `BordersIsRcc8ExternalConnection`; verified 2026-07-21 that the raw per-row neighbour lists are mutually consistent for 646 of 654 directed pairs — the 8 exceptions are all incident to the two defunct legacy entries `CS` (Serbia and Montenegro, dissolved 2006) and `AN` (Netherlands Antilles, dissolved 2010), whose successor states' own rows no longer list them back — so the loader SYMMETRIZES (unions both directions) rather than trusting one row's list alone. Data licensed Creative Commons Attribution (CC BY) 4.0: GeoNames.org's export terms (<https://www.geonames.org/export/>) require attribution — \"You should give credit to GeoNames when using data or web services with a link or another reference to GeoNames.\" BUNDLED source-of-truth (a single small HTTP-fetchable file, unlike the many-file collections this project archives via a directory codec): git-tracked, EXCLUDED from the published crate by the `[package].include` allowlist, present on a fresh checkout so `pr4xis update` verifies it against the pin instead of re-fetching (re-sync deliberately via `pr4xis update geonames_countryinfo --lock`). Shipped as the committed content-addressed `.prx`."
+
 # English irregular-forms slice — REGENERATED from the registered AGID source
 # (`--ignored regenerate_english_irregulars_tsv`); the runtime morphological-
 # exception table the dual-route lemmatizer loads.
@@ -573,6 +864,7 @@ version     = "2016.01.19"
 type        = "InflectionLexicon"
 url         = "http://wordlist.aspell.net/"
 local_path  = "morphology/english-irregulars.tsv"
+fetchable   = false
 description = "English irregular-forms slice — the morphological EXCEPTIONS (inflected forms no productive English rule, Quirk et al. 1985 §3, can generate from the base) DERIVED from the registered AGID inflection database (Atkinson 2016, [sources.agid]) by `--ignored regenerate_english_irregulars_tsv`. One `surface<TAB>lemma<TAB>kind` row per form; the runtime table the dual-route lemmatizer (Pinker 1991) loads. DERIVED source-of-truth (regenerated from AGID, not independently URL-fetchable): git-tracked, excluded from the published crate, shipped as the committed content-addressed `.prx`."
 
 # ---------------------------------------------------------------------------

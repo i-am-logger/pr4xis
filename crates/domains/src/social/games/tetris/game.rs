@@ -137,7 +137,7 @@ impl Game {
     fn lock_current(&mut self) -> ActionResult {
         if let Some(piece) = self.current_piece.take() {
             let _ = self.board.lock_piece(&piece);
-            let lines = self.board.clear_lines();
+            let lines = self.board.clear_lines().value as u32;
             self.score += match lines {
                 1 => 100 * self.level,
                 2 => 300 * self.level,

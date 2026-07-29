@@ -101,7 +101,7 @@ mod proptest_proofs {
     proptest! {
         #[test]
         fn speed_is_non_negative(v in arb_velocity()) {
-            prop_assert!(v.speed() >= 0.0);
+            prop_assert!(v.speed().value >= 0.0);
         }
 
         #[test]
@@ -144,7 +144,7 @@ mod proptest_proofs {
             dt in 0.01..10.0_f64,
         ) {
             let next = motion_model::propagate(&state, dt, MotionModelType::ConstantVelocity);
-            prop_assert!((next.velocity.speed() - state.velocity.speed()).abs() < 1e-10);
+            prop_assert!((next.velocity.speed().value - state.velocity.speed().value).abs() < 1e-10);
         }
 
         #[test]

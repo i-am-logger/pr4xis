@@ -221,18 +221,21 @@ mod tests {
 
     /// Constructing a `SimpleProof` directly — no bool helper, per
     /// `feedback_core_no_bool_api`.
+    #[crate::praxis_value(Explainable)]
     #[test]
     fn simple_proof_carries_meta() {
         let p = SimpleProof::new(proof_meta("TestClaim", "Tarski (1941)"));
         assert_eq!(p.meta().name.as_str(), "TestClaim");
     }
 
+    #[crate::praxis_value(Explainable)]
     #[test]
     fn simple_counterexample_carries_meta() {
         let c = SimpleCounterexample::new(proof_meta("FailedClaim", "Lewis (1973)"));
         assert_eq!(c.meta().name.as_str(), "FailedClaim");
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn combine_all_ok_yields_ok_composite() {
         let subs: Vec<Verdict> = vec![
@@ -245,6 +248,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Honest, Verifiable)]
     #[test]
     fn combine_with_any_err_yields_err_composite() {
         let subs: Vec<Verdict> = vec![
@@ -257,11 +261,13 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn proof_is_dyn_safe() {
         let _p: Box<dyn Proof> = Box::new(SimpleProof::new(proof_meta("X", "Y")));
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn counterexample_is_dyn_safe() {
         let _c: Box<dyn Counterexample> = Box::new(SimpleCounterexample::new(proof_meta("X", "Y")));

@@ -1,6 +1,9 @@
 use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 // Spelling Error Ontology — the science of misspelling.
 //
 // Spelling errors are classified on three orthogonal axes:
@@ -368,74 +371,135 @@ impl Category for SpellingErrorCategory {
 // Distance computation — the operational level
 // =============================================================================
 
-/// Compute Damerau-Levenshtein distance between two strings.
-/// Damerau (1964): minimum edit operations to transform one string into another.
-pub fn damerau_levenshtein(a: &str, b: &str) -> usize {
+/// Compute the TRUE Damerau-Levenshtein distance between two strings — a
+/// genuine metric (satisfies the triangle inequality), via the Lowrance &
+/// Wagner (1975) dynamic-programming algorithm.
+///
+/// This is distinct from — and NOT the same quantity as — the commonly
+/// (mis)implemented "Optimal String Alignment" (OSA) distance, which forbids
+/// editing any substring more than once. OSA is NOT a metric: it can and
+/// does violate the triangle inequality, because it cannot express a
+/// transposition that interacts with a following insertion/deletion on the
+/// SAME substring — exactly the case this fix addresses. A real,
+/// proptest-discovered counterexample this function used to fail on:
+/// `OSA("ob","bco") = 3`, but `OSA("ob","bo") + OSA("bo","bco") = 1 + 1 = 2`
+/// — OSA cannot find the genuine 2-operation path (transpose `"ob"→"bo"`,
+/// then insert `'c'`), because that transposition and that insertion both
+/// touch the same two-character region. The true Lowrance-Wagner algorithm
+/// below allows exactly this, and correctly returns 2.
+///
+/// Damerau, F. J. (1964). "A technique for computer detection and correction
+/// of spelling errors." *Communications of the ACM*, 7(3), 171-176 — the
+/// original four edit operations (insertion, deletion, substitution, and
+/// transposition of two adjacent characters) this distance counts.
+/// Lowrance, R. & Wagner, R. A. (1975). "An extension of the string-to-string
+/// correction problem." *Journal of the ACM*, 22(2), 177-183 — the O(nm)
+/// dynamic-programming algorithm implemented here, which (unlike OSA) yields
+/// a genuine metric over the four Damerau edit operations.
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// integer — an edit count is exactly the kind of value the rest of this
+/// codebase already treats this way (e.g. the RMS scheduler's `utilization`/
+/// `rm_utilization_bound`, `applied::operating_system::scheduler::engine`):
+/// the DP table below is the numeric kernel (raw `usize`, for the
+/// integer-indexed algorithm itself), wrapped as a typed quantity only at
+/// the function's boundary, so a bare count never leaks out to code that
+/// reasons about it.
+pub fn damerau_levenshtein(a: &str, b: &str) -> Quantity {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
     let n = a.len();
     let m = b.len();
 
     if n == 0 {
-        return m;
+        return Quantity::from_unit(m as f64, &unit::UNITLESS);
     }
     if m == 0 {
-        return n;
+        return Quantity::from_unit(n as f64, &unit::UNITLESS);
     }
 
-    let mut dp = vec![vec![0usize; m + 1]; n + 1];
+    let max_dist = n + m;
 
-    for (i, row) in dp.iter_mut().enumerate() {
-        row[0] = i;
+    // d[r][c] here holds the Lowrance-Wagner pseudocode's d[r-1, c-1] (their
+    // indices run from -1; Rust arrays are 0-based, so every index is
+    // shifted by +1 in both dimensions throughout this function).
+    let mut d = vec![vec![0usize; m + 2]; n + 2];
+    d[0][0] = max_dist;
+    for i in 0..=n {
+        d[i + 1][0] = max_dist;
+        d[i + 1][1] = i;
     }
-    for (j, val) in dp[0].iter_mut().enumerate() {
-        *val = j;
+    for j in 0..=m {
+        d[0][j + 1] = max_dist;
+        d[1][j + 1] = j;
     }
+
+    // da[c] = the last row index (1-based) at which character c occurred in
+    // `a`, among rows already completed; absent = never seen yet.
+    let mut da: alloc::collections::BTreeMap<char, usize> = alloc::collections::BTreeMap::new();
 
     for i in 1..=n {
+        let mut db = 0usize; // last column (1-based) in THIS row where a[i-1] matched b; 0 = none yet.
         for j in 1..=m {
-            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            dp[i][j] = (dp[i - 1][j] + 1)
-                .min(dp[i][j - 1] + 1)
-                .min(dp[i - 1][j - 1] + cost);
-
-            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
-                dp[i][j] = dp[i][j].min(dp[i - 2][j - 2] + cost);
-            }
+            let k = da.get(&b[j - 1]).copied().unwrap_or(0);
+            let l = db;
+            let cost = if a[i - 1] == b[j - 1] {
+                db = j;
+                0
+            } else {
+                1
+            };
+            // k < i and l < j always hold here (da only carries completed
+            // earlier rows; db only carries earlier columns of this same
+            // row), so these subtractions never underflow.
+            let transposition = d[k][l] + (i - k - 1) + 1 + (j - l - 1);
+            d[i + 1][j + 1] = (d[i][j] + cost) // substitution
+                .min(d[i + 1][j] + 1) // insertion
+                .min(d[i][j + 1] + 1) // deletion
+                .min(transposition);
         }
+        da.insert(a[i - 1], i);
     }
 
-    dp[n][m]
+    Quantity::from_unit(d[n + 1][m + 1] as f64, &unit::UNITLESS)
 }
 
 /// Find the closest matches for a word from a list of candidates.
 /// Returns candidates within the given maximum distance, sorted by distance.
+/// `max_distance` is an ordinary count parameter (a caller-supplied cutoff,
+/// not itself a reasoned-about result — the same shape as
+/// `scheduler::engine::rm_utilization_bound(n: usize)`'s own `n`), so it
+/// stays `usize`; the returned distances are typed [`Quantity`]s.
 pub fn closest_matches<'a>(
     word: &str,
     candidates: &[&'a str],
     max_distance: usize,
-) -> Vec<(&'a str, usize)> {
+) -> Vec<(&'a str, Quantity)> {
     // Length-difference prune: |len(word) - len(candidate)| is a lower bound on
     // edit distance, so a candidate whose length differs by more than
     // max_distance cannot match — skip its O(n·m) DP. Without this, a long
     // untrusted `word` runs the full Damerau–Levenshtein table against every
     // candidate (a resource-exhaustion DoS).
     let word_len = word.chars().count();
-    let mut matches: Vec<(&str, usize)> = candidates
+    let max_distance_f = max_distance as f64;
+    let mut matches: Vec<(&str, Quantity)> = candidates
         .iter()
         .filter_map(|&candidate| {
             if word_len.abs_diff(candidate.chars().count()) > max_distance {
                 return None;
             }
             let dist = damerau_levenshtein(word, candidate);
-            if dist <= max_distance && dist > 0 {
+            if dist.value <= max_distance_f && dist.value > 0.0 {
                 Some((candidate, dist))
             } else {
                 None
             }
         })
         .collect();
-    matches.sort_by_key(|&(_, d)| d);
+    matches.sort_by(|a, b| {
+        a.1.partial_cmp(&b.1)
+            .expect("both sides are dimensionless UNITLESS quantities, always comparable")
+    });
     matches
 }
 
@@ -446,7 +510,7 @@ pub fn closest_matches<'a>(
 /// - Phonologically plausible substitution → competence (orthographic)
 pub fn classify_etiology(original: &str, misspelled: &str) -> ErrorEtiology {
     let dist = damerau_levenshtein(original, misspelled);
-    if dist == 1 {
+    if dist.value == 1.0 {
         // Single-edit errors are overwhelmingly performance errors
         // (Pollock & Zamora: 90-95% of errors are single-edit)
         ErrorEtiology::Performance
@@ -461,6 +525,12 @@ mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
 
+    /// A dimensionless UNITLESS edit-distance quantity, for comparing against
+    /// [`damerau_levenshtein`]'s typed return value in these tests.
+    fn q(n: u32) -> Quantity {
+        Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+    }
+
     #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
@@ -470,45 +540,45 @@ mod tests {
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn identical_strings() {
-        assert_eq!(damerau_levenshtein("dog", "dog"), 0);
+        assert_eq!(damerau_levenshtein("dog", "dog"), q(0));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_substitution() {
-        assert_eq!(damerau_levenshtein("dog", "doo"), 1);
+        assert_eq!(damerau_levenshtein("dog", "doo"), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_insertion() {
-        assert_eq!(damerau_levenshtein("dg", "dog"), 1);
+        assert_eq!(damerau_levenshtein("dg", "dog"), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_deletion() {
-        assert_eq!(damerau_levenshtein("dogg", "dog"), 1);
+        assert_eq!(damerau_levenshtein("dogg", "dog"), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn single_transposition() {
-        assert_eq!(damerau_levenshtein("dgo", "dog"), 1);
+        assert_eq!(damerau_levenshtein("dgo", "dog"), q(1));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn multiple_edits() {
-        assert_eq!(damerau_levenshtein("kitten", "sitting"), 3);
+        assert_eq!(damerau_levenshtein("kitten", "sitting"), q(3));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn empty_strings() {
-        assert_eq!(damerau_levenshtein("", ""), 0);
-        assert_eq!(damerau_levenshtein("abc", ""), 3);
-        assert_eq!(damerau_levenshtein("", "abc"), 3);
+        assert_eq!(damerau_levenshtein("", ""), q(0));
+        assert_eq!(damerau_levenshtein("abc", ""), q(3));
+        assert_eq!(damerau_levenshtein("", "abc"), q(3));
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -584,7 +654,7 @@ mod tests {
             /// Metric axiom: d(x, x) = 0 (identity of indiscernibles).
             #[test]
             fn prop_distance_identity(word in arb_word()) {
-                prop_assert_eq!(damerau_levenshtein(&word, &word), 0);
+                prop_assert_eq!(damerau_levenshtein(&word, &word), q(0));
             }
 
             /// Metric axiom: d(x, y) = d(y, x) (symmetry).
@@ -597,11 +667,13 @@ mod tests {
             }
 
             /// Metric axiom: d(x, y) >= 0 (non-negativity).
-            /// Trivially true for usize, but documents the property.
+            /// Trivially true for a value built from a usize DP count, but
+            /// documents the property over the typed Quantity this function
+            /// actually returns.
             #[test]
             fn prop_distance_non_negative(a in arb_word(), b in arb_word()) {
-                // usize is always >= 0, but this documents the metric property
-                let _ = damerau_levenshtein(&a, &b);
+                let dist = damerau_levenshtein(&a, &b);
+                prop_assert!(dist.value >= 0.0);
             }
 
             /// Triangle inequality: d(x, z) <= d(x, y) + d(y, z).
@@ -615,9 +687,11 @@ mod tests {
                 let ab = damerau_levenshtein(&a, &b);
                 let bc = damerau_levenshtein(&b, &c);
                 let ac = damerau_levenshtein(&a, &c);
-                prop_assert!(ac <= ab + bc,
+                let ab_plus_bc = ab.add(&bc)
+                    .expect("both UNITLESS quantities, always compatible");
+                prop_assert!(ac <= ab_plus_bc,
                     "triangle inequality violated: d({},{})={} > d({},{})={} + d({},{})={}",
-                    a, c, ac, a, b, ab, b, c, bc
+                    a, c, ac.value, a, b, ab.value, b, c, bc.value
                 );
             }
 
@@ -627,9 +701,9 @@ mod tests {
             fn prop_distance_upper_bound(a in arb_word(), b in arb_word()) {
                 let dist = damerau_levenshtein(&a, &b);
                 let upper = a.len().max(b.len());
-                prop_assert!(dist <= upper,
+                prop_assert!(dist.value <= upper as f64,
                     "distance {} exceeds upper bound {} for '{}' and '{}'",
-                    dist, upper, a, b
+                    dist.value, upper, a, b
                 );
             }
 
@@ -644,7 +718,7 @@ mod tests {
                 prop_assume!(a != b);
                 let word_a = format!("{}{}{}", prefix, a, suffix);
                 let word_b = format!("{}{}{}", prefix, b, suffix);
-                prop_assert_eq!(damerau_levenshtein(&word_a, &word_b), 1);
+                prop_assert_eq!(damerau_levenshtein(&word_a, &word_b), q(1));
             }
 
             /// Etiology classification is total — every error gets classified.

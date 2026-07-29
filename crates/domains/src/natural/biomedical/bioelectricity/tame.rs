@@ -17,7 +17,10 @@
 //!   *Entropy* 24(6):819 — formal statement of competency at every
 //!   biological scale and the ladder Molecular → Organism.
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality, QualityKind};
+
+use crate::formal::math::quantity::unit::UNITLESS;
+use crate::formal::math::quantity::value::{Quantity, QuantityRange};
 
 pr4xis::ontology! {
     name: "Tame",
@@ -59,15 +62,32 @@ pub struct DegreesOfFreedom;
 
 impl Quality for DegreesOfFreedom {
     type Individual = TameConcept;
-    type Value = &'static str;
+    type Value = QuantityRange;
+    const KIND: QualityKind = QualityKind::Physical;
 
-    fn get(&self, level: &TameConcept) -> Option<&'static str> {
+    fn get(&self, level: &TameConcept) -> Option<QuantityRange> {
+        let unitless = |v: f64| Quantity::from_unit(v, &UNITLESS);
+        let single = |v: f64| QuantityRange {
+            min: unitless(v),
+            max: unitless(v),
+        };
         Some(match level {
-            TameConcept::Molecular => "O(10^2-10^4) — atoms and small molecules",
-            TameConcept::Cellular => "O(10^9) — proteins per cell",
-            TameConcept::Tissue => "O(10^12-10^15) — cells per tissue",
-            TameConcept::Organ => "O(10^18) — information coordinated per organ",
-            TameConcept::Organism => "O(10^22) — full organismal state",
+            // Molecular: O(10^2-10^4) — atoms and small molecules.
+            TameConcept::Molecular => QuantityRange {
+                min: unitless(1e2),
+                max: unitless(1e4),
+            },
+            // Cellular: O(10^9) — proteins per cell.
+            TameConcept::Cellular => single(1e9),
+            // Tissue: O(10^12-10^15) — cells per tissue.
+            TameConcept::Tissue => QuantityRange {
+                min: unitless(1e12),
+                max: unitless(1e15),
+            },
+            // Organ: O(10^18) — information coordinated per organ.
+            TameConcept::Organ => single(1e18),
+            // Organism: O(10^22) — full organismal state.
+            TameConcept::Organism => single(1e22),
         })
     }
 }

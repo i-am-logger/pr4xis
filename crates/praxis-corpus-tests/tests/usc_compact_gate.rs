@@ -200,8 +200,8 @@ fn compact_usc_prx_gz_smaller_than_source() {
 
         let usc = load_compact_usc_prx_gz(&prx_gz).expect("load compact");
         assert_eq!(
-            usc.section_count(),
-            data.entity_count as usize,
+            usc.section_count().value,
+            data.entity_count as f64,
             "{}: compact-loaded section count differs",
             entry.name
         );

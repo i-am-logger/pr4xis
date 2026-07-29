@@ -435,7 +435,7 @@ fn axiom_structural_audit_on_synthetic_title() {
     // dc:type, dc:publisher, main, title, num, heading, section, num,
     // heading, content → distinct element names ~10 (num/heading
     // repeat). Verify a few invariants.
-    assert!(audit.raw.total() >= 11, "synthetic raw count");
+    assert!(audit.raw.total().value >= 11.0, "synthetic raw count");
     // The typed view materialises uscDoc/main/title/num/heading at
     // least once; verify the structural-audit didn't silently zero
     // out the title-level emission.
@@ -443,7 +443,8 @@ fn axiom_structural_audit_on_synthetic_title() {
         audit
             .typed
             .get(Some(super::structural_audit::USLM_NS_FOR_TEST), "section")
-            >= 1
+            .value
+            >= 1.0
     );
     // Render the report for human inspection.
     eprintln!(

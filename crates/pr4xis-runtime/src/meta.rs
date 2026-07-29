@@ -152,6 +152,7 @@ mod tests {
     use crate::rebind::{RebindTarget, rebind_nodes};
     use std::collections::{BTreeSet, HashMap};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn meta_ontology_round_trips() {
         let meta = ontology();
@@ -160,11 +161,13 @@ mod tests {
         assert_eq!(loaded, meta);
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn meta_root_is_stable() {
         assert_eq!(ontology().root().unwrap(), ontology().root().unwrap());
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn is_self_describing() {
         let meta = ontology();
@@ -191,6 +194,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn the_format_kinds_are_addressable_meta_concepts() {
         // A3: every relation KIND the meta-ontology's own edges use is itself a
@@ -227,6 +231,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn is_referentially_closed() {
         let meta = ontology();
@@ -255,6 +260,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn grounding_is_a_connection_in_the_meta() {
         // The grounding vocabulary enters the self-describing format as a refined
@@ -279,6 +285,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn the_runtime_rebinds_against_its_own_meta() {
         // The format describing itself, recognized by the runtime: a target that

@@ -146,6 +146,26 @@ pub fn set_compact_archive_signature(
     set_in_section(lockfile_text, "compact_archive_signatures", key, digest_hex)
 }
 
+/// Set the DEFINES-overlay compact archive content address for `key` (a
+/// `"name@version"` string) to `digest_hex` in the
+/// `[compact_defines_signatures]` section of `lockfile_text`, returning the
+/// rewritten text. Written in the tagged emit form (`blake3:<digest_hex>`).
+///
+/// The write-side companion to the defines-overlay load gate
+/// (`uslm::corpus::prx::load_compact_usc_defines_prx_gz_gated`): a loaded
+/// overlay's re-hashed content address is checked against this pin. Same
+/// portability class as [`set_compact_archive_signature`]; a SEPARATE section
+/// because the overlay pins the expensive NLP-grammar extraction result, not
+/// the structural corpus. Same comment-/order-preserving rewrite;
+/// `digest_hex` must be 64 lowercase hex chars.
+pub fn set_compact_defines_signature(
+    lockfile_text: &str,
+    key: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "compact_defines_signatures", key, digest_hex)
+}
+
 /// Set the English STORE-BUNDLE content address for `key` (a `"name@version"`
 /// string) to `digest_hex` in the `[store_bundle_signatures]` section of
 /// `lockfile_text`, returning the rewritten text. Written in the tagged emit
@@ -201,6 +221,36 @@ pub fn set_byte_exact_signature(
     digest_hex: &str,
 ) -> Result<String, LockfileWriteError> {
     set_in_section(lockfile_text, "byte_exact_signatures", key, digest_hex)
+}
+
+/// Set the CODE grammar-closure content address for `closure_name` (today
+/// only `"defines_overlay"` — a fixed CLOSURE NAME, NOT a `"name@version"`
+/// key; see `registry::LockData::grammar_signatures`'s field doc) to
+/// `digest_hex` in the `[grammar_signatures]` section of `lockfile_text`,
+/// returning the rewritten text. Written in the tagged emit form
+/// (`blake3:<digest_hex>`).
+///
+/// The write-side companion to the two defines-grammar freshness checks
+/// (`defines_grammar_signature::defines_grammar_signature_matches_current_source`,
+/// and the runtime gate in `load_usc_defines_overlay_from_disk`): a fresh
+/// `defines_grammar_signature::defines_grammar_closure_address` re-derived
+/// from `DEFINES_GRAMMAR_CLOSURE_FILES` is checked against this pin.
+/// `pr4xis compile --defines --lock` records the pin here, in the SAME run
+/// that (re)emits `[compact_defines_signatures]` — never independently, or
+/// the pin would go stale relative to the very thing it is supposed to be
+/// fingerprinting. Same comment-/order-preserving rewrite as [`set_hash`];
+/// `digest_hex` must be 64 lowercase hex characters.
+pub fn set_grammar_signature(
+    lockfile_text: &str,
+    closure_name: &str,
+    digest_hex: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(
+        lockfile_text,
+        "grammar_signatures",
+        closure_name,
+        digest_hex,
+    )
 }
 
 /// Comment-/order-preserving rewrite of a `"key" = "value"` line within a
@@ -511,6 +561,25 @@ mod tests {
         let with_section = format!("{SAMPLE}\n[byte_exact_signatures]\n");
         let out = set_byte_exact_signature(&with_section, "k@1", HEX_A).unwrap();
         assert!(out.contains(&format!("\"k@1\" = \"blake3:{HEX_A}\"")));
+    }
+
+    #[pr4xis::praxis_value(Verifiable)]
+    #[test]
+    fn set_grammar_signature_targets_its_section() {
+        let with_section = format!("{SAMPLE}\n[grammar_signatures]\n");
+        let out = set_grammar_signature(&with_section, "defines_overlay", HEX_A).unwrap();
+        assert!(out.contains(&format!("\"defines_overlay\" = \"blake3:{HEX_A}\"")));
+    }
+
+    #[pr4xis::praxis_value(Honest)]
+    #[test]
+    fn set_grammar_signature_requires_its_section() {
+        // SAMPLE has no [grammar_signatures] section — fail closed, same
+        // discipline as `set_byte_exact_signature_requires_its_section`.
+        assert_eq!(
+            set_grammar_signature(SAMPLE, "defines_overlay", HEX_A).unwrap_err(),
+            LockfileWriteError::MissingSection("grammar_signatures".into())
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]

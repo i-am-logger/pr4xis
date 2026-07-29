@@ -8,6 +8,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use super::calibration::{CameraIntrinsics, ExtrinsicCalibration};
 use super::engine::{LidarPoint, project_lidar_points};
+use crate::formal::math::geometry::point::Point3;
 
 pr4xis::ontology! {
     name: "LidarCamera",
@@ -68,27 +69,19 @@ impl Axiom for ProjectionPreservesOrdering {
         let extrinsic = ExtrinsicCalibration::identity();
         let points = [
             LidarPoint {
-                x: 0.5,
-                y: -0.3,
-                z: 2.0,
+                position: Point3::new(0.5, -0.3, 2.0),
                 intensity: 0.1,
             },
             LidarPoint {
-                x: 0.5,
-                y: -0.3,
-                z: 5.0,
+                position: Point3::new(0.5, -0.3, 5.0),
                 intensity: 0.2,
             },
             LidarPoint {
-                x: 0.5,
-                y: -0.3,
-                z: 9.0,
+                position: Point3::new(0.5, -0.3, 9.0),
                 intensity: 0.3,
             },
             LidarPoint {
-                x: 0.5,
-                y: -0.3,
-                z: 14.0,
+                position: Point3::new(0.5, -0.3, 14.0),
                 intensity: 0.4,
             },
         ];
@@ -204,21 +197,15 @@ mod tests {
         let extrinsic = ExtrinsicCalibration::identity();
         let points = [
             LidarPoint {
-                x: -1.0,
-                y: 0.4,
-                z: 3.0,
+                position: Point3::new(-1.0, 0.4, 3.0),
                 intensity: 0.1,
             },
             LidarPoint {
-                x: -1.0,
-                y: 0.4,
-                z: 7.0,
+                position: Point3::new(-1.0, 0.4, 7.0),
                 intensity: 0.2,
             },
             LidarPoint {
-                x: -1.0,
-                y: 0.4,
-                z: 12.0,
+                position: Point3::new(-1.0, 0.4, 12.0),
                 intensity: 0.3,
             },
         ];

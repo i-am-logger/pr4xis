@@ -172,6 +172,10 @@ pr4xis::ontology! {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ComplexityClass {
     Linear,
+    /// O(n log n) — e.g. the fast Fourier transform's divide-and-conquer
+    /// recursion. Cooley & Tukey (1965) "An Algorithm for the Machine
+    /// Calculation of Complex Fourier Series", Math. Comput. 19(90):297.
+    Linearithmic,
     Quadratic,
     Exponential,
 }

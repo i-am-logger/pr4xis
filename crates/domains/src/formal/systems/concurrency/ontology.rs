@@ -377,7 +377,7 @@ impl Axiom for SemaphoreEnforcesMutualExclusion {
         let exclusion = states.iter().all(|s| !s.violates_mutual_exclusion());
         // Non-vacuity: some reachable state actually occupies the
         // critical section, so the exclusion check has bite.
-        let occupied = states.iter().any(|s| s.critical_occupancy() > 0);
+        let occupied = states.iter().any(|s| s.critical_occupancy().value > 0.0);
         let edge = kinded_edge_exists(
             ConcurrencyConcept::Semaphore,
             ConcurrencyConcept::MutualExclusion,

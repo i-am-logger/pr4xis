@@ -18,6 +18,8 @@ use crate::applied::hmi::visualization::ontology::{
     AccuracyRank, DataLevel, GeomType, InteractionLevel, PerceptualTask, VisualVariable,
     suitable_encodings, suitable_geoms,
 };
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
@@ -56,9 +58,11 @@ impl EncodingAssignment {
         best.map(|v| v == self.variable).unwrap_or(false)
     }
 
-    /// The accuracy rank of this encoding (1=best, 6=worst).
-    pub fn accuracy_rank(&self) -> Option<u8> {
-        variable_to_task(self.variable).and_then(|t| AccuracyRank.get(&t))
+    /// The accuracy rank of this encoding (1=best, 6=worst), a dimensionless ordinal.
+    pub fn accuracy_rank(&self) -> Option<Quantity> {
+        variable_to_task(self.variable)
+            .and_then(|t| AccuracyRank.get(&t))
+            .map(|r| Quantity::from_unit(f64::from(r.ordinal()), &unit::UNITLESS))
     }
 
     /// Warning message if encoding is suboptimal.
@@ -68,10 +72,12 @@ impl EncodingAssignment {
         } else {
             let best = best_encoding(self.field.level);
             let best_name = best.map(|v| format!("{:?}", v)).unwrap_or("unknown".into());
-            let rank = self.accuracy_rank().unwrap_or(0);
+            let rank = self
+                .accuracy_rank()
+                .unwrap_or(Quantity::from_unit(0.0, &unit::UNITLESS));
             Some(format!(
                 "'{}' uses {:?} (rank {}) but {:?} data is best with {} (rank 1)",
-                self.field.name, self.variable, rank, self.field.level, best_name
+                self.field.name, self.variable, rank.value, self.field.level, best_name
             ))
         }
     }
@@ -96,11 +102,14 @@ pub fn best_encoding(level: DataLevel) -> Option<VisualVariable> {
     if suitable.is_empty() {
         return None;
     }
-    // Rank each by Cleveland-McGill accuracy
+    // Rank each by Cleveland-McGill accuracy. `AccuracyRankPosition`'s
+    // derived `Ord` matches Table 1's best-to-worst order; a variable with
+    // no perceptual-task mapping (e.g. `Shape`) sorts after every ranked
+    // variable, mirroring the old `.unwrap_or(99)` sentinel without a
+    // magic number.
     suitable.into_iter().min_by_key(|v| {
-        variable_to_task(*v)
-            .and_then(|t| AccuracyRank.get(&t))
-            .unwrap_or(99)
+        let rank = variable_to_task(*v).and_then(|t| AccuracyRank.get(&t));
+        (rank.is_none(), rank)
     })
 }
 

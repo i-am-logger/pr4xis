@@ -68,6 +68,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn encoding_is_deterministic() {
         let mut m = BTreeMap::new();
@@ -84,6 +85,7 @@ mod tests {
     // items with no payload; a decoder that pre-allocates would OOM/abort, a
     // robust one reads to EOF and returns Err.
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_refuses_huge_array_length_without_oom() {
         // DAG-CBOR array header (major type 4), 8-byte length = u64::MAX.
@@ -91,6 +93,7 @@ mod tests {
         assert!(canonical_decode::<Vec<u32>>(&adversarial).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_refuses_huge_byte_string_length_without_oom() {
         // DAG-CBOR byte-string header (major type 2), 8-byte length = u64::MAX.
@@ -98,6 +101,7 @@ mod tests {
         assert!(canonical_decode::<Vec<u8>>(&adversarial).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn decode_refuses_huge_map_length_without_oom() {
         // DAG-CBOR map header (major type 5), 8-byte length = u64::MAX.
@@ -105,17 +109,20 @@ mod tests {
         assert!(canonical_decode::<BTreeMap<String, u32>>(&adversarial).is_err());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn equal_values_share_an_address() {
         let v = ("functor", vec!["A", "B"], 3u8);
         assert_eq!(address_of(&v).unwrap(), address_of(&v).unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn distinct_values_get_distinct_addresses() {
         assert_ne!(address_of(&"A").unwrap(), address_of(&"B").unwrap());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn structurally_equal_maps_address_equal_regardless_of_build_order() {
         // BTreeMap is sorted by construction, so two maps with the same
@@ -131,6 +138,7 @@ mod tests {
         assert_eq!(address_of(&m1).unwrap(), address_of(&m2).unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn decode_inverts_encode() {
         let v: Vec<(String, u32)> = vec![("a".into(), 1), ("b".into(), 2)];

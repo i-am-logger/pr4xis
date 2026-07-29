@@ -7,6 +7,8 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::instant::Instant;
+use crate::formal::math::temporal::time_system::TimeSystem;
 
 use crate::applied::sensor_fusion::state::covariance;
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
@@ -74,7 +76,7 @@ impl Axiom for InformationRoundtrip {
     fn verify(&self) -> Verdict {
         for est in &canonical_estimates() {
             if let Some(info) = InformationEstimate::from_estimate(est) {
-                if let Some(est2) = info.to_estimate(est.epoch) {
+                if let Some(est2) = info.to_estimate(est.epoch.clone()) {
                     let state_diff: f64 = est
                         .state
                         .data
@@ -111,12 +113,12 @@ impl Axiom for InformationFusionAdditive {
         let e1 = StateEstimate::new(
             Vector::new(vec![1.0, 0.0]),
             Matrix::diagonal(&[2.0, 2.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         );
         let e2 = StateEstimate::new(
             Vector::new(vec![0.0, 1.0]),
             Matrix::diagonal(&[3.0, 3.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         );
         let i1 = InformationEstimate::from_estimate(&e1).unwrap();
         let i2 = InformationEstimate::from_estimate(&e2).unwrap();
@@ -160,16 +162,20 @@ impl Ontology for StateEstimationOntology {
 
 fn canonical_estimates() -> Vec<StateEstimate> {
     vec![
-        StateEstimate::new(Vector::new(vec![0.0]), Matrix::new(1, 1, vec![1.0]), 0.0),
+        StateEstimate::new(
+            Vector::new(vec![0.0]),
+            Matrix::new(1, 1, vec![1.0]),
+            Instant::new(0.0, TimeSystem::GPS),
+        ),
         StateEstimate::new(
             Vector::new(vec![1.0, 2.0]),
             Matrix::diagonal(&[2.0, 3.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         ),
         StateEstimate::new(
             Vector::new(vec![0.0, 0.0, 0.0]),
             Matrix::new(3, 3, vec![4.0, 1.0, 0.0, 1.0, 5.0, 1.0, 0.0, 1.0, 6.0]),
-            0.0,
+            Instant::new(0.0, TimeSystem::GPS),
         ),
     ]
 }

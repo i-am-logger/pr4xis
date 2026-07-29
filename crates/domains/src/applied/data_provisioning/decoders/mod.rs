@@ -14,10 +14,13 @@
 use super::ontology::ContentType;
 
 pub mod adobe_glyph_list;
+pub mod file_collection;
 pub mod owl;
 pub mod plaintext_tsv;
+pub mod propbank_frameset_collection;
 pub mod tar_gz_archive;
 pub mod theme_collection;
+pub mod verbnet_class_collection;
 pub mod xhtml;
 pub mod xml_dtd;
 pub mod xml_lmf;
@@ -48,15 +51,17 @@ pub fn has_decoder_for(content_type: ContentType) -> bool {
         // materialized raw bytes. One reader, two content types — no dedicated
         // module/const, so it has no `DECODES` to hang on.
         CT::XmlLmfLexicon => true,
-        CT::Owl => true,             // owl::DECODES
-        CT::XmlXsd => true,          // xml_xsd::DECODES
-        CT::Xhtml => true,           // xhtml::DECODES
-        CT::AdobeGlyphList => true,  // adobe_glyph_list::DECODES
-        CT::XmlDtd => true,          // xml_dtd::DECODES
-        CT::TarGzArchive => true,    // tar_gz_archive::DECODES
-        CT::ZipArchive => true,      // zip_archive::DECODES
-        CT::Plaintext => true,       // plaintext_tsv::DECODES
-        CT::ThemeCollection => true, // theme_collection::DECODES
+        CT::Owl => true,                        // owl::DECODES
+        CT::XmlXsd => true,                     // xml_xsd::DECODES
+        CT::Xhtml => true,                      // xhtml::DECODES
+        CT::AdobeGlyphList => true,             // adobe_glyph_list::DECODES
+        CT::XmlDtd => true,                     // xml_dtd::DECODES
+        CT::TarGzArchive => true,               // tar_gz_archive::DECODES
+        CT::ZipArchive => true,                 // zip_archive::DECODES
+        CT::Plaintext => true,                  // plaintext_tsv::DECODES
+        CT::ThemeCollection => true,            // theme_collection::DECODES
+        CT::VerbNetClassCollection => true,     // verbnet_class_collection::DECODES
+        CT::PropBankFramesetCollection => true, // propbank_frameset_collection::DECODES
         // Realized outside decoders/ — by xml::uslm::lens::read_uslm_title.
         CT::UslmXml => true,
         // The math-operator vocabulary is WN-LMF-shaped, so the SAME

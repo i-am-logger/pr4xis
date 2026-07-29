@@ -4,12 +4,21 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::positive_definite;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::temporal::duration::Duration;
+use crate::formal::math::temporal::instant::Instant;
+use crate::formal::math::temporal::time_system::TimeSystem;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::sensor_fusion::fusion::engine::{FusionAction, new_fusion_engine};
 use crate::applied::sensor_fusion::fusion::ontology::*;
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
+
+/// Test-fixture epoch: an arbitrary GPS-time instant, matching the
+/// convention `FusionEpoch`'s own tests use for raw-seconds fixtures.
+fn epoch(seconds: f64) -> Instant {
+    Instant::new(seconds, TimeSystem::GPS)
+}
 
 // ---------------------------------------------------------------------------
 // Ontology validation — includes DETERMINISM axiom
@@ -64,7 +73,7 @@ fn axiom_covariance_invariant() {
 fn simple_1d_filter() -> (StateEstimate, Matrix, Matrix, Matrix, Matrix) {
     let x0 = Vector::new(vec![0.0]);
     let p0 = Matrix::new(1, 1, vec![100.0]); // large initial uncertainty
-    let initial = StateEstimate::new(x0, p0, 0.0);
+    let initial = StateEstimate::new(x0, p0, epoch(0.0));
 
     let f = Matrix::identity(1); // static model
     let q = Matrix::new(1, 1, vec![0.01]); // small process noise
@@ -83,7 +92,7 @@ fn fusion_engine_predict_increases_uncertainty() {
     let engine = new_fusion_engine(initial);
     let engine = engine
         .next(FusionAction::Predict {
-            dt: 1.0,
+            dt: Duration::from_seconds(1.0),
             transition: f,
             process_noise: q,
         })
@@ -93,8 +102,8 @@ fn fusion_engine_predict_increases_uncertainty() {
     assert!(
         uncertainty_after >= uncertainty_before,
         "predict must increase uncertainty: {} >= {}",
-        uncertainty_after,
-        uncertainty_before
+        uncertainty_after.value,
+        uncertainty_before.value
     );
 }
 
@@ -108,7 +117,7 @@ fn fusion_engine_update_reduces_uncertainty() {
     // Predict first
     let engine = engine
         .next(FusionAction::Predict {
-            dt: 1.0,
+            dt: Duration::from_seconds(1.0),
             transition: f,
             process_noise: q,
         })
@@ -129,8 +138,8 @@ fn fusion_engine_update_reduces_uncertainty() {
     assert!(
         uncertainty_after < uncertainty_before,
         "update must reduce uncertainty: {} < {}",
-        uncertainty_after,
-        uncertainty_before
+        uncertainty_after.value,
+        uncertainty_before.value
     );
 }
 
@@ -145,7 +154,7 @@ fn fusion_engine_covariance_stays_psd() {
     for i in 0..10 {
         engine = engine
             .next(FusionAction::Predict {
-                dt: 1.0,
+                dt: Duration::from_seconds(1.0),
                 transition: f.clone(),
                 process_noise: q.clone(),
             })
@@ -179,7 +188,7 @@ fn fusion_engine_state_converges_to_measurement() {
     for _ in 0..20 {
         engine = engine
             .next(FusionAction::Predict {
-                dt: 1.0,
+                dt: Duration::from_seconds(1.0),
                 transition: f.clone(),
                 process_noise: q.clone(),
             })
@@ -210,7 +219,7 @@ fn fusion_engine_negative_dt_rejected() {
     let engine = new_fusion_engine(initial);
 
     let result = engine.next(FusionAction::Predict {
-        dt: -1.0,
+        dt: Duration::from_seconds(-1.0),
         transition: f,
         process_noise: q,
     });
@@ -242,7 +251,7 @@ fn fusion_engine_back_forward() {
     let engine = new_fusion_engine(initial);
     let engine = engine
         .next(FusionAction::Predict {
-            dt: 1.0,
+            dt: Duration::from_seconds(1.0),
             transition: f.clone(),
             process_noise: q.clone(),
         })
@@ -275,7 +284,7 @@ fn fusion_engine_trace_records_all_steps() {
 
     let engine = engine
         .next(FusionAction::Predict {
-            dt: 1.0,
+            dt: Duration::from_seconds(1.0),
             transition: f,
             process_noise: q,
         })
@@ -306,7 +315,7 @@ mod proptest_proofs {
     /// Generate a random 1D state estimate (positive definite 1x1 variance).
     fn arb_state_1d() -> impl Strategy<Value = StateEstimate> {
         (-100.0..100.0_f64, 0.01..100.0_f64).prop_map(|(x, p)| {
-            StateEstimate::new(Vector::new(vec![x]), Matrix::new(1, 1, vec![p]), 0.0)
+            StateEstimate::new(Vector::new(vec![x]), Matrix::new(1, 1, vec![p]), epoch(0.0))
         })
     }
 
@@ -321,7 +330,7 @@ mod proptest_proofs {
     /// Generate a random 2D state estimate.
     fn arb_state_2d() -> impl Strategy<Value = StateEstimate> {
         (-100.0..100.0_f64, -100.0..100.0_f64, arb_pd_2x2())
-            .prop_map(|(x1, x2, p)| StateEstimate::new(Vector::new(vec![x1, x2]), p, 0.0))
+            .prop_map(|(x1, x2, p)| StateEstimate::new(Vector::new(vec![x1, x2]), p, epoch(0.0)))
     }
 
     // --- DETERMINISM: same inputs → same outputs, always ---
@@ -340,7 +349,7 @@ mod proptest_proofs {
             let engine2 = new_fusion_engine(state);
 
             let action = FusionAction::Predict {
-                dt,
+                dt: Duration::from_seconds(dt),
                 transition: f.clone(),
                 process_noise: q.clone(),
             };
@@ -396,7 +405,7 @@ mod proptest_proofs {
             // 5 predict/update cycles — results must be identical
             for i in 0..5 {
                 let predict = FusionAction::Predict {
-                    dt,
+                    dt: Duration::from_seconds(dt),
                     transition: f.clone(),
                     process_noise: q.clone(),
                 };
@@ -429,14 +438,14 @@ mod proptest_proofs {
 
             let engine = new_fusion_engine(state);
             let engine = engine.next(FusionAction::Predict {
-                dt,
+                dt: Duration::from_seconds(dt),
                 transition: f,
                 process_noise: q,
             }).unwrap();
 
             let after = engine.situation().estimate.uncertainty();
-            prop_assert!(after >= before - 1e-10,
-                "predict must not decrease uncertainty: {} -> {}", before, after);
+            prop_assert!(after.value >= before.value - 1e-10,
+                "predict must not decrease uncertainty: {} -> {}", before.value, after.value);
         }
 
         // --- UPDATE: uncertainty never increases ---
@@ -460,8 +469,8 @@ mod proptest_proofs {
             }).unwrap();
 
             let after = engine.situation().estimate.uncertainty();
-            prop_assert!(after <= before + 1e-10,
-                "update must not increase uncertainty: {} -> {}", before, after);
+            prop_assert!(after.value <= before.value + 1e-10,
+                "update must not increase uncertainty: {} -> {}", before.value, after.value);
         }
 
         // --- COVARIANCE STAYS PSD THROUGH RANDOM SEQUENCES ---
@@ -480,7 +489,7 @@ mod proptest_proofs {
 
             for z_val in &measurements {
                 engine = engine.next(FusionAction::Predict {
-                    dt: 1.0,
+                    dt: Duration::from_seconds(1.0),
                     transition: f.clone(),
                     process_noise: q.clone(),
                 }).unwrap();
@@ -516,7 +525,7 @@ mod proptest_proofs {
             let engine = new_fusion_engine(state);
 
             let engine = engine.next(FusionAction::Predict {
-                dt: 1.0,
+                dt: Duration::from_seconds(1.0),
                 transition: f,
                 process_noise: q,
             }).unwrap();
@@ -544,7 +553,7 @@ mod proptest_proofs {
         ) {
             let engine = new_fusion_engine(state);
             let result = engine.next(FusionAction::Predict {
-                dt,
+                dt: Duration::from_seconds(dt),
                 transition: Matrix::identity(1),
                 process_noise: Matrix::new(1, 1, vec![0.1]),
             });
@@ -561,7 +570,7 @@ mod proptest_proofs {
             let state = StateEstimate::new(
                 Vector::new(vec![initial_guess]),
                 Matrix::new(1, 1, vec![100.0]),
-                0.0,
+                epoch(0.0),
             );
             let f = Matrix::identity(1);
             let q = Matrix::new(1, 1, vec![0.01]);
@@ -572,7 +581,7 @@ mod proptest_proofs {
 
             for _ in 0..50 {
                 engine = engine.next(FusionAction::Predict {
-                    dt: 1.0,
+                    dt: Duration::from_seconds(1.0),
                     transition: f.clone(),
                     process_noise: q.clone(),
                 }).unwrap();
@@ -599,7 +608,7 @@ mod proptest_proofs {
             let engine = new_fusion_engine(state);
 
             let engine = engine.next(FusionAction::Predict {
-                dt: 1.0,
+                dt: Duration::from_seconds(1.0),
                 transition: Matrix::identity(1),
                 process_noise: Matrix::new(1, 1, vec![0.1]),
             }).unwrap();
@@ -650,7 +659,7 @@ fn singular_innovation_covariance_returns_err() {
     let initial = StateEstimate {
         state: x0,
         covariance: p0,
-        epoch: 0.0,
+        epoch: epoch(0.0),
         step: 0,
     };
     let state = crate::applied::sensor_fusion::fusion::engine::FusionState {
@@ -692,7 +701,7 @@ fn dimension_consistency_rejects_non_square_process_noise() {
     // Process noise with wrong column count: 1x2 instead of 1x1
     let bad_q = Matrix::new(1, 2, vec![0.01, 0.0]);
     let result = engine.next(FusionAction::Predict {
-        dt: 1.0,
+        dt: Duration::from_seconds(1.0),
         transition: f,
         process_noise: bad_q,
     });
@@ -735,7 +744,7 @@ fn solve_spd_failure_propagates_to_engine() {
     let initial = StateEstimate {
         state: x0,
         covariance: p0,
-        epoch: 0.0,
+        epoch: epoch(0.0),
         step: 0,
     };
     let state = crate::applied::sensor_fusion::fusion::engine::FusionState {
@@ -778,11 +787,11 @@ mod proptest_cv_model {
             let f = Matrix::new(2, 2, vec![1.0, dt, 0.0, 1.0]);
             let q = Matrix::new(2, 2, vec![q_scale * dt, 0.0, 0.0, q_scale]);
             let p0 = Matrix::new(2, 2, vec![10.0, 0.0, 0.0, 10.0]);
-            let state = StateEstimate::new(Vector::new(vec![pos, vel]), p0, 0.0);
+            let state = StateEstimate::new(Vector::new(vec![pos, vel]), p0, epoch(0.0));
 
             let engine = new_fusion_engine(state);
             let engine = engine.next(FusionAction::Predict {
-                dt,
+                dt: Duration::from_seconds(dt),
                 transition: f,
                 process_noise: q,
             }).unwrap();

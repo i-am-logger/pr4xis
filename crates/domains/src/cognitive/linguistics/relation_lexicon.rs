@@ -42,7 +42,7 @@ use alloc::string::String;
 
 use pr4xis_runtime::address::ContentAddress;
 use pr4xis_runtime::archive::Archive;
-use pr4xis_runtime::ontology::{ConceptRef, relations_kind};
+use pr4xis_runtime::ontology::relations_kind;
 
 use crate::cognitive::linguistics::english::bridge::FORM_KIND;
 
@@ -52,6 +52,13 @@ use crate::cognitive::linguistics::english::bridge::FORM_KIND;
 /// direct `pr4xis-runtime` dependency (it reasons over relation kinds only
 /// through this module + [`LexicalReasoner`](super::english::LexicalReasoner)).
 pub use pr4xis_runtime::ontology::subsumption_kind;
+
+/// The relation-kind reference type itself — re-exported for the same reason
+/// as `subsumption_kind` above: so a caller (the chat dispatch's relational-
+/// claim verification) can name the type a `LexicalReasoner` method returns
+/// (`relation_for_surface`, `reaches`, `relation_chain`, `surface_for_relation`)
+/// without a direct `pr4xis-runtime` dependency.
+pub use pr4xis_runtime::ontology::ConceptRef;
 
 /// The committed relation lexicon — the `.prx` bytes the surface→relation map
 /// LIVES in, embedded at build time. A node-bearing [`Archive`]: relation

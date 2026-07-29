@@ -250,12 +250,15 @@ impl SimulationTrace {
         self.deadline_misses.is_empty()
     }
 
-    /// The number of `Preempt` actions in the trace.
-    pub fn preemption_count(&self) -> usize {
-        self.actions
+    /// The number of `Preempt` actions in the trace, a dimensionless
+    /// [`Quantity`] (`unit::UNITLESS`).
+    pub fn preemption_count(&self) -> Quantity {
+        let count = self
+            .actions
             .iter()
             .filter(|a| matches!(a, SchedulerAction::Preempt(_)))
-            .count()
+            .count();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 }
 

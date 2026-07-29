@@ -98,7 +98,7 @@ Either is valid. (a) is less work and captures the right thing; (b) adds more in
 
 Close #98 as "diagnosed" with the following action items split out:
 
-1. **[#130](https://github.com/i-am-logger/pr4xis/issues/130) — ✅ Op<C> landed, case-2 worked example deferred.** A follow-up ticket picks one of the three content-decision fixes (likely sub-category restriction).
+1. **[#130](https://github.com/i-am-logger/pr4xis/issues/130) — ✅ `Op<C>` landed, case-2 worked example deferred.** A follow-up ticket picks one of the three content-decision fixes (likely sub-category restriction).
 2. **[#131](https://github.com/i-am-logger/pr4xis/issues/131) — TerminalFunctor helper.** ~1 hour, folds case 3's hand-rolled functor into the helper.
 3. **[#132](https://github.com/i-am-logger/pr4xis/issues/132) — enrich metacognition.** Ontology work (Dehaene GWT, Tononi IIT, Nelson-Narens). Unblocks case 1's functor.
 

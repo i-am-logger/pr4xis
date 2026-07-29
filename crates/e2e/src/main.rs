@@ -103,6 +103,10 @@ async fn dump_page_state(client: &Client, label: &str) {
             "return Array.from(document.querySelectorAll('[data-load-prx]')).map(e => e.getAttribute('data-load-prx'));",
         ),
         (
+            "data-load-fast elements",
+            "return Array.from(document.querySelectorAll('[data-load-fast]')).map(e => e.getAttribute('data-load-fast'));",
+        ),
+        (
             "body text first 500 chars",
             "return (document.body && document.body.innerText || '').slice(0, 500);",
         ),
@@ -119,8 +123,8 @@ async fn dump_page_state(client: &Client, label: &str) {
             "elements matching the timeout's data-* key (outerHTML, classes, text)",
             "var key = arguments[0] || ''; \
              var hits = []; \
-             document.querySelectorAll('[data-source],[data-ontology],[data-load],[data-load-prx]').forEach(e => { \
-               var v = e.getAttribute('data-source') || e.getAttribute('data-ontology') || e.getAttribute('data-load') || e.getAttribute('data-load-prx'); \
+             document.querySelectorAll('[data-source],[data-ontology],[data-load],[data-load-prx],[data-load-fast]').forEach(e => { \
+               var v = e.getAttribute('data-source') || e.getAttribute('data-ontology') || e.getAttribute('data-load') || e.getAttribute('data-load-prx') || e.getAttribute('data-load-fast'); \
                if (v && v === key) { \
                  hits.push({ tag: e.tagName, classes: e.className, dataset: Object.assign({}, e.dataset), text: (e.innerText || '').slice(0, 240), html: (e.outerHTML || '').slice(0, 600) }); \
                } \
@@ -151,6 +155,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let webdriver = env_or("WEBDRIVER_URL", "http://localhost:4444");
     // A small title keeps the USLM download + parse fast. usc_title_1 ≈ 0.3 MB.
     let title = env_or("PRAXIS_E2E_TITLE", "usc_title_1");
+    // A DIFFERENT title for the zero-copy fast-load button (task #21) — must
+    // differ from `title` above, since loading a title via either route
+    // flips its card to `.loaded` and removes BOTH buttons, so the same
+    // title can't exercise both click paths in one page session.
+    let title_fast = env_or("PRAXIS_E2E_TITLE_FAST", "usc_title_18");
     // Smallest registered OWL vocabulary: biro (~15 entities) — the .prx.gz
     // envelope is a few KB, so the validated-load round-trip stays fast.
     let ontology = env_or("PRAXIS_E2E_ONTOLOGY", "biro");
@@ -172,14 +181,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&webdriver)
         .await?;
 
-    let outcome = run_all(&client, &base, &title, &ontology, &ontology_2).await;
+    let outcome = run_all(&client, &base, &title, &title_fast, &ontology, &ontology_2).await;
     // Always release the browser session, then surface the result.
     let _ = client.close().await;
     outcome?;
 
     println!(
-        "E2E OK: {title} (USLM source) + {ontology} + {ontology_2} \
-         (OWL .prx.gz, hash-validated) materialised into live ontologies."
+        "E2E OK: {title} (USLM source) + {title_fast} (zero-copy rkyv archive) + \
+         {ontology} + {ontology_2} (OWL .prx.gz, hash-validated) materialised into \
+         live ontologies."
     );
     Ok(())
 }
@@ -188,14 +198,38 @@ async fn run_all(
     client: &fantoccini::Client,
     base: &str,
     title: &str,
+    title_fast: &str,
     ontology: &str,
     ontology_2: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    client.goto(base).await?;
+    // The app is ONE page with three hash-routed tabs, and Chat is the
+    // default. The source catalog these tests drive lives in the Engine tab,
+    // so land there explicitly rather than relying on which tab opens first:
+    // a card in a hidden tab is present in the DOM and still unclickable, so
+    // the selector waits succeed and the click fails "could not be scrolled
+    // into view" — which reads like a layout bug rather than a routing one.
+    client.goto(&format!("{base}#engine")).await?;
+    // Let eager residency settle before driving a single click.
+    //
+    // The boot deliberately does not await the eager loads, so for the first
+    // seconds the catalog is in motion: a card can carry a Load button for a
+    // source whose fetch is already in flight, and the re-render that lands
+    // when it arrives removes the very element a click was about to hit. That
+    // is a real race for a reader, not only for this suite, which is why the
+    // page publishes the settled marker rather than the suite guessing a
+    // sleep. Generous, because this waits on ~35 MB of Title 42.
+    wait_for(
+        client,
+        "eager residency settled (the catalog has stopped moving)",
+        "body[data-eager-residency='settled']",
+        Duration::from_secs(180),
+    )
+    .await?;
     run_source(client, title).await?;
     // Same page session — the worker holds the wasm runtime; loading a
     // second source compounds on the first. After this the catalog reports
     // two loaded entries.
+    run_usc_archive_fast(client, title_fast).await?;
     run_ontology_prx(client, ontology).await?;
     // Load a second OWL vocabulary alongside the first to exercise the
     // dual-load path on more than one source kind. Both ontology cards
@@ -209,7 +243,7 @@ async fn run_source(
     client: &fantoccini::Client,
     title: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. The self-model page is the default tab. Wait for the source
+    // 1. `run_all` has already routed to the Engine tab. Wait for the source
     //    catalog to render — this only happens after the Web Worker has
     //    initialised the wasm and the first self_describe round-trips.
     let card = format!("[data-source=\"{title}\"]");
@@ -248,10 +282,68 @@ async fn run_source(
     Ok(())
 }
 
-/// Click-to-load an OWL vocabulary via its hash-validated `.prx.gz`
-/// distribution envelope. Exercises the embedded source-hash gate end-to-end:
-/// a tampered envelope would surface as `Failed` in the row and the
-/// `.loaded` selector would never match.
+/// Click-to-load a USC title via its zero-copy, pre-projected `rkyv`
+/// archive (task #21) — the "Load (fast)" button `stage_usc_archives`
+/// (build.rs) offers alongside the raw-XML route `run_source` exercises.
+/// Same loaded-marker shape (`data-source`, not a separate attribute) since
+/// both routes install the SAME `RuntimeOntology` under the SAME name —
+/// only the load PATH differs.
+async fn run_usc_archive_fast(
+    client: &fantoccini::Client,
+    title: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let card = format!("[data-source=\"{title}\"]");
+    wait_for(
+        client,
+        &format!("source card [{title}]"),
+        &card,
+        Duration::from_secs(60),
+    )
+    .await?;
+
+    let load = format!("[data-load-fast=\"{title}\"]");
+    let load_btn = wait_for(
+        client,
+        &format!("source load-fast button [{title}]"),
+        &load,
+        Duration::from_secs(30),
+    )
+    .await?;
+
+    // Click Load (fast) — the worker streams the `.cprx`, and the wasm gate
+    // re-derives the archive's Merkle root and refuses on mismatch. No
+    // client-side USLM XML parse happens on this path.
+    load_btn.click().await?;
+
+    let loaded = format!(".source-card.loaded[data-source=\"{title}\"]");
+    wait_for(
+        client,
+        &format!("source loaded marker [{title}]"),
+        &loaded,
+        Duration::from_secs(60),
+    )
+    .await?;
+
+    Ok(())
+}
+
+/// Put an eagerly-resident OWL vocabulary DOWN and pick it back UP, exercising
+/// the hash-validated `.prx.gz` distribution envelope on the way back in.
+///
+/// This used to be a plain click-to-load, which stopped working the moment the
+/// deployment declared every published vocabulary eagerly resident: the page
+/// renders a Load button only on a card that is NOT loaded, so after boot there
+/// was no button left to click, and the suite waited 30s for an element that by
+/// then could not exist. The failure looked like a timeout — the shape a
+/// genuinely broken page also has — and it gated the deploy.
+///
+/// The round-trip is the honest replacement, and a stronger test than the
+/// original: it drives the same fail-closed load leg (the worker streams the
+/// `.prx.gz`, the wasm gate gunzips, bytecheck-validates the rkyv envelope and
+/// asserts the embedded source-hash equals the `praxis.lock` pin baked into the
+/// build manifest — a tampered envelope surfaces as `Failed` and `.loaded`
+/// never matches), and additionally proves the unload path a reader depends on
+/// to decline a corpus the deployment fetched on their behalf.
 async fn run_ontology_prx(
     client: &fantoccini::Client,
     ontology: &str,
@@ -266,23 +358,34 @@ async fn run_ontology_prx(
     )
     .await?;
 
-    // 2. The "Load .prx" button — the hash-validated leg.
+    // 2. Put it down. Eager residency is `Residency::Eager` — releasable,
+    //    because the deployment fetched it without being asked. The button
+    //    exists only if the engine says so, so this also witnesses that.
+    let unload = format!("[data-unload=\"{ontology}\"]");
+    let unload_btn = wait_for(
+        client,
+        &format!("ontology unload button [{ontology}] (eager sources are releasable)"),
+        &unload,
+        Duration::from_secs(60),
+    )
+    .await?;
+    unload_btn.click().await?;
+
+    // 3. Released, the card returns to the available side of the knowledge
+    //    boundary and the load routes come back with it.
     let load = format!("[data-load-prx=\"{ontology}\"]");
     let load_btn = wait_for(
         client,
-        &format!("ontology load-prx button [{ontology}]"),
+        &format!("ontology load-prx button [{ontology}] returns after unload"),
         &load,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
     )
     .await?;
 
-    // 3. Click Load .prx — the worker streams the `.prx.gz`, the wasm gate
-    //    gunzips, bytecheck-validates the rkyv envelope, and asserts the
-    //    embedded source-hash equals the praxis.lock pin baked into the
-    //    build manifest. Fail-closed.
+    // 4. Pick it back up through the hash-validated envelope.
     load_btn.click().await?;
 
-    // 4. On success the catalog re-renders and the card carries `.loaded`.
+    // 5. On success the catalog re-renders and the card carries `.loaded`.
     let loaded = format!(".source-card.loaded[data-ontology=\"{ontology}\"]");
     wait_for(
         client,

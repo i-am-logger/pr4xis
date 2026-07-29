@@ -194,6 +194,7 @@ mod tests {
 
     // --- Lens laws ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn get_set() {
         // set(s, get(s)) = s
@@ -207,6 +208,7 @@ mod tests {
         assert_eq!(result, alice);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn set_get() {
         // get(set(s, a)) = a
@@ -219,6 +221,7 @@ mod tests {
         assert_eq!(l.get(&result), 99);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn set_set() {
         // set(set(s, a), b) = set(s, b)
@@ -232,6 +235,7 @@ mod tests {
         assert_eq!(r1, r2);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn lens_modify() {
         let alice = Person {
@@ -242,6 +246,7 @@ mod tests {
         assert_eq!(older.age, 31);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn lens_compose() {
         #[derive(Clone, Debug, PartialEq)]
@@ -270,6 +275,7 @@ mod tests {
 
     // --- Iso ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn iso_roundtrip() {
         let celsius_fahrenheit = Iso::new(
@@ -282,6 +288,7 @@ mod tests {
         assert!((back - c).abs() < 1e-10);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn iso_reverse() {
         let c_to_f = Iso::new(
@@ -294,6 +301,7 @@ mod tests {
 
     // --- Prism ---
 
+    #[crate::praxis_value(Honest, Verifiable)]
     #[test]
     fn prism_enum_variant() {
         #[derive(Clone, Debug, PartialEq)]
@@ -327,6 +335,7 @@ mod tests {
 
     // --- Practical: ontology taxonomy view ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn ontology_taxonomy_lens() {
         #[derive(Clone, Debug, PartialEq)]

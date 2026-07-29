@@ -3,7 +3,16 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::board::{Board, HEIGHT, WIDTH};
 use super::*;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use proptest::prelude::*;
+
+/// A dimensionless UNITLESS quantity, for comparing against
+/// [`Board::filled_count`] and [`Board::clear_lines`]'s typed return values
+/// in these tests.
+fn q(n: u32) -> Quantity {
+    Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+}
 
 // =============================================================================
 // Proptest strategies
@@ -40,7 +49,7 @@ fn arb_seed() -> impl Strategy<Value = u64> {
 #[test]
 fn test_new_board_is_empty() {
     let board = Board::new();
-    assert_eq!(board.filled_count(), 0);
+    assert_eq!(board.filled_count(), q(0));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -80,7 +89,7 @@ fn test_line_clear() {
     // Row 0 should now be full (10 cells)
     assert!(board.row_full(0));
     let cleared = board.clear_lines();
-    assert_eq!(cleared, 1);
+    assert_eq!(cleared, q(1));
     assert!(!board.row_full(0)); // row 0 is now empty (or shifted)
 }
 
@@ -270,7 +279,7 @@ proptest! {
         for _ in 0..10 {
             if game.game_over { break; }
             let result = game.act(GameAction::HardDrop);
-            let count = game.board.filled_count();
+            let count = game.board.filled_count().value as usize;
             if let ActionResult::Locked { lines_cleared } = result {
                 // Each lock adds 4 cells, each line clear removes WIDTH cells
                 let expected_min = last_count + 4 - (lines_cleared as usize * WIDTH);

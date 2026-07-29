@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::*;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use proptest::prelude::*;
 
 fn arb_note() -> impl Strategy<Value = Note> {
@@ -20,6 +22,16 @@ fn arb_chord_kind() -> impl Strategy<Value = ChordKind> {
     (0..10usize).prop_map(|i| ChordKind::all()[i])
 }
 
+/// A dimensionless UNITLESS quantity, for comparing against the typed
+/// return values of `Note::octave`/`Note::distance_to`/`Scale::total_semitones`/
+/// `Scale::degree_count`/`Chord::note_count` in these tests. Mirrors
+/// `formal::mereology::counting::ontology::cardinality`'s `card()` helper
+/// and `cognitive::linguistics::orthography::distance::damerau_levenshtein`'s
+/// `q()` helper.
+fn semitones(n: i32) -> Quantity {
+    Quantity::from_unit(f64::from(n), &unit::UNITLESS)
+}
+
 // =============================================================================
 // Note tests
 // =============================================================================
@@ -27,8 +39,8 @@ fn arb_chord_kind() -> impl Strategy<Value = ChordKind> {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_middle_c() {
-    assert_eq!(Note::C4.pitch_class(), 0);
-    assert_eq!(Note::C4.octave(), 4);
+    assert_eq!(Note::C4.pitch_class(), semitones(0));
+    assert_eq!(Note::C4.octave(), semitones(4));
     assert_eq!(Note::C4.name(), "C");
 }
 
@@ -36,7 +48,7 @@ fn test_middle_c() {
 #[test]
 fn test_a440() {
     assert_eq!(Note::A4.0, 69);
-    assert_eq!(Note::A4.pitch_class(), 9);
+    assert_eq!(Note::A4.pitch_class(), semitones(9));
 }
 
 #[pr4xis::praxis_value(Verifiable, Honest)]
@@ -122,7 +134,7 @@ fn test_major_no_tritone() {
 proptest! {
     #[test]
     fn prop_pitch_class_range(note in arb_note()) {
-        prop_assert!(note.pitch_class() < 12);
+        prop_assert!(note.pitch_class().value < 12.0);
     }
 
     #[test]
@@ -180,7 +192,7 @@ proptest! {
 
     #[test]
     fn prop_scale_sums_to_12(kind in arb_scale_kind()) {
-        prop_assert_eq!(Scale::new(Note::C4, kind).total_semitones(), 12);
+        prop_assert_eq!(Scale::new(Note::C4, kind).total_semitones(), semitones(12));
     }
 
     #[test]
@@ -204,14 +216,18 @@ proptest! {
     #[test]
     fn prop_major_7_pitch_classes(root in arb_midi_note()) {
         let pcs: hashbrown::HashSet<u8> = Scale::new(root, ScaleKind::Major)
-            .notes().iter().take(7).map(|n| n.pitch_class()).collect();
+            .notes()
+            .iter()
+            .take(7)
+            .map(|n| n.pitch_class().value as u8)
+            .collect();
         prop_assert_eq!(pcs.len(), 7);
     }
 
     #[test]
     fn prop_chord_note_count(root in arb_midi_note(), kind in arb_chord_kind()) {
         let chord = Chord::new(root, kind);
-        prop_assert_eq!(chord.notes().len(), chord.note_count());
+        prop_assert_eq!(semitones(chord.notes().len() as i32), chord.note_count());
     }
 
     #[test]
@@ -355,37 +371,37 @@ fn engine_clear_scale_allows_any() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_same_note() {
-    assert_eq!(Note::C4.distance_to(Note::C4), 0);
+    assert_eq!(Note::C4.distance_to(Note::C4), semitones(0));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_ascending() {
     // C4 to G4 = 7 semitones
-    assert_eq!(Note::C4.distance_to(Note::G4), 7);
+    assert_eq!(Note::C4.distance_to(Note::G4), semitones(7));
     // C4 to E4 = 4 semitones (major third)
-    assert_eq!(Note::C4.distance_to(Note::E4), 4);
+    assert_eq!(Note::C4.distance_to(Note::E4), semitones(4));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_descending() {
     // G4 to C4 = -7 semitones
-    assert_eq!(Note::G4.distance_to(Note::C4), -7);
+    assert_eq!(Note::G4.distance_to(Note::C4), semitones(-7));
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_octave() {
-    assert_eq!(Note::C4.distance_to(Note(72)), 12); // C4 to C5
-    assert_eq!(Note(72).distance_to(Note::C4), -12); // C5 to C4
+    assert_eq!(Note::C4.distance_to(Note(72)), semitones(12)); // C4 to C5
+    assert_eq!(Note(72).distance_to(Note::C4), semitones(-12)); // C5 to C4
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_distance_to_extremes() {
-    assert_eq!(Note(0).distance_to(Note(127)), 127);
-    assert_eq!(Note(127).distance_to(Note(0)), -127);
+    assert_eq!(Note(0).distance_to(Note(127)), semitones(127));
+    assert_eq!(Note(127).distance_to(Note(0)), semitones(-127));
 }
 
 // =============================================================================
@@ -432,21 +448,51 @@ fn test_interval_name_wraps_beyond_octave() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_note_count_triads() {
-    assert_eq!(Chord::new(Note::C4, ChordKind::Major).note_count(), 3);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Minor).note_count(), 3);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Diminished).note_count(), 3);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Augmented).note_count(), 3);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Sus2).note_count(), 3);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Sus4).note_count(), 3);
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Major).note_count(),
+        semitones(3)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Minor).note_count(),
+        semitones(3)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Diminished).note_count(),
+        semitones(3)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Augmented).note_count(),
+        semitones(3)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Sus2).note_count(),
+        semitones(3)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Sus4).note_count(),
+        semitones(3)
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_chord_note_count_sevenths() {
-    assert_eq!(Chord::new(Note::C4, ChordKind::Major7).note_count(), 4);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Minor7).note_count(), 4);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Dominant7).note_count(), 4);
-    assert_eq!(Chord::new(Note::C4, ChordKind::Diminished7).note_count(), 4);
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Major7).note_count(),
+        semitones(4)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Minor7).note_count(),
+        semitones(4)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Dominant7).note_count(),
+        semitones(4)
+    );
+    assert_eq!(
+        Chord::new(Note::C4, ChordKind::Diminished7).note_count(),
+        semitones(4)
+    );
 }
 
 // =============================================================================
@@ -495,14 +541,38 @@ fn test_chord_name_various_roots() {
 #[test]
 fn test_scale_degree_count_seven_note_scales() {
     let root = Note::C4;
-    assert_eq!(Scale::new(root, ScaleKind::Major).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::NaturalMinor).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::HarmonicMinor).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::MelodicMinor).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::Dorian).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::Phrygian).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::Lydian).degree_count(), 7);
-    assert_eq!(Scale::new(root, ScaleKind::Mixolydian).degree_count(), 7);
+    assert_eq!(
+        Scale::new(root, ScaleKind::Major).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::NaturalMinor).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::HarmonicMinor).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::MelodicMinor).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::Dorian).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::Phrygian).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::Lydian).degree_count(),
+        semitones(7)
+    );
+    assert_eq!(
+        Scale::new(root, ScaleKind::Mixolydian).degree_count(),
+        semitones(7)
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -510,14 +580,17 @@ fn test_scale_degree_count_seven_note_scales() {
 fn test_scale_degree_count_pentatonic() {
     assert_eq!(
         Scale::new(Note::C4, ScaleKind::Pentatonic).degree_count(),
-        5
+        semitones(5)
     );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_blues() {
-    assert_eq!(Scale::new(Note::C4, ScaleKind::Blues).degree_count(), 6);
+    assert_eq!(
+        Scale::new(Note::C4, ScaleKind::Blues).degree_count(),
+        semitones(6)
+    );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -525,14 +598,17 @@ fn test_scale_degree_count_blues() {
 fn test_scale_degree_count_chromatic() {
     assert_eq!(
         Scale::new(Note::C4, ScaleKind::Chromatic).degree_count(),
-        12
+        semitones(12)
     );
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_scale_degree_count_whole_tone() {
-    assert_eq!(Scale::new(Note::C4, ScaleKind::WholeTone).degree_count(), 6);
+    assert_eq!(
+        Scale::new(Note::C4, ScaleKind::WholeTone).degree_count(),
+        semitones(6)
+    );
 }
 
 // Per #161 (typed engine API): Precondition no longer exposes a

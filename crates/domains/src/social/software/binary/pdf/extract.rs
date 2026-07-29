@@ -38,6 +38,8 @@ use super::flagged::{FlagError, flag_page};
 use super::font::{FontResolveError, PdfFont, decode_bytes, resolve_font};
 use super::ontology::FlaggedContent;
 use super::reader::PdfDocument;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 // ─────────────────────────────────────────────────────────────────────
 // Output types
@@ -127,9 +129,12 @@ impl ExtractedDocument {
         out
     }
 
-    /// Total number of flagged non-text items across all pages.
-    pub fn flagged_count(&self) -> usize {
-        self.pages.iter().map(|p| p.flagged.len()).sum()
+    /// Total number of flagged non-text items across all pages, as a
+    /// dimensionless [`Quantity`] (`unit::UNITLESS`) -- a count, not a
+    /// physical quantity.
+    pub fn flagged_count(&self) -> Quantity {
+        let count: usize = self.pages.iter().map(|p| p.flagged.len()).sum();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 }
 
@@ -641,7 +646,7 @@ mod tests {
             let bytes = pdf_one_page_winansi_tj(&text);
             let doc = read_pdf_bytes(&bytes).expect("parse");
             let ext = extract_document(&doc).expect("extract");
-            prop_assert_eq!(ext.flagged_count(), 0);
+            prop_assert_eq!(ext.flagged_count().value, 0.0);
         }
     }
 

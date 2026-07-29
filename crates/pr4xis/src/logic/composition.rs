@@ -467,18 +467,21 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_proposition_satisfied() {
         assert!(IsPositive.evaluate(&5).is_satisfied());
         assert!(!IsPositive.evaluate(&-3).is_satisfied());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_allof() {
         let both = AllOf::new(vec![Box::new(IsPositive), Box::new(IsPositive)]);
         assert!(both.evaluate(&5).is_satisfied());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_anyof() {
         let either = AnyOf::new(vec![Box::new(IsPositive), Box::new(IsEven)]);
@@ -491,6 +494,7 @@ mod tests {
         );
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_not() {
         let not_positive = Not::new(IsPositive);
@@ -498,6 +502,7 @@ mod tests {
         assert!(!not_positive.evaluate(&5).is_satisfied());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_implies() {
         let if_pos_then_even = Implies::new(IsPositive, IsEven);
@@ -521,6 +526,7 @@ mod tests {
         }
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_threshold_greater_than() {
         let check = Threshold::greater_than(ValueOf, 10);
@@ -528,6 +534,7 @@ mod tests {
         assert!(!check.evaluate(&5).is_satisfied());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_threshold_less_than() {
         let check = Threshold::less_than(ValueOf, 10);
@@ -535,6 +542,7 @@ mod tests {
         assert!(!check.evaluate(&15).is_satisfied());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_threshold_at_least() {
         let check = Threshold::at_least(ValueOf, 10);
@@ -543,6 +551,7 @@ mod tests {
         assert!(!check.evaluate(&9).is_satisfied());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_compare_op() {
         assert!(CompareOp::LessThan.check(&3, &5));
@@ -621,4 +630,12 @@ mod tests {
             prop_assert!(!result.reason().is_empty());
         }
     }
+    crate::register_praxis_value!(prop_double_negation, Verifiable);
+    crate::register_praxis_value!(prop_allof_single, Verifiable);
+    crate::register_praxis_value!(prop_anyof_single, Verifiable);
+    crate::register_praxis_value!(prop_allof_implies_anyof, Verifiable);
+    crate::register_praxis_value!(prop_implication_equivalence, Verifiable);
+    crate::register_praxis_value!(prop_threshold_gt_vs_gte, Verifiable);
+    crate::register_praxis_value!(prop_compare_consistent, Verifiable);
+    crate::register_praxis_value!(prop_evaluation_has_reason, Explainable);
 }

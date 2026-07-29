@@ -37,6 +37,8 @@ use alloc::{
 };
 
 use super::types::LambekType;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::social::software::markup::xml::lmf::reader::read_wordnet;
 
 /// The OpenMath Role of an operator symbol (OpenMath Standard 2.0 §2.1.4).
@@ -162,8 +164,9 @@ impl OperatorVocabulary {
 
     /// Total number of loaded operator readings (entries, counting each glyph
     /// reading once).
-    pub fn len(&self) -> usize {
-        self.0.values().map(Vec::len).sum()
+    pub fn len(&self) -> Quantity {
+        let total: usize = self.0.values().map(Vec::len).sum();
+        Quantity::from_unit(total as f64, &unit::UNITLESS)
     }
 
     /// True iff no operator loaded.
@@ -380,7 +383,10 @@ mod tests {
         // loaded result_sort claims — Number → NP, Truth → S. This is what
         // proves ×, ÷, −, ≤, ≥, ≠ work, not merely that they load.
         let v = load();
-        assert!(v.len() >= 13, "the full arithmetic + relational set loads");
+        assert!(
+            v.len().value >= 13.0,
+            "the full arithmetic + relational set loads"
+        );
         for op in v.iter() {
             let expected = match op.result_sort {
                 ResultSort::Number => operand_atom(),

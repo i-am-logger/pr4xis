@@ -53,10 +53,50 @@ pub enum SemanticEffect {
     TenseChange,
     /// Creates ongoing action: walk → walk-ing (Progressive).
     Progressive,
+    /// Creates the PAST/PASSIVE PARTICIPLE: provide → provid-ed, give →
+    /// given, write → written — a NON-FINITE form of the same lexeme,
+    /// distinct from [`Self::TenseChange`]'s finite preterite even where
+    /// English spells them alike.
+    ///
+    /// Huddleston & Pullum (2002), *The Cambridge Grammar of the English
+    /// Language*, CUP, Ch.3 §1.4 and Ch.16 §9.2: English verbs have SIX
+    /// inflectional forms, among them a preterite ("gave") and a past
+    /// participle ("given") that are systematically distinct lexemic
+    /// slots — regular verbs merely SYNCRETIZE them in spelling
+    /// ("provided" fills both), which is why one `-ed` surface cannot be
+    /// carried by a single `TenseChange` effect without losing the
+    /// participial reading a reduced relative ("services provided under a
+    /// State plan") needs.
+    PastParticiple,
     /// Creates agent: teach → teach-er (the one who does).
     AgentNoun,
     /// Creates quality: happy → happi-ness (Adj → Noun).
     QualityNoun,
+}
+
+impl SemanticEffect {
+    /// True for an INFLECTIONAL effect (NumberChange/TenseChange/
+    /// Progressive/PastParticiple) — a closed-paradigm grammatical variant
+    /// of the SAME
+    /// lexeme, not a new word. False for a DERIVATIONAL effect (Negation/
+    /// Repetition/PosChange/AgentNoun/QualityNoun), which creates a distinct
+    /// lexeme (Bauer 1983, *English Word-Formation*, CUP, Ch.1 §1.2's
+    /// inflection/derivation split; Aronoff 1976, *Word Formation in
+    /// Generative Grammar*, MIT Press, §3 — blocking guards derivation
+    /// against inventing a false sibling for an already-lexicalized word;
+    /// it does not apply within one lexeme's own inflectional paradigm,
+    /// since an inflected surface form IS that lexeme, not a candidate
+    /// sibling). This is what lets `resolve_surface`
+    /// (`crates/chat/src/lib.rs`) always recover a verb's gerund ("coughing"
+    /// → "cough") even when the gerund is ALSO independently lexicalized,
+    /// while still blocking a spurious derivational guess ("respite" →
+    /// "spite") once the surface already has its own complete entry.
+    pub fn is_inflectional(self) -> bool {
+        matches!(
+            self,
+            Self::NumberChange | Self::TenseChange | Self::Progressive | Self::PastParticiple
+        )
+    }
 }
 
 impl Concept for SemanticEffect {}
@@ -69,6 +109,7 @@ impl FinitelyGenerated for SemanticEffect {
             Self::NumberChange,
             Self::TenseChange,
             Self::Progressive,
+            Self::PastParticiple,
             Self::AgentNoun,
             Self::QualityNoun,
         ]

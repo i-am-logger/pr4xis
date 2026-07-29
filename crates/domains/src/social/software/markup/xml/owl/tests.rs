@@ -35,7 +35,7 @@ const SAMPLE_OWL: &str = r#"<?xml version="1.0"?>
 #[test]
 fn read_sample_owl() {
     let ont = reader::read_owl(SAMPLE_OWL).unwrap();
-    assert_eq!(ont.class_count(), 3);
+    assert_eq!(ont.class_count().value, 3.0);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -118,7 +118,7 @@ fn owl_property_comment_read() {
 #[test]
 fn owl_subproperty_taxonomy() {
     let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
-    assert_eq!(ont.property_count(), 3);
+    assert_eq!(ont.property_count().value, 3.0);
     // citesAsEvidence→cites, includesQuotationFrom→cites
     assert_eq!(ont.property_taxonomy.len(), 2);
 }
@@ -172,9 +172,9 @@ fn load_bundled_cito() {
     // cito:isCitedBy families together run to ~90). Assert a generous
     // lower bound so the test is robust to point-release churn.
     assert!(
-        ont.property_count() > 30,
+        ont.property_count().value > 30.0,
         "expected CiTO to declare >30 object properties, got {}",
-        ont.property_count()
+        ont.property_count().value
     );
 
     // Key CiTO citation-type properties resolve by IRI suffix. These
@@ -305,9 +305,9 @@ fn load_bundled_doco() {
     // 2016 publication carries ~80). Assert a generous lower bound so
     // the test is robust to point-release churn.
     assert!(
-        ont.class_count() > 50,
+        ont.class_count().value > 50.0,
         "expected DoCO to declare >50 classes, got {}",
-        ont.class_count()
+        ont.class_count().value
     );
 
     // Load-bearing document-component classes resolve by IRI suffix.
@@ -369,9 +369,9 @@ fn load_bundled_c4o() {
     // isDenotedBy, hasContent, hasContext, isRelevantTo, pertainsTo).
     // Assert a generous lower bound on the property count.
     assert!(
-        ont.property_count() >= 4,
+        ont.property_count().value >= 4.0,
         "expected C4O to declare >=4 object properties, got {}",
-        ont.property_count()
+        ont.property_count().value
     );
 
     // Load-bearing C4O citation-context relations resolve by IRI suffix
@@ -430,9 +430,9 @@ fn load_bundled_biro() {
     // BiRO declares its bibliographic-record / reference classes. Assert
     // a generous lower bound on the class count.
     assert!(
-        ont.class_count() >= 4,
+        ont.class_count().value >= 4.0,
         "expected BiRO to declare >=4 classes, got {}",
-        ont.class_count()
+        ont.class_count().value
     );
 
     // Load-bearing BiRO bibliographic classes resolve by IRI suffix
@@ -487,14 +487,14 @@ fn load_bundled_prov_o() {
     // PROV-O declares ~30 classes and ~40 object properties. Assert
     // generous lower bounds on both axes (striped-form serialisation).
     assert!(
-        ont.class_count() > 20,
+        ont.class_count().value > 20.0,
         "expected PROV-O to declare >20 classes, got {}",
-        ont.class_count()
+        ont.class_count().value
     );
     assert!(
-        ont.property_count() > 30,
+        ont.property_count().value > 30.0,
         "expected PROV-O to declare >30 object properties, got {}",
-        ont.property_count()
+        ont.property_count().value
     );
 
     // The three core PROV-O classes (Lebo et al. 2013 §3, the starting
@@ -549,15 +549,15 @@ fn load_olia() {
 
     eprintln!("=== OLiA Ontology ===");
     eprintln!("  Load time:     {:?}", load_time);
-    eprintln!("  Classes:       {}", ont.class_count());
+    eprintln!("  Classes:       {}", ont.class_count().value);
     eprintln!("  Properties:    {}", ont.properties.len());
     eprintln!("  Taxonomy:      {} relations", ont.taxonomy.len());
 
     // Should have substantial content
     assert!(
-        ont.class_count() > 100,
+        ont.class_count().value > 100.0,
         "expected 100+ classes, got {}",
-        ont.class_count()
+        ont.class_count().value
     );
 
     // Should have key linguistic classes

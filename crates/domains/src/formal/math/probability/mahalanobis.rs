@@ -1,6 +1,8 @@
 use crate::formal::math::linear_algebra::decomposition;
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Mahalanobis distance: d² = (x - μ)^T S^{-1} (x - μ).
 ///
@@ -13,15 +15,25 @@ use crate::formal::math::linear_algebra::vector_space::Vector;
 ///
 /// Source: Mahalanobis, P.C. (1936). "On the generalized distance in statistics."
 ///         Bar-Shalom et al. (2001). Chapter 2 (gating).
-pub fn mahalanobis_squared(x: &Vector, mean: &Vector, covariance: &Matrix) -> Option<f64> {
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), never a bare
+/// `f64` — Mahalanobis distance is normalized by the covariance and is
+/// conventionally dimensionless by construction (Mahalanobis 1936), the
+/// same treatment as `Vector::dot`/`Vector::norm`.
+pub fn mahalanobis_squared(x: &Vector, mean: &Vector, covariance: &Matrix) -> Option<Quantity> {
     let diff = x.sub(mean);
     let s_inv_diff = decomposition::solve_spd(covariance, &diff.data)?;
-    Some(diff.data.iter().zip(&s_inv_diff).map(|(a, b)| a * b).sum())
+    let sum: f64 = diff.data.iter().zip(&s_inv_diff).map(|(a, b)| a * b).sum();
+    Some(Quantity::from_unit(sum, &unit::UNITLESS))
 }
 
 /// Mahalanobis distance (square root of squared distance).
-pub fn mahalanobis(x: &Vector, mean: &Vector, covariance: &Matrix) -> Option<f64> {
-    mahalanobis_squared(x, mean, covariance).map(|d2| d2.sqrt())
+///
+/// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same reasoning
+/// as [`mahalanobis_squared`].
+pub fn mahalanobis(x: &Vector, mean: &Vector, covariance: &Matrix) -> Option<Quantity> {
+    mahalanobis_squared(x, mean, covariance)
+        .map(|d2| Quantity::from_unit(d2.value.sqrt(), &unit::UNITLESS))
 }
 
 /// Validation gate: is the Mahalanobis distance within the chi-squared threshold?
@@ -34,7 +46,7 @@ pub fn mahalanobis(x: &Vector, mean: &Vector, covariance: &Matrix) -> Option<f64
 ///
 /// Source: Bar-Shalom et al. (2001). Table 2.1.
 pub fn within_gate(x: &Vector, mean: &Vector, covariance: &Matrix, threshold: f64) -> Option<bool> {
-    mahalanobis_squared(x, mean, covariance).map(|d2| d2 < threshold)
+    mahalanobis_squared(x, mean, covariance).map(|d2| d2.value < threshold)
 }
 
 /// Chi-squared thresholds for common confidence levels and dimensions.

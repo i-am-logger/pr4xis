@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::applied::navigation::ins_gnss::ontology::CouplingLevel;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Coupling mode characteristics for INS/GNSS integration.
 ///
@@ -69,30 +71,45 @@ impl CouplingMode {
 ///   error = 0.5 * b * t^2
 ///
 /// Source: Groves (2013) Eq. 14.1.
-pub fn coasting_position_error(accel_bias_mps2: f64, time_seconds: f64) -> f64 {
-    0.5 * accel_bias_mps2.abs() * time_seconds * time_seconds
+pub fn coasting_position_error(accel_bias_mps2: f64, time_seconds: f64) -> Quantity {
+    Quantity::from_unit(
+        0.5 * accel_bias_mps2.abs() * time_seconds * time_seconds,
+        &unit::METER,
+    )
 }
 
 /// Compute the scalar Kalman gain for a GNSS position update.
 ///
 /// K = P / (P + R) where P is prior variance and R is measurement noise.
+/// A gain is a dimensionless weighting factor — the ratio is meaningful
+/// whichever physical quantity's variance `P`/`R` happen to be (position,
+/// velocity, ...), exactly like [`scalar_kalman_update`] below.
 ///
 /// Source: Brown & Hwang (2012) Chapter 5.
-pub fn scalar_kalman_gain(prior_variance: f64, measurement_noise: f64) -> f64 {
+pub fn scalar_kalman_gain(prior_variance: f64, measurement_noise: f64) -> Quantity {
     if prior_variance + measurement_noise <= 0.0 {
-        return 0.0;
+        return Quantity::from_unit(0.0, &unit::UNITLESS);
     }
-    prior_variance / (prior_variance + measurement_noise)
+    Quantity::from_unit(
+        prior_variance / (prior_variance + measurement_noise),
+        &unit::UNITLESS,
+    )
 }
 
 /// Apply a scalar Kalman update and return the posterior variance.
 ///
 /// P_post = (1 - K) * P_prior
 ///
+/// This is generic scalar Kalman-filter math (Brown & Hwang 2012): `P` may be
+/// the variance of any scalar state component (position, velocity, clock
+/// bias, ...). Neither the function's inputs nor `scalar_kalman_gain` above
+/// carry a bound physical dimension, so the result is typed the same way as
+/// the gain it is built from — dimensionless in this scalar model.
+///
 /// Source: Brown & Hwang (2012) Chapter 5.
-pub fn scalar_kalman_update(prior_variance: f64, measurement_noise: f64) -> f64 {
+pub fn scalar_kalman_update(prior_variance: f64, measurement_noise: f64) -> Quantity {
     let k = scalar_kalman_gain(prior_variance, measurement_noise);
-    (1.0 - k) * prior_variance
+    Quantity::from_unit((1.0 - k.value) * prior_variance, &unit::UNITLESS)
 }
 
 /// Position–velocity error coupling in a loosely-coupled INS/GNSS filter.
@@ -134,9 +151,16 @@ impl PosVelCoupling {
     /// worsens the velocity estimate — proven by `GnssFixNeverWorsensVelocity`.
     /// The `0.0`/`1.0` here are the mathematical bounds of a correlation and a
     /// gain, not tunable parameters.
-    pub fn velocity_error_after_fix(&self, velocity_error: f64, position_kalman_gain: f64) -> f64 {
+    pub fn velocity_error_after_fix(
+        &self,
+        velocity_error: f64,
+        position_kalman_gain: f64,
+    ) -> Quantity {
         let k = position_kalman_gain.clamp(0.0, 1.0);
         let rho = self.correlation.clamp(0.0, 1.0);
-        velocity_error * (1.0 - rho * rho * k).max(0.0).sqrt()
+        Quantity::from_unit(
+            velocity_error * (1.0 - rho * rho * k).max(0.0).sqrt(),
+            &unit::METER_PER_SECOND,
+        )
     }
 }

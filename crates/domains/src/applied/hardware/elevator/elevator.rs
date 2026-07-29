@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+
 /// Direction an elevator is traveling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -55,8 +58,13 @@ impl Elevator {
     }
 
     /// Distance to a given floor.
-    pub fn distance_to(&self, floor: usize) -> usize {
-        (self.floor as isize - floor as isize).unsigned_abs()
+    ///
+    /// An ordinal count of floors (not a continuous physical length), so
+    /// this returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — the
+    /// same treatment as `cognitive::linguistics::orthography::distance::damerau_levenshtein`.
+    pub fn distance_to(&self, floor: usize) -> Quantity {
+        let d = (self.floor as isize - floor as isize).unsigned_abs();
+        Quantity::from_unit(d as f64, &unit::UNITLESS)
     }
 
     /// Does this elevator need to stop at its current floor?

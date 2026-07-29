@@ -2,6 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::formal::math::geometry::point::Point3;
+use crate::formal::math::quantity::dimension::Dimension;
+use crate::formal::math::quantity::value::Quantity;
 
 use crate::natural::physics::kinematics::acceleration::Acceleration;
 use crate::natural::physics::kinematics::position::TimedPosition;
@@ -52,14 +54,22 @@ impl KinematicState {
     }
 
     /// Speed at current state.
-    pub fn speed(&self) -> f64 {
+    pub fn speed(&self) -> Quantity {
         self.velocity.speed()
     }
 
     /// Distance traveled over dt (approximate, using average velocity).
-    pub fn distance_traveled(&self, dt: f64) -> f64 {
+    ///
+    /// `Point3::distance_to` returns a UNITLESS magnitude (the point type
+    /// itself carries no physical unit); this trajectory is a real
+    /// navigation/tracking curve whose coordinates are meters, so the raw
+    /// magnitude is reinterpreted here as Dimension::LENGTH.
+    pub fn distance_traveled(&self, dt: f64) -> Quantity {
         let future = self.propagate(dt);
-        self.position.distance_to(&future.position)
+        Quantity::new(
+            self.position.distance_to(&future.position).value,
+            Dimension::LENGTH,
+        )
     }
 }
 
@@ -77,31 +87,39 @@ impl Trajectory {
         Self { points }
     }
 
-    /// Total path length (sum of segment distances).
-    pub fn path_length(&self) -> f64 {
-        self.points
+    /// Total path length (sum of segment distances). See
+    /// `KinematicState::distance_traveled` for the UNITLESS→LENGTH
+    /// reinterpretation rationale.
+    pub fn path_length(&self) -> Quantity {
+        let meters: f64 = self
+            .points
             .windows(2)
-            .map(|w| w[0].position.distance_to(&w[1].position))
-            .sum()
+            .map(|w| w[0].position.distance_to(&w[1].position).value)
+            .sum();
+        Quantity::new(meters, Dimension::LENGTH)
     }
 
     /// Total duration from first to last point.
-    pub fn duration(&self) -> Option<f64> {
+    pub fn duration(&self) -> Option<Quantity> {
         if self.points.len() < 2 {
             return None;
         }
         let first = &self.points[0].time;
         let last = &self.points[self.points.len() - 1].time;
-        first.duration_to(last).map(|d| d.seconds())
+        first
+            .duration_to(last)
+            .map(|d| Quantity::new(d.seconds(), Dimension::TIME))
     }
 
-    /// Average speed over the trajectory.
-    pub fn average_speed(&self) -> Option<f64> {
+    /// Average speed over the trajectory: path_length / duration.
+    /// `Dimension::LENGTH.divide(Dimension::TIME) == Dimension::VELOCITY`,
+    /// so `Quantity::div` produces the correct dimension automatically.
+    pub fn average_speed(&self) -> Option<Quantity> {
         let d = self.duration()?;
-        if d.abs() < 1e-15 {
+        if d.value.abs() < 1e-15 {
             return None;
         }
-        Some(self.path_length() / d)
+        Some(self.path_length().div(&d))
     }
 
     /// Number of waypoints.

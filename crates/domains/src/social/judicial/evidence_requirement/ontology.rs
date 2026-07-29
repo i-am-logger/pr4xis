@@ -51,9 +51,20 @@ pr4xis::ontology! {
 // Quality: Strictness — total ordering (Optional < Recommended < Required)
 // ---------------------------------------------------------------------------
 
-/// Quality: integer strictness tier for ordering requirement levels.
-/// Lower numbers = less strict. `Optional = 1`, `Recommended = 2`,
-/// `Required = 3`.
+/// Typed ordinal ranking of RFC 2119 requirement strictness. Declared
+/// in **ascending** strictness order — `Optional` (least strict,
+/// formerly tier 1) first, `Required` (most strict, formerly tier 3)
+/// last — so Rust's derived `Ord` for a fieldless enum
+/// (earlier-declared variant compares as *lesser*) directly mirrors the
+/// original 1..3 numeric tier ordering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum StrictnessTier {
+    Optional,
+    Recommended,
+    Required,
+}
+
+/// Quality: typed strictness tier for ordering requirement levels.
 ///
 /// Returns `None` for the abstract root.
 #[derive(Debug, Clone)]
@@ -61,14 +72,14 @@ pub struct Strictness;
 
 impl Quality for Strictness {
     type Individual = RequirementLevelConcept;
-    type Value = u8;
+    type Value = StrictnessTier;
 
-    fn get(&self, c: &RequirementLevelConcept) -> Option<u8> {
+    fn get(&self, c: &RequirementLevelConcept) -> Option<StrictnessTier> {
         use RequirementLevelConcept as R;
         match c {
-            R::Optional => Some(1),
-            R::Recommended => Some(2),
-            R::Required => Some(3),
+            R::Optional => Some(StrictnessTier::Optional),
+            R::Recommended => Some(StrictnessTier::Recommended),
+            R::Required => Some(StrictnessTier::Required),
             R::RequirementLevel => None,
         }
     }

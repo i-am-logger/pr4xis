@@ -299,8 +299,8 @@ proptest! {
     fn prop_rational_simplified(n in arb_int(), d in arb_nonzero_int()) {
         let v = Value::rational(n, d).unwrap();
         if let Value::Rational(rn, rd) = v {
-            let g = super::value::gcd(rn.unsigned_abs(), rd.unsigned_abs());
-            prop_assert_eq!(g, 1, "{}/{} not fully simplified (gcd={})", rn, rd, g);
+            let g = super::value::gcd(rn.unsigned_abs(), rd.unsigned_abs()).value;
+            prop_assert_eq!(g, 1.0, "{}/{} not fully simplified (gcd={})", rn, rd, g);
         }
     }
 
@@ -506,7 +506,7 @@ proptest! {
     fn prop_complex_magnitude_squared(re in -100.0..100.0f64, im in -100.0..100.0f64) {
         let z = Complex::new(re, im);
         let product = z.mul(&z.conjugate());
-        let mag_sq = z.magnitude() * z.magnitude();
+        let mag_sq = z.magnitude().value * z.magnitude().value;
         prop_assert!((product.re - mag_sq).abs() < 1e-6);
         prop_assert!(product.im.abs() < 1e-6);
     }
@@ -674,19 +674,19 @@ proptest! {
     /// nC0 = 1
     #[test]
     fn prop_ncr_zero(n in 0..20u64) {
-        prop_assert_eq!(combinations(n, 0).unwrap(), 1);
+        prop_assert_eq!(combinations(n, 0).unwrap().value, 1.0);
     }
 
     /// nCn = 1
     #[test]
     fn prop_ncr_n(n in 0..20u64) {
-        prop_assert_eq!(combinations(n, n).unwrap(), 1);
+        prop_assert_eq!(combinations(n, n).unwrap().value, 1.0);
     }
 
     /// nC1 = n
     #[test]
     fn prop_ncr_one(n in 1..20u64) {
-        prop_assert_eq!(combinations(n, 1).unwrap(), n);
+        prop_assert_eq!(combinations(n, 1).unwrap().value, n as f64);
     }
 
     /// nCr = nC(n-r) (symmetry)
@@ -700,7 +700,7 @@ proptest! {
     #[test]
     fn prop_npr_gte_ncr(n in 2..15u64, r in 1..15u64) {
         prop_assume!(r <= n);
-        prop_assert!(permutations(n, r).unwrap() >= combinations(n, r).unwrap());
+        prop_assert!(permutations(n, r).unwrap() as f64 >= combinations(n, r).unwrap().value);
     }
 
     /// nPn = n!
@@ -1024,7 +1024,7 @@ fn test_complex_is_imaginary() {
 #[test]
 fn test_complex_magnitude() {
     let z = Complex::new(3.0, 4.0);
-    assert!((z.magnitude() - 5.0).abs() < 1e-10);
+    assert!((z.magnitude().value - 5.0).abs() < 1e-10);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -2685,18 +2685,18 @@ fn test_value_float_display() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_gcd() {
-    assert_eq!(gcd(12, 8), 4);
-    assert_eq!(gcd(7, 13), 1);
-    assert_eq!(gcd(0, 5), 5);
-    assert_eq!(gcd(0, 0), 1); // gcd returns max(a, 1) when a=0, b=0
+    assert_eq!(gcd(12, 8).value, 4.0);
+    assert_eq!(gcd(7, 13).value, 1.0);
+    assert_eq!(gcd(0, 5).value, 5.0);
+    assert_eq!(gcd(0, 0).value, 1.0); // gcd returns max(a, 1) when a=0, b=0
 }
 
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn test_lcm() {
-    assert_eq!(lcm(4, 6), 12);
-    assert_eq!(lcm(3, 5), 15);
-    assert_eq!(lcm(7, 7), 7);
+    assert_eq!(lcm(4, 6).value, 12.0);
+    assert_eq!(lcm(3, 5).value, 15.0);
+    assert_eq!(lcm(7, 7).value, 7.0);
 }
 
 #[pr4xis::praxis_value(Verifiable)]

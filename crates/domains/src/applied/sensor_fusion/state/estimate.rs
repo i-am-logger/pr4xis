@@ -3,7 +3,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::math::statistics::confidence;
+use crate::formal::math::temporal::instant::Instant;
 
 /// A state estimate: the central object of sensor fusion.
 ///
@@ -21,14 +23,14 @@ pub struct StateEstimate {
     pub state: Vector,
     /// Error covariance matrix P (must be symmetric PSD).
     pub covariance: Matrix,
-    /// Current timestamp (seconds since epoch).
-    pub epoch: f64,
+    /// Current timestamp.
+    pub epoch: Instant,
     /// Step counter.
     pub step: usize,
 }
 
 impl StateEstimate {
-    pub fn new(state: Vector, covariance: Matrix, epoch: f64) -> Self {
+    pub fn new(state: Vector, covariance: Matrix, epoch: Instant) -> Self {
         assert_eq!(state.dim(), covariance.rows);
         assert_eq!(covariance.rows, covariance.cols);
         Self {
@@ -45,7 +47,10 @@ impl StateEstimate {
     }
 
     /// Trace of covariance (total uncertainty).
-    pub fn uncertainty(&self) -> f64 {
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — same
+    /// treatment as [`Matrix::trace`], which this delegates to directly.
+    pub fn uncertainty(&self) -> Quantity {
         self.covariance.trace()
     }
 

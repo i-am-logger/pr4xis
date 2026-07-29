@@ -36,6 +36,7 @@
 //!   Groups). <https://www.w3.org/TR/xmlschema11-1/#cElement_Declarations>.
 
 use super::SubdivisionKind;
+use super::UsCodeRef;
 use crate::formal::meta::identifier_format::Identifier;
 
 /// One subdivision node inside a `<section>`. Every USLM level-group
@@ -82,6 +83,18 @@ pub struct UscSubdivision {
     pub content: Option<String>,
     /// Nested subdivisions, in USLM document order.
     pub children: Vec<UscSubdivision>,
+    /// `<ref href="…">` cross-references collected from THIS
+    /// subdivision's own body surfaces (its `heading` / `chapeau` /
+    /// `content`), in USLM document order — NOT from its
+    /// [`children`][Self::children], which carry their own. Scoped
+    /// per-node exactly as `heading` / `chapeau` / `content` are, so a
+    /// citation is attributed to the smallest provision that literally
+    /// contains it (LRC USLM XML User Guide §V hierarchy). Each entry is
+    /// the parse-faithful [`UsCodeRef`] `{ href, text }` — the `href` a
+    /// USLM identifier URN (`/us/usc/t15/s78`), carried VERBATIM; it may
+    /// point OUTSIDE the loaded corpus (a sister title, a repealed
+    /// provision), so it is a raw citation surface, not a resolved edge.
+    pub refs: Vec<UsCodeRef>,
 }
 
 impl UscSubdivision {
@@ -133,6 +146,14 @@ pub struct UscSectionAux {
     /// list. The section root is implicit (its URN equals
     /// [`Self::urn`]).
     pub relations: Vec<UscComposesEdge>,
+    /// `<ref href="…">` cross-references collected from the SECTION
+    /// root's own body surfaces (its `heading` / `chapeau` / `content`),
+    /// in USLM document order — the section-scoped counterpart of
+    /// [`UscSubdivision::refs`], carried on the aux record so the archive
+    /// load path ([`super::UsCode::from_codegen_with_aux`]) can attach a
+    /// section's own citations without a raw parse. A subdivision's
+    /// citations ride its own [`UscSubdivision::refs`], not this list.
+    pub refs: Vec<UsCodeRef>,
 }
 
 /// Pre-order walker over a borrowed subdivision subtree.

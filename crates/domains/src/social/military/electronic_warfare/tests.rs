@@ -3,6 +3,9 @@ use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::angle::Angle;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
 use crate::social::military::electronic_warfare::engine::*;
 use crate::social::military::electronic_warfare::ontology::*;
 
@@ -33,15 +36,16 @@ fn tdoa_requires_sensor_pair_holds() {
 #[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn wrap_angle_within_range() {
-    let a = wrap_angle(4.0);
-    assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&a));
+    let a = wrap_angle(&Quantity::from_unit(4.0, &unit::RADIAN));
+    assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&a.value));
+    assert_eq!(a.dimension, unit::RADIAN.dimension);
 }
 
 #[pr4xis::praxis_value(Deterministic)]
 #[test]
 fn wrap_angle_identity_in_range() {
     let a = 1.5;
-    assert!((wrap_angle(a) - a).abs() < 1e-12);
+    assert!((wrap_angle(&Quantity::from_unit(a, &unit::RADIAN)).value - a).abs() < 1e-12);
 }
 
 #[pr4xis::praxis_value(Verifiable)]
@@ -50,12 +54,12 @@ fn aoa_triangulation_perpendicular() {
     let m1 = AoaMeasurement {
         sensor_pos: Vector::new(vec![0.0, 0.0]),
         bearing: Angle::from_radians(core::f64::consts::FRAC_PI_2), // due east
-        sigma: 0.01,
+        sigma: Quantity::from_unit(0.01, &unit::RADIAN),
     };
     let m2 = AoaMeasurement {
         sensor_pos: Vector::new(vec![100.0, 100.0]),
         bearing: Angle::from_radians(core::f64::consts::PI), // due south
-        sigma: 0.01,
+        sigma: Quantity::from_unit(0.01, &unit::RADIAN),
     };
     let pos = aoa_triangulation(&m1, &m2).unwrap();
     assert!(
@@ -76,12 +80,12 @@ fn aoa_parallel_returns_none() {
     let m1 = AoaMeasurement {
         sensor_pos: Vector::new(vec![0.0, 0.0]),
         bearing: Angle::from_radians(0.0),
-        sigma: 0.01,
+        sigma: Quantity::from_unit(0.01, &unit::RADIAN),
     };
     let m2 = AoaMeasurement {
         sensor_pos: Vector::new(vec![100.0, 0.0]),
         bearing: Angle::from_radians(0.0), // same bearing = parallel
-        sigma: 0.01,
+        sigma: Quantity::from_unit(0.01, &unit::RADIAN),
     };
     assert!(aoa_triangulation(&m1, &m2).is_none());
 }
@@ -92,15 +96,15 @@ fn tdoa_residual_at_true_position() {
     let meas = TdoaMeasurement {
         sensor_a: Vector::new(vec![0.0, 0.0]),
         sensor_b: Vector::new(vec![100.0, 0.0]),
-        tdoa: 0.0, // emitter equidistant from both
-        signal_speed: 3e8,
+        tdoa: Duration::from_seconds(0.0), // emitter equidistant from both
+        signal_speed: Quantity::from_unit(3e8, &unit::METER_PER_SECOND),
     };
     let emitter = Vector::new(vec![50.0, 50.0]); // equidistant point
     let residual = tdoa_residual(&meas, &emitter);
     assert!(
-        residual.abs() < 1e-6,
+        residual.value.abs() < 1e-6,
         "residual should be ~0, got {}",
-        residual
+        residual.value
     );
 }
 
@@ -112,9 +116,9 @@ mod proptest_proofs {
     proptest! {
         #[test]
         fn wrap_angle_always_in_range(angle in -100.0..100.0_f64) {
-            let wrapped = wrap_angle(angle);
-            prop_assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&wrapped),
-                "wrapped angle {} out of [-pi, pi] for input {}", wrapped, angle);
+            let wrapped = wrap_angle(&Quantity::from_unit(angle, &unit::RADIAN));
+            prop_assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&wrapped.value),
+                "wrapped angle {} out of [-pi, pi] for input {}", wrapped.value, angle);
         }
 
         #[test]
@@ -122,17 +126,17 @@ mod proptest_proofs {
             let meas = TdoaMeasurement {
                 sensor_a: Vector::new(vec![0.0, 0.0]),
                 sensor_b: Vector::new(vec![100.0, 0.0]),
-                tdoa,
-                signal_speed: 3e8,
+                tdoa: Duration::from_seconds(tdoa),
+                signal_speed: Quantity::from_unit(3e8, &unit::METER_PER_SECOND),
             };
             let rd = meas.range_difference();
             // sign of range difference should match sign of TDOA
             if tdoa > 0.0 {
-                prop_assert!(rd > 0.0);
+                prop_assert!(rd.value > 0.0);
             } else if tdoa < 0.0 {
-                prop_assert!(rd < 0.0);
+                prop_assert!(rd.value < 0.0);
             } else {
-                prop_assert!((rd).abs() < 1e-12);
+                prop_assert!((rd.value).abs() < 1e-12);
             }
         }
     }

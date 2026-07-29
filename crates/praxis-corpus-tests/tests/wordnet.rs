@@ -29,7 +29,7 @@ use pr4xis_domains::applied::data_provisioning::registry::{
     lock_compact_archive_signature, lock_store_bundle_signature,
 };
 use pr4xis_domains::cognitive::linguistics::english::bridge::{
-    CONCEPT_KIND, SUBSUMPTION_REL, english_functor, project_archive,
+    CONCEPT_KIND, OPPOSITION_REL, SUBSUMPTION_REL, english_functor, project_archive,
 };
 use pr4xis_domains::cognitive::linguistics::english::store_bundle::{
     STORE_NAMES, encode_store_bundle, store_bundle_frames,
@@ -37,7 +37,8 @@ use pr4xis_domains::cognitive::linguistics::english::store_bundle::{
 use pr4xis_domains::cognitive::linguistics::english::{ConceptId, English, english_loaded};
 use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis_domains::formal::meta::well_behaved_lens::{
-    CompletenessReport, DecompileKind, RoundTripFidelity as Tier, completeness_meter,
+    AchievedFidelity, CompletenessReport, DecompileKind, RoundTripFidelity as Tier,
+    completeness_meter,
 };
 use pr4xis_domains::social::software::markup::xml::lmf::compact::{decode, encode};
 use pr4xis_domains::social::software::markup::xml::lmf::compact_succinct::{
@@ -180,7 +181,7 @@ fn prx_gz_round_trips_to_english() {
             "PRX-GZ {name}: .prx.gz = {:.2}MB  loads to {} concepts in {:.0}ms (native)  vs \
              source download {:.2}MB",
             prx_gz.len() as f64 / 1e6,
-            loaded.concept_count(),
+            loaded.concept_count().value,
             load_ms,
             source_download as f64 / 1e6,
         );
@@ -258,9 +259,9 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
 
     // 1. REASONING-EQUIVALENCE with the from_wordnet reference.
     assert!(
-        loaded.concept_count() > 100_000,
+        loaded.concept_count().value > 100_000.0,
         "real English WordNet is rich (>100k synsets); got {}",
-        loaded.concept_count()
+        loaded.concept_count().value
     );
     assert_eq!(
         loaded.concept_count(),
@@ -278,7 +279,7 @@ fn compact_english_prx_keystone_gate_over_real_corpus() {
         "COMPACT-ENGLISH {FX_NAME}: .prx.gz = {:.2}MB loads {} concepts in {:.0}ms  vs  \
          XML parse {:.0}ms / source download {:.2}MB ({:.2}x)",
         cprx_gz.len() as f64 / 1e6,
-        loaded.concept_count(),
+        loaded.concept_count().value,
         prx_ms,
         xml_ms,
         source_dl as f64 / 1e6,
@@ -359,9 +360,9 @@ fn english_loaded_dispatcher_matches_from_wordnet() {
     let dispatched = english_loaded();
 
     assert!(
-        dispatched.concept_count() > 100_000,
+        dispatched.concept_count().value > 100_000.0,
         "real English WordNet is rich (>100k synsets); english_loaded() gave {}",
-        dispatched.concept_count()
+        dispatched.concept_count().value
     );
     assert_eq!(
         dispatched.concept_count(),
@@ -440,9 +441,9 @@ fn wordnet_full_corpus_emit_then_load_matches_from_wordnet() {
     let loaded = load_wordnet_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
 
     assert!(
-        loaded.concept_count() > 100_000,
+        loaded.concept_count().value > 100_000.0,
         "real English WordNet is rich (>100k synsets); got {}",
-        loaded.concept_count()
+        loaded.concept_count().value
     );
     assert_eq!(
         loaded.concept_count(),
@@ -557,12 +558,18 @@ fn wordnet_graph_faithful_prx_round_trip_over_real_corpus() {
     // in-crate `achieved` tier here. Its byte-exact proof is THIS test (the
     // direct serialize -> decode -> reconstruct -> byte-compare above) plus
     // the slow `ci_gate_passes_giants` + the all-sources source round-trip
-    // test. `achieved == None` for an oversize graph-faithful source is the
+    // test. `NotMeasuredHere` for an oversize graph-faithful source is the
     // honest "pending in the slow lane", NOT a floor — the declared tier and
     // the absent gap already establish it IS graph-faithful.
+    //
+    // Asserting `NotMeasuredHere` (not the old `None`) is what makes this
+    // assertion mean something: `None` was ALSO what a refuted law reported,
+    // so this line used to pass just as happily if WordNet's byte-exact law
+    // had blown up in the fast harness.
     assert_eq!(
-        wn_row.achieved, None,
-        "english_wordnet is oversize, so the fast meter defers it (achieved == None); \
+        wn_row.achieved,
+        AchievedFidelity::NotMeasuredHere,
+        "english_wordnet is oversize, so the fast meter DEFERS it (not measured here); \
          its byte-exactness is proven by this test + the slow lane, not the fast harness"
     );
 }
@@ -641,8 +648,8 @@ fn load_full_wordnet() {
     let causal = wn.causal_relations();
 
     eprintln!("=== WordNet Load ===");
-    eprintln!("  Synsets:       {}", wn.synset_count());
-    eprintln!("  Entries:       {}", wn.entry_count());
+    eprintln!("  Synsets:       {}", wn.synset_count().value);
+    eprintln!("  Entries:       {}", wn.entry_count().value);
     eprintln!("  Taxonomy:      {} relations", taxonomy.len());
     eprintln!("  Opposition:    {} relations", opposition.len());
     eprintln!("  Mereology:     {} relations", mereology.len());
@@ -653,8 +660,11 @@ fn load_full_wordnet() {
     );
 
     // Verify reasonable counts
-    assert!(wn.synset_count() > 100_000, "expected 100k+ synsets");
-    assert!(wn.entry_count() > 100_000, "expected 100k+ entries");
+    assert!(
+        wn.synset_count().value > 100_000.0,
+        "expected 100k+ synsets"
+    );
+    assert!(wn.entry_count().value > 100_000.0, "expected 100k+ entries");
     assert!(taxonomy.len() > 80_000, "expected 80k+ taxonomy relations");
     assert!(
         opposition.len() > 5_000,
@@ -687,8 +697,8 @@ fn codegen_and_runtime_paths_agree_on_synset_count() {
     // The runtime synset_count maps to codegen's entity_count
     // (each synset becomes an EntityDef in codegen).
     assert_eq!(
-        runtime_wn.synset_count(),
-        codegen_builder.entity_count(),
+        runtime_wn.synset_count().value,
+        codegen_builder.entity_count() as f64,
         "synset_count mismatch between runtime and codegen"
     );
 }
@@ -815,7 +825,7 @@ fn english_functor_projects_the_csr_edge_set() {
     );
     assert_eq!(
         target.nodes.len(),
-        english.concept_count(),
+        english.concept_count().value as usize,
         "one projected node per loaded synset"
     );
     for node in &target.nodes {
@@ -823,17 +833,29 @@ fn english_functor_projects_the_csr_edge_set() {
     }
 
     // THE EDGE SET: the applied archive's Subsumption edges, as
-    // (child original_id, parent original_id) pairs…
+    // (child original_id, parent original_id) pairs. `project_archive` emits
+    // BOTH hypernym (↦ Subsumption) and antonym (↦ Opposition) edges,
+    // additive (`synset_definition`'s own doc: "Antonym (Opposition) edges,
+    // additive") — so a projected edge is legitimately one of the two kinds,
+    // never a third, unexpected one. Only the Subsumption edges compare
+    // against the TaxonomyStore CSR below; Opposition edges are a genuinely
+    // separate relation the CSR does not carry.
     let projected: std::collections::BTreeSet<(&str, &str)> = target
         .nodes
         .iter()
         .flat_map(|node| {
-            node.edges.iter().map(|(kind, edge_target)| {
-                assert_eq!(kind, SUBSUMPTION_REL, "hypernym ↦ Subsumption");
+            node.edges.iter().filter_map(|(kind, edge_target)| {
+                assert!(
+                    kind == SUBSUMPTION_REL || kind == OPPOSITION_REL,
+                    "a projected edge must be hypernym↦Subsumption or antonym↦Opposition, got {kind:?}"
+                );
+                if kind != SUBSUMPTION_REL {
+                    return None;
+                }
                 let parent = edge_target
                     .local_name()
-                    .expect("the projection emits only local hypernym edges");
-                (node.name.as_str(), parent)
+                    .expect("the projection emits only local edge targets");
+                Some((node.name.as_str(), parent))
             })
         })
         .collect();
@@ -946,7 +968,7 @@ fn store_bundle_keystone_gate_over_real_corpus() {
     }
 
     // 2. BEHAVIOR SPOT-CHECKS across every store.
-    assert!(loaded.concept_count() > 100_000, "rich corpus");
+    assert!(loaded.concept_count().value > 100_000.0, "rich corpus");
     assert_eq!(loaded.concept_count(), reference.concept_count());
     assert_eq!(loaded.word_count(), reference.word_count());
     assert_eq!(loaded.taxonomy_count(), reference.taxonomy_count());
@@ -1035,7 +1057,7 @@ fn store_bundle_keystone_gate_over_real_corpus() {
         "STORE-BUNDLE {FX_NAME}: .stores.gz = {:.2}MB loads {} concepts in {:.0}ms; \
          address {address}",
         bundle_gz.len() as f64 / 1e6,
-        loaded.concept_count(),
+        loaded.concept_count().value,
         bundle_ms,
     );
 }

@@ -1,0 +1,62 @@
+# Quotation-mark glyph inventory — the closed set of Unicode characters that
+# open or close a quoted span, used by the tokenizer's quoted-mention
+# recognizer (Slice B, .notes/chat-fix-c-build-state.md) to collapse
+# `OPEN word... CLOSE` into a single NP-typed token: quoting a bare content
+# word is the syntactic device licensing an otherwise-N/verb-typed surface as
+# a genuine referring expression (Quine 1940:26 via SEP "Quotation" §3.1: a
+# mentioned/queried expression is a singular term).
+#
+# Source: Unicode Standard Annex #44 (Unicode Character Database), the
+# General_Category property, as tabulated in the UCD's
+# DerivedGeneralCategory.txt — verified against Unicode 18.0.0 (2026) by
+# direct inspection of the primary data file
+# (unicode-org/unicodetools:unicodetools/data/ucd/dev/extracted/
+# DerivedGeneralCategory.txt), cross-checked against the UCD's
+# Quotation_Mark property listing in PropList.txt for the ASCII pair.
+#
+# Two Unicode general categories carry the WHOLE loaded set:
+#   Pi (Initial_Punctuation) — 12 members, opens a quoted span.
+#   Pf (Final_Punctuation)   — 10 members, closes a quoted span.
+# Ten of the 12 Pi members pair with exactly one Pf member (the `pairs_with`
+# column carries that Pf member's code point); the remaining two Pi members
+# (U+201B, U+201F) have no Pf counterpart in the UCD — real code points,
+# genuinely unpaired, not a gap in this table.
+#
+# The two ASCII quote marks (U+0022 QUOTATION MARK, U+0027 APOSTROPHE) are
+# General_Category Po (Other_Punctuation), NOT Pi/Pf — ASCII does not encode
+# quote directionality — so they are role `ambiguous`: either glyph can open
+# OR close a quoted span depending on position, and neither carries a
+# `pairs_with` (any ambiguous glyph closes a span any ambiguous glyph opened).
+#
+# Format: `codepoint<TAB>glyph<TAB>role<TAB>pairs_with<TAB>name`
+#   codepoint   4-6 hex digits, no "U+" prefix.
+#   glyph       the literal UTF-8 character (for human sight-verification
+#               against `codepoint`; the loader cross-checks the two agree).
+#   role        initial | final | ambiguous
+#   pairs_with  the paired glyph's hex codepoint, or the literal `-` if none.
+#   name        the UCD character name, verbatim, for citation traceability.
+codepoint	glyph	role	pairs_with	name
+0022	"	ambiguous	-	QUOTATION MARK
+0027	'	ambiguous	-	APOSTROPHE
+00AB	«	initial	00BB	LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+00BB	»	final	-	RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
+2018	‘	initial	2019	LEFT SINGLE QUOTATION MARK
+2019	’	final	-	RIGHT SINGLE QUOTATION MARK
+201B	‛	initial	-	SINGLE HIGH-REVERSED-9 QUOTATION MARK
+201C	“	initial	201D	LEFT DOUBLE QUOTATION MARK
+201D	”	final	-	RIGHT DOUBLE QUOTATION MARK
+201F	‟	initial	-	DOUBLE HIGH-REVERSED-9 QUOTATION MARK
+2039	‹	initial	203A	SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+203A	›	final	-	SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+2E02	⸂	initial	2E03	LEFT SUBSTITUTION BRACKET
+2E03	⸃	final	-	RIGHT SUBSTITUTION BRACKET
+2E04	⸄	initial	2E05	LEFT DOTTED SUBSTITUTION BRACKET
+2E05	⸅	final	-	RIGHT DOTTED SUBSTITUTION BRACKET
+2E09	⸉	initial	2E0A	LEFT TRANSPOSITION BRACKET
+2E0A	⸊	final	-	RIGHT TRANSPOSITION BRACKET
+2E0C	⸌	initial	2E0D	LEFT RAISED OMISSION BRACKET
+2E0D	⸍	final	-	RIGHT RAISED OMISSION BRACKET
+2E1C	⸜	initial	2E1D	LEFT LOW PARAPHRASE BRACKET
+2E1D	⸝	final	-	RIGHT LOW PARAPHRASE BRACKET
+2E20	⸠	initial	2E21	LEFT VERTICAL BAR WITH QUILL
+2E21	⸡	final	-	RIGHT VERTICAL BAR WITH QUILL

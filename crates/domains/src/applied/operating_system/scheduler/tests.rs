@@ -176,7 +176,7 @@ fn rm_bound_is_sufficient_not_necessary() {
         "yet the set is rate-monotonic-schedulable (Liu & Layland 1973 sec 3)"
     );
     assert!(
-        trace.preemption_count() > 0,
+        trace.preemption_count().value > 0.0,
         "the trace realises preemption (the preemptive model in action)"
     );
 }

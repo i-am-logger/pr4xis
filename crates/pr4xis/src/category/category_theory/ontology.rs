@@ -414,17 +414,20 @@ mod tests {
     use crate::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_theory_ontology_category_laws() {
         assert_category_laws::<CategoryTheoryCategory>();
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn category_theory_ontology_validates() {
         CategoryTheoryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn monad_is_applicative_is_endofunctor_is_functor() {
         // McBride & Paterson (2008) hierarchy; Moggi (1991) monad
@@ -448,6 +451,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn monad_has_unit_and_multiplication() {
         // Moggi (1991): monad = (T, η, μ)
@@ -465,6 +469,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn specific_monads_are_monads() {
         // Wadler (1992); Liang-Hudak-Jones (1995) — canonical monad examples.
@@ -487,6 +492,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn algebra_opposes_coalgebra() {
         // Meijer-Fokkinga-Paterson (1991) — algebra and coalgebra are
@@ -506,6 +512,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interpretation_is_functor_instance_specialises_interpretation() {
         // Spivak (2012) FDM: an InstanceFunctor is a specific kind of
@@ -526,6 +533,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn interpretation_bridges_syntactic_and_semantic() {
         // Lambek & Scott (1986): an interpretation HAS a syntactic source
@@ -555,6 +563,7 @@ mod tests {
         )));
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn is_grounding_functor_kind_discriminates_instance_from_relabel() {
         // Spivak (2012) FDM §3: only an InstanceFunctor (or a refinement below it)
@@ -577,6 +586,7 @@ mod tests {
         assert!(!is_grounding_functor_kind("NotAConcept"));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn galois_connection_is_adjunction() {
         // Ore (1944): Galois connections are adjunctions between posets.
@@ -650,4 +660,9 @@ mod tests {
                 "expected >= 40 concepts after extension, got {}", variants.len());
         }
     }
+    pr4xis::register_praxis_value!(prop_every_arrow_is_named, Explainable);
+    pr4xis::register_praxis_value!(prop_subsumption_targets_valid, Verifiable);
+    pr4xis::register_praxis_value!(prop_structural_axioms_hold, Verifiable);
+    pr4xis::register_praxis_value!(prop_opposition_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_concept_count_is_sufficient, Verifiable);
 }

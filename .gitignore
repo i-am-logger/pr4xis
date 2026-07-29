@@ -37,7 +37,27 @@ crates/wasm/ontologies/
 # and read by the corpus loader instead of re-parsing source XML per
 # process. Build output, never committed; CI restores it from the
 # praxis.lock-keyed data cache.
-.prx-cache/
+#
+# Written as `/*` rather than `/`, because git never descends into an excluded
+# DIRECTORY — a `!` re-include beneath one is silently inert.
+.prx-cache/*
+# …EXCEPT the statutory-definition overlays, which ARE committed.
+#
+# These nine files (56 KB total) are the output of `pr4xis compile --defines`,
+# a derivation praxis.lock's own note measures at roughly 3.3 hours — far too
+# long to be a build step, and nothing in CI ran it. The rest of `.prx-cache`
+# is a speed optimisation whose absence costs time; this part is not. When it
+# is missing, `USC_DEFINES_OVERLAY` is emitted EMPTY and the shipped wasm
+# silently cannot answer a statutory definition — 5,443 definitions, 2,241 of
+# them in Title 42, present on every developer's machine and absent from the
+# artifact anyone else actually runs.
+#
+# Committing them is safe because they are content-addressed: every byte is
+# pinned in praxis.lock's [compact_defines_signatures] and the loader refuses
+# fail-closed on any mismatch. Regenerate with `pr4xis compile --defines --lock`.
+!.prx-cache/usc-defines-compact/
+.prx-cache/usc-defines-compact/*
+!.prx-cache/usc-defines-compact/*.defines.cprx.gz
 
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml
@@ -115,5 +135,75 @@ crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
 # the fork. Only the content-addressed `.prx` (data/themes/*.prx) ships.
 crates/domains/data/tinted-schemes/
 
+# VerbNet class-hierarchy COLLECTION (Kipper, Korhonen, Ryant & Palmer 2008),
+# tag `vn-3.3` of github.com/cu-clear/verbnet. `pr4xis update` clones the
+# tagged checkout into `data/verbnet-checkout/` (TRANSIENT, ignored) and
+# `verbnet_class_collection::archive_directory` flattens its `verbnet3.3/`
+# class-XML directory into the deterministic `verbnet-3.3.verbnet` archive.
+# Same reasoning as tinted-schemes above: a git-clone-and-archive is NOT
+# guaranteed byte-reproducible against the pin (GitHub's tarball packaging
+# can drift even for a fixed tag), so the `.verbnet` is a BUNDLED
+# source-of-truth: git-tracked, excluded from the published crate, present on
+# a fresh checkout so `pr4xis update` verifies it locally instead of
+# re-cloning. Only the content-addressed `.prx` (data/verbnet/*.prx) ships.
+crates/domains/data/verbnet-checkout/
+
+# ConceptNet 5.7.0 assertions (Speer, Chin & Havasi 2017), fetched from the
+# versioned S3 object at s3.amazonaws.com/conceptnet/downloads/2019/edges/
+# conceptnet-assertions-5.7.0.csv.gz (~475 MiB, 34M rows, no official
+# English-only or WordNet-linked subset exists). The full raw download is
+# TRANSIENT staging, never committed: `data/conceptnet-download/` holds the
+# fetched .csv.gz, and the WordNet-crosswalk filter (mirrors VerbNet's
+# `_wordnet_crosswalk.tsv` approach) produces the small, deterministic,
+# committed subset — only assertions where both endpoints resolve to a loaded
+# English/WordNet lemma survive. Only the filtered, content-addressed
+# `.prx` (data/conceptnet/*.prx) ships.
+crates/domains/data/conceptnet-download/
+
+# FrameNet 1.7 (Baker, Fillmore & Lowe 1998), fetched from the NLTK-mirrored,
+# checksum-verified release at raw.githubusercontent.com/nltk/nltk_data/
+# gh-pages/packages/corpora/framenet_v17.zip (~99 MiB compressed / ~855 MiB
+# uncompressed, dominated by an annotated-sentence corpus no part of this
+# extraction needs). The full raw download is TRANSIENT staging, never
+# committed: `data/framenet-download/` holds the fetched .zip, and the
+# extraction (each LU file's root `<lexUnit>` start-tag attributes + every
+# `frRelation.xml` relation row) produces the small, deterministic, committed
+# subset. Only the extracted, content-addressed `.prx` (data/framenet/*.prx)
+# ships.
+crates/domains/data/framenet-download/
+
+# SUMO WordNet↔SUMO mappings (Niles & Pease 2001, 2003), fetched from
+# ontologyportal/sumo master at raw.githubusercontent.com/ontologyportal/sumo/
+# master/WordNetMappings/WordNetMappings30-{noun,verb,adj,adv}.txt (~22 MiB
+# across the four annotated-WNDB files). The full raw download is TRANSIENT
+# staging, never committed: `data/sumo-download/` holds the fetched .txt files,
+# and the extraction (synset offset + POS + each `&%<term><suffix>` annotation)
+# produces the small, deterministic, committed subset. Only the extracted,
+# content-addressed `.prx` (data/sumo/*.prx) ships.
+crates/domains/data/sumo-download/
+
+# PropBank predicate argument-structure frames (Palmer, Gildea & Kingsbury
+# 2005; Bonial, Bonn, Conger, Hwang & Palmer 2014), tag `v3.4.0` of
+# github.com/propbank/propbank-frames. `pr4xis update` clones the tagged
+# checkout into `data/propbank-checkout/` (TRANSIENT, ignored) and
+# `propbank_frameset_collection::archive_directory` flattens its `frames/`
+# directory (7,565 real frame `.xml` files, excluding `.gitignore`/
+# `README.txt`/`frameset.dtd`) into the deterministic `propbank-3.4.0.propbank`
+# archive. Same reasoning as verbnet-checkout above: a git-clone-and-archive
+# is NOT guaranteed byte-reproducible against the pin (GitHub's tarball
+# packaging can drift even for a fixed tag), so the `.propbank` is a BUNDLED
+# source-of-truth: git-tracked, excluded from the published crate, present on
+# a fresh checkout so `pr4xis update` verifies it locally instead of
+# re-cloning. Only the content-addressed `.prx` (data/propbank/*.prx) ships.
+crates/domains/data/propbank-checkout/
+
 # Internal working notes (architecture reviews, session scratch) — never tracked
 .notes/
+
+# Throwaway diagnostic dump from scratch_probe.rs (reproducible via the
+# committed test, referenced by docs/caregiver-challenge/smart40-validation-log.md)
+/smart40_validation_log_dump.json
+
+# dev-caregiver-pdf build output (pandoc .typ fragments + typst PDFs) --
+# reproducible from the committed .md sources + docs/caregiver-challenge/pdf/
+docs/caregiver-challenge/pdf/build/

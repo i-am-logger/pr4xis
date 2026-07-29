@@ -96,6 +96,7 @@ mod tests {
 
     // --- Writer Monad Laws ---
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn left_identity() {
         // bind(pure(a), f) = f(a)
@@ -109,6 +110,7 @@ mod tests {
         assert_eq!(left.log, right.log);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn right_identity() {
         // bind(m, pure) = m
@@ -119,6 +121,7 @@ mod tests {
         assert_eq!(result.log, m.log);
     }
 
+    #[crate::praxis_value(Deterministic)]
     #[test]
     fn associativity() {
         // bind(bind(m, f), g) = bind(m, |x| bind(f(x), g))
@@ -138,6 +141,7 @@ mod tests {
 
     // --- Practical usage ---
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn trace_accumulates_through_bind() {
         let result = Writer::new(1, vec!["parsed"])
@@ -148,6 +152,7 @@ mod tests {
         assert_eq!(result.log, vec!["parsed", "interpreted", "generated"]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn tell_appends_log() {
         let result = Writer::<Vec<&str>, i32>::pure(42).tell(vec!["traced"]);
@@ -156,6 +161,7 @@ mod tests {
         assert_eq!(result.log, vec!["traced"]);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn map_preserves_log() {
         let result = Writer::new(21, vec!["initial"]).map(|x| x * 2);
@@ -214,5 +220,10 @@ mod tests {
                 prop_assert_eq!(w.log, vec![log_val]);
             }
         }
+        crate::register_praxis_value!(prop_writer_left_identity, Deterministic);
+        crate::register_praxis_value!(prop_writer_right_identity, Deterministic);
+        crate::register_praxis_value!(prop_writer_pure_empty_log, Verifiable);
+        crate::register_praxis_value!(prop_writer_tell_preserves_value, Verifiable);
+        crate::register_praxis_value!(prop_writer_map_preserves_log, Verifiable);
     }
 }

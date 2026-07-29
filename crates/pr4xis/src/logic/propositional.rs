@@ -157,11 +157,13 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_8_connectives() {
         assert_eq!(Connective::variants().len(), 8);
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_commutative_connectives() {
         let count = Connective::variants()
@@ -171,41 +173,49 @@ mod tests {
         assert_eq!(count, 6); // AND, OR, IFF, XOR, NAND, NOR
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_de_morgan_and() {
         assert!(de_morgan_and());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_de_morgan_or() {
         assert!(de_morgan_or());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_double_negation() {
         assert!(double_negation());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_modus_ponens() {
         assert!(modus_ponens());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_contrapositive() {
         assert!(contrapositive());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_excluded_middle() {
         assert!(excluded_middle());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_non_contradiction() {
         assert!(non_contradiction());
     }
 
+    #[crate::praxis_value(Verifiable)]
     #[test]
     fn test_nand_universal() {
         assert!(nand_is_universal());
@@ -266,4 +276,12 @@ mod tests {
             prop_assert_eq!(Connective::Nor.eval(a, b), !Connective::Or.eval(a, b));
         }
     }
+    crate::register_praxis_value!(prop_commutative, Verifiable);
+    crate::register_praxis_value!(prop_implies_not_commutative, Verifiable);
+    crate::register_praxis_value!(prop_and_identity, Verifiable);
+    crate::register_praxis_value!(prop_or_identity, Verifiable);
+    crate::register_praxis_value!(prop_xor_self_false, Verifiable);
+    crate::register_praxis_value!(prop_iff_reflexive, Verifiable);
+    crate::register_praxis_value!(prop_nand_is_not_and, Verifiable);
+    crate::register_praxis_value!(prop_nor_is_not_or, Verifiable);
 }

@@ -81,6 +81,7 @@ mod tests {
         }
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn empty_archive_has_a_stable_root() {
         assert_eq!(
@@ -89,6 +90,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn adding_a_node_changes_the_root() {
         let mut a = Archive::new();
@@ -96,6 +98,7 @@ mod tests {
         assert_ne!(Archive::new().root().unwrap(), a.root().unwrap());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn root_is_node_order_independent() {
         let a = Archive {
@@ -109,6 +112,7 @@ mod tests {
         assert_eq!(a.root().unwrap(), b.root().unwrap());
     }
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn duplicate_node_does_not_change_the_root() {
         let a = Archive {
@@ -122,6 +126,7 @@ mod tests {
         assert_eq!(a.root().unwrap(), b.root().unwrap());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn a_connection_contributes_to_the_root() {
         let a = Archive {

@@ -3,6 +3,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::probability::mahalanobis;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use crate::formal::math::statistics::hypothesis;
 
 use crate::applied::sensor_fusion::observation::innovation::Innovation;
@@ -41,18 +43,21 @@ impl ValidationGate {
             &innovation.covariance,
         );
         match d2 {
-            Some(d2) => d2 < self.threshold,
+            Some(d2) => d2.value < self.threshold,
             None => false,
         }
     }
 
-    /// Normalized Innovation Squared (NIS) — the test statistic.
-    pub fn nis(&self, innovation: &Innovation) -> Option<f64> {
+    /// Normalized Innovation Squared (NIS) — the test statistic. Dimensionless
+    /// by construction, same family as `mahalanobis_squared` (a squared
+    /// distance normalized by covariance, i.e. a ratio).
+    pub fn nis(&self, innovation: &Innovation) -> Option<Quantity> {
         mahalanobis::mahalanobis_squared(
             &innovation.residual,
             &Vector::zeros(innovation.dim()),
             &innovation.covariance,
         )
+        .map(|d2| Quantity::from_unit(d2.value, &unit::UNITLESS))
     }
 }
 

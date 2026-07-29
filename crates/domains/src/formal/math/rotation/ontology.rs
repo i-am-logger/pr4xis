@@ -71,7 +71,7 @@ impl Axiom for UnitNormClosure {
         for a in &rotations {
             for b in &rotations {
                 let c = a.multiply(b);
-                if (c.norm() - 1.0).abs() > 1e-10 {
+                if (c.norm().value - 1.0).abs() > 1e-10 {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }

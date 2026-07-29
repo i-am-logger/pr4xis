@@ -1,6 +1,9 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
+use crate::formal::math::temporal::duration::Duration;
 use crate::formal::math::temporal::instant::Instant;
 use crate::formal::math::temporal::time_system::TimeSystem;
 
@@ -40,22 +43,24 @@ impl FusionEpoch {
 
     /// Age of this measurement relative to a reference time (seconds).
     /// Returns positive if the measurement is older than the reference.
-    pub fn age(&self, reference: &Instant) -> Option<f64> {
-        self.instant.duration_to(reference).map(|d| d.seconds())
+    pub fn age(&self, reference: &Instant) -> Option<Quantity> {
+        self.instant
+            .duration_to(reference)
+            .map(|d| Quantity::from_unit(d.seconds(), &unit::SECOND))
     }
 
-    /// Is this measurement stale? (older than `max_age_seconds` relative to reference)
-    pub fn is_stale(&self, reference: &Instant, max_age_seconds: f64) -> Option<bool> {
-        self.age(reference).map(|age| age > max_age_seconds)
+    /// Is this measurement stale? (older than `max_age` relative to reference)
+    pub fn is_stale(&self, reference: &Instant, max_age: &Duration) -> Option<bool> {
+        self.age(reference).map(|age| age.value > max_age.seconds())
     }
 
     /// Duration since another fusion epoch (in seconds).
     /// Returns None if time systems differ.
-    pub fn duration_since(&self, other: &FusionEpoch) -> Option<f64> {
+    pub fn duration_since(&self, other: &FusionEpoch) -> Option<Quantity> {
         other
             .instant
             .duration_to(&self.instant)
-            .map(|d| d.seconds())
+            .map(|d| Quantity::from_unit(d.seconds(), &unit::SECOND))
     }
 
     /// Is this epoch from the same sensor as another?
@@ -74,7 +79,7 @@ mod tests {
         let epoch = FusionEpoch::from_gps_seconds(100.0, SensorType::GnssReceiver);
         let now = Instant::new(105.0, TimeSystem::GPS);
         let age = epoch.age(&now).unwrap();
-        assert!((age - 5.0).abs() < 1e-10);
+        assert!((age.value - 5.0).abs() < 1e-10);
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -82,8 +87,14 @@ mod tests {
     fn is_stale_detects_old_measurement() {
         let epoch = FusionEpoch::from_gps_seconds(100.0, SensorType::GnssReceiver);
         let now = Instant::new(102.0, TimeSystem::GPS);
-        assert_eq!(epoch.is_stale(&now, 1.0), Some(true));
-        assert_eq!(epoch.is_stale(&now, 5.0), Some(false));
+        assert_eq!(
+            epoch.is_stale(&now, &Duration::from_seconds(1.0)),
+            Some(true)
+        );
+        assert_eq!(
+            epoch.is_stale(&now, &Duration::from_seconds(5.0)),
+            Some(false)
+        );
     }
 
     #[pr4xis::praxis_value(Verifiable)]
@@ -92,7 +103,7 @@ mod tests {
         let e1 = FusionEpoch::from_gps_seconds(100.0, SensorType::IMU);
         let e2 = FusionEpoch::from_gps_seconds(100.5, SensorType::GnssReceiver);
         let dt = e2.duration_since(&e1).unwrap();
-        assert!((dt - 0.5).abs() < 1e-10);
+        assert!((dt.value - 0.5).abs() < 1e-10);
     }
 
     #[pr4xis::praxis_value(Honest)]

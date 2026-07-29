@@ -140,8 +140,8 @@ mod proptest_proofs {
         #[test]
         fn great_circle_distance_is_symmetric(a in arb_geodetic(), b in arb_geodetic()) {
             let e = ellipsoid::wgs84();
-            let d_ab = conversion::great_circle_distance(&a, &b, &e);
-            let d_ba = conversion::great_circle_distance(&b, &a, &e);
+            let d_ab = conversion::great_circle_distance(&a, &b, &e).value;
+            let d_ba = conversion::great_circle_distance(&b, &a, &e).value;
             prop_assert!((d_ab - d_ba).abs() < 1.0); // 1m tolerance
         }
 
@@ -149,14 +149,14 @@ mod proptest_proofs {
         fn great_circle_distance_non_negative(a in arb_geodetic(), b in arb_geodetic()) {
             let e = ellipsoid::wgs84();
             let d = conversion::great_circle_distance(&a, &b, &e);
-            prop_assert!(d >= 0.0);
+            prop_assert!(d.value >= 0.0);
         }
 
         #[test]
         fn great_circle_to_self_is_zero(a in arb_geodetic()) {
             let e = ellipsoid::wgs84();
             let d = conversion::great_circle_distance(&a, &a, &e);
-            prop_assert!(d < 1e-6);
+            prop_assert!(d.value < 1e-6);
         }
 
         #[test]
@@ -169,7 +169,7 @@ mod proptest_proofs {
             let ecef = conversion::geodetic_to_ecef(&geo, &e);
             // Point should satisfy ellipsoid equation: (x²+y²)/a² + z²/b² ≈ 1
             let a2 = e.a * e.a;
-            let b2 = e.b() * e.b();
+            let b2 = e.b().value * e.b().value;
             let ellipsoid_eq = (ecef.x * ecef.x + ecef.y * ecef.y) / a2 + ecef.z * ecef.z / b2;
             prop_assert!((ellipsoid_eq - 1.0).abs() < 1e-8,
                 "ellipsoid equation = {} (should be 1.0)", ellipsoid_eq);

@@ -38,7 +38,7 @@ fn bfs_taxonomy_matches_eager_closure_over_full_corpus() {
     // The real loaded English (compact `.prx` fast path; HARD-FAILs if the corpus
     // is not provisioned — no skip).
     let en = english_loaded();
-    let n = en.concept_count();
+    let n = en.concept_count().value as usize;
     assert!(
         n > 100_000,
         "the real corpus must be loaded; got {n} concepts"

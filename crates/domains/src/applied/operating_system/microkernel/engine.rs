@@ -24,6 +24,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 use pr4xis::engine::{Action, Situation};
 
 // ---------------------------------------------------------------------------
@@ -147,8 +149,9 @@ impl KernelSituation {
     /// How many delivered messages crossed an address-space boundary
     /// (sender's space differs from receiver's) — used for non-vacuity:
     /// the fixture round trip must actually exercise isolation.
-    pub fn cross_space_delivery_count(&self) -> usize {
-        self.threads
+    pub fn cross_space_delivery_count(&self) -> Quantity {
+        let count: usize = self
+            .threads
             .iter()
             .map(|receiver| {
                 receiver
@@ -161,7 +164,8 @@ impl KernelSituation {
                     })
                     .count()
             })
-            .sum()
+            .sum();
+        Quantity::from_unit(count as f64, &unit::UNITLESS)
     }
 }
 

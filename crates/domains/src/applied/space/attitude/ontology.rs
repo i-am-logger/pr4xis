@@ -64,11 +64,17 @@ impl Axiom for QuaternionUnitNorm {
         // components, axis-angle over a spread of axes/angles, Euler 3-2-1)
         // and through the attitude-kinematics propagator, then check that
         // the actual engine norm() lands within tolerance of 1.
-        use crate::applied::space::attitude::kinematics::{
-            Quaternion as KinematicQuaternion, propagate_attitude,
-        };
+        //
+        // `applied::space::attitude::kinematics::Quaternion` is a `pub use`
+        // re-export of `formal::math::rotation::quaternion::Quaternion` —
+        // one SO(3) representation, not two — so both fixture lists below
+        // build the exact same type; what differs is the *construction
+        // path* (direct SO(3) constructors vs. the attitude-kinematics
+        // propagator), and the axiom checks the unit-norm invariant holds
+        // down both paths.
+        use crate::applied::space::attitude::kinematics::propagate_attitude;
         use crate::formal::math::linear_algebra::vector_space::Vector;
-        use crate::formal::math::rotation::quaternion::Quaternion as RotationQuaternion;
+        use crate::formal::math::rotation::quaternion::Quaternion;
 
         // 1e-9 is far looser than the ~1e-15 round-off the normalizing
         // constructors actually incur, yet tight enough that a genuinely
@@ -94,39 +100,43 @@ impl Axiom for QuaternionUnitNorm {
             5.0,
         ];
 
-        let mut rotation_qs: Vec<RotationQuaternion> = Vec::new();
-        rotation_qs.push(RotationQuaternion::identity());
+        let mut rotation_qs: Vec<Quaternion> = Vec::new();
+        rotation_qs.push(Quaternion::identity());
         for axis in axes.iter() {
             for &angle in angles.iter() {
-                rotation_qs.push(RotationQuaternion::from_axis_angle(
+                rotation_qs.push(Quaternion::from_axis_angle(
                     &Vector::new(vec![axis[0], axis[1], axis[2]]),
                     angle,
                 ));
             }
         }
-        rotation_qs.push(RotationQuaternion::from_euler_321(0.3, -0.7, 1.1));
-        rotation_qs.push(RotationQuaternion::from_euler_321(1.5, 0.0, -2.2));
+        rotation_qs.push(Quaternion::from_euler_321(0.3, -0.7, 1.1));
+        rotation_qs.push(Quaternion::from_euler_321(1.5, 0.0, -2.2));
         // Raw, un-normalized components: the constructor must renormalize.
-        rotation_qs.push(RotationQuaternion::new(2.0, -1.0, 0.5, 4.0));
+        rotation_qs.push(Quaternion::new(2.0, -1.0, 0.5, 4.0));
 
-        let rotation_ok = rotation_qs.iter().all(|q| (q.norm() - 1.0).abs() < TOL);
+        let rotation_ok = rotation_qs
+            .iter()
+            .all(|q| (q.norm().value - 1.0).abs() < TOL);
 
-        // --- Attitude-kinematics quaternions ---------------------------
-        let mut kinematic_qs: Vec<KinematicQuaternion> = Vec::new();
-        kinematic_qs.push(KinematicQuaternion::identity());
+        // --- Attitude-kinematics propagation path -----------------------
+        let mut kinematic_qs: Vec<Quaternion> = Vec::new();
+        kinematic_qs.push(Quaternion::identity());
         // new() normalizes raw components.
-        kinematic_qs.push(KinematicQuaternion::new(3.0, 1.0, -2.0, 0.5));
+        kinematic_qs.push(Quaternion::new(3.0, 1.0, -2.0, 0.5));
         // Propagate the identity attitude under a constant body rate; the
-        // first-order integrator renormalizes each step, so the invariant
-        // must survive 100 steps of drift.
+        // propagator renormalizes each step, so the invariant must survive
+        // 100 steps of drift.
         let omega = Vector::new(vec![0.01, -0.02, 0.015]);
-        let mut q = KinematicQuaternion::identity();
+        let mut q = Quaternion::identity();
         for _ in 0..100 {
             q = propagate_attitude(&q, &omega, 0.1);
         }
         kinematic_qs.push(q);
 
-        let kinematic_ok = kinematic_qs.iter().all(|q| (q.norm() - 1.0).abs() < TOL);
+        let kinematic_ok = kinematic_qs
+            .iter()
+            .all(|q| (q.norm().value - 1.0).abs() < TOL);
 
         if rotation_ok && kinematic_ok {
             Ok(Box::new(SimpleProof::new(self.meta())))

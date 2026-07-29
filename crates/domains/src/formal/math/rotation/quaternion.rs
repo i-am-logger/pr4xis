@@ -5,6 +5,8 @@ use core::fmt;
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
+use crate::formal::math::quantity::unit;
+use crate::formal::math::quantity::value::Quantity;
 
 /// Unit quaternion representing an element of SO(3).
 ///
@@ -90,18 +92,28 @@ impl Quaternion {
     }
 
     /// Squared norm.
-    pub fn norm_squared(&self) -> f64 {
-        self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`) — a
+    /// quaternion norm is dimensionless by construction (a unit quaternion
+    /// has norm 1), same reasoning as `Vector::norm_squared`.
+    pub fn norm_squared(&self) -> Quantity {
+        Quantity::from_unit(
+            self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z,
+            &unit::UNITLESS,
+        )
     }
 
     /// Norm (1.0 for unit quaternion).
-    pub fn norm(&self) -> f64 {
-        self.norm_squared().sqrt()
+    ///
+    /// Returns a dimensionless [`Quantity`] (`unit::UNITLESS`), same
+    /// reasoning as [`Quaternion::norm_squared`].
+    pub fn norm(&self) -> Quantity {
+        Quantity::from_unit(self.norm_squared().value.sqrt(), &unit::UNITLESS)
     }
 
     /// Normalize to unit quaternion. Returns identity if the norm is near zero.
     pub fn normalize(&self) -> Self {
-        let n = self.norm();
+        let n = self.norm().value;
         if n < 1e-15 {
             return Self::identity();
         }

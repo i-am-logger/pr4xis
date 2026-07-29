@@ -153,7 +153,7 @@ fn compute_fix_with_4_satellites() {
     let sol = result.solution.unwrap();
     assert_eq!(sol.num_satellites, 4);
     // Solution should be near origin
-    let dist = sol.position.norm();
+    let dist = sol.position.norm().value;
     assert!(
         dist < 1000.0,
         "solution should be near origin, got distance={}",
