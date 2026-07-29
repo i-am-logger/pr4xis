@@ -142,13 +142,21 @@ in
     RUSTFLAGS="-D warnings" cargo test --doc --workspace --release --quiet || { echo "FAILED: doc tests"; exit 1; }
     echo "=== mdbook test ==="
     mdbook test docs/ || { echo "FAILED: mdbook test"; exit 1; }
-    echo "=== test (nextest --release, strict [profile.ci]) ==="
-    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
-    echo "=== constitution completeness gate (untagged=0 phantom=0) ==="
-    bash scripts/constitution-gate.sh pr4xis --enforce || { echo "FAILED: constitution gate (pr4xis)"; exit 1; }
-    bash scripts/constitution-gate.sh pr4xis-runtime --enforce || { echo "FAILED: constitution gate (pr4xis-runtime)"; exit 1; }
-    bash scripts/constitution-gate.sh pr4xis-chat --enforce || { echo "FAILED: constitution gate (pr4xis-chat)"; exit 1; }
-    bash scripts/constitution-gate.sh pr4xis-domains --enforce || { echo "FAILED: constitution gate (pr4xis-domains)"; exit 1; }
+    # Archive-then-run, not a bare `nextest run --workspace`, because the
+    # constitution gate below reads the ARCHIVE. Building it here is what keeps
+    # local == CI ENFORCED rather than asserted: the gate's feature set must be
+    # the workspace-unified one CI actually tests, and a per-crate
+    # `cargo test --lib` resolves a narrower union (it used to exempt all 59
+    # tests of pr4xis's codegen module, and the fetch/emit-gated tests).
+    echo "=== build nextest archive (the artifact CI tests + gates from) ==="
+    RUSTFLAGS="-D warnings" cargo nextest archive --workspace --profile ci --release --archive-file target/nextest-archive.tar.zst || { echo "FAILED: nextest archive"; exit 1; }
+    echo "=== test (nextest from archive, strict [profile.ci]) ==="
+    cargo nextest run --archive-file target/nextest-archive.tar.zst --workspace-remap . --profile ci || { echo "FAILED: test"; exit 1; }
+    echo "=== constitution completeness gate (untagged=0 phantom=0, from the archive) ==="
+    bash scripts/constitution-gate.sh pr4xis --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis)"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis-runtime --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis-runtime)"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis-chat --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis-chat)"; exit 1; }
+    bash scripts/constitution-gate.sh pr4xis-domains --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis-domains)"; exit 1; }
     echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
     bash scripts/heavy-corpus-tests.sh || { echo "FAILED: corpus tests"; exit 1; }
     echo "=== caregiver demonstrator: program-ladder renderer over the real corpus ==="

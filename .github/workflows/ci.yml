@@ -65,18 +65,17 @@ permissions:
   id-token: write
 
 # ── CI architecture ────────────────────────────────────────────────
-# Almost all Rust work here is `--release`, and every host-target job
-# uses the same `Swatinem/rust-cache@v2` shared-key ("release") so the
-# DEPENDENCY graph compiles once across the workflow and every
-# downstream job restores the same slice. The wasm-target jobs
-# (`wasm-browser`, `pages`) share it too rather than using a separate
-# pool: both run host-target Rust before any wasm work.
+# All Rust work here is `--release`; `[profile.dev]` does not appear in
+# CI. Every host-target job uses the same `Swatinem/rust-cache@v2`
+# shared-key ("release") so the DEPENDENCY graph compiles once across
+# the workflow and every downstream job restores the same slice. The
+# wasm-target jobs (`wasm-browser`, `pages`) share it too rather than
+# using a separate pool: both run host-target Rust before any wasm work.
 #
-# One documented exception to "release only": `scripts/constitution-
-# gate.sh` runs `cargo test --lib` with NO `--release`, so the gate
-# compiles four crates under `[profile.dev]` (opt-level = 1, root
-# Cargo.toml:97) into a slice it shares with nothing. That is a real
-# cost, not a footnote — see the `build` job.
+# That claim used to be false. `scripts/constitution-gate.sh` ran
+# `cargo test --lib` with no `--release`, compiling four crates under
+# [profile.dev] into a slice shared with nothing. It now reads the
+# nextest archive instead and compiles nothing at all — see `test`.
 #
 # ── What the shared cache does and does NOT do ─────────────────────
 # It caches DEPENDENCIES ONLY. `Swatinem/rust-cache` deliberately
@@ -103,7 +102,9 @@ permissions:
 # check. Both edits, every time.
 #
 #   build ──┬─► lint-docs ─────┐
-#           ├─► test ──────────┤   (also the designated .prx-cache saver)
+#           ├─► test ──────────┤   runs the archive + the constitution
+#           │                      completeness gate over it; also the
+#           │                      designated .prx-cache saver
 #           ├─► corpus ────────┤   host-target heavy-corpus suite
 #           ├─► wasm-native ───┤   host-target acceptance tests
 #           ├─► wasm-browser ──┤   the ONLY wasm32 lane; ALSO the sole
@@ -112,7 +113,6 @@ permissions:
 #           │      │               then assembles and uploads the
 #           │  caregiver-pdf       `github-pages` artifact from the exact
 #           │                      bytes it just tested.
-#           └─► constitution ──┤
 #   format ────────────────────┤
 #   no-ignored-doctests ───────┤
 #   demonstrator-gates ────────┴─► release-plz-release ─┬─► release-plz-pr
@@ -231,12 +231,12 @@ jobs:
           RUSTFLAGS: "-D warnings"
         run: cargo nextest archive --workspace --profile ci --release --archive-file target/nextest-archive.tar.zst
       # NOTE: the constitution completeness gate and the caregiver demonstrator
-      # gates used to run HERE. Both were moved to their own jobs (`constitution`
-      # and `demonstrator-gates`). Neither produced anything a downstream job
-      # consumes — the constitution gate's only output is a shell exit code, and
-      # the node gates read committed files — so 805s + ~15s of pure gating sat
-      # in front of the entire fan-out, delaying lint-docs/test/wasm for work
-      # none of them needed.
+      # gates used to run HERE, costing 805s + ~15s at the head of the pipeline.
+      # Neither produces anything a downstream job consumes — the gate's only
+      # output is a shell exit code, and the node gates read committed files —
+      # so both were pure gating that delayed lint-docs/test/wasm for work none
+      # of them needed. The constitution gate now runs inside `test`, straight
+      # off the archive built below; the node gates are `demonstrator-gates`.
       - uses: actions/upload-artifact@v7
         with:
           name: pr4xis-cli
@@ -469,6 +469,35 @@ jobs:
           path: target/
       - name: Run nextest from archive
         run: cargo nextest run --archive-file target/nextest-archive.tar.zst --workspace-remap . --profile ci
+      # Constitution COMPLETENESS gate: every real test declares a guarantee
+      # (untagged=0) and every registered tag maps to a real test (phantom=0).
+      # Inherently a TWO-PROCESS diff — libtest's inventory is only enumerable
+      # from outside the binary (rust-lang#50297 keeps the in-process inventory
+      # unstable) — so the shell gate IS the minimal machine-checkable form,
+      # not a workaround. The in-process constitution_coverage meta-test
+      # asserts only PARTITION coverage; without this, untagged tests pass CI
+      # silently.
+      #
+      # Runs HERE, from the archive this job already downloaded, rather than in
+      # its own job: everything it consumes is inside the tarball, so it costs
+      # seconds instead of the 805s dev-profile compile of four crates it used
+      # to spend at the head of the pipeline.
+      #
+      # It also ENFORCES MORE than it used to. Compiling from source resolved a
+      # narrower feature union than `--workspace` does, so feature-gated code
+      # was exempt from untagged=0 — all 59 tests of pr4xis's `codegen` module,
+      # pr4xis-domains' fetch-gated tests, pr4xis-runtime's emit-gated tests.
+      # Verified against this archive: pr4xis 437, pr4xis-runtime 116,
+      # pr4xis-chat 113, pr4xis-domains 8037 — untagged=0 and phantom=0 on all
+      # four, so widening the gate needed no backfill.
+      - name: Constitution completeness gate (from the archive)
+        timeout-minutes: 10
+        run: |
+          A=target/nextest-archive.tar.zst
+          bash scripts/constitution-gate.sh pr4xis --enforce --archive "$A"
+          bash scripts/constitution-gate.sh pr4xis-runtime --enforce --archive "$A"
+          bash scripts/constitution-gate.sh pr4xis-chat --enforce --archive "$A"
+          bash scripts/constitution-gate.sh pr4xis-domains --enforce --archive "$A"
       - name: Upload test results to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
         uses: codecov/codecov-action@v7
@@ -931,73 +960,6 @@ jobs:
           RUSTFLAGS: "-D warnings"
         run: cargo test --manifest-path crates/wasm/Cargo.toml --release
 
-  # Constitution COMPLETENESS gate: every real test declares a guarantee
-  # (untagged=0) and every registered tag maps to a real test (phantom=0).
-  # This is inherently a TWO-PROCESS diff — libtest's inventory is only
-  # enumerable from outside the binary (`--list`; rust-lang#50297 keeps the
-  # in-process inventory unstable) — so the shell gate IS the minimal
-  # machine-checkable form, not a workaround. The in-process
-  # constitution_coverage meta-test asserts only PARTITION coverage; without
-  # this gate, untagged tests pass CI silently.
-  #
-  # Runs over all four crates that carry a `constitution_coverage` gate test
-  # (pr4xis-domains has the richest coverage; pr4xis, pr4xis-runtime and
-  # pr4xis-chat each carry the minimal tag-dump version) — the constitution
-  # binds the substrate and the pipeline layers, not only the domain corpus.
-  #
-  # Its own job rather than a step in `build`: it produces nothing any
-  # downstream job consumes, so as a build step it delayed lint-docs/test/wasm
-  # by 805s for a result none of them reads.
-  constitution:
-    name: Constitution completeness
-    runs-on: ubuntu-latest
-    needs: [build]
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      # NOT `shared-key: release`. constitution-gate.sh runs `cargo test --lib`
-      # with NO `--release`, so this compiles under [profile.dev] against a
-      # narrower feature set — a strictly different fingerprint. Pointing it at
-      # the release slice would not share anything and would risk polluting the
-      # one slice every other job full-matches. It owns this key and warms it
-      # itself; run #1 is cold by construction, judge it on run #2.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: constitution
-      - name: Cache WordNet XML
-        uses: actions/cache@v5
-        with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      - name: Cache fetched external data
-        uses: actions/cache@v5
-        with:
-          path: |
-            crates/domains/data/legal/uscode
-            crates/domains/data/markup-schemas/xsts
-            crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - uses: actions/download-artifact@v8
-        with:
-          name: pr4xis-cli
-          path: target/release
-      - name: Make pr4xis-cli executable
-        run: chmod +x target/release/pr4xis
-      - name: Materialise external data (no-op on data-cache hit)
-        timeout-minutes: 20
-        run: ./target/release/pr4xis update
-      - name: Constitution completeness gate
-        timeout-minutes: 25
-        run: |
-          bash scripts/constitution-gate.sh pr4xis --enforce
-          bash scripts/constitution-gate.sh pr4xis-runtime --enforce
-          bash scripts/constitution-gate.sh pr4xis-chat --enforce
-          bash scripts/constitution-gate.sh pr4xis-domains --enforce
-
   # The caregiver demonstrator is the artifact a judge actually opens, and no
   # Rust test can see an HTML id or a hash route. These gates are the
   # mechanical form of two failures that really happened: a blank page from a
@@ -1198,7 +1160,6 @@ jobs:
         corpus,
         format,
         no-ignored-doctests,
-        constitution,
         demonstrator-gates,
         caregiver-pdf,
         release-plz-release,
@@ -1219,7 +1180,6 @@ jobs:
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
-      needs.constitution.result == 'success' &&
       needs.demonstrator-gates.result == 'success' &&
       needs.caregiver-pdf.result == 'success' &&
       (
@@ -1267,7 +1227,6 @@ jobs:
         corpus,
         format,
         no-ignored-doctests,
-        constitution,
         demonstrator-gates,
       ]
     timeout-minutes: 30
@@ -1285,7 +1244,6 @@ jobs:
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
-      needs.constitution.result == 'success' &&
       needs.demonstrator-gates.result == 'success'
     permissions:
       contents: write
@@ -1331,7 +1289,6 @@ jobs:
         corpus,
         format,
         no-ignored-doctests,
-        constitution,
         demonstrator-gates,
         release-plz-release,
       ]
@@ -1348,7 +1305,6 @@ jobs:
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
-      needs.constitution.result == 'success' &&
       needs.demonstrator-gates.result == 'success' &&
       needs.release-plz-release.result == 'success'
     permissions:
