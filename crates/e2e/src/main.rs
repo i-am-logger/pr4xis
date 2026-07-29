@@ -26,6 +26,18 @@ use std::time::Duration;
 
 use fantoccini::{Client, ClientBuilder, Locator};
 
+/// Deadline for the WebDriver `newSession` handshake.
+///
+/// `ClientBuilder::connect` performs `newSession` and carries no deadline of
+/// its own, so a geckodriver that accepts the TCP connection but never answers
+/// blocks forever: every per-assertion deadline in `run_all` applies only
+/// AFTER `connect` returns. Without this the whole harness is unbounded, which
+/// is the class of hang that let one CI job sit for 182 minutes.
+///
+/// 60s is roughly 10x the observed handshake — headless Firefox starts in
+/// ~3-6s on `ubuntu-latest` — so it cannot fire on ordinary slowness.
+const NEW_SESSION_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// Wait for a CSS selector with a deadline, labeling the wait in stderr
 /// so a `WaitTimeout` failure says exactly which step missed its budget.
 /// On timeout, also dump the rendered DOM + console state so the next
@@ -176,10 +188,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::json!({ "args": ["-headless"] }),
     );
 
-    let client = ClientBuilder::rustls()?
-        .capabilities(caps)
-        .connect(&webdriver)
-        .await?;
+    // Bound the handshake (see NEW_SESSION_TIMEOUT). Split across two
+    // statements because `capabilities` returns `&mut Self` while `connect`
+    // borrows `&self` — the builder has to outlive the future being timed.
+    let mut builder = ClientBuilder::rustls()?;
+    builder.capabilities(caps);
+    let client = tokio::time::timeout(NEW_SESSION_TIMEOUT, builder.connect(&webdriver))
+        .await
+        .map_err(|_| {
+            format!(
+                "WebDriver newSession did not answer within {}s at {webdriver}",
+                NEW_SESSION_TIMEOUT.as_secs()
+            )
+        })??;
 
     let outcome = run_all(&client, &base, &title, &title_fast, &ontology, &ontology_2).await;
     // Always release the browser session, then surface the result.

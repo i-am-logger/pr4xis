@@ -37,6 +37,8 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    # Measured 53s / 57s across its two runs.
+    timeout-minutes: 15
     permissions:
       # Publishes the result to the public Scorecard API/badge.
       id-token: write
