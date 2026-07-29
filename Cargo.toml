@@ -68,7 +68,7 @@ exclude = ["crates/e2e", "crates/praxis-corpus-tests"]
 #     and release-plz auto-bumps from here on. See release-plz.toml + the
 #     `publish-invariant` CI guard for the rule that prevents a recurrence.
 [workspace.package]
-version = "0.28.0"
+version = "0.29.0"
 
 [workspace.lints.rust]
 dead_code = "deny"

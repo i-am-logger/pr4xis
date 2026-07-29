@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "hashbrown 0.17.1",
  "linkme",
@@ -1529,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-chat"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "criterion",
  "pr4xis",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-cli"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1551,7 +1551,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-derive"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1561,7 +1561,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-domains"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1590,7 +1590,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-examples"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",
@@ -1599,7 +1599,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-runtime"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "blake3",
  "pr4xis",
@@ -1627,7 +1627,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-web"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",

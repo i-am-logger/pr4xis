@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.29.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.28.0...pr4xis-domains-v0.29.0) - 2026-07-29
+
+### Feat
+
+- *(care)* [**breaking**] ACL Caregiver AI Challenge — Phase 1 submission, demonstrator, and the grounding it rests on
+
 ## [0.28.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.25.5...pr4xis-domains-v0.28.0) - 2026-07-10
 
 ### Chore
