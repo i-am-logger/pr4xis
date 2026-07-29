@@ -182,13 +182,96 @@ jobs:
         with:
           lfs: false
           submodules: recursive
+      # BEFORE the output-cache lookup, because its `cachekey` output is the
+      # exact rustc version and that MUST be in the key — identical sources
+      # under a different rustc produce a different binary. The toolchain is
+      # `@stable` with no rust-toolchain file in the repo, so the version
+      # floats and this is the only thing that pins it.
       - uses: dtolnay/rust-toolchain@stable
+        id: toolchain
         with:
           components: clippy, rustfmt
+      # ── Output cache: the whole point of this job is two artifacts ─────────
+      # `build` exists to produce `target/release/pr4xis` and the nextest
+      # archive. Both are pure functions of the inputs hashed below, so when
+      # those inputs are unchanged the outputs are byte-identical and there is
+      # nothing to compute.
+      #
+      # This is the ONLY caching that helps here, and the reason is measured.
+      # `Swatinem/rust-cache` caches DEPENDENCIES ONLY (it evicts workspace
+      # crates before saving), so it reports "full match: true" and contributes
+      # 0s: on a warm restore the workspace still costs 419 unit-seconds, of
+      # which 237.8s is a single rustc call (pr4xis-domains lib test) and 64.4s
+      # is pr4xis-wasm's build script EXECUTING. And cargo cannot be talked out
+      # of that work, because it fingerprints path packages by MTIME and
+      # `actions/checkout` stamps every file with the current time — verified
+      # locally: `touch` a file with an identical sha256 and cargo recompiles
+      # it. `cache-workspace-crates: true` therefore cannot work either;
+      # restored artifacts would be invalidated on arrival.
+      #
+      # sccache was measured and rejected: on a rebuild with all 1465 tracked
+      # files touched it achieved a 100% hit rate and saved 4% (245s -> 236s),
+      # because the units it can cache are the cheap ones and build-script
+      # execution is not a compiler call at all.
+      #
+      # STALENESS IS THE ONLY REAL RISK HERE. A key that misses an input serves
+      # a stale binary and CI goes green WITHOUT TESTING THE CHANGE — strictly
+      # worse than a slow build. So the key covers every input that can change
+      # either artifact:
+      #   crates/**/*.rs        every source, including every build.rs
+      #   */Cargo.toml, locks   dependency versions + feature resolution
+      #   toolchain cachekey    the exact rustc
+      #   .config/nextest.toml  archive metadata + profile
+      #   praxis.lock           the FETCHED data (USC titles etc.) by content
+      #                         pin — build.rs reads it and the archive embeds
+      #                         2 build-script output directories, so the
+      #                         fetched XML is genuinely an input to the archive
+      #   .prx-cache/…          the committed defines overlays build.rs reads
+      #   ci.yml                RUSTFLAGS and the build commands live here
+      #
+      # Including ci.yml means a CI-only change misses this cache. That is
+      # correct, not a shortcoming: the workflow file is the specification of
+      # the check, so a change to it must be executed at least once.
+      # RESTORE-ONLY, with an explicit save at the END of this job. Not
+      # `actions/cache@v5`, and the reason is an ordering trap: post steps run
+      # in REVERSE order of their main steps, so a combined cache action placed
+      # here would save AFTER `Swatinem/rust-cache`'s post step — and that step
+      # `rmExcept`s workspace artifacts out of `target/` to keep its slice
+      # deps-only. It would delete `target/release/pr4xis` and we would cache a
+      # missing file. Restore here, save explicitly below, both as MAIN steps.
+      - name: Restore build outputs (skip compiling if inputs are unchanged)
+        id: build-out
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            target/release/pr4xis
+            target/nextest-archive.tar.zst
+          key: >-
+            build-out-v1-${{ runner.os }}-${{ steps.toolchain.outputs.cachekey }}-${{
+            hashFiles('crates/**/*.rs', 'Cargo.toml', 'Cargo.lock', 'crates/*/Cargo.toml',
+            'crates/wasm/Cargo.lock', '.config/nextest.toml', 'praxis.lock',
+            '.prx-cache/usc-defines-compact/**', '.github/workflows/ci.yml') }}
+      # Deliberately NO `restore-keys`. A partial-key hit would restore
+      # artifacts built from DIFFERENT sources while reporting cache-hit=false,
+      # and the steps below would then upload whichever files happened to be
+      # on disk. Exact match or nothing.
+      - name: Confirm restored outputs are complete
+        if: steps.build-out.outputs.cache-hit == 'true'
+        run: |
+          # Fail closed: a truncated or partial restore must not be uploaded as
+          # if it were a real build. Better to error than to hand downstream
+          # jobs a half-written archive.
+          for f in target/release/pr4xis target/nextest-archive.tar.zst; do
+            [ -s "$f" ] || { echo "::error::cache reported a hit but $f is missing or empty"; exit 1; }
+          done
+          chmod +x target/release/pr4xis
+          echo "restored $(du -sh target/nextest-archive.tar.zst | cut -f1) archive + cli — skipping the compile"
       - uses: Swatinem/rust-cache@v2
+        if: steps.build-out.outputs.cache-hit != 'true'
         with:
           shared-key: release
       - uses: taiki-e/install-action@cargo-nextest
+        if: steps.build-out.outputs.cache-hit != 'true'
       - name: Cache WordNet XML
         uses: actions/cache@v5
         with:
@@ -213,9 +296,21 @@ jobs:
       # recompile from scratch on restore. Same flags everywhere keeps
       # `shared-key: release` actually shared.
       - name: Build pr4xis-cli (release)
+        if: steps.build-out.outputs.cache-hit != 'true'
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo build -p pr4xis-cli --release
+      # UNCONDITIONAL, even on an output-cache hit. Two reasons: the fetch is
+      # what warms the `praxis-data` key for every downstream job, and it must
+      # happen BEFORE the archive build below, because pr4xis-wasm's build
+      # script reads the fetched USC XML and the archive embeds its output. On
+      # a hit this runs against the restored binary and is a no-op against a
+      # warm data cache.
+      #
+      # It is also the designated warmer of that key: if `build` skipped it,
+      # four downstream jobs would race to fetch and save the same immutable
+      # key, which is the failure this workflow already hit once with
+      # `.prx-cache`.
       - name: Fetch external data
         timeout-minutes: 20
         run: ./target/release/pr4xis update
@@ -224,7 +319,12 @@ jobs:
       # self-contained tarball. The `test` job downloads this archive
       # and runs the tests directly without recompiling — eliminates
       # the largest single source of CI wall time.
+      #
+      # This is the expensive step the output cache exists to skip: 419
+      # unit-seconds, 57% of it one rustc call for pr4xis-domains' lib test
+      # binary.
       - name: Build nextest archive
+        if: steps.build-out.outputs.cache-hit != 'true'
         timeout-minutes: 35
         env:
           RUSTFLAGS: "-D warnings"
@@ -250,6 +350,19 @@ jobs:
           # spends CPU to no effect. (The pr4xis-cli upload above keeps the
           # default — that one is an uncompressed ELF and does benefit.)
           compression-level: 0
+      # The save half of the restore above, as a MAIN step so it runs before
+      # any post step can prune `target/` (see the restore's comment). It sits
+      # after the uploads so a save failure cannot cost downstream jobs their
+      # artifacts. Skipped on a hit: the key is already populated and cache
+      # keys are immutable, so re-saving would just log a warning.
+      - name: Save build outputs
+        if: steps.build-out.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            target/release/pr4xis
+            target/nextest-archive.tar.zst
+          key: ${{ steps.build-out.outputs.cache-primary-key }}
 
   # All host-target lint + doc + doctest passes against the same warm
   # `target/release/` tree. One workspace compile, four cheap incremental
