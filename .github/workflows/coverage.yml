@@ -34,6 +34,11 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    # UNMEASURED, deliberately generous: this workflow's only run was skipped,
+    # so its `coverage` cache slice has never been written and run #1 is a
+    # guaranteed cold LLVM-instrumented build of the whole workspace. Tighten
+    # once there is one real datapoint.
+    timeout-minutes: 120
     # All workspace crates share the same version (Pattern B in
     # release-plz.toml), so a workspace release publishes ~7 crates
     # and fires ~7 `release: published` events. Filter to one

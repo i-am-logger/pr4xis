@@ -17,14 +17,36 @@ permissions:
   id-token: write
 
 # ── CI architecture ────────────────────────────────────────────────
-# All Rust jobs build in `--release`. `[profile.dev]` does not appear
-# in CI; `target/release/` is the only profile that exists. Every
-# host-target job uses the same `Swatinem/rust-cache@v2` shared-key
-# ("release") so the dep graph compile happens once across the
-# workflow and all downstream jobs restore the same cache slice.
-# Wasm-target jobs (`wasm`, `pages`) share it too rather than using a
-# separate pool: both run host-target Rust before any wasm work, and a
-# key only one job writes is a key that is always cold.
+# Almost all Rust work here is `--release`, and every host-target job
+# uses the same `Swatinem/rust-cache@v2` shared-key ("release") so the
+# DEPENDENCY graph compiles once across the workflow and every
+# downstream job restores the same slice. Wasm-target jobs (`wasm`,
+# `pages`) share it too rather than using a separate pool: both run
+# host-target Rust before any wasm work.
+#
+# One documented exception to "release only": `scripts/constitution-
+# gate.sh` runs `cargo test --lib` with NO `--release`, so the gate
+# compiles four crates under `[profile.dev]` (opt-level = 1, root
+# Cargo.toml:97) into a slice it shares with nothing. That is a real
+# cost, not a footnote — see the `build` job.
+#
+# ── What the shared cache does and does NOT do ─────────────────────
+# It caches DEPENDENCIES ONLY. `Swatinem/rust-cache` deliberately
+# evicts workspace crates before saving (`cache-workspace-crates`
+# defaults false), so `pr4xis*` rlibs are never in the slice. Measured
+# on a warm restore: `cargo build --release --workspace --all-targets`
+# still spends ~404 CPU-seconds over 41 dirty units — 100% workspace,
+# 0% dependencies.
+#
+# So a "full match: true" restore is already optimal and there is no
+# cache tuning left to find: the wall time is compiling OUR OWN code.
+# Do not set `cache-workspace-crates: true` chasing it. Two reasons it
+# cannot work: the save is suppressed on the ~88% of runs that
+# full-match (so workspace rlibs would freeze at first-write and go
+# fingerprint-invalid at the next commit), and more fundamentally
+# cargo fingerprints path packages against source MTIMES — a fresh
+# `actions/checkout` stamps every file newer than any restored
+# artifact, so workspace units are dirty on arrival regardless.
 #
 # Job graph:
 #   build ──► lint-docs ──┐
@@ -34,8 +56,9 @@ permissions:
 #   format, no-ignored-doctests       (independent, no compile)
 #
 # Coverage runs in its own workflow (.github/workflows/coverage.yml)
-# — nightly cron + on Release PRs (label-filtered) — because it uses
-# a different cache slice (LLVM coverage instrumentation = different
+# — on `release: published` (filtered to the canonical `pr4xis-v*`
+# tag) plus workflow_dispatch, NOT a nightly cron — because it uses a
+# different cache slice (LLVM coverage instrumentation = different
 # rustc fingerprints) and shouldn't block PR merges.
 #
 # Build job builds (all host target, all `RUSTFLAGS=-D warnings`):
@@ -44,13 +67,14 @@ permissions:
 #   - test binaries via `cargo         — uploaded as artifact, `test` runs
 #     nextest archive`                   directly from it (no recompile)
 #
-# Downstream jobs share `shared-key: release`, so they restore every
-# compiled host crate from build's slice. The only Rust compilation
-# in `test`/`lint-docs`/`wasm` is incremental over already-compiled
-# state: `test` is a no-compile archive run, `lint-docs` just runs
-# clippy+rustdoc over cached artefacts, and `wasm` compiles only the
-# wasm32 target (host crates `pr4xis-cli`/`pr4xis-domains`/`pr4xis-
-# web`/`pr4xis-e2e` are already in `target/release/`).
+# Downstream jobs share `shared-key: release`, so they restore build's
+# DEPENDENCY slice (see the caching note above — workspace crates are
+# never in it). Of the three, only `test` is genuinely compile-free:
+# it runs the prebuilt nextest archive. `lint-docs` recompiles the
+# workspace under clippy/rustdoc, and `wasm` recompiles the workspace
+# crates it touches for BOTH targets — the slice holds zero wasm32
+# artefacts, because `build` never installs the wasm32 target, so
+# every `wasm-pack build` starts cold on the wasm32 side.
 #
 # Release pipeline (replaces the old release-please + katyo pair):
 #   release-plz-pr      — opens / updates a Release PR with version
@@ -71,6 +95,12 @@ jobs:
   build:
     name: Build (host + test archive + data)
     runs-on: ubuntu-latest
+    # Sized ~2.5x the observed max (9.5-29.1m across 20 non-hung runs — the
+    # widest cold/warm swing in the workflow, since this job populates the
+    # 492 MiB `release` slice). Every job here inherited GitHub's 6-HOUR
+    # default until now: run 30420270297's wasm job sat at 182 minutes and
+    # only stopped because a human pushed a new commit.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
         with:
@@ -111,6 +141,7 @@ jobs:
           RUSTFLAGS: "-D warnings"
         run: cargo build -p pr4xis-cli --release
       - name: Fetch external data
+        timeout-minutes: 20
         run: ./target/release/pr4xis update
       # `cargo nextest archive` compiles every workspace test binary
       # (and the workspace libs they depend on) into a single
@@ -118,6 +149,7 @@ jobs:
       # and runs the tests directly without recompiling — eliminates
       # the largest single source of CI wall time.
       - name: Build nextest archive
+        timeout-minutes: 35
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo nextest archive --workspace --profile ci --release --archive-file target/nextest-archive.tar.zst
@@ -136,6 +168,7 @@ jobs:
       # constitution binds the substrate and the pipeline layers, not only the
       # domain corpus.
       - name: Constitution completeness gate
+        timeout-minutes: 30
         run: |
           bash scripts/constitution-gate.sh pr4xis --enforce
           bash scripts/constitution-gate.sh pr4xis-runtime --enforce
@@ -146,7 +179,7 @@ jobs:
       # the mechanical form of two failures that really happened: a blank page
       # from a binding to an element that had been removed, and figures on the
       # page drifting from the corpus they claim to be computed from.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Caregiver demonstrator gates (DOM contract + program ladder)
@@ -164,6 +197,10 @@ jobs:
           name: nextest-archive
           path: target/nextest-archive.tar.zst
           retention-days: 1
+          # Already zstd-compressed; re-deflating it at the default level 6
+          # spends CPU to no effect. (The pr4xis-cli upload above keeps the
+          # default — that one is an uncompressed ELF and does benefit.)
+          compression-level: 0
 
   # All host-target lint + doc + doctest passes against the same warm
   # `target/release/` tree. One workspace compile, four cheap incremental
@@ -172,6 +209,7 @@ jobs:
     name: Lint & Docs
     runs-on: ubuntu-latest
     needs: [build]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -196,10 +234,14 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
           key: praxis-data-${{ hashFiles('praxis.lock') }}
+      # peaceiris/actions-mdbook@v2's newest release tag still declares
+      # `node20`, so it cannot be upgraded past the Node-20 deprecation —
+      # only replaced. Pinned to 0.5.4, the version `mdbook-version: latest`
+      # resolved to in run 30438018664, so this is version-neutral.
       - name: Install mdBook
-        uses: peaceiris/actions-mdbook@v2
+        uses: taiki-e/install-action@v2
         with:
-          mdbook-version: latest
+          tool: mdbook@0.5.4
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
@@ -207,6 +249,7 @@ jobs:
       - name: Make pr4xis-cli executable
         run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
+        timeout-minutes: 20
         run: ./target/release/pr4xis update
       - name: Clippy (release)
         env:
@@ -233,6 +276,7 @@ jobs:
   caregiver-pdf:
     name: Caregiver PDF page limit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -298,7 +342,7 @@ jobs:
             fi
           done
           exit $over_limit
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: caregiver-challenge-pdfs
           path: docs/caregiver-challenge/pdf/build/*.pdf
@@ -311,6 +355,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [build]
+    # Cannot flap on cache variance — this job compiles nothing; it extracts
+    # and runs the archive `build` uploaded.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
         with:
@@ -338,6 +385,7 @@ jobs:
       - name: Make pr4xis-cli executable
         run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
+        timeout-minutes: 20
         run: ./target/release/pr4xis update
       # Parse-once: compile each registered USC title into its portable COMPACT
       # `.cprx.gz` ONCE, up front, so the corpus loader content-gates + deserialises
@@ -371,18 +419,21 @@ jobs:
           files: target/nextest/ci/junit.xml
           report_type: test_results
 
-  # Browser-side wasm coverage + Firefox WebDriver E2E. Sequenced
-  # after `build` and uses the same `release` cache slice — every
-  # host-target binary this job needs (`pr4xis-cli` for the data
-  # update, `pr4xis-domains` for `emit_prx`, `pr4xis-web` for the E2E
-  # server, `pr4xis-e2e` for the WebDriver client) is already
-  # compiled in `target/release/` from `build`. wasm-only work
-  # (wasm-pack build + wasm-pack test for the wasm32 target) is the
-  # only Rust compilation that actually happens here.
+  # Browser-side wasm coverage + Firefox WebDriver E2E. Sequenced after
+  # `build` and restores the same `release` DEPENDENCY slice.
+  #
+  # It does NOT inherit compiled host binaries: rust-cache never saves
+  # workspace crates (see the caching note in the header), so
+  # `pr4xis-domains` for `emit_prx`, `pr4xis-web` for the E2E server and
+  # `pr4xis-e2e` for the WebDriver client are all rebuilt here. Only
+  # `pr4xis-cli` arrives prebuilt, as a downloaded artifact. The wasm32
+  # side is cold every run — `build` installs no wasm32 target, so the
+  # shared slice contains zero wasm32 artefacts.
   wasm:
     name: WASM tests + E2E
     runs-on: ubuntu-latest
     needs: [build]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -414,13 +465,20 @@ jobs:
       - name: Make pr4xis-cli executable
         run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
+        timeout-minutes: 20
         run: ./target/release/pr4xis update
       # This job runs the heavy-corpus suite below, whose `usc_loaded()` reads
       # the content-addressed compact archives (~1.4s for the whole USC corpus)
       # and otherwise falls back to parsing ~85 MB of USLM XML. Only `.prx-
       # cache/usc-defines-compact/*.defines.cprx.gz` is committed; the compact
-      # corpus archives are generated. Same cache key and same emit the `test`
-      # job uses, so whichever of the two runs first populates it for both.
+      # corpus archives are generated.
+      #
+      # NOTE: "whichever of the two runs first populates it for both" is true
+      # only ACROSS runs, never within one. `test` and this job both
+      # `needs: [build]`, so they start together, both miss a cold key, both
+      # do the work, and race to save — and cache keys are immutable, so the
+      # loser's save is refused. Measured in run 30438018664: this job missed
+      # the key and `test` saved it 7 minutes later.
       - name: Cache compiled .prx archives
         id: prx-cache
         uses: actions/cache@v5
@@ -430,23 +488,44 @@ jobs:
       - name: Compile compact .prx archives (parse-once fast load)
         if: steps.prx-cache.outputs.cache-hit != 'true'
         run: ./target/release/pr4xis compile --compact
+      # Was `curl … | sh`. GitHub's default shell is `bash -e {0}` — no
+      # pipefail — so a failed curl fed an empty script to `sh`, which exits
+      # 0: the step went GREEN having installed nothing, and the next step
+      # died with a confusing `wasm-pack: command not found`. The installer
+      # was also unpinned and re-resolved every run.
+      #
+      # Pinned, not `latest`: rust-cache restores `~/.cargo/bin` (cache-bin
+      # defaults true) BEFORE this step, and install-action skips when a
+      # satisfying binary is already present — so `latest` would make the
+      # build depend on whatever binary the cache happens to hold. 0.13.1 is
+      # what CI has actually been running (run 30438018664).
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
       - name: wasm-pack build (release, for E2E)
+        timeout-minutes: 20
         run: |
           cd crates/wasm
           wasm-pack build --target web --release
       - name: wasm-bindgen tests (headless Firefox, release)
+        timeout-minutes: 15
         run: |
           cd crates/wasm
           wasm-pack test --release --headless --firefox
-      # pr4xis-wasm is workspace-excluded (wasm32 lib), so its NATIVE
-      # `mod acceptance` #[test]s (browser-loads-a-prx with/without the
-      # corpus + fail-closed against a wrong/tampered root) never run
-      # under `cargo test --workspace`. Run them explicitly on the host
-      # target — mirrors the dev-ci `wasm native acceptance tests` step
-      # exactly (local == CI).
+      # pr4xis-wasm's NATIVE `mod acceptance` #[test]s (browser-loads-a-prx
+      # with/without the corpus + fail-closed against a wrong/tampered root).
+      # Run explicitly on the host target — mirrors the dev-ci `wasm native
+      # acceptance tests` step exactly (local == CI).
+      #
+      # NOTE: `crates/wasm` IS a workspace member (Cargo.toml:31) — the old
+      # "workspace-excluded" justification here was false. If these tests are
+      # already in the `--workspace` nextest archive they are running twice;
+      # check with
+      #   cargo nextest list --workspace --release -E 'package(pr4xis-wasm)'
+      # and delete this step if they are listed.
       - name: wasm native acceptance tests (release)
+        timeout-minutes: 15
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo test --manifest-path crates/wasm/Cargo.toml --release
@@ -470,22 +549,44 @@ jobs:
       # above true for the build as well as the test list. Sharing a target dir
       # is not feature unification — that follows workspace membership, which is
       # unchanged; differing feature sets simply carry differing fingerprints.
+      # THE hang site: this step ran 2h52m in run 30420270297 and stopped only
+      # because a push cancelled the run. Observed 5.6 -> 11.2m across the
+      # sample and TRENDING UP as the corpus grows, so 25 is the one cap here
+      # with a shrinking margin — revisit when it passes ~15m.
       - name: heavy-corpus tests (release)
+        timeout-minutes: 25
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: bash scripts/heavy-corpus-tests.sh
       - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
+        timeout-minutes: 15
         run: |
           mkdir -p crates/wasm/ontologies
           cargo run -p pr4xis-domains --features "fetch codegen" --release --example emit_prx -- crates/wasm/ontologies
       - name: Run Rust WebDriver E2E
+        timeout-minutes: 20
         run: |
           cargo run -p pr4xis-web --release 3000 &
           WEB=$!
           geckodriver --port 4444 &
           GECKO=$!
-          for _ in $(seq 1 90); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 1; done
-          for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null && break; sleep 1; done
+          # Both readiness loops used to fall through silently: neither tested
+          # whether it broke early or exhausted, so an absent service was
+          # indistinguishable from a ready one. NOT a tightening — a server
+          # arriving after the budget was never rescued anyway (`client.goto`
+          # runs once and is never retried), so the run simply failed ~180s
+          # later on the eager-residency wait with a neterror DOM dump. This
+          # just attributes the failure where it happens.
+          ready() { # $1=url  $2=tries  $3=label
+            for _ in $(seq 1 "$2"); do
+              curl -sf --max-time 5 "$1" >/dev/null && return 0
+              sleep 1
+            done
+            echo "::error::$3 never became ready at $1 after $2s"
+            return 1
+          }
+          ready http://localhost:3000/       90 "pr4xis-web"  || { kill "$WEB" "$GECKO" 2>/dev/null; exit 1; }
+          ready http://localhost:4444/status 30 "geckodriver" || { kill "$WEB" "$GECKO" 2>/dev/null; exit 1; }
           set +e
           ( cd crates/e2e && cargo run --release )
           code=$?
@@ -496,6 +597,7 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -506,6 +608,7 @@ jobs:
   no-ignored-doctests:
     name: No ignored doctests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - name: Forbid ```ignore in code/docs
@@ -532,6 +635,11 @@ jobs:
   publish-invariant:
     name: Publish invariant
     runs-on: ubuntu-latest
+    # Normally ~20s, but the retry budget below is the real bound: 4 attempts
+    # x --max-time 30 + backoff (3+6+9+12) = 150s per crate, x5 probed crates
+    # = ~750s worst case. 20, not 15, so a genuine crates.io outage reaches
+    # the fail-closed path instead of being killed by the job timeout.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -555,10 +663,19 @@ jobs:
           # Echoes the version (200), "404" (definitively absent), or "ERROR"
           # (no definitive answer after retries → the caller FAILS CLOSED rather
           # than treat a crates.io outage / 5xx / timeout as a pass).
+          #
+          # The retry loop is only fail-closed if each ATTEMPT terminates:
+          # unbounded, a stalled socket never reaches the ERROR path at all,
+          # and a connect blackhole falls back to curl's 300s default (~20 min
+          # per crate). Semantics are unchanged by the bounds — a timed-out
+          # curl exits non-zero while %{http_code} emits 000, `|| echo 000`
+          # guarantees a non-200/404 value, the `*)` branch retries, and four
+          # exhausted attempts still yield ERROR -> fail closed.
           registry_version() {
             local crate=$1 i code
             for i in 1 2 3 4; do
-              code=$(curl -s -A "$UA" -o /tmp/ci_crate.json -w '%{http_code}' \
+              code=$(curl -s -A "$UA" --connect-timeout 10 --max-time 30 \
+                -o /tmp/ci_crate.json -w '%{http_code}' \
                 "https://crates.io/api/v1/crates/${crate}" 2>/dev/null || echo 000)
               case "$code" in
                 200) jq -r '.crate.max_version' /tmp/ci_crate.json; return 0 ;;
@@ -615,8 +732,13 @@ jobs:
     name: Deploy Pages
     runs-on: ubuntu-latest
     needs: [lint-docs, test, wasm, format, no-ignored-doctests, caregiver-pdf]
+    timeout-minutes: 30
+    # `!cancelled()`, not `always()`: every conjunct below is already an
+    # explicit `needs.*.result == 'success'` check, so `always()` bought
+    # nothing except the one behaviour that is a hazard — deploying from a
+    # run that was cancelled mid-flight, i.e. publishing a superseded tree.
     if: |
-      always() &&
+      !cancelled() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
@@ -640,8 +762,16 @@ jobs:
         with:
           # `release`, not a wasm-only pool: this job runs host-target Rust too
           # (`cargo run -p pr4xis-cli --release -- update`, the `emit_prx`
-          # artifact step) before it builds any wasm, and `wasm`/`build` already
-          # save wasm32 and host artefacts into this one slice.
+          # artifact step) before it builds any wasm, so it wants the host
+          # dependency slice.
+          #
+          # NOTE: the old claim that "`wasm`/`build` already save wasm32 and
+          # host artefacts into this one slice" was false on both counts.
+          # `wasm` saves nothing, ever — it full-matches on restore and
+          # rust-cache then skips the save — and `build` installs no wasm32
+          # target, so the slice holds ZERO wasm32 artefacts. That is why this
+          # job's `Build WASM` (260s) and `wasm`'s `wasm-pack build` (263s)
+          # cost the same despite both reporting a full-match restore.
           shared-key: release
       - name: Cache WordNet XML
         uses: actions/cache@v5
@@ -661,27 +791,48 @@ jobs:
             crates/domains/data/markup-schemas/xmlconf
           key: praxis-data-${{ hashFiles('praxis.lock') }}
       - name: Fetch external data (no-op on data-cache hit)
+        timeout-minutes: 20
         run: cargo run -p pr4xis-cli --release --quiet -- update
       # Emit a `.prx.gz` per registered OWL vocabulary directly into the
       # pages tree. The emitter walks the registry, reads each bundled
       # in-repo `.owl`, and round-trip-validates every artifact through the
       # fail-closed load gate (embedded source hash must match praxis.lock).
       - name: Emit .prx.gz ontology artifacts
+        timeout-minutes: 15
         run: |
           mkdir -p pages/ontologies
           cargo run -p pr4xis-domains --features "fetch codegen" --release --example emit_prx -- pages/ontologies
+      # Was `curl … | sh`. GitHub's default shell is `bash -e {0}` — no
+      # pipefail — so a failed curl fed an empty script to `sh`, which exits
+      # 0: the step went GREEN having installed nothing, and the next step
+      # died with a confusing `wasm-pack: command not found`. The installer
+      # was also unpinned and re-resolved every run.
+      #
+      # Pinned, not `latest`: rust-cache restores `~/.cargo/bin` (cache-bin
+      # defaults true) BEFORE this step, and install-action skips when a
+      # satisfying binary is already present — so `latest` would make the
+      # build depend on whatever binary the cache happens to hold. 0.13.1 is
+      # what CI has actually been running (run 30438018664).
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
       - name: Build WASM
+        timeout-minutes: 20
         run: |
           cd crates/wasm
           wasm-pack build --target web --release
       - name: Build presentation
+        timeout-minutes: 10
         run: npx @marp-team/marp-cli docs/presentations/overview.md --html -o docs/presentations/index.html
+      # peaceiris/actions-mdbook@v2's newest release tag still declares
+      # `node20`, so it cannot be upgraded past the Node-20 deprecation —
+      # only replaced. Pinned to 0.5.4, the version `mdbook-version: latest`
+      # resolved to in run 30438018664, so this is version-neutral.
       - name: Install mdBook
-        uses: peaceiris/actions-mdbook@v2
+        uses: taiki-e/install-action@v2
         with:
-          mdbook-version: latest
+          tool: mdbook@0.5.4
       # `docs/SUMMARY.md` already has a full nav (Learn/Use/Understand/
       # Reference/Why/Research/Presentations/Papers) — `mdbook test docs/`
       # exercises it for doctested ```rust blocks, but nothing ever built
@@ -835,8 +986,12 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     needs: [lint-docs, test, wasm, format, no-ignored-doctests]
+    timeout-minutes: 30
+    # `!cancelled()`, not `always()` — see the `pages` job. It matters most
+    # here: this job publishes to an IMMUTABLE registry, so running it from a
+    # cancelled workflow is the one case that cannot be undone.
     if: |
-      always() &&
+      !cancelled() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
@@ -880,8 +1035,10 @@ jobs:
     # re-trigger the same loop, so skip release-pr in that case. (On an ordinary
     # feature merge Release succeeds as a no-op, so this never blocks the first PR.)
     needs: [lint-docs, test, wasm, format, no-ignored-doctests, release-plz-release]
+    timeout-minutes: 20
+    # `!cancelled()`, not `always()` — see the `pages` job.
     if: |
-      always() &&
+      !cancelled() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       needs.lint-docs.result == 'success' &&
