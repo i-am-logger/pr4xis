@@ -8,7 +8,39 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # PR / feature branches: a superseded push is pure waste — cancel it.
+  # master: NEVER. It is the only ref that can publish crates or deploy Pages.
+  #
+  # `release-plz release` publishes AND tags AND creates a GitHub release per
+  # package, in dependency order. Measured in run 30458522847: the release for
+  # pr4xis-derive-v0.29.0 was created at 14:51:06Z and "published
+  # pr4xis-derive 0.29.0" logged at 14:51:08Z. A cancel landing inside that
+  # publish->tag seam leaves a crate published to an IMMUTABLE registry with no
+  # tag, no GitHub release and no changelog entry. `publish-invariant` does not
+  # catch it — that gate fires on a crate tagged AHEAD of the registry; this is
+  # the opposite direction, and it is silent.
+  #
+  # Secondly, `actions/cache` declares `post-if: success()`, so every cache
+  # this workflow writes is silently discarded whenever a follow-up push
+  # cancels a master run — the same mechanism that made run 30420270297's
+  # 182-minute wasm job save nothing at all.
+  #
+  # A job-level `cancel-in-progress: false` cannot substitute for this:
+  # release-plz-pr already sets exactly that, and in run 30420270297 its
+  # conclusion is `cancelled` regardless. A run-level cancel takes every job
+  # with it.
+  #
+  # Master runs QUEUE instead (GitHub keeps at most one pending run per group),
+  # so this cannot produce two concurrent `release-plz release` invocations.
+  # Cost, accepted: back-to-back master merges serialise, worst case one extra
+  # pipeline of latency, and a middle commit in a burst can be cancelled while
+  # still pending — the next run covers the resulting tree. Free in runner
+  # minutes on a public repo.
+  #
+  # REQUIRES the per-job `timeout-minutes` added in the preceding commit.
+  # Without them nothing terminates a hung master run before GitHub's 6h cap —
+  # a push used to do that job.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 permissions:
   contents: write
@@ -1050,6 +1082,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    # Serialises concurrent release-pr jobs against each other within this
+    # group. It does NOT — and never did — shield the job from a run-level
+    # cancel: in run 30420270297 this job's conclusion is `cancelled` despite
+    # the setting below, because cancelling a workflow takes every job with
+    # it. The workflow-level `concurrency:` block at the top of this file is
+    # what actually protects master.
     concurrency:
       group: release-plz-pr-${{ github.ref }}
       cancel-in-progress: false
