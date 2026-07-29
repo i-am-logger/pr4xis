@@ -19,7 +19,7 @@ emit = ["dep:pr4xis"]
 [dependencies]
 sha2 = "0.11"
 blake3 = { version = "1", default-features = false, features = ["pure"] }
-pr4xis = { version = "0.28.0", path = "../pr4xis", optional = true }
+pr4xis = { version = "0.29.0", path = "../pr4xis", optional = true }
 serde = { version = "1", features = ["derive"] }
 # DAG-CBOR — the deterministic, language-agnostic canonical encoding the content
 # address is computed over (IPLD content-addressing requires a single canonical
@@ -59,4 +59,4 @@ proptest = "1.11"
 # comment) for anyone depending on this crate as a library. A dev-dependency
 # entry activates the optional dep only for `cargo test`, not for downstream
 # consumers or plain `cargo build`.
-pr4xis = { version = "0.28.0", path = "../pr4xis" }
+pr4xis = { version = "0.29.0", path = "../pr4xis" }
