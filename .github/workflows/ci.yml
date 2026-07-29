@@ -106,19 +106,24 @@ permissions:
 #           ├─► test ──────────┤   (also the designated .prx-cache saver)
 #           ├─► corpus ────────┤   host-target heavy-corpus suite
 #           ├─► wasm-native ───┤   host-target acceptance tests
-#           ├─► wasm-browser ──┤   the ONLY wasm32 lane
+#           ├─► wasm-browser ──┤   the ONLY wasm32 lane; ALSO the sole
+#           │      ▲               producer of the site tree — it builds,
+#           │      │               browser-tests, emits .prx.gz, runs the E2E,
+#           │      │               then assembles and uploads the
+#           │  caregiver-pdf       `github-pages` artifact from the exact
+#           │                      bytes it just tested.
 #           └─► constitution ──┤
 #   format ────────────────────┤
 #   no-ignored-doctests ───────┤
 #   demonstrator-gates ────────┴─► release-plz-release ─┬─► release-plz-pr
-#                                                       └─► pages
-#   caregiver-pdf ────────────────────────────────────────► pages
+#                                                       └─► pages (deploy only)
 #
 #   publish-invariant   (standalone tripwire; no `needs:`, gates nothing)
 #
 # format / no-ignored-doctests / demonstrator-gates / caregiver-pdf /
 # publish-invariant declare no `needs:` — none of them compiles anything — so
-# all five start at t=0.
+# all five start at t=0. caregiver-pdf is not INDEPENDENT, though: wasm-browser
+# consumes its PDF artifact rather than installing pandoc/typst twice.
 #
 # `pages` deploys ONLY on a real release (releases_created == 'true') or an
 # explicit workflow_dispatch. `release-plz-pr` MUST run after
@@ -483,9 +488,14 @@ jobs:
   # side is cold every run — `build` installs no wasm32 target, so the
   # shared slice contains zero wasm32 artefacts.
   wasm-browser:
-    name: WASM browser tests + E2E
+    name: WASM browser tests + E2E + site
     runs-on: ubuntu-latest
-    needs: [build]
+    # `caregiver-pdf` because the site tree embeds its PDF artifact. This
+    # couples the release chain to that job: a red caregiver-pdf now defers a
+    # publish rather than only skipping the deploy. That is deliberate — it
+    # makes "released" imply "deployable". No wedge results: no tag is
+    # created, so the next master push publishes the pending version.
+    needs: [build, caregiver-pdf]
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
@@ -610,6 +620,165 @@ jobs:
           code=$?
           kill "$WEB" "$GECKO" 2>/dev/null || true
           exit "$code"
+      - name: Build presentation
+        timeout-minutes: 10
+        run: npx @marp-team/marp-cli docs/presentations/overview.md --html -o docs/presentations/index.html
+      # peaceiris/actions-mdbook@v2's newest release tag still declares
+      # `node20`, so it cannot be upgraded past the Node-20 deprecation —
+      # only replaced. Pinned to 0.5.4, the version `mdbook-version: latest`
+      # resolved to in run 30438018664, so this is version-neutral.
+      - name: Install mdBook
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook@0.5.4
+      # `docs/SUMMARY.md` already has a full nav (Learn/Use/Understand/
+      # Reference/Why/Research/Presentations/Papers) — `mdbook test docs/`
+      # exercises it for doctested ```rust blocks, but nothing ever built
+      # it to HTML and published it. Every page here becomes an
+      # independently indexable, linkable URL under /docs/, instead of
+      # only being reachable as raw markdown through the GitHub UI.
+      - name: Build docs site (mdbook)
+        run: mdbook build docs --dest-dir "$(pwd)/pages/docs"
+      # Built by the caregiver-pdf job (this job's own `needs`), not
+      # regenerated here — avoids installing pandoc/typst a second time.
+      # `path:` lands under the assembled tree, so the PDFs ship with the site.
+      - uses: actions/download-artifact@v8
+        with:
+          name: caregiver-challenge-pdfs
+          path: pages/caregiver-challenge
+      - name: Assemble pages
+        run: |
+          mkdir -p pages/pkg pages/decks/technical pages/sources pages/ontologies
+          # MANDATORY. The `emit_prx` step above writes into
+          # crates/wasm/ontologies (pr4xis-web serves it at /ontologies/ for
+          # the E2E, and devenv.nix is paired with that path); the deleted
+          # `pages` job used to re-emit the same artifacts straight into
+          # pages/ontologies instead. Without this copy the staged-vs-deployed
+          # loop below fails on all six .prx.gz.
+          #
+          # It also makes the ontologies half of that loop LIVE for the first
+          # time: crates/wasm/ontologies/ is gitignored, so it did not exist in
+          # the old `pages` job, the glob never resolved, and `[[ -f ]] ||
+          # continue` silently skipped every ontology. The check has been half
+          # dead since it was introduced.
+          cp crates/wasm/ontologies/* pages/ontologies/
+          cp docs/chat/index.html pages/index.html
+          cp docs/worker.js pages/worker.js
+          cp docs/caregiver-corpus-status.json pages/caregiver-corpus-status.json
+          # One app: docs/chat/index.html carries the generic Chat + Engine
+          # tabs and the ACL Caregiver AI Challenge tab (#caregiver,
+          # #caregiver/tracks/1|2, #caregiver/ask|evidence|method), all on ONE
+          # booted engine. dashboard.js is the caregiver tab's controller,
+          # mounted by index.html with the shared engine.
+          cp docs/chat/dashboard.js pages/dashboard.js
+          cp docs/chat/chat-ui.js pages/chat-ui.js
+          cp docs/chat/tokens.css pages/tokens.css
+          cp docs/smart40_validation_log_dump.json pages/smart40_validation_log_dump.json
+          # Bench data artifacts — copied only once their generator tests have
+          # produced them (guarded so a not-yet-generated artifact is a
+          # graceful on-page "not yet generated" state, not a CI failure).
+          for f in caregiver-corpus-slim.json adversarial-corpus.json smart40-protocol.json; do
+            [ -f "docs/$f" ] && cp "docs/$f" "pages/$f" || true
+          done
+          cp -r crates/wasm/pkg/* pages/pkg/
+          # On-demand sources staged by the wasm build: the authoritative USLM
+          # XML, the pre-projected rkyv archives the "Load (fast)" route needs,
+          # and the OWL vocabularies. ALL THREE KINDS, which this step used to
+          # get wrong: it copied only `*.xml`, so every one of the nine `.rprx`
+          # archives and all six `.owl` files 404'd on the hosted demo — every
+          # fast-load button dead — while a comment here claimed they "404
+          # gracefully". Title 42 was the worst case: its XML is 113 MB and is
+          # correctly excluded by the size guard, so with its 35 MB archive also
+          # missing the single most important title in this corpus could not be
+          # loaded on pr4xis.dev by any route at all.
+          #
+          # The 95M guard stays — GitHub Pages rejects files over 100 MB. It
+          # excludes only Title 42's raw XML; every archive is well under it
+          # (largest is Title 42's at 35 MB), so the fast route now covers
+          # exactly the title the raw route cannot.
+          find crates/wasm/sources \( -name '*.xml' -o -name '*.rprx' -o -name '*.owl' \) \
+            -size -95M -exec cp {} pages/sources/ \;
+          cp docs/presentations/index.html pages/decks/technical/index.html
+          cp docs/praxis-logo-dark.jpg pages/praxis-logo-dark.jpg
+          cp docs/praxis-logo-light.jpg pages/praxis-logo-light.jpg
+          cp docs/praxis-logo-video-dark.mp4 pages/praxis-logo-video-dark.mp4
+          cp docs/praxis-logo-video-light.mp4 pages/praxis-logo-video-light.mp4
+          # EVERY STAGED SOURCE THE SIZE GUARD ADMITS MUST REACH THE SITE.
+          #
+          # The wasm build stages what the catalog offers, and the page draws a
+          # Load button per row; a file staged but not assembled here is a
+          # button that 404s, and the demo silently loses a capability it
+          # claims to have. That is exactly what happened — nine `.rprx`
+          # archives and six `.owl` vocabularies were staged and offered, none
+          # was deployed, and nothing caught it because a missing file is
+          # invisible until somebody clicks.
+          #
+          # The invariant is asserted over the STAGED TREE, not over the
+          # generated manifests: `target/` accumulates build directories, and
+          # a glob across them picks up stale manifests advertising routes
+          # that no longer exist (confirmed — they name `.cprx` URLs the page
+          # has never offered). Staged-vs-deployed cannot be fooled that way,
+          # and it fails precisely on the mistake that caused this: someone
+          # narrowing the copy pattern above.
+          missing=0
+          for f in crates/wasm/sources/* crates/wasm/ontologies/*; do
+            [[ -f "$f" ]] || continue
+            # Skip what the guard deliberately excludes: only Title 42's raw
+            # XML, at 113 MB over the 100 MB Pages limit. Its 35 MB archive
+            # ships, so the title is reachable by the fast route.
+            [[ $(stat -c%s "$f") -ge 99614720 ]] && continue
+            case "$f" in
+              crates/wasm/ontologies/*) dest="pages/ontologies/$(basename "$f")" ;;
+              *)                        dest="pages/sources/$(basename "$f")" ;;
+            esac
+            [[ -f "$dest" ]] || { echo "::error::staged but not deployed: $f — its Load button will 404"; missing=1; }
+          done
+          if [[ $missing -ne 0 ]]; then
+            echo "::error::the engine offers sources the assembled site does not carry"
+            exit 1
+          fi
+          echo "every staged source under the size guard is present in pages/"
+      # GitHub Pages serves neither a default robots.txt nor a sitemap —
+      # generated FROM the assembled `pages/` tree (not hand-listed) so it
+      # can't drift stale the way README's hand-counted numbers did.
+      # Excludes mdbook's own utility pages (404/print/toc, not real
+      # content) and `docs/chat/` (mdbook's static passthrough of the
+      # homepage source — a duplicate of `/`, not a page in its own right).
+      - name: Generate robots.txt + sitemap.xml
+        run: |
+          site="https://pr4xis.dev"
+          printf 'User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n' "$site" > pages/robots.txt
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            find pages -name '*.html' \
+              -not -path 'pages/docs/chat/*' \
+              -not -name '404.html' \
+              -not -name 'print.html' \
+              -not -name 'toc.html' \
+              | sort \
+              | while read -r f; do
+                  rel="${f#pages/}"
+                  if [ "$rel" = "index.html" ]; then
+                    loc="$site/"
+                  elif [ "$(basename "$rel")" = "index.html" ]; then
+                    loc="$site/${rel%index.html}"
+                  else
+                    loc="$site/$rel"
+                  fi
+                  echo "  <url><loc>${loc}</loc></url>"
+                done
+            echo '</urlset>'
+          } > pages/sitemap.xml
+      # Skipped on PRs: a fork PR gets a read-only token and the upload would
+      # fail inside a job whose failure now blocks the release chain. The
+      # Assemble step above still runs on PRs — which is the point, since the
+      # staged-vs-deployed invariant it enforces has until now only ever been
+      # checked AFTER merge.
+      - uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'pull_request'
+        with:
+          path: pages
 
   # praxis-corpus-tests is workspace-excluded so the default nextest run never
   # re-parses the multi-hundred-MB USC titles per process-isolated test. It
@@ -987,6 +1156,13 @@ jobs:
   # /ontologies/) ONLY when release-plz actually cut a version — or on an
   # explicit `workflow_dispatch` with `deploy_pages: yes`.
   #
+  # DEPLOY-ONLY. This job builds nothing: `wasm-browser` assembles and uploads
+  # the `github-pages` artifact, and `deploy-pages` picks it up from anywhere
+  # in the same run (the standard two-job Pages pattern). It used to rebuild
+  # the wasm (260s) and re-emit the .prx.gz (129s) that `wasm-browser` had
+  # already built AND TESTED — so the bytes actually deployed were a second,
+  # never-tested rebuild. Now the deployed tree is the tested tree.
+  #
   # This restores the release gate that was removed when `pages` was decoupled
   # to deploy on every green master push. The cost that decoupling was trying
   # to avoid is real and is re-accepted here deliberately: a master push that
@@ -1058,221 +1234,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-        with:
-          # `release`, not a wasm-only pool: this job runs host-target Rust too
-          # (`cargo run -p pr4xis-cli --release -- update`, the `emit_prx`
-          # artifact step) before it builds any wasm, so it wants the host
-          # dependency slice.
-          #
-          # NOTE: the old claim that "`wasm`/`build` already save wasm32 and
-          # host artefacts into this one slice" was false on both counts.
-          # `wasm` saves nothing, ever — it full-matches on restore and
-          # rust-cache then skips the save — and `build` installs no wasm32
-          # target, so the slice holds ZERO wasm32 artefacts. That is why this
-          # job's `Build WASM` (260s) and `wasm`'s `wasm-pack build` (263s)
-          # cost the same despite both reporting a full-match restore.
-          shared-key: release
-      - name: Cache WordNet XML
-        uses: actions/cache@v5
-        with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      # `pr4xis update` materialises EVERY registered source, not just WordNet,
-      # so without this the USC titles are re-downloaded on every deploy. Same
-      # key the `build`/`lint-docs`/`corpus` jobs use, so this restores what they
-      # already fetched and the update step below becomes a no-op.
-      - name: Cache fetched external data
-        uses: actions/cache@v5
-        with:
-          path: |
-            crates/domains/data/legal/uscode
-            crates/domains/data/markup-schemas/xsts
-            crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - name: Fetch external data (no-op on data-cache hit)
-        timeout-minutes: 20
-        run: cargo run -p pr4xis-cli --release --quiet -- update
-      # Emit a `.prx.gz` per registered OWL vocabulary directly into the
-      # pages tree. The emitter walks the registry, reads each bundled
-      # in-repo `.owl`, and round-trip-validates every artifact through the
-      # fail-closed load gate (embedded source hash must match praxis.lock).
-      - name: Emit .prx.gz ontology artifacts
-        timeout-minutes: 15
-        run: |
-          mkdir -p pages/ontologies
-          cargo run -p pr4xis-domains --features "fetch codegen" --release --example emit_prx -- pages/ontologies
-      # Was `curl … | sh`. GitHub's default shell is `bash -e {0}` — no
-      # pipefail — so a failed curl fed an empty script to `sh`, which exits
-      # 0: the step went GREEN having installed nothing, and the next step
-      # died with a confusing `wasm-pack: command not found`. The installer
-      # was also unpinned and re-resolved every run.
-      #
-      # Pinned, not `latest`: rust-cache restores `~/.cargo/bin` (cache-bin
-      # defaults true) BEFORE this step, and install-action skips when a
-      # satisfying binary is already present — so `latest` would make the
-      # build depend on whatever binary the cache happens to hold. 0.13.1 is
-      # what CI has actually been running (run 30438018664).
-      - name: Install wasm-pack
-        uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-pack@0.13.1
-      - name: Build WASM
-        timeout-minutes: 20
-        run: |
-          cd crates/wasm
-          wasm-pack build --target web --release
-      - name: Build presentation
-        timeout-minutes: 10
-        run: npx @marp-team/marp-cli docs/presentations/overview.md --html -o docs/presentations/index.html
-      # peaceiris/actions-mdbook@v2's newest release tag still declares
-      # `node20`, so it cannot be upgraded past the Node-20 deprecation —
-      # only replaced. Pinned to 0.5.4, the version `mdbook-version: latest`
-      # resolved to in run 30438018664, so this is version-neutral.
-      - name: Install mdBook
-        uses: taiki-e/install-action@v2
-        with:
-          tool: mdbook@0.5.4
-      # `docs/SUMMARY.md` already has a full nav (Learn/Use/Understand/
-      # Reference/Why/Research/Presentations/Papers) — `mdbook test docs/`
-      # exercises it for doctested ```rust blocks, but nothing ever built
-      # it to HTML and published it. Every page here becomes an
-      # independently indexable, linkable URL under /docs/, instead of
-      # only being reachable as raw markdown through the GitHub UI.
-      - name: Build docs site (mdbook)
-        run: mdbook build docs --dest-dir "$(pwd)/pages/docs"
-      # Built by the caregiver-pdf job (this job's own `needs`), not
-      # regenerated here — avoids installing pandoc/typst a second time.
-      - uses: actions/download-artifact@v8
-        with:
-          name: caregiver-challenge-pdfs
-          path: pages/caregiver-challenge
-      - name: Assemble pages
-        run: |
-          mkdir -p pages/pkg pages/decks/technical pages/sources pages/ontologies
-          cp docs/chat/index.html pages/index.html
-          cp docs/worker.js pages/worker.js
-          cp docs/caregiver-corpus-status.json pages/caregiver-corpus-status.json
-          # One app: docs/chat/index.html carries the generic Chat + Engine
-          # tabs and the ACL Caregiver AI Challenge tab (#caregiver,
-          # #caregiver/tracks/1|2, #caregiver/ask|evidence|method), all on ONE
-          # booted engine. dashboard.js is the caregiver tab's controller,
-          # mounted by index.html with the shared engine.
-          cp docs/chat/dashboard.js pages/dashboard.js
-          cp docs/chat/chat-ui.js pages/chat-ui.js
-          cp docs/chat/tokens.css pages/tokens.css
-          cp docs/smart40_validation_log_dump.json pages/smart40_validation_log_dump.json
-          # Bench data artifacts — copied only once their generator tests have
-          # produced them (guarded so a not-yet-generated artifact is a
-          # graceful on-page "not yet generated" state, not a CI failure).
-          for f in caregiver-corpus-slim.json adversarial-corpus.json smart40-protocol.json; do
-            [ -f "docs/$f" ] && cp "docs/$f" "pages/$f" || true
-          done
-          cp -r crates/wasm/pkg/* pages/pkg/
-          # On-demand sources staged by the wasm build: the authoritative USLM
-          # XML, the pre-projected rkyv archives the "Load (fast)" route needs,
-          # and the OWL vocabularies. ALL THREE KINDS, which this step used to
-          # get wrong: it copied only `*.xml`, so every one of the nine `.rprx`
-          # archives and all six `.owl` files 404'd on the hosted demo — every
-          # fast-load button dead — while a comment here claimed they "404
-          # gracefully". Title 42 was the worst case: its XML is 113 MB and is
-          # correctly excluded by the size guard, so with its 35 MB archive also
-          # missing the single most important title in this corpus could not be
-          # loaded on pr4xis.dev by any route at all.
-          #
-          # The 95M guard stays — GitHub Pages rejects files over 100 MB. It
-          # excludes only Title 42's raw XML; every archive is well under it
-          # (largest is Title 42's at 35 MB), so the fast route now covers
-          # exactly the title the raw route cannot.
-          find crates/wasm/sources \( -name '*.xml' -o -name '*.rprx' -o -name '*.owl' \) \
-            -size -95M -exec cp {} pages/sources/ \;
-          cp docs/presentations/index.html pages/decks/technical/index.html
-          cp docs/praxis-logo-dark.jpg pages/praxis-logo-dark.jpg
-          cp docs/praxis-logo-light.jpg pages/praxis-logo-light.jpg
-          cp docs/praxis-logo-video-dark.mp4 pages/praxis-logo-video-dark.mp4
-          cp docs/praxis-logo-video-light.mp4 pages/praxis-logo-video-light.mp4
-          # EVERY STAGED SOURCE THE SIZE GUARD ADMITS MUST REACH THE SITE.
-          #
-          # The wasm build stages what the catalog offers, and the page draws a
-          # Load button per row; a file staged but not assembled here is a
-          # button that 404s, and the demo silently loses a capability it
-          # claims to have. That is exactly what happened — nine `.rprx`
-          # archives and six `.owl` vocabularies were staged and offered, none
-          # was deployed, and nothing caught it because a missing file is
-          # invisible until somebody clicks.
-          #
-          # The invariant is asserted over the STAGED TREE, not over the
-          # generated manifests: `target/` accumulates build directories, and
-          # a glob across them picks up stale manifests advertising routes
-          # that no longer exist (confirmed — they name `.cprx` URLs the page
-          # has never offered). Staged-vs-deployed cannot be fooled that way,
-          # and it fails precisely on the mistake that caused this: someone
-          # narrowing the copy pattern above.
-          missing=0
-          for f in crates/wasm/sources/* crates/wasm/ontologies/*; do
-            [[ -f "$f" ]] || continue
-            # Skip what the guard deliberately excludes: only Title 42's raw
-            # XML, at 113 MB over the 100 MB Pages limit. Its 35 MB archive
-            # ships, so the title is reachable by the fast route.
-            [[ $(stat -c%s "$f") -ge 99614720 ]] && continue
-            case "$f" in
-              crates/wasm/ontologies/*) dest="pages/ontologies/$(basename "$f")" ;;
-              *)                        dest="pages/sources/$(basename "$f")" ;;
-            esac
-            [[ -f "$dest" ]] || { echo "::error::staged but not deployed: $f — its Load button will 404"; missing=1; }
-          done
-          if [[ $missing -ne 0 ]]; then
-            echo "::error::the engine offers sources the assembled site does not carry"
-            exit 1
-          fi
-          echo "every staged source under the size guard is present in pages/"
-      # GitHub Pages serves neither a default robots.txt nor a sitemap —
-      # generated FROM the assembled `pages/` tree (not hand-listed) so it
-      # can't drift stale the way README's hand-counted numbers did.
-      # Excludes mdbook's own utility pages (404/print/toc, not real
-      # content) and `docs/chat/` (mdbook's static passthrough of the
-      # homepage source — a duplicate of `/`, not a page in its own right).
-      - name: Generate robots.txt + sitemap.xml
-        run: |
-          site="https://pr4xis.dev"
-          printf 'User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n' "$site" > pages/robots.txt
-          {
-            echo '<?xml version="1.0" encoding="UTF-8"?>'
-            echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-            find pages -name '*.html' \
-              -not -path 'pages/docs/chat/*' \
-              -not -name '404.html' \
-              -not -name 'print.html' \
-              -not -name 'toc.html' \
-              | sort \
-              | while read -r f; do
-                  rel="${f#pages/}"
-                  if [ "$rel" = "index.html" ]; then
-                    loc="$site/"
-                  elif [ "$(basename "$rel")" = "index.html" ]; then
-                    loc="$site/${rel%index.html}"
-                  else
-                    loc="$site/$rel"
-                  fi
-                  echo "  <url><loc>${loc}</loc></url>"
-                done
-            echo '</urlset>'
-          } > pages/sitemap.xml
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
       # NOTE: the `.prx.gz` ontology artifacts are served from Pages
-      # `/ontologies/` (emitted above into the pages tree), NOT attached to the
+      # `/ontologies/` (assembled by wasm-browser), NOT attached to the
       # GitHub release. release-plz creates releases with `git_release_enable`,
       # which are IMMUTABLE — `gh release upload --clobber` against an immutable
       # release fails `HTTP 422: Cannot upload assets to an immutable release`,
