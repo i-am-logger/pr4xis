@@ -115,6 +115,64 @@ macro_rules! register_praxis_value {
     };
 }
 
+/// Emit this test binary's registered tag set, for the completeness gate.
+///
+/// Place one invocation in every test binary the workspace builds:
+///
+/// ```text
+/// #[cfg(all(test, not(target_arch = "wasm32")))]
+/// pr4xis::constitution_coverage_gate!();
+/// ```
+///
+/// PER BINARY IS NOT AN IMPLEMENTATION DETAIL — it is the whole reason this
+/// macro exists. Tags register through a `linkme` distributed slice, and a
+/// distributed slice is assembled by the LINKER, so it holds exactly the tags
+/// linked into the binary being run and nothing else. A test binary with no
+/// invocation of this macro therefore emits no tags at all, and contributes 0
+/// to both sides of the gate's diff — `untagged=0 phantom=0`, which reads as
+/// COMPLETE. That arithmetic is what let 156 tests across 11 binaries sit
+/// unclassified while the gate reported success, so the gate now also fails
+/// loudly on a suite that lists tests but emits nothing.
+///
+/// The body was hand-copied verbatim into four crates before this macro
+/// existed (pr4xis, pr4xis-runtime, pr4xis-chat, pr4xis-domains); adding the
+/// remaining binaries by copy would have made eleven. Writing it once means a
+/// new test binary opts in with one line, which is the only way "every test
+/// declares a guarantee" stays true as the workspace grows.
+///
+/// Fully-qualified paths throughout: this expands inside `pr4xis` itself
+/// (`no_std` + `alloc`) as well as in ordinary `std` crates, so it can rely on
+/// nothing being in scope at the call site.
+#[macro_export]
+macro_rules! constitution_coverage_gate {
+    () => {
+        #[cfg(all(test, not(target_arch = "wasm32")))]
+        mod constitution_coverage_gate {
+            extern crate std;
+
+            #[$crate::praxis_value(Verifiable)]
+            #[test]
+            fn constitution_coverage() {
+                let mut lines: std::vec::Vec<std::string::String> =
+                    $crate::constitution::CONSTITUTION_TESTS
+                        .iter()
+                        .map(|t| std::format!("{}::{}", t.module, t.name))
+                        .collect();
+                // Sorted so the emitted file is stable run to run: a
+                // distributed slice's order is link order, which is not
+                // guaranteed, and the gate diffs this against a sorted listing.
+                lines.sort();
+                match std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
+                    Ok(path) => {
+                        std::fs::write(&path, lines.join("\n")).expect("write constitution tags")
+                    }
+                    Err(_) => std::eprintln!("{}", lines.join("\n")),
+                }
+            }
+        }
+    };
+}
+
 /// Per-crate completeness-gate support: emit pr4xis-core's own tag set so
 /// `scripts/constitution-gate.sh pr4xis` can diff it against `--list`. This
 /// binds the substrate crate's tests to the constitution exactly as the domains
