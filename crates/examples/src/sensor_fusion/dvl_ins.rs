@@ -19,6 +19,7 @@ mod tests {
     use pr4xis_domains::formal::math::temporal::instant::Instant;
     use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn dvl_aided_ins_position_estimation() {
         // State: [x, vx] (1D forward motion)

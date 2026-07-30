@@ -176,6 +176,7 @@ mod tests {
     use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_konigsberg_impossible() {
         let g = Graph::konigsberg();
@@ -183,12 +184,14 @@ mod tests {
         assert_eq!(g.odd_degree_count(), 4);
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_eulerian_graph_possible() {
         let g = Graph::eulerian_circuit();
         assert!(g.has_euler_path());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_cant_reuse_bridge() {
         let e = new_konigsberg(0)
@@ -197,6 +200,7 @@ mod tests {
         assert!(e.next(CrossBridge { edge_index: 0 }).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_must_be_adjacent() {
         // Start at A(0). Edges 3,4 are B-C — not adjacent to A
@@ -204,6 +208,7 @@ mod tests {
         assert!(e.next(CrossBridge { edge_index: 3 }).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_konigsberg_gets_stuck() {
         let mut e = new_konigsberg(0);
@@ -223,6 +228,7 @@ mod tests {
         assert!(count < 7);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_konigsberg_exhaustive_impossibility() {
         // Prove that NO starting node and NO sequence of moves can traverse all 7 bridges
@@ -290,4 +296,6 @@ mod tests {
             prop_assert_eq!(e.situation().traversed.len(), successes);
         }
     }
+    pr4xis::register_praxis_value!(prop_no_reuse, Honest, Verifiable);
+    pr4xis::register_praxis_value!(prop_traversed_count, Verifiable);
 }

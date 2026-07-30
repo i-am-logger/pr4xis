@@ -468,6 +468,7 @@ fn render_report(report: &AuditReport) -> String {
 // The test
 // ---------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Explainable, Honest)]
 #[test]
 fn citation_audit() {
     let registry = load_registry();
@@ -564,6 +565,7 @@ fn citation_audit() {
 // Self-tests for the audit's own helpers
 // ---------------------------------------------------------------------
 
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn slug_predicate_accepts_kebab_underscore() {
     assert!(is_slug("mac_lane_1971_categories_working_mathematician_i3"));
@@ -574,6 +576,7 @@ fn slug_predicate_accepts_kebab_underscore() {
     assert!(!is_slug("mac lane"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn slug_extractor_finds_macro_form() {
     let text = r"some code cite![mac_lane_1971_categories_working_mathematician_i3] more code";
@@ -582,6 +585,7 @@ fn slug_extractor_finds_macro_form() {
     assert!(slugs.contains("mac_lane_1971_categories_working_mathematician_i3"));
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn slug_extractor_finds_html_comment_form() {
     let text = "<!-- cite:gao_2012_xsd_1_1_part_1_3_8_1 --> trailing";
@@ -590,6 +594,7 @@ fn slug_extractor_finds_html_comment_form() {
     assert!(slugs.contains("gao_2012_xsd_1_1_part_1_3_8_1"));
 }
 
+#[pr4xis::praxis_value(Verifiable, Extensible)]
 #[test]
 fn registry_loads() {
     let registry = load_registry();
@@ -602,3 +607,9 @@ fn registry_loads() {
         registry.citations.len()
     );
 }
+
+// ---------------------------------------------------------------------
+// Constitutional coverage — this test binary's tag set, for the gate.
+// ---------------------------------------------------------------------
+
+pr4xis::constitution_coverage_gate!();

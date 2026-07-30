@@ -114,6 +114,7 @@ mod tests {
     use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_3_disk_solution() {
         let e = new_puzzle(3)
@@ -135,6 +136,7 @@ mod tests {
         assert_eq!(e.trace().successful_steps(), 7); // 2^3 - 1
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_cant_place_larger_on_smaller() {
         let e = new_puzzle(3).next(Move::new(0, 2)).unwrap(); // move disk 1 to C
@@ -142,6 +144,7 @@ mod tests {
         assert!(e.next(Move::new(0, 2)).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_cant_move_from_empty() {
         assert!(new_puzzle(3).next(Move::new(1, 2)).is_err());
@@ -186,4 +189,6 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_pegs_always_sorted, Honest, Verifiable);
+    pr4xis::register_praxis_value!(prop_disk_count_preserved, Verifiable);
 }

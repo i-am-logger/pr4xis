@@ -128,6 +128,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_mutual_cooperation() {
         let e = new_game()
@@ -139,6 +140,7 @@ mod tests {
         assert_eq!(e.situation().total_b, 3);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_betrayal() {
         let e = new_game()
@@ -150,6 +152,7 @@ mod tests {
         assert_eq!(e.situation().total_b, 5);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_mutual_defection() {
         let e = new_game()
@@ -161,6 +164,7 @@ mod tests {
         assert_eq!(e.situation().total_b, 1);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_b_cant_go_first() {
         assert!(
@@ -188,4 +192,6 @@ mod tests {
             prop_assert!(sb >= 0);
         }
     }
+    pr4xis::register_praxis_value!(prop_payoffs_symmetric, Verifiable);
+    pr4xis::register_praxis_value!(prop_scores_non_negative, Verifiable);
 }

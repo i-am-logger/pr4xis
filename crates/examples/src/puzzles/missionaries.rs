@@ -147,6 +147,7 @@ mod tests {
     use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_known_solution() {
         let e = new_puzzle()
@@ -175,17 +176,20 @@ mod tests {
         assert!(e.situation().is_terminal());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_cannibals_outnumber_blocked() {
         // Send 2 missionaries, leaving 1M 3C on left
         assert!(new_puzzle().next(Crossing::new(2, 0)).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_boat_too_full() {
         assert!(new_puzzle().next(Crossing::new(2, 1)).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_empty_boat() {
         assert!(new_puzzle().next(Crossing::new(0, 0)).is_err());
@@ -221,4 +225,6 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_always_safe, Honest, Verifiable);
+    pr4xis::register_praxis_value!(prop_total_preserved, Verifiable);
 }

@@ -14,6 +14,7 @@ mod tests {
     use pr4xis_domains::formal::math::angle::Angle;
     use pr4xis_domains::formal::math::coordinate::PolarCoordinate;
 
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn track_target_at_known_position() {
         // Target at 1000m range, 45° azimuth (NE)
@@ -40,6 +41,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn target_at_north_has_zero_east() {
         let cart = PolarCoordinate::new(500.0, Angle::from_radians(0.0)).to_cartesian(); // due north
@@ -48,6 +50,7 @@ mod tests {
         assert!((y - 500.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn target_at_east_has_zero_north() {
         let az = std::f64::consts::FRAC_PI_2; // 90° = due east

@@ -21,6 +21,7 @@ mod tests {
 
     use pr4xis_domains::applied::tracking::single_target::engine::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn constant_velocity_tracker_converges() {
         let true_pos = 0.0;
@@ -168,5 +169,8 @@ mod tests {
                     == e2.situation().estimate.state.data);
             }
         }
+        pr4xis::register_praxis_value!(tracker_converges_for_any_velocity, Verifiable);
+        pr4xis::register_praxis_value!(covariance_stays_psd_for_any_measurements, Verifiable);
+        pr4xis::register_praxis_value!(tracker_is_deterministic, Deterministic);
     }
 }

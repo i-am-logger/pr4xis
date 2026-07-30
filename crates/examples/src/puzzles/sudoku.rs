@@ -135,6 +135,7 @@ mod tests {
     use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_valid_placement() {
         let e = new_empty()
@@ -154,6 +155,7 @@ mod tests {
         assert_eq!(e.situation().get(0, 1), 2);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_same_row_blocked() {
         let e = new_empty()
@@ -173,6 +175,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_same_col_blocked() {
         let e = new_empty()
@@ -192,6 +195,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_same_box_blocked() {
         let e = new_empty()
@@ -211,6 +215,7 @@ mod tests {
         ); // same 3x3 box
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_cell_already_filled() {
         let e = new_empty()
@@ -230,6 +235,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_value_out_of_range() {
         assert!(
@@ -274,4 +280,5 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_no_constraint_violations, Honest, Verifiable);
 }

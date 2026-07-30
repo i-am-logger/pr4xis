@@ -19,6 +19,7 @@ mod tests {
     use pr4xis_domains::formal::math::temporal::instant::Instant;
     use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn falling_object_with_altimeter() {
         let g = pr4xis_domains::formal::math::quantity::constants::standard_gravity().value;

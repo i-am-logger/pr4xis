@@ -153,6 +153,7 @@ mod tests {
         ]
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_known_solution() {
         let e = new_puzzle()
@@ -173,11 +174,13 @@ mod tests {
         assert!(e.situation().is_terminal());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_wolf_eats_goat_blocked() {
         assert!(new_puzzle().next(Crossing::WithCabbage).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_cant_take_from_other_bank() {
         let e = new_puzzle()
@@ -201,4 +204,5 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_always_safe, Honest, Verifiable);
 }

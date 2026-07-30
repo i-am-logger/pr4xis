@@ -14,6 +14,7 @@
 mod tests {
     use pr4xis_domains::formal::math::probability::gaussian::Gaussian1D;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn gaussian_fusion_reduces_uncertainty() {
         let est1 = Gaussian1D::new(10.0, 4.0); // σ² = 4
@@ -30,6 +31,7 @@ mod tests {
         assert!(fused.mean < est2.mean + 1.0);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn fusion_of_identical_estimates_halves_variance() {
         let est = Gaussian1D::new(5.0, 4.0);
@@ -40,6 +42,7 @@ mod tests {
         assert!((fused.mean - 5.0).abs() < 1e-10);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn very_precise_estimate_dominates() {
         let precise = Gaussian1D::new(10.0, 0.01); // very precise
@@ -82,5 +85,7 @@ mod tests {
                 prop_assert_eq!(f1.variance.to_bits(), f2.variance.to_bits());
             }
         }
+        pr4xis::register_praxis_value!(fusion_always_reduces_variance, Verifiable);
+        pr4xis::register_praxis_value!(fusion_is_deterministic, Deterministic);
     }
 }

@@ -402,6 +402,7 @@ mod tests {
     use pr4xis::category::laws::assert_category_laws;
     use pr4xis::ontology::registry::{axiom_by_name, describe_knowledge_base};
 
+    #[pr4xis::praxis_value(Deterministic)]
     #[test]
     fn category_laws() {
         assert_category_laws::<LoadEnvelopeCategory>();
@@ -409,6 +410,7 @@ mod tests {
 
     /// Runs the category laws AND the fail-closed axiom's `verify()` against
     /// the real `decode_and_project` arms + the embedded demo fixtures.
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn ontology_validates() {
         LoadEnvelopeOntology::validate()
@@ -416,6 +418,7 @@ mod tests {
     }
 
     /// Every declared concept carries a non-empty, DISTINCT description.
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn every_concept_carries_a_distinct_description() {
         let q = ConceptDescription;
@@ -438,6 +441,7 @@ mod tests {
     /// statute: the ontology is discoverable in the knowledge base and the
     /// fail-closed axiom re-binds by name (the load-time rebind gate). This is
     /// exactly the citizenship the plain `Encoding`/`TrustAnchor` enums lacked.
+    #[pr4xis::praxis_value(Explainable)]
     #[test]
     fn discoverable_via_self_model() {
         assert!(

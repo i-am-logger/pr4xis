@@ -728,21 +728,23 @@ jobs:
       # seconds instead of the 805s dev-profile compile of four crates it used
       # to spend at the head of the pipeline.
       #
-      # It also ENFORCES MORE than it used to. Compiling from source resolved a
-      # narrower feature union than `--workspace` does, so feature-gated code
-      # was exempt from untagged=0 — all 59 tests of pr4xis's `codegen` module,
-      # pr4xis-domains' fetch-gated tests, pr4xis-runtime's emit-gated tests.
-      # Verified against this archive: pr4xis 437, pr4xis-runtime 116,
-      # pr4xis-chat 113, pr4xis-domains 8037 — untagged=0 and phantom=0 on all
-      # four, so widening the gate needed no backfill.
+      # `--all` walks EVERY test binary in the archive. It replaced four
+      # hardcoded crate invocations, which could only ever see those four
+      # crates' LIB suites — leaving 156 tests in 11 binaries unmeasured while
+      # the gate printed COMPLETE, 128 of them LIB tests in pr4xis-examples and
+      # pr4xis-wasm, two packages the old command never named. The gate's unit
+      # has to be the test BINARY, because linkme assembles its tag slice per
+      # binary: one with no emitter contributes 0 to both sides of the diff and
+      # nets to untagged=0/phantom=0.
+      #
+      # Current state, verified against this archive:
+      #   listed=8870 tagged=8870 untagged=0 phantom=0
+      # 8870 is every test the workspace builds. Do not replace this with a
+      # crate list again; a new crate or a new integration target would silently
+      # fall outside it.
       - name: Constitution completeness gate (from the archive)
         timeout-minutes: 10
-        run: |
-          A=target/nextest-archive.tar.zst
-          bash scripts/constitution-gate.sh pr4xis --enforce --archive "$A"
-          bash scripts/constitution-gate.sh pr4xis-runtime --enforce --archive "$A"
-          bash scripts/constitution-gate.sh pr4xis-chat --enforce --archive "$A"
-          bash scripts/constitution-gate.sh pr4xis-domains --enforce --archive "$A"
+        run: bash scripts/constitution-gate.sh --all --enforce --archive target/nextest-archive.tar.zst
       - name: Upload test results to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
         uses: codecov/codecov-action@v7

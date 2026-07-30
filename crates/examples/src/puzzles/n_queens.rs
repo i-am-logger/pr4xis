@@ -100,6 +100,7 @@ mod tests {
     use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_4_queens_solution() {
         let e = new_puzzle(4)
@@ -114,6 +115,7 @@ mod tests {
         assert!(e.situation().is_terminal());
     }
 
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn test_8_queens_solution() {
         let e = new_puzzle(8)
@@ -136,12 +138,14 @@ mod tests {
         assert!(e.situation().is_terminal());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_same_column_blocked() {
         let e = new_puzzle(4).next(PlaceQueen { col: 0 }).unwrap();
         assert!(e.next(PlaceQueen { col: 0 }).is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_diagonal_blocked() {
         let e = new_puzzle(4).next(PlaceQueen { col: 0 }).unwrap();
@@ -172,4 +176,5 @@ mod tests {
             }
         }
     }
+    pr4xis::register_praxis_value!(prop_no_attacks_ever, Honest, Verifiable);
 }
