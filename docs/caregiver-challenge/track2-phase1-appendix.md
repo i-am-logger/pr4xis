@@ -30,17 +30,21 @@ What follows describes software that is built and running: a browser-resident de
 
 ## A.2 What this track measures against, and where it stands today
 
-Every figure here is a property of committed files, re-derivable without running the reasoner. The corpus of record is **4,219 US-sourced questions**, of which **2,147 are this track's audience slice** (`track2_workforce` plus questions tagged for both tracks) and **1,663 are track-exclusive**. That slice spans **131 distinct sources**; the 1,663 track-exclusive questions are drawn from 78 of them. The purpose-built **HCBS Workforce and Compliance Lexicon carries 279 synsets**, and **every one of the 279 definitions names its source inline**: 185 cite the U.S. Code, C.F.R., Federal Register, Statutes at Large or a Public Law by number, and the other 94 name the federal agency guidance, state code, state Medicaid FAQ, vendor documentation, uniform act, clinical literature or policy-research report they were authored from. The split moves with the matching rule, so the rule ships as the command below — the same rule §1 quotes — rather than as a characterization.
+Every figure here is a property of committed files, re-derivable without running the reasoner. The corpus of record is **4,219 US-sourced questions**, of which **2,147 are this track's audience slice** (`track2_workforce` plus questions tagged for both tracks) and **1,663 are track-exclusive**. That slice spans **131 distinct sources**; the 1,663 track-exclusive questions are drawn from 78 of them. The purpose-built **HCBS Workforce and Compliance Lexicon carries 279 synsets**, and **every one of the 279 carries its source in the synset's `dc:source` attribute**: 182 cite the U.S. Code, C.F.R., Federal Register, Statutes at Large or a Public Law by number, and the other 97 name the federal agency guidance, state code, state Medicaid FAQ, vendor documentation, uniform act, clinical literature or policy-research report they were authored from. The split moves with the matching rule, so the rule ships as the command below — the same rule §1 quotes — rather than as a characterization.
 
 ```
 F=crates/praxis-corpus-tests/tests/fixtures/caregiver_question_corpus.json
 L=crates/domains/data/care/hcbs_compliance_lexicon.xml
 T='select(.track=="track2_workforce" or .track=="both")'
-jq 'length' $F ; jq "[.[]|$T]|length" $F ; jq "[.[]|$T|.source]|unique|length" $F
-                                       # 4,219 ; 2,147 ; 131 (78 sources without `or …"both"`)
-grep -c '<Synset ' $L                  # 279
-grep -o '<Definition>[^<]*</Definition>' $L | \
-  grep -cE '[0-9]+ (USC|U\.S\.C\.|CFR|C\.F\.R\.|Stat\.)|Fed\. Reg\.|[0-9]+ FR [0-9]|Pub\. L\.'   # 185
+jq 'length' $F                          # 4,219
+jq "[.[]|$T]|length" $F                 # 2,147
+jq "[.[]|$T|.source]|unique|length" $F  # 131 (78 without `or …"both"`)
+grep -c '<Synset ' $L                   # 279
+# The citation is the synset's dc:source attribute, not the Definition text.
+R1='[0-9]+ (USC|U\.S\.C\.|CFR|C\.F\.R\.|Stat\.)'
+R2='Fed\. Reg\.|[0-9]+ FR [0-9]|Pub\. L\.'
+grep -o 'dc:source="[^"]*"' $L | grep -cE "$R1|$R2"   # 182 federal
+grep -o 'dc:source="[^"]*"' $L | grep -vcE "$R1|$R2"  # 97 other
 ```
 
 **The corpus is US-jurisdiction only, and that was a change.** 398 rows were removed on 2026-07-24 — 395 from twelve Alzheimer's Society (UK) subforums, 3 from Dementia Australia — because the authorities this engine answers US questions from are US federal — statute, regulation and federal program guidance — so a question decided under another jurisdiction's law has a correct answer this loaded set does not hold. The lexicons carry a small number of comparative non-US entries, each cited to its own source, which is exactly why the corpus was scoped to US rows rather than left to measure a jurisdiction mismatch as a capability gap. The effect is recorded on both axes: in aggregate it moved the corpus-wide picture barely at all, and the two Alzheimer's Society source slices that had been standing at a committed floor of 0 left the floors table entirely along with their rows, with their prior classifications published so the change can be audited for self-interest. What remains in that table is fifteen slices, every one of them a US source measuring a real capability.
