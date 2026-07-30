@@ -67,4 +67,19 @@
 #show raw.where(block: false): it => text(font: "Liberation Mono", size: 11pt)[#it]
 #show raw.where(block: true): it => text(font: "Liberation Mono", size: 10pt)[#it]
 
+// Tables MUST be able to continue onto the next page.
+//
+// Pandoc's typst writer wraps every table as `#figure(align(center)[#table(…)])`,
+// and a Typst figure is laid out in a NON-BREAKABLE block by default. A table
+// taller than the space left on the page therefore does not continue — it
+// overflows, and every remaining row is drawn on top of the others in a band at
+// the page foot, illegible and printing over the page number.
+//
+// That is not hypothetical: it silently corrupted the last six rows of the
+// criterion-map table in track2-phase1-appendix (16 rows, several of them long
+// paragraphs), and the `Caregiver PDF page limit` CI job could not see it —
+// that gate counts PAGES, and overlapping text costs no extra page. A reviewer
+// reading the submitted PDF was the detector.
+#show figure: set block(breakable: true)
+
 #include "build/fragment.typ"

@@ -9,7 +9,7 @@ What follows describes software that is built and running: a browser-resident de
 "§" numbers are Project Narrative sections; "A.n" refers to this appendix.
 
 | Criterion / sub-criterion | Where | What the reviewer finds |
-|---|---|---|
+|--------------------------|------------|--------------------------------------------------------------|
 | **1** Understanding of the Need | §1; A.3 | The Cures Act mandate and the 2024 Ensuring Access rule (89 Fed. Reg. 40542) cited provision by provision; a stratification naming what each class of question requires |
 | **1** Responsiveness (viability) | §1; A.3 | Track 2's use cases met literally, scope boundaries named; a falsifiable, publicly gated per-stratum commitment in a compliance staffer's terms |
 | **1** Impact | §4 P3; A.6 | Net-Time-Saved projection, arithmetic and assumptions visible, its dependence on A.3 stated |
