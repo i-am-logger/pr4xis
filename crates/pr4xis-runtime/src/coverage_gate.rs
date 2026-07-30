@@ -11,21 +11,8 @@
 //! forcing coverage of the rest would mean inventing secondary tags rather
 //! than reporting what the tests actually witness).
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use pr4xis::constitution::CONSTITUTION_TESTS;
-    use std::fs;
-
-    #[pr4xis::praxis_value(Verifiable)]
-    #[test]
-    fn constitution_coverage() {
-        let lines: Vec<String> = CONSTITUTION_TESTS
-            .iter()
-            .map(|t| format!("{}::{}", t.module, t.name))
-            .collect();
-        match std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
-            Ok(path) => fs::write(&path, lines.join("\n")).expect("write constitution tags"),
-            Err(_) => eprintln!("{}", lines.join("\n")),
-        }
-    }
-}
+// One canonical emitter, expanded per binary. This body was hand-copied
+// verbatim into four crates; `pr4xis::constitution_coverage_gate!` is that
+// same body written once. Per BINARY, not per crate: linkme assembles a
+// distributed slice at link time, so each test binary sees only its own tags.
+pr4xis::constitution_coverage_gate!();
