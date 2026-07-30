@@ -20,6 +20,7 @@ use pr4xis_runtime::emit::emit;
 use pr4xis_runtime::load;
 use pr4xis_runtime::rebind::{RebindTarget, rebind_nodes};
 
+#[pr4xis::praxis_value(Deterministic, Honest)]
 #[test]
 fn real_dependability_ontology_round_trips_through_the_runtime() {
     let archive = emit::<DependabilityCategory>();
@@ -45,6 +46,7 @@ fn real_dependability_ontology_round_trips_through_the_runtime() {
     assert!(load::load(&bytes, ContentAddress::of(b"wrong root")).is_err());
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn real_dependability_ontology_rebinds_against_itself() {
     struct Selfish(HashMap<String, ContentAddress>);
@@ -179,6 +181,7 @@ where
     archive.nodes.len()
 }
 
+#[pr4xis::praxis_value(Deterministic, Verifiable)]
 #[test]
 fn prx_format_round_trip_law_holds_over_real_ontologies() {
     // Iterate the law over a SET of real compiled ontologies — "all-sources"
@@ -208,3 +211,9 @@ fn prx_format_round_trip_law_holds_over_real_ontologies() {
         "the set must cover a substantial number of concepts; got {counts:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Constitutional coverage — this test binary's tag set, for the gate.
+// ---------------------------------------------------------------------------
+
+pr4xis::constitution_coverage_gate!();

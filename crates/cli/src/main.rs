@@ -1703,6 +1703,7 @@ mod tests {
 
     /// Known answers cross-derived with GNU `date -u -d @<secs>`: the epoch,
     /// a leap day (2000-02-29), a recent date, and an end-of-year boundary.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn rfc3339_utc_matches_known_answers() {
         assert_eq!(rfc3339_utc(0), "1970-01-01T00:00:00Z");
@@ -1711,3 +1712,8 @@ mod tests {
         assert_eq!(rfc3339_utc(4_102_444_799), "2099-12-31T23:59:59Z");
     }
 }
+
+// One canonical emitter per test BINARY — this is the `pr4xis` bin target's.
+// The integration target (`tests/cli_smoke.rs`) links its own tags separately
+// and carries its own invocation.
+pr4xis::constitution_coverage_gate!();

@@ -124,6 +124,7 @@ mod tests {
         ]
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_classic_solution() {
         let e = new_classic()
@@ -143,6 +144,7 @@ mod tests {
         assert_eq!(e.situation().jug_b, 4);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_no_op_blocked() {
         let e = new_classic();
@@ -180,4 +182,6 @@ mod tests {
             prop_assert_eq!(poured.jug_a + poured.jug_b, total);
         }
     }
+    pr4xis::register_praxis_value!(prop_never_overflow, Honest, Verifiable);
+    pr4xis::register_praxis_value!(prop_pour_conserves, Verifiable);
 }

@@ -1968,6 +1968,7 @@ mod acceptance {
     /// hash-validated `.prx.gz` envelope leg is reachable ONLY by releasing one
     /// first. The end-to-end suite drives exactly that round-trip, and this is
     /// the invariant that keeps it drivable.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn every_eager_source_can_be_put_down_and_picked_back_up() {
         for name in eager_residency::EAGER_RESIDENT {
@@ -1994,6 +1995,7 @@ mod acceptance {
     /// number in place and its justification false. This asserts the property
     /// the literal only claimed — that the boundary actually falls between the
     /// small titles and the large ones for the catalog as built.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn the_auto_load_budget_is_the_catalogs_own_natural_break() {
         let p = Pr4xis::new();
@@ -2092,6 +2094,7 @@ mod acceptance {
     /// A source with no decoder belongs to a non-`ChatKnowledge` role (which is
     /// what `is_chat_loadable` filters on, and how the original was fixed), not
     /// to the knowledge boundary with a dead card.
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn nothing_offers_itself_as_available_without_a_way_to_load_it() {
         let p = Pr4xis::new();
@@ -2180,6 +2183,7 @@ mod acceptance {
     /// and TAMPERED bytes against the true pin (the content leg) — mirroring
     /// the native `english_load_owned()` store-bundle gate's fail-closed
     /// contract.
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn tampered_embedded_english_refuses_loudly() {
         use pr4xis_domains::applied::data_provisioning::registry::{
@@ -2220,6 +2224,7 @@ mod acceptance {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable, Explainable)]
     #[test]
     fn browser_loads_a_prx_and_the_chat_answers_about_its_content_and_abstains_without_it() {
         // A fresh English to choose a discriminating concept + to assert the
@@ -2398,6 +2403,7 @@ mod acceptance {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Explainable)]
     #[test]
     fn re_loading_a_name_replaces_it_and_records_a_replace_event() {
         // Name-based replace (doc §4.5): a `.prx` is its OntologyName, so loading
@@ -2439,6 +2445,7 @@ mod acceptance {
     /// registered `LoadEnvelopeFailClosed` axiom.
     use crate::load_envelope::SAMPLE_USLM_TITLE;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loading_a_usc_title_routes_it_into_the_reasoner() {
         // Architecture Step 1, the WIRE: a loaded USLM statute must reach the SAME
@@ -2477,6 +2484,7 @@ mod acceptance {
     /// and the chat's phrase-lookup collapses the multi-token citation into one
     /// lookup unit. So "what is section 1" resolves the URN-named section and
     /// answers from its heading — the maintainer's exact symptom, fixed.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn loading_a_usc_title_makes_it_queryable() {
         let mut p = Pr4xis::new();
@@ -2499,6 +2507,7 @@ mod acceptance {
     /// nameable, and the same act that releases it takes the name away. The
     /// question is asked by the title's OWN published designation, obtained
     /// from the typed id — no citation text is written here.
+    #[pr4xis::praxis_value(Verifiable, Honest)]
     #[test]
     fn a_held_title_is_answerable_by_its_own_citation_and_stops_being_so_when_released() {
         use pr4xis_domains::social::software::markup::xml::uslm::corpus::identifiers::{
@@ -2557,6 +2566,7 @@ mod acceptance {
     /// It was obtained by no control act; an Unload that appeared to succeed
     /// while every title it names stayed loaded would misreport the system's
     /// own state, and the next load would silently bring it back.
+    #[pr4xis::praxis_value(Honest, Explainable)]
     #[test]
     fn the_derived_title_lexicon_is_reported_as_derived_and_unreleasable() {
         use pr4xis_domains::social::software::markup::xml::uslm::corpus::identifiers::UsCodeTitleId;
@@ -2592,6 +2602,7 @@ mod acceptance {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn load_is_fail_closed_a_wrong_root_is_refused() {
         // The gate re-derives the archive's Merkle root and refuses on mismatch.
@@ -2626,6 +2637,7 @@ mod acceptance {
         );
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn load_is_fail_closed_tampered_bytes_are_refused() {
         // Flip a byte of the embedded `.prx`: either decode fails or the
@@ -2663,6 +2675,7 @@ mod acceptance {
     /// `Ok`. The wasm-side port of `prop_mutated_prx_always_rejected`'s
     /// totality half (the native arms' unit tests cover the typed verdicts;
     /// this pins totality over arbitrary bytes).
+    #[pr4xis::praxis_value(Honest, Deterministic)]
     #[test]
     fn decode_and_project_is_total_over_arbitrary_payload_bytes_on_every_arm() {
         use pr4xis_domains::applied::data_provisioning::ontology::ContentType;
@@ -2827,6 +2840,7 @@ mod acceptance {
     /// into-English target with `MissingPeerArchive`. Now the single
     /// `ground_loaded_set` pass (which seeds English) grounds it, and "is rex an
     /// animal" answers through WordNet's own is-a chain.
+    #[pr4xis::praxis_value(Verifiable, Extensible)]
     #[test]
     fn an_into_english_prx_loads_and_grounds_through_the_public_path() {
         use pr4xis_runtime::definition::EdgeTarget;
@@ -2892,6 +2906,7 @@ mod acceptance {
     /// target synset does NOT exist in the present English peer is a
     /// declared-but-unrealizable grounding — the load must FAIL CLOSED (typed
     /// `Grounding` verdict) and install NOTHING, not silently install ungrounded.
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn an_into_english_prx_with_an_absent_target_fails_closed_at_the_public_path() {
         let (bytes, root_hex) = into_english_menagerie_prx("s-DOESNOTEXIST-in-wordnet");
@@ -2921,6 +2936,7 @@ mod acceptance {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable, Explainable)]
     #[test]
     fn a_fresh_pr4xis_answers_that_a_statute_is_a_law_from_the_always_loaded_base() {
         // THE headline of the always-loaded base: NO explicit load. `Pr4xis::new`
@@ -2988,6 +3004,7 @@ mod acceptance {
     /// always-loaded base; an unloaded concept abstains, naming the surface it
     /// could not resolve — and a batch row matches a single `chat` turn for a
     /// non-Conditional question (a session with no open frame is a no-op).
+    #[pr4xis::praxis_value(Deterministic, Honest)]
     #[test]
     fn chat_batch_runs_each_question_statelessly_and_in_order() {
         let english = load_english();
@@ -3096,6 +3113,7 @@ mod acceptance {
     /// pending-frame lifecycle itself is proven in `pr4xis-chat`'s session tests;
     /// this pins the wasm reset contract and that stateless `chat_batch` never
     /// opens a frame.)
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn reset_session_leaves_no_pending_slot_fill_frame() {
         let mut p = Pr4xis::new();
@@ -3122,6 +3140,7 @@ mod acceptance {
     /// (the ontology's own label), status/success, detail, reasoned-over set, and
     /// the per-step functor connections whose literature `reference` the flatten
     /// used to discard.
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn chat_emits_a_typed_trace_beside_the_flattened_string() {
         let mut p = Pr4xis::new();
@@ -3194,6 +3213,7 @@ mod acceptance {
     /// The negative half matters as much: a turn answered from the embedded
     /// English substrate declares no document, so the field is simply absent and
     /// the page renders no provenance step.
+    #[pr4xis::praxis_value(Explainable, Honest)]
     #[test]
     fn chat_emits_the_definition_provenance_of_a_recited_lexicon_gloss() {
         let mut p = Pr4xis::new();
@@ -3247,6 +3267,7 @@ mod acceptance {
     /// foreground to a near-background grey flips the verdicts to fail — the
     /// panel shows a real regression, never fakes a pass. A non-slot alias key is
     /// skipped, not errored, so the caller can pass its whole token set.
+    #[pr4xis::praxis_value(Explainable, Honest)]
     #[test]
     fn verify_palette_audits_the_page_tokens_against_the_theming_axioms() {
         // Keys carry the CSS `--` prefix exactly as `getComputedStyle` reports
@@ -3504,6 +3525,7 @@ mod wire_boundary {
     /// The blessed lowering is an inverse pair: `from_wire(wire_tag(e)) == e`
     /// for every variant — the drift a second hand-assembled lowering (or a
     /// swapped match arm) would introduce fails here.
+    #[pr4xis::praxis_value(Deterministic, Extensible)]
     #[test]
     fn encoding_wire_tag_round_trips_for_every_variant() {
         for e in ALL_ENCODINGS {
@@ -3523,6 +3545,7 @@ mod wire_boundary {
 
     /// An unknown wire tag is a typed `UnknownEncoding` refusal carrying the
     /// offending tag — never a fallback to some default encoding.
+    #[pr4xis::praxis_value(Honest, Explainable)]
     #[test]
     fn unknown_wire_tag_is_a_typed_refusal() {
         for bad in ["prx-gz", "", "USLM-TITLE", "uslm_title"] {
@@ -3537,6 +3560,7 @@ mod wire_boundary {
 
     /// `owl-prx-gz` without a `version` cannot key the three-pin lock lookup —
     /// typed `MissingVersion`, never an unpinned load.
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn owl_prx_gz_without_version_is_missing_version() {
         let err = LoadRequest::from_wire("x".into(), "owl-prx-gz", None, None, Some(vec![1]))
@@ -3548,6 +3572,7 @@ mod wire_boundary {
     /// no `root_hex` must be `MissingRoot` — foreign bytes must NEVER inherit
     /// the manifest's baked root (the embedded manifest is consulted only when
     /// the payload is absent).
+    #[pr4xis::praxis_value(Honest)]
     #[test]
     fn supplied_payload_under_embedded_name_never_inherits_the_baked_root() {
         let demo = embedded_demo();
@@ -3564,6 +3589,7 @@ mod wire_boundary {
 
     /// An absent payload naming no build-baked ontology is a typed
     /// `NoEmbedded` refusal carrying the name — never an empty load.
+    #[pr4xis::praxis_value(Honest, Explainable)]
     #[test]
     fn absent_payload_with_unknown_name_is_no_embedded() {
         let err = LoadRequest::from_wire("no-such-embedded".into(), "uslm-title", None, None, None)
@@ -3576,6 +3602,7 @@ mod wire_boundary {
 
     /// A supplied Merkle root that is not 64-char lowercase hex is a typed
     /// `BadRootHex` refusal carrying the offending string.
+    #[pr4xis::praxis_value(Honest, Explainable)]
     #[test]
     fn malformed_root_hex_is_bad_root_hex() {
         let err = LoadRequest::from_wire(
@@ -3594,6 +3621,7 @@ mod wire_boundary {
 
     /// The embedded happy path stays intact: an absent payload under the
     /// embedded demo's name resolves BOTH the baked bytes and the baked root.
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn absent_payload_with_embedded_name_resolves_baked_bytes_and_root() {
         let demo = embedded_demo();
@@ -3607,3 +3635,10 @@ mod wire_boundary {
         );
     }
 }
+
+// The constitution's completeness gate for THIS test binary: emit the tag set
+// the linker assembled here, so `scripts/constitution-gate.sh` can diff it
+// against the binary's own `--list`. Without it, the wasm crate's native tests
+// contribute nothing to either side of that diff and read as covered while
+// being unclassified.
+pr4xis::constitution_coverage_gate!();

@@ -98,6 +98,7 @@ fn algo_for(row: &ManifestRow) -> HashAlgorithm {
 }
 
 /// The full conformance gate.
+#[pr4xis::praxis_value(Verifiable, Deterministic, Honest)]
 #[test]
 fn w3c_rdfc10_conformance_suite() {
     let rows = load_manifest();
@@ -214,6 +215,7 @@ fn w3c_rdfc10_conformance_suite() {
 /// `046`, manifest complexity 39) MUST canonicalize to their expected
 /// output under the default cap, while the `test074` clique (complexity 40,
 /// the suite's only `RDFC10NegativeEvalTest`) MUST hit the cap and error.
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn poison_boundary_by_name() {
     // Computable poison graphs: correct answer, no error.
@@ -268,3 +270,9 @@ fn show(s: &str) -> String {
         s.to_string()
     }
 }
+
+// ---------------------------------------------------------------------------
+// Constitutional coverage — this test binary's tag set, for the gate.
+// ---------------------------------------------------------------------------
+
+pr4xis::constitution_coverage_gate!();

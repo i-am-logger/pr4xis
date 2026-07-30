@@ -129,11 +129,25 @@ if [ -n "$all" ]; then
       continue
     fi
 
-    # The emitter writes `module::name`; strip the crate prefix so both sides
-    # use the same shape. The prefix is the suite's PACKAGE with - as _, which
-    # for `pkg::target` binaries is the part before `::`.
-    pkg="${suite%%::*}"
-    suite_reg=$(sed "s/^${pkg//-/_}:://" "$suite_tags" | sort -u)
+    # The emitter writes `module_path!()::name`; nextest lists the path WITHOUT
+    # the crate root. Strip that root so both sides have the same shape.
+    #
+    # The root is the CRATE root, which for an integration or bin target is the
+    # TARGET name, not the package: binary `pr4xis-domains::citation_audit`
+    # compiles tests/citation_audit.rs as its own crate, so module_path!() there
+    # begins `citation_audit::`, not `pr4xis_domains::`. Using the package name
+    # (the part before `::`) stripped nothing on those nine binaries and every
+    # test showed up as untagged AND phantom simultaneously — 37 of each, with
+    # listed and tagged both at 8870. Equal totals with a full mismatch is the
+    # signature of a prefix bug rather than a missing tag.
+    case "$suite" in
+    *::*)
+      root="${suite##*::}"
+      root="${root#bin/}"
+      ;;
+    *) root="$suite" ;;
+    esac
+    suite_reg=$(sed "s/^${root//-/_}:://" "$suite_tags" | sort -u)
     rm -f "$suite_tags"
 
     s_untagged=$(comm -23 <(printf '%s\n' "$suite_listed") <(printf '%s\n' "$suite_reg") | command grep -v '^$' || true)

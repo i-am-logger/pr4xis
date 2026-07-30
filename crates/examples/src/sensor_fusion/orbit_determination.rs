@@ -13,6 +13,7 @@ mod tests {
     use pr4xis_domains::natural::geodesy::coordinate::Geodetic;
     use pr4xis_domains::natural::geodesy::ellipsoid;
 
+    #[pr4xis::praxis_value(Verifiable, Deterministic)]
     #[test]
     fn ground_station_to_ecef() {
         let wgs84 = ellipsoid::wgs84();
@@ -32,6 +33,7 @@ mod tests {
         assert!((station.lon - station2.lon).abs() < 1e-8);
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn iss_orbit_altitude() {
         let wgs84 = ellipsoid::wgs84();

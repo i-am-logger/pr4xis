@@ -153,6 +153,7 @@ fn base00_hex(palette: &Palette) -> Option<String> {
     palette.get(&ColorSlot::Base00).map(|c| c.to_hex())
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn dark_tokens_meet_wcag_aa() {
     let css = tokens_css();
@@ -173,6 +174,7 @@ fn dark_tokens_meet_wcag_aa() {
     assert_variant(&dark, "DARK", Polarity::Dark);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn light_tokens_meet_wcag_aa() {
     let css = tokens_css();
@@ -204,6 +206,10 @@ fn light_tokens_meet_wcag_aa() {
     assert_variant(&media_light, "LIGHT(@media)", Polarity::Light);
 }
 
+// Honest primary: the claim under test is that the gate cannot fabricate a pass
+// by reading ONE theme's rule twice — the failure mode that a selector matched
+// inside the header comment actually produced.
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn dark_and_light_blocks_are_distinct() {
     // The regression guard: the two theme rules must extract DIFFERENT base00
@@ -218,3 +224,5 @@ fn dark_and_light_blocks_are_distinct() {
         "the dark and light blocks must extract different base00 values"
     );
 }
+
+pr4xis::constitution_coverage_gate!();

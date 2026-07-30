@@ -21,6 +21,7 @@ mod tests {
     use pr4xis_domains::formal::math::temporal::instant::Instant;
     use pr4xis_domains::formal::math::temporal::time_system::TimeSystem;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn ins_gnss_loosely_coupled() {
         // State: [position, velocity] (1D for simplicity)

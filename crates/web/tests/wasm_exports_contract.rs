@@ -27,6 +27,7 @@ fn wasm_lib_src() -> String {
     fs::read_to_string(path).expect("crates/wasm/src/lib.rs must be readable")
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn wasm_exports_the_bench_batch_and_reset_entries() {
     let src = wasm_lib_src();
@@ -60,6 +61,10 @@ fn wasm_exports_the_bench_batch_and_reset_entries() {
     );
 }
 
+// Explainable primary: the asserted fields are the self-audit's REASON surface —
+// which `axiom` was checked, its `citation`, and the `ratio` vs `required` that
+// decided the row. A panel missing them could report a verdict but not why.
+#[pr4xis::praxis_value(Explainable, Verifiable)]
 #[test]
 fn verify_palette_emits_the_self_audit_wire_fields() {
     let src = wasm_lib_src();
@@ -81,6 +86,11 @@ fn verify_palette_emits_the_self_audit_wire_fields() {
     }
 }
 
+// Explainable primary: `trace_structured` (with `phase`, `functor_connections`,
+// `reference`) IS the turn's reasoning trace. Extensible secondary because the
+// test pins the additive shape — the new typed surface arrives WITHOUT the
+// flattened `trace` string the existing renderer reads going away.
+#[pr4xis::praxis_value(Explainable, Extensible)]
 #[test]
 fn chat_emits_the_typed_trace_beside_the_flattened_string() {
     let src = wasm_lib_src();
@@ -107,6 +117,14 @@ fn chat_emits_the_typed_trace_beside_the_flattened_string() {
     }
 }
 
+// Verifiable: a plain behavioural claim about the emitted wire surface — the
+// batch envelope's field names, and that `chat`/`chat_batch` go through one
+// shared `build_chat_presentation`/`write_outcome` lowering so a batch row and a
+// single turn cannot drift apart. NOT `Consistent`: that guarantee is the axiom
+// base deriving no contradiction (`OntologyBaseIsConsistent`, Gentzen 1936), a
+// universal fold over the registered corpus — not agreement between two wire
+// surfaces in a source-text check.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn chat_batch_records_carry_the_bench_wire_fields() {
     let src = wasm_lib_src();
@@ -154,6 +172,10 @@ fn chat_batch_records_carry_the_bench_wire_fields() {
 /// that had to split the `why` sentence to tell them apart would be doing engine
 /// work in JavaScript. Shipping the label too is what lets the renderer carry no
 /// wording of its own for a channel the engine alone knows exists.
+// Explainable primary: the record IS provenance — the document a recited gloss
+// was written from, shipped as its own field so the page can say where the
+// wording came from.
+#[pr4xis::praxis_value(Explainable, Verifiable)]
 #[test]
 fn chat_emits_the_definition_provenance_record_with_its_own_label() {
     let src = wasm_lib_src();
@@ -170,3 +192,5 @@ fn chat_emits_the_definition_provenance_record_with_its_own_label() {
         );
     }
 }
+
+pr4xis::constitution_coverage_gate!();

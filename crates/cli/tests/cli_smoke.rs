@@ -93,6 +93,7 @@ fn declares_flag(help: &str, flag: &str) -> bool {
 }
 
 /// `--help` must succeed and list every subcommand CI drives by name.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn help_lists_every_subcommand_ci_invokes() {
     let help = help_text(&["--help"]);
@@ -112,6 +113,7 @@ fn help_lists_every_subcommand_ci_invokes() {
 
 /// `compile --compact` must parse. CI runs exactly this flag pair in `test` and
 /// `corpus`, and devenv.nix's dev-ci runs it too.
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn compile_accepts_the_compact_flag_ci_uses() {
     let help = help_text(&["compile", "--help"]);
@@ -127,6 +129,10 @@ fn compile_accepts_the_compact_flag_ci_uses() {
 /// An unknown subcommand must FAIL, not fall through to the default `chat`
 /// session. Without this, a typo'd invocation in CI would start an interactive
 /// chat and burn the step's whole timeout budget.
+// Honest primary: the claim is that the CLI FAILS CLOSED on input it does not
+// understand, rather than silently falling through to the default `chat`
+// session and pretending the invocation was meaningful.
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn an_unknown_subcommand_is_refused() {
     let out = pr4xis()
@@ -140,3 +146,5 @@ fn an_unknown_subcommand_is_refused() {
          otherwise a typo in CI starts an interactive chat and hangs"
     );
 }
+
+pr4xis::constitution_coverage_gate!();

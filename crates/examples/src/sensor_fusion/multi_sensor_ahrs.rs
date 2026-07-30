@@ -20,6 +20,7 @@ mod tests {
     use pr4xis_domains::formal::math::temporal::duration::Duration;
     use pr4xis_domains::natural::physics::kinematics::velocity::Velocity;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn stationary_imu_preserves_attitude() {
         let state = NavState {
@@ -55,6 +56,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn yaw_rotation_changes_heading() {
         let state = NavState {
