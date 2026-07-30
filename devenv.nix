@@ -43,6 +43,12 @@ in
     # broken host binaries.
     pkgs.ripgrep
     pkgs.fd
+    # Required by `scripts/constitution-gate.sh --archive`, which reads the
+    # test inventory out of `cargo nextest list --message-format json`. CI runs
+    # on ubuntu-latest, where jq is preinstalled, so its absence here was
+    # invisible to CI and would have failed only a local `dev-ci` — vendor it
+    # like every other tool the scripts assume rather than rely on the host.
+    pkgs.jq
     # The one JS runtime in the toolchain, and it is a TEST dependency only:
     # docs/chat/*.js is the caregiver demonstrator, whose numbers a judge
     # reads. `program-ladder.test.mjs` runs the real renderer against the real
