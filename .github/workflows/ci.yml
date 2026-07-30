@@ -291,6 +291,7 @@ jobs:
       - uses: taiki-e/install-action@cargo-nextest
         if: steps.build-out.outputs.cache-hit != 'true'
       - name: Cache WordNet XML
+        id: wordnet-cache
         uses: actions/cache@v5
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
@@ -313,6 +314,7 @@ jobs:
       # keys are immutable — a path added without a key bump would restore the
       # old contents forever and never re-save.
       - name: Cache fetched external data (USC titles + conformance suites)
+        id: data-cache
         uses: actions/cache@v5
         with:
           path: |
@@ -342,57 +344,59 @@ jobs:
       # `shared-key: release-lto-off` actually shared. The key carries `-lto-off`
       # because `[profile.release] lto = "off"` is in EVERY unit's fingerprint,
       # dependencies included, so the pre-LTO-off slice cannot be reused.
-      # ~115s of this step's ~126s is PROVABLY THROWN AWAY, and it is still here
-      # because the obvious fix does not work. Written down so the next attempt
-      # starts from the measurement rather than the intuition.
+      # ~115s of this step's ~126s is thrown away, so it now runs ONLY when the
+      # data cache missed. The waste, for the record: `-p pr4xis-cli` resolves
+      # pr4xis-domains with serde_json `default+std`, while `--workspace
+      # --all-targets` resolves it with `alloc+default+std` — `alloc` arrives
+      # only via `wasm-bindgen-test`, a DEV-dependency of crates/wasm. One
+      # feature apart is a different rlib fingerprint, so the archive step below
+      # rebuilds the domains rlib regardless of what this step just built.
+      # (Verified compile-free through `--unit-graph`.) Widening the selector
+      # cannot fix it: matching that feature set requires dev-dependencies, i.e.
+      # `--all-targets`, which IS the archive build.
       #
-      # The waste: `-p pr4xis-cli` resolves pr4xis-domains with serde_json
-      # `default+std`, while `--workspace --all-targets` resolves it with
-      # `alloc+default+std` — `alloc` arrives only via `wasm-bindgen-test`, a
-      # DEV-dependency of crates/wasm. One feature apart is a different rlib
-      # fingerprint, so the archive step below rebuilds the domains rlib from
-      # scratch regardless of what this step just built. (Verified compile-free
-      # through `--unit-graph`.) It cannot be fixed by widening the selector
-      # either: matching that feature set requires dev-dependencies, i.e.
-      # `--all-targets`, which is the archive build itself.
+      # The step exists at all only because `pr4xis update` is the fetcher and
+      # the archive build needs its output (crates/wasm/build.rs reads the
+      # fetched USC XML). So it is needed exactly when there is fetching to do.
       #
-      # Why the step cannot simply be skipped on a data-cache hit: `pr4xis
-      # update` IS the fetcher, the archive build needs its output (crates/wasm/
-      # build.rs reads the fetched USC XML), and the fetch is NOT a no-op on a
-      # warm cache. Measured on master run 30502233952: 75 sources report
-      # `[fetched]` against 190 `[ok]`, because the data cache covers 5 paths
-      # while praxis.lock registers ~20 fetchable trees (glyphlist, agid,
-      # mods/xhtml/lmf/xsd schemas, the OWL vocabularies, …). Skip the fetch and
-      # those 75 are simply absent — and build.rs:29/:387 are FAIL-OPEN, so the
-      # result is silent degradation, not an error.
+      # This was reverted once, correctly, on the ground that the fetch is NOT a
+      # no-op on a warm cache — measured at 75 `[fetched]` against 190 `[ok]`,
+      # because the cache covered 5 paths while praxis.lock registers ~20
+      # fetchable trees. That gap is now closed (praxis-data-v3 caches every
+      # tree), and the claim is re-measured rather than assumed. Master run
+      # 30514347842, where the v3 key was cold for `build` and warm for
+      # everything after it:
       #
-      # The unblocking work, in order: cache every fetched tree praxis.lock
-      # registers so `pr4xis update` becomes a genuine no-op, THEN gate this
-      # step and the fetch on a data-cache hit. crates/cli/tests/cli_smoke.rs
-      # already exists, so `cargo nextest archive` now carries
-      # target/release/pr4xis (21 binaries / 3 non-test, up from 19 / 2) — that
-      # half is done and the artifact upload no longer depends on this step.
-      # KNOWN WASTE, deliberately still here — see the note below before trying
-      # to delete it again.
-      - name: Build pr4xis-cli (release)
-        if: steps.build-out.outputs.cache-hit != 'true'
+      #   build           data cache MISS   27 [fetched]
+      #   lint-docs       data cache hit     0 [fetched]
+      #   test            data cache hit     0 [fetched]
+      #   corpus          data cache hit     0 [fetched]
+      #   wasm-browser    data cache hit     0 [fetched]
+      #
+      # A cache hit means zero fetches, on four independent jobs.
+      - name: Build pr4xis-cli (needed only to run the fetch)
+        if: |
+          steps.build-out.outputs.cache-hit != 'true' &&
+          (steps.data-cache.outputs.cache-hit != 'true' ||
+           steps.wordnet-cache.outputs.cache-hit != 'true')
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo build -p pr4xis-cli --release
-      # UNCONDITIONAL, even on an output-cache hit. Two reasons: the fetch is
-      # what warms the `praxis-data` key for every downstream job, and it must
-      # happen BEFORE the archive build below, because pr4xis-wasm's build
-      # script reads the fetched USC XML and the archive embeds its output. On
-      # a hit this runs against the restored binary and is a no-op against a
-      # warm data cache.
-      #
-      # It is also the designated warmer of that key: if `build` skipped it,
-      # four downstream jobs would race to fetch and save the same immutable
-      # key, which is the failure this workflow already hit once with
-      # `.prx-cache`.
       - name: Fetch external data
+        if: |
+          steps.data-cache.outputs.cache-hit != 'true' ||
+          steps.wordnet-cache.outputs.cache-hit != 'true'
         timeout-minutes: 20
         run: ./target/release/pr4xis update
+      # FAIL-CLOSED, and this is what makes skipping the fetch safe rather than
+      # hopeful. crates/wasm/build.rs is fail-OPEN — :29 tolerates a missing
+      # data root and :387 `continue`s past a missing .owl — so an incomplete
+      # restore would not error, it would quietly produce a smaller artifact and
+      # let the build go green over it. This asserts every fetched tree is
+      # actually present before anything reads it, and it self-checks its own
+      # list against the cache `path:` entries above so the two cannot drift.
+      - name: Verify the fetched data is complete
+        run: bash scripts/verify-fetched-data.sh
       # `cargo nextest archive` compiles every workspace test binary
       # (and the workspace libs they depend on) into a single
       # self-contained tarball. The `test` job downloads this archive
