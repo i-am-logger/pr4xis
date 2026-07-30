@@ -16,7 +16,7 @@ This checks the geometry instead of the page count:
   OUT-OF-PAGE any word extending beyond the page box, i.e. content that is
               simply not on the paper.
 
-Reads `pdftotext -bbox-layout` XML, so it needs poppler-utils, not a PDF library.
+Reads `pdftotext -bbox` XML, so it needs poppler-utils, not a PDF library.
 
   scripts/pdf-overlap-check.py FILE.pdf [FILE.pdf ...]
 
@@ -39,7 +39,17 @@ MIN_LEN = 2
 
 
 def words_per_page(pdf):
-    """[(page_no, [(text, x0, y0, x1, y1), ...]), ...] via pdftotext -bbox."""
+    """Word boxes per page, as [(page_no, width, height, words), ...].
+
+    `words` is [(text, xMin, yMin, xMax, yMax), ...] in PDF points. Page width
+    and height come back too, because the out-of-page check needs the page box
+    to compare against.
+
+    Reads `pdftotext -bbox`, which emits one <word> element per word with its
+    bounding box — the geometry this whole check is about. (`-bbox-layout`
+    additionally groups words into flows/blocks/lines; that structure is not
+    used here, and its extra nesting would only have to be flattened again.)
+    """
     xml = subprocess.run(
         ["pdftotext", "-bbox", pdf, "-"],
         capture_output=True, text=True, check=True,
@@ -100,7 +110,17 @@ def check(pdf, threshold):
                     smaller = min(area(a), area(b))
                     if smaller <= 0 or inter / smaller < threshold:
                         continue
-                    key = (page, a[0], b[0], round(a[1], 1), round(a[2], 1))
+                    # BOTH boxes' positions belong in the key. Keyed on a's
+                    # position alone, a second genuine collision between the
+                    # same two words — same `a`, a different occurrence of the
+                    # same text as `b` — was indistinguishable from a repeat
+                    # and silently dropped. Dropping findings is the one thing
+                    # a detector for dropped content must not do.
+                    key = (
+                        page,
+                        a[0], round(a[1], 1), round(a[2], 1),
+                        b[0], round(b[1], 1), round(b[2], 1),
+                    )
                     if key in seen:
                         continue
                     seen.add(key)
