@@ -25,6 +25,12 @@ set -uo pipefail
 # Canonical list. MUST equal the praxis-data cache `path:` entries in ci.yml;
 # the self-check at the bottom enforces that, so the two cannot drift.
 FETCHED=(
+  # WordNet has its OWN cache key (wordnet-english-2025-v1) and its own skip
+  # condition in ci.yml, and crates/wasm/build.rs:29 is fail-open on it —
+  # `if Path::new(wordnet_path).exists()`, so a missing XML emits an EMPTY
+  # English bundle rather than failing. A wasm artifact with no English in it
+  # would sail through a green build.
+  crates/domains/data/wordnet/english-wordnet-2025.xml
   crates/domains/data/adobe/glyphlist.txt
   crates/domains/data/morphology/agid-infl.txt
   crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
@@ -41,10 +47,14 @@ FETCHED=(
 FETCHED_TREES=(
   crates/domains/data/legal/uscode
   crates/domains/data/ontologies
-  # The XML Schema and XML conformance suites. Fetched as tarballs and
-  # extracted; the markup-schemas tests read the extracted trees.
-  crates/domains/data/markup-schemas/xsts
-  crates/domains/data/markup-schemas/xmlconf
+  # THE EXTRACTED SUBTREES, not their parents. `xsts/` and `xmlconf/` each
+  # hold a COMMITTED `.tar.prx` bundle, so both directories exist in a fresh
+  # checkout and `[ -d ]` on them passes whether or not the fetch ever ran —
+  # the check would have been satisfied by exactly the state it exists to
+  # reject. The extracted trees below are what the markup-schemas tests read
+  # and what only a real fetch (or a complete cache restore) produces.
+  crates/domains/data/markup-schemas/xsts/xmlschema2006-11-06
+  crates/domains/data/markup-schemas/xmlconf/xmlconf
 )
 
 fail=0
@@ -85,21 +95,50 @@ fi
 # hazard this script exists to close.
 CI=.github/workflows/ci.yml
 if [ -f "$CI" ]; then
-  # First praxis-data cache block's path list (all five blocks are identical).
+  # Every cached data path in ci.yml, from ALL cache blocks — WordNet has its
+  # own key (wordnet-english-2025-v1) separate from praxis-data, and both are
+  # skip conditions for the fetch, so both must be verified.
+  # Two YAML shapes both appear: a block-scalar list entry (praxis-data caches
+  # several paths) and an inline `path: <one>` (the WordNet cache has exactly
+  # one). Comment lines are excluded so prose mentioning a path is not mistaken
+  # for a cached one.
   ci_paths=$(awk '
-    /key: praxis-data-v[0-9]+-/ { exit }
-    /path: \|/ { collecting = 1; next }
-    collecting && /^            crates\/domains\/data\// { gsub(/^ +| +$/, ""); print }
+    { line = $0; sub(/^[[:space:]]+/, "", line) }
+    line ~ /^#/ { next }
+    sub(/^path:[[:space:]]*/, "", line) || line ~ /^crates\/domains\/data\//  {
+      if (line ~ /^crates\/domains\/data\//) print line
+    }
   ' "$CI" | sed 's|/\*\.owl$||' | sort -u)
   mine=$(printf '%s\n' "${FETCHED[@]}" "${FETCHED_TREES[@]}" | sort -u)
-  if [ "$ci_paths" != "$mine" ]; then
-    echo "::error::scripts/verify-fetched-data.sh has drifted from ci.yml's praxis-data cache paths."
-    echo "── in ci.yml but not verified here:"
-    comm -23 <(printf '%s\n' "$ci_paths") <(printf '%s\n' "$mine") | sed 's/^/    /'
-    echo "── verified here but not cached in ci.yml:"
-    comm -13 <(printf '%s\n' "$ci_paths") <(printf '%s\n' "$mine") | sed 's/^/    /'
-    fail=1
-  fi
+
+  # CONTAINMENT, not equality. Verification is deliberately STRICTER than the
+  # cache: ci.yml caches `markup-schemas/xsts`, while this script checks
+  # `xsts/xmlschema2006-11-06` inside it, because the parent contains a
+  # committed .tar.prx and so exists even when the fetch never ran. So the
+  # relation to enforce is that every cached path has something verified at or
+  # beneath it, and every verified path sits at or beneath something cached.
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    printf '%s\n' "$mine" | command grep -q "^${c}" || {
+      echo "::error::ci.yml caches ${c} but nothing here verifies it — a partial"
+      echo "  restore of that path would pass unnoticed."
+      fail=1
+    }
+  done <<<"$ci_paths"
+
+  while IFS= read -r m; do
+    [ -n "$m" ] || continue
+    covered=0
+    while IFS= read -r c; do
+      [ -n "$c" ] || continue
+      case "$m" in "$c"*) covered=1 ;; esac
+    done <<<"$ci_paths"
+    [ "$covered" -eq 1 ] || {
+      echo "::error::${m} is verified here but is not in any ci.yml cache path,"
+      echo "  so skipping the fetch would leave it absent."
+      fail=1
+    }
+  done <<<"$mine"
 fi
 
 if [ "$fail" -ne 0 ]; then
