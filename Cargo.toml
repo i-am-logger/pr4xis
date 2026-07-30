@@ -94,5 +94,31 @@ unreachable = "deny"
 # Workspace crates explicitly because USLM read code lives in
 # `crates/domains`, not in any dep; the deps-only variant
 # (`[profile.dev.package."*"]`) doesn't reach it.
+# Cargo's release default is `lto = false`, which is NOT "no LTO" — it is thin
+# LOCAL LTO across the crate's 16 codegen units. On `pr4xis-domains`' 8,037-test
+# lib binary that index+import step is `LLVM_thinlto` = 133-179s of a ~280-330s
+# unit at 4 cores, and that ONE unit is 95-98% of the `cargo nextest archive`
+# wall — so it is effectively 95% of CI's cold build.
+#
+# Measured at 4 cores, same rustc argv replayed back-to-back: 277.18s -> 215.22s
+# (-22.4%). A looser protocol with deps rebuilt gave -34%. Budget the -22%: the
+# optimisation work RELOCATES rather than vanishing (`LLVM_passes` grows as
+# `LLVM_thinlto` disappears) and the absorbed fraction is unstable run to run.
+#
+# Cost, accepted: the test binary grows 11.7% (91.5 -> 102.2 MB) and the tests
+# run ~14% slower. That last number is the constraint that matters, because
+# `.config/nextest.toml`'s [profile.ci] flags anything over 10s and terminates
+# at 30s. At +14% the three slowest known tests go 13.2 -> ~15.0s,
+# 11.5 -> ~13.1s, and 40.5 -> ~46.2s (the last against its own bespoke 30s x 3
+# override) — none crosses a `terminate-after` boundary, but the margin is real.
+# If a future test lands near 10s, re-measure before assuming this still holds.
+#
+# `lto` cannot be set per-package, so this is necessarily workspace-wide. That
+# is fine here: every host job reads this same manifest, so they all stay on one
+# cache slice. `crates/praxis-corpus-tests` is workspace-EXCLUDED (Cargo.toml
+# `exclude`), so the `corpus` job neither churns nor benefits.
+[profile.release]
+lto = "off"
+
 [profile.dev]
 opt-level = 1
