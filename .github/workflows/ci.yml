@@ -140,7 +140,7 @@ permissions:
 #   - test binaries via `cargo         — uploaded as artifact, `test` runs
 #     nextest archive`                   directly from it (no recompile)
 #
-# Downstream jobs share `shared-key: release`, so they restore build's
+# Downstream jobs share `shared-key: release-lto-off`, so they restore build's
 # DEPENDENCY slice (see the caching note above — workspace crates are
 # never in it). Of the three, only `test` is genuinely compile-free:
 # it runs the prebuilt nextest archive. `lint-docs` recompiles the
@@ -287,7 +287,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: steps.build-out.outputs.cache-hit != 'true'
         with:
-          shared-key: release
+          shared-key: release-lto-off
       - uses: taiki-e/install-action@cargo-nextest
         if: steps.build-out.outputs.cache-hit != 'true'
       - name: Cache WordNet XML
@@ -312,7 +312,9 @@ jobs:
       # slice this job writes has different rustc fingerprints than the
       # slice `lint-docs` / `test` / `wasm-browser` expect, and they would
       # recompile from scratch on restore. Same flags everywhere keeps
-      # `shared-key: release` actually shared.
+      # `shared-key: release-lto-off` actually shared. The key carries `-lto-off`
+      # because `[profile.release] lto = "off"` is in EVERY unit's fingerprint,
+      # dependencies included, so the pre-LTO-off slice cannot be reused.
       - name: Build pr4xis-cli (release)
         if: steps.build-out.outputs.cache-hit != 'true'
         env:
@@ -400,7 +402,7 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: release
+          shared-key: release-lto-off
       - name: Cache WordNet XML
         uses: actions/cache@v5
         with:
@@ -666,7 +668,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: release
+          shared-key: release-lto-off
       - name: Cache WordNet XML
         uses: actions/cache@v5
         with:
@@ -982,7 +984,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: release
+          shared-key: release-lto-off
       - name: Cache WordNet XML
         uses: actions/cache@v5
         with:
