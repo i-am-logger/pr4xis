@@ -75,9 +75,18 @@ if [ -n "$archive" ]; then
   #
   # `binary_id(=<pkg>)` selects exactly the crate's LIB test binary —
   # integration binaries are `<pkg>::<name>`, so they do not match.
+  #
+  # nextest's PLAIN list output is `<binary_id> <test-path>`, one per line, so
+  # awk is enough and no JSON is involved. This deliberately replaced a
+  # `--message-format json | jq` pipeline: jq was pulled in only to read a
+  # format nextest emitted because the script asked for it, and the plain form
+  # carries the binary id on every line — which is strictly MORE information,
+  # since bare test paths collide across binaries (two suites can both hold
+  # `tests::foo`). Two of CI's three jq uses parse real JSON APIs (crates.io,
+  # release-plz outputs) and are unavoidable; this one was not.
   listed=$(cargo nextest list --archive-file "$archive" --workspace-remap . \
-    --run-ignored all -E "binary_id(=$crate)" --message-format json 2>/dev/null |
-    jq -r --arg k "$crate" '."rust-suites"[$k].testcases // {} | keys[]' |
+    --run-ignored all -E "binary_id(=$crate)" 2>/dev/null |
+    awk 'NF>=2{print $2}' |
     sort -u)
 
   # Fail LOUDLY on an empty listing. An empty `listed` against an empty
