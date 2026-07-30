@@ -98,6 +98,34 @@ if [ -n "$all" ]; then
     exit 1
   }
 
+  # ONE run for the whole workspace, not one per suite. Each binary's emitter
+  # writes its own file into this directory, keyed by package+crate.
+  #
+  # The per-suite loop this replaced extracted the 162 MB archive FIFTEEN
+  # times, and swallowed every failure with `|| true` — so when it produced
+  # nothing in CI it reported "no emitter" for all fifteen binaries, including
+  # ones whose emitter had demonstrably just run and passed in the same job.
+  # A diagnostic that cannot distinguish "no emitter" from "the command
+  # failed" is worse than none, so the exit status is checked here.
+  tagsdir=$(mktemp -d)
+  trap 'rm -rf "$tagsdir"; rm -f "$listing"' EXIT
+  if ! PRAXIS_CONSTITUTION_TAGS_OUT="$tagsdir" \
+    cargo nextest run --archive-file "$archive" --workspace-remap . \
+    -E 'test(/(^|::)constitution_coverage$/)' \
+    --no-capture --no-fail-fast >"$tagsdir/.run.log" 2>&1; then
+    echo "::error::the tag-emitting run failed; the gate cannot measure anything" >&2
+    tail -30 "$tagsdir/.run.log" >&2
+    exit 1
+  fi
+  emitted=$(find "$tagsdir" -name '*.tags' | wc -l)
+  [ "$emitted" -gt 0 ] || {
+    echo "::error::the tag-emitting run succeeded but wrote no .tags files at all." >&2
+    echo "  Every binary needs pr4xis::constitution_coverage_gate!(), and the" >&2
+    echo "  emitter writes per-binary files when the env var is a directory." >&2
+    tail -30 "$tagsdir/.run.log" >&2
+    exit 1
+  }
+
   total_listed=0
   total_tagged=0
   total_untagged=0
@@ -109,11 +137,23 @@ if [ -n "$all" ]; then
     n_s=$(printf '%s\n' "$suite_listed" | command grep -c . || true)
     [ "$n_s" -gt 0 ] || continue
 
-    suite_tags=$(mktemp)
-    PRAXIS_CONSTITUTION_TAGS_OUT="$suite_tags" \
-      cargo nextest run --archive-file "$archive" --workspace-remap . \
-      -E "binary_id(=$suite) and test(/(^|::)constitution_coverage\$/)" \
-      --no-capture >/dev/null 2>&1 || true
+    # Map binary_id -> the emitter's filename. Both halves are compile-time
+    # constants in the binary that wrote the file, so this is a lookup rather
+    # than a guess: `pkg` is CARGO_PKG_NAME, and the crate root is the TARGET
+    # name for `pkg::target` binaries (tests/citation_audit.rs compiles as its
+    # own crate) or the package for a lib.
+    case "$suite" in
+    *::*)
+      s_pkg="${suite%%::*}"
+      s_crate="${suite##*::}"
+      s_crate="${s_crate#bin/}"
+      ;;
+    *)
+      s_pkg="$suite"
+      s_crate="$suite"
+      ;;
+    esac
+    suite_tags="$tagsdir/${s_pkg}__${s_crate//-/_}.tags"
 
     # THE THIRD FAILURE MODE, and the one that was missing. A binary that
     # lists tests but emits no tags is not "complete", it is UNMEASURED — both
@@ -122,7 +162,6 @@ if [ -n "$all" ]; then
     if [ ! -s "$suite_tags" ]; then
       echo "::error::${suite} lists ${n_s} tests but emitted NO tags — it has no"
       echo "  pr4xis::constitution_coverage_gate!() invocation, so its tests are unmeasured."
-      rm -f "$suite_tags"
       fail=1
       total_listed=$((total_listed + n_s))
       total_untagged=$((total_untagged + n_s))
@@ -140,15 +179,7 @@ if [ -n "$all" ]; then
     # test showed up as untagged AND phantom simultaneously — 37 of each, with
     # listed and tagged both at 8870. Equal totals with a full mismatch is the
     # signature of a prefix bug rather than a missing tag.
-    case "$suite" in
-    *::*)
-      root="${suite##*::}"
-      root="${root#bin/}"
-      ;;
-    *) root="$suite" ;;
-    esac
-    suite_reg=$(sed "s/^${root//-/_}:://" "$suite_tags" | sort -u)
-    rm -f "$suite_tags"
+    suite_reg=$(sed "s/^${s_crate//-/_}:://" "$suite_tags" | sort -u)
 
     s_untagged=$(comm -23 <(printf '%s\n' "$suite_listed") <(printf '%s\n' "$suite_reg") | command grep -v '^$' || true)
     s_phantom=$(comm -13 <(printf '%s\n' "$suite_listed") <(printf '%s\n' "$suite_reg") | command grep -v '^$' || true)
