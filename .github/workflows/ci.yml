@@ -218,8 +218,26 @@ jobs:
       # a stale binary and CI goes green WITHOUT TESTING THE CHANGE — strictly
       # worse than a slow build. So the key covers every input that can change
       # either artifact:
-      #   crates/**/*.rs        every source, including every build.rs
-      #   */Cargo.toml, locks   dependency versions + feature resolution
+      #   crates/**             EVERY tracked file under crates/, not just
+      #                         *.rs. This is deliberate and load-bearing: a
+      #                         great deal of non-Rust content is embedded at
+      #                         COMPILE time via include_bytes!/include_str!
+      #                         — pr4xis-runtime/src/morphism_kinds.prx,
+      #                         pr4xis-derive/src/relations_transitive_kinds.txt,
+      #                         domains/data/adobe/glyphlist.prx, the USLM and
+      #                         xml-infoset schema .prx, the statute_shape .txt
+      #                         fixtures, and the caregiver/adversarial corpus
+      #                         .json fixtures. Hashing only *.rs would let any
+      #                         of those change while this key stayed the same,
+      #                         i.e. exactly the stale-artifact false pass this
+      #                         cache must never produce.
+      #                         Deterministic despite the broad glob: it is
+      #                         evaluated immediately after checkout, BEFORE the
+      #                         WordNet and praxis-data caches restore fetched
+      #                         data into crates/domains/data/, so only tracked
+      #                         files exist at that moment.
+      #   Cargo.toml, locks     dependency versions + feature resolution
+      #                         (per-crate Cargo.toml is covered by crates/**)
       #   toolchain cachekey    the exact rustc
       #   .config/nextest.toml  archive metadata + profile
       #   praxis.lock           the FETCHED data (USC titles etc.) by content
@@ -248,9 +266,9 @@ jobs:
             target/nextest-archive.tar.zst
           key: >-
             build-out-v1-${{ runner.os }}-${{ steps.toolchain.outputs.cachekey }}-${{
-            hashFiles('crates/**/*.rs', 'Cargo.toml', 'Cargo.lock', 'crates/*/Cargo.toml',
-            'crates/wasm/Cargo.lock', '.config/nextest.toml', 'praxis.lock',
-            '.prx-cache/usc-defines-compact/**', '.github/workflows/ci.yml') }}
+            hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', '.config/nextest.toml',
+            'praxis.lock', '.prx-cache/usc-defines-compact/**',
+            '.github/workflows/ci.yml') }}
       # Deliberately NO `restore-keys`. A partial-key hit would restore
       # artifacts built from DIFFERENT sources while reporting cache-hit=false,
       # and the steps below would then upload whichever files happened to be
