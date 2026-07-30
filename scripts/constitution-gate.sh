@@ -134,7 +134,14 @@ if [ -n "$all" ]; then
     tail -30 "$tagsdir/.run.log" >&2
     exit 1
   fi
+  # ALWAYS report what was actually written, not only on failure. Two CI
+  # cycles were spent guessing why the per-suite lookups found nothing while
+  # the emitting run reported success — a question one directory listing
+  # answers outright. The cost is four lines of log on a passing run.
   emitted=$(find "$tagsdir" -name '*.tags' | wc -l)
+  echo "tag files written by the emitting run: $emitted"
+  find "$tagsdir" -name '*.tags' -printf '  %f (%s bytes)\n' 2>/dev/null |
+    sort | head -40
   [ "$emitted" -gt 0 ] || {
     echo "::error::the tag-emitting run succeeded but wrote no .tags files at all." >&2
     echo "  Every binary needs pr4xis::constitution_coverage_gate!(), and the" >&2
@@ -177,8 +184,10 @@ if [ -n "$all" ]; then
     # sides of its diff are empty and the arithmetic silently reports success.
     # This is the exact shape of the defect being fixed, so it must be loud.
     if [ ! -s "$suite_tags" ]; then
-      echo "::error::${suite} lists ${n_s} tests but emitted NO tags — it has no"
-      echo "  pr4xis::constitution_coverage_gate!() invocation, so its tests are unmeasured."
+      echo "::error::${suite} lists ${n_s} tests but no tags were found for it."
+      echo "  Expected $(basename "$suite_tags") — either that binary has no"
+      echo "  pr4xis::constitution_coverage_gate!() invocation, or its emitter"
+      echo "  wrote a different filename (see the listing above)."
       fail=1
       total_listed=$((total_listed + n_s))
       total_untagged=$((total_untagged + n_s))
