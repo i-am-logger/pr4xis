@@ -295,6 +295,13 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
+      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
+      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
+      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
+      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
+      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
+      # v2 because the pre-existing entry does not contain these files and
+      # cache keys are immutable.
       - name: Cache fetched external data (USC titles + conformance suites)
         uses: actions/cache@v5
         with:
@@ -302,7 +309,8 @@ jobs:
             crates/domains/data/legal/uscode
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/ontologies/*.owl
+          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
       # Build pr4xis-cli + the full workspace + all test binaries in
       # one pass. Downstream `lint-docs` and `test` then run against the
       # populated `release` cache slice with no further compilation —
@@ -315,6 +323,38 @@ jobs:
       # `shared-key: release-lto-off` actually shared. The key carries `-lto-off`
       # because `[profile.release] lto = "off"` is in EVERY unit's fingerprint,
       # dependencies included, so the pre-LTO-off slice cannot be reused.
+      # ~115s of this step's ~126s is PROVABLY THROWN AWAY, and it is still here
+      # because the obvious fix does not work. Written down so the next attempt
+      # starts from the measurement rather than the intuition.
+      #
+      # The waste: `-p pr4xis-cli` resolves pr4xis-domains with serde_json
+      # `default+std`, while `--workspace --all-targets` resolves it with
+      # `alloc+default+std` — `alloc` arrives only via `wasm-bindgen-test`, a
+      # DEV-dependency of crates/wasm. One feature apart is a different rlib
+      # fingerprint, so the archive step below rebuilds the domains rlib from
+      # scratch regardless of what this step just built. (Verified compile-free
+      # through `--unit-graph`.) It cannot be fixed by widening the selector
+      # either: matching that feature set requires dev-dependencies, i.e.
+      # `--all-targets`, which is the archive build itself.
+      #
+      # Why the step cannot simply be skipped on a data-cache hit: `pr4xis
+      # update` IS the fetcher, the archive build needs its output (crates/wasm/
+      # build.rs reads the fetched USC XML), and the fetch is NOT a no-op on a
+      # warm cache. Measured on master run 30502233952: 75 sources report
+      # `[fetched]` against 190 `[ok]`, because the data cache covers 5 paths
+      # while praxis.lock registers ~20 fetchable trees (glyphlist, agid,
+      # mods/xhtml/lmf/xsd schemas, the OWL vocabularies, …). Skip the fetch and
+      # those 75 are simply absent — and build.rs:29/:387 are FAIL-OPEN, so the
+      # result is silent degradation, not an error.
+      #
+      # The unblocking work, in order: cache every fetched tree praxis.lock
+      # registers so `pr4xis update` becomes a genuine no-op, THEN gate this
+      # step and the fetch on a data-cache hit. crates/cli/tests/cli_smoke.rs
+      # already exists, so `cargo nextest archive` now carries
+      # target/release/pr4xis (21 binaries / 3 non-test, up from 19 / 2) — that
+      # half is done and the artifact upload no longer depends on this step.
+      # KNOWN WASTE, deliberately still here — see the note below before trying
+      # to delete it again.
       - name: Build pr4xis-cli (release)
         if: steps.build-out.outputs.cache-hit != 'true'
         env:
@@ -408,6 +448,13 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
+      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
+      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
+      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
+      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
+      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
+      # v2 because the pre-existing entry does not contain these files and
+      # cache keys are immutable.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -415,7 +462,8 @@ jobs:
             crates/domains/data/legal/uscode
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/ontologies/*.owl
+          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
       # peaceiris/actions-mdbook@v2's newest release tag still declares
       # `node20`, so it cannot be upgraded past the Node-20 deprecation —
       # only replaced. Pinned to 0.5.4, the version `mdbook-version: latest`
@@ -552,6 +600,13 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
+      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
+      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
+      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
+      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
+      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
+      # v2 because the pre-existing entry does not contain these files and
+      # cache keys are immutable.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -559,7 +614,8 @@ jobs:
             crates/domains/data/legal/uscode
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/ontologies/*.owl
+          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
@@ -674,6 +730,13 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
+      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
+      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
+      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
+      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
+      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
+      # v2 because the pre-existing entry does not contain these files and
+      # cache keys are immutable.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -681,7 +744,8 @@ jobs:
             crates/domains/data/legal/uscode
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/ontologies/*.owl
+          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
@@ -990,6 +1054,13 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
+      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
+      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
+      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
+      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
+      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
+      # v2 because the pre-existing entry does not contain these files and
+      # cache keys are immutable.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -997,7 +1068,8 @@ jobs:
             crates/domains/data/legal/uscode
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/ontologies/*.owl
+          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
