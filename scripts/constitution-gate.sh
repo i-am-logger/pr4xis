@@ -44,6 +44,7 @@ crate="${1:-pr4xis-domains}"
 shift || true
 enforce=""
 archive=""
+all=""
 while [ $# -gt 0 ]; do
   case "$1" in
   --enforce) enforce="--enforce" ;;
@@ -58,7 +59,111 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+if [ "$crate" = "--all" ]; then
+  all=1
+  crate=""
+fi
 libname="${crate//-/_}"
+
+# ── Workspace mode: every test BINARY, not four named crates ────────────────
+#
+# `--all` is the honest scope. Naming crates could never be right, because the
+# gate's unit is the test binary: linkme assembles its distributed slice per
+# binary, so a binary with no emitter contributes 0 to BOTH sides of the diff
+# and nets to untagged=0/phantom=0 — reported as COMPLETE. Four named crates
+# left 156 tests across 11 binaries in exactly that state, 128 of them LIB
+# tests in packages the gate never mentioned (pr4xis-examples, pr4xis-wasm).
+#
+# Diffing on `<binary_id> <test>` PAIRS, not bare test paths, is what makes a
+# workspace-wide diff well-defined: bare paths collide across binaries (two
+# suites can each hold `tests::foo`). nextest's plain listing already emits
+# exactly that pair on every line.
+if [ -n "$all" ]; then
+  [ -n "$archive" ] || {
+    echo "--all requires --archive (one build, every binary)" >&2
+    exit 2
+  }
+  [ -f "$archive" ] || {
+    echo "archive not found: $archive" >&2
+    exit 2
+  }
+
+  listing=$(mktemp)
+  trap 'rm -f "$listing"' EXIT
+  cargo nextest list --archive-file "$archive" --workspace-remap . \
+    --run-ignored all 2>/dev/null | awk 'NF>=2{print $1" "$2}' | sort -u >"$listing"
+
+  [ -s "$listing" ] || {
+    echo "gate error: archive $archive lists no tests at all" >&2
+    exit 1
+  }
+
+  total_listed=0
+  total_tagged=0
+  total_untagged=0
+  total_phantom=0
+  fail=0
+
+  while IFS= read -r suite; do
+    suite_listed=$(awk -v s="$suite" '$1==s{print $2}' "$listing" | sort -u)
+    n_s=$(printf '%s\n' "$suite_listed" | command grep -c . || true)
+    [ "$n_s" -gt 0 ] || continue
+
+    suite_tags=$(mktemp)
+    PRAXIS_CONSTITUTION_TAGS_OUT="$suite_tags" \
+      cargo nextest run --archive-file "$archive" --workspace-remap . \
+      -E "binary_id(=$suite) and test(/(^|::)constitution_coverage\$/)" \
+      --no-capture >/dev/null 2>&1 || true
+
+    # THE THIRD FAILURE MODE, and the one that was missing. A binary that
+    # lists tests but emits no tags is not "complete", it is UNMEASURED — both
+    # sides of its diff are empty and the arithmetic silently reports success.
+    # This is the exact shape of the defect being fixed, so it must be loud.
+    if [ ! -s "$suite_tags" ]; then
+      echo "::error::${suite} lists ${n_s} tests but emitted NO tags — it has no"
+      echo "  pr4xis::constitution_coverage_gate!() invocation, so its tests are unmeasured."
+      rm -f "$suite_tags"
+      fail=1
+      total_listed=$((total_listed + n_s))
+      total_untagged=$((total_untagged + n_s))
+      continue
+    fi
+
+    # The emitter writes `module::name`; strip the crate prefix so both sides
+    # use the same shape. The prefix is the suite's PACKAGE with - as _, which
+    # for `pkg::target` binaries is the part before `::`.
+    pkg="${suite%%::*}"
+    suite_reg=$(sed "s/^${pkg//-/_}:://" "$suite_tags" | sort -u)
+    rm -f "$suite_tags"
+
+    s_untagged=$(comm -23 <(printf '%s\n' "$suite_listed") <(printf '%s\n' "$suite_reg") | command grep -v '^$' || true)
+    s_phantom=$(comm -13 <(printf '%s\n' "$suite_listed") <(printf '%s\n' "$suite_reg") | command grep -v '^$' || true)
+    n_reg=$(printf '%s\n' "$suite_reg" | command grep -c . || true)
+    n_unt=$(printf '%s\n' "$s_untagged" | command grep -c . || true)
+    n_pha=$(printf '%s\n' "$s_phantom" | command grep -c . || true)
+
+    total_listed=$((total_listed + n_s))
+    total_tagged=$((total_tagged + n_reg))
+    total_untagged=$((total_untagged + n_unt))
+    total_phantom=$((total_phantom + n_pha))
+
+    if [ "$n_unt" -gt 0 ] || [ "$n_pha" -gt 0 ]; then
+      fail=1
+      printf '  %-40s listed=%-5s tagged=%-5s untagged=%-4s phantom=%s\n' \
+        "$suite" "$n_s" "$n_reg" "$n_unt" "$n_pha"
+      [ "$n_unt" -gt 0 ] && printf '%s\n' "$s_untagged" | head -10 | sed 's/^/      untagged: /'
+      [ "$n_pha" -gt 0 ] && printf '%s\n' "$s_phantom" | head -10 | sed 's/^/      phantom:  /'
+    fi
+  done < <(awk '{print $1}' "$listing" | sort -u)
+
+  echo "constitution completeness [workspace]: listed=$total_listed tagged=$total_tagged untagged=$total_untagged phantom=$total_phantom"
+  if [ "$fail" -eq 0 ]; then
+    echo "COMPLETE: every test in every binary declares a guarantee."
+    exit 0
+  fi
+  [ "$enforce" = "--enforce" ] && exit 1
+  exit 0
+fi
 
 tagsfile=$(mktemp)
 trap 'rm -f "$tagsfile"' EXIT
