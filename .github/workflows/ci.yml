@@ -295,13 +295,23 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
-      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
-      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
-      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
-      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
-      # v2 because the pre-existing entry does not contain these files and
-      # cache keys are immutable.
+      # Covers EVERY tree `pr4xis update` actually re-downloads, not just the
+      # USC titles. Measured on master run 30502233952: the fetch reported 75
+      # `[fetched]` against 190 `[ok]` — 15 files per job across 8 directories,
+      # re-downloaded in all five jobs of every run, because only uscode/xsts/
+      # xmlconf were cached. The 15 are enumerated rather than globbed by parent
+      # directory on purpose: every one is gitignored (verified with
+      # `git check-ignore`), so restoring them can never shadow a TRACKED file,
+      # whereas caching e.g. all of `markup-schemas/` would restore stale copies
+      # over the 11 committed files there whenever praxis.lock had not moved.
+      #
+      # The .owl half also fixes a latent bug: crates/wasm/build.rs:387
+      # `continue`s on a missing .owl, so an uncached OWL tree plus any future
+      # skipping of the fetch would make the raw-OWL staging silently vanish.
+      #
+      # Key at v3 because the v1/v2 entries do not contain these files and cache
+      # keys are immutable — a path added without a key bump would restore the
+      # old contents forever and never re-save.
       - name: Cache fetched external data (USC titles + conformance suites)
         uses: actions/cache@v5
         with:
@@ -310,7 +320,16 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
             crates/domains/data/ontologies/*.owl
-          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/adobe/glyphlist.txt
+            crates/domains/data/morphology/agid-infl.txt
+            crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
+            crates/domains/data/markup-schemas/mods/mods_3_8-2018.xsd
+            crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd
+            crates/domains/data/markup-schemas/xml/xml.xsd
+            crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+            crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
+            crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
+          key: praxis-data-v3-${{ hashFiles('praxis.lock') }}
       # Build pr4xis-cli + the full workspace + all test binaries in
       # one pass. Downstream `lint-docs` and `test` then run against the
       # populated `release` cache slice with no further compilation —
@@ -448,13 +467,23 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
-      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
-      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
-      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
-      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
-      # v2 because the pre-existing entry does not contain these files and
-      # cache keys are immutable.
+      # Covers EVERY tree `pr4xis update` actually re-downloads, not just the
+      # USC titles. Measured on master run 30502233952: the fetch reported 75
+      # `[fetched]` against 190 `[ok]` — 15 files per job across 8 directories,
+      # re-downloaded in all five jobs of every run, because only uscode/xsts/
+      # xmlconf were cached. The 15 are enumerated rather than globbed by parent
+      # directory on purpose: every one is gitignored (verified with
+      # `git check-ignore`), so restoring them can never shadow a TRACKED file,
+      # whereas caching e.g. all of `markup-schemas/` would restore stale copies
+      # over the 11 committed files there whenever praxis.lock had not moved.
+      #
+      # The .owl half also fixes a latent bug: crates/wasm/build.rs:387
+      # `continue`s on a missing .owl, so an uncached OWL tree plus any future
+      # skipping of the fetch would make the raw-OWL staging silently vanish.
+      #
+      # Key at v3 because the v1/v2 entries do not contain these files and cache
+      # keys are immutable — a path added without a key bump would restore the
+      # old contents forever and never re-save.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -463,7 +492,16 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
             crates/domains/data/ontologies/*.owl
-          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/adobe/glyphlist.txt
+            crates/domains/data/morphology/agid-infl.txt
+            crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
+            crates/domains/data/markup-schemas/mods/mods_3_8-2018.xsd
+            crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd
+            crates/domains/data/markup-schemas/xml/xml.xsd
+            crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+            crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
+            crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
+          key: praxis-data-v3-${{ hashFiles('praxis.lock') }}
       # peaceiris/actions-mdbook@v2's newest release tag still declares
       # `node20`, so it cannot be upgraded past the Node-20 deprecation —
       # only replaced. Pinned to 0.5.4, the version `mdbook-version: latest`
@@ -600,13 +638,23 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
-      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
-      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
-      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
-      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
-      # v2 because the pre-existing entry does not contain these files and
-      # cache keys are immutable.
+      # Covers EVERY tree `pr4xis update` actually re-downloads, not just the
+      # USC titles. Measured on master run 30502233952: the fetch reported 75
+      # `[fetched]` against 190 `[ok]` — 15 files per job across 8 directories,
+      # re-downloaded in all five jobs of every run, because only uscode/xsts/
+      # xmlconf were cached. The 15 are enumerated rather than globbed by parent
+      # directory on purpose: every one is gitignored (verified with
+      # `git check-ignore`), so restoring them can never shadow a TRACKED file,
+      # whereas caching e.g. all of `markup-schemas/` would restore stale copies
+      # over the 11 committed files there whenever praxis.lock had not moved.
+      #
+      # The .owl half also fixes a latent bug: crates/wasm/build.rs:387
+      # `continue`s on a missing .owl, so an uncached OWL tree plus any future
+      # skipping of the fetch would make the raw-OWL staging silently vanish.
+      #
+      # Key at v3 because the v1/v2 entries do not contain these files and cache
+      # keys are immutable — a path added without a key bump would restore the
+      # old contents forever and never re-save.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -615,7 +663,16 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
             crates/domains/data/ontologies/*.owl
-          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/adobe/glyphlist.txt
+            crates/domains/data/morphology/agid-infl.txt
+            crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
+            crates/domains/data/markup-schemas/mods/mods_3_8-2018.xsd
+            crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd
+            crates/domains/data/markup-schemas/xml/xml.xsd
+            crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+            crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
+            crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
+          key: praxis-data-v3-${{ hashFiles('praxis.lock') }}
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
@@ -730,13 +787,23 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
-      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
-      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
-      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
-      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
-      # v2 because the pre-existing entry does not contain these files and
-      # cache keys are immutable.
+      # Covers EVERY tree `pr4xis update` actually re-downloads, not just the
+      # USC titles. Measured on master run 30502233952: the fetch reported 75
+      # `[fetched]` against 190 `[ok]` — 15 files per job across 8 directories,
+      # re-downloaded in all five jobs of every run, because only uscode/xsts/
+      # xmlconf were cached. The 15 are enumerated rather than globbed by parent
+      # directory on purpose: every one is gitignored (verified with
+      # `git check-ignore`), so restoring them can never shadow a TRACKED file,
+      # whereas caching e.g. all of `markup-schemas/` would restore stale copies
+      # over the 11 committed files there whenever praxis.lock had not moved.
+      #
+      # The .owl half also fixes a latent bug: crates/wasm/build.rs:387
+      # `continue`s on a missing .owl, so an uncached OWL tree plus any future
+      # skipping of the fetch would make the raw-OWL staging silently vanish.
+      #
+      # Key at v3 because the v1/v2 entries do not contain these files and cache
+      # keys are immutable — a path added without a key bump would restore the
+      # old contents forever and never re-save.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -745,7 +812,16 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
             crates/domains/data/ontologies/*.owl
-          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/adobe/glyphlist.txt
+            crates/domains/data/morphology/agid-infl.txt
+            crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
+            crates/domains/data/markup-schemas/mods/mods_3_8-2018.xsd
+            crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd
+            crates/domains/data/markup-schemas/xml/xml.xsd
+            crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+            crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
+            crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
+          key: praxis-data-v3-${{ hashFiles('praxis.lock') }}
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
@@ -1054,13 +1130,23 @@ jobs:
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      # `crates/domains/data/ontologies/*.owl` is FETCHED, not tracked
-      # (.gitignore:95 ignores *.owl here; only the six .prx.gz are committed),
-      # and it was in NO cache block. crates/wasm/build.rs:387 `continue`s on a
-      # missing .owl, so once the fetch is skipped on a cache hit, an uncached
-      # .owl tree makes the raw-OWL staging silently disappear. Key bumped to
-      # v2 because the pre-existing entry does not contain these files and
-      # cache keys are immutable.
+      # Covers EVERY tree `pr4xis update` actually re-downloads, not just the
+      # USC titles. Measured on master run 30502233952: the fetch reported 75
+      # `[fetched]` against 190 `[ok]` — 15 files per job across 8 directories,
+      # re-downloaded in all five jobs of every run, because only uscode/xsts/
+      # xmlconf were cached. The 15 are enumerated rather than globbed by parent
+      # directory on purpose: every one is gitignored (verified with
+      # `git check-ignore`), so restoring them can never shadow a TRACKED file,
+      # whereas caching e.g. all of `markup-schemas/` would restore stale copies
+      # over the 11 committed files there whenever praxis.lock had not moved.
+      #
+      # The .owl half also fixes a latent bug: crates/wasm/build.rs:387
+      # `continue`s on a missing .owl, so an uncached OWL tree plus any future
+      # skipping of the fetch would make the raw-OWL staging silently vanish.
+      #
+      # Key at v3 because the v1/v2 entries do not contain these files and cache
+      # keys are immutable — a path added without a key bump would restore the
+      # old contents forever and never re-save.
       - name: Cache fetched external data
         uses: actions/cache@v5
         with:
@@ -1069,7 +1155,16 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
             crates/domains/data/ontologies/*.owl
-          key: praxis-data-v2-${{ hashFiles('praxis.lock') }}
+            crates/domains/data/adobe/glyphlist.txt
+            crates/domains/data/morphology/agid-infl.txt
+            crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd
+            crates/domains/data/markup-schemas/mods/mods_3_8-2018.xsd
+            crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd
+            crates/domains/data/markup-schemas/xml/xml.xsd
+            crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+            crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml
+            crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd
+          key: praxis-data-v3-${{ hashFiles('praxis.lock') }}
       - uses: actions/download-artifact@v8
         with:
           name: pr4xis-cli
