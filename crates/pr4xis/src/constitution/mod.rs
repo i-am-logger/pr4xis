@@ -115,6 +115,54 @@ macro_rules! register_praxis_value {
     };
 }
 
+/// Write this binary's registered tag set where the completeness gate expects
+/// it.
+///
+/// `pkg` and `krate` must be the CALLER's `env!("CARGO_PKG_NAME")` and
+/// `env!("CARGO_CRATE_NAME")` — they cannot be read here, because `env!` in
+/// this file would expand to `pr4xis` no matter who called. They identify the
+/// writing binary, and package+crate is what makes that unique: `pr4xis-cli`'s
+/// bin target is itself named `pr4xis`, so the crate name alone collides with
+/// the `pr4xis` library's.
+///
+/// Three destinations, in the order the gate uses them:
+///
+/// - a DIRECTORY — workspace mode. Every binary runs in ONE `cargo nextest
+///   run` and each writes its own `<pkg>__<crate>.tags`, so the gate extracts
+///   the archive once rather than once per binary.
+/// - a FILE — single-crate mode, for running the gate against one crate.
+/// - unset — print, for ad-hoc use.
+///
+/// One function rather than three copies: this is called by
+/// [`constitution_coverage_gate!`](crate::constitution_coverage_gate), by
+/// pr4xis's own gate below, and by `pr4xis-domains`' richer meta-test, which
+/// asserts partition coverage before emitting and so cannot use the macro
+/// wholesale.
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
+pub fn emit_tags(pkg: &str, krate: &str) {
+    extern crate std;
+    use alloc::{format, string::String, vec::Vec};
+
+    let mut lines: Vec<String> = CONSTITUTION_TESTS
+        .iter()
+        .map(|t| format!("{}::{}", t.module, t.name))
+        .collect();
+    // Link order is not guaranteed, and the gate diffs this against a sorted
+    // listing.
+    lines.sort();
+    let body = lines.join("\n");
+
+    match std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
+        Ok(dir) if std::path::Path::new(&dir).is_dir() => {
+            let name = format!("{pkg}__{krate}.tags");
+            std::fs::write(std::path::Path::new(&dir).join(name), body)
+                .expect("write constitution tags");
+        }
+        Ok(path) => std::fs::write(&path, body).expect("write constitution tags"),
+        Err(_) => std::eprintln!("{body}"),
+    }
+}
+
 /// Emit this test binary's registered tag set, for the completeness gate.
 ///
 /// Place one invocation in every test binary the workspace builds:
@@ -153,21 +201,12 @@ macro_rules! constitution_coverage_gate {
             #[$crate::praxis_value(Verifiable)]
             #[test]
             fn constitution_coverage() {
-                let mut lines: std::vec::Vec<std::string::String> =
-                    $crate::constitution::CONSTITUTION_TESTS
-                        .iter()
-                        .map(|t| std::format!("{}::{}", t.module, t.name))
-                        .collect();
-                // Sorted so the emitted file is stable run to run: a
-                // distributed slice's order is link order, which is not
-                // guaranteed, and the gate diffs this against a sorted listing.
-                lines.sort();
-                match std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
-                    Ok(path) => {
-                        std::fs::write(&path, lines.join("\n")).expect("write constitution tags")
-                    }
-                    Err(_) => std::eprintln!("{}", lines.join("\n")),
-                }
+                // env! expands in the CALLING crate, which is the whole point —
+                // it names the binary that is doing the writing.
+                $crate::constitution::emit_tags(
+                    ::core::env!("CARGO_PKG_NAME"),
+                    ::core::env!("CARGO_CRATE_NAME"),
+                );
             }
         }
     };
@@ -180,21 +219,12 @@ macro_rules! constitution_coverage_gate {
 /// reasoning layer.
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod coverage_gate {
-    extern crate std;
-    use crate::constitution::CONSTITUTION_TESTS;
-    use alloc::{format, string::String, vec::Vec};
-    use std::{eprintln, fs};
-
     #[crate::praxis_value(Verifiable)]
     #[test]
     fn constitution_coverage() {
-        let lines: Vec<String> = CONSTITUTION_TESTS
-            .iter()
-            .map(|t| format!("{}::{}", t.module, t.name))
-            .collect();
-        match std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
-            Ok(path) => fs::write(&path, lines.join("\n")).expect("write constitution tags"),
-            Err(_) => eprintln!("{}", lines.join("\n")),
-        }
+        crate::constitution::emit_tags(
+            ::core::env!("CARGO_PKG_NAME"),
+            ::core::env!("CARGO_CRATE_NAME"),
+        );
     }
 }
