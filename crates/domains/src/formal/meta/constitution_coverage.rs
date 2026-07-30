@@ -128,16 +128,9 @@ mod tests {
         // pipe drops lines non-deterministically (libtest output buffering), which
         // made the gate flaky. When `PRAXIS_CONSTITUTION_TAGS_OUT` is set the gate
         // gets the full set atomically; otherwise we still print for ad-hoc use.
-        let lines: Vec<String> = CONSTITUTION_TESTS
-            .iter()
-            .map(|t| format!("{}::{}", t.module, t.name))
-            .collect();
-        if let Ok(path) = std::env::var("PRAXIS_CONSTITUTION_TAGS_OUT") {
-            std::fs::write(&path, lines.join("\n")).expect("write constitution tags file");
-        } else {
-            for line in &lines {
-                println!("PRAXIS_TAG {line}");
-            }
-        }
+        pr4xis::constitution::emit_tags(
+            ::core::env!("CARGO_PKG_NAME"),
+            ::core::env!("CARGO_CRATE_NAME"),
+        );
     }
 }
