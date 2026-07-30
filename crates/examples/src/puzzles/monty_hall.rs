@@ -145,6 +145,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_switch_wins_when_initial_wrong() {
         // Car behind door 2, player picks 0, host reveals 1
@@ -159,6 +160,7 @@ mod tests {
         assert_eq!(e.situation().won(), Some(true));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_stay_loses_when_initial_wrong() {
         let e = new_game(2)
@@ -171,6 +173,7 @@ mod tests {
         assert_eq!(e.situation().won(), Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_stay_wins_when_initial_right() {
         let e = new_game(0)
@@ -183,18 +186,21 @@ mod tests {
         assert_eq!(e.situation().won(), Some(true));
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_host_cant_reveal_car() {
         let e = new_game(1).next(MontyAction::ChooseDoor(0)).unwrap();
         assert!(e.next(MontyAction::HostReveal(1)).is_err()); // door 1 has the car
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_host_cant_reveal_player_choice() {
         let e = new_game(1).next(MontyAction::ChooseDoor(0)).unwrap();
         assert!(e.next(MontyAction::HostReveal(0)).is_err()); // player chose 0
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_wrong_phase_blocked() {
         assert!(new_game(0).next(MontyAction::Stay).is_err());
@@ -245,4 +251,8 @@ mod tests {
             prop_assert!(e.situation().is_terminal());
         }
     }
+    pr4xis::register_praxis_value!(prop_switch_wins_when_wrong, Verifiable);
+    pr4xis::register_praxis_value!(prop_stay_wins_iff_right, Verifiable);
+    pr4xis::register_praxis_value!(prop_host_always_has_option, Verifiable);
+    pr4xis::register_praxis_value!(prop_always_terminal, Verifiable);
 }

@@ -241,6 +241,7 @@ pub fn new_puzzle(loyalties: Vec<Loyalty>) -> Engine<ByzAction> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_4_generals_1_traitor_consensus() {
         // 4 generals, general 0 is commander (loyal), general 3 is traitor
@@ -279,6 +280,7 @@ mod tests {
         assert!(e.situation().consensus_reached());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_loyal_must_relay_truthfully() {
         let e = new_puzzle(vec![
@@ -298,6 +300,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_n_gt_3f_required() {
         // 3 generals, 1 traitor: n=3, f=1, n > 3f? 3 > 3 = false
@@ -309,6 +312,7 @@ mod tests {
         // 3 > 3*1 is false — below the threshold
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_wrong_phase_blocked() {
         let e = new_puzzle(vec![Loyalty::Loyal, Loyalty::Loyal, Loyalty::Loyal]);

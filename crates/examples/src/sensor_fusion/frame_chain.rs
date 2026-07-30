@@ -15,6 +15,7 @@ mod tests {
     use pr4xis_domains::formal::math::rigid_motion::pose::Pose;
     use pr4xis_domains::formal::math::rotation::quaternion::Quaternion;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn three_frame_chain_is_associative() {
         // Body → IMU → Camera: three frames
@@ -40,6 +41,7 @@ mod tests {
         assert!(lhs == rhs, "SE(3) composition must be associative");
     }
 
+    #[pr4xis::praxis_value(Deterministic, Verifiable)]
     #[test]
     fn inverse_roundtrip() {
         let t = Pose {
@@ -50,6 +52,7 @@ mod tests {
         assert!(roundtrip == Pose::identity());
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn transform_point_through_chain() {
         let t_ab = Pose::from_translation(Vector::new(vec![10.0, 0.0, 0.0]));
@@ -105,5 +108,7 @@ mod tests {
                 prop_assert!(result == Pose::identity());
             }
         }
+        pr4xis::register_praxis_value!(composition_is_associative, Verifiable);
+        pr4xis::register_praxis_value!(inverse_yields_identity, Deterministic, Verifiable);
     }
 }

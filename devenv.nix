@@ -152,11 +152,11 @@ in
     RUSTFLAGS="-D warnings" cargo nextest archive --workspace --profile ci --release --archive-file target/nextest-archive.tar.zst || { echo "FAILED: nextest archive"; exit 1; }
     echo "=== test (nextest from archive, strict [profile.ci]) ==="
     cargo nextest run --archive-file target/nextest-archive.tar.zst --workspace-remap . --profile ci || { echo "FAILED: test"; exit 1; }
-    echo "=== constitution completeness gate (untagged=0 phantom=0, from the archive) ==="
-    bash scripts/constitution-gate.sh pr4xis --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis)"; exit 1; }
-    bash scripts/constitution-gate.sh pr4xis-runtime --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis-runtime)"; exit 1; }
-    bash scripts/constitution-gate.sh pr4xis-chat --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis-chat)"; exit 1; }
-    bash scripts/constitution-gate.sh pr4xis-domains --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate (pr4xis-domains)"; exit 1; }
+    # `--all`, not a crate list: the gate's unit is the test BINARY, because
+    # linkme assembles its tag slice per binary. Four named crates left 156
+    # tests in 11 binaries unmeasured while the gate printed COMPLETE.
+    echo "=== constitution completeness gate (untagged=0 phantom=0, every binary) ==="
+    bash scripts/constitution-gate.sh --all --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate"; exit 1; }
     echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
     bash scripts/heavy-corpus-tests.sh || { echo "FAILED: corpus tests"; exit 1; }
     echo "=== caregiver demonstrator: program-ladder renderer over the real corpus ==="

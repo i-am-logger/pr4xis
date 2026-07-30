@@ -120,6 +120,7 @@ pub fn new_puzzle(n: usize, start: (usize, usize)) -> Engine<KnightMove> {
 mod tests {
     use super::*;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn test_5x5_partial() {
         let e = new_puzzle(5, (0, 0))
@@ -130,6 +131,7 @@ mod tests {
         assert_eq!(e.situation().visited.len(), 3);
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_revisit_blocked() {
         let e = new_puzzle(5, (0, 0))
@@ -138,6 +140,7 @@ mod tests {
         assert!(e.next(KnightMove { to: (0, 0) }).is_err()); // already visited
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn test_non_knight_move_blocked() {
         assert!(

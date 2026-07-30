@@ -102,6 +102,7 @@ fn meter_declared_tier(name: &str, version: &str) -> RoundTripFidelity {
         .unwrap_or(RoundTripFidelity::RawBytesComplementFloor)
 }
 
+#[pr4xis::praxis_value(Deterministic, Honest, Extensible)]
 #[test]
 fn all_sources_source_round_trip_byte_exact() {
     let root = workspace_root();
@@ -263,6 +264,7 @@ fn assert_provisioned_kind_exercised(
 /// (its lens's `WellBehavedLens::FIDELITY`) must equal the tier it ACHIEVES (the
 /// `RoundTripFidelity` the emitted `.prx` carries, via the harness verdict). A
 /// source can therefore NEVER falsely claim graph-faithfulness.
+#[pr4xis::praxis_value(Honest, Explainable)]
 #[test]
 fn completeness_meter_declared_tier_matches_achieved() {
     let meter = completeness_meter();
@@ -327,3 +329,9 @@ fn completeness_meter_declared_tier_matches_achieved() {
         meter.len()
     );
 }
+
+// ---------------------------------------------------------------------------
+// Constitutional coverage — this test binary's tag set, for the gate.
+// ---------------------------------------------------------------------------
+
+pr4xis::constitution_coverage_gate!();

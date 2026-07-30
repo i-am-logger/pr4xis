@@ -17,6 +17,7 @@ mod tests {
     use pr4xis_domains::formal::math::linear_algebra::vector_space::Vector;
     use pr4xis_domains::formal::math::probability::mahalanobis;
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn measurement_at_mean_always_passes_gate() {
         let mean = Vector::new(vec![10.0, 20.0]);
@@ -27,6 +28,7 @@ mod tests {
         assert_eq!(result, Some(true));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn close_measurement_passes_gate() {
         let mean = Vector::new(vec![10.0, 20.0]);
@@ -39,6 +41,7 @@ mod tests {
         assert_eq!(result, Some(true));
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn far_measurement_rejected_by_gate() {
         let mean = Vector::new(vec![10.0, 20.0]);
@@ -51,6 +54,7 @@ mod tests {
         assert_eq!(result, Some(false));
     }
 
+    #[pr4xis::praxis_value(Verifiable)]
     #[test]
     fn mahalanobis_distance_is_zero_at_mean() {
         let mean = Vector::new(vec![5.0, 10.0, 15.0]);
@@ -101,5 +105,8 @@ mod tests {
                 prop_assert_eq!(r1, r2);
             }
         }
+        pr4xis::register_praxis_value!(distance_at_mean_is_always_zero, Verifiable);
+        pr4xis::register_praxis_value!(distance_is_non_negative, Verifiable);
+        pr4xis::register_praxis_value!(gating_is_deterministic, Deterministic);
     }
 }

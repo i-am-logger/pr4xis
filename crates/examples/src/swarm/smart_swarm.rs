@@ -315,6 +315,7 @@ mod tests {
         trace
     }
 
+    #[pr4xis::praxis_value(Honest, Verifiable)]
     #[test]
     fn swarm_converges_survives_equivocation_and_reconverges() {
         let estimates = swarm_estimates();
@@ -357,6 +358,7 @@ mod tests {
         );
     }
 
+    #[pr4xis::praxis_value(Explainable, Verifiable)]
     #[test]
     fn narrated_trace_reports_convergence_and_exclusion() {
         let trace = run_smart_swarm();

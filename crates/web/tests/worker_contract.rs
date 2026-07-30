@@ -63,6 +63,7 @@ fn ui_call_types(root: &Path) -> HashSet<String> {
     out
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn worker_routes_every_rpc_type_used_by_chat_ui() {
     let root = workspace_root();
@@ -84,6 +85,10 @@ fn worker_routes_every_rpc_type_used_by_chat_ui() {
     );
 }
 
+// Honest primary: an orphan `case` is the worker advertising an RPC surface
+// nothing reaches — a capability claimed but not used. The test forces every
+// declared case to be either genuinely called or deleted.
+#[pr4xis::praxis_value(Honest, Verifiable)]
 #[test]
 fn every_worker_case_is_actually_called_by_the_chat_ui() {
     let root = workspace_root();
@@ -211,6 +216,11 @@ fn literal_call_types(src: &str) -> HashSet<String> {
     out
 }
 
+// Honest secondary: half the assertions are NEGATIVE — the extractor must not
+// invent a call type out of a variable (`call(rpc, …)`) or out of the `call`
+// function's own definition, which is what would let the orphan check pass on
+// call sites that do not exist.
+#[pr4xis::praxis_value(Verifiable, Honest)]
 #[test]
 fn extractor_handles_single_and_double_quotes() {
     let src = "x = call('a'); y = call(\"b\"); call(rpc, args); function call(t) {}";
@@ -222,6 +232,7 @@ fn extractor_handles_single_and_double_quotes() {
     assert_eq!(types.len(), 2);
 }
 
+#[pr4xis::praxis_value(Verifiable)]
 #[test]
 fn case_extractor_handles_quoted_string_cases() {
     let src = "switch (x) { case 'foo': break; case \"bar\": break; default: throw; }";
@@ -230,3 +241,5 @@ fn case_extractor_handles_quoted_string_cases() {
     assert!(cases.contains("bar"));
     assert_eq!(cases.len(), 2);
 }
+
+pr4xis::constitution_coverage_gate!();
