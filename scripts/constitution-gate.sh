@@ -40,28 +40,45 @@
 #    the gate is self-binding with no special case.
 set -euo pipefail
 
-crate="${1:-pr4xis-domains}"
-shift || true
+# Flags are parsed as flags, in any order, and the crate is an optional
+# positional. The previous shape took $1 as the crate unconditionally, so
+# `constitution-gate.sh --enforce --archive X` bound crate="--enforce" and then
+# silently DROPPED the enforcement — a gate that reports and exits 0 is the
+# precise failure this script exists to prevent, so it must not be reachable by
+# argument order. `--all` was likewise only recognised as a pseudo-crate in
+# first position.
+crate=""
 enforce=""
 archive=""
 all=""
 while [ $# -gt 0 ]; do
   case "$1" in
+  --all) all=1 ;;
   --enforce) enforce="--enforce" ;;
   --archive)
     archive="${2:?--archive needs a path}"
     shift
     ;;
-  *)
-    echo "unknown argument: $1" >&2
+  -*)
+    echo "unknown option: $1" >&2
     exit 2
+    ;;
+  *)
+    [ -z "$crate" ] || {
+      echo "unexpected extra argument: $1 (one crate at most)" >&2
+      exit 2
+    }
+    crate="$1"
     ;;
   esac
   shift
 done
-if [ "$crate" = "--all" ]; then
-  all=1
-  crate=""
+[ -z "$all" ] || [ -z "$crate" ] || {
+  echo "--all covers every binary; it takes no crate argument (got: $crate)" >&2
+  exit 2
+}
+if [ -z "$all" ] && [ -z "$crate" ]; then
+  crate="pr4xis-domains"
 fi
 libname="${crate//-/_}"
 
