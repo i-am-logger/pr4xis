@@ -105,10 +105,21 @@ if [ -n "$all" ]; then
     exit 2
   }
 
+  # `--color never` is REQUIRED, not tidiness. ci.yml sets
+  # `CARGO_TERM_COLOR: always` workflow-wide, so nextest emits ANSI escapes
+  # even through a pipe, and the binary id parsed out of the listing came back
+  # as `\e[35;1mpr4xis\e[0m` rather than `pr4xis`. The suite grouping still
+  # worked (the polluted id is at least consistent with itself), which is why
+  # `listed=8870` looked right — but every filename derived from it was
+  # garbage, so `tagged=0` and all 8870 tests read as untagged.
+  #
+  # It never reproduced locally because cargo auto-disables colour when stdout
+  # is not a TTY; only the forced setting exposes it. Both nextest calls below
+  # pass it, since either would carry the same pollution.
   listing=$(mktemp)
   trap 'rm -f "$listing"' EXIT
   cargo nextest list --archive-file "$archive" --workspace-remap . \
-    --run-ignored all 2>/dev/null | awk 'NF>=2{print $1" "$2}' | sort -u >"$listing"
+    --run-ignored all --color never 2>/dev/null | awk 'NF>=2{print $1" "$2}' | sort -u >"$listing"
 
   [ -s "$listing" ] || {
     echo "gate error: archive $archive lists no tests at all" >&2
@@ -128,6 +139,7 @@ if [ -n "$all" ]; then
   trap 'rm -rf "$tagsdir"; rm -f "$listing"' EXIT
   if ! PRAXIS_CONSTITUTION_TAGS_OUT="$tagsdir" \
     cargo nextest run --archive-file "$archive" --workspace-remap . \
+    --color never \
     -E 'test(/(^|::)constitution_coverage$/)' \
     --no-capture --no-fail-fast >"$tagsdir/.run.log" 2>&1; then
     echo "::error::the tag-emitting run failed; the gate cannot measure anything" >&2
