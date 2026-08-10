@@ -14,8 +14,8 @@ authors:
 repository-code: "https://github.com/i-am-logger/pr4xis"
 url: "https://pr4xis.dev"
 license: CC-BY-NC-SA-4.0
-version: 0.29.0
-date-released: "2026-07-29"
+version: 0.29.1
+date-released: "2026-08-10"
 doi: 10.5281/zenodo.20755387
 keywords:
   - ontology
