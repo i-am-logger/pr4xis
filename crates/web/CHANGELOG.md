@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-web-v0.28.0...pr4xis-web-v0.29.1) - 2026-08-10
+
+### Feat
+
+- *(care)* [**breaking**] ACL Caregiver AI Challenge — Phase 1 submission, demonstrator, and the grounding it rests on
+
+### Fix
+
+- *(constitution)* [**breaking**] tag all 156 unmeasured tests; enforce every binary
+
 ## [0.29.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-web-v0.28.0...pr4xis-web-v0.29.0) - 2026-07-29
 
 ### Feat
