@@ -6,18 +6,18 @@
   <a href="https://crates.io/crates/pr4xis"><img src="https://img.shields.io/crates/v/pr4xis?logo=rust&logoColor=white" alt="crates.io"/></a>
   <a href="https://crates.io/crates/pr4xis"><img src="https://img.shields.io/crates/d/pr4xis?logo=rust&logoColor=white" alt="Downloads"/></a>
   <a href="https://docs.rs/pr4xis"><img src="https://img.shields.io/docsrs/pr4xis?logo=docsdotrs&logoColor=white" alt="docs.rs"/></a>
-  <a href="https://doi.org/10.5281/zenodo.20755387"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20755387.svg" alt="DOI"/></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white" alt="Rust"/></a>
-  <a href="https://nixos.org/"><img src="https://img.shields.io/badge/built_with-nix-5277C3?logo=nixos&logoColor=white" alt="Built with Nix"/></a>
-  <a href="https://devenv.sh"><img src="https://img.shields.io/badge/devenv-2b2b2b?logo=nixos&logoColor=white" alt="devenv"/></a>
+  <a href="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/i-am-logger/pr4xis/ci.yml?branch=master&label=CI&logo=githubactions&logoColor=white" alt="CI"/></a>
+  <a href="https://codecov.io/gh/i-am-logger/pr4xis"><img src="https://img.shields.io/codecov/c/github/i-am-logger/pr4xis?logo=codecov&logoColor=white" alt="Coverage"/></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/i-am-logger/pr4xis/ci.yml?branch=master&label=CI&logo=githubactions&logoColor=white" alt="CI"/></a>
-  <a href="https://codecov.io/gh/i-am-logger/pr4xis"><img src="https://img.shields.io/codecov/c/github/i-am-logger/pr4xis?logo=codecov&logoColor=white" alt="Coverage"/></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/i-am-logger/pr4xis"><img src="https://api.securityscorecards.dev/projects/github.com/i-am-logger/pr4xis/badge" alt="OpenSSF Scorecard"/></a>
-  <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/demo-pr4xis.dev-blue?logo=webassembly&logoColor=white" alt="Live Demo"/></a>
-  <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust_2024-2b2b2b?logo=rust&logoColor=white" alt="Rust 2024"/></a>
+  <a href="https://nixos.org/"><img src="https://img.shields.io/badge/Nix-2b2b2b?logo=nixos&logoColor=white" alt="Nix"/></a>
+  <a href="https://devenv.sh"><img src="https://img.shields.io/badge/devenv-2b2b2b?logo=nixos&logoColor=white" alt="devenv"/></a>
+  <a href="https://webassembly.org/"><img src="https://img.shields.io/badge/WebAssembly-2b2b2b?logo=webassembly&logoColor=white" alt="WebAssembly"/></a>
+  <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/pr4xis.dev-2b2b2b?logo=firefoxbrowser&logoColor=white" alt="Live demo"/></a>
+  <a href="https://doi.org/10.5281/zenodo.20755387"><img src="https://img.shields.io/badge/DOI-2b2b2b?logo=zenodo&logoColor=white" alt="DOI"/></a>
+  <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/CC%20BY--NC--SA%204.0-2b2b2b?logo=creativecommons&logoColor=white" alt="License: CC BY-NC-SA 4.0"/></a>
 </p>
 
 # pr4xis — Axiomatic Intelligence
