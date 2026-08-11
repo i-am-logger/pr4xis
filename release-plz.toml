@@ -109,6 +109,47 @@ commit_parsers = [
 # `pr4xis-examples` isn't either — they stay `publish = false` (no crates.io
 # value), which ALSO exempts them from the tag-vs-registry check; they share the
 # inherited version and are tagged + GitHub-released in lockstep.
+# `pr4xis-domains` PAUSED, and `pr4xis-web` with it — a size limit, not a policy
+# change. The crate packages at 19.1 MiB against crates.io's hard 10 MiB cap, so
+# the upload is rejected; crates.io surfaces that through its CDN as an opaque
+# HTTP 503, which is why three consecutive failed publishes (v0.29.0, then
+# v0.29.1 twice) read as transient infrastructure rather than what they were.
+#
+# It crossed the limit between 0.28.0 (published fine) and 0.29.0. The floor is
+# not reachable by trimming the `include` allowlist: only 10 of the 50 shipped
+# `.prx` are not `include_bytes!`-embedded, worth ~5.6 MB, and removing every one
+# of them still leaves 14.4 MiB. Two embedded files are most of the weight —
+# `data/conceptnet/conceptnet-5.7.0.prx` (5.47 MB) and
+# `data/propbank/propbank-3.4.0.prx` (3.75 MB) — so the real fix is converting
+# those to runtime-loaded registry sources like every other fetched corpus.
+# That is a change to the crate's contract, not a manifest tweak, and it is not
+# worth doing under a red master.
+#
+# `pr4xis-web` is paused only because it depends on `pr4xis-domains`: a
+# published crate cannot depend on a version that is not on crates.io.
+#
+# THIS IS THE RIGHT KNOB, and the distinction matters. `publish = false` HERE
+# exempts the crate from the tag-vs-registry check while release-plz still
+# versions, tags and GitHub-releases it in lockstep. `[package] publish = false`
+# in the crate's own Cargo.toml is the other thing entirely — it makes
+# release-plz ignore the crate outright, never versioning or tagging it, which
+# is the bug that stranded domains at tag v0.21.0. Do not "simplify" this by
+# moving it into the manifest.
+#
+# Consequence, stated plainly: crates.io keeps serving pr4xis-domains 0.28.0 and
+# pr4xis-web 0.28.0 while the repo moves on. Nothing consumes either — 54 and
+# 282 downloads, zero reverse dependencies — and `pr4xis` (510 downloads, 2
+# reverse deps), `pr4xis-derive` and `pr4xis-runtime` keep publishing normally,
+# so no consumer is affected. Unpausing requires the crate to be under 10 MiB
+# AND a version bump past 0.28.0; the publish-invariant job enforces the rest.
+[[package]]
+name = "pr4xis-domains"
+publish = false
+
+[[package]]
+name = "pr4xis-web"
+publish = false
+
 [[package]]
 name = "pr4xis-cli"
 publish = false
