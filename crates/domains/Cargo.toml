@@ -46,23 +46,39 @@ include = [
     "data/**/*.prx.gz",
     "CHANGELOG.md",
 ]
-# NOTE: this crate is PUBLISHABLE and carries no `publish = false` (neither here
-# nor in release-plz.toml) — a manifest-level gate would make release-plz ignore
-# the crate outright (never versioned/tagged — the bug that stranded domains at
-# tag v0.21.0). The crates.io floor that used to block it — a build-time
-# `include_str!` of workspace files (`praxis.toml`, raw `data/*`) that fails
-# `cargo publish --verify` — is gone: the registered-source manifest and every
-# data source now ship as committed `.prx` (the `include` allowlist above), loaded
-# through the generalized registry gate, so `--verify` is clean.
+# NOTE: this crate carries no MANIFEST-level `publish = false`, deliberately — a
+# manifest-level gate would make release-plz ignore the crate outright (never
+# versioned/tagged, the bug that stranded domains at tag v0.21.0). Its publish is
+# PAUSED in release-plz.toml instead, which stops the upload while keeping the
+# versioning and tagging. Do not move that gate here.
 #
-# FIRST-PUBLISH BOOTSTRAP PENDING: this crate has release tags (v0.24.0..v0.25.4)
-# but was never on crates.io (it was `publish = false` until #219). A publishable
-# crate that is tagged-but-404 is the forbidden state that wedges release-plz's
-# Release-PR (see release-plz.toml + the `publish-invariant` CI job). It must be
-# first-published once, at 0.25.5, in workspace dependency order — `pr4xis`
-# (carrying the build-time codegen API `build.rs` calls, absent from the published
-# pr4xis 0.25.4) publishes before this crate. After that the invariant holds and
-# release-plz auto-bumps from here on.
+# The build-time floor that used to block publishing — an `include_str!` of
+# workspace files (`praxis.toml`, raw `data/*`) that failed `cargo publish
+# --verify` — is gone: every registered source ships as a committed `.prx`
+# through the allowlist above, so `--verify` is clean.
+#
+# What blocks it NOW is SIZE, and it is the allowlist's own doing. `data/**/*.prx`
+# is broader than the rationale above claims: of the 50 `.prx` it ships, only 40
+# are `include_bytes!`-embedded, and two of those are most of the weight —
+# conceptnet-5.7.0.prx (5.47 MB) and propbank-3.4.0.prx (3.75 MB). The package is
+# 19.1 MiB against crates.io's 10 MiB cap, and dropping every non-embedded file
+# still leaves 14.4 MiB. Unpausing means converting those two to runtime-loaded
+# registry sources like every other fetched corpus — a change to what this crate
+# guarantees is present, not a manifest edit.
+#
+# BEWARE THE SYMPTOM: crates.io rejects the oversized upload through its CDN as
+# an opaque HTTP 503, so this looks exactly like transient infrastructure. Three
+# consecutive publishes failed that way (v0.29.0, then v0.29.1 twice) before the
+# cause was measured with `cargo package`.
+#
+# The first-publish bootstrap this note used to describe is DONE: the crate
+# reached crates.io at 0.28.0, so it is no longer tagged-but-404 and the
+# forbidden state that wedged release-plz is behind us. crates.io now serves
+# 0.28.0 indefinitely while the repo moves on, which is a stale row rather than
+# an inconsistent one — `publish = false` in release-plz.toml exempts the crate
+# from the tag-vs-registry check, so nothing wedges.
+#
+# Unpausing needs BOTH: the package under 10 MiB, and a version past 0.28.0.
 
 [dependencies]
 # Runtime dep needs `std` only. The `codegen` feature (and its
