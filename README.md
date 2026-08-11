@@ -3,6 +3,7 @@
 </p>
 
 <p align="center">
+  <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/try_it-pr4xis.dev-1f6feb?logo=webassembly&logoColor=white" alt="Live demo: pr4xis.dev"/></a>
   <a href="https://crates.io/crates/pr4xis"><img src="https://img.shields.io/crates/v/pr4xis?logo=rust&logoColor=white" alt="crates.io"/></a>
   <a href="https://crates.io/crates/pr4xis"><img src="https://img.shields.io/crates/d/pr4xis?logo=rust&logoColor=white" alt="Downloads"/></a>
   <a href="https://docs.rs/pr4xis"><img src="https://img.shields.io/docsrs/pr4xis?logo=docsdotrs&logoColor=white" alt="docs.rs"/></a>
@@ -15,7 +16,6 @@
   <a href="https://nixos.org/"><img src="https://img.shields.io/badge/Nix-2b2b2b?logo=nixos&logoColor=white" alt="Nix"/></a>
   <a href="https://devenv.sh"><img src="https://img.shields.io/badge/devenv-2b2b2b?logo=nixos&logoColor=white" alt="devenv"/></a>
   <a href="https://webassembly.org/"><img src="https://img.shields.io/badge/WebAssembly-2b2b2b?logo=webassembly&logoColor=white" alt="WebAssembly"/></a>
-  <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/pr4xis.dev-2b2b2b?logo=firefoxbrowser&logoColor=white" alt="Live demo"/></a>
   <a href="https://doi.org/10.5281/zenodo.20755387"><img src="https://img.shields.io/badge/DOI-2b2b2b?logo=zenodo&logoColor=white" alt="DOI"/></a>
   <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/CC%20BY--NC--SA%204.0-2b2b2b?logo=creativecommons&logoColor=white" alt="License: CC BY-NC-SA 4.0"/></a>
 </p>
