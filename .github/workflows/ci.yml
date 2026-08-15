@@ -963,6 +963,15 @@ jobs:
       - name: Assemble pages
         run: |
           mkdir -p pages/pkg pages/decks/technical pages/sources pages/ontologies
+          # The tbay.tk assessment letter is a COMMITTED static PDF, not one the
+          # caregiver-pdf job builds — that job's artifact glob only carries
+          # docs/caregiver-challenge/pdf/build/*.pdf, so a committed sibling
+          # does not ride along and must be copied explicitly. The caregiver
+          # tab links it at /caregiver-challenge/tbay-assessment-letter.pdf
+          # (Overview + Method cards); pr4xis-web serves the same path locally
+          # via its docs/ fallback route, so local == deployed without a
+          # special case.
+          cp docs/caregiver-challenge/tbay-assessment-letter.pdf pages/caregiver-challenge/
           # MANDATORY. The `emit_prx` step above writes into
           # crates/wasm/ontologies (pr4xis-web serves it at /ontologies/ for
           # the E2E, and devenv.nix is paired with that path); the deleted
