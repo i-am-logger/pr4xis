@@ -293,6 +293,28 @@ button, .btn, a.btn, input, select, [role="tab"] { min-height: var(--tap); }
    makes the qualifier shout as loudly as the title it qualifies. */
 .card-title .note { font-weight: 400; font-size: var(--fs-small); color: var(--muted); }
 
+/* ================= independent-assessment pull quote ================= */
+/* The tbay.tk assessment cards (Overview + Method). The first rendering set
+   the quote as plain body paragraphs, visually identical to every other card
+   — an endorsement that reads like boilerplate. This gives it a real
+   pull-quote shape: the quote leads, italic and bright, behind the same blue
+   left accent `.summary-box` carries, and attribution then provenance step
+   down in size so the eye order is quote → who → context. Margins are 0
+   because `.card` is a flex column whose `gap` owns the vertical rhythm. */
+.quote-card { border-left: 3px solid var(--base0D); }
+.quote-card blockquote {
+  margin: 0; font-style: italic; font-size: 1.08em; line-height: 1.6;
+  color: var(--text-bright);
+}
+.quote-card .quote-attr { margin: 0; color: var(--text); font-size: var(--fs-small); }
+.quote-card .quote-context { margin: 0; color: var(--muted); font-size: var(--fs-small); }
+
+/* Rows of document buttons (the Phase 1 evidence card, the assessment cards).
+   This class shipped with NO rule at all, so the buttons packed edge to edge —
+   the "boxes without gaps". Flex + gap + wrap matches every other row on the
+   page and keeps the buttons usable at narrow widths. */
+.evidence-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
 /* ============================ tag ============================ */
 .tag {
   display: inline-block; padding: 0.1rem 0.5rem; border-radius: 5px;
@@ -515,7 +537,10 @@ button, .btn, a.btn, input, select, [role="tab"] { min-height: var(--tap); }
 .view.active { display: flex; }
 .view-head { display: flex; flex-direction: column; gap: var(--sp-1); }
 .view-head h2 { font-size: var(--fs-h1); }
-.view-head .view-lede { color: var(--muted); max-width: 68ch; }
+/* No measure cap: at the view's 90rem width a 68ch cap rendered every lede as
+   a ~500px column beside an empty half-page — it read as a layout bug, not a
+   typographic choice. The lede fills the view like the content below it. */
+.view-head .view-lede { color: var(--muted); }
 
 /* ============================ case workflow (4-col guided verification) ============================ */
 .case-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: var(--sp-4); align-items: start; }
