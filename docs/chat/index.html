@@ -488,16 +488,39 @@
             </ul>
           </div>
 
+          <!-- Post-submission third-party assessment, placed HIGH on the
+               overview deliberately: it is the one piece of evidence here not
+               authored by this project, so it belongs with the credibility
+               block (hero + sixty-seconds), not at the foot of the page.
+               Deliberately a separate card from anything labelled "Phase 1":
+               the five submission PDFs are frozen (emailed to ACL 2026-07-30)
+               and this letter arrived after them. Both quotes on this page
+               (here and on the Method view) are verbatim from the letter. -->
+          <div class="card quote-card">
+            <span class="card-title">Independent assessment</span>
+            <blockquote>“My professional judgment is that pr4xis is serious, carefully built work of a kind I do not often encounter. It addresses a real and widely acknowledged weakness in current artificial intelligence (that these systems cannot reliably tell you when they are wrong), and it does so with unusual rigour and intellectual honesty.”</blockquote>
+            <p class="quote-attr">— Alexander William Forrest Milton, President, tbay.tk LLC · 10 August 2026</p>
+            <p class="quote-context">From a professional assessment offered "freely and without compensation" by a software company that spent several months evaluating pr4xis for use in its own product. Received after the Phase 1 submission — shown beside the submitted record, not inside it.</p>
+            <div class="evidence-row">
+              <a class="btn btn-secondary" href="/caregiver-challenge/tbay-assessment-letter.pdf">Read the full letter (PDF)</a>
+            </div>
+          </div>
+
           <div class="progress" id="boot" style="max-width:32rem;">
             <div class="progress-head"><span class="progress-phase" id="boot-phase">Starting worker…</span><span class="note" id="boot-detail"></span></div>
             <div class="progress-track"><div class="progress-fill indeterminate" id="boot-fill"></div></div>
-            <!-- Said before the download starts rather than discovered during
-                 it. The whole engine arrives once and the device answers on
-                 its own afterwards; on a metered connection that is the
-                 reader's call, so the page gives them what they need to make
-                 it. The live figures below come from the transfer itself. -->
-            <div class="note" style="margin-top:0.5rem;">The engine downloads once — about 22&nbsp;MB, near 19&nbsp;MB over the wire compressed — and is then cached by your browser. Once it is answering, it also fetches the statutory text it reasons over in the background: six citation and provenance vocabularies (under 1&nbsp;MB together) and Title&nbsp;42 of the U.S. Code, about 35&nbsp;MB, which carries Medicare, Medicaid, the Older Americans Act and the HCBS waiver authorities. You can ask questions throughout; more becomes answerable as each arrives, and the source panel shows exactly what has landed. After that it answers with no network at all, and no question you type leaves this device.</div>
           </div>
+          <!-- Said before the download starts rather than discovered during
+               it. The whole engine arrives once and the device answers on
+               its own afterwards; on a metered connection that is the
+               reader's call, so the page gives them what they need to make
+               it. The live figures come from the transfer itself.
+
+               OUTSIDE #boot on purpose: the 32rem cap on the progress bar is
+               right for a progress bar and wrong for a paragraph — nested
+               inside, this text rendered as a ~500px column on a full-width
+               page. The bar keeps its cap; the prose fills the view. -->
+          <div class="note">The engine downloads once — about 22&nbsp;MB, near 19&nbsp;MB over the wire compressed — and is then cached by your browser. Once it is answering, it also fetches the statutory text it reasons over in the background: six citation and provenance vocabularies (under 1&nbsp;MB together) and Title&nbsp;42 of the U.S. Code, about 35&nbsp;MB, which carries Medicare, Medicaid, the Older Americans Act and the HCBS waiver authorities. You can ask questions throughout; more becomes answerable as each arrives, and the source panel shows exactly what has landed. After that it answers with no network at all, and no question you type leaves this device.</div>
 
           <div class="tiles" id="hero-tiles">
             <div class="tile"><div class="value na" id="t-concepts">—</div><div class="label">concepts loaded</div></div>
@@ -535,22 +558,6 @@
             <a href="#caregiver/method">Partnerships</a>
           </nav>
 
-          <!-- Post-submission third-party assessment. Deliberately a separate
-               card from anything labelled "Phase 1": the five submission PDFs
-               are frozen (emailed to ACL 2026-07-30) and this letter arrived
-               after them, so the page keeps that boundary visible instead of
-               folding new evidence into the submitted record. Both quotes on
-               this page (here and on the Method view) are verbatim from the
-               letter. -->
-          <div class="card">
-            <span class="card-title">Independent assessment</span>
-            <p class="note">Received after the Phase 1 submission: a professional assessment from the president of a software company that spent several months evaluating pr4xis for use in its own product — offered, in his words, "freely and without compensation".</p>
-            <p>“My professional judgment is that pr4xis is serious, carefully built work of a kind I do not often encounter. It addresses a real and widely acknowledged weakness in current artificial intelligence (that these systems cannot reliably tell you when they are wrong), and it does so with unusual rigour and intellectual honesty.”</p>
-            <p class="note">— Alexander William Forrest Milton, President, tbay.tk LLC · 10 August 2026</p>
-            <div class="evidence-row">
-              <a class="btn btn-secondary" href="/caregiver-challenge/tbay-assessment-letter.pdf">Read the full letter (PDF)</a>
-            </div>
-          </div>
         </main>
 
         <!-- ==================== TRACK WORKSPACES (generic 4-column layout) ==================== -->
@@ -724,11 +731,11 @@
                is the one that names the challenge's own two domains — medical
                decision support and regulatory compliance. Verbatim from the
                letter, as is the headline quote on the Overview. -->
-          <div class="card">
+          <div class="card quote-card">
             <span class="card-title">Independent assessment</span>
-            <p class="note">Received after the Phase 1 submission: a professional assessment from the president of a software company that spent several months evaluating pr4xis for use in its own product — offered, in his words, "freely and without compensation".</p>
-            <p>“It is well suited to any setting where an answer must be defensible rather than merely plausible: aerospace and vehicle autonomy, medical decision support, industrial safety, regulatory compliance, and the checking of work produced by other AI systems.”</p>
-            <p class="note">— Alexander William Forrest Milton, President, tbay.tk LLC · 10 August 2026</p>
+            <blockquote>“It is well suited to any setting where an answer must be defensible rather than merely plausible: aerospace and vehicle autonomy, medical decision support, industrial safety, regulatory compliance, and the checking of work produced by other AI systems.”</blockquote>
+            <p class="quote-attr">— Alexander William Forrest Milton, President, tbay.tk LLC · 10 August 2026</p>
+            <p class="quote-context">From a professional assessment offered "freely and without compensation" by a software company that spent several months evaluating pr4xis for use in its own product. Received after the Phase 1 submission — shown beside the submitted record, not inside it.</p>
             <div class="evidence-row">
               <a class="btn btn-secondary" href="/caregiver-challenge/tbay-assessment-letter.pdf">Read the full letter (PDF)</a>
             </div>
