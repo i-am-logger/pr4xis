@@ -250,6 +250,27 @@ button, .btn, a.btn, input, select, [role="tab"] { min-height: var(--tap); }
    commitment from the scope statement above it, and a reader deciding whether
    to spend ~35 MB on a metered connection should not have to find it mid-line. */
 .scope-strip .scope-transfer { display: block; margin-top: var(--sp-2); }
+/* Contextual geometry, both cases seen broken on the live site. The base rule
+   above deliberately carries no top/side spacing, so each host container must
+   supply it — and neither did:
+
+   CHAT TAB: the strip sat flush under the .chat-cta banner (whose margin is
+   `1rem 2rem 0`) and ran wider than it, because the strip had no top margin
+   and no side insets. Same insets as the banner, same 1rem rhythm above and
+   below, so the two boxes read as one aligned stack.
+
+   CAREGIVER TAB: the strip sits in .main between the topbar and the view,
+   which centers at max-width 90rem with sp-5 padding — so the strip touched
+   the topbar and overhung the content edges. Same width arithmetic as the
+   view's CONTENT box (90rem minus the view's own side padding), centered,
+   sp-5 above; bottom 0 because the view's top padding already provides the
+   gap below. */
+#chat-tab > .scope-strip { margin: 1rem 2rem; }
+#caregiver-tab .main > .scope-strip {
+  width: calc(100% - 2 * var(--sp-5));
+  max-width: calc(90rem - 2 * var(--sp-5));
+  margin: var(--sp-5) auto 0;
+}
 .summary-box {
   background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--base0D);
   border-radius: var(--radius); padding: var(--sp-4) var(--sp-5); box-shadow: var(--shadow);
