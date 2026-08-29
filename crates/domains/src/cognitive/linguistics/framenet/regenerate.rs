@@ -85,11 +85,13 @@ fn find_eocd(zip: &[u8]) -> Option<usize> {
 /// DEFLATE-decompress (RFC 1951) a PKZIP member's compressed bytes,
 /// asserting the result matches the central directory's declared
 /// uncompressed size.
+///
+/// `miniz_oxide` directly, not `flate2`: this module is compiled for any
+/// `std` test build, but `flate2` only exists behind the `prx` feature —
+/// the same reason `raw_source_prx` decodes with the always-present
+/// `miniz_oxide` (see the Cargo.toml note on its entry).
 fn inflate(comp: &[u8], expected: usize) -> Option<Vec<u8>> {
-    use flate2::read::DeflateDecoder;
-    use std::io::Read;
-    let mut out = Vec::new();
-    DeflateDecoder::new(comp).read_to_end(&mut out).ok()?;
+    let out = miniz_oxide::inflate::decompress_to_vec(comp).ok()?;
     (out.len() == expected).then_some(out)
 }
 
