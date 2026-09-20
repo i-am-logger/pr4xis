@@ -496,7 +496,7 @@ description = "DoCO, the Document Components Ontology — a W3C OWL 2 vocabulary
 [sources.c4o]
 version     = "1.2"
 type        = "OntologyVocabulary"
-url         = "https://sparontologies.github.io/c4o/current/c4o.xml"
+url         = "https://sparontologies.github.io/c4o/2018-06-22/c4o.xml"
 description = "C4O, the Citation Counting and Context Characterisation Ontology — a W3C OWL 2 vocabulary recording the number and context of citations (c4o:denotes / c4o:isDenotedBy, c4o:hasContent, c4o:hasContext; classes c4o:InTextReferencePointer, c4o:GlobalCitationCount). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Di Iorio, A., Nuzzolese, A. G., Peroni, S., Shotton, D. & Vitali, F. (2014) Describing bibliographic references in RDF, in Proceedings of the 4th Workshop on Semantic Publishing (SePublica 2014), CEUR-WS Vol-1155; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
 
 # BiRO, the Bibliographic Reference Ontology — a SPAR OWL 2 vocabulary
@@ -509,7 +509,7 @@ description = "C4O, the Citation Counting and Context Characterisation Ontology 
 [sources.biro]
 version     = "1.1.1"
 type        = "OntologyVocabulary"
-url         = "https://sparontologies.github.io/biro/current/biro.xml"
+url         = "https://sparontologies.github.io/biro/2013-05-11/biro.xml"
 description = "BiRO, the Bibliographic Reference Ontology — a W3C OWL 2 vocabulary for bibliographic records and references (classes biro:BibliographicRecord, biro:BibliographicReference, biro:ReferenceList, biro:BibliographicCollection; object properties biro:references / biro:isReferencedBy). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Di Iorio, A., Nuzzolese, A. G., Peroni, S., Shotton, D. & Vitali, F. (2014) Describing bibliographic references in RDF, in Proceedings of the 4th Workshop on Semantic Publishing (SePublica 2014), CEUR-WS Vol-1155; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
 
 # PROV-O, the PROV Ontology — the W3C provenance interchange vocabulary.
