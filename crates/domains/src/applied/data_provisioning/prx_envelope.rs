@@ -102,7 +102,7 @@ pub const DEFLATE_MAX_EXPANSION: u64 = 1032;
 /// ([`registry_prx`](super::registry_prx)) re-exports it, and the build script
 /// `#[path]`-includes this module, so there is no build/runtime twin to drift.
 pub const PRAXIS_REGISTRY_ROOT_HEX: &str =
-    "51fe90851f32f75f6b183eff0cf586326fb6a5235c7e8f4a42a47dc5f9006b8b";
+    "71f9b5e0e133673e517fdff684a89eb0f758a811ddc48e76a718ede198737a33";
 
 // =============================================================================
 // LEB128 varint + length-prefixed blob framing
