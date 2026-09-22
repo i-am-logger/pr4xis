@@ -1903,7 +1903,7 @@ description = "Murray v. UBS Securities, LLC, 601 U.S. 23 (2024) — contributin
 "usc_title_50@pl-119-90" = "blake3:9945708ed394e95ada6a74022a7b0d65726eb682e3e57e48b1bcaeb4e99b23cc"
 
 [grammar_signatures]
-"corpus_parse" = "blake3:c4f19f7f720dd137681004e034f616103a4122aafaa7c66600d356765f9025f8"
+"corpus_parse" = "blake3:ea0e6bb497915b77ef502d6ac02a85a69d8e18798e7dc18fe782c0e34ef4035d"
 "defines_overlay" = "blake3:715b2fbf9bad5e8183cfc3e3c54937119ae38cd545b9d22839c64bef9ed7220b"
 
 [store_bundle_signatures]
