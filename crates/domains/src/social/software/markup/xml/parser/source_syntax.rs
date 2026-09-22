@@ -1153,10 +1153,9 @@ fn diff_element(
     // record the per-parent permutation, and thread against the source-ordered view.
     let needs_reorder = source_backbone_order_differs(source, regenerated);
     let reordered_owned: Vec<&XmlNode>;
-    let reg_children: &[&XmlNode];
     // A by-reference view of the regenerated children for the no-reorder path.
     let direct_view: Vec<&XmlNode>;
-    if needs_reorder {
+    let reg_children: &[&XmlNode] = if needs_reorder {
         let (reordered, permutation) =
             match_children_in_source_order(source, regenerated, my_index)?;
         // Record the permutation as the residue (it is non-identity here, since
@@ -1166,11 +1165,11 @@ fn diff_element(
             order_by_index.insert(my_index, permutation);
         }
         reordered_owned = reordered;
-        reg_children = &reordered_owned;
+        &reordered_owned
     } else {
         direct_view = regenerated.children.iter().collect();
-        reg_children = &direct_view;
-    }
+        &direct_view
+    };
 
     // Thread the source element's children against the (possibly source-ordered)
     // view of the regenerated children. A source `Text` node with no regenerated

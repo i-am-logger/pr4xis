@@ -372,7 +372,9 @@ fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError>
         });
     }
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| {
             if big_endian {
                 u16::from_be_bytes([pair[0], pair[1]])
