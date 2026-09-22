@@ -21,9 +21,7 @@ impl Cube {
         let mut faces = [[Color::White; 9]; 6];
         for face in Face::all() {
             let color = Color::of_face(face);
-            for cell in &mut faces[face as usize] {
-                *cell = color;
-            }
+            faces[face as usize].fill(color);
         }
         Self { faces }
     }
