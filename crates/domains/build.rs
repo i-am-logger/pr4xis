@@ -157,13 +157,19 @@ fn committed_prx_path(raw_path: &std::path::Path) -> PathBuf {
 // ---------------------------------------------------------------------------
 
 fn main() {
-    // CARGO_MANIFEST_DIR is crates/domains/. Workspace root is two levels up.
+    // CARGO_MANIFEST_DIR is the crate root: `crates/domains/` in the workspace,
+    // the unpacked package directory when the crate is vendored or published.
+    // Every committed `.prx` this script reads ships inside the crate, so those
+    // paths resolve against `crate_dir` in all three layouts. Only the workspace
+    // `praxis.toml` / `praxis.lock` live outside it, two levels up, and exist
+    // only in the workspace layout.
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
         .expect("CARGO_MANIFEST_DIR is always set during builds");
-    let workspace_root: PathBuf = PathBuf::from(&manifest_dir)
+    let crate_dir = PathBuf::from(&manifest_dir);
+    let workspace_root: PathBuf = crate_dir
         .parent()
         .and_then(|p| p.parent())
-        .expect("crates/domains has at least two ancestor directories")
+        .expect("the crate directory has at least two ancestor directories")
         .to_path_buf();
 
     let manifest_path = workspace_root.join("praxis.toml");
@@ -177,32 +183,35 @@ fn main() {
     // The manifest the codegen writers walk for source versions/kinds. PREFER the
     // workspace-root `praxis.toml` / `praxis.lock` — the live source of truth that
     // `pr4xis update` / `compile` rewrites. When the workspace root is ABSENT (the
-    // crate is unpacked under `target/package/` for `cargo publish --verify`, or
-    // pulled from crates.io) decode the committed registry MANIFEST `.prx`
-    // (`data/registry/praxis-registry.prx`) — the SAME committed artifact the
-    // runtime registry loads — so the PUBLISHED crate reads its registered-source
-    // manifest from the `.prx`, never from a raw-TOML snapshot (it ships none).
-    // No empty fallback: the `.prx` is committed in-repo, so one source always
-    // resolves; a genuinely-missing `.prx` is a build defect, surfaced.
-    let registry_prx_path = PathBuf::from(&manifest_dir).join("data/registry/praxis-registry.prx");
-    println!("cargo:rerun-if-changed={}", registry_prx_path.display());
-    if manifest_path.exists() {
-        println!("cargo:rerun-if-changed={}", manifest_path.display());
-    }
-    if lock_path.exists() {
-        println!("cargo:rerun-if-changed={}", lock_path.display());
-    }
+    // crate is vendored, unpacked under `target/package/` for `cargo publish
+    // --verify`, or pulled from crates.io) decode the committed registry MANIFEST
+    // `.prx` (`data/registry/praxis-registry.prx`) — the SAME committed artifact
+    // the runtime registry loads — so the PUBLISHED crate reads its
+    // registered-source manifest from the `.prx`, never from a raw-TOML snapshot
+    // (it ships none). No empty fallback: the `.prx` is committed in-repo, so one
+    // source always resolves; a genuinely-missing `.prx` is a build defect,
+    // surfaced.
+    //
+    // `rerun-if-changed` names exactly the files the taken branch reads. Cargo
+    // treats a named file that does not exist as always stale, which would rerun
+    // this script, and rebuild every dependent, on every build.
+    let registry_prx_path = crate_dir.join("data/registry/praxis-registry.prx");
 
     let (manifest_text, lock_text) = match (
         std::fs::read_to_string(&manifest_path),
         std::fs::read_to_string(&lock_path),
     ) {
         // Workspace root present — the live source of truth.
-        (Ok(toml), Ok(lock)) => (toml, lock),
-        // No workspace root (published/unpacked crate): decode the committed
+        (Ok(toml), Ok(lock)) => {
+            println!("cargo:rerun-if-changed={}", manifest_path.display());
+            println!("cargo:rerun-if-changed={}", lock_path.display());
+            (toml, lock)
+        }
+        // No workspace root (vendored/published crate): decode the committed
         // registry `.prx`. This is what makes `cargo publish --verify` build a
         // NON-HOLLOW crate — the registry comes from the `.prx`, not empty consts.
         _ => {
+            println!("cargo:rerun-if-changed={}", registry_prx_path.display());
             let prx = std::fs::read(&registry_prx_path).unwrap_or_else(|e| {
                 panic!(
                     "neither workspace-root praxis.toml/.lock nor committed registry .prx \
@@ -269,8 +278,8 @@ fn main() {
     // Per "bottom-up loaded, never encoded", every name comes from
     // a registered authoritative source — not from hand-coded Rust
     // enum variants or string lists.
-    write_xml_namespace_schema_codegen(&workspace_root, &manifest, &lock, &out_dir);
-    write_xml_infoset_codegen(&workspace_root, &manifest, &lock, &out_dir);
+    write_xml_namespace_schema_codegen(&crate_dir, &manifest, &lock, &out_dir);
+    write_xml_infoset_codegen(&crate_dir, &manifest, &lock, &out_dir);
 
     // M5.ε.2 — XML 1.0 grammar productions from the loaded spec
     // (`xml_1_0_fifth_edition@2008`, Bray et al. 2008). Parses the
@@ -279,7 +288,7 @@ fn main() {
     // (`parser::grammar`) includes the generated module instead of
     // hand-coding the code-point ranges as primitive `matches!`
     // arms, per `feedback_bottom_up_loaded_not_encoded`.
-    write_xml_grammar_codegen(&workspace_root, &manifest, &lock, &out_dir);
+    write_xml_grammar_codegen(&crate_dir, &manifest, &lock, &out_dir);
 }
 
 /// Find the registered `xml_1_0_namespace_xsd` source in the praxis
@@ -294,7 +303,7 @@ fn main() {
 /// only the content-addressed committed `xml.prx` is committed and read here —
 /// the build-time twin of every runtime `raw_source_text_embedded` site.
 fn write_xml_namespace_schema_codegen(
-    workspace_root: &std::path::Path,
+    crate_dir: &std::path::Path,
     manifest: &RawManifest,
     lock: &RawLockFile,
     out_dir: &std::path::Path,
@@ -322,7 +331,7 @@ fn write_xml_namespace_schema_codegen(
     // xml.xsd is bundled at a fixed name (not `<name>-<version>.xsd`
     // like the per-corpus XSDs) — the W3C-published file is just
     // `xml.xsd`, so its committed envelope is `xml.prx` beside it.
-    let xsd_path = workspace_root.join("crates/domains/data/markup-schemas/xml/xml.xsd");
+    let xsd_path = crate_dir.join("data/markup-schemas/xml/xml.xsd");
     let prx_path = committed_prx_path(&xsd_path);
     println!("cargo:rerun-if-changed={}", prx_path.display());
 
@@ -382,7 +391,7 @@ fn write_xml_namespace_schema_codegen(
 /// The raw `xml-infoset.xhtml` is fetch-only and ships in NO crate; only the
 /// content-addressed committed `.prx` is committed and read here.
 fn write_xml_infoset_codegen(
-    workspace_root: &std::path::Path,
+    crate_dir: &std::path::Path,
     manifest: &RawManifest,
     lock: &RawLockFile,
     out_dir: &std::path::Path,
@@ -417,8 +426,7 @@ fn write_xml_infoset_codegen(
         return;
     }
 
-    let xhtml_path =
-        workspace_root.join("crates/domains/data/markup-schemas/xml/xml-infoset.xhtml");
+    let xhtml_path = crate_dir.join("data/markup-schemas/xml/xml-infoset.xhtml");
     let prx_path = committed_prx_path(&xhtml_path);
     println!("cargo:rerun-if-changed={}", prx_path.display());
 
@@ -467,7 +475,7 @@ fn write_xml_infoset_codegen(
 /// makes any consumer of the predicate report failure clearly
 /// rather than silently using a fallback.
 fn write_xml_grammar_codegen(
-    workspace_root: &std::path::Path,
+    crate_dir: &std::path::Path,
     manifest: &RawManifest,
     lock: &RawLockFile,
     out_dir: &std::path::Path,
@@ -511,8 +519,8 @@ fn write_xml_grammar_codegen(
         return;
     }
 
-    let spec_path = workspace_root
-        .join("crates/domains/data/markup-schemas/xml")
+    let spec_path = crate_dir
+        .join("data/markup-schemas/xml")
         .join(format!("xml_1_0_fifth_edition-{}.xml", src.version));
     let prx_path = committed_prx_path(&spec_path);
     println!("cargo:rerun-if-changed={}", prx_path.display());
