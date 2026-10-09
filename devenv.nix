@@ -159,6 +159,8 @@ in
     bash scripts/constitution-gate.sh --all --enforce --archive target/nextest-archive.tar.zst || { echo "FAILED: constitution gate"; exit 1; }
     echo "=== heavy-corpus tests (cargo test — parse each giant once) ==="
     bash scripts/heavy-corpus-tests.sh || { echo "FAILED: corpus tests"; exit 1; }
+    echo "=== vendored layout: pr4xis-domains builds whole and stays fresh as a dependency ==="
+    bash scripts/check-vendored-rebuild.sh || { echo "FAILED: vendored rebuild"; exit 1; }
     echo "=== caregiver demonstrator: program-ladder renderer over the real corpus ==="
     node docs/chat/program-ladder.test.mjs || { echo "FAILED: program-ladder renderer"; exit 1; }
     echo "=== caregiver demonstrator: DOM contract (ids, imports, routes, parse) ==="

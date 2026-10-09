@@ -114,15 +114,18 @@ permissions:
 #           │                      bytes it just tested.
 #   format ────────────────────┤
 #   no-ignored-doctests ───────┤
-#   demonstrator-gates ────────┴─► release-plz-release ─┬─► release-plz-pr
+#   demonstrator-gates ────────┤
+#   vendored-rebuild ──────────┴─► release-plz-release ─┬─► release-plz-pr
 #                                                       └─► pages (deploy only)
 #
 #   publish-invariant   (standalone tripwire; no `needs:`, gates nothing)
 #
-# format / no-ignored-doctests / demonstrator-gates / caregiver-pdf /
-# publish-invariant declare no `needs:` — none of them compiles anything — so
-# all five start at t=0. caregiver-pdf is not INDEPENDENT, though: wasm-browser
-# consumes its PDF artifact rather than installing pandoc/typst twice.
+# format / no-ignored-doctests / demonstrator-gates / vendored-rebuild /
+# caregiver-pdf / publish-invariant declare no `needs:`, so all six start at
+# t=0. Only vendored-rebuild compiles Rust: its own packaged copy of the
+# crates, independent of the build job. caregiver-pdf is not INDEPENDENT,
+# though: wasm-browser consumes its PDF artifact rather than installing
+# pandoc/typst twice.
 #
 # `pages` deploys ONLY on a real release (releases_created == 'true') or an
 # explicit workflow_dispatch. `release-plz-pr` MUST run after
@@ -1253,6 +1256,23 @@ jobs:
           node docs/chat/program-ladder.test.mjs
           node docs/chat/abstain-load-gate.test.mjs
 
+  # pr4xis-domains as a DEPENDENT sees it: packaged, unpacked outside the
+  # workspace (the crates.io / `cargo vendor` layout), built by a consumer
+  # crate. Fails if the build script's XML codegen falls back to stubs, or if an
+  # unchanged second build reruns the build script instead of reporting
+  # pr4xis-domains `Fresh`.
+  vendored-rebuild:
+    name: Vendored rebuild
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: pr4xis-domains builds whole and stays fresh as a dependency
+        run: bash scripts/check-vendored-rebuild.sh
+
   # Cheap parallel checks that don't need a Rust compile.
   format:
     name: Format
@@ -1427,6 +1447,7 @@ jobs:
         format,
         no-ignored-doctests,
         demonstrator-gates,
+        vendored-rebuild,
         caregiver-pdf,
         release-plz-release,
       ]
@@ -1446,6 +1467,7 @@ jobs:
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
       needs.demonstrator-gates.result == 'success' &&
+      needs.vendored-rebuild.result == 'success' &&
       needs.caregiver-pdf.result == 'success' &&
       (
         (github.event_name == 'push' &&
@@ -1492,6 +1514,7 @@ jobs:
         format,
         no-ignored-doctests,
         demonstrator-gates,
+        vendored-rebuild,
       ]
     timeout-minutes: 30
     # `!cancelled()`, not `always()` — see the `pages` job. It matters most
@@ -1507,7 +1530,8 @@ jobs:
       needs.corpus.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
-      needs.demonstrator-gates.result == 'success'
+      needs.demonstrator-gates.result == 'success' &&
+      needs.vendored-rebuild.result == 'success'
     permissions:
       contents: write
       pull-requests: read
@@ -1552,6 +1576,7 @@ jobs:
         format,
         no-ignored-doctests,
         demonstrator-gates,
+        vendored-rebuild,
         release-plz-release,
       ]
     timeout-minutes: 20
@@ -1567,6 +1592,7 @@ jobs:
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success' &&
       needs.demonstrator-gates.result == 'success' &&
+      needs.vendored-rebuild.result == 'success' &&
       needs.release-plz-release.result == 'success'
     permissions:
       contents: write
