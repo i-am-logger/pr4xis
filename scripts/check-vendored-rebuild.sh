@@ -105,12 +105,46 @@ for f in xml_namespace_schema_generated.rs xml_infoset_generated.rs xml_grammar_
 done
 
 echo "=== second build (nothing changed) ==="
-log=$(CARGO_LOG=cargo::core::compiler::fingerprint=info cargo build -v 2>&1)
-if grep -q 'Fresh pr4xis-domains' <<<"$log" && ! grep -q 'Compiling pr4xis-domains' <<<"$log"; then
-  echo "ok: pr4xis-domains is Fresh"
+# A rerun is detected from machine-readable signals, never from cargo's
+# human-readable status lines (their colouring and wording depend on the
+# terminal and on CARGO_TERM_* settings):
+#   - the `fresh` flag of every pr4xis-domains unit in `--message-format=json`;
+#   - the mtime of the build script's `output` file, which cargo rewrites
+#     whenever the script runs.
+run_outputs() {
+  find "$CARGO_TARGET_DIR/debug/build" -path '*/pr4xis-domains-*/output' -printf '%T@ %p\n' | sort
+}
+outputs_before=$(run_outputs)
+json="$gate/second-build.json"
+fplog="$gate/second-build.fingerprint.log"
+CARGO_TERM_COLOR=never CARGO_LOG=cargo::core::compiler::fingerprint=info \
+  cargo build --message-format=json >"$json" 2>"$fplog"
+outputs_after=$(run_outputs)
+
+stale_units=$(grep '"reason":"compiler-artifact"' "$json" |
+  grep 'pr4xis-domains' | grep '"fresh":false' || true)
+fresh_units=$(grep '"reason":"compiler-artifact"' "$json" |
+  grep 'pr4xis-domains' | grep -c '"fresh":true' || true)
+
+if [ -z "$stale_units" ] && [ "$fresh_units" -gt 0 ] && [ "$outputs_before" = "$outputs_after" ]; then
+  echo "ok: pr4xis-domains is fresh ($fresh_units units) and its build script did not run"
 else
-  echo "FAIL: pr4xis-domains rebuilt on an unchanged second build:" >&2
-  grep -E 'dirty: |stale: ' <<<"$log" >&2 || true
+  echo "FAIL: pr4xis-domains rebuilt on an unchanged second build" >&2
+  echo "--- fresh pr4xis-domains units: $fresh_units" >&2
+  if [ -n "$stale_units" ]; then
+    echo "--- rebuilt pr4xis-domains units:" >&2
+    sed -E 's/.*"target":\{[^}]*"name":"([^"]*)".*/  \1/' <<<"$stale_units" >&2
+  fi
+  if [ "$outputs_before" != "$outputs_after" ]; then
+    echo "--- build script output rewritten:" >&2
+    echo "  before: ${outputs_before:-<none>}" >&2
+    echo "  after:  ${outputs_after:-<none>}" >&2
+  fi
+  echo "--- cargo fingerprint reasons:" >&2
+  if ! grep -E 'dirty: |stale: ' "$fplog" >&2; then
+    echo "  (no dirty/stale line logged; full fingerprint log follows)" >&2
+    cat "$fplog" >&2
+  fi
   fail=1
 fi
 
